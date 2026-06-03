@@ -38,6 +38,13 @@ def _load_module() -> Any:
 tri = _load_module()
 
 
+@pytest.fixture(autouse=True)
+def _trust_default_test_author(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The canonical fixture author is ``an0mium``; the production default no
+    # longer trusts any personal login, so tests opt in via the env contract.
+    monkeypatch.setenv("ARAGORA_TRUSTED_AUTHORS", "an0mium")
+
+
 # ---------------------------------------------------------------------------
 # Fixture helpers
 # ---------------------------------------------------------------------------

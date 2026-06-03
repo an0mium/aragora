@@ -38,7 +38,7 @@ Implication: Phase P0 remains the top priority until these residual reliability/
 |---|---|
 | Objective function | Produce orchestration-ready self-improvement specs that are executable, testable, and auditable with reduced single-model bias. |
 | Primary users | Founder/power-user first, then CTO/team mode. |
-| Required model set | Claude Opus 4.7 (Claude Code), GPT-5.3 Codex, Gemini 3.1 Pro Preview, Grok 4.20 must be represented in protocol. |
+| Required model set | Claude Opus 4.8 (Claude Code), GPT-5.3 Codex, Gemini 3.1 Pro Preview, Grok 4.20 must be represented in protocol. |
 | Non-goals | No broad feature expansion, no new UI surfaces until reliability + spec quality gates pass. |
 | Hard constraints | Spec-first execution, explicit acceptance criteria, dissent preserved, rollback for every task, receipt/provenance for every stage. |
 | Acceptance criteria | End-to-end run emits all required sections + orchestration JSON; impairment metric <= 0.50; zero blocker runtime errors for 3 consecutive runs. |

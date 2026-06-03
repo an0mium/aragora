@@ -58,7 +58,7 @@ Usage:
         --lane-id droid/phase4-freshness-launchagent \\
         --owner-session claude-20260517-144003-b211740c \\
         --branch droid/phase4-freshness-launchagent-20260517 \\
-        --worktree /Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-144003-b211740c \\
+        --worktree "$(git rev-parse --show-toplevel)/.worktrees/<lane-worktree>" \\
         --goal "phase 4: freshness probe LaunchAgent shim" \\
         --source plan
 
@@ -89,6 +89,10 @@ except ImportError:  # pragma: no cover - exercised only on non-POSIX systems.
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 REPO_LANE_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
 USER_LANE_PATH = Path.home() / ".aragora" / "agent-bridge" / "lanes.json"
+# Convention for this operator's canonical shared checkout; override in automation
+# lanes with ARAGORA_AUTOMATION_STATE_ROOT when the shared state lives elsewhere.
+DEFAULT_SHARED_STATE_ROOT = Path.home() / "Development" / "aragora"
+AUTOMATION_STATE_ROOT_ENV = "ARAGORA_AUTOMATION_STATE_ROOT"
 
 ALLOWED_STATUSES = (
     "active",
@@ -167,6 +171,16 @@ def resolve_registry_path(
     repo_lane = repo_root / REPO_LANE_RELATIVE_PATH
     if repo_lane.parent.exists():
         return repo_lane
+    configured = os.environ.get(AUTOMATION_STATE_ROOT_ENV)
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(Path(configured).expanduser())
+    candidates.append(DEFAULT_SHARED_STATE_ROOT)
+    for candidate in candidates:
+        state_dir = candidate if candidate.name == ".aragora" else candidate / ".aragora"
+        shared_lane = state_dir / "agent-bridge" / "lanes.json"
+        if shared_lane.parent.exists():
+            return shared_lane
     return USER_LANE_PATH
 
 

@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
+from aragora.config.trusted_authors import resolve_trusted_authors
 from aragora.swarm.github_app_auth import gh_subprocess_run
 
 logger = logging.getLogger(__name__)
@@ -50,9 +51,10 @@ REDUCED_LANE_ONLY_CHECKS = frozenset(
         "changes",
     }
 )
-AUTOMATION_REVIEWER_LOGINS = frozenset(
+# Generic automation identities only; operators add personal logins via
+# ARAGORA_TRUSTED_AUTHORS (comma separated) so a public fork trusts no handle.
+AUTOMATION_REVIEWER_LOGINS = resolve_trusted_authors(
     {
-        "an0mium",
         "github-actions[bot]",
         "dependabot[bot]",
         "aragora-automation[bot]",

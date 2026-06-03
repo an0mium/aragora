@@ -208,8 +208,8 @@ describe("python-json payloads parse as TS types", () => {
   test("RoleFinding shape", () => {
     const payload = {
       role: "logic_reviewer",
-      agent: "claude-opus-4-7",
-      model: "claude-opus-4-7-1m",
+      agent: "claude-opus-4-8",
+      model: "claude-opus-4-8-1m",
       confidence: 0.9,
       finding_text: "No regressions found.",
       latency_ms: 1200,
@@ -247,7 +247,7 @@ describe("python-json payloads parse as TS types", () => {
       disagreement_score: 0.05,
       total_cost_usd: 0.18,
       total_wall_clock_ms: 4200,
-      agent_roster: ["claude-opus-4-7", "gpt-5-4"],
+      agent_roster: ["claude-opus-4-8", "gpt-5-4"],
       generated_at: "2026-04-20T15:00:00+00:00",
       advisory_only: true,
       settlement_note: REVIEW_BRIEF_ADVISORY_NOTE,

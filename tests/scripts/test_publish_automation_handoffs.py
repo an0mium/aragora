@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -1349,6 +1350,8 @@ def test_decide_handoffs_blocks_stale_outbox_head_before_pr_lookup(
             source_file=handoff.source_file,
             eligible=False,
             reason="stale_outbox_head",
+            branch="codex/example",
+            desired_head=old_head,
         )
     ]
     assert mod._branch_tip(repo, "codex/example") == new_head
@@ -1836,13 +1839,17 @@ def test_main_derives_outbox_dirs_from_explicit_aragora_state_root(
         repo_root: Path,
         outbox_dir: Path | None = None,
         receipt_dir: Path | None = None,
-    ) -> list[Handoff]:
+    ) -> tuple[list[Handoff], Counter[str]]:
         captured["repo_root"] = repo_root
         captured["outbox_dir"] = outbox_dir
         captured["receipt_dir"] = receipt_dir
-        return []
+        return [], Counter()
 
-    monkeypatch.setattr(mod, "load_outbox_handoffs", fake_load_outbox_handoffs)
+    monkeypatch.setattr(
+        mod,
+        "_load_outbox_handoffs_with_skip_reasons",
+        fake_load_outbox_handoffs,
+    )
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
@@ -1944,6 +1951,50 @@ def test_main_reports_github_health_when_unavailable(
     }
 
 
+def test_main_reports_handoff_context_when_github_unavailable(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / ".aragora" / "automation-outbox" / "repair-branch.json"),
+        task_title="Publish validated repair branch",
+        priority="MEDIUM",
+        body="body",
+        labels={},
+        expires_at=None,
+        idempotency_key="open-pr-codex-example-abc123",
+        source_kind="outbox",
+        branch="codex/example",
+        desired_head="abc1234",
+    )
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
+    monkeypatch.setattr(
+        mod,
+        "load_outbox_handoffs",
+        lambda repo_root, outbox_dir=None, receipt_dir=None: [handoff],
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--codex-home", str(tmp_path), "--json"])
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["decisions"][0]["reason"] == "github_unavailable"
+    assert payload["decisions"][0]["branch"] == "codex/example"
+    assert payload["decisions"][0]["desired_head"] == "abc1234"
+
+
 def test_main_summary_only_omits_decisions_when_github_unavailable(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
@@ -2043,6 +2094,12 @@ def test_main_summary_only_reports_outbox_files_skipped_before_publish(
         ),
         encoding="utf-8",
     )
+    incomplete = _outbox_payload(idempotency_key="open-pr-incomplete")
+    del incomplete["validation"]
+    (outbox / "incomplete.json").write_text(
+        json.dumps(incomplete),
+        encoding="utf-8",
+    )
     monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
     monkeypatch.setattr(
         mod,
@@ -2074,9 +2131,13 @@ def test_main_summary_only_reports_outbox_files_skipped_before_publish(
 
     assert exit_code == 1
     payload = json.loads(capsys.readouterr().out)
-    assert payload["outbox_file_count"] == 2
+    assert payload["outbox_file_count"] == 3
     assert payload["outbox_handoff_count"] == 1
-    assert payload["outbox_skipped_count"] == 1
+    assert payload["outbox_skipped_count"] == 2
+    assert payload["outbox_skipped_reason_counts"] == {
+        "expired": 1,
+        "missing_required_contract": 1,
+    }
     assert payload["handoff_count"] == 1
 
 
@@ -2138,6 +2199,8 @@ def test_main_reports_stale_outbox_head_when_github_unavailable(
     payload = json.loads(capsys.readouterr().out)
     assert payload["outbox_handoff_count"] == 1
     assert payload["decisions"][0]["reason"] == "stale_outbox_head"
+    assert payload["decisions"][0]["branch"] == "codex/example"
+    assert payload["decisions"][0]["desired_head"] == old_head
 
 
 def test_main_limits_github_unavailable_decision_preview(

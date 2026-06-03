@@ -27,7 +27,7 @@ function buildRunSummary(overrides: Partial<AgentBridgeRunSummary> = {}): AgentB
     worktree_cleanup_mode: 'operator_triggered',
     participants: [
       { role: 'implementer', harness: 'codex', model: 'gpt-5.4' },
-      { role: 'reviewer', harness: 'claude', model: 'claude-opus-4-7' },
+      { role: 'reviewer', harness: 'claude', model: 'claude-opus-4-8' },
     ],
     last_event_id: 'bridge:event:003',
     ...overrides,

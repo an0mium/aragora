@@ -5797,6 +5797,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/debates/hybrid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List hybrid debates
+         * @description List hybrid debates with optional status and limit filters.
+         */
+        get: operations["listHybridDebatesV1"];
+        put?: never;
+        /**
+         * Create hybrid debate
+         * @description Start a hybrid debate using an external agent and internal verification agents.
+         */
+        post: operations["createHybridDebateV1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/debates/hybrid/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get hybrid debate
+         * @description Retrieve full details for a specific hybrid debate by ID.
+         */
+        get: operations["getHybridDebateV1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/debates/{id}/consensus": {
         parameters: {
             query?: never;
@@ -22337,6 +22381,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coordination/active-work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get active agent work snapshot
+         * @description Return a compact, agent-readable snapshot over existing fleet claims, developer leases, merge queue entries, worktree sessions, and active agent bridge runs.
+         */
+        get: operations["getCoordinationActiveWork"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/decisions": {
         parameters: {
             query?: never;
@@ -34123,7 +34187,11 @@ export interface paths {
          * @description Returns all admin-manageable feature flags with their current values.
          */
         get: operations["adminListFeatureFlags"];
-        put?: never;
+        /**
+         * Update admin feature flags
+         * @description Updates multiple admin-manageable feature flags in one request.
+         */
+        put: operations["updateAdminFeatureFlags"];
         post?: never;
         delete?: never;
         options?: never;
@@ -34144,7 +34212,12 @@ export interface paths {
          * @description Returns all admin-manageable feature flags with their current values.
          */
         get: operations["adminListFeatureFlagsLegacy"];
-        put?: never;
+        /**
+         * Update admin feature flags
+         * @deprecated
+         * @description Updates multiple admin-manageable feature flags in one request.
+         */
+        put: operations["updateAdminFeatureFlagsLegacy"];
         post?: never;
         delete?: never;
         options?: never;
@@ -39446,140 +39519,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/services/{service_id}/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get service health
-         * @deprecated
-         * @description Return health information for an external or internal service registered with Aragora.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Unique service identifier. */
-                    service_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Service health */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": Record<string, never>;
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/services/{service_id}/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get service health
-         * @description Return health information for an external or internal service registered with Aragora.
-         */
-        get: operations["getServiceHealth"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/services/{service_id}/metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get service metrics
-         * @deprecated
-         * @description Return operational metrics for a registered service.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Unique service identifier. */
-                    service_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Service metrics */
-                200: {
-                    headers: {
-                        /** @description Unique request identifier for tracing and debugging */
-                        "X-Request-ID"?: string;
-                        /** @description Server processing time in milliseconds */
-                        "X-Response-Time"?: number;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": Record<string, never>;
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/services/{service_id}/metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get service metrics
-         * @description Return operational metrics for a registered service.
-         */
-        get: operations["getServiceMetrics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/flips/{flip_id}": {
         parameters: {
             query?: never;
@@ -42024,6 +41963,26 @@ export interface paths {
          * @description Verify the cryptographic signature of a receipt.
          */
         post: operations["verifyReceiptSignature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/review-queue/triage-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rolling-window triage metrics
+         * @description Returns rolling 7-day and 30-day aggregates for the four Commitment-5 metrics named in docs/THESIS.md: escalation rate, auto-handle override rate, human-override-outcome correlation, and time-per-settlement (median + p95). The response also includes advisory drift detection between the two windows. Metrics that cannot be computed from the current receipt schema are returned as null with an explanation in the window's ``notes`` block. Supports ETag / If-None-Match conditional GETs.
+         */
+        get: operations["getReviewQueueTriageMetrics"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -44863,6 +44822,744 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ralph/campaigns/{campaign_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign detail
+         * @deprecated
+         * @description Return detailed state, progress, and health data for a Ralph campaign.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Ralph campaign identifier */
+                    campaign_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Get Ralph campaign detail */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Forbidden - Insufficient permissions for this operation */
+                403: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found - The requested resource does not exist */
+                404: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many requests - Rate limit exceeded */
+                429: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ralph/campaigns/{campaign_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign detail
+         * @description Return detailed state, progress, and health data for a Ralph campaign.
+         */
+        get: operations["getRalphCampaign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ralph/campaigns/{campaign_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign timeline
+         * @deprecated
+         * @description Return the step timeline for a Ralph campaign supervisor run.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Ralph campaign identifier */
+                    campaign_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Get Ralph campaign timeline */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            timeline?: {
+                                [key: string]: unknown;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Forbidden - Insufficient permissions for this operation */
+                403: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found - The requested resource does not exist */
+                404: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many requests - Rate limit exceeded */
+                429: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ralph/campaigns/{campaign_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign timeline
+         * @description Return the step timeline for a Ralph campaign supervisor run.
+         */
+        get: operations["getRalphCampaignTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ralph/campaigns/{campaign_id}/blockers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign blockers
+         * @deprecated
+         * @description Return blocker breakdown data for a specific Ralph campaign.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Ralph campaign identifier */
+                    campaign_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Get Ralph campaign blockers */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Forbidden - Insufficient permissions for this operation */
+                403: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found - The requested resource does not exist */
+                404: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many requests - Rate limit exceeded */
+                429: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ralph/campaigns/{campaign_id}/blockers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign blockers
+         * @description Return blocker breakdown data for a specific Ralph campaign.
+         */
+        get: operations["getRalphCampaignBlockers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ralph/campaigns/{campaign_id}/repairs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign repairs
+         * @deprecated
+         * @description Return repair statistics for a specific Ralph campaign.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Ralph campaign identifier */
+                    campaign_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Get Ralph campaign repairs */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Forbidden - Insufficient permissions for this operation */
+                403: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found - The requested resource does not exist */
+                404: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many requests - Rate limit exceeded */
+                429: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ralph/campaigns/{campaign_id}/repairs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign repairs
+         * @description Return repair statistics for a specific Ralph campaign.
+         */
+        get: operations["getRalphCampaignRepairs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ralph/campaigns/{campaign_id}/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign budget
+         * @deprecated
+         * @description Return budget burn and limit data for a specific Ralph campaign.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Ralph campaign identifier */
+                    campaign_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Get Ralph campaign budget */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Forbidden - Insufficient permissions for this operation */
+                403: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found - The requested resource does not exist */
+                404: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many requests - Rate limit exceeded */
+                429: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ralph/campaigns/{campaign_id}/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign budget
+         * @description Return budget burn and limit data for a specific Ralph campaign.
+         */
+        get: operations["getRalphCampaignBudget"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ralph/campaigns/{campaign_id}/pr-gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign PR gate
+         * @deprecated
+         * @description Return PR merge gate readiness for a specific Ralph campaign.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Ralph campaign identifier */
+                    campaign_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Get Ralph campaign PR gate */
+                200: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Forbidden - Insufficient permissions for this operation */
+                403: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found - The requested resource does not exist */
+                404: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many requests - Rate limit exceeded */
+                429: {
+                    headers: {
+                        /** @description Unique request identifier for tracing and debugging */
+                        "X-Request-ID"?: string;
+                        /** @description Server processing time in milliseconds */
+                        "X-Response-Time"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ralph/campaigns/{campaign_id}/pr-gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ralph campaign PR gate
+         * @description Return PR merge gate readiness for a specific Ralph campaign.
+         */
+        get: operations["getRalphCampaignPrGate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ralph/overview": {
         parameters: {
             query?: never;
@@ -46008,6 +46705,130 @@ export interface paths {
         get: operations["getPublicSurfaces"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-bridge/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent bridge runs
+         * @description List persisted agent bridge runs in newest-first order.
+         */
+        get: operations["listAgentBridgeRuns"];
+        put?: never;
+        /**
+         * Start agent bridge run
+         * @description Start a persisted bridge run without dispatching a turn. This operator-local write endpoint is separately feature-gated because subsequent dispatch can spawn local model harness processes.
+         */
+        post: operations["startAgentBridgeRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-bridge/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get agent bridge run
+         * @description Return the persisted run summary and role-keyed session registry for a bridge run.
+         */
+        get: operations["getAgentBridgeRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-bridge/runs/{run_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent bridge events
+         * @description Return a paginated slice of the persisted agent bridge event stream.
+         */
+        get: operations["listAgentBridgeRunEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-bridge/runs/{run_id}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get agent bridge transcript
+         * @description Reconstruct bridge turns from the persisted event log.
+         */
+        get: operations["getAgentBridgeRunTranscript"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-bridge/runs/{run_id}/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dispatch one bridge turn
+         * @description Dispatch one prompt to a registered role in an active bridge run.
+         */
+        post: operations["dispatchAgentBridgeTurn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-bridge/runs/{run_id}/auto-step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Auto-dispatch the next bridge actor
+         * @description Compose a continuation prompt from the run task and recent transcript, then dispatch one turn to next_actor. This is one-step automation, not a daemon.
+         */
+        post: operations["autoStepAgentBridgeRun"];
         delete?: never;
         options?: never;
         head?: never;
@@ -81083,7 +81904,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * Fetch inbox command center view
+         * @description Fetch prioritized inbox messages with aggregate stats and command-center filters.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -81235,7 +82059,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * Get inbox sender profile
+         * @description Get profile information for a sender from the inbox command center.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -81275,7 +82102,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * Get inbox daily digest
+         * @description Get daily digest statistics for the inbox command center.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -83075,7 +83905,32 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -83115,7 +83970,29 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -83161,7 +84038,35 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: param */
+                    param: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -83204,7 +84109,32 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: param */
+                    param: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -98341,6 +99271,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/services/{service_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: service_id */
+                    service_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks/pagerduty": {
         parameters: {
             query?: never;
@@ -101719,46 +102692,6 @@ export interface paths {
                 };
             };
         };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/debates/hybrid": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Autogenerated placeholder (spec pending) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @description Created resource ID */
-                            id?: string;
-                            success?: boolean;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -112261,7 +113194,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * List coordination workspaces
+         * @description List registered workspaces available for cross-workspace coordination.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -112343,7 +113279,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * List coordination federation policies
+         * @description List federation policies configured for cross-workspace coordination.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -112485,7 +113424,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * List coordination executions
+         * @description List cross-workspace coordination execution requests and their status.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -112525,7 +113467,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * List coordination consents
+         * @description List data-sharing consents granted between workspaces.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -112605,7 +113550,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * Get coordination statistics
+         * @description Get summary statistics for the cross-workspace coordination subsystem.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -112645,7 +113593,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * Get coordination health
+         * @description Return public health for the cross-workspace coordination subsystem.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -112688,7 +113639,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * Unregister coordination workspace
+         * @description Unregister a workspace from cross-workspace coordination.
+         */
         delete: {
             parameters: {
                 query?: never;
@@ -112782,7 +113736,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Autogenerated placeholder (spec pending) */
+        /**
+         * Revoke coordination consent
+         * @description Revoke a data-sharing consent between workspaces.
+         */
         delete: {
             parameters: {
                 query?: never;
@@ -123849,6 +124806,336 @@ export interface operations {
                             [key: string]: unknown;
                         })[];
                     };
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listHybridDebatesV1: {
+        parameters: {
+            query?: {
+                /** @description Filter by hybrid debate status. */
+                status?: "pending" | "running" | "completed" | "failed";
+                /** @description Maximum number of hybrid debates to return. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hybrid debates */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debates: ({
+                            debate_id: string;
+                            task: string;
+                            status: string;
+                            consensus_reached?: boolean;
+                            confidence?: number;
+                            /** Format: date-time */
+                            started_at?: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        total: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createHybridDebateV1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    task: string;
+                    external_agent: string;
+                    verification_agents?: string[];
+                    /** @default 0.7 */
+                    consensus_threshold?: number;
+                    /** @default 3 */
+                    max_rounds?: number;
+                    /** @default general */
+                    domain?: string;
+                    config?: {
+                        [key: string]: unknown;
+                    };
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Hybrid debate created */
+            201: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debate_id: string;
+                        task: string;
+                        /** @enum {string} */
+                        status: "pending" | "running" | "completed" | "failed";
+                        consensus_reached?: boolean;
+                        confidence?: number;
+                        final_answer?: string | null;
+                        external_agent?: string;
+                        verification_agents?: string[];
+                        consensus_threshold?: number;
+                        max_rounds?: number;
+                        domain?: string;
+                        config?: {
+                            [key: string]: unknown;
+                        };
+                        rounds?: number;
+                        /** Format: date-time */
+                        started_at: string;
+                        /** Format: date-time */
+                        completed_at?: string | null;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getHybridDebateV1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Hybrid debate identifier.
+                 * @example hybrid_abc123def456
+                 */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hybrid debate details */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        debate_id: string;
+                        task: string;
+                        /** @enum {string} */
+                        status: "pending" | "running" | "completed" | "failed";
+                        consensus_reached?: boolean;
+                        confidence?: number;
+                        final_answer?: string | null;
+                        external_agent?: string;
+                        verification_agents?: string[];
+                        consensus_threshold?: number;
+                        max_rounds?: number;
+                        domain?: string;
+                        config?: {
+                            [key: string]: unknown;
+                        };
+                        rounds?: number;
+                        /** Format: date-time */
+                        started_at: string;
+                        /** Format: date-time */
+                        completed_at?: string | null;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Internal server error - Unexpected error occurred */
@@ -136224,6 +137511,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeliberationStatus"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCoordinationActiveWork: {
+        parameters: {
+            query?: {
+                /** @description Base branch for worktree status. */
+                base?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active work snapshot */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version: 1;
+                        repo_root: string;
+                        base_branch: string;
+                        /** Format: date-time */
+                        generated_at: string;
+                        active_owners: Record<string, never>[];
+                        claimed_paths: string[];
+                        avoid_paths: string[];
+                        avoid_path_hints?: Record<string, never>[];
+                        worktrees: Record<string, never>[];
+                        fleet_claims: Record<string, never>[];
+                        active_leases: Record<string, never>[];
+                        merge_queue: Record<string, never>[];
+                        bridge_runs: Record<string, never>[];
+                        counts: {
+                            [key: string]: unknown;
+                        };
+                        source_errors: Record<string, never>[];
+                    };
                 };
             };
             /** @description Unauthorized - Authentication required or token invalid */
@@ -156685,6 +158058,104 @@ export interface operations {
             };
         };
     };
+    updateAdminFeatureFlags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: boolean | number | string | unknown[] | {
+                        [key: string]: unknown;
+                    } | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Feature flags updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: {
+                            name?: string;
+                            value?: boolean | number | string | unknown[] | {
+                                [key: string]: unknown;
+                            } | null;
+                            previous_default?: boolean | number | string | unknown[] | {
+                                [key: string]: unknown;
+                            } | null;
+                            updated?: boolean;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Feature flag system not available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     adminListFeatureFlagsLegacy: {
         parameters: {
             query?: never;
@@ -156747,6 +158218,104 @@ export interface operations {
             };
             /** @description Forbidden - Insufficient permissions for this operation */
             403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Feature flag system not available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateAdminFeatureFlagsLegacy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: boolean | number | string | unknown[] | {
+                        [key: string]: unknown;
+                    } | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Feature flags updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: {
+                            name?: string;
+                            value?: boolean | number | string | unknown[] | {
+                                [key: string]: unknown;
+                            } | null;
+                            previous_default?: boolean | number | string | unknown[] | {
+                                [key: string]: unknown;
+                            } | null;
+                            updated?: boolean;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -169556,60 +171125,6 @@ export interface operations {
             };
         };
     };
-    getServiceHealth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Unique service identifier. */
-                service_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Service health */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-        };
-    };
-    getServiceMetrics: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Unique service identifier. */
-                service_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Service metrics */
-            200: {
-                headers: {
-                    /** @description Unique request identifier for tracing and debugging */
-                    "X-Request-ID"?: string;
-                    /** @description Server processing time in milliseconds */
-                    "X-Response-Time"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-        };
-    };
     getFlip: {
         parameters: {
             query?: never;
@@ -172930,6 +174445,169 @@ export interface operations {
             };
             /** @description Not found - The requested resource does not exist */
             404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getReviewQueueTriageMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rolling-window triage metrics */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        windows?: {
+                            "7d": {
+                                /** @description Human-readable window width (e.g. '7d', '30d') */
+                                window_label: string;
+                                window_days: number;
+                                /** Format: date-time */
+                                window_start: string;
+                                /** Format: date-time */
+                                window_end: string;
+                                total_decisions: number;
+                                /** @description escalations_to_human / total_decisions (nullable when sparse) */
+                                escalation_rate: number | null;
+                                /** @description overridden_auto_handles / auto_handled. Null when no auto-handle lane is active or the window is sparse. */
+                                auto_handle_override_rate: number | null;
+                                /** @description For human-override decisions with a recorded final_outcome, the fraction that confirmed the ensemble minus the fraction that disagreed. Currently null until settlement receipts carry post-merge outcome data (follow-up to #6373). */
+                                human_override_outcome_correlation: number | null;
+                                /** @description Median settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_median_s: number | null;
+                                /** @description p95 settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_p95_s: number | null;
+                                counts: {
+                                    escalations: number;
+                                    auto_handled: number;
+                                    auto_handle_overrides: number;
+                                    human_overrides: number;
+                                    human_overrides_with_outcome: number;
+                                    settlement_samples: number;
+                                };
+                                /** @description Explanations keyed by metric name for any null-valued metric above. Empty when no metrics were suppressed. */
+                                notes: {
+                                    [key: string]: string;
+                                };
+                            };
+                            "30d": {
+                                /** @description Human-readable window width (e.g. '7d', '30d') */
+                                window_label: string;
+                                window_days: number;
+                                /** Format: date-time */
+                                window_start: string;
+                                /** Format: date-time */
+                                window_end: string;
+                                total_decisions: number;
+                                /** @description escalations_to_human / total_decisions (nullable when sparse) */
+                                escalation_rate: number | null;
+                                /** @description overridden_auto_handles / auto_handled. Null when no auto-handle lane is active or the window is sparse. */
+                                auto_handle_override_rate: number | null;
+                                /** @description For human-override decisions with a recorded final_outcome, the fraction that confirmed the ensemble minus the fraction that disagreed. Currently null until settlement receipts carry post-merge outcome data (follow-up to #6373). */
+                                human_override_outcome_correlation: number | null;
+                                /** @description Median settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_median_s: number | null;
+                                /** @description p95 settlement duration (seconds) for escalated decisions. */
+                                settlement_duration_p95_s: number | null;
+                                counts: {
+                                    escalations: number;
+                                    auto_handled: number;
+                                    auto_handle_overrides: number;
+                                    human_overrides: number;
+                                    human_overrides_with_outcome: number;
+                                    settlement_samples: number;
+                                };
+                                /** @description Explanations keyed by metric name for any null-valued metric above. Empty when no metrics were suppressed. */
+                                notes: {
+                                    [key: string]: string;
+                                };
+                            };
+                        };
+                        /** @description Advisory drift between the latest and previous window, keyed by metric name. */
+                        drift?: {
+                            [key: string]: {
+                                current: number | null;
+                                previous: number | null;
+                                delta: number | null;
+                                exceeded_threshold: boolean;
+                            };
+                        };
+                        /** Format: date-time */
+                        generated_at?: string;
+                        /** @description Source of authority (docs/THESIS.md Commitment 5). */
+                        commitment?: string;
+                    };
+                };
+            };
+            /** @description Not Modified — ETag matched If-None-Match. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
@@ -178704,6 +180382,504 @@ export interface operations {
             };
         };
     };
+    getRalphCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Ralph campaign identifier */
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Get Ralph campaign detail */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getRalphCampaignTimeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Ralph campaign identifier */
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Get Ralph campaign timeline */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        timeline?: {
+                            [key: string]: unknown;
+                        }[];
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getRalphCampaignBlockers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Ralph campaign identifier */
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Get Ralph campaign blockers */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getRalphCampaignRepairs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Ralph campaign identifier */
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Get Ralph campaign repairs */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getRalphCampaignBudget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Ralph campaign identifier */
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Get Ralph campaign budget */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getRalphCampaignPrGate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Ralph campaign identifier */
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Get Ralph campaign PR gate */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getRalphOverview: {
         parameters: {
             query?: never;
@@ -179481,6 +181657,916 @@ export interface operations {
                             };
                         };
                     };
+                };
+            };
+        };
+    };
+    listAgentBridgeRuns: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of records to return per page. */
+                limit?: number;
+                /** @description Opaque pagination cursor from a previous response. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of agent bridge runs */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version: 1;
+                        runs: {
+                            /** @enum {integer} */
+                            schema_version: 1;
+                            run_id: string;
+                            task: string;
+                            status: string;
+                            /** Format: date-time */
+                            created_at: string;
+                            /** Format: date-time */
+                            updated_at: string;
+                            /** Format: date-time */
+                            completed_at: string | null;
+                            last_turn_index: number;
+                            next_actor: string | null;
+                            repair_budget_per_turn: number;
+                            footer_mode: string;
+                            worktree_cleanup_mode: string;
+                            participants: {
+                                role: string;
+                                harness: string;
+                                model: string;
+                            }[];
+                            last_event_id: string | null;
+                        }[];
+                        next_cursor?: string | null;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startAgentBridgeRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    task: string;
+                    actors: {
+                        role: string;
+                        harness: string;
+                        model?: string;
+                        session_id?: string;
+                        worktree_path?: string;
+                        worktree_agent_slug?: string;
+                        branch?: string;
+                        harness_options?: {
+                            [key: string]: unknown;
+                        };
+                    }[];
+                    run_id?: string;
+                    next_actor?: string;
+                    worktree_path?: string;
+                    worktree_agent_slug?: string;
+                    /** @default 1 */
+                    repair_budget_per_turn?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Started agent bridge run */
+            201: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version: 1;
+                        run_id: string;
+                        task: string;
+                        status: string;
+                        /** Format: date-time */
+                        created_at: string;
+                        /** Format: date-time */
+                        updated_at: string;
+                        /** Format: date-time */
+                        completed_at: string | null;
+                        last_turn_index: number;
+                        next_actor: string | null;
+                        repair_budget_per_turn: number;
+                        footer_mode: string;
+                        worktree_cleanup_mode: string;
+                        participants: {
+                            role: string;
+                            harness: string;
+                            model: string;
+                        }[];
+                        last_event_id: string | null;
+                        roles: {
+                            [key: string]: {
+                                role: string;
+                                harness: string;
+                                model: string;
+                                session_id: string | null;
+                                worktree_agent_slug: string | null;
+                                worktree_path: string | null;
+                                branch: string | null;
+                                /** @enum {string} */
+                                session_status: "not_started" | "active" | "completed" | "failed";
+                                /** Format: date-time */
+                                started_at: string | null;
+                                last_turn_index: number;
+                                /** Format: date-time */
+                                last_completed_at: string | null;
+                                harness_options?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                        worktree_path: string | null;
+                        worktree_agent_slug: string | null;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict - The request could not be completed */
+            409: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAgentBridgeRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Bridge run identifier. */
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agent bridge run detail */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    /** @description Weak entity tag for polling and conditional requests. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version: 1;
+                        run_id: string;
+                        task: string;
+                        status: string;
+                        /** Format: date-time */
+                        created_at: string;
+                        /** Format: date-time */
+                        updated_at: string;
+                        /** Format: date-time */
+                        completed_at: string | null;
+                        last_turn_index: number;
+                        next_actor: string | null;
+                        repair_budget_per_turn: number;
+                        footer_mode: string;
+                        worktree_cleanup_mode: string;
+                        participants: {
+                            role: string;
+                            harness: string;
+                            model: string;
+                        }[];
+                        last_event_id: string | null;
+                        roles: {
+                            [key: string]: {
+                                role: string;
+                                harness: string;
+                                model: string;
+                                session_id: string | null;
+                                worktree_agent_slug: string | null;
+                                worktree_path: string | null;
+                                branch: string | null;
+                                /** @enum {string} */
+                                session_status: "not_started" | "active" | "completed" | "failed";
+                                /** Format: date-time */
+                                started_at: string | null;
+                                last_turn_index: number;
+                                /** Format: date-time */
+                                last_completed_at: string | null;
+                                harness_options?: {
+                                    [key: string]: unknown;
+                                };
+                            };
+                        };
+                        worktree_path: string | null;
+                        worktree_agent_slug: string | null;
+                    };
+                };
+            };
+            /** @description Not modified */
+            304: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    /** @description Weak entity tag for polling and conditional requests. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAgentBridgeRunEvents: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of records to return per page. */
+                limit?: number;
+                /** @description Opaque pagination cursor from a previous response. */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Bridge run identifier. */
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of agent bridge events */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    /** @description Weak entity tag for polling and conditional requests. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version: 1;
+                        events: {
+                            /** @enum {integer} */
+                            schema_version: 1;
+                            event_id: string;
+                            run_id: string;
+                            /** Format: date-time */
+                            ts: string;
+                            /** @enum {string} */
+                            event_type: "run_started" | "run_failed" | "run_completed" | "turn.started" | "turn.result" | "turn.completed" | "turn.repair_requested" | "footer_ok" | "footer_malformed" | "footer_missing";
+                            turn_index: number;
+                            role: string;
+                            harness: string;
+                            session_id: string | null;
+                            /** @enum {string|null} */
+                            parse_status: "ok" | "missing" | "malformed" | null;
+                            payload: {
+                                [key: string]: unknown;
+                            };
+                        }[];
+                        next_cursor?: string | null;
+                    };
+                };
+            };
+            /** @description Not modified */
+            304: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    /** @description Weak entity tag for polling and conditional requests. */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAgentBridgeRunTranscript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Bridge run identifier. */
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reconstructed agent bridge transcript */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version: 1;
+                        turns: {
+                            turn_index: number;
+                            author_role: string;
+                            /** Format: date-time */
+                            started_at: string;
+                            completed_at: string | null;
+                            /** @enum {string} */
+                            parse_status: "ok" | "missing" | "malformed";
+                            footer: {
+                                summary: string;
+                                next_actor: string | null;
+                                needs_human: boolean;
+                                done: boolean;
+                                artifacts: string[];
+                                tests_run: string[];
+                            } | null;
+                            body_markdown: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    dispatchAgentBridgeTurn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Bridge run identifier. */
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    role: string;
+                    prompt: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Agent bridge turn event */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version: 1;
+                        event_id: string;
+                        run_id: string;
+                        /** Format: date-time */
+                        ts: string;
+                        /** @enum {string} */
+                        event_type: "run_started" | "run_failed" | "run_completed" | "turn.started" | "turn.result" | "turn.completed" | "turn.repair_requested" | "footer_ok" | "footer_malformed" | "footer_missing";
+                        turn_index: number;
+                        role: string;
+                        harness: string;
+                        session_id: string | null;
+                        /** @enum {string|null} */
+                        parse_status: "ok" | "missing" | "malformed" | null;
+                        payload: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict - The request could not be completed */
+            409: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    autoStepAgentBridgeRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Bridge run identifier. */
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    prompt?: string;
+                    /** @default 5 */
+                    context_turns?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Auto-step dispatch result */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        schema_version?: 1;
+                        event_id?: string;
+                        run_id?: string;
+                        /** Format: date-time */
+                        ts?: string;
+                        /** @enum {string} */
+                        event_type?: "run_started" | "run_failed" | "run_completed" | "turn.started" | "turn.result" | "turn.completed" | "turn.repair_requested" | "footer_ok" | "footer_malformed" | "footer_missing";
+                        turn_index?: number;
+                        role?: string;
+                        harness?: string;
+                        session_id?: string | null;
+                        /** @enum {string|null} */
+                        parse_status?: "ok" | "missing" | "malformed" | null;
+                        payload?: {
+                            [key: string]: unknown;
+                        };
+                        auto_step: {
+                            role: string;
+                            context_turns: number;
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict - The request could not be completed */
+            409: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

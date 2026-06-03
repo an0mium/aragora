@@ -144,7 +144,7 @@ class PanelMember:
 DEFAULT_PANEL: tuple[PanelMember, ...] = (
     PanelMember(
         agent_type="anthropic-api",
-        model_id="claude-opus-4-7",
+        model_id="claude-opus-4-8",
         estimated_input_cost_per_1k=0.015,
         estimated_output_cost_per_1k=0.075,
         nickname="opus",

@@ -32,6 +32,15 @@ if [[ "$MODE" == "login" && $# -gt 0 && "$1" == "--force" ]]; then
   shift
 fi
 
+JSON_OUTPUT=0
+if [[ "$MODE" == "verify" && $# -gt 0 && "$1" == "--json" ]]; then
+  JSON_OUTPUT=1
+  shift
+fi
+
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+HEALTH_FILE="${ARAGORA_CLAUDE_POOL_HEALTH_FILE:-${REPO_ROOT}/.aragora/claude_pool_health.json}"
+
 default_profiles=(
   max-01
   max-02
@@ -74,34 +83,40 @@ already_logged_in() {
   return 0
 }
 
+# Populates LAST_VERIFY_STATE (ok|expired|logged_out|not_configured) and
+# LAST_VERIFY_EMAIL so callers can emit a machine-readable health snapshot.
 verify_profile() {
   local profile="$1"
 
   printf "  %-10s " "$profile"
 
+  LAST_VERIFY_STATE="unknown"
+  LAST_VERIFY_EMAIL=""
+
   local status_output
   if ! status_output="$("${PROFILE_TOOL}" status "$profile" 2>/dev/null)"; then
     echo "NOT CONFIGURED"
+    LAST_VERIFY_STATE="not_configured"
     return 1
   fi
   if ! grep -q '"loggedIn": true' <<<"$status_output"; then
     echo "NOT LOGGED IN"
+    LAST_VERIFY_STATE="logged_out"
     return 1
   fi
 
+  local email
+  email="$(grep -o '"email": "[^"]*"' <<<"$status_output" | head -1 | sed 's/"email": "//;s/"//')"
+  LAST_VERIFY_EMAIL="$email"
+
   # Live probe with /dev/null stdin and 15s timeout
-  local probe_output
-  if probe_output="$(timeout 15 "${PROFILE_TOOL}" exec "$profile" -- claude -p "ok" </dev/null 2>&1)"; then
-    local email
-    email="$(grep -o '"email": "[^"]*"' <<<"$status_output" | head -1 | sed 's/"email": "//;s/"//')"
+  if timeout 15 "${PROFILE_TOOL}" exec "$profile" -- claude -p "ok" </dev/null >/dev/null 2>&1; then
     echo "OK  ($email)"
+    LAST_VERIFY_STATE="ok"
     return 0
   else
-    local email
-    email="$(grep -o '"email": "[^"]*"' <<<"$status_output" | head -1 | sed 's/"email": "//;s/"//')"
-    local err_line
-    err_line="$(echo "$probe_output" | grep -i -m1 'expired\|401\|error\|failed' || echo "$probe_output" | tail -1)"
     echo "EXPIRED  ($email)"
+    LAST_VERIFY_STATE="expired"
     return 1
   fi
 }
@@ -403,15 +418,32 @@ case "$MODE" in
     echo
     pass=0
     fail=0
+    json_entries=()
     for profile in "${profiles[@]}"; do
       if verify_profile "$profile"; then
         ((pass++)) || true
       else
         ((fail++)) || true
       fi
+      json_entries+=("$(printf '{"name": "%s", "email": "%s", "state": "%s"}' \
+        "$profile" "${LAST_VERIFY_EMAIL:-}" "${LAST_VERIFY_STATE:-unknown}")")
     done
     echo
     echo "${pass} passed, ${fail} failed"
+    if [[ "$JSON_OUTPUT" -eq 1 ]]; then
+      mkdir -p "$(dirname "$HEALTH_FILE")"
+      {
+        printf '{\n  "generated_at": "%s",\n  "healthy": %s,\n  "total": %s,\n  "profiles": [\n' \
+          "$(date -u +%FT%TZ)" "$pass" "${#profiles[@]}"
+        json_first=1
+        for entry in "${json_entries[@]}"; do
+          if [[ $json_first -eq 1 ]]; then json_first=0; else printf ',\n'; fi
+          printf '    %s' "$entry"
+        done
+        printf '\n  ]\n}\n'
+      } >"$HEALTH_FILE"
+      echo "Wrote health snapshot: $HEALTH_FILE"
+    fi
     if [[ $fail -gt 0 ]]; then
       echo "Run: $0 login [profile...] to fix expired tokens"
       exit 1

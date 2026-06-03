@@ -53,6 +53,10 @@ POLICY_DOC = REPO_ROOT / "docs" / "governance" / "OPERATOR_DELEGATION_POLICY.md"
 
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+from aragora.config.trusted_authors import (  # noqa: E402
+    TRUSTED_AUTHORS_ENV as GLOBAL_TRUSTED_AUTHORS_ENV,
+    resolve_trusted_authors,
+)
 from scripts.post_merge_lane_audit import (  # noqa: E402
     post_merge_lane_audit_failed,
     post_merge_lane_audit_failure_reason,
@@ -89,7 +93,9 @@ PROTECTED_PREFIXES: tuple[str, ...] = (
     "secrets/",
 )
 
-DEFAULT_TRUSTED_AUTHORS: frozenset[str] = frozenset({"an0mium"})
+# No personal login is trusted by default; operators opt in via the global
+# ARAGORA_TRUSTED_AUTHORS or the bucket-specific env var below.
+DEFAULT_TRUSTED_AUTHORS: frozenset[str] = frozenset()
 TRUSTED_AUTHORS_ENV = "ARAGORA_BUCKET_A_TRUSTED_AUTHORS"
 
 # Labels that require a human/operator stop even if Stage 1 accidentally
@@ -152,15 +158,16 @@ def _default_runner(args: list[str]) -> subprocess.CompletedProcess[str]:
 def trusted_authors(env: Mapping[str, str] | None = None) -> frozenset[str]:
     """Return the configured Bucket-A trusted authors.
 
-    The default mirrors the policy doc. Operators can extend the set for
-    automation identities without editing this script by setting
-    ``ARAGORA_BUCKET_A_TRUSTED_AUTHORS`` to a comma-separated login list.
+    No personal login is trusted by default. Operators opt in without editing
+    this script by setting the global ``ARAGORA_TRUSTED_AUTHORS`` or the
+    bucket-specific ``ARAGORA_BUCKET_A_TRUSTED_AUTHORS`` to a comma-separated
+    login list; the two sources are unioned.
     """
-    source = os.environ if env is None else env
-    configured = frozenset(
-        login.strip() for login in source.get(TRUSTED_AUTHORS_ENV, "").split(",") if login.strip()
+    return resolve_trusted_authors(
+        DEFAULT_TRUSTED_AUTHORS,
+        env_vars=(GLOBAL_TRUSTED_AUTHORS_ENV, TRUSTED_AUTHORS_ENV),
+        env=env,
     )
-    return DEFAULT_TRUSTED_AUTHORS | configured
 
 
 def _git_stdout(args: list[str], *, cwd: Path) -> str | None:

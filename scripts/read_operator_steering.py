@@ -26,11 +26,39 @@ if str(SCRIPT_DIR) not in sys.path:
 import identify_lane_owner as owner_lookup
 import send_operator_steering as steering_writer
 
+try:
+    import agent_bridge_sessions  # type: ignore[import-not-found]
+except ModuleNotFoundError:  # pragma: no cover - compatibility for stale script copies.
+    agent_bridge_sessions = None  # type: ignore[assignment]
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
-STEERING_INBOX_ROOT_DEFAULT = REPO_ROOT / ".aragora" / "operator-steering"
-LANE_REGISTRY_DEFAULT = REPO_ROOT / ".aragora" / "agent-bridge" / "lanes.json"
 READ_RECEIPT_SCHEMA_VERSION = "aragora-operator-steering-read-receipt/1.0"
 OUTCOME_CHOICES = ("read", "obeyed", "held", "stale", "superseded", "blocked", "completed")
+
+
+def _default_state_dir() -> Path:
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    if configured:
+        root = Path(configured).expanduser()
+        return root if root.name == ".aragora" else root / ".aragora"
+    if agent_bridge_sessions is not None:
+        try:
+            return agent_bridge_sessions.resolve_canonical_repo_root(REPO_ROOT) / ".aragora"
+        except (OSError, RuntimeError, ValueError):
+            pass
+    return REPO_ROOT / ".aragora"
+
+
+def _default_steering_inbox_root() -> Path:
+    return _default_state_dir() / "operator-steering"
+
+
+def _default_lane_registry_path() -> Path:
+    return _default_state_dir() / "agent-bridge" / "lanes.json"
+
+
+STEERING_INBOX_ROOT_DEFAULT = _default_steering_inbox_root()
+LANE_REGISTRY_DEFAULT = _default_lane_registry_path()
 
 
 def _now_utc_iso() -> str:
@@ -145,8 +173,10 @@ def build_read_receipt(
 def write_read_receipt(
     receipt: dict[str, Any],
     *,
-    steering_inbox_root: Path = STEERING_INBOX_ROOT_DEFAULT,
+    steering_inbox_root: Path | None = None,
 ) -> Path:
+    if steering_inbox_root is None:
+        steering_inbox_root = _default_steering_inbox_root()
     owner_session = str(receipt.get("owner_session") or "")
     inbox = steering_writer.validate_to_session(
         owner_session, steering_inbox_root=steering_inbox_root
@@ -207,13 +237,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--steering-inbox-root",
         type=Path,
-        default=STEERING_INBOX_ROOT_DEFAULT,
+        default=_default_steering_inbox_root(),
         help="Override .aragora/operator-steering root.",
     )
     parser.add_argument(
         "--registry-path",
         type=Path,
-        default=LANE_REGISTRY_DEFAULT,
+        default=_default_lane_registry_path(),
         help="Override .aragora/agent-bridge/lanes.json.",
     )
     return parser
