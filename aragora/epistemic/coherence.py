@@ -6,6 +6,13 @@ conflicts, and confidence rot — without triggering repair or queue writes.
 Default: **OFF**. Set ``ARAGORA_COHERENCE_MONITOR_ENABLED=1`` to enable.
 Pure function — no queue mutation, no issue creation, no dispatch changes.
 Activation gate: same proof-first Foreman gate as DIC-23..28.
+
+DIC-17 bridge (optional):
+    Pass ``emit_followup_proposals=True`` to ``scan_coherence()`` to have
+    error-severity issues forwarded to :func:`propose_followup_for_coherence_issue`.
+    This requires *both* ``ARAGORA_COHERENCE_MONITOR_ENABLED=1`` and
+    ``ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED=1``. Default is OFF; the bridge
+    never fires unless the caller explicitly enables it.
 """
 
 from __future__ import annotations
@@ -13,7 +20,10 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.epistemic.followup import FollowupProposal
 
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 _PASSING = frozenset({"pass", "unsupported"})
@@ -73,6 +83,10 @@ class CoherenceReport:
     scanned: int
     issues: list[CoherenceIssue] = field(default_factory=list)
     enabled: bool = True
+    # DIC-17 bridge output — populated by scan_coherence() only when
+    # emit_followup_proposals=True AND epistemic_followup_enabled().
+    # Default is empty; callers must not assume proposals are always present.
+    proposals: list[FollowupProposal] = field(default_factory=list)
 
     @property
     def coherent(self) -> bool:
@@ -91,7 +105,7 @@ class CoherenceReport:
         return sum(1 for i in self.issues if i.kind == IncoherenceKind.CONFIDENCE_ROT)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "scanned": self.scanned,
             "coherent": self.coherent,
             "issue_count": len(self.issues),
@@ -101,6 +115,9 @@ class CoherenceReport:
             "issues": [i.to_dict() for i in self.issues],
             "enabled": self.enabled,
         }
+        if self.proposals:
+            d["proposals"] = [p.provenance for p in self.proposals]
+        return d
 
 
 def coherence_monitor_enabled() -> bool:
@@ -188,8 +205,21 @@ def scan_coherence(
     contradiction_gap: float = _DEFAULT_CONTRADICTION_GAP,
     min_confidence: float = _DEFAULT_MIN_CONFIDENCE,
     enabled: bool | None = None,
+    emit_followup_proposals: bool = False,
 ) -> CoherenceReport:
-    """Scan a belief ledger for contradiction, evidence conflict, and rot."""
+    """Scan a belief ledger for contradiction, evidence conflict, and rot.
+
+    Args:
+        entries: Belief entries to scan.
+        contradiction_gap: Confidence delta that constitutes a contradiction.
+        min_confidence: Minimum acceptable confidence; lower triggers rot.
+        enabled: Override the ``ARAGORA_COHERENCE_MONITOR_ENABLED`` flag.
+            ``None`` reads the env var (default behaviour).
+        emit_followup_proposals: When True AND ``ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED``
+            is set, error-severity issues are forwarded to the DIC-17 bridge
+            and proposals are attached to the returned report. Default False
+            per DIC-26 spec: bridge output is opt-in only.
+    """
     if enabled is None:
         enabled = coherence_monitor_enabled()
     if not enabled:
@@ -198,7 +228,20 @@ def scan_coherence(
     issues.extend(_detect_contradictions(entries, contradiction_gap))
     issues.extend(_detect_evidence_conflicts(entries))
     issues.extend(_detect_confidence_rot(entries, min_confidence))
-    return CoherenceReport(scanned=len(entries), issues=issues, enabled=True)
+
+    report = CoherenceReport(scanned=len(entries), issues=issues, enabled=True)
+
+    if emit_followup_proposals:
+        from aragora.epistemic import epistemic_followup_enabled
+        from aragora.epistemic.followup import propose_followup_for_coherence_issue
+
+        if epistemic_followup_enabled():
+            for issue in issues:
+                proposal = propose_followup_for_coherence_issue(issue)
+                if proposal is not None:
+                    report.proposals.append(proposal)
+
+    return report
 
 
 def from_belief_node(node: Any) -> BeliefEntry:

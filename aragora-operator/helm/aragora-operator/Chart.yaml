@@ -10,9 +10,9 @@ keywords:
   - multi-agent
   - llm
   - operator
-home: https://github.com/an0mium/aragora
+home: https://github.com/synaptent/aragora
 sources:
-  - https://github.com/an0mium/aragora-operator
+  - https://github.com/synaptent/aragora-operator
 maintainers:
   - name: Aragora Team
     email: team@aragora.ai

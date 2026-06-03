@@ -1,24 +1,6 @@
 {
   "_comment": "Baseline of pre-existing portability violations. The guard (scripts/check_portability.py) only fails on violations NOT listed here. Prune entries as cleanup PRs remove the underlying paths; do not add new entries by hand. Regenerate with --update-baseline.",
   "files": {
-    ".github/ISSUE_TEMPLATE/config.yml": [
-      "legacy_slug"
-    ],
-    ".github/actions/aragora-review/README.md": [
-      "legacy_slug"
-    ],
-    ".github/workflows/nightly-integration.yml": [
-      "legacy_slug"
-    ],
-    ".github/workflows/publish-aragora-debate.yml": [
-      "legacy_slug"
-    ],
-    ".github/workflows/templates/aragora-gauntlet-template.yml": [
-      "legacy_slug"
-    ],
-    ".github/workflows/templates/aragora-review-template.yml": [
-      "legacy_slug"
-    ],
     ".pre-commit-config.yaml": [
       "legacy_slug",
       "venv_python"
@@ -42,33 +24,6 @@
       "legacy_slug"
     ],
     "aragora-debate/pyproject.toml": [
-      "legacy_slug"
-    ],
-    "aragora-operator/Makefile": [
-      "legacy_slug"
-    ],
-    "aragora-operator/controllers/aragoracluster_controller.go": [
-      "legacy_slug"
-    ],
-    "aragora-operator/controllers/aragorainstance_controller.go": [
-      "legacy_slug"
-    ],
-    "aragora-operator/controllers/aragorapolicy_controller.go": [
-      "legacy_slug"
-    ],
-    "aragora-operator/go.mod": [
-      "legacy_slug"
-    ],
-    "aragora-operator/helm/aragora-operator/Chart.yaml": [
-      "legacy_slug"
-    ],
-    "aragora-operator/helm/aragora-operator/values.yaml": [
-      "legacy_slug"
-    ],
-    "aragora-operator/internal/aragora/client.go": [
-      "legacy_slug"
-    ],
-    "aragora-operator/main.go": [
       "legacy_slug"
     ],
     "aragora/live/e2e/admin.spec.ts": [
@@ -181,9 +136,6 @@
     ],
     "deploy/self-hosted/docker-compose.yml": [
       "legacy_slug"
-    ],
-    "deploy/systemd/aragora-pr-watcher.service": [
-      "venv_python"
     ],
     "docs-site/docs/guides/connectors.md": [
       "users_home"
@@ -343,68 +295,11 @@
     "pyproject.toml": [
       "legacy_slug"
     ],
-    "scripts/_tighten_knowledge_exceptions.py": [
-      "users_home"
-    ],
-    "scripts/audit_branch_backlog_parallel.py": [
-      "users_home"
-    ],
-    "scripts/audit_test_skips.py": [
-      "users_home"
-    ],
-    "scripts/claim_active_agent_lane.py": [
-      "users_home"
-    ],
-    "scripts/create-sprint-worktrees.sh": [
-      "users_home"
-    ],
-    "scripts/demo_design_partner.sh": [
-      "users_home"
-    ],
-    "scripts/disk_recovery_coordinator.py": [
-      "users_home"
-    ],
     "scripts/inspect_cold_review_surface.py": [
       "legacy_slug"
     ],
-    "scripts/install_boss_loop_launchd.sh": [
-      "venv_python"
-    ],
-    "scripts/install_merge_arbiter_launchd.sh": [
-      "venv_python"
-    ],
-    "scripts/pr_check_followup.py": [
-      "users_home"
-    ],
-    "scripts/publish_automation_handoffs.py": [
-      "users_home"
-    ],
-    "scripts/rename_to_aragora.py": [
-      "users_home"
-    ],
-    "scripts/root_guarded_queue.py": [
-      "users_home"
-    ],
-    "scripts/run_boss_cycle.sh": [
-      "venv_python"
-    ],
-    "scripts/run_codex_automation_publisher.sh": [
-      "users_home"
-    ],
-    "scripts/run_codex_insights_digest.sh": [
-      "venv_python"
-    ],
     "scripts/run_offline_golden_path.sh": [
       "venv_python"
-    ],
-    "scripts/runners/com.aragora.runner-health.plist": [
-      "users_home"
-    ],
-    "scripts/settle_one_pr.py": [
-      "users_home"
-    ],
-    "scripts/settlement_followup.py": [
-      "users_home"
     ],
     "sdk/python/pyproject.toml": [
       "legacy_slug"
@@ -456,6 +351,9 @@
       "users_home"
     ],
     "tests/scripts/test_disk_recovery_coordinator.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_generate_runner_health_plist.py": [
       "users_home"
     ],
     "tests/scripts/test_identify_lane_owner.py": [
