@@ -167,9 +167,7 @@ class TestScanCoherenceFollowupIntegration:
         report = scan_coherence(_CONTRADICTING_ENTRIES, emit_followup_proposals=True)
         assert report.proposals == []
 
-    def test_emit_proposals_when_both_flags_set(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_emit_proposals_when_both_flags_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """With both flags + emit_followup_proposals=True, error issues generate proposals."""
         monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
         monkeypatch.setenv("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", "1")
@@ -179,9 +177,7 @@ class TestScanCoherenceFollowupIntegration:
             assert p.source_kind == "coherence_issue"
             assert "boss-ready" not in p.labels
 
-    def test_warning_issues_produce_no_proposals(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_warning_issues_produce_no_proposals(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Warning-severity evidence conflicts must not generate proposals."""
         monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
         monkeypatch.setenv("ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED", "1")

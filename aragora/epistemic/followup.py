@@ -401,9 +401,7 @@ def propose_followup_for_coherence_issue(
         ]
     )
 
-    labels = tuple(
-        sorted({"epistemic", "coherence", kind_slug, *extra_labels} - {"boss-ready"})
-    )
+    labels = tuple(sorted({"epistemic", "coherence", kind_slug, *extra_labels} - {"boss-ready"}))
     # Dedup key: stable hash of belief_ids (sorted) + kind so the same
     # incoherence produces the same source_key regardless of scan order.
     dedup_material = "|".join(sorted(str(b) for b in issue.belief_ids)) + f"|{issue.kind.value}"
