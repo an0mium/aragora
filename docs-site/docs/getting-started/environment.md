@@ -507,6 +507,28 @@ explicitly if you need consistent pooling across subsystems.
 | `ARAGORA_AUDIENCE_INBOX_MAX_SIZE` | Optional | Audience inbox queue size | `1000` |
 | `ARAGORA_MAX_EVENT_QUEUE_SIZE` | Optional | Event queue size (server) | `10000` |
 
+## Automation Trust (Auto-Merge & Triage)
+
+The merge arbiter and PR triage / auto-merge tooling gate decisions on an
+allowlist of trusted author / reviewer logins. The committed defaults contain
+only generic automation identities (bot accounts) and **no personal GitHub
+login**, so a public fork never auto-trusts an operator's handle. Operators opt
+their own logins in via environment variables (comma-separated, whitespace
+trimmed):
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_TRUSTED_AUTHORS` | Optional | Logins trusted for auto-merge / triage and treated as automation authors. Unioned with the generic defaults. | _(empty)_ |
+| `ARAGORA_BUCKET_A_TRUSTED_AUTHORS` | Optional | Extra logins trusted specifically by `scripts/auto_merge_bucket_a.py` (unioned with `ARAGORA_TRUSTED_AUTHORS`). | _(empty)_ |
+
+Consumed by `aragora/swarm/merge_arbiter.py`, `aragora/triage/evidence.py`,
+`scripts/triage_open_prs.py`, and `scripts/auto_merge_bucket_a.py` through the
+shared resolver `aragora.config.trusted_authors.resolve_trusted_authors`.
+
+**Migration note:** earlier releases hardcoded `an0mium` as a default trusted
+login. To preserve that behavior set `ARAGORA_TRUSTED_AUTHORS=an0mium` in your
+`.env` (and in any CI / launchd environment where this tooling runs).
+
 ## Reserved / Not Yet Wired
 
 These variables exist in the settings schema but are not currently wired into runtime behavior.
