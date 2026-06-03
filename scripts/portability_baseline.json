@@ -47,33 +47,6 @@
     "aragora-debate/pyproject.toml": [
       "legacy_slug"
     ],
-    "aragora-operator/Makefile": [
-      "legacy_slug"
-    ],
-    "aragora-operator/controllers/aragoracluster_controller.go": [
-      "legacy_slug"
-    ],
-    "aragora-operator/controllers/aragorainstance_controller.go": [
-      "legacy_slug"
-    ],
-    "aragora-operator/controllers/aragorapolicy_controller.go": [
-      "legacy_slug"
-    ],
-    "aragora-operator/go.mod": [
-      "legacy_slug"
-    ],
-    "aragora-operator/helm/aragora-operator/Chart.yaml": [
-      "legacy_slug"
-    ],
-    "aragora-operator/helm/aragora-operator/values.yaml": [
-      "legacy_slug"
-    ],
-    "aragora-operator/internal/aragora/client.go": [
-      "legacy_slug"
-    ],
-    "aragora-operator/main.go": [
-      "legacy_slug"
-    ],
     "aragora/live/e2e/admin.spec.ts": [
       "users_home"
     ],
