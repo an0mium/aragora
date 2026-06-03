@@ -693,6 +693,76 @@ def test_reconcile_keeps_pr_handoff_with_issue_only_receipt(
     assert handoff.exists()
 
 
+def test_reconcile_archives_issue_only_receipt_when_branch_landed(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-issue-only-landed-abc123"
+    branch = "codex/issue-only-landed"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+    )
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "published",
+                "reason": "created_issue",
+                "created_issue_url": "https://github.com/synaptent/aragora/issues/7320",
+                "existing_pr_url": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="abcdef1\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout="- abcdef1234567890abcdef1234567890abcdef12\n",
+                stderr="",
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("open PR fetch should not run for landed issue receipts")
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["satisfied_by_landed_on_main"] == 1
+    assert result["counts"]["blocked_receipt_issue_only"] == 0
+    assert result["counts"]["still_protecting_active_work"] == 0
+    assert result["actions"][0]["decision"] == "archive"
+    assert (
+        result["actions"][0]["reason"] == "branch work landed on main (merge or patch-equivalent)"
+    )
+    assert result["actions"][0]["synthetic_receipt"] is False
+    assert handoff.exists()
+
+
 def test_reconcile_keeps_target_pr_receipt_when_desired_head_not_published(
     tmp_path: Path,
     monkeypatch: Any,

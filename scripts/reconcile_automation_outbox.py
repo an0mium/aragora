@@ -804,6 +804,20 @@ def main(argv: list[str] | None = None) -> int:
         if receipt is not None:
             issue_only_keep_reason = _issue_only_pr_receipt_keep_reason(payload, receipt)
             if issue_only_keep_reason is not None:
+                if _branch_has_landed_on_main(root, args.base, branch):
+                    counts["satisfied_by_landed_on_main"] += 1
+                    actions.append(
+                        {
+                            "path": str(path),
+                            "branch": branch,
+                            "decision": "archive",
+                            "reason": "branch work landed on main (merge or patch-equivalent)",
+                            "synthetic_receipt": False,
+                        }
+                    )
+                    if args.apply:
+                        shutil.move(str(path), str(archive_dir / path.name))
+                    continue
                 counts["blocked_receipt_issue_only"] += 1
                 counts["still_protecting_active_work"] += 1
                 actions.append(
