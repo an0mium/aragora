@@ -173,19 +173,16 @@ def build_truth_map(
         from aragora.epistemic.genealogy import get_genealogy
 
         for unit_id, store in genealogy_inputs:
-            try:
-                gen = get_genealogy(unit_id, store, require_enabled=False)
-                genealogy_rows.append(
-                    GenealogyRow(
-                        code_unit_id=gen.code_unit_id,
-                        entry_count=len(gen.entries),
-                        chain_checksum=gen.chain_checksum,
-                        generated_at=gen.generated_at,
-                        entries=[e.to_dict() for e in gen.entries],
-                    )
+            gen = get_genealogy(unit_id, store, require_enabled=False)
+            genealogy_rows.append(
+                GenealogyRow(
+                    code_unit_id=gen.code_unit_id,
+                    entry_count=len(gen.entries),
+                    chain_checksum=gen.chain_checksum,
+                    generated_at=gen.generated_at,
+                    entries=[e.to_dict() for e in gen.entries],
                 )
-            except (ValueError, RuntimeError):
-                pass
+            )
 
     return OrgTruthMapReport(
         generated_at=datetime.datetime.utcnow().isoformat() + "Z",
