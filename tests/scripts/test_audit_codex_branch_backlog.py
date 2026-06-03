@@ -868,6 +868,75 @@ def test_active_worktree_preserves_live_session_blocker(tmp_path: Path, monkeypa
     assert mod.active_worktree(worktree) is True
 
 
+def test_audit_protects_active_lane_owner_from_publishable_backlog(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    state_root = tmp_path / "shared"
+    state_dir = state_root / ".aragora"
+    bridge_dir = state_dir / "agent-bridge"
+    bridge_dir.mkdir(parents=True)
+    (state_dir / "automation-outbox").mkdir()
+    (state_dir / "automation-receipts").mkdir()
+    (bridge_dir / "lanes.json").write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1-active-owner",
+                    "owner_session": "codex-Q1",
+                    "status": "working",
+                    "branch": "codex/owned-branch",
+                    "updated_at": "2026-06-03T19:19:05Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+    monkeypatch.setattr(
+        mod,
+        "local_branches",
+        lambda _root, _prefix, _base: [_branch_row("codex/owned-branch")],
+    )
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    def fail_patch_equivalence(*_args: Any, **_kwargs: Any) -> bool:
+        raise AssertionError("active owner branches are protected before patch-equivalence checks")
+
+    monkeypatch.setattr(mod, "is_patch_equivalent", fail_patch_equivalence)
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        publisher_backlog_limit=1,
+    )
+
+    record = payload["records"][0]
+    assert record["category"] == "protected_active_owner"
+    assert record["active_owner_lanes"] == ["Q1-active-owner"]
+    assert payload["summary"]["publishable_branch_backlog"] == 0
+    assert payload["summary"]["protected"] == 1
+    assert payload["summary"]["writer_should_pause_for_branch_backlog"] is False
+
+
 def test_audit_skips_patch_equivalence_for_dirty_worktrees(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

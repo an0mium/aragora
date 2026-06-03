@@ -40,6 +40,17 @@ DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_GITHUB_STATUS_CACHE = Path(".aragora/automation-github-status/latest.json")
 DEFAULT_CACHED_OPEN_PR_HEADS_MAX_AGE_HOURS = 24
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
+ACTIVE_LANE_STATUSES = {
+    "active",
+    "running",
+    "pending",
+    "queued",
+    "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
+}
 COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
 DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS = 5
@@ -69,6 +80,7 @@ COMPACT_RECORD_EXAMPLE_FIELDS = (
     "open_pr_cached",
     "worktree_paths",
     "active_worktree_paths",
+    "active_owner_lanes",
     "dirty_worktree_paths",
     "handoff_receipt_exists",
     "handoff_outbox_exists",
@@ -99,6 +111,7 @@ class BranchRecord:
     worktree_paths: list[str]
     dirty_worktree_paths: list[str]
     active_worktree_paths: list[str]
+    active_owner_lanes: list[str]
     handoff_receipt_exists: bool
     handoff_outbox_exists: bool
     category: str
@@ -251,6 +264,61 @@ def active_worktree(path: Path) -> bool:
     if not path.is_dir():
         return False
     return autopilot._has_active_session(path)
+
+
+def _lane_registry_paths(root: Path, state_dir: Path) -> list[Path]:
+    candidates = [
+        Path.home() / ".aragora" / "agent-bridge" / "lanes.json",
+        state_dir / "agent-bridge" / "lanes.json",
+    ]
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if candidate.exists():
+            paths.append(candidate)
+    if paths:
+        return paths
+    repo_candidate = root / ".aragora" / "agent-bridge" / "lanes.json"
+    return [repo_candidate] if repo_candidate.exists() else []
+
+
+def active_owner_lanes_by_branch(root: Path, state_dir: Path) -> dict[str, list[str]]:
+    """Return active lane claims keyed by branch from local bridge registries."""
+
+    by_branch: dict[str, list[str]] = defaultdict(list)
+    for registry in _lane_registry_paths(root, state_dir):
+        payload = _json_mapping(registry)
+        if payload is None:
+            try:
+                raw_payload = json.loads(registry.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+        else:
+            raw_payload = payload
+        if not isinstance(raw_payload, list):
+            continue
+        for item in raw_payload:
+            if not isinstance(item, Mapping):
+                continue
+            status = str(item.get("status") or "active").strip()
+            if status not in ACTIVE_LANE_STATUSES:
+                continue
+            branch = str(item.get("branch") or "").strip()
+            if not branch:
+                continue
+            lane_id = str(item.get("lane_id") or "").strip()
+            owner_session = str(item.get("owner_session") or "").strip()
+            label = lane_id or owner_session
+            if label and label not in by_branch[branch]:
+                by_branch[branch].append(label)
+    return by_branch
 
 
 def _repo_relative(root: Path, path: Path) -> Path:
@@ -1053,6 +1121,7 @@ def classify(
     open_pr: int | None,
     active_paths: list[str],
     dirty_paths: list[str],
+    active_owner_lanes: list[str],
     ahead_count: int,
     behind_count: int,
     merged_to_base: bool,
@@ -1069,6 +1138,8 @@ def classify(
         return "protected_active_worktree"
     if dirty_paths:
         return "protected_dirty_worktree"
+    if active_owner_lanes:
+        return "protected_active_owner"
     if merged_to_base or ahead_count == 0:
         return "cleanup_local_merged"
     if patch_equivalent_to_base:
@@ -1140,6 +1211,7 @@ def audit(
         open_pr_lookup_skipped = True
     resolved_outbox_dir = _automation_state_path(root, outbox_dir, DEFAULT_OUTBOX_DIR)
     resolved_receipt_dir = _automation_state_path(root, receipt_dir, DEFAULT_RECEIPT_DIR)
+    active_owner_lanes = active_owner_lanes_by_branch(root, resolved_outbox_dir.parent)
     cached_prs = (
         cached_open_pr_heads(
             root,
@@ -1187,17 +1259,22 @@ def audit(
         paths = worktrees.get(branch, [])
         dirty_paths = [str(path) for path in paths if dirty_worktree(path)]
         active_paths = [str(path) for path in paths if active_worktree(path)]
+        active_owner_refs = active_owner_lanes.get(branch, [])
         open_pr = prs.get(branch) if prs is not None else None
         open_pr_cached = open_pr is None and open_pr_lookup_skipped and branch in cached_prs
         if open_pr_cached:
             cached_open_pr_lookup_used = True
         handoff_receipted = branch in handoff_receipted_branches
         handoff_outbox = branch in handoff_outbox_branches
+        active_owner_category_refs = (
+            [] if handoff_receipted or handoff_outbox else active_owner_refs
+        )
         protected_before_patch_check = (
             open_pr is not None
             or open_pr_cached
             or bool(active_paths)
             or bool(dirty_paths)
+            or bool(active_owner_refs)
             or handoff_receipted
             or handoff_outbox
         )
@@ -1323,6 +1400,7 @@ def audit(
                 open_pr=open_pr if open_pr is not None else (0 if open_pr_cached else None),
                 active_paths=active_paths,
                 dirty_paths=dirty_paths,
+                active_owner_lanes=active_owner_category_refs,
                 ahead_count=ahead_count,
                 behind_count=behind_count,
                 merged_to_base=merged_to_base,
@@ -1360,6 +1438,7 @@ def audit(
                     open_pr=open_pr if open_pr is not None else (0 if open_pr_cached else None),
                     active_paths=active_paths,
                     dirty_paths=dirty_paths,
+                    active_owner_lanes=active_owner_category_refs,
                     ahead_count=ahead_count,
                     behind_count=behind_count,
                     merged_to_base=merged_to_base,
@@ -1396,6 +1475,7 @@ def audit(
                 worktree_paths=[str(path) for path in paths],
                 dirty_worktree_paths=dirty_paths,
                 active_worktree_paths=active_paths,
+                active_owner_lanes=active_owner_refs,
                 handoff_receipt_exists=handoff_receipted,
                 handoff_outbox_exists=handoff_outbox,
                 category=category,
@@ -1408,6 +1488,7 @@ def audit(
         counts["protected_open_pr"]
         + counts["protected_active_worktree"]
         + counts["protected_dirty_worktree"]
+        + counts["protected_active_owner"]
         + counts["protected_handoff_receipt"]
         + counts["protected_handoff_outbox"]
         + counts["protected_open_pr_lookup_unknown"]
@@ -1588,6 +1669,7 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
         "protected_open_pr",
         "protected_active_worktree",
         "protected_dirty_worktree",
+        "protected_active_owner",
         "protected_handoff_receipt",
         "protected_handoff_outbox",
     ):
