@@ -11,6 +11,8 @@ from scripts.settle_one_pr import (
     head_blockers,
     load_broad_packet_lazily,
     load_open_pr_metadata,
+    no_candidate_diagnostics,
+    no_candidate_next_action,
     owner_blockers,
     policy_exclusion_reasons,
     recursive_prompt,
@@ -141,6 +143,67 @@ def test_select_candidate_reports_no_eligible_pr() -> None:
 
     assert selected is None
     assert blockers == ["no Tier 0-2 non-human-risk green PR needs only settlement evidence"]
+
+
+def test_no_candidate_diagnostics_names_next_check_blocked_pr() -> None:
+    packet = _packet(
+        _entry(
+            1003,
+            checks_summary="5/6 green; pending: aragora-merge-quorum",
+            reasons=["live automation surface", "model quorum incomplete: 0/2 signal(s)"],
+        ),
+        _entry(
+            1004,
+            tier=4,
+            requires_human_risk_settlement=True,
+            reasons=["workflow/deploy/destructive surface touched"],
+        ),
+    )
+    diagnostics = no_candidate_diagnostics(
+        packet,
+        policy_exclusions=[
+            {
+                "pr_number": 1004,
+                "title": "PR 1004",
+                "head_sha": "sha1004",
+                "reasons": ["Tier 4", "requires_human_risk_settlement=true"],
+            }
+        ],
+    )
+
+    assert diagnostics["packet_entry_count"] == 2
+    assert diagnostics["policy_exclusion_reason_counts"] == {
+        "Tier 4": 1,
+        "requires_human_risk_settlement=true": 1,
+    }
+    assert diagnostics["top_check_blocked_candidate"]["pr_number"] == 1003
+    assert diagnostics["top_human_risk_candidate"]["pr_number"] == 1004
+
+    action = no_candidate_next_action(diagnostics)
+    assert action["kind"] == "recheck_or_clear_required_checks"
+    assert action["pr_number"] == 1003
+    assert "Do not merge" in action["operator_action"]
+
+
+def test_no_candidate_diagnostics_prioritizes_independent_of_packet_order() -> None:
+    packet = _packet(
+        _entry(
+            1010,
+            tier=2,
+            checks_summary="5/6 green; pending: aragora-merge-quorum",
+            reasons=["live automation surface", "model quorum incomplete: 0/2 signal(s)"],
+        ),
+        _entry(
+            1009,
+            tier=1,
+            checks_summary="5/6 green; pending: lint",
+            reasons=["internal surface", "model quorum incomplete: 0/2 signal(s)"],
+        ),
+    )
+
+    diagnostics = no_candidate_diagnostics(packet, policy_exclusions=[])
+
+    assert diagnostics["top_check_blocked_candidate"]["pr_number"] == 1009
 
 
 def test_select_candidate_skips_repair_first_prs() -> None:
@@ -1275,6 +1338,31 @@ def test_missing_evidence_yields_ready_for_minimum_evidence() -> None:
 
     assert report["status"] == "ready_for_minimum_evidence"
     assert "model quorum incomplete: 0/2 signal(s)" in report["evidence"]["missing_model_quorum"]
+    assert report["recursive_best_next_prompt"].endswith(CONVERGENCE_SENTENCE)
+
+
+def test_no_candidate_report_includes_actionable_diagnostics() -> None:
+    report = build_report(
+        _packet(
+            _entry(
+                1006,
+                checks_summary="5/6 green; pending: aragora-merge-quorum",
+                reasons=["live automation surface", "model quorum incomplete: 0/2 signal(s)"],
+            )
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=None,
+        exclude_prs=set(),
+        live=False,
+        validate=False,
+    )
+
+    assert report["status"] == "no_candidate"
+    assert report["candidate_diagnostics"]["top_check_blocked_candidate"]["pr_number"] == 1006
+    assert report["next_bounded_action"]["kind"] == "recheck_or_clear_required_checks"
+    assert report["suggested_commands"] == [report["next_bounded_action"]["operator_action"]]
+    assert "Then: Re-check PR #1006" in report["recursive_best_next_prompt"]
     assert report["recursive_best_next_prompt"].endswith(CONVERGENCE_SENTENCE)
 
 

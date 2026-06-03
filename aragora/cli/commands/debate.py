@@ -1244,6 +1244,13 @@ async def run_debate(
 
     # Parse and create agents
     agent_specs = parse_agents(agents_str)
+    if (
+        len(agent_specs) == 1
+        and int(rounds) <= 1
+        and consensus == "none"
+        and not mode_system_prompt
+    ):
+        protocol_overrides.setdefault("single_agent_direct_answer", True)
 
     # Assign default roles based on position if not explicitly specified
     agents = []

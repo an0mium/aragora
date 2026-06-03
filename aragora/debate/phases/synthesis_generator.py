@@ -17,6 +17,7 @@ import os
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
+from aragora.debate.phases._phase_invariant import require_phase_result
 from aragora.events.context import streaming_task_context
 
 if TYPE_CHECKING:
@@ -81,6 +82,7 @@ class SynthesisGenerator:
         Returns:
             bool: True if synthesis was successfully generated and emitted
         """
+        result = require_phase_result(ctx)
         # If no proposals, emit a minimal synthesis to avoid silent endings
         if not ctx.proposals:
             logger.warning("synthesis_fallback reason=no_proposals")
@@ -88,10 +90,18 @@ class SynthesisGenerator:
                 "## Debate Summary\n\n"
                 "No proposals were generated. One or more agents may have failed to respond."
             )
-            ctx.result.synthesis = fallback_synthesis
+            result.synthesis = fallback_synthesis
             # Synthesis is the definitive final answer — always overwrite.
-            ctx.result.final_answer = fallback_synthesis
+            result.final_answer = fallback_synthesis
             self._emit_synthesis_events(ctx, fallback_synthesis, "fallback")
+            self._generate_export_links(ctx)
+            return True
+
+        if self._should_preserve_single_agent_answer(ctx):
+            direct_answer = next(iter(ctx.proposals.values()))
+            result.synthesis = direct_answer
+            result.final_answer = direct_answer
+            self._emit_synthesis_events(ctx, direct_answer, "single_agent_direct")
             self._generate_export_links(ctx)
             return True
 
@@ -116,9 +126,9 @@ class SynthesisGenerator:
 
         if synthesis:
             # Store synthesis in result
-            ctx.result.synthesis = synthesis
+            result.synthesis = synthesis
             # Synthesis is the definitive final answer — always overwrite.
-            ctx.result.final_answer = synthesis
+            result.final_answer = synthesis
 
             # Emit explicit synthesis event (guaranteed delivery)
             self._emit_synthesis_events(ctx, synthesis, synthesis_source)
@@ -211,10 +221,10 @@ class SynthesisGenerator:
                 )
 
         # Store synthesis in result
-        ctx.result.synthesis = synthesis
+        result.synthesis = synthesis
         # Only set final_answer if the consensus phase didn't already set one
-        if not ctx.result.final_answer:
-            ctx.result.final_answer = synthesis
+        if not result.final_answer:
+            result.final_answer = synthesis
 
         # Emit explicit synthesis event (guaranteed delivery)
         self._emit_synthesis_events(ctx, synthesis, synthesis_source)
@@ -223,6 +233,16 @@ class SynthesisGenerator:
         self._generate_export_links(ctx)
 
         return True
+
+    def _should_preserve_single_agent_answer(self, ctx: DebateContext) -> bool:
+        if len(ctx.proposals) != 1:
+            return False
+        if getattr(self.protocol, "single_agent_direct_answer", False) is True:
+            return True
+
+        consensus = getattr(self.protocol, "consensus", None)
+        rounds = getattr(self.protocol, "rounds", None)
+        return consensus == "none" and isinstance(rounds, int) and rounds <= 1
 
     @staticmethod
     def _anthropic_synthesis_available() -> bool:

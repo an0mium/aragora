@@ -339,6 +339,206 @@ def _exclusion_record(entry: dict[str, Any], reasons: list[str]) -> dict[str, An
     }
 
 
+def _candidate_record(
+    entry: dict[str, Any], *, category: str, reasons: list[str]
+) -> dict[str, Any]:
+    return {
+        "category": category,
+        "pr_number": _entry_pr(entry),
+        "title": entry.get("title"),
+        "head_sha": entry.get("head_sha"),
+        "checks_summary": entry.get("checks_summary"),
+        "tier": entry.get("tier"),
+        "status": entry.get("status"),
+        "machine_recommendation": entry.get("machine_recommendation"),
+        "reasons": reasons,
+    }
+
+
+def _diagnostic_priority(record: dict[str, Any]) -> tuple[int, int, str]:
+    """Stable priority for no-candidate hints, independent of packet ordering."""
+    tier = _coerce_int(record.get("tier"))
+    pr_number = _coerce_int(record.get("pr_number"))
+    return (
+        tier if tier is not None else 99,
+        pr_number if pr_number is not None else 999_999_999,
+        str(record.get("title") or ""),
+    )
+
+
+def _prioritize_diagnostic_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(records, key=_diagnostic_priority)
+
+
+def _reason_counts(records: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for record in records:
+        for reason in record.get("reasons") or []:
+            reason_text = str(reason)
+            counts[reason_text] = counts.get(reason_text, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _first_by_reason(records: list[dict[str, Any]], needle: str) -> dict[str, Any] | None:
+    needle_lower = needle.lower()
+    for record in records:
+        if any(needle_lower in str(reason).lower() for reason in record.get("reasons") or []):
+            return record
+    return None
+
+
+def no_candidate_diagnostics(
+    packet: dict[str, Any],
+    *,
+    policy_exclusions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Explain why broad steward selection found no autonomous candidate."""
+    entries = [entry for entry in packet.get("entries") or [] if isinstance(entry, dict)]
+    excluded_prs = {
+        _coerce_int(item.get("pr_number"))
+        for item in policy_exclusions
+        if _coerce_int(item.get("pr_number")) is not None
+    }
+    non_excluded: list[dict[str, Any]] = []
+    check_blocked: list[dict[str, Any]] = []
+    repair_first: list[dict[str, Any]] = []
+    evidence_not_green: list[dict[str, Any]] = []
+    already_satisfied_not_ordered: list[dict[str, Any]] = []
+
+    for entry in entries:
+        pr_number = _entry_pr(entry)
+        if pr_number is None or pr_number in excluded_prs:
+            continue
+        non_excluded.append(entry)
+        summary = str(entry.get("checks_summary", "") or "")
+        recommendation = str(entry.get("machine_recommendation", "") or "").strip()
+        reasons_text = " ".join(str(reason).lower() for reason in entry.get("reasons") or [])
+        missing_evidence = "model quorum incomplete" in reasons_text or "dogfood" in reasons_text
+        if not _is_green_summary(summary):
+            check_blocked.append(
+                _candidate_record(
+                    entry,
+                    category="check_blocked",
+                    reasons=[f"checks_summary={summary or 'unknown'}"],
+                )
+            )
+        elif recommendation == "repair_first":
+            repair_first.append(
+                _candidate_record(
+                    entry,
+                    category="repair_first",
+                    reasons=["machine_recommendation=repair_first"],
+                )
+            )
+        elif missing_evidence:
+            # These would normally be selected. Reaching here means another selector guard blocked it.
+            evidence_not_green.append(
+                _candidate_record(
+                    entry,
+                    category="evidence_blocked",
+                    reasons=[reason for reason in entry.get("reasons") or [] if reason],
+                )
+            )
+        elif bool(entry.get("admin_squash_allowed")) or entry.get("status") == "satisfied":
+            already_satisfied_not_ordered.append(
+                _candidate_record(
+                    entry,
+                    category="satisfied_not_selected",
+                    reasons=["packet satisfied but not in selected autonomous order"],
+                )
+            )
+
+    check_blocked = _prioritize_diagnostic_records(check_blocked)
+    repair_first = _prioritize_diagnostic_records(repair_first)
+    evidence_not_green = _prioritize_diagnostic_records(evidence_not_green)
+    already_satisfied_not_ordered = _prioritize_diagnostic_records(already_satisfied_not_ordered)
+
+    top_human_risk = _first_by_reason(policy_exclusions, "requires_human_risk_settlement")
+    if top_human_risk is None:
+        top_human_risk = _first_by_reason(policy_exclusions, "Tier ")
+
+    return {
+        "packet_entry_count": len(entries),
+        "non_excluded_entry_count": len(non_excluded),
+        "policy_exclusion_count": len(policy_exclusions),
+        "policy_exclusion_reason_counts": _reason_counts(policy_exclusions),
+        "top_check_blocked_candidate": check_blocked[0] if check_blocked else None,
+        "top_repair_first_candidate": repair_first[0] if repair_first else None,
+        "top_conflict_candidate": _first_by_reason(policy_exclusions, "dirty/conflicting PR"),
+        "top_human_risk_candidate": top_human_risk,
+        "top_evidence_blocked_candidate": evidence_not_green[0] if evidence_not_green else None,
+        "top_satisfied_not_selected_candidate": (
+            already_satisfied_not_ordered[0] if already_satisfied_not_ordered else None
+        ),
+    }
+
+
+def no_candidate_next_action(diagnostics: dict[str, Any]) -> dict[str, Any]:
+    """Return the safest single next action for a no-candidate steward result."""
+    check_blocked = diagnostics.get("top_check_blocked_candidate")
+    if isinstance(check_blocked, dict) and check_blocked.get("pr_number"):
+        pr_number = check_blocked["pr_number"]
+        return {
+            "kind": "recheck_or_clear_required_checks",
+            "pr_number": pr_number,
+            "reason": "nearest non-excluded PR is blocked by non-green required or packet checks",
+            "operator_action": (
+                f"Re-check PR #{pr_number} exact head, required checks, merge-packet, and "
+                "settle_one_pr.py; if only a stale/cancelled required workflow blocks it, rerun "
+                "that workflow only. Do not merge."
+            ),
+        }
+
+    repair_first = diagnostics.get("top_repair_first_candidate")
+    if isinstance(repair_first, dict) and repair_first.get("pr_number"):
+        pr_number = repair_first["pr_number"]
+        return {
+            "kind": "repair_first_pr",
+            "pr_number": pr_number,
+            "reason": "nearest non-excluded PR has machine_recommendation=repair_first",
+            "operator_action": (
+                f"Diagnose PR #{pr_number} from a clean worktree and implement the smallest "
+                "branch-local repair, then rerun focused tests. Do not merge."
+            ),
+        }
+
+    conflict = diagnostics.get("top_conflict_candidate")
+    if isinstance(conflict, dict) and conflict.get("pr_number"):
+        pr_number = conflict["pr_number"]
+        return {
+            "kind": "repair_conflict",
+            "pr_number": pr_number,
+            "reason": "nearest blocked queue item is dirty/conflicting",
+            "operator_action": (
+                f"Repair conflicts for PR #{pr_number} in a clean disposable worktree, run focused "
+                "tests, push the branch only if validation passes. Do not merge."
+            ),
+        }
+
+    human_risk = diagnostics.get("top_human_risk_candidate")
+    if isinstance(human_risk, dict) and human_risk.get("pr_number"):
+        pr_number = human_risk["pr_number"]
+        return {
+            "kind": "prepare_human_settlement_packet",
+            "pr_number": pr_number,
+            "reason": "remaining high-value candidate requires Tier 3/4 human-risk settlement",
+            "operator_action": (
+                f"Prepare a read-only exact-head Tier 3/4 settlement packet for PR #{pr_number}; "
+                "do not set statuses, mark ready, or merge."
+            ),
+        }
+
+    return {
+        "kind": "inspect_steward_inputs",
+        "pr_number": None,
+        "reason": "no PR-level next action could be inferred from packet entries",
+        "operator_action": (
+            "Inspect merge-packet inputs and operator-snapshot freshness; improve steward "
+            "classification before selecting queue work."
+        ),
+    }
+
+
 def _merge_exclusions(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
     merged: list[dict[str, Any]] = []
     seen: set[tuple[Any, tuple[str, ...]]] = set()
@@ -1001,14 +1201,26 @@ def recursive_prompt(report: dict[str, Any]) -> str:
             "status=satisfied and verdict=admin_squash_allowed."
         )
     else:
-        prompt = (
-            f"Start from live truth in {repo}. Goal: make incremental "
-            "progress without broad queue drain by selecting exactly one Tier 0-2 non-human-risk PR "
-            "or one steward-tooling repair. Run scripts/settle_one_pr.py --json first; if it reports "
-            "no candidate, improve the steward's candidate diagnostics or target provider bootstrap "
-            "so dogfood evidence collection becomes reliable. Do not touch Tier 3/4 or active-owned "
-            "PRs, branch protection, labels, outbox, harvest, or admin merge."
-        )
+        next_action = report.get("next_bounded_action")
+        if isinstance(next_action, dict) and next_action.get("operator_action"):
+            action_text = str(next_action["operator_action"])
+            prompt = (
+                f"Start from live truth in {repo}. Goal: make exactly one bounded increment from "
+                "the current no-candidate steward state. First run scripts/settle_one_pr.py --json "
+                f"and confirm the recommended action still matches live truth. Then: {action_text} "
+                "Do not broad-drain, do not touch Tier 3/4 settlement signals unless separately "
+                "authorized, and do not touch branch protection, labels, outbox, harvest, or admin "
+                "merge."
+            )
+        else:
+            prompt = (
+                f"Start from live truth in {repo}. Goal: make incremental "
+                "progress without broad queue drain by selecting exactly one Tier 0-2 non-human-risk "
+                "PR or one steward-tooling repair. Run scripts/settle_one_pr.py --json first; if it "
+                "reports no candidate, improve the steward's candidate diagnostics or target provider "
+                "bootstrap so dogfood evidence collection becomes reliable. Do not touch Tier 3/4 or "
+                "active-owned PRs, branch protection, labels, outbox, harvest, or admin merge."
+            )
     return f"{prompt}\n{CONVERGENCE_SENTENCE}"
 
 
@@ -1115,6 +1327,11 @@ def build_report(
         "suggested_commands": [],
     }
     if selected is None:
+        diagnostics = no_candidate_diagnostics(packet, policy_exclusions=policy_exclusions)
+        next_action = no_candidate_next_action(diagnostics)
+        report["candidate_diagnostics"] = diagnostics
+        report["next_bounded_action"] = next_action
+        report["suggested_commands"].append(str(next_action["operator_action"]))
         if has_preselection_blockers:
             report["status"] = "blocked"
         report["recursive_best_next_prompt"] = recursive_prompt(report)
