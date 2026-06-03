@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from aragora.cli.commands import work_board as work_board_cmd
 from aragora.cli.main import main as cli_main
 from aragora.cli.parser import build_parser
 from aragora.cli.commands.work_board import (
@@ -139,6 +140,25 @@ def test_work_list_json_flag_emits_parseable_json(
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["schema_version"] == "aragora.work.v1"
+
+
+@pytest.mark.parametrize("as_json", [True, False])
+def test_work_emit_suppresses_broken_pipe(monkeypatch: pytest.MonkeyPatch, as_json: bool) -> None:
+    """Closed downstream pipes should not produce CLI tracebacks."""
+    muted_stdout = []
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(
+        work_board_cmd,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    assert work_board_cmd._emit({"schema_version": "aragora.work.v1"}, as_json=as_json) == 0
+    assert muted_stdout == [True]
 
 
 def test_work_list_reads_current_outbox(
