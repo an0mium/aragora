@@ -710,12 +710,16 @@ def test_worktree_is_dirty_ignores_untracked_files(tmp_path: Path) -> None:
 
 
 def test_list_worktrees_filters_before_dirty_checks(monkeypatch: Any, tmp_path: Path) -> None:
-    payload = """
-worktree /tmp/codex-a
+    worktree_a = tmp_path / "codex-a"
+    worktree_b = tmp_path / "codex-b"
+    worktree_a.mkdir()
+    worktree_b.mkdir()
+    payload = f"""
+worktree {worktree_a}
 HEAD abc123
 branch refs/heads/codex/a
 
-worktree /tmp/codex-b
+worktree {worktree_b}
 HEAD def456
 branch refs/heads/codex/b
 """.strip()
@@ -739,7 +743,44 @@ branch refs/heads/codex/b
     snapshots = mod._list_worktrees(tmp_path, branch_filter={"codex/b"})
 
     assert [snapshot.branch for snapshot in snapshots] == ["codex/b"]
-    assert dirty_checked == [str(Path("/tmp/codex-b").resolve())]
+    assert dirty_checked == [str(worktree_b.resolve())]
+
+
+def test_list_worktrees_skips_prunable_missing_paths(monkeypatch: Any, tmp_path: Path) -> None:
+    live = tmp_path / "live"
+    missing = tmp_path / "missing"
+    live.mkdir()
+    payload = f"""
+worktree {missing}
+HEAD abc123
+branch refs/heads/codex/missing
+prunable gitdir file points to non-existent location
+
+worktree {live}
+HEAD def456
+branch refs/heads/codex/live
+""".strip()
+    dirty_checked: list[str] = []
+
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda args, cwd, check=False: subprocess.CompletedProcess(
+            args=args, returncode=0, stdout=payload, stderr=""
+        ),
+    )
+    monkeypatch.setattr(mod, "_has_active_session", lambda path: False)
+
+    def fake_dirty(path: Path) -> bool:
+        dirty_checked.append(str(path))
+        return False
+
+    monkeypatch.setattr(mod, "_worktree_is_dirty", fake_dirty)
+
+    snapshots = mod._list_worktrees(tmp_path)
+
+    assert [snapshot.branch for snapshot in snapshots] == ["codex/live"]
+    assert dirty_checked == [str(live.resolve())]
 
 
 def test_main_treats_unavailable_github_with_empty_local_queue_as_noop(

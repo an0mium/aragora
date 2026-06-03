@@ -694,11 +694,14 @@ def _list_worktrees(
     current_path: Path | None = None
     current_branch: str | None = None
     detached = False
+    prunable = False
 
     def flush() -> None:
         if current_path is None:
             return
         if branch_filter is not None and current_branch not in branch_filter:
+            return
+        if prunable or not current_path.exists():
             return
         snapshots.append(
             WorktreeSnapshot(
@@ -716,11 +719,14 @@ def _list_worktrees(
             current_path = Path(line.removeprefix("worktree ").strip()).resolve()
             current_branch = None
             detached = False
+            prunable = False
         elif line.startswith("branch "):
             ref = line.removeprefix("branch ").strip()
             current_branch = ref.removeprefix("refs/heads/")
         elif line == "detached":
             detached = True
+        elif line.startswith("prunable"):
+            prunable = True
 
     flush()
     return snapshots
