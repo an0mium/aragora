@@ -227,6 +227,9 @@ Examples:
     # DIC-28: proactive crux gardening operator surface
     _add_crux_garden_parser(subparsers)
 
+    # DIC-23: dialectical runtime loop operator surface
+    _add_dialectical_loop_parser(subparsers)
+
     return parser
 
 
@@ -842,6 +845,43 @@ def _add_crux_garden_parser(subparsers) -> None:
     )
     p.add_argument("--json", action="store_true", help="Emit report as JSON.")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic28_crux_garden", "cmd_crux_garden"))
+
+
+def _add_dialectical_loop_parser(subparsers) -> None:
+    """DIC-23: dialectical runtime loop operator surface (issue #6217).
+
+    Flag-gated: ARAGORA_DIALECTICAL_RUNTIME_ENABLED. Live queue effect: none.
+    """
+    p = subparsers.add_parser(
+        "dialectical-loop",
+        help="DIC-23: run one dialectical runtime loop pass on a DecaySignal",
+        description=(
+            "Read a DecaySignal JSON file and run one DIC-23 orchestration pass. "
+            "Emits a DialecticalEvent report. Report-only; no debates started, no "
+            "issues created. Requires ARAGORA_DIALECTICAL_RUNTIME_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--signal",
+        required=True,
+        help="Path to a DecaySignal JSON file (from decay_monitor output).",
+    )
+    p.add_argument(
+        "--class",
+        dest="unit_class",
+        default="default",
+        choices=["live_dispatch", "report_surface", "demo", "pure_policy", "default"],
+        help="Policy class to apply (default: 'default').",
+    )
+    p.add_argument(
+        "--repair",
+        action="store_true",
+        help="Propose a repair spec when quarantine action is repair_required.",
+    )
+    p.add_argument("--json", action="store_true", help="Emit event as JSON.")
+    p.set_defaults(
+        func=_lazy("aragora.cli.commands.dic23_runtime_loop", "cmd_dialectical_loop")
+    )
 
 
 def _add_ask_parser(subparsers) -> None:
