@@ -64,7 +64,12 @@ def _role_for(record_id: str, name: str) -> str:
         return "writer"
     if "hygiene" in normalized or "cleanup" in normalized:
         return "hygiene"
-    if "steward" in normalized or "scout" in normalized or "triage" in normalized:
+    if (
+        "steward" in normalized
+        or "scout" in normalized
+        or "triage" in normalized
+        or "review" in normalized
+    ):
         return "steward"
     return "other"
 

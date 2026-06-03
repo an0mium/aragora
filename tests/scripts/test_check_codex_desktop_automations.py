@@ -174,6 +174,35 @@ def test_audit_warns_writer_missing_preflight(tmp_path: Path) -> None:
     } == set(mod.CORE_WRITERS)
 
 
+def test_audit_treats_review_scout_as_steward(tmp_path: Path) -> None:
+    import check_codex_desktop_automations as mod
+
+    writer_prompt = (
+        "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    )
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=writer_prompt,
+            byminute=minute,
+        )
+    _write_automation(
+        tmp_path,
+        "founder-review",
+        name="Founder review",
+        prompt="Read memory and shared automation outbox, then report review risks.",
+        byminute=15,
+    )
+
+    payload = mod.build_payload(tmp_path)
+
+    assert payload["summary"] == {"active_count": 5, "error_count": 0, "warning_count": 1}
+    assert payload["issues"][0]["automation_id"] == "founder-review"
+    assert payload["issues"][0]["code"] == "missing_prompt_word_receipts"
+
+
 def test_build_payload_reports_invalid_toml_without_crashing(tmp_path: Path) -> None:
     import check_codex_desktop_automations as mod
 
