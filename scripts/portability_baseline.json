@@ -185,9 +185,6 @@
     "deploy/systemd/aragora-pr-watcher.service": [
       "venv_python"
     ],
-    "docs-site/docs/contributing/tw03-rescue-productization-status.md": [
-      "users_home"
-    ],
     "docs-site/docs/guides/connectors.md": [
       "users_home"
     ],
@@ -314,9 +311,6 @@
       "users_home"
     ],
     "docs/status/STRUCTURAL_UNJAM_PATH_claude-1843EC1A.md": [
-      "users_home"
-    ],
-    "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md": [
       "users_home"
     ],
     "docs/status/WORKTREE_VALUE_INVENTORY_STATUS.md": [
