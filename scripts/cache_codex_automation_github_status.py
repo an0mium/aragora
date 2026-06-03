@@ -87,6 +87,55 @@ GITHUB_QUEUE_PRESERVED_KEYS = (
 )
 
 
+def _nonnegative_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            parsed = int(text)
+        except ValueError:
+            return None
+        return parsed if parsed >= 0 else None
+    return None
+
+
+def _queue_count(queue: Mapping[str, Any], count_key: str, sequence_key: str) -> int | None:
+    count = _nonnegative_int(queue.get(count_key))
+    if count is not None:
+        return count
+    sequence = queue.get(sequence_key)
+    if isinstance(sequence, Sequence) and not isinstance(sequence, (str, bytes, bytearray)):
+        return len(sequence)
+    return None
+
+
+def _preserved_queue_pressure(
+    payload: Mapping[str, Any],
+    queue: Mapping[str, Any],
+) -> dict[str, bool]:
+    limits = payload.get("limits")
+    if not isinstance(limits, Mapping):
+        return {}
+
+    pressure: dict[str, bool] = {}
+    open_pr_count = _queue_count(queue, "open_codex_pr_count", "open_pr_heads")
+    max_open_prs = _nonnegative_int(limits.get("max_open_prs"))
+    if open_pr_count is not None and max_open_prs is not None:
+        pressure["open_pr_cap_reached"] = open_pr_count >= max_open_prs
+
+    open_issue_count = _nonnegative_int(queue.get("open_issue_count"))
+    max_open_issues = _nonnegative_int(limits.get("max_open_issues"))
+    if open_issue_count is not None and max_open_issues is not None:
+        pressure["open_issue_cap_reached"] = open_issue_count >= max_open_issues
+
+    return pressure
+
+
 def _has_queue_state_dirs(state_root: Path) -> bool:
     state_dir = state_root if state_root.name == ".aragora" else state_root / ".aragora"
     return (state_dir / "automation-outbox").is_dir() or (
@@ -732,6 +781,12 @@ def preserve_cached_github_queue(path: Path, payload: dict[str, Any]) -> dict[st
     for key in GITHUB_QUEUE_PRESERVED_KEYS:
         if key in previous_queue:
             merged_queue[key] = previous_queue[key]
+    recomputed_pressure = _preserved_queue_pressure(payload, merged_queue)
+    if recomputed_pressure:
+        pressure = merged_queue.get("pressure")
+        merged_pressure = dict(pressure) if isinstance(pressure, Mapping) else {}
+        merged_pressure.update(recomputed_pressure)
+        merged_queue["pressure"] = merged_pressure
     merged_queue["open_pr_heads_preserved_from_cache"] = True
     cached_at = previous_queue.get("open_pr_heads_cached_at") or previous.get("generated_at")
     if isinstance(cached_at, str) and cached_at:

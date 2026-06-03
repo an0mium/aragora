@@ -205,6 +205,54 @@ def test_preserves_cached_open_pr_heads_when_github_queue_unavailable(tmp_path: 
     }
 
 
+def test_preserve_cached_github_queue_recomputes_preserved_pressure(
+    tmp_path: Path,
+) -> None:
+    cache_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-06-03T23:04:45Z",
+                "github_queue": {
+                    "available": True,
+                    "open_codex_pr_count": 5,
+                    "open_issue_count": 16,
+                    "open_pr_heads": [
+                        "codex/a",
+                        "codex/b",
+                        "codex/c",
+                        "codex/d",
+                        "codex/e",
+                    ],
+                    "pressure": {
+                        "open_pr_cap_reached": True,
+                        "open_issue_cap_reached": True,
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = {
+        "github_queue": {
+            "available": False,
+            "reason": "connectivity_failed",
+        },
+        "limits": {
+            "max_open_issues": 16,
+            "max_open_prs": 12,
+        },
+    }
+
+    preserved = mod.preserve_cached_github_queue(cache_path, payload)
+
+    assert preserved["github_queue"]["pressure"] == {
+        "open_issue_cap_reached": True,
+        "open_pr_cap_reached": False,
+    }
+
+
 def test_preserve_cached_github_queue_leaves_available_queue_untouched(tmp_path: Path) -> None:
     cache_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
     cache_path.parent.mkdir(parents=True)
