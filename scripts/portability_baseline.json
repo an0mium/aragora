@@ -1,24 +1,6 @@
 {
   "_comment": "Baseline of pre-existing portability violations. The guard (scripts/check_portability.py) only fails on violations NOT listed here. Prune entries as cleanup PRs remove the underlying paths; do not add new entries by hand. Regenerate with --update-baseline.",
   "files": {
-    ".github/ISSUE_TEMPLATE/config.yml": [
-      "legacy_slug"
-    ],
-    ".github/actions/aragora-review/README.md": [
-      "legacy_slug"
-    ],
-    ".github/workflows/nightly-integration.yml": [
-      "legacy_slug"
-    ],
-    ".github/workflows/publish-aragora-debate.yml": [
-      "legacy_slug"
-    ],
-    ".github/workflows/templates/aragora-gauntlet-template.yml": [
-      "legacy_slug"
-    ],
-    ".github/workflows/templates/aragora-review-template.yml": [
-      "legacy_slug"
-    ],
     ".gt/config.json": [
       "users_home"
     ],
@@ -185,9 +167,6 @@
     ],
     "deploy/self-hosted/docker-compose.yml": [
       "legacy_slug"
-    ],
-    "deploy/systemd/aragora-pr-watcher.service": [
-      "venv_python"
     ],
     "docs-site/docs/contributing/tw03-rescue-productization-status.md": [
       "users_home"
@@ -617,12 +596,6 @@
     "scripts/inspect_cold_review_surface.py": [
       "legacy_slug"
     ],
-    "scripts/install_boss_loop_launchd.sh": [
-      "venv_python"
-    ],
-    "scripts/install_merge_arbiter_launchd.sh": [
-      "venv_python"
-    ],
     "scripts/pr_check_followup.py": [
       "users_home"
     ],
@@ -635,14 +608,8 @@
     "scripts/root_guarded_queue.py": [
       "users_home"
     ],
-    "scripts/run_boss_cycle.sh": [
-      "venv_python"
-    ],
     "scripts/run_codex_automation_publisher.sh": [
       "users_home"
-    ],
-    "scripts/run_codex_insights_digest.sh": [
-      "venv_python"
     ],
     "scripts/run_offline_golden_path.sh": [
       "venv_python"
@@ -716,6 +683,9 @@
     ],
     "tests/scripts/test_identify_lane_owner.py": [
       "users_home"
+    ],
+    "tests/scripts/test_launchd_installers.py": [
+      "venv_python"
     ],
     "tests/scripts/test_list_active_agent_sessions.py": [
       "users_home"
