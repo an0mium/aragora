@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **106**
-- Total top-level invocations (including aliases): **107**
+- Canonical top-level commands: **108**
+- Total top-level invocations (including aliases): **109**
 
 ## Installation
 
@@ -73,6 +73,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `crux-followup` | - | Generate DIC-17 follow-up proposals from a CruxSet (flag-gated filing) | - |
 | `crux-garden` | - | DIC-28: proactive re-examination of cruxes for staleness and contradictions | - |
 | `cruxset` | - | AGT-01: inspect CruxSet payloads emitted by the debate path | `show` |
+| `decay-monitor` | - | DIC-20: report epistemic decay for proof-carrying code units | - |
 | `decide` | - | Run full decision pipeline: debate → plan → execute | - |
 | `demo` | - | Run a self-contained adversarial debate demo (no API keys needed) | - |
 | `deploy` | - | Deployment validation and configuration | `secrets`, `start`, `status`, `stop`, `validate` |
@@ -80,6 +81,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `document-audit` | - | Audit documents using multi-agent analysis | `report`, `scan`, `status`, `upload` |
 | `documents` | - | Document management (upload, list, show) | `list`, `show`, `upload` |
 | `elo` | - | View ELO ratings, leaderboards, and match history | - |
+| `epistemic-check` | - | DIC-14: verify executable claim manifests and emit a status report | - |
 | `essay` | - | Refine raw ideas into a polished essay or score an existing draft | `refine`, `score` |
 | `explain` | - | Explain a debate decision (evidence chains, vote pivots, counterfactuals) | - |
 | `export` | - | Export debate artifacts | - |
