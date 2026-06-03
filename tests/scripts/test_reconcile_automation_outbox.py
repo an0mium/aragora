@@ -161,7 +161,7 @@ def test_json_summary_only_omits_action_details(
         encoding="utf-8",
     )
 
-    rc = mod.main(["--repo", str(tmp_path), "--json", "--summary-only"])
+    rc = mod.main(["--repo", str(tmp_path), "--json", "--summary-only", "--examples", "1"])
 
     payload = json.loads(capsys.readouterr().out)
     assert rc == 0
@@ -169,6 +169,17 @@ def test_json_summary_only_omits_action_details(
     assert payload["kept"] == 0
     assert payload["action_count"] == 1
     assert payload["actions_omitted"] is True
+    assert payload["archive_examples_limit"] == 1
+    assert payload["archive_examples"] == [
+        {
+            "branch": "codex/summary-only",
+            "idempotency_key": key,
+            "outbox_file": f"{key}.json",
+            "path": str(outbox_dir / f"{key}.json"),
+            "reason": "matching receipt exists",
+            "synthetic_receipt": False,
+        }
+    ]
     assert payload["reason_counts"] == {"matching receipt exists": 1}
     assert "actions" not in payload
 

@@ -46,6 +46,7 @@ UTC = timezone.utc
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
+DEFAULT_SUMMARY_ARCHIVE_EXAMPLES = 0
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -66,6 +67,41 @@ def _resolve_outbox_file_filter(outbox_dir: Path, value: Path) -> Path:
     if expanded.is_absolute():
         return expanded.resolve()
     return (outbox_dir / expanded).resolve()
+
+
+def _archive_action_examples(
+    actions: Sequence[Mapping[str, Any]],
+    *,
+    limit: int,
+) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+
+    examples: list[dict[str, Any]] = []
+    for action in actions:
+        if action.get("decision") != "archive":
+            continue
+        path_text = str(action.get("path") or "").strip()
+        outbox_file = Path(path_text).name if path_text else ""
+        example: dict[str, Any] = {
+            "branch": str(action.get("branch") or ""),
+            "idempotency_key": Path(outbox_file).stem if outbox_file else "",
+            "outbox_file": outbox_file,
+            "path": path_text,
+            "reason": str(action.get("reason") or ""),
+            "synthetic_receipt": bool(action.get("synthetic_receipt")),
+        }
+        superseded_by = action.get("superseded_by")
+        if isinstance(superseded_by, Mapping):
+            example["superseded_by"] = {
+                str(key): str(value)
+                for key, value in superseded_by.items()
+                if key in {"branch", "head", "idempotency_key"}
+            }
+        examples.append(example)
+        if len(examples) >= limit:
+            break
+    return examples
 
 
 def _state_default_path(state_root: Path, default_relative: Path) -> Path:
@@ -650,6 +686,15 @@ def main(argv: list[str] | None = None) -> int:
         help="With --json, omit per-handoff action details and print only compact counts.",
     )
     parser.add_argument(
+        "--examples",
+        type=int,
+        default=DEFAULT_SUMMARY_ARCHIVE_EXAMPLES,
+        help=(
+            "Archive examples to include with --json --summary-only. Defaults to 0 "
+            "to preserve compact output."
+        ),
+    )
+    parser.add_argument(
         "--write-report",
         action="store_true",
         help=(
@@ -1144,6 +1189,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.summary_only:
             payload["action_count"] = len(actions)
             payload["actions_omitted"] = True
+            payload["archive_examples"] = _archive_action_examples(
+                actions,
+                limit=args.examples,
+            )
+            payload["archive_examples_limit"] = args.examples
             payload.pop("actions", None)
         print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
