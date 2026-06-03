@@ -143,8 +143,8 @@ _CONTRADICTING_ENTRIES = [
     BeliefEntry("b2", "rate-limiter", 0.04, "fail"),
 ]
 _WARNING_ENTRIES = [
-    BeliefEntry("b3", "auth", 0.20, "pass", evidence_paths=("docs/auth.md",)),
-    BeliefEntry("b4", "auth", 0.80, "fail", evidence_paths=("docs/auth.md",)),
+    BeliefEntry("b3", "auth-pass", 0.40, "pass", evidence_paths=("docs/auth.md",)),
+    BeliefEntry("b4", "auth-fail", 0.60, "fail", evidence_paths=("docs/auth.md",)),
 ]
 
 
