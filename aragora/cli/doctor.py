@@ -202,7 +202,7 @@ def check_api_keys(validate_live: bool = False) -> list[HealthCheck]:
         env_label = "/".join(provider.checked_env_vars)
         if provider.configured:
             status = "configured"
-            ok = True
+            ok: bool | None = True
             if validate_live:
                 from aragora.cli.api_keys import get_supported_provider_names, validate_provider_key
 
@@ -210,12 +210,21 @@ def check_api_keys(validate_live: bool = False) -> list[HealthCheck]:
                 if validation_provider in set(get_supported_provider_names()):
                     validation_report = validate_provider_key(validation_provider)
                     status = f"{status}; live {validation_report.remote_status}"
-                    if not validation_report.is_valid:
+                    if getattr(validation_report, "unverified", False):
+                        # Key is present and format-valid but could not be
+                        # verified live. Do NOT render as a green pass — report
+                        # it as optional/unverified so a fabricated or unusable
+                        # key is never counted as "ready".
+                        status = f"{status} (present, unverified)"
+                        ok = None
+                    elif not validation_report.is_valid:
                         status = f"{status}: {validation_report.message}"
                         invalid_providers.append(provider.provider)
                         ok = False
                 else:
-                    status = f"{status}; live skipped"
+                    # No live validator for this provider: present but unverified.
+                    status = f"{status}; live skipped (present, unverified)"
+                    ok = None
             checks.append((env_label, status, ok))
         else:
             checks.append((env_label, "not set", None))

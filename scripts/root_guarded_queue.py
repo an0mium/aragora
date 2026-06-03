@@ -214,7 +214,7 @@ def _next_prompt(
         )
     return (
         "Check your mailbox for steering messages first, read-only/no receipt if possible. "
-        "Start from live truth in /Users/armand/Development/aragora. Do not trust prior "
+        f"Start from live truth in {_repo_root(Path.cwd())}. Do not trust prior "
         f"transcript state.\n\n{body}\n\n{INCREMENTAL_PROGRESS_SENTENCE} "
         f"{META_AUTOMATION_SENTENCE}"
     )

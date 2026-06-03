@@ -216,10 +216,18 @@ Examples:
     _add_calibration_parser(subparsers)
     _add_cruxset_parser(subparsers)
     _add_crux_followup_parser(subparsers)
+    _add_proof_units_parser(subparsers)  # DIC-19 / #6030
     _add_genealogy_parser(subparsers)  # DIC-24 / #6218
+    _add_coherence_scan_parser(subparsers)  # DIC-26 / #6220
+    _add_truth_map_parser(subparsers)  # DIC-18 / #6028
+    _add_decay_monitor_parser(subparsers)  # DIC-20 / #6031
+    _add_epistemic_check_parser(subparsers)  # DIC-14 / #6024
 
     # DIC-27: operator crux arbitration surface
     _add_crux_arbitrate_parser(subparsers)
+
+    # DIC-28: proactive crux gardening operator surface
+    _add_crux_garden_parser(subparsers)
 
     return parser
 
@@ -298,6 +306,13 @@ def _add_metrics_parser(subparsers) -> None:
 
 def _add_work_parser(subparsers) -> None:
     """Add the read-only Aragora-native work board commands."""
+
+    def _nonnegative_int(raw: str) -> int:
+        value = int(raw)
+        if value < 0:
+            raise argparse.ArgumentTypeError("must be >= 0")
+        return value
+
     work = subparsers.add_parser(
         "work",
         help="Inspect the read-only Aragora work board",
@@ -322,6 +337,14 @@ def _add_work_parser(subparsers) -> None:
         p.add_argument("--repo", default=".", help="Repository root to inspect (default: cwd)")
         p.add_argument("--json", action="store_true", help="Emit stable JSON")
 
+    def add_limit(p) -> None:
+        p.add_argument(
+            "--limit",
+            type=_nonnegative_int,
+            default=None,
+            help="Maximum number of records to emit while preserving the total count",
+        )
+
     list_cmd = work_sub.add_parser("list", help="List normalized work items")
     add_common(list_cmd)
     list_cmd.add_argument(
@@ -330,6 +353,7 @@ def _add_work_parser(subparsers) -> None:
         default="current",
         help="current excludes terminal/historical noise; all includes context records",
     )
+    add_limit(list_cmd)
     list_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_list"))
 
     show_cmd = work_sub.add_parser("show", help="Show one normalized work item")
@@ -347,6 +371,7 @@ def _add_work_parser(subparsers) -> None:
         help="Rank current work into read-only actionable recommendations",
     )
     add_common(robot_cmd)
+    add_limit(robot_cmd)
     robot_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_robot"))
 
 
@@ -591,6 +616,51 @@ def _add_cruxset_parser(subparsers) -> None:
     show.set_defaults(func=_lazy("aragora.cli.commands.agt_cruxset", "cmd_cruxset_show"))
 
 
+def _add_proof_units_parser(subparsers) -> None:
+    """Add the 'proof-units' subcommand for DIC-19 constraint graph surface.
+
+    Flag-gated: ARAGORA_PROOF_UNIT_SCAN_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "proof-units",
+        help="DIC-19: inspect proof-carrying code unit constraint graph",
+        description=(
+            "Read-only operator surface for the proof-carrying code unit constraint graph. "
+            "Requires ARAGORA_PROOF_UNIT_SCAN_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--proof-units-dir",
+        dest="proof_units_dir",
+        default=None,
+        help="Directory containing proof-unit YAML manifests (default: docs/status/proof_units)",
+    )
+    p.add_argument(
+        "--impact-of",
+        dest="impact_of",
+        nargs="+",
+        metavar="CLAIM_ID",
+        default=None,
+        help="Show units impacted by these claim IDs",
+    )
+    p.add_argument(
+        "--multi-hop",
+        dest="multi_hop",
+        action="store_true",
+        default=False,
+        help="Include transitively impacted units via dependency edges",
+    )
+    p.add_argument(
+        "--json",
+        dest="json",
+        action="store_true",
+        default=False,
+        help="Emit JSON output",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic19_proof_units", "cmd_proof_units"))
+
+
 def _add_genealogy_parser(subparsers) -> None:
     """Add the 'genealogy' subcommand group (DIC-24 / #6218).
 
@@ -616,6 +686,104 @@ def _add_genealogy_parser(subparsers) -> None:
     )
     show.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     show.set_defaults(func=_lazy("aragora.cli.commands.dic24_genealogy", "cmd_genealogy_show"))
+
+
+def _add_coherence_scan_parser(subparsers) -> None:
+    """Add the 'coherence-scan' subcommand (DIC-26 / #6220).
+
+    Flag-gated: ARAGORA_COHERENCE_MONITOR_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "coherence-scan",
+        help="DIC-26: scan a belief ledger for contradictions, evidence conflicts, and confidence rot",
+        description=(
+            "Read-only operator surface for the belief coherence monitor. "
+            "Requires ARAGORA_COHERENCE_MONITOR_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        metavar="JSON",
+        help="Path to a JSON file containing a list of BeliefEntry dicts",
+    )
+    p.add_argument(
+        "--contradiction-gap",
+        dest="contradiction_gap",
+        type=float,
+        default=0.5,
+        metavar="FLOAT",
+        help="Confidence gap threshold for contradiction detection (default: 0.5)",
+    )
+    p.add_argument(
+        "--min-confidence",
+        dest="min_confidence",
+        type=float,
+        default=0.3,
+        metavar="FLOAT",
+        help="Minimum confidence threshold for rot detection (default: 0.3)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic26_coherence", "cmd_coherence_scan"))
+
+
+def _add_truth_map_parser(subparsers) -> None:
+    """Add the 'truth-map' subcommand (DIC-18 / #6028).
+
+    Flag-gated: ARAGORA_TRUTH_MAP_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "truth-map",
+        help="DIC-18: read-only organizational truth map of claim and crux status",
+        description=(
+            "Reads DIC-13 claim manifests, verifies them (dry-run), and emits "
+            "a read-only report of claim and crux health. "
+            "Requires ARAGORA_TRUTH_MAP_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--claims-dir",
+        dest="claims_dir",
+        default="docs/status/claims",
+        metavar="PATH",
+        help="Directory of *.yaml claim manifests (default: docs/status/claims)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic18_truth_map", "cmd_truth_map"))
+
+
+def _add_decay_monitor_parser(subparsers) -> None:
+    """Add the 'decay-monitor' subcommand (DIC-20 / #6031).
+
+    Flag-gated: ARAGORA_DECAY_MONITOR_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "decay-monitor",
+        help="DIC-20: report epistemic decay for proof-carrying code units",
+        description=(
+            "Read-only decay assessment over proof-carrying code units. "
+            "Requires ARAGORA_DECAY_MONITOR_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--units-dir",
+        dest="units_dir",
+        default=".aragora_proof_units",
+        metavar="DIR",
+        help="Directory of proof-unit YAML manifests (default: .aragora_proof_units)",
+    )
+    p.add_argument(
+        "--claim-results",
+        dest="claim_results",
+        default=None,
+        metavar="JSONL",
+        help="Optional JSONL/JSON file of ClaimResult dicts (DIC-14 verifier output)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic20_decay_monitor", "cmd_decay_monitor"))
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:
@@ -685,6 +853,89 @@ def _add_crux_arbitrate_parser(subparsers) -> None:
         help="Emit output as JSON instead of human-readable text",
     )
     p.set_defaults(func=_lazy("aragora.cli.commands.crux_arbitrate", "cmd_crux_arbitrate"))
+
+
+def _add_crux_garden_parser(subparsers) -> None:
+    """DIC-28: proactive crux gardening operator surface (issue #6222).
+
+    Flag-gated: ARAGORA_CRUX_GARDENING_ENABLED. Live queue effect: none.
+    """
+    p = subparsers.add_parser(
+        "crux-garden",
+        help="DIC-28: proactive re-examination of cruxes for staleness and contradictions",
+        description=(
+            "Load a JSONL or JSON-array of CruxReceipt dicts and run a gardening pass. "
+            "Report-only; no debates started, no issues created. "
+            "Requires ARAGORA_CRUX_GARDENING_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--input",
+        required=True,
+        help="Path to a JSONL or JSON-array file of CruxReceipt dicts.",
+    )
+    p.add_argument("--json", action="store_true", help="Emit report as JSON.")
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic28_crux_garden", "cmd_crux_garden"))
+
+
+def _add_epistemic_check_parser(subparsers) -> None:
+    """Add the 'epistemic-check' subcommand for DIC-14 claim verification."""
+    p = subparsers.add_parser(
+        "epistemic-check",
+        help="DIC-14: verify executable claim manifests and emit a status report",
+        description=(
+            "Load *.yaml claim manifests from docs/status/claims/ (or a path you\n"
+            "supply) and verify each claim via the DIC-14 ClaimVerifier.  Outputs\n"
+            "a human-readable table or JSON.  No queue mutation, no issue creation.\n\n"
+            "Read-only by default: manifest-provided verification commands are NOT\n"
+            "executed unless you pass --execute (command-kind claims are reported\n"
+            "UNSUPPORTED). Only pass --execute for manifests you trust.\n\n"
+            "Requires ARAGORA_EPISTEMIC_CLAIMS_ENABLED=1 to execute; otherwise exits\n"
+            "0 with an informational message."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        metavar="PATH",
+        help=("YAML manifest file or directory of manifests. Defaults to docs/status/claims/"),
+    )
+    p.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Emit machine-readable JSON (schema_version, results, summary)",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip command execution; return UNSUPPORTED for command-kind claims. "
+            "This is already the DEFAULT behavior — the flag is accepted for "
+            "explicitness and backward compatibility."
+        ),
+    )
+    p.add_argument(
+        "--execute",
+        action="store_true",
+        default=False,
+        help=(
+            "Opt in to running manifest-provided verification commands as "
+            "subprocesses. Off by default: command-kind claims are skipped "
+            "(reported UNSUPPORTED) unless this flag is set. Only pass --execute "
+            "for manifests you trust, since commands run with your shell privileges."
+        ),
+    )
+    p.add_argument(
+        "--repo-root",
+        default=None,
+        metavar="DIR",
+        help="Repository root for resolving relative evidence paths (defaults to cwd)",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.epistemic_check", "cmd_epistemic_check"))
 
 
 def _add_ask_parser(subparsers) -> None:
@@ -1243,7 +1494,16 @@ def _add_doctor_parser(subparsers) -> None:
 def _add_validate_parser(subparsers) -> None:
     """Add the 'validate' subcommand parser."""
     validate_parser = subparsers.add_parser(
-        "validate", help="Validate API keys by making test calls"
+        "validate",
+        help="Run a full health check, including live API-key validation",
+        description=(
+            "Run Aragora's health check (Environment, Packages, API Keys, "
+            "Storage, and Server sections) with live API-key validation enabled. "
+            "Configured provider keys are probed against the provider where "
+            "possible; a key that cannot be verified is reported as present but "
+            "unverified rather than as a passing check. Exits 0 only when all "
+            "checks pass."
+        ),
     )
     validate_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_validate"))
 
@@ -2004,6 +2264,48 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Output as JSON",
     )
     evidence_lint_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
+
+    lint_comment_parser = queue_subparsers.add_parser(
+        "lint-comment",
+        help="Dry-run whether a proposed reviewer comment will count before posting",
+        description=(
+            "Lint a proposed PR reviewer comment against the same current-head evidence "
+            "parsers used by review-queue merge-packet. This is read-only."
+        ),
+    )
+    lint_comment_parser.add_argument("--pr", required=True, help="PR number the comment targets")
+    lint_comment_parser.add_argument(
+        "--head",
+        "--head-sha",
+        dest="head_sha",
+        required=True,
+        help="Exact PR head SHA the proposed comment must cite.",
+    )
+    lint_comment_parser.add_argument(
+        "--head-committed-at",
+        default="",
+        help="Optional current head committedDate for stricter current-head grounding.",
+    )
+    lint_body_group = lint_comment_parser.add_mutually_exclusive_group(required=True)
+    lint_body_group.add_argument("--body", help="Proposed reviewer comment body to lint")
+    lint_body_group.add_argument(
+        "--body-file",
+        help="Read proposed reviewer comment body from file",
+    )
+    lint_comment_parser.add_argument(
+        "--author",
+        default="local",
+        help="GitHub author login to simulate for the proposed comment.",
+    )
+    lint_comment_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    lint_comment_parser.set_defaults(
         func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
     )
 

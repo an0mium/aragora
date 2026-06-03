@@ -1476,6 +1476,61 @@ def test_operator_snapshot_includes_broker_runs(
     assert payload["broker_runs"][0]["run_id"] == "bridge-next-work"
 
 
+def test_operator_snapshot_current_scope_filters_terminal_broker_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(
+        mod,
+        "_load_broker_run_summaries",
+        lambda: [
+            {"run_id": "completed-run", "status": "completed"},
+            {"run_id": "failed-run", "status": "failed"},
+            {"run_id": "running-run", "status": "running"},
+            {"run_id": "human-run", "status": "awaiting_human"},
+        ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+            **({"records": []} if include_records else {}),
+        },
+    )
+    monkeypatch.setattr(mod, "_collect_pending_steering_messages", lambda _recipient: {"count": 0})
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}},
+    )
+
+    assert (
+        mod.cmd_operator_snapshot(
+            argparse.Namespace(
+                json=True,
+                summary_only=False,
+                include_historical=False,
+                scope="current",
+            )
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert [run["run_id"] for run in payload["broker_runs"]] == ["running-run", "human-run"]
+    assert payload["summary"]["active_broker_runs"] == 2
+
+
 def test_load_broker_run_summaries_reads_json_without_package_import(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

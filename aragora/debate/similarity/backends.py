@@ -6,6 +6,8 @@ Provides a 3-tier fallback for similarity computation:
 3. Jaccard (always available, zero dependencies)
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import threading
@@ -572,6 +574,8 @@ class SentenceTransformerBackend(SimilarityBackend):
         The model outputs scores for [contradiction, entailment, neutral].
         We check if contradiction has the highest score.
         """
+        if self.nli_model is None:
+            return super().is_contradictory(text1, text2)
         try:
             # CrossEncoder expects list of (text1, text2) pairs
             scores = self.nli_model.predict([(text1, text2)])

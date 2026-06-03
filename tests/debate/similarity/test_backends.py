@@ -13,6 +13,8 @@ Covers:
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import threading
 from collections import OrderedDict
 from typing import Any
@@ -1267,3 +1269,31 @@ class TestIntegrationJaccard:
     def test_compute_batch_similarity_two_element(self, backend):
         result = backend.compute_batch_similarity(["apple", "banana"])
         assert result == pytest.approx(0.0)
+
+
+class TestNumpyAbsentImport:
+    """Importing backends must not crash when numpy is unavailable.
+
+    Any ``aragora.debate`` import (boss-loop, swarm) previously died at
+    class-definition time because ``SentenceTransformerBackend._get_embedding``
+    used a runtime ``np.ndarray`` annotation while ``np`` was ``None``.
+    Deferred annotation evaluation lets the module import cleanly and degrade to
+    the TF-IDF / Jaccard backends.
+    """
+
+    def test_import_succeeds_without_numpy(self):
+        code = (
+            "import sys; sys.modules['numpy'] = None;"
+            "import aragora.debate.similarity.backends as b;"
+            "assert b.HAS_NUMPY is False;"
+            "assert b.SentenceTransformerBackend.__name__ == 'SentenceTransformerBackend';"
+            "print('IMPORT_OK')"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert "IMPORT_OK" in proc.stdout

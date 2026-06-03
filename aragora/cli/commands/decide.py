@@ -224,16 +224,9 @@ async def run_decide(
             if verbose:
                 print("[decide] Template system not available")
 
+    spec_file = kwargs.pop("spec_file", None)
+
     # Apply mode overrides
-    #
-    # NOTE: the ``--mode`` choices advertised by the parser include both
-    # operational modes (architect/coder/reviewer/...) that live in the
-    # ``ModeRegistry`` AND advanced modes (redteam/deep_audit/prober) that are
-    # implemented as separate orchestration subsystems (RedTeamMode,
-    # DeepAuditOrchestrator, CapabilityProber) and are NOT registered there.
-    # ``decide`` does not yet wire those advanced subsystems into the debate
-    # path, so an unresolved mode must degrade gracefully with a clean notice
-    # rather than crashing the command with a raw KeyError traceback.
     _ADVANCED_MODES = {"redteam", "deep_audit", "prober"}
     mode_config: dict[str, Any] = {}
     if mode and mode != "standard":
@@ -243,7 +236,22 @@ async def run_decide(
 
             load_builtins()
             mode_def = ModeRegistry.get(mode)
-            if mode_def:
+            if mode_def is None:
+                if spec_file:
+                    if mode in _ADVANCED_MODES:
+                        print(
+                            f"[decide] Advanced mode '{mode}' is not yet wired into "
+                            "the decide pipeline; proceeding with standard deliberation."
+                        )
+                    else:
+                        available = ", ".join(ModeRegistry.list_all())
+                        print(
+                            f"[decide] Mode '{mode}' not found "
+                            f"(available: {available}); proceeding with standard deliberation."
+                        )
+                else:
+                    ModeRegistry.get_or_raise(mode)
+            else:
                 mode_config = {  # noqa: F841 — stored for future mode injection
                     "mode": mode,
                     "mode_definition": mode_def,
@@ -251,19 +259,6 @@ async def run_decide(
                 }
                 if verbose:
                     print(f"[decide] Using mode: {mode}")
-            elif mode in _ADVANCED_MODES:
-                # Advertised advanced mode without a registry entry — the
-                # dedicated subsystem is not yet integrated into `decide`.
-                print(
-                    f"[decide] Advanced mode '{mode}' is not yet wired into "
-                    "the decide pipeline; proceeding with standard deliberation."
-                )
-            else:
-                available = ", ".join(ModeRegistry.list_all())
-                print(
-                    f"[decide] Mode '{mode}' not found "
-                    f"(available: {available}); proceeding with standard deliberation."
-                )
         except ImportError:
             if verbose:
                 print(f"[decide] Mode system not available, ignoring --mode {mode}")
@@ -271,7 +266,6 @@ async def run_decide(
     approval_mode = ApprovalMode.NEVER if auto_approve else ApprovalMode.RISK_BASED
 
     # Spec-first path: skip debate and create plan from spec file
-    spec_file = kwargs.pop("spec_file", None)
     if spec_file:
         spec_path = _validate_spec_file(spec_file)
         with spec_path.open() as f:

@@ -188,12 +188,15 @@ def main():
     """Process all knowledge files."""
     import subprocess
 
+    repo_root = os.environ.get("ARAGORA_REPO_ROOT") or os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))
+    )
     # Find all files with except Exception
     result = subprocess.run(
         ["grep", "-rl", "except Exception", "aragora/knowledge/", "--include=*.py"],
         capture_output=True,
         text=True,
-        cwd="/Users/armand/Development/aragora",
+        cwd=repo_root,
     )
 
     files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
@@ -202,7 +205,7 @@ def main():
     total_files = 0
 
     for filepath in sorted(files):
-        full_path = os.path.join("/Users/armand/Development/aragora", filepath)
+        full_path = os.path.join(repo_root, filepath)
         count = process_file(full_path)
         if count > 0:
             total_files += 1

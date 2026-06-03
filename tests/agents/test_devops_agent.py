@@ -33,7 +33,7 @@ class TestDevOpsAgentConfig:
 
     def test_from_env(self):
         env = {
-            "ARAGORA_DEVOPS_REPO": "an0mium/aragora",
+            "ARAGORA_DEVOPS_REPO": "synaptent/aragora",
             "ARAGORA_DEVOPS_POLL_INTERVAL": "600",
             "ARAGORA_DEVOPS_AGENTS": "anthropic-api",
             "ARAGORA_DEVOPS_ALLOW_DESTRUCTIVE": "true",
@@ -42,7 +42,7 @@ class TestDevOpsAgentConfig:
         }
         with patch.dict(os.environ, env, clear=False):
             config = DevOpsAgentConfig.from_env()
-        assert config.repo == "an0mium/aragora"
+        assert config.repo == "synaptent/aragora"
         assert config.poll_interval == 600
         assert config.review_agents == "anthropic-api"
         assert config.allow_destructive is True

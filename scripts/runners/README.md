@@ -5,23 +5,27 @@ Per-host daily monitoring for Mac self-hosted runners. Addresses issue #6478 fol
 ## Files
 
 - `mac_timewait_check.sh` — bash script that counts TIME_WAIT TCP entries and writes a structured log line. Alerts via a flag file when count exceeds threshold.
-- `com.aragora.runner-health.plist` — LaunchAgent that runs the check daily at 06:00 local. Writes to `~/Library/Logs/aragora-runner-health.log`.
+- `com.aragora.runner-health.plist.template` — LaunchAgent template with `__RUNNER_HEALTH_SCRIPT__` / `__LOG_DIR__` placeholders (no hardcoded home directory). Runs the check daily at 06:00 local; writes to `~/Library/Logs/aragora-runner-health.log`.
+- `generate_runner_health_plist.py` — renders the template into a concrete plist, filling machine-specific paths from `--script` / `--log-dir` (or `RUNNER_HEALTH_SCRIPT` / `RUNNER_HEALTH_LOG_DIR`).
 
 ## Installation (per Mac runner)
 
 ```bash
 # One-time on each Mac (mac-studio, macbook-m1-16gb, macbook-intel-64gb):
 
-# 1. Copy the check script + plist
+# 1. Copy the check script
 mkdir -p ~/actions-runner/runner-health
 scp scripts/runners/mac_timewait_check.sh armand@<magicdns-host>:~/actions-runner/runner-health/
-scp scripts/runners/com.aragora.runner-health.plist armand@<magicdns-host>:~/Library/LaunchAgents/
 ssh armand@<magicdns-host> "chmod +x ~/actions-runner/runner-health/mac_timewait_check.sh"
 
-# 2. Load the LaunchAgent
+# 2. Render the plist for this host (no hardcoded home dir in the repo), then copy it
+python3 scripts/runners/generate_runner_health_plist.py --output /tmp/com.aragora.runner-health.plist
+scp /tmp/com.aragora.runner-health.plist armand@<magicdns-host>:~/Library/LaunchAgents/
+
+# 3. Load the LaunchAgent
 ssh armand@<magicdns-host> "launchctl load ~/Library/LaunchAgents/com.aragora.runner-health.plist"
 
-# 3. Verify first run produced a log line
+# 4. Verify first run produced a log line
 ssh armand@<magicdns-host> "tail -1 ~/Library/Logs/aragora-runner-health.log"
 # Expected: ts=... host=... uptime=... tcp_total=... timewait=... established=... threshold=5000
 ```

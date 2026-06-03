@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import scripts.settle_one_pr as settle_one_pr
@@ -62,6 +63,52 @@ def _packet(*entries: dict, admin_order: list[int] | None = None) -> dict:
             entry["pr_number"] for entry in entries if entry["requires_human_risk_settlement"]
         ],
     }
+
+
+def test_run_reports_timeout_and_terminates_process_group(monkeypatch) -> None:
+    killed: list[tuple[int, int]] = []
+
+    class SlowProc:
+        pid = 4242
+        returncode = None
+
+        def __init__(self) -> None:
+            self.communicate_calls = 0
+
+        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
+            self.communicate_calls += 1
+            if self.communicate_calls == 1:
+                raise subprocess.TimeoutExpired(
+                    cmd=["slow"],
+                    timeout=timeout if timeout is not None else 0.0,
+                )
+            self.returncode = -9
+            return "", ""
+
+        def kill(self) -> None:
+            self.returncode = -9
+
+    proc = SlowProc()
+
+    def fake_popen(*args, **kwargs):
+        assert args[0] == ["slow"]
+        assert kwargs["start_new_session"] is True
+        return proc
+
+    monkeypatch.setattr(settle_one_pr.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(
+        settle_one_pr.os,
+        "killpg",
+        lambda pid, sig: killed.append((pid, sig)),
+    )
+
+    result = settle_one_pr._run(["slow"], cwd=Path.cwd(), timeout=7)
+
+    assert result["returncode"] == 124
+    assert result["timed_out"] is True
+    assert result["timeout_seconds"] == 7
+    assert "timed out after 7s" in result["stderr"]
+    assert killed == [(4242, settle_one_pr.signal.SIGKILL)]
 
 
 def test_select_candidate_prefers_admin_order() -> None:
@@ -500,6 +547,46 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
     assert targeted[0][targeted[0].index("--pr") + 1] == "7449"
 
 
+def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_times_out(
+    monkeypatch,
+) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            if "--limit" in args:
+                return None, {
+                    "command": "bulk-packet",
+                    "returncode": 124,
+                    "stderr": "command timed out after 90s and was terminated",
+                    "timed_out": True,
+                }
+            pr_number = int(args[args.index("--pr") + 1])
+            return _packet(_entry(pr_number)), {"command": "packet", "returncode": 0}
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {
+                        "number": 7449,
+                        "title": "fix(settlement): exclude unsafe PR surfaces",
+                        "headRefName": "codex/settle-one-policy-exclusions-20260523",
+                    },
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert [entry["pr_number"] for entry in packet["entries"]] == [7449]
+    assert packet["load_warnings"] == [
+        "bulk merge-packet failed; using fallback: command timed out after 90s and was terminated"
+    ]
+
+
 def test_broad_packet_lazy_loader_returns_empty_when_bulk_and_light_metadata_fail(
     monkeypatch,
 ) -> None:
@@ -555,6 +642,46 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
     assert packet["entries"] == []
     assert packet["load_warnings"] == ["bulk merge-packet failed; using fallback: HTTP 504"]
     assert packet["load_blockers"] == ["merge-packet for #7449 failed: GraphQL timeout"]
+
+
+def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
+    monkeypatch,
+) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            if "--limit" in args:
+                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
+            return None, {
+                "command": "packet",
+                "returncode": 124,
+                "stderr": "command timed out after 90s and was terminated",
+                "timed_out": True,
+            }
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {
+                        "number": 7449,
+                        "title": "fix(settlement): exclude unsafe PR surfaces",
+                        "headRefName": "codex/settle-one-policy-exclusions-20260523",
+                    },
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert packet["entries"] == []
+    assert packet["load_warnings"] == ["bulk merge-packet failed; using fallback: HTTP 504"]
+    assert packet["load_blockers"] == [
+        "merge-packet for #7449 failed: command timed out after 90s and was terminated"
+    ]
 
 
 def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) -> None:

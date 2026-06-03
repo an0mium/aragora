@@ -13,7 +13,7 @@ branches whose head_sha changed since the last run get reclassified.
 
 Usage:
     python3 scripts/audit_branch_backlog_parallel.py \\
-        --repo /Users/armand/Development/aragora \\
+        --repo "$(git rev-parse --show-toplevel)" \\
         --base origin/main \\
         --prefix codex/ \\
         [--workers 8] \\

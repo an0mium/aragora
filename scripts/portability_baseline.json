@@ -1,0 +1,486 @@
+{
+  "_comment": "Baseline of pre-existing portability violations. The guard (scripts/check_portability.py) only fails on violations NOT listed here. Prune entries as cleanup PRs remove the underlying paths; do not add new entries by hand. Regenerate with --update-baseline.",
+  "files": {
+    ".github/ISSUE_TEMPLATE/config.yml": [
+      "legacy_slug"
+    ],
+    ".github/actions/aragora-review/README.md": [
+      "legacy_slug"
+    ],
+    ".github/workflows/nightly-integration.yml": [
+      "legacy_slug"
+    ],
+    ".github/workflows/publish-aragora-debate.yml": [
+      "legacy_slug"
+    ],
+    ".github/workflows/templates/aragora-gauntlet-template.yml": [
+      "legacy_slug"
+    ],
+    ".github/workflows/templates/aragora-review-template.yml": [
+      "legacy_slug"
+    ],
+    ".pre-commit-config.yaml": [
+      "legacy_slug",
+      "venv_python"
+    ],
+    "DEVELOPMENT.md": [
+      "legacy_slug"
+    ],
+    "INSTALL.md": [
+      "legacy_slug"
+    ],
+    "SECURITY.md": [
+      "legacy_slug"
+    ],
+    "SECURITY_AUDIT_INPUT_VALIDATION.md": [
+      "users_home"
+    ],
+    "aragora-debate/CHANGELOG.md": [
+      "legacy_slug"
+    ],
+    "aragora-debate/README.md": [
+      "legacy_slug"
+    ],
+    "aragora-debate/pyproject.toml": [
+      "legacy_slug"
+    ],
+    "aragora-operator/Makefile": [
+      "legacy_slug"
+    ],
+    "aragora-operator/controllers/aragoracluster_controller.go": [
+      "legacy_slug"
+    ],
+    "aragora-operator/controllers/aragorainstance_controller.go": [
+      "legacy_slug"
+    ],
+    "aragora-operator/controllers/aragorapolicy_controller.go": [
+      "legacy_slug"
+    ],
+    "aragora-operator/go.mod": [
+      "legacy_slug"
+    ],
+    "aragora-operator/helm/aragora-operator/Chart.yaml": [
+      "legacy_slug"
+    ],
+    "aragora-operator/helm/aragora-operator/values.yaml": [
+      "legacy_slug"
+    ],
+    "aragora-operator/internal/aragora/client.go": [
+      "legacy_slug"
+    ],
+    "aragora-operator/main.go": [
+      "legacy_slug"
+    ],
+    "aragora/live/e2e/admin.spec.ts": [
+      "users_home"
+    ],
+    "benchmarks/bench_readiness/README.md": [
+      "venv_python"
+    ],
+    "benchmarks/bench_readiness/flag_ablation_smoke.py": [
+      "venv_python"
+    ],
+    "benchmarks/bench_readiness/manifest.json": [
+      "venv_python"
+    ],
+    "benchmarks/bench_readiness/write_manifest.py": [
+      "venv_python"
+    ],
+    "demos/pr-review/01_sql_injection/expected_comment.md": [
+      "legacy_slug"
+    ],
+    "demos/pr-review/02_caching_tradeoff/expected_comment.md": [
+      "legacy_slug"
+    ],
+    "demos/pr-review/03_async_conversion/expected_comment.md": [
+      "legacy_slug"
+    ],
+    "demos/pr-review/04_error_handling/expected_comment.md": [
+      "legacy_slug"
+    ],
+    "deploy/DEPLOYMENT_CHECKLIST_v2.md": [
+      "legacy_slug"
+    ],
+    "deploy/DEPLOYMENT_PLAN_ARCHIVED.md": [
+      "legacy_slug"
+    ],
+    "deploy/DISASTER_RECOVERY.md": [
+      "legacy_slug"
+    ],
+    "deploy/QUICK_SETUP.md": [
+      "legacy_slug"
+    ],
+    "deploy/argo-rollouts/README.md": [
+      "legacy_slug"
+    ],
+    "deploy/argo-rollouts/rollout.yaml": [
+      "legacy_slug"
+    ],
+    "deploy/argocd/README.md": [
+      "legacy_slug"
+    ],
+    "deploy/argocd/applications/applicationset.yaml": [
+      "legacy_slug"
+    ],
+    "deploy/argocd/install/values.yaml": [
+      "legacy_slug"
+    ],
+    "deploy/argocd/projects/aragora-project.yaml": [
+      "legacy_slug"
+    ],
+    "deploy/docker-compose.production.yml": [
+      "legacy_slug"
+    ],
+    "deploy/docker-compose.yml": [
+      "legacy_slug"
+    ],
+    "deploy/ec2-userdata.sh": [
+      "legacy_slug"
+    ],
+    "deploy/kubernetes/backend-deployment.yaml": [
+      "legacy_slug"
+    ],
+    "deploy/kubernetes/backup-verification-cronjob.yaml": [
+      "legacy_slug"
+    ],
+    "deploy/kubernetes/deployment.yaml": [
+      "legacy_slug"
+    ],
+    "deploy/kubernetes/frontend-deployment.yaml": [
+      "legacy_slug"
+    ],
+    "deploy/kubernetes/migration-job.yaml": [
+      "legacy_slug"
+    ],
+    "deploy/kubernetes/secrets-rotation/cronjob.yaml": [
+      "legacy_slug"
+    ],
+    "deploy/kyverno/README.md": [
+      "legacy_slug"
+    ],
+    "deploy/lightsail-setup.sh": [
+      "legacy_slug"
+    ],
+    "deploy/openclaw/docker-compose.devops.yml": [
+      "legacy_slug"
+    ],
+    "deploy/openclaw/docker-compose.pr-reviewer.yml": [
+      "legacy_slug"
+    ],
+    "deploy/openclaw/pr-reviewer-setup.sh": [
+      "legacy_slug"
+    ],
+    "deploy/quickstart.sh": [
+      "legacy_slug"
+    ],
+    "deploy/self-hosted/.env.example": [
+      "legacy_slug"
+    ],
+    "deploy/self-hosted/README.md": [
+      "legacy_slug"
+    ],
+    "deploy/self-hosted/docker-compose.yml": [
+      "legacy_slug"
+    ],
+    "deploy/systemd/aragora-pr-watcher.service": [
+      "venv_python"
+    ],
+    "docs-site/docs/guides/connectors.md": [
+      "users_home"
+    ],
+    "docs/FOCUS.md": [
+      "users_home"
+    ],
+    "docs/benchmarks/corpus_honesty_audit_2026-04-17.md": [
+      "users_home"
+    ],
+    "docs/briefs/automation-merge-contract.md": [
+      "users_home"
+    ],
+    "docs/briefs/codex-desktop-automation-autonomy.md": [
+      "users_home"
+    ],
+    "docs/examples/boss-lane-manifest-2026-03-19.yaml": [
+      "users_home"
+    ],
+    "docs/examples/decision-quality-delta-benchmark-prompt-pack.yaml": [
+      "users_home"
+    ],
+    "docs/examples/founder-overnight-prompt-pack.yaml": [
+      "users_home"
+    ],
+    "docs/examples/inbox-trust-wedge-activation-prompt-pack.yaml": [
+      "users_home"
+    ],
+    "docs/examples/pmf-tranche-prompt-pack.yaml": [
+      "users_home"
+    ],
+    "docs/guides/ISSUE_TRIAGE.md": [
+      "venv_python"
+    ],
+    "docs/index.html": [
+      "legacy_slug"
+    ],
+    "docs/integrations/CONNECTORS.md": [
+      "users_home"
+    ],
+    "docs/missions/H1_DISCIPLINED_MISSION_PROMPT.md": [
+      "users_home"
+    ],
+    "docs/openapi.json": [
+      "legacy_slug"
+    ],
+    "docs/plans/2026-03-01-doc-consolidation-dogfood.md": [
+      "users_home"
+    ],
+    "docs/plans/2026-03-02-ship-and-verify-plan.md": [
+      "users_home"
+    ],
+    "docs/plans/2026-03-05-next-roadmap-items-plan.md": [
+      "users_home"
+    ],
+    "docs/plans/2026-03-05-prove-the-engine.md": [
+      "users_home"
+    ],
+    "docs/plans/2026-03-24-overnight-founder-process.md": [
+      "users_home"
+    ],
+    "docs/plans/2026-04-17-trust-compound-plan.md": [
+      "legacy_slug"
+    ],
+    "docs/plans/2026-04-21-agent-bridge-pr2-scoping.md": [
+      "users_home"
+    ],
+    "docs/plans/2026-04-28-p8-parity-gap-audit.md": [
+      "users_home"
+    ],
+    "docs/prompts/MASTER_FANOUT_PROMPT.md": [
+      "users_home"
+    ],
+    "docs/runbooks/RUNBOOK_ROOT_GUARD_HYGIENE.md": [
+      "users_home"
+    ],
+    "docs/status/AGENT_FANOUT_JOURNAL.md": [
+      "users_home"
+    ],
+    "docs/status/BACKLOG_Q1_2026_SPRINT_2_PR_PLAN.md": [
+      "users_home"
+    ],
+    "docs/status/P03-lane-registry-claim-helper-rebase_RECEIPT_droid-DC5A5821.md": [
+      "users_home",
+      "venv_python"
+    ],
+    "docs/status/P05-publication-freshness-probe-rebase_RECEIPT_droid-A5312D6A.md": [
+      "users_home",
+      "venv_python"
+    ],
+    "docs/status/P102_HARVEST_RECOVERY_RECEIPT_claude-51C05A58.md": [
+      "users_home"
+    ],
+    "docs/status/P29-steering-mailbox-writer_RECEIPT_claude-86616832.md": [
+      "users_home"
+    ],
+    "docs/status/P45-legacy-worktree-dir-audit-clean_RECEIPT_codex-5B032BF7.md": [
+      "users_home"
+    ],
+    "docs/status/P67_PUBLICATION_FRESHNESS_PROBE_RECEIPT_20260518T193316Z.md": [
+      "users_home"
+    ],
+    "docs/status/P68-cherry-patch-equivalence-sweep_RECEIPT_droid-P68-2B0AEE5B.md": [
+      "users_home"
+    ],
+    "docs/status/P71_MYPY_PREEMPT_RECEIPT_20260518T193210Z.md": [
+      "users_home"
+    ],
+    "docs/status/P72-publish-reconcile-outbox-target-filter_RECEIPT_codex-80DCFB2B.md": [
+      "users_home"
+    ],
+    "docs/status/P73-lane-registry-sweep-cadence_RECEIPT_droid-04B8F610.md": [
+      "users_home"
+    ],
+    "docs/status/Q09-observer-truth-probe_RECEIPT_droid-E288A23E.md": [
+      "users_home"
+    ],
+    "docs/status/SESSION_BRIEF_codex-5B032BF7.md": [
+      "users_home"
+    ],
+    "docs/status/SESSION_BRIEF_codex-80DCFB2B.md": [
+      "users_home"
+    ],
+    "docs/status/SESSION_BRIEF_droid-DC5A5821.md": [
+      "users_home"
+    ],
+    "docs/status/STRUCTURAL_UNJAM_PATH_claude-1843EC1A.md": [
+      "users_home"
+    ],
+    "docs/status/WORKTREE_VALUE_INVENTORY_STATUS.md": [
+      "users_home"
+    ],
+    "examples/github-action/advanced.yml": [
+      "legacy_slug"
+    ],
+    "examples/github-action/aragora-review-strict.yml": [
+      "legacy_slug"
+    ],
+    "examples/github-action/aragora-review.yml": [
+      "legacy_slug"
+    ],
+    "examples/github-action/basic.yml": [
+      "legacy_slug"
+    ],
+    "examples/nextjs-app-router/README.md": [
+      "legacy_slug"
+    ],
+    "examples/quickstart/code_review.py": [
+      "legacy_slug"
+    ],
+    "examples/typescript-web/index.html": [
+      "legacy_slug"
+    ],
+    "openapi.json": [
+      "legacy_slug"
+    ],
+    "pyproject.toml": [
+      "legacy_slug"
+    ],
+    "scripts/_tighten_knowledge_exceptions.py": [
+      "users_home"
+    ],
+    "scripts/audit_branch_backlog_parallel.py": [
+      "users_home"
+    ],
+    "scripts/audit_test_skips.py": [
+      "users_home"
+    ],
+    "scripts/claim_active_agent_lane.py": [
+      "users_home"
+    ],
+    "scripts/create-sprint-worktrees.sh": [
+      "users_home"
+    ],
+    "scripts/demo_design_partner.sh": [
+      "users_home"
+    ],
+    "scripts/disk_recovery_coordinator.py": [
+      "users_home"
+    ],
+    "scripts/inspect_cold_review_surface.py": [
+      "legacy_slug"
+    ],
+    "scripts/install_boss_loop_launchd.sh": [
+      "venv_python"
+    ],
+    "scripts/install_merge_arbiter_launchd.sh": [
+      "venv_python"
+    ],
+    "scripts/pr_check_followup.py": [
+      "users_home"
+    ],
+    "scripts/publish_automation_handoffs.py": [
+      "users_home"
+    ],
+    "scripts/rename_to_aragora.py": [
+      "users_home"
+    ],
+    "scripts/root_guarded_queue.py": [
+      "users_home"
+    ],
+    "scripts/run_boss_cycle.sh": [
+      "venv_python"
+    ],
+    "scripts/run_codex_automation_publisher.sh": [
+      "users_home"
+    ],
+    "scripts/run_codex_insights_digest.sh": [
+      "venv_python"
+    ],
+    "scripts/run_offline_golden_path.sh": [
+      "venv_python"
+    ],
+    "scripts/runners/com.aragora.runner-health.plist": [
+      "users_home"
+    ],
+    "scripts/settle_one_pr.py": [
+      "users_home"
+    ],
+    "scripts/settlement_followup.py": [
+      "users_home"
+    ],
+    "sdk/python/pyproject.toml": [
+      "legacy_slug"
+    ],
+    "sdk/python/tests/test_scim.py": [
+      "users_home"
+    ],
+    "sdk/typescript/package.json": [
+      "legacy_slug"
+    ],
+    "sdk/typescript/src/namespaces/__tests__/scim.test.ts": [
+      "users_home"
+    ],
+    "test_debate.py": [
+      "users_home"
+    ],
+    "tests/auth/scim/test_scim.py": [
+      "users_home"
+    ],
+    "tests/benchmarks/test_rescue_productization.py": [
+      "users_home"
+    ],
+    "tests/codex/conftest.py": [
+      "users_home"
+    ],
+    "tests/debate/test_graph.py": [
+      "users_home"
+    ],
+    "tests/handlers/test_scim_handler.py": [
+      "users_home"
+    ],
+    "tests/nomic/test_dev_coordination.py": [
+      "users_home"
+    ],
+    "tests/ralph/test_classifier.py": [
+      "users_home"
+    ],
+    "tests/review/test_health.py": [
+      "users_home",
+      "venv_python"
+    ],
+    "tests/scripts/test_agent_bridge.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_agent_bridge_sessions.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_claim_active_agent_lane.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_disk_recovery_coordinator.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_identify_lane_owner.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_list_active_agent_sessions.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_probe_boss_loop_launchd.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_render_rescue_productization_status.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_render_worktree_harvest_unblock_map.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_run_proof_first_shift.py": [
+      "users_home"
+    ],
+    "tests/server/handlers/test_scim_handler.py": [
+      "users_home"
+    ],
+    "tests/workflow/test_checkpoint.py": [
+      "users_home"
+    ]
+  }
+}

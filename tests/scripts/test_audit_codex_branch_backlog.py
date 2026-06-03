@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -217,6 +217,12 @@ def test_summary_only_payload_keeps_compact_category_examples() -> None:
                 "subject": "needs salvage",
                 "ahead_count": 2,
                 "behind_count": 4,
+                "changed_path_count": 2,
+                "changed_path_examples": [
+                    "aragora/live/package-lock.json",
+                    "aragora/live/package.json",
+                ],
+                "changed_paths_truncated": False,
                 "worktree_paths": ["/tmp/worktree"],
                 "active_worktree_paths": [],
                 "dirty_worktree_paths": [],
@@ -242,6 +248,12 @@ def test_summary_only_payload_keeps_compact_category_examples() -> None:
             "subject": "needs salvage",
             "ahead_count": 2,
             "behind_count": 4,
+            "changed_path_count": 2,
+            "changed_path_examples": [
+                "aragora/live/package-lock.json",
+                "aragora/live/package.json",
+            ],
+            "changed_paths_truncated": False,
             "worktree_paths": ["/tmp/worktree"],
             "active_worktree_paths": [],
             "dirty_worktree_paths": [],
@@ -372,6 +384,180 @@ def test_audit_skips_open_pr_lookup_when_github_health_degraded(
     assert payload["open_pr_lookup_skipped"] is True
     assert payload["records"][0]["open_pr"] is None
     assert payload["records"][0]["category"] == "salvage_recent_unique"
+
+
+def test_audit_uses_cached_open_pr_heads_when_github_health_degraded(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    row = _branch_row("codex/has-cached-pr")
+    _stub_git_inventory(monkeypatch, row)
+    cache_dir = tmp_path / ".aragora" / "automation-github-status"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "latest.json").write_text(
+        json.dumps(
+            {
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "github_health": {"ready": True, "mode": "ready"},
+                "github_queue": {
+                    "available": True,
+                    "open_pr_heads": ["codex/has-cached-pr", "other/branch"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("live PR lookup should be skipped")
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    record = payload["records"][0]
+    assert payload["open_pr_lookup_skipped"] is True
+    assert payload["cached_open_pr_lookup_used"] is True
+    assert payload["cached_open_pr_head_count"] == 1
+    assert record["open_pr"] is None
+    assert record["open_pr_cached"] is True
+    assert record["category"] == "protected_open_pr"
+    assert payload["summary"]["protected"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 0
+
+
+def test_audit_does_not_let_cache_override_successful_live_open_pr_lookup(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    row = _branch_row("codex/closed-pr", ahead_count="0")
+    _stub_git_inventory(monkeypatch, row)
+    cache_dir = tmp_path / ".aragora" / "automation-github-status"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "latest.json").write_text(
+        json.dumps(
+            {
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "github_queue": {
+                    "available": True,
+                    "open_pr_heads": ["codex/closed-pr"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args, **_kwargs: {})
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    record = payload["records"][0]
+    assert payload["open_pr_lookup_skipped"] is False
+    assert payload["cached_open_pr_lookup_used"] is False
+    assert payload["cached_open_pr_head_count"] == 0
+    assert record["open_pr"] is None
+    assert record["open_pr_cached"] is False
+    assert record["category"] == "cleanup_local_merged"
+
+
+def test_audit_ignores_stale_cached_open_pr_heads_when_github_health_degraded(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    row = _branch_row("codex/stale-cached-pr")
+    _stub_git_inventory(monkeypatch, row)
+    cache_dir = tmp_path / ".aragora" / "automation-github-status"
+    cache_dir.mkdir(parents=True)
+    stale_at = datetime.now(timezone.utc) - timedelta(hours=48)
+    (cache_dir / "latest.json").write_text(
+        json.dumps(
+            {
+                "generated_at": stale_at.isoformat(),
+                "github_queue": {
+                    "available": True,
+                    "open_pr_heads": ["codex/stale-cached-pr"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("live PR lookup should be skipped")
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    record = payload["records"][0]
+    assert payload["open_pr_lookup_skipped"] is True
+    assert payload["cached_open_pr_lookup_used"] is False
+    assert payload["cached_open_pr_head_count"] == 0
+    assert record["open_pr_cached"] is False
+    assert record["category"] == "salvage_recent_unique"
 
 
 def test_audit_passes_bounded_timeout_to_github_health(tmp_path: Path, monkeypatch: Any) -> None:
@@ -1635,6 +1821,63 @@ def test_audit_checks_branch_equivalence_before_handoff_patch_ids(
     assert record["category"] == "cleanup_patch_equivalent"
 
 
+def test_audit_includes_changed_path_examples(tmp_path: Path, monkeypatch: Any) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [_branch_row("codex/stale-lockfile", committed_at=now, behind_count="2")]
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(mod, "is_patch_equivalent", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(mod, "branch_patch_id", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        mod,
+        "branch_changed_paths",
+        lambda _root, _base, _branch, **_kwargs: (
+            3,
+            [
+                "aragora/live/package-lock.json",
+                "aragora/live/package.json",
+                "tests/live/smoke.test.ts",
+            ],
+            False,
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        publisher_backlog_limit=2,
+    )
+
+    record = payload["records"][0]
+    assert record["category"] == "salvage_diverged_recent"
+    assert record["changed_path_count"] == 3
+    assert record["changed_path_examples"] == [
+        "aragora/live/package-lock.json",
+        "aragora/live/package.json",
+        "tests/live/smoke.test.ts",
+    ]
+    assert record["changed_paths_truncated"] is False
+
+
 def test_audit_does_not_spend_patch_ids_for_exact_outbox_branch(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
@@ -1751,6 +1994,7 @@ def test_audit_treats_superseded_branch_as_unresolved_handoff(
     assert payload["summary"]["handoff_outbox_branches"] == 1
     assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 2
     assert payload["summary"]["direct_handoff_outbox_branches"] == 1
+    assert payload["summary"]["unresolved_handoff_outbox_refs_outside_audit"] == 1
     assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 0
     assert payload["summary"]["publishable_branch_backlog"] == 1
     original = next(
@@ -1818,6 +2062,7 @@ def test_audit_counts_direct_outbox_refs_even_when_active_worktree_wins_category
     assert payload["summary"]["handoff_outbox_branches"] == 0
     assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 1
     assert payload["summary"]["direct_handoff_outbox_branches"] == 1
+    assert payload["summary"]["unresolved_handoff_outbox_refs_outside_audit"] == 0
     assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 0
 
 
@@ -1853,6 +2098,71 @@ def test_audit_treats_superseded_branch_as_terminal_receipt(
         encoding="utf-8",
     )
     _stub_git_inventory(monkeypatch, _branch_row("codex/stale-original"))
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=1,
+    )
+
+    assert payload["summary"]["handoff_receipted_branches"] == 1
+    assert payload["summary"]["publishable_branch_backlog"] == 0
+    assert payload["records"][0]["handoff_receipt_exists"] is True
+    assert payload["records"][0]["category"] == "protected_handoff_receipt"
+
+
+def test_audit_treats_nested_refresh_branch_as_terminal_receipt(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    key = "open-pr-codex-current-refresh-def456"
+    (outbox / "refresh.json").write_text(
+        json.dumps(
+            {
+                "task": "Publish refreshed branch",
+                "requires_github": True,
+                "requested_action": "open_pr",
+                "repo": "synaptent/aragora",
+                "local_evidence": {
+                    "branch": "codex/current-refresh",
+                    "head": "def456",
+                    "improver_refresh_20260601T1431Z": {
+                        "branch": "codex/previous-refresh",
+                        "head_sha": "abc1234",
+                    },
+                },
+                "validation": ["pytest tests/example.py -q"],
+                "idempotency_key": key,
+                "created_at": "2026-04-24T16:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "already_satisfied"}),
+        encoding="utf-8",
+    )
+    _stub_git_inventory(monkeypatch, _branch_row("codex/previous-refresh"))
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",

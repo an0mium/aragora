@@ -58,7 +58,7 @@ Usage:
         --lane-id droid/phase4-freshness-launchagent \\
         --owner-session claude-20260517-144003-b211740c \\
         --branch droid/phase4-freshness-launchagent-20260517 \\
-        --worktree /Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-144003-b211740c \\
+        --worktree "$(git rev-parse --show-toplevel)/.worktrees/<lane-worktree>" \\
         --goal "phase 4: freshness probe LaunchAgent shim" \\
         --source plan
 

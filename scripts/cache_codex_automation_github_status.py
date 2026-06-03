@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.github_cli_health import check_github_cli_health
 from scripts.publish_automation_handoffs import _open_boss_ready_count
 from scripts.publish_codex_automation_branches import (
+    CODEX_BRANCH_PREFIX,
     _open_codex_pr_is_unhealthy,
     _open_codex_prs,
 )
@@ -60,12 +61,29 @@ TERMINAL_RECEIPT_STATUS_PREFIXES = (
     "superseded_by_",
 )
 DUPLICATE_OUTBOX_EXAMPLE_LIMIT = 20
+TRANSIENT_OPEN_PR_QUERY_ERROR_MARKERS = (
+    "504",
+    "gateway timeout",
+    "couldn't respond to your request in time",
+    "timed out",
+    "timeout",
+)
 LOCAL_QUEUE_DETAIL_KEYS = (
     "nonterminal_receipts",
     "outbox_duplicate_idempotency_keys",
     "outbox_duplicate_branches",
     "unsatisfied_receipted_outbox",
     "stale_target_pr_receipted_outbox",
+)
+GITHUB_QUEUE_PRESERVED_KEYS = (
+    "open_pr_heads",
+    "open_codex_pr_count",
+    "unhealthy_open_pr_count",
+    "all_open_prs_unhealthy",
+    "merge_state_counts",
+    "open_issue_count",
+    "labels",
+    "pressure",
 )
 
 
@@ -542,6 +560,45 @@ def _github_queue_unavailable(*, reason: str, error: str | None = None) -> dict[
     return payload
 
 
+def _is_transient_open_pr_query_error(error: str) -> bool:
+    normalized = error.casefold()
+    return any(marker in normalized for marker in TRANSIENT_OPEN_PR_QUERY_ERROR_MARKERS)
+
+
+def _open_codex_prs_lightweight(repo_root: Path, repo: str) -> list[dict[str, Any]]:
+    """List open Codex PRs without check rollups for cache-refresh degraded mode."""
+
+    proc = subprocess.run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--limit",
+            "200",
+            "--json",
+            "number,title,headRefName,isDraft,mergeStateStatus,reviewDecision",
+        ],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip() or "failed to list open PRs")
+    payload = json.loads(proc.stdout or "[]")
+    return [
+        item
+        for item in payload
+        if isinstance(item, dict)
+        and isinstance(item.get("headRefName"), str)
+        and item["headRefName"].startswith(CODEX_BRANCH_PREFIX)
+    ]
+
+
 def build_status(
     *,
     repo_root: Path,
@@ -573,8 +630,31 @@ def build_status(
         payload["github_queue"] = _github_queue_unavailable(reason=health.mode)
         return payload
 
+    degraded = False
+    degraded_reason: str | None = None
     try:
         open_prs = _open_codex_prs(repo_root, github_repo)
+    except RuntimeError as exc:
+        heavy_error = str(exc)
+        if not _is_transient_open_pr_query_error(heavy_error):
+            payload["github_queue"] = _github_queue_unavailable(
+                reason="remote_query_failed",
+                error=heavy_error,
+            )
+            return payload
+        try:
+            open_prs = _open_codex_prs_lightweight(repo_root, github_repo)
+        except RuntimeError as fallback_exc:
+            payload["github_queue"] = _github_queue_unavailable(
+                reason="remote_query_failed",
+                error=str(fallback_exc),
+            )
+            payload["github_queue"]["fallback_from_error"] = heavy_error
+            return payload
+        degraded = True
+        degraded_reason = f"heavy_open_pr_query_failed:{heavy_error}"
+
+    try:
         open_issue_count = _open_boss_ready_count(repo_root, github_repo, list(labels))
     except RuntimeError as exc:
         payload["github_queue"] = _github_queue_unavailable(
@@ -583,12 +663,17 @@ def build_status(
         )
         return payload
 
-    unhealthy_open_pr_count = sum(1 for item in open_prs if _open_codex_pr_is_unhealthy(item))
+    unhealthy_open_pr_count = (
+        None if degraded else sum(1 for item in open_prs if _open_codex_pr_is_unhealthy(item))
+    )
     payload["github_queue"] = {
         "available": True,
+        "degraded": degraded,
         "open_codex_pr_count": len(open_prs),
         "unhealthy_open_pr_count": unhealthy_open_pr_count,
-        "all_open_prs_unhealthy": bool(open_prs) and unhealthy_open_pr_count == len(open_prs),
+        "all_open_prs_unhealthy": False
+        if degraded
+        else bool(open_prs) and unhealthy_open_pr_count == len(open_prs),
         "merge_state_counts": _merge_state_counts(open_prs),
         "open_issue_count": open_issue_count,
         "labels": list(labels),
@@ -600,6 +685,11 @@ def build_status(
             item.get("headRefName") for item in open_prs if isinstance(item.get("headRefName"), str)
         ],
     }
+    if degraded_reason:
+        payload["github_queue"]["degraded_reason"] = degraded_reason
+        payload["github_queue"]["unhealthy_open_pr_count_degraded_reason"] = (
+            "statusCheckRollup unavailable from lightweight fallback"
+        )
     return payload
 
 
@@ -615,6 +705,41 @@ def write_status(path: Path, payload: dict[str, Any]) -> None:
         handle.write("\n")
         temp_name = handle.name
     Path(temp_name).replace(path)
+
+
+def preserve_cached_github_queue(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    """Carry forward cached open PR heads when a refresh cannot query GitHub."""
+
+    github_queue = payload.get("github_queue")
+    if not isinstance(github_queue, Mapping) or github_queue.get("available") is not False:
+        return payload
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return payload
+    if not isinstance(previous, Mapping):
+        return payload
+    previous_queue = previous.get("github_queue")
+    if not isinstance(previous_queue, Mapping):
+        return payload
+    previous_heads = previous_queue.get("open_pr_heads")
+    if not isinstance(previous_heads, Sequence) or isinstance(
+        previous_heads, (str, bytes, bytearray)
+    ):
+        return payload
+
+    merged_queue = dict(github_queue)
+    for key in GITHUB_QUEUE_PRESERVED_KEYS:
+        if key in previous_queue:
+            merged_queue[key] = previous_queue[key]
+    merged_queue["open_pr_heads_preserved_from_cache"] = True
+    cached_at = previous_queue.get("open_pr_heads_cached_at") or previous.get("generated_at")
+    if isinstance(cached_at, str) and cached_at:
+        merged_queue["open_pr_heads_cached_at"] = cached_at
+
+    preserved = dict(payload)
+    preserved["github_queue"] = merged_queue
+    return preserved
 
 
 def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -663,10 +788,17 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         "--cache-path",
+        "--status-cache",
         dest="output",
         type=Path,
-        default=DEFAULT_OUTPUT,
+        default=None,
         help="Path to write the cached status payload.",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="Directory containing latest.json for compatibility with publisher probes.",
     )
     parser.add_argument(
         "--state-root",
@@ -695,11 +827,21 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = _repo_root(Path(args.repo))
     state_root = args.state_root.expanduser() if args.state_root is not None else None
     output_base = state_root if state_root is not None else _shared_state_root(repo_root)
-    output = (
-        args.output
-        if args.output.is_absolute()
-        else _automation_state_default_path(output_base, args.output)
-    )
+    if args.output is not None:
+        output = (
+            args.output
+            if args.output.is_absolute()
+            else _automation_state_default_path(output_base, args.output)
+        )
+    elif args.cache_dir is not None:
+        cache_dir = (
+            args.cache_dir
+            if args.cache_dir.is_absolute()
+            else _automation_state_default_path(output_base, args.cache_dir)
+        )
+        output = cache_dir / "latest.json"
+    else:
+        output = _automation_state_default_path(output_base, DEFAULT_OUTPUT)
     payload = build_status(
         repo_root=repo_root,
         github_repo=args.github_repo,
@@ -719,6 +861,7 @@ def main(argv: list[str] | None = None) -> int:
             else None
         ),
     )
+    payload = preserve_cached_github_queue(output, payload)
     write_status(output, payload)
     if args.json:
         output_payload = summary_only_payload(payload) if args.summary_only else payload
