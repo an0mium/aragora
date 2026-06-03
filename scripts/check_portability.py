@@ -53,6 +53,10 @@ ALWAYS_SKIP = (
     # Regression test that asserts installers never bake .venv/bin/python; it
     # holds the pattern as fixture/assertion data, not a real interpreter capture.
     "tests/scripts/test_launchd_installers.py",
+    # Regression test that asserts the generated runner-health plist is clean
+    # (e.g. `/Users/<name>` absent); the literal is negative assertion data, not
+    # a real hardcoded path.
+    "tests/scripts/test_generate_runner_health_plist.py",
     # Machine-local gt store config (gitignored; its `workspace` is a per-clone
     # absolute path). Untracked, so never a portability concern.
     ".gt/config.json",
