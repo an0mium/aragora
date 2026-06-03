@@ -1510,6 +1510,17 @@ def compact_record_examples(
     return dict(sorted(examples.items()))
 
 
+def compact_patch_equivalence_skipped_examples(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    limit_per_category: int = DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY,
+) -> dict[str, list[dict[str, Any]]]:
+    """Return compact examples for records skipped after the patch-check budget expires."""
+
+    skipped_records = [record for record in records if record.get("patch_equivalence_skipped")]
+    return compact_record_examples(skipped_records, limit_per_category=limit_per_category)
+
+
 def summary_only_payload(
     payload: dict[str, Any],
     *,
@@ -1517,11 +1528,19 @@ def summary_only_payload(
 ) -> dict[str, Any]:
     compact = dict(payload)
     records = payload.get("records")
+    record_sequence = (
+        records if isinstance(records, Sequence) and not isinstance(records, (str, bytes)) else []
+    )
     compact["record_examples"] = compact_record_examples(
-        records if isinstance(records, Sequence) and not isinstance(records, (str, bytes)) else [],
+        record_sequence,
         limit_per_category=example_limit,
     )
     compact["record_examples_limit"] = example_limit
+    compact["patch_equivalence_skipped_examples"] = compact_patch_equivalence_skipped_examples(
+        record_sequence,
+        limit_per_category=example_limit,
+    )
+    compact["patch_equivalence_skipped_examples_limit"] = example_limit
     compact["records"] = []
     compact["records_omitted"] = True
     return compact
