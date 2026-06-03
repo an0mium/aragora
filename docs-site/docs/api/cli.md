@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **105**
-- Total top-level invocations (including aliases): **106**
+- Canonical top-level commands: **106**
+- Total top-level invocations (including aliases): **107**
 
 ## Installation
 
@@ -71,6 +71,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `crux` | - | Find load-bearing disagreements on a question (crux-finder debate) | - |
 | `crux-arbitrate` | - | DIC-27: resolve persistent cruxes as reversible signed arbitration receipts | - |
 | `crux-followup` | - | Generate DIC-17 follow-up proposals from a CruxSet (flag-gated filing) | - |
+| `crux-garden` | - | DIC-28: proactive re-examination of cruxes for staleness and contradictions | - |
 | `cruxset` | - | AGT-01: inspect CruxSet payloads emitted by the debate path | `show` |
 | `decide` | - | Run full decision pipeline: debate → plan → execute | - |
 | `demo` | - | Run a self-contained adversarial debate demo (no API keys needed) | - |
