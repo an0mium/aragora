@@ -2323,6 +2323,16 @@ def _build_packet(
         }
         if required_surface.get("error"):
             check_surfaces["required_pr_checks"]["error"] = str(required_surface.get("error"))
+        if (
+            required_available
+            and effective_required_count > 0
+            and not required_has_pending
+            and has_pending
+        ):
+            # Required-check gating can separate branch-protection waits from
+            # optional full-rollup capacity noise even when a required check
+            # still fails and keeps the packet blocked.
+            has_pending = False
         if effective_required_count > 0 and not required_has_failures and not required_has_pending:
             required_pr_check_gate_satisfied = True
             check_surfaces["required_pr_checks"]["gate_selected"] = True

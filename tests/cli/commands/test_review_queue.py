@@ -2664,6 +2664,12 @@ class TestBuildQueueAndPacket:
         assert packet.machine_recommendation == "repair_first"
         assert packet.model_review_quorum["admin_squash_allowed"] is False
         assert packet.model_review_quorum["status"] == "repair_or_wait"
+        assert (
+            "checks are failing; repair before settlement" in packet.model_review_quorum["reasons"]
+        )
+        assert not any(
+            "checks are pending" in reason for reason in packet.model_review_quorum["reasons"]
+        )
 
     def test_required_pr_checks_gate_keeps_non_self_required_failure_blocking(
         self, monkeypatch: pytest.MonkeyPatch
