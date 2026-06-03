@@ -121,6 +121,18 @@ def test_clean_command_completes_and_emits_pr_sequence(tmp_path: Path) -> None:
     assert "abc123" in report["next_prompt"]
 
 
+def test_clean_command_without_pr_recommends_bounded_work_robot(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+
+    report = guard.run_guard(
+        guard.build_parser().parse_args(["--cwd", str(repo), "--", "python3", "-c", "print('ok')"])
+    )
+
+    assert report["status"] == "completed"
+    assert "python3 -m aragora.cli.main work robot --json --limit 15" in report["next_prompt"]
+    assert "work robot --json`" not in report["next_prompt"]
+
+
 def test_process_attribution_records_matching_process(monkeypatch: Any) -> None:
     def fake_run(args: list[str], *, cwd: Path, timeout: int = 120) -> Any:
         if args[:2] == ["ps", "-axo"]:

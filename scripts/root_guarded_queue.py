@@ -38,6 +38,7 @@ DEFAULT_PROCESS_PATTERNS = (
     "settle_one_pr",
     "pr_check_followup",
 )
+DEFAULT_WORK_ROBOT_LIMIT = 15
 
 
 @dataclass(frozen=True)
@@ -161,7 +162,10 @@ def _process_attribution(patterns: list[str]) -> dict[str, Any]:
 
 def _read_only_sequence(pr: int | None) -> str:
     if pr is None:
-        return "rerun mailbox/root/owner checks, then run `python3 -m aragora.cli.main work robot --json`."
+        return (
+            "rerun mailbox/root/owner checks, then run "
+            f"`python3 -m aragora.cli.main work robot --json --limit {DEFAULT_WORK_ROBOT_LIMIT}`."
+        )
     return (
         f"rerun mailbox/owner checks for #{pr}, `gh pr view {pr}`, "
         f"`gh pr checks {pr} --required`, "
