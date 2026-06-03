@@ -164,6 +164,40 @@ def test_rejects_unsafe_session_before_reading(tmp_path: Path, capsys: Any) -> N
     assert list(tmp_path.rglob("*.json")) == []
 
 
+def test_json_no_matching_lane_returns_structured_error(tmp_path: Path, capsys: Any) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]", encoding="utf-8")
+
+    rc = ros.main(
+        [
+            "--lane-id",
+            "missing-lane",
+            "--registry-path",
+            str(registry),
+            "--steering-inbox-root",
+            str(tmp_path / "steering"),
+            "--json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert captured.err == ""
+    payload = json.loads(captured.out)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "lane_resolution_failed"
+    assert "no lane matched" in payload["error"]["message"]
+    assert payload["selector"] == {
+        "to_session": None,
+        "lane_id": "missing-lane",
+        "pr": None,
+        "branch": None,
+    }
+    assert payload["message_count"] == 0
+    assert payload["receipt_count"] == 0
+    assert list(tmp_path.rglob("_read_receipts")) == []
+
+
 def test_resolves_owner_by_lane_id(tmp_path: Path, capsys: Any) -> None:
     steering_root = tmp_path / "steering"
     registry = tmp_path / "lanes.json"

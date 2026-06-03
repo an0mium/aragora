@@ -112,6 +112,33 @@ def _message_files(owner_session: str, *, steering_inbox_root: Path) -> list[Pat
     return sorted((p for p in inbox.glob("*.json") if p.is_file()), key=lambda p: p.name)
 
 
+def _selector_payload(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "to_session": args.to,
+        "lane_id": args.lane_id,
+        "pr": args.pr,
+        "branch": args.branch,
+    }
+
+
+def _resolution_error_payload(args: argparse.Namespace, exc: ValueError) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "error": {
+            "code": "lane_resolution_failed",
+            "message": str(exc),
+        },
+        "selector": _selector_payload(args),
+        "registry_path": str(args.registry_path),
+        "steering_inbox_root": str(args.steering_inbox_root),
+        "message_count": 0,
+        "receipt_count": 0,
+        "messages": [],
+        "read_receipt_paths": [],
+        "no_receipt": bool(args.no_receipt),
+    }
+
+
 def _load_message(path: Path) -> tuple[dict[str, Any], bool]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -261,7 +288,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             steering_inbox_root=args.steering_inbox_root,
         )
     except ValueError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        if args.json and not args.to:
+            print(json.dumps(_resolution_error_payload(args, exc), indent=2, sort_keys=True))
+        else:
+            print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
     files = _message_files(owner_session, steering_inbox_root=args.steering_inbox_root)
