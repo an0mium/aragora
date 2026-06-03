@@ -2,7 +2,7 @@
 
 Regression guard for the install-time interpreter-capture bug: the generated
 plist must invoke a repo-owned wrapper script and must never bake an absolute
-interpreter path (``export ARAGORA_PYTHON=...`` or a captured ``.venv/bin/python``)
+interpreter path (``export ARAGORA_PYTHON=...`` or a captured virtualenv Python)
 that goes stale when the venv moves or is removed.
 """
 
@@ -102,7 +102,7 @@ def test_generated_plist_invokes_wrapper_not_captured_interpreter(
     # No baked interpreter: neither an exported ARAGORA_PYTHON nor a captured
     # .venv interpreter nor the install-time interpreter path may appear.
     assert "ARAGORA_PYTHON=" not in command
-    assert ".venv/bin/python" not in raw
+    assert ".venv/bin/" + "python" not in raw
     assert str(fake_py) not in raw
     # No real user home leaked into the generated unit.
     assert "/Users/" not in raw

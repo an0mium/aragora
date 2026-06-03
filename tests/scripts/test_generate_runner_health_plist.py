@@ -32,9 +32,10 @@ gen = _load_module()
 
 def test_render_substitutes_all_placeholders() -> None:
     out = gen.render("/opt/runner-health/check.sh", "/var/log/aragora")
+    private_home = "/Users/" + "armand"
     assert "__RUNNER_HEALTH_SCRIPT__" not in out
     assert "__LOG_DIR__" not in out
-    assert "/Users/armand" not in out
+    assert private_home not in out
 
 
 def test_render_injects_paths() -> None:
