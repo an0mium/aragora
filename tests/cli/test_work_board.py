@@ -505,6 +505,62 @@ def test_work_robot_ranks_actionable_current_work(tmp_path: Path, monkeypatch, c
     assert payload["recommendations"][0]["action"] == "publish_or_reconcile_handoff"
 
 
+def test_work_robot_scores_rich_automation_handoff_as_ready(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "task": "Open draft PR for queue health repair.",
+                "updated_at": _now_iso(),
+                "requires_github": True,
+                "requested_action": {
+                    "type": "open_or_update_pr",
+                    "base": "main",
+                    "branch": "codex/queue-health",
+                    "desired_head_sha": "abc123",
+                    "draft": True,
+                    "labels": ["codex", "codex-automation"],
+                    "title": "fix(automation): repair queue health",
+                },
+                "publication_blocker": {
+                    "kind": "github_unavailable",
+                    "detail": "gh is not authenticated.",
+                },
+                "local_evidence": {
+                    "selection_reason": "Publisher-ready queue repair selected from shared outbox.",
+                    "changed_files": [
+                        "aragora/work/sources.py",
+                        "tests/cli/test_work_board.py",
+                    ],
+                    "validation_summary": "Focused pytest passed; preflight passed.",
+                    "owner_session": "engineering-autopilot-Q285",
+                },
+                "validation": [{"command": "python3 -m pytest -q tests/cli/test_work_board.py"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_robot(_args(tmp_path)) == 0
+    payload = _capture_json(capsys)
+
+    recommendation = payload["recommendations"][0]
+    assert recommendation["item_id"] == "automation-outbox:handoff"
+    assert recommendation["classification"] == "ready"
+    assert recommendation["action"] == "publish_or_reconcile_handoff"
+    assert recommendation["blockers"] == []
+    assert recommendation["item"]["branch"] == "codex/queue-health"
+    assert recommendation["item"]["tags"] == ["codex", "codex-automation"]
+    assert recommendation["item"]["metadata"]["files"] == [
+        "aragora/work/sources.py",
+        "tests/cli/test_work_board.py",
+    ]
+
+
 def test_work_robot_limit_bounds_emitted_recommendations_but_preserves_total_count(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:

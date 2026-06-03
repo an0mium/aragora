@@ -64,6 +64,20 @@ def _state_evidence_ref(root: Path, path: Path) -> str:
         return str(path)
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_str_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, tuple):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    return []
+
+
 def _has_work_state_dirs(root: Path) -> bool:
     state_dir = _state_dir(root)
     return any(
@@ -360,7 +374,58 @@ def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str
         if data is None:
             continue
         title = str(data.get("task") or data.get("title") or data.get("summary") or path.stem)
-        branch = data.get("branch") or data.get("head_ref") or data.get("branch_name")
+        requested_action = _as_dict(data.get("requested_action"))
+        local_evidence = _as_dict(data.get("local_evidence"))
+        publication_blocker = _as_dict(data.get("publication_blocker"))
+        branch = (
+            data.get("branch")
+            or data.get("head_ref")
+            or data.get("branch_name")
+            or requested_action.get("branch")
+            or requested_action.get("head")
+            or local_evidence.get("branch")
+        )
+        labels = _as_str_list(requested_action.get("labels") or data.get("labels"))
+        changed_files = _as_str_list(
+            data.get("changed_files") or local_evidence.get("changed_files")
+        )
+        dependencies = _as_str_list(data.get("dependencies"))
+        if data.get("requires_github") and "github_authenticated_publisher" not in dependencies:
+            dependencies.append("github_authenticated_publisher")
+        metadata: dict[str, Any] = {
+            "path": str(path),
+            "idempotency_key": data.get("idempotency_key"),
+        }
+        if requested_action:
+            metadata["requested_action"] = requested_action
+            metadata["acceptance_criteria"] = (
+                data.get("acceptance_criteria")
+                or f"{requested_action.get('type', 'requested action')} on "
+                f"{requested_action.get('branch') or requested_action.get('head') or 'requested head'}"
+            )
+        if local_evidence:
+            metadata["local_evidence"] = local_evidence
+        if publication_blocker:
+            metadata["publication_blocker"] = publication_blocker
+            metadata["context"] = (
+                data.get("context")
+                or local_evidence.get("selection_reason")
+                or publication_blocker.get("detail")
+            )
+        elif data.get("context") or local_evidence.get("selection_reason"):
+            metadata["context"] = data.get("context") or local_evidence.get("selection_reason")
+        validation = data.get("validation") or local_evidence.get("validation_summary")
+        if validation:
+            metadata["validation"] = validation
+        if changed_files:
+            metadata["files"] = changed_files
+            metadata["mutation_boundary"] = (
+                data.get("mutation_boundary") or local_evidence.get("diff_stat") or changed_files
+            )
+        if title:
+            metadata["objective"] = data.get("objective") or title
+        if dependencies or "dependencies" in data or data.get("requires_github") is not None:
+            metadata["dependencies_declared"] = True
         items.append(
             WorkItem(
                 id=f"automation-outbox:{path.stem}",
@@ -369,10 +434,13 @@ def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str
                 title=title,
                 status=str(data.get("status") or data.get("reason") or "pending"),
                 scope="current",
+                owner=data.get("owner") or local_evidence.get("owner_session"),
                 branch=str(branch) if branch else None,
                 updated_at=str(data.get("updated_at") or data.get("recorded_at") or "") or None,
+                dependencies=dependencies,
                 evidence_refs=[_state_evidence_ref(repo_root, path)],
-                metadata={"path": str(path), "idempotency_key": data.get("idempotency_key")},
+                tags=labels,
+                metadata=metadata,
             )
         )
     return items, _health("automation_outbox", "ok", f"{len(items)} pending handoff(s)")
