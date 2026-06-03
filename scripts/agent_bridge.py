@@ -2166,6 +2166,17 @@ def _operator_recent_blockers(
     return blockers[:limit]
 
 
+def _compact_agent_heartbeats_for_summary(agent_heartbeats: dict[str, Any]) -> dict[str, Any]:
+    """Keep summary-only snapshots from carrying the per-owner heartbeat map."""
+
+    compact = dict(agent_heartbeats)
+    latest_by_owner = compact.pop("latest_by_owner", {})
+    compact["latest_by_owner_omitted"] = (
+        len(latest_by_owner) if isinstance(latest_by_owner, dict) else 0
+    )
+    return compact
+
+
 def _coerce_success_rate(raw_rate: Any) -> float | None:
     if raw_rate is None or isinstance(raw_rate, bool):
         return None
@@ -2266,6 +2277,11 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     )
     pending_steering = _collect_pending_steering_messages(steering_recipient)
     agent_heartbeats = _collect_agent_heartbeats()
+    agent_heartbeats_output = (
+        _compact_agent_heartbeats_for_summary(agent_heartbeats)
+        if summary_only
+        else agent_heartbeats
+    )
     summary: dict[str, Any] = {
         "total_sessions": len(sessions),
         "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
@@ -2296,7 +2312,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "process_census": process_census,
         "health": {"ok": len(issues) == 0, "issues": issues},
         "pending_steering_messages": pending_steering,
-        "agent_heartbeats": agent_heartbeats,
+        "agent_heartbeats": agent_heartbeats_output,
         "queue_depth": _operator_queue_depth(summary, pending_steering),
         "success_rate": _collect_b0_success_rate(),
         "recent_blockers": _operator_recent_blockers(issues, pending_steering),
