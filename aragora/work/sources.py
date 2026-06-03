@@ -284,7 +284,7 @@ def collect_github_prs(repo_root: Path) -> tuple[list[WorkItem], dict[str, Any]]
         return [], _health("github_pr", "degraded", "gh executable not found")
 
     fields = (
-        "number,title,url,state,isDraft,headRefName,headRefOid,"
+        "number,title,url,state,isDraft,author,headRefName,headRefOid,"
         "updatedAt,createdAt,reviewDecision,mergeStateStatus,labels,assignees"
     )
     try:
@@ -322,6 +322,9 @@ def collect_github_prs(repo_root: Path) -> tuple[list[WorkItem], dict[str, Any]]
             for assignee in pr.get("assignees") or []
             if isinstance(assignee, dict)
         ]
+        raw_author = pr.get("author")
+        author = raw_author if isinstance(raw_author, dict) else {}
+        author_login = str(author.get("login") or "") if author else ""
         item = WorkItem(
             id=f"pr:{number}",
             source="github_pr",
@@ -338,7 +341,10 @@ def collect_github_prs(repo_root: Path) -> tuple[list[WorkItem], dict[str, Any]]
             metadata={
                 "number": number,
                 "is_draft": bool(pr.get("isDraft")),
+                "author": author,
+                "author_login": author_login or None,
                 "head_sha": pr.get("headRefOid"),
+                "headRefName": pr.get("headRefName"),
                 "review_decision": pr.get("reviewDecision"),
                 "merge_state_status": pr.get("mergeStateStatus"),
                 "labels": labels,

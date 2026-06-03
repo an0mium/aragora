@@ -12,6 +12,7 @@ RECOMMENDATION_CLASSES = {
     "blocked",
     "duplicate",
     "stale",
+    "policy-excluded",
     "review-only",
     "human-gated",
 }
@@ -105,6 +106,28 @@ def _swarm_ready_blockers(item: WorkItem) -> list[str]:
     return blockers
 
 
+def _metadata_author_login(item: WorkItem) -> str:
+    raw = item.metadata.get("author_login")
+    if raw:
+        return str(raw)
+    author = item.metadata.get("author")
+    if isinstance(author, dict):
+        return str(author.get("login") or "")
+    if author:
+        return str(author)
+    return ""
+
+
+def _is_dependabot_pr(item: WorkItem) -> bool:
+    if item.source != "github_pr":
+        return False
+    author_login = _metadata_author_login(item).lower()
+    if author_login.startswith("dependabot"):
+        return True
+    branch = str(item.branch or item.metadata.get("headRefName") or "").lower()
+    return branch.startswith("dependabot/")
+
+
 def score_work_item(item: WorkItem, *, now: datetime | None = None) -> WorkScore:
     status = item.status.lower()
     title = item.title.lower()
@@ -113,7 +136,10 @@ def score_work_item(item: WorkItem, *, now: datetime | None = None) -> WorkScore
 
     readiness = 0.45
     if source == "github_pr":
-        if item.metadata.get("is_draft"):
+        if _is_dependabot_pr(item):
+            readiness = 0.18
+            rationale.append("policy-excluded Dependabot PR")
+        elif item.metadata.get("is_draft"):
             readiness = 0.25
             rationale.append("draft PR is not ready for settlement")
         elif item.metadata.get("review_decision") == "REVIEW_REQUIRED":
@@ -257,6 +283,8 @@ def classify_work_item(item: WorkItem, *, score: WorkScore | None = None) -> tup
         return "duplicate", ["receipt says work was already satisfied or published"]
     if not is_current_status(status) or item.scope == "historical":
         return "stale", ["terminal or historical work item"]
+    if _is_dependabot_pr(item):
+        return "policy-excluded", ["policy-excluded: Dependabot PR"]
     if item.metadata.get("human_gate") or item.metadata.get("tier") in {3, 4, "3", "4"}:
         return "human-gated", ["human-gated risk surface"]
     if item.metadata.get("blocked") or item.metadata.get("blockers"):
@@ -281,6 +309,9 @@ def classify_work_item(item: WorkItem, *, score: WorkScore | None = None) -> tup
 def recommended_action(item: WorkItem) -> tuple[str, str, list[str]]:
     blockers: list[str] = []
     if item.source == "github_pr":
+        if _is_dependabot_pr(item):
+            blockers.append("policy-excluded: Dependabot PR")
+            return "hold_policy_excluded_pr", "hold", blockers
         if item.metadata.get("is_draft"):
             blockers.append("draft PR")
             return "keep_draft_until_evidence_ready", "hold", blockers
@@ -313,7 +344,7 @@ def build_recommendations(items: list[WorkItem]) -> list[WorkRecommendation]:
         score = item.score or WorkScore()
         classification, class_blockers = classify_work_item(item, score=score)
         blockers = [*blockers, *class_blockers]
-        if classification in {"human-gated", "blocked"}:
+        if classification in {"human-gated", "blocked", "policy-excluded"}:
             priority = "hold"
         elif classification == "needs-polish" and priority == "high":
             priority = "medium"
