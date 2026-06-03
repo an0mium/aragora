@@ -10,14 +10,19 @@ from __future__ import annotations
 import asyncio
 import json as _json
 import logging
-import os
 import re
 from typing import TYPE_CHECKING, Any
+
+from aragora.config.secrets import get_secret_presence
 
 if TYPE_CHECKING:
     from aragora.swarm.boss_loop import GitHubIssue
 
 logger = logging.getLogger(__name__)
+
+
+def _has_api_key(*names: str) -> bool:
+    return any(get_secret_presence(name).source in {"aws", "env"} for name in names)
 
 
 def semantic_dedup_issues(issues: list[GitHubIssue]) -> list[GitHubIssue]:
@@ -29,11 +34,11 @@ def semantic_dedup_issues(issues: list[GitHubIssue]) -> list[GitHubIssue]:
         from aragora.agents.base import create_agent
 
         agent = None
-        if os.environ.get("OPENROUTER_API_KEY"):
+        if _has_api_key("OPENROUTER_API_KEY"):
             agent = create_agent(
                 "openrouter", name="dedup", role="proposer", model="deepseek/deepseek-v4-pro"
             )
-        elif os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+        elif _has_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY"):
             agent = create_agent("gemini", name="dedup", role="proposer", model="gemini-2.0-flash")
         if agent is None:
             return issues

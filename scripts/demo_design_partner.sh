@@ -24,7 +24,7 @@ else
     QUESTION="${QUESTION}"
 fi
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo /Users/armand/Development/aragora)"
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo "${ARAGORA_REPO_ROOT:-$PWD}")"
 
 BOLD='\033[1m'
 GREEN='\033[0;32m'

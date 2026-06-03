@@ -67,44 +67,8 @@ trim_text() {
     printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }
 
-resolve_python_bin() {
-    local candidates=()
-    local candidate=""
-    local python_cmd=""
-
-    if [[ -n "${ARAGORA_PYTHON:-}" ]]; then
-        candidates+=("${ARAGORA_PYTHON}")
-    fi
-    if [[ -x "${REPO_ROOT}/.venv/bin/python3" ]]; then
-        candidates+=("${REPO_ROOT}/.venv/bin/python3")
-    fi
-    if python_cmd="$(command -v python3 2>/dev/null)"; then
-        candidates+=("${python_cmd}")
-    fi
-    if python_cmd="$(command -v python 2>/dev/null)"; then
-        candidates+=("${python_cmd}")
-    fi
-    for candidate in "${candidates[@]}"; do
-        if [[ -z "${candidate}" || ! -x "${candidate}" ]]; then
-            continue
-        fi
-        if "${candidate}" -c 'import pydantic' >/dev/null 2>&1; then
-            printf '%s\n' "${candidate}"
-            return 0
-        fi
-    done
-
-    if command -v pyenv >/dev/null 2>&1; then
-        candidate="$(pyenv which python3 2>/dev/null || true)"
-        if [[ -n "${candidate}" && -x "${candidate}" ]] && "${candidate}" -c 'import pydantic' >/dev/null 2>&1; then
-            printf '%s\n' "${candidate}"
-            return 0
-        fi
-    fi
-
-    echo "No usable python interpreter with pydantic found for boss-loop launchd install." >&2
-    exit 2
-}
+# shellcheck source=scripts/aragora_runtime.sh
+source "${REPO_ROOT}/scripts/aragora_runtime.sh"
 
 validate_integer() {
     local label="$1"
@@ -250,9 +214,10 @@ mkdir -p "$(dirname "${PLIST_PATH}")"
 mkdir -p "$(dirname "${LOG_PATH}")"
 mkdir -p "${REPO_ROOT}/.aragora/overnight"
 
-PYTHON_BIN="$(resolve_python_bin)"
-PYTHON_DIR="$(dirname "${PYTHON_BIN}")"
-command_string="cd \"${REPO_ROOT}\" && export PATH=\"${PYTHON_DIR}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$PATH\" && export ARAGORA_USER_ID=\"${ARAGORA_USER_ID}\" && export ARAGORA_WORKSPACE_ID=\"${ARAGORA_WORKSPACE_ID}\" && export ARAGORA_PYTHON=\"${PYTHON_BIN}\""
+if ! INSTALL_PYTHON="$(resolve_aragora_python 'import pydantic' 'boss-loop' 'boss-loop launchd install')"; then
+    exit 2
+fi
+command_string="cd \"${REPO_ROOT}\" && export PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$HOME/.pyenv/shims:\$PATH\" && export ARAGORA_USER_ID=\"${ARAGORA_USER_ID}\" && export ARAGORA_WORKSPACE_ID=\"${ARAGORA_WORKSPACE_ID}\""
 if [[ -n "${ARAGORA_CLAUDE_PROFILE}" ]]; then
     command_string="${command_string} && export ARAGORA_CLAUDE_PROFILE=\"${ARAGORA_CLAUDE_PROFILE}\""
 fi
@@ -309,6 +274,7 @@ launchctl load "${PLIST_PATH}"
 echo "Installed launchd job: ${LABEL}"
 echo "Plist: ${PLIST_PATH}"
 echo "Log: ${LOG_PATH}"
-echo "Python: ${PYTHON_BIN}"
+echo "Python (install-time check): ${INSTALL_PYTHON}"
+echo "Interpreter is resolved at runtime via scripts/aragora_runtime.sh"
 echo "Boss repo: ${BOSS_REPO}"
 echo "Labels: ${LABELS[*]}"

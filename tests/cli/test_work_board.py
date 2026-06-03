@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from aragora.cli.commands import work_board as work_board_cmd
+from aragora.cli.main import main as cli_main
 from aragora.cli.parser import build_parser
 from aragora.cli.commands.work_board import (
     cmd_work_graph,
@@ -18,7 +20,13 @@ from aragora.cli.commands.work_board import (
 
 
 def _args(tmp_path: Path, **kwargs) -> argparse.Namespace:
-    defaults = {"repo": str(tmp_path), "json": True, "scope": "current", "work_id": None}
+    defaults = {
+        "repo": str(tmp_path),
+        "json": True,
+        "scope": "current",
+        "work_id": None,
+        "limit": None,
+    }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
 
@@ -55,6 +63,104 @@ def test_work_parser_registers_read_only_robot_command() -> None:
     assert args.json is True
 
 
+def test_work_parser_registers_robot_limit() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["work", "robot", "--json", "--limit", "4"])
+
+    assert args.command == "work"
+    assert args.work_cmd == "robot"
+    assert args.limit == 4
+
+
+def test_work_parser_registers_list_limit() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["work", "list", "--json", "--limit", "3"])
+
+    assert args.command == "work"
+    assert args.work_cmd == "list"
+    assert args.limit == 3
+
+
+def test_work_parser_rejects_negative_list_limit() -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["work", "list", "--limit", "-1"])
+
+
+def test_work_with_no_subcommand_prints_help_without_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """`aragora work` with no subcommand should exit cleanly with usage, not crash.
+
+    Regression: previously raised an uncaught AttributeError because the work
+    subparser group set no default ``func`` (parser.py:310), unlike the sibling
+    ``codex`` parser which prints help and returns a non-zero exit code.
+    """
+    monkeypatch.setattr("sys.argv", ["aragora", "work"])
+
+    exit_code = cli_main()
+
+    out = capsys.readouterr().out
+    # Non-zero so scripts can detect "no subcommand given", matching `codex`.
+    assert exit_code == 2
+    # Help/usage text is printed instead of a traceback.
+    assert "work" in out
+    assert "list" in out  # one of the documented subcommands appears in help
+
+
+def test_work_list_default_is_human_readable_not_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """Without ``--json`` the output must NOT be raw JSON.
+
+    Regression: the ``--json`` flag was a no-op (both branches of _emit printed
+    json.dumps), so default output was always JSON despite help text implying a
+    human-readable default.
+    """
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+
+    assert cmd_work_list(_args(tmp_path, scope="current", json=False)) == 0
+    out = capsys.readouterr().out
+
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(out)
+    # Human-readable rendering surfaces the schema-aware summary, not raw braces.
+    assert out.strip() != ""
+    assert not out.lstrip().startswith("{")
+
+
+def test_work_list_json_flag_emits_parseable_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """With ``--json`` the output must remain stable, parseable JSON."""
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+
+    assert cmd_work_list(_args(tmp_path, scope="current", json=True)) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["schema_version"] == "aragora.work.v1"
+
+
+@pytest.mark.parametrize("as_json", [True, False])
+def test_work_emit_suppresses_broken_pipe(monkeypatch: pytest.MonkeyPatch, as_json: bool) -> None:
+    """Closed downstream pipes should not produce CLI tracebacks."""
+    muted_stdout = []
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(
+        work_board_cmd,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    assert work_board_cmd._emit({"schema_version": "aragora.work.v1"}, as_json=as_json) == 0
+    assert muted_stdout == [True]
+
+
 def test_work_list_reads_current_outbox(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
 ) -> None:
@@ -72,6 +178,26 @@ def test_work_list_reads_current_outbox(
     assert payload["count"] == 1
     assert payload["items"][0]["id"] == "automation-outbox:handoff"
     assert payload["items"][0]["branch"] == "codex/repair"
+
+
+def test_work_list_limit_bounds_emitted_items_but_preserves_total_count(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    for name in ("one", "two", "three"):
+        (outbox / f"{name}.json").write_text(
+            json.dumps({"task": f"repair {name}", "branch": f"codex/{name}"}),
+            encoding="utf-8",
+        )
+
+    assert cmd_work_list(_args(tmp_path, scope="current", limit=2)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 3
+    assert payload["emitted_count"] == 2
+    assert len(payload["items"]) == 2
 
 
 def test_work_robot_marks_tier_four_pr_human_gated(
@@ -286,6 +412,39 @@ def test_work_robot_degrades_safely_on_malformed_lane_registry(
     )
 
 
+def test_work_robot_defaults_to_shared_state_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    worktree_root = tmp_path / "linked-worktree"
+    shared_root = tmp_path / "shared-checkout"
+    outbox = shared_root / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps({"task": "Open PR for shared queue", "branch": "codex/shared"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_root))
+
+    assert cmd_work_robot(_args(worktree_root)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 1
+    assert payload["recommendations"][0]["item"]["branch"] == "codex/shared"
+    assert any(
+        health["source"] == "work_state_root"
+        and health["status"] == "ok"
+        and health["state_root"] == str(shared_root.resolve())
+        for health in payload["source_health"]
+    )
+    assert any(
+        health["source"] == "automation_outbox"
+        and health["status"] == "ok"
+        and "1 pending handoff" in health["detail"]
+        for health in payload["source_health"]
+    )
+
+
 def test_work_show_finds_historical_receipt_in_all_scope(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
@@ -364,6 +523,27 @@ def test_work_robot_ranks_actionable_current_work(tmp_path: Path, monkeypatch, c
     assert payload["recommendations"][0]["item_id"] == "automation-outbox:repair"
     assert payload["recommendations"][0]["classification"] == "needs-polish"
     assert payload["recommendations"][0]["action"] == "publish_or_reconcile_handoff"
+
+
+def test_work_robot_limit_bounds_emitted_recommendations_but_preserves_total_count(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    for name in ("one", "two", "three"):
+        (outbox / f"{name}.json").write_text(
+            json.dumps({"task": f"repair {name}", "branch": f"codex/{name}"}),
+            encoding="utf-8",
+        )
+
+    assert cmd_work_robot(_args(tmp_path, limit=2)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 3
+    assert payload["emitted_count"] == 2
+    assert len(payload["recommendations"]) == 2
+    assert payload["mutations"] == []
 
 
 def test_work_robot_emits_ready_for_polished_bead(tmp_path: Path, monkeypatch, capsys) -> None:

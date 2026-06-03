@@ -90,9 +90,10 @@ def _optional_section_bullets(markdown: str, section: str) -> dict[str, int]:
     return _section_bullets(markdown, section)
 
 
-def _percent_to_rate(value: str) -> float:
-    assert value.endswith("%")
-    return round(float(value[:-1]) / 100.0, 6)
+def _format_percent(value: Any) -> str:
+    if isinstance(value, (int, float)):
+        return f"{float(value):.1%}"
+    return "n/a"
 
 
 def _int_value(value: str) -> int:
@@ -147,17 +148,17 @@ def test_b0_benchmark_truth_status_matches_latest_json_artifacts() -> None:
     assert int(coverage_match.group("total")) == corpus["issue_count"]
 
     truth_metrics = _table(markdown, "Truth Metrics")
-    assert _percent_to_rate(truth_metrics["Verified truth success rate (primary)"]) == round(
-        scorecard_payload["truth_metrics"]["truth_success_rate_verified"], 6
+    assert truth_metrics["Verified truth success rate (primary)"] == _format_percent(
+        scorecard_payload["truth_metrics"]["truth_success_rate_verified"]
     )
-    assert _percent_to_rate(
-        truth_metrics["Full-corpus truth success rate (legacy/context)"]
-    ) == round(scorecard_payload["truth_metrics"]["truth_success_rate"], 6)
-    assert _percent_to_rate(truth_metrics["No-rescue truth success rate"]) == round(
-        scorecard_payload["truth_metrics"]["no_rescue_truth_success_rate"], 6
+    assert truth_metrics["Full-corpus truth success rate (legacy/context)"] == _format_percent(
+        scorecard_payload["truth_metrics"]["truth_success_rate"]
     )
-    assert _percent_to_rate(truth_metrics["Merged-only rate"]) == round(
-        scorecard_payload["truth_metrics"]["merged_only_rate"], 6
+    assert truth_metrics["No-rescue truth success rate"] == _format_percent(
+        scorecard_payload["truth_metrics"]["no_rescue_truth_success_rate"]
+    )
+    assert truth_metrics["Merged-only rate"] == _format_percent(
+        scorecard_payload["truth_metrics"]["merged_only_rate"]
     )
     assert scorecard_payload["truth_metrics"] == truth_payload["primary_metrics"]
     assert scorecard_payload["truth_artifact_generated_at"] == truth_payload["generated_at"]
@@ -176,18 +177,33 @@ def test_b0_benchmark_truth_status_matches_latest_json_artifacts() -> None:
         _int_value(in_flight_metrics["In-progress successful issues"])
         == in_flight_payload["in_progress_success_count"]
     )
-    assert _percent_to_rate(in_flight_metrics["In-progress graduation rate"]) == round(
-        in_flight_payload["in_progress_graduation_rate"], 6
+    assert in_flight_metrics["In-progress graduation rate"] == _format_percent(
+        in_flight_payload["in_progress_graduation_rate"]
     )
     assert (
-        _issue_numbers(in_flight_metrics["In-progress issue numbers"])
+        _issue_numbers(in_flight_metrics["Expected in-progress issue numbers"])
         == (in_flight_payload["in_progress_issue_numbers"])
+    )
+    in_progress_records = [
+        record
+        for record in truth_payload["issues"]
+        if record.get("expected_status") == "in_progress"
+    ]
+    assert _issue_numbers(in_flight_metrics["Live-open expected issue numbers"]) == sorted(
+        record["issue_number"]
+        for record in in_progress_records
+        if record.get("issue_state") == "OPEN"
+    )
+    assert _issue_numbers(in_flight_metrics["Live-closed expected issue numbers"]) == sorted(
+        record["issue_number"]
+        for record in in_progress_records
+        if record.get("issue_state") == "CLOSED"
     )
 
     proxy_metrics = _table(markdown, "Proxy Metrics")
     proxy_payload = scorecard_payload["proxy_metrics"]
-    assert _percent_to_rate(proxy_metrics["Proxy no-rescue success rate"]) == round(
-        proxy_payload["no_rescue_success_rate"], 6
+    assert proxy_metrics["Proxy no-rescue success rate"] == _format_percent(
+        proxy_payload["no_rescue_success_rate"]
     )
     assert (
         _int_value(proxy_metrics["Unique issues attempted"])

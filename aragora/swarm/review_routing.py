@@ -7,25 +7,39 @@ import shutil
 import socket
 import ssl
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from aragora.agents.base import create_agent
 from aragora.agents.errors.exceptions import CLISubprocessError
+from aragora.config.secrets import get_secret_presence
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_REVIEW_PROVIDER_ORDER = ("codex", "claude", "openrouter")
 DEFAULT_CLAUDE_REVIEW_PROFILES = tuple(f"max-{index:02d}" for index in range(1, 13))
 _BILLING_MARKERS = ("credit balance", "billing", "payment required", "purchase credits")
+_DIRECT_API_PROVIDER_KEYS = {
+    "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+    "grok": ("XAI_API_KEY", "GROK_API_KEY"),
+}
+_SUPPORTED_REVIEW_PROVIDERS = frozenset(
+    (*DEFAULT_REVIEW_PROVIDER_ORDER, *_DIRECT_API_PROVIDER_KEYS)
+)
 _MODEL_FAMILY_OVERRIDES = {
     "anthropic-api": "claude",
     "claude": "claude",
     "codex": "codex",
+    "gemini-cli": "gemini",
+    "google": "gemini",
+    "grok-cli": "grok",
     "openai": "codex",
     "openai-api": "codex",
     "openrouter": "openrouter",
+    "x-ai": "grok",
+    "xai": "grok",
 }
 
 
@@ -43,6 +57,9 @@ class ReviewCandidate:
         if self.profile:
             payload["profile"] = self.profile
         return payload
+
+
+CandidateBlocker = Callable[[ReviewCandidate], dict[str, Any] | None]
 
 
 class ReviewRoutingError(RuntimeError):
@@ -73,7 +90,7 @@ def resolve_review_candidates(
 
     if (
         preferred_family
-        and preferred_family in configured_order
+        and preferred_family in _SUPPORTED_REVIEW_PROVIDERS
         and preferred_family != worker_family
     ):
         families.append(preferred_family)
@@ -110,6 +127,8 @@ def preflight_review_candidate(
         return _claude_profile_preflight(candidate, repo_root=repo_root)
     if candidate.provider == "openrouter":
         return _openrouter_preflight()
+    if candidate.provider in _DIRECT_API_PROVIDER_KEYS:
+        return _direct_api_provider_preflight(candidate.provider)
     return {
         "ok": False,
         "detail": f"Unsupported review provider: {candidate.provider}",
@@ -122,6 +141,7 @@ async def generate_review_response(
     worker_model: str,
     preferred_review_model: str,
     repo_root: Path,
+    candidate_blocker: CandidateBlocker | None = None,
 ) -> dict[str, Any]:
     attempts: list[dict[str, Any]] = []
     for candidate in resolve_review_candidates(
@@ -138,6 +158,23 @@ async def generate_review_response(
                 }
             )
             continue
+        blocked = candidate_blocker(candidate) if candidate_blocker else None
+        if blocked:
+            attempts.append(
+                {
+                    "candidate": candidate.label,
+                    "stage": "route_guard",
+                    "kind": "blocked_nonreviewable",
+                    "detail": str(blocked.get("title", "candidate blocked")).strip()
+                    or "candidate blocked",
+                }
+            )
+            return {
+                "candidate": candidate.to_dict(),
+                "response": "",
+                "attempts": attempts,
+                "blocked": dict(blocked),
+            }
         try:
             response = await _run_review_candidate(candidate, prompt, repo_root=repo_root)
         except CLISubprocessError as exc:
@@ -202,6 +239,22 @@ async def _run_review_candidate(
             enable_fallback=False,
         )
         return await agent.generate(prompt)
+    if candidate.provider == "gemini":
+        agent = create_agent(
+            "gemini",
+            name="campaign-review",
+            role="critic",
+            enable_fallback=False,
+        )
+        return await agent.generate(prompt)
+    if candidate.provider == "grok":
+        agent = create_agent(
+            "grok",
+            name="campaign-review",
+            role="critic",
+            enable_fallback=False,
+        )
+        return await agent.generate(prompt)
     raise RuntimeError(f"Unsupported review provider: {candidate.provider}")
 
 
@@ -234,7 +287,7 @@ def _claude_profile_preflight(candidate: ReviewCandidate, *, repo_root: Path) ->
 
 
 def _openrouter_preflight() -> dict[str, Any]:
-    if not os.environ.get("OPENROUTER_API_KEY"):
+    if get_secret_presence("OPENROUTER_API_KEY").source not in {"aws", "env"}:
         return {"ok": False, "detail": "OPENROUTER_API_KEY is not configured"}
     try:
         ctx = ssl.create_default_context()
@@ -244,6 +297,14 @@ def _openrouter_preflight() -> dict[str, Any]:
     except OSError as exc:
         return {"ok": False, "detail": f"OpenRouter TLS check failed: {exc}"}
     return {"ok": True, "detail": "OpenRouter API key and TLS look healthy"}
+
+
+def _direct_api_provider_preflight(provider: str) -> dict[str, Any]:
+    key_names = _DIRECT_API_PROVIDER_KEYS[provider]
+    for key_name in key_names:
+        if get_secret_presence(key_name).source in {"aws", "env"}:
+            return {"ok": True, "detail": f"{provider} API key is configured"}
+    return {"ok": False, "detail": f"{' or '.join(key_names)} is not configured"}
 
 
 def _claude_profile_script(repo_root: Path) -> Path | None:

@@ -11,6 +11,27 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Sentinel messages returned by connectivity validators when no backend is
+# configured and the connectivity probe is therefore skipped. These callers
+# treat the result as a non-failure (bool ``True``) for startup-gating
+# purposes, but the skip MUST NOT be reported to humans/CI as a validated
+# connection. Use :func:`is_connectivity_skipped` to distinguish the cases.
+REDIS_SKIP_MESSAGE = "Redis not configured (skipping connectivity check)"
+DATABASE_SKIP_MESSAGE = "PostgreSQL not configured (skipping connectivity check)"
+_CONNECTIVITY_SKIP_MESSAGES = frozenset({REDIS_SKIP_MESSAGE, DATABASE_SKIP_MESSAGE})
+
+
+def is_connectivity_skipped(message: str) -> bool:
+    """Return True when a connectivity validator skipped (no backend configured).
+
+    The Redis/PostgreSQL validators return ``(True, message)`` for the
+    unconfigured case so that optional backends do not fail startup gating.
+    A ``True`` success bool therefore does NOT imply a connection was made.
+    Callers that surface results to humans or CI (e.g. ``validate-env``) use
+    this predicate to avoid reporting a skipped check as ``connected``.
+    """
+    return message in _CONNECTIVITY_SKIP_MESSAGES
+
 
 def _get_config_value(name: str) -> str | None:
     """Get configuration value from environment or secrets manager."""
@@ -409,7 +430,7 @@ async def validate_redis_connectivity(timeout_seconds: float = 5.0) -> tuple[boo
 
     redis_url = os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL")
     if not redis_url:
-        return True, "Redis not configured (skipping connectivity check)"
+        return True, REDIS_SKIP_MESSAGE
 
     try:
         import redis.asyncio as aioredis
@@ -428,7 +449,8 @@ async def validate_redis_connectivity(timeout_seconds: float = 5.0) -> tuple[boo
                 return True, f"Redis connected (version {redis_version})"
             return False, "Redis PING failed"
         finally:
-            await client.aclose()
+            # redis-py async clients expose aclose(); the bundled stubs are stale.
+            await client.aclose()  # type: ignore[attr-defined]
     except ImportError:
         return False, "redis package not installed - run: pip install redis"
     except asyncio.TimeoutError:
@@ -463,7 +485,7 @@ async def validate_database_connectivity(timeout_seconds: float = 5.0) -> tuple[
 
     database_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_POSTGRES_DSN")
     if not database_url:
-        return True, "PostgreSQL not configured (skipping connectivity check)"
+        return True, DATABASE_SKIP_MESSAGE
 
     try:
         import asyncpg

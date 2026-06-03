@@ -89,3 +89,78 @@ def test_concurrent_heartbeat_writes_preserve_all_rows(tmp_path: Path) -> None:
     assert all(returncode == 0 for _stdout, _stderr, returncode in results), results
     payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
     assert sorted(row["lane_id"] for row in payload) == [f"lane-{idx:02d}" for idx in range(12)]
+
+
+def test_resolve_heartbeat_path_prefers_repo_local_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_bridge = repo_root / ".aragora" / "agent-bridge"
+    shared_root = tmp_path / "shared"
+    repo_bridge.mkdir(parents=True)
+    (shared_root / ".aragora" / "agent-bridge").mkdir(parents=True)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_root))
+
+    resolved = heartbeat.resolve_heartbeat_path(repo_root=repo_root)
+
+    assert resolved == repo_bridge / "heartbeats.json"
+
+
+def test_resolve_heartbeat_path_uses_env_checkout_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    shared_root = tmp_path / "shared"
+    (shared_root / ".aragora" / "agent-bridge").mkdir(parents=True)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_root))
+
+    resolved = heartbeat.resolve_heartbeat_path(repo_root=repo_root)
+
+    assert resolved == shared_root / ".aragora" / "agent-bridge" / "heartbeats.json"
+
+
+def test_resolve_heartbeat_path_accepts_direct_env_state_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    shared_state = tmp_path / "shared" / ".aragora"
+    (shared_state / "agent-bridge").mkdir(parents=True)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_state))
+
+    resolved = heartbeat.resolve_heartbeat_path(repo_root=repo_root)
+
+    assert resolved == shared_state / "agent-bridge" / "heartbeats.json"
+
+
+def test_cli_writes_to_shared_state_root_from_stateless_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    shared_root = tmp_path / "shared"
+    (shared_root / ".aragora" / "agent-bridge").mkdir(parents=True)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_root))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--repo-root",
+            str(repo_root),
+            "--lane-id",
+            "Q245-primary-agent-heartbeat-shared-state",
+            "--owner-session",
+            "engineering-autopilot-Q245",
+            "--last-seen-at",
+            "2026-06-01T23:00:00Z",
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    heartbeat_path = shared_root / ".aragora" / "agent-bridge" / "heartbeats.json"
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert json.loads(result.stdout)["lane_id"] == "Q245-primary-agent-heartbeat-shared-state"
+    assert payload[0]["owner_session"] == "engineering-autopilot-Q245"
+    assert not (repo_root / ".aragora").exists()

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -65,12 +64,12 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "deepseek/deepseek-chat-v3.1": "openai/gpt-5.5",
     "deepseek/deepseek-r1": "openai/gpt-5.5",
     "deepseek/deepseek-reasoner": "openai/gpt-5.5",
-    # Kimi -> Claude Opus 4.7
-    "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.7",
-    "moonshotai/kimi-k2.5": "anthropic/claude-opus-4.7",
-    "moonshotai/kimi-k2-0905": "anthropic/claude-opus-4.7",
-    "moonshotai/kimi-k2-thinking": "anthropic/claude-opus-4.7",
-    "moonshot/moonshot-v1-128k": "anthropic/claude-opus-4.7",
+    # Kimi -> Claude Opus 4.8
+    "moonshotai/kimi-k2.6": "anthropic/claude-opus-4.8",
+    "moonshotai/kimi-k2.5": "anthropic/claude-opus-4.8",
+    "moonshotai/kimi-k2-0905": "anthropic/claude-opus-4.8",
+    "moonshotai/kimi-k2-thinking": "anthropic/claude-opus-4.8",
+    "moonshot/moonshot-v1-128k": "anthropic/claude-opus-4.8",
     # Mistral -> GPT-5.5
     "mistralai/mistral-large-2411": "openai/gpt-5.5",
     "mistralai/mistral-large-2512": "openai/gpt-5.5",
@@ -106,7 +105,7 @@ class OpenRouterAgent(APIAgent):
     - qwen/qwen3.5-plus-02-15 (Qwen3.5 Plus)
     - moonshotai/kimi-k2.6 (Kimi K2.6)
     - google/gemini-3.1-pro (Gemini 3.1 Pro)
-    - anthropic/claude-opus-4.7
+    - anthropic/claude-opus-4.8
     - openai/gpt-5.5
     """
 
@@ -855,7 +854,7 @@ class KimiLegacyAgent(APIAgent):
     ):
         super().__init__(name=name, model=model, role=role)
         self.system_prompt = system_prompt
-        self.api_key = api_key or os.environ.get("KIMI_API_KEY")
+        self.api_key = api_key or get_api_key("KIMI_API_KEY")
         self.base_url = "https://api.moonshot.cn/v1"
         self.agent_type = "kimi"
 

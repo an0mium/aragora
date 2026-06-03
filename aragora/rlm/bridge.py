@@ -53,8 +53,10 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from collections.abc import Callable
+
+from aragora.config.secrets import get_secret_presence
 
 logger = logging.getLogger(__name__)
 
@@ -285,7 +287,7 @@ class AragoraRLM(RLMStreamingMixin):
         if (
             self.backend_config.fallback_backend is None
             and self.backend_config.backend == "openai"
-            and os.environ.get("OPENROUTER_API_KEY")
+            and get_secret_presence("OPENROUTER_API_KEY").source in {"aws", "env"}
         ):
             self.backend_config.fallback_backend = "openrouter"
 
@@ -763,9 +765,12 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
 
         start_time = time_module.perf_counter()
         try:
+            official_rlm = self._official_rlm
+            if official_rlm is None:
+                raise RuntimeError("Official RLM is not initialized")
             # Run RLM completion (handles REPL internally)
             # The model writes code to examine context recursively
-            completion = self._official_rlm.completion(
+            completion = official_rlm.completion(
                 rlm_prompt,
                 root_prompt=query,  # Small prompt visible to root LM
             )
@@ -783,8 +788,8 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             trajectory_log_path = None
             rlm_iterations = 0
             code_blocks_executed = 0
-            if hasattr(self._official_rlm, "logger") and self._official_rlm.logger:
-                rlm_log = self._official_rlm.logger
+            if hasattr(official_rlm, "logger") and official_rlm.logger:
+                rlm_log = official_rlm.logger
                 trajectory_log_path = getattr(rlm_log, "log_path", None)
                 if hasattr(rlm_log, "get_stats"):
                     stats = rlm_log.get_stats()
@@ -1267,7 +1272,7 @@ Please provide an improved answer based on the feedback."""
     def __enter__(self) -> "AragoraRLM":
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Literal[False]:
         self.close()
         return False
 

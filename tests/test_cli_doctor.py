@@ -15,7 +15,8 @@ class TestDoctorCommand:
         """Doctor returns 0 when all required checks pass."""
         # Mock required packages as installed
         with patch.dict("sys.modules", {"aiohttp": object(), "pydantic": object()}):
-            result = main()
+            with patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}, clear=False):
+                result = main()
 
         # Should succeed if Python version is compatible
         if sys.version_info >= (3, 10):

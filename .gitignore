@@ -238,3 +238,6 @@ Enterprise_Multi_Agent_Control_Plane_Report.docx
 godmod3-homepage.png
 # Test/runtime artifacts written to repo root
 coverage-handlers.json
+
+# Machine-local gt store config (workspace path is per-clone)
+.gt/config.json

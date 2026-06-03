@@ -23,13 +23,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+from aragora.config.trusted_authors import resolve_trusted_authors
+
 ISSUE_REF_PATTERN = re.compile(r"#(\d{2,6})\b")
 FILE_PATH_PATTERN = re.compile(
     r"(?:^|[\s`(])([a-zA-Z0-9_./\\-]+\.(?:py|md|yml|yaml|toml|cfg|sh|ts|tsx|js|jsx|json))(?=[\s`):,.]|$)"
 )
-AUTOMATION_AUTHOR_HINTS = (
+# Generic automation name fragments only; no personal login is hardcoded so a
+# public fork flags nobody by default. Operators add their own logins via
+# ARAGORA_TRUSTED_AUTHORS.
+_DEFAULT_AUTOMATION_AUTHOR_HINTS = (
     "[bot]",
-    "an0mium",
     "boss-loop",
     "stage-gate",
     "swarm-",
@@ -37,6 +41,21 @@ AUTOMATION_AUTHOR_HINTS = (
     "codex-automation",
     "github-actions",
 )
+
+
+def automation_author_hints() -> tuple[str, ...]:
+    """Resolve automation name fragments (generic defaults + env logins).
+
+    Lowercased for case-insensitive substring matching; resolved per call so
+    ``ARAGORA_TRUSTED_AUTHORS`` changes take effect without re-import.
+    """
+    return tuple(
+        sorted(hint.lower() for hint in resolve_trusted_authors(_DEFAULT_AUTOMATION_AUTHOR_HINTS))
+    )
+
+
+# Generic defaults snapshot for backward-compatible imports.
+AUTOMATION_AUTHOR_HINTS = automation_author_hints()
 
 
 @dataclass(frozen=True)
@@ -106,7 +125,7 @@ def is_automation_generated(
     judge substantive value regardless of this flag.
     """
     author_lower = author.lower()
-    if any(hint in author_lower for hint in AUTOMATION_AUTHOR_HINTS):
+    if any(hint in author_lower for hint in automation_author_hints()):
         return True
     automation_labels = {"automation", "automated", "stage-gate-drift", "boss-stuck"}
     if any(label.lower() in automation_labels for label in labels):

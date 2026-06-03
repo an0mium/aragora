@@ -205,7 +205,28 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
         >>> api_key = get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
         >>> optional_key = get_api_key("BACKUP_KEY", required=False)
     """
-    # Try AWS Secrets Manager first (if enabled)
+    # Optional provider probes are used for fallback availability checks. They
+    # should treat strict-mode env-blocked secrets as absent without emitting the
+    # "critical secret found in environment" warning from value retrieval.
+    if not required:
+        try:
+            from aragora.config.secrets import get_secret, get_secret_presence
+
+            for var in env_vars:
+                presence = get_secret_presence(var)
+                if presence.source == "aws":
+                    value = get_secret(var)
+                    if value and value.strip():
+                        return value.strip()
+                elif presence.source == "env":
+                    value = os.getenv(var)
+                    if value and value.strip():
+                        return value.strip()
+            return None
+        except ImportError:
+            pass  # secrets module not available, fall through to env vars
+
+    # Try AWS Secrets Manager first (if enabled).
     try:
         from aragora.config.secrets import get_secret
 

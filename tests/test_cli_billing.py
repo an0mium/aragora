@@ -211,6 +211,21 @@ class TestCmdStatus:
         captured = capsys.readouterr()
         assert "Error:" in captured.out
 
+    @patch("aragora.cli.billing.api_request")
+    def test_renders_unlimited_token_limit(self, mock_request, mock_args, capsys):
+        """Free/unlimited-token plans (limits omits 'tokens') must not crash."""
+        mock_request.return_value = {
+            "plan": {"name": "Free", "status": "active"},
+            "current_usage": {"debates": 5, "tokens": 12345, "cost_usd": "1.50"},
+            "limits": {"debates": 100},
+        }
+
+        result = cmd_status(mock_args)
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Tokens: 12,345 / unlimited" in captured.out
+
 
 class TestCmdStatusLocal:
     """Tests for cmd_status_local function."""
@@ -444,6 +459,23 @@ class TestCmdInvoices:
 
         captured = capsys.readouterr()
         assert "No invoices found" in captured.out
+
+    @patch("aragora.cli.billing.api_request")
+    def test_handles_null_invoice_amount(self, mock_request, mock_args, capsys):
+        """An explicit JSON null amount must render as $0.00, not crash."""
+        mock_args.limit = 10
+        mock_request.return_value = {
+            "invoices": [
+                {"date": "2026-05-01", "amount": None, "status": "paid", "id": "in_123"},
+            ]
+        }
+
+        result = cmd_invoices(mock_args)
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "0.00" in captured.out
+        assert "paid" in captured.out
 
 
 class TestCmdBillingDefault:

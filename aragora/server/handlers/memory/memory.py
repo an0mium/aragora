@@ -54,16 +54,15 @@ MEMORY_READ_PERMISSION = "memory:read"
 MEMORY_WRITE_PERMISSION = "memory:write"
 MEMORY_MANAGE_PERMISSION = "memory:manage"
 
-# Pre-declare optional import names for type safety
-MemoryTier: Any = None
-CritiqueStore: Any = None
-
-# Optional import for memory functionality
+# Optional import for memory functionality.
+# Fallbacks are assigned in the ``except`` branch so static type checkers do
+# not see a redundant re-definition of the imported name.
 try:
     from aragora.memory.continuum import MemoryTier
 
     CONTINUUM_AVAILABLE = True
 except ImportError:
+    MemoryTier = None  # type: ignore[assignment,misc]
     CONTINUUM_AVAILABLE = False
 
 # Optional import for critique store - use canonical helper
@@ -75,7 +74,7 @@ CRITIQUE_STORE_AVAILABLE = is_critique_store_available()
 try:
     from aragora.memory.store import CritiqueStore
 except ImportError:
-    CritiqueStore = None
+    CritiqueStore = None  # type: ignore[assignment,misc]
 
 
 class MemoryHandler(
@@ -104,6 +103,7 @@ class MemoryHandler(
         "/api/v1/memory/pressure",
         "/api/v1/memory/tiers",
         "/api/v1/memory/search",
+        "/api/v1/memory/store",
         "/api/v1/memory/search-index",
         "/api/v1/memory/search-timeline",
         "/api/v1/memory/entries",
@@ -275,7 +275,130 @@ class MemoryHandler(
                 return error_response("Rate limit exceeded. Please try again later.", 429)
             return self._unified_search(query_params, handler)
 
+        if path == "/api/v1/memory/store":
+            # Rate limit: 10/min for mutation operations
+            if not _mutation_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            return self._store_memory(handler)
+
+        # Promote an entry to a new tier: POST /api/v1/memory/{id}/promote
+        if path.endswith("/promote") and path.startswith("/api/v1/memory/"):
+            # Rate limit: 10/min for mutation operations
+            if not _mutation_limiter.is_allowed(client_ip):
+                return error_response("Rate limit exceeded. Please try again later.", 429)
+            # split("/") => ["", "api", "v1", "memory", "{id}", "promote"]
+            memory_id, err = self.extract_path_param(path, 4, "memory_id")
+            if err or memory_id is None:
+                return err or error_response("Empty memory_id", 400)
+            return self._promote_memory(memory_id, handler)
+
         return None
+
+    def _resolve_tier(self, tier_name: str) -> Any:
+        """Resolve a tier name string to a MemoryTier enum, or None if invalid."""
+        if not CONTINUUM_AVAILABLE or MemoryTier is None:
+            return None
+        try:
+            return MemoryTier[tier_name.strip().upper()]
+        except (KeyError, AttributeError):
+            return None
+
+    def _store_memory(self, handler: Any) -> HandlerResult:
+        """Store a new memory entry: POST /api/v1/memory/store.
+
+        Expects JSON body: {"content": str, "tier": str, "importance"?: float}.
+        Returns {"id": str, "tier": str}.
+        """
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        body = self.read_json_body(handler) or {}
+        content = body.get("content")
+        if not isinstance(content, str) or not content.strip():
+            return error_response("Missing required field: content", 400)
+
+        tier_name = body.get("tier", "fast")
+        tier = self._resolve_tier(str(tier_name))
+        if tier is None:
+            return error_response(f"Invalid tier: {tier_name}", 400)
+
+        importance = body.get("importance", 0.5)
+        try:
+            importance = float(importance)
+        except (TypeError, ValueError):
+            importance = 0.5
+        importance = max(0.0, min(1.0, importance))
+
+        import uuid
+
+        memory_id = str(uuid.uuid4())
+        try:
+            entry = continuum.add(
+                id=memory_id,
+                content=content,
+                tier=tier,
+                importance=importance,
+            )
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+            logger.warning("Memory store failed: %s", e)
+            return error_response("Failed to store memory entry", 500)
+
+        stored_id = getattr(entry, "id", None) or memory_id
+        return json_response({"id": stored_id, "tier": tier.name.lower()})
+
+    def _promote_memory(self, memory_id: str, handler: Any) -> HandlerResult:
+        """Promote a memory entry to a new tier: POST /api/v1/memory/{id}/promote.
+
+        Expects JSON body: {"target_tier": str}.
+        Returns {"success": bool, "previous_tier": str | None}.
+        """
+        if not CONTINUUM_AVAILABLE:
+            return error_response("Continuum memory system not available", 503)
+
+        continuum = self.ctx.get("continuum_memory")
+        if not continuum:
+            return error_response("Continuum memory not initialized", 503)
+
+        body = self.read_json_body(handler) or {}
+        target_tier_name = body.get("target_tier")
+        if not target_tier_name:
+            return error_response("Missing required field: target_tier", 400)
+
+        target_tier = self._resolve_tier(str(target_tier_name))
+        if target_tier is None:
+            return error_response(f"Invalid tier: {target_tier_name}", 400)
+
+        # Capture the current tier before promotion for the response.
+        previous_tier: str | None = None
+        try:
+            existing = continuum.get(memory_id)
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError):
+            existing = None
+        if existing is not None:
+            existing_tier = getattr(existing, "tier", None)
+            if existing_tier is not None and hasattr(existing_tier, "name"):
+                previous_tier = existing_tier.name.lower()
+
+        try:
+            promoted = continuum.promote_entry(memory_id, target_tier)
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+            logger.warning("Memory promote failed: %s", e)
+            return error_response("Failed to promote memory entry", 500)
+
+        if not promoted:
+            return json_response(
+                {
+                    "success": False,
+                    "previous_tier": previous_tier,
+                    "error": "Memory entry not found",
+                }
+            )
+
+        return json_response({"success": True, "previous_tier": previous_tier})
 
     @handle_errors("memory deletion")
     def handle_delete(
@@ -319,7 +442,7 @@ class MemoryHandler(
     def _parse_bool_param(params: dict, name: str, default: bool = False) -> bool:
         """Parse a boolean parameter from query params."""
         raw = get_bounded_string_param(params, name, "", max_length=10)
-        if raw == "":
+        if not raw:
             return default
         return raw.strip().lower() in ("1", "true", "yes", "y", "on")
 
@@ -429,13 +552,15 @@ class MemoryHandler(
     def _get_unified_handler(self) -> Any:
         """Get or create UnifiedMemoryHandler."""
         if not hasattr(self, "_unified_handler"):
+            unified: Any = None
             try:
                 from .unified_handler import UnifiedMemoryHandler
 
                 gateway = getattr(self, "_memory_gateway", None)
-                self._unified_handler = UnifiedMemoryHandler(gateway=gateway)
+                unified = UnifiedMemoryHandler(gateway=gateway)
             except ImportError:
-                self._unified_handler = None
+                unified = None
+            self._unified_handler = unified
         return self._unified_handler
 
     def _unified_search(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:

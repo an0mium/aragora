@@ -9,6 +9,7 @@ Default OFF — callers must explicitly invoke ``build_truth_map`` or
 from __future__ import annotations
 
 import datetime
+import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -17,6 +18,12 @@ from aragora.epistemic.claim_verifier import ClaimResult, ClaimStatus
 
 if TYPE_CHECKING:
     from aragora.debate.crux_mode import CruxFinderResult
+    from aragora.epistemic.genealogy import GenealogyStore
+
+
+def _genealogy_enabled() -> bool:
+    raw = str(os.environ.get("ARAGORA_GENEALOGY_ENABLED") or "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
 
 
 @dataclass
@@ -48,12 +55,33 @@ class CruxSummaryRow:
 
 
 @dataclass
+class GenealogyRow:
+    """Lineage summary for one proof-carrying code unit (DIC-24 drill-down).
+
+    Populated in ``build_truth_map`` when ``ARAGORA_GENEALOGY_ENABLED`` is set
+    and the caller supplies ``genealogy_inputs``.  Contains the chain_checksum
+    and a brief per-entry summary so truth-map consumers can see how a code
+    path evolved without loading full receipt stores.
+    """
+
+    code_unit_id: str
+    entry_count: int
+    chain_checksum: str
+    generated_at: str
+    entries: list[dict[str, Any]]
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class OrgTruthMapReport:
     """Read-only aggregated truth map for an Aragora deployment."""
 
     generated_at: str
     claims: list[ClaimRow] = field(default_factory=list)
     crux_summaries: list[CruxSummaryRow] = field(default_factory=list)
+    genealogies: list[GenealogyRow] = field(default_factory=list)
     total_claims: int = 0
     passing_claims: int = 0
     failing_claims: int = 0
@@ -67,6 +95,7 @@ class OrgTruthMapReport:
             "generated_at": self.generated_at,
             "claims": [c.to_dict() for c in self.claims],
             "crux_summaries": [cs.to_dict() for cs in self.crux_summaries],
+            "genealogies": [g.to_dict() for g in self.genealogies],
             "summary": {
                 "total_claims": self.total_claims,
                 "passing": self.passing_claims,
@@ -86,8 +115,16 @@ def build_truth_map(
     crux_results: list[CruxFinderResult] | None = None,
     top_k_cruxes: int = 3,
     open_crux_score_threshold: float = 0.3,
+    genealogy_inputs: "list[tuple[str, GenealogyStore]] | None" = None,
 ) -> OrgTruthMapReport:
-    """Build an OrgTruthMapReport from pre-computed claim and crux inputs."""
+    """Build an OrgTruthMapReport from pre-computed claim and crux inputs.
+
+    ``genealogy_inputs`` is an optional list of ``(code_unit_id, store)``
+    pairs. When ``ARAGORA_GENEALOGY_ENABLED`` is set, each pair is resolved
+    via :func:`aragora.epistemic.genealogy.get_genealogy` and added as a
+    :class:`GenealogyRow` drill-down.  When the flag is off the parameter
+    is silently ignored so callers can wire it unconditionally.
+    """
     meta = claim_metadata or {}
     rows: list[ClaimRow] = []
     for cr in claim_results:
@@ -131,10 +168,30 @@ def build_truth_map(
             )
         )
 
+    genealogy_rows: list[GenealogyRow] = []
+    if genealogy_inputs and _genealogy_enabled():
+        from aragora.epistemic.genealogy import get_genealogy
+
+        for unit_id, store in genealogy_inputs:
+            try:
+                gen = get_genealogy(unit_id, store, require_enabled=False)
+                genealogy_rows.append(
+                    GenealogyRow(
+                        code_unit_id=gen.code_unit_id,
+                        entry_count=len(gen.entries),
+                        chain_checksum=gen.chain_checksum,
+                        generated_at=gen.generated_at,
+                        entries=[e.to_dict() for e in gen.entries],
+                    )
+                )
+            except (ValueError, RuntimeError):
+                pass
+
     return OrgTruthMapReport(
         generated_at=datetime.datetime.utcnow().isoformat() + "Z",
         claims=rows,
         crux_summaries=crux_rows,
+        genealogies=genealogy_rows,
         total_claims=len(rows),
         passing_claims=counts[ClaimStatus.PASS],
         failing_claims=counts[ClaimStatus.FAIL],

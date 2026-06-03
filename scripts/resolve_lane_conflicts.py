@@ -47,6 +47,47 @@ ACTIVE_STATUSES = {
 INACTIVE_OWNER_STATUSES = {"released", "completed", "superseded"}
 
 
+def _canonical_repo_root(path: Path = DEFAULT_REPO_ROOT) -> Path:
+    common_dir_proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if common_dir_proc.returncode == 0:
+        common_dir = common_dir_proc.stdout.strip()
+        if common_dir.endswith("/.git"):
+            return Path(common_dir).resolve().parent
+
+    root_proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if root_proc.returncode == 0 and root_proc.stdout.strip():
+        return Path(root_proc.stdout.strip()).resolve()
+    return path.resolve()
+
+
+def _automation_state_root(repo_root: Path = DEFAULT_REPO_ROOT) -> Path:
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    if configured:
+        root = Path(configured).expanduser()
+        return root if root.name == ".aragora" else root / ".aragora"
+    return _canonical_repo_root(repo_root) / ".aragora"
+
+
+def _default_registry_path() -> Path:
+    return _automation_state_root() / "agent-bridge" / "lanes.json"
+
+
+def _default_receipt_dir() -> Path:
+    return _automation_state_root() / "agent-bridge" / "conflict-resolution-receipts"
+
+
 def _utc_now_iso() -> str:
     return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -606,12 +647,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--registry-path",
         type=Path,
-        default=DEFAULT_REPO_ROOT / REGISTRY_RELATIVE_PATH,
+        default=None,
+        help=(
+            "Lane registry path. Defaults to ARAGORA_AUTOMATION_STATE_ROOT, then "
+            "the canonical repo root's .aragora/agent-bridge/lanes.json."
+        ),
     )
     parser.add_argument(
         "--receipt-dir",
         type=Path,
-        default=DEFAULT_REPO_ROOT / RECEIPT_RELATIVE_DIR,
+        default=None,
+        help=(
+            "Directory for append-only resolution receipts. Defaults to the "
+            "shared automation state root."
+        ),
     )
     parser.add_argument("--json", action="store_true")
     return parser
@@ -619,6 +668,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    registry_path = args.registry_path or _default_registry_path()
+    receipt_dir = args.receipt_dir or _default_receipt_dir()
     if args.merged_pr_lane_audit:
         if args.pr is None:
             result = {
@@ -633,8 +684,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print("blocked: --pr is required for --merged-pr-lane-audit")
             return 2
         result = audit_merged_pr_lanes(
-            registry_path=args.registry_path,
-            receipt_dir=args.receipt_dir,
+            registry_path=registry_path,
+            receipt_dir=receipt_dir,
             pr=args.pr,
             gh_bin=args.gh_bin,
             apply=bool(args.apply),
@@ -660,8 +711,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     result = resolve_conflicts(
-        registry_path=args.registry_path,
-        receipt_dir=args.receipt_dir,
+        registry_path=registry_path,
+        receipt_dir=receipt_dir,
         apply=bool(args.apply),
     )
     if args.json:

@@ -51,6 +51,18 @@ TRIAGE_SCRIPT = REPO_ROOT / "scripts" / "triage_open_prs.py"
 RECEIPT_DIR = REPO_ROOT / "docs" / "status"
 POLICY_DOC = REPO_ROOT / "docs" / "governance" / "OPERATOR_DELEGATION_POLICY.md"
 
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from aragora.config.trusted_authors import (  # noqa: E402
+    TRUSTED_AUTHORS_ENV as GLOBAL_TRUSTED_AUTHORS_ENV,
+    resolve_trusted_authors,
+)
+from scripts.post_merge_lane_audit import (  # noqa: E402
+    post_merge_lane_audit_failed,
+    post_merge_lane_audit_failure_reason,
+    run_post_merge_lane_audit,
+)
+
 BUCKET_A = "A"
 
 DEFAULT_SETTLING_MINUTES = 30
@@ -81,7 +93,9 @@ PROTECTED_PREFIXES: tuple[str, ...] = (
     "secrets/",
 )
 
-DEFAULT_TRUSTED_AUTHORS: frozenset[str] = frozenset({"an0mium"})
+# No personal login is trusted by default; operators opt in via the global
+# ARAGORA_TRUSTED_AUTHORS or the bucket-specific env var below.
+DEFAULT_TRUSTED_AUTHORS: frozenset[str] = frozenset()
 TRUSTED_AUTHORS_ENV = "ARAGORA_BUCKET_A_TRUSTED_AUTHORS"
 
 # Labels that require a human/operator stop even if Stage 1 accidentally
@@ -124,6 +138,7 @@ class MergeDecision:
     reason: str
     head_sha: str | None = None
     applied: bool = False
+    post_merge_lane_audit: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +148,7 @@ class MergeDecision:
 
 Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
 ReviewQueueSourceValidator = Callable[[], str | None]
+PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
 
 
 def _default_runner(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -142,15 +158,16 @@ def _default_runner(args: list[str]) -> subprocess.CompletedProcess[str]:
 def trusted_authors(env: Mapping[str, str] | None = None) -> frozenset[str]:
     """Return the configured Bucket-A trusted authors.
 
-    The default mirrors the policy doc. Operators can extend the set for
-    automation identities without editing this script by setting
-    ``ARAGORA_BUCKET_A_TRUSTED_AUTHORS`` to a comma-separated login list.
+    No personal login is trusted by default. Operators opt in without editing
+    this script by setting the global ``ARAGORA_TRUSTED_AUTHORS`` or the
+    bucket-specific ``ARAGORA_BUCKET_A_TRUSTED_AUTHORS`` to a comma-separated
+    login list; the two sources are unioned.
     """
-    source = os.environ if env is None else env
-    configured = frozenset(
-        login.strip() for login in source.get(TRUSTED_AUTHORS_ENV, "").split(",") if login.strip()
+    return resolve_trusted_authors(
+        DEFAULT_TRUSTED_AUTHORS,
+        env_vars=(GLOBAL_TRUSTED_AUTHORS_ENV, TRUSTED_AUTHORS_ENV),
+        env=env,
     )
-    return DEFAULT_TRUSTED_AUTHORS | configured
 
 
 def _git_stdout(args: list[str], *, cwd: Path) -> str | None:
@@ -625,6 +642,8 @@ def decide(
     merge_packet_provider: Callable[[int], dict[str, Any]] | None = None,
     review_queue_source_validator: ReviewQueueSourceValidator | None = None,
     merger: Callable[[int, str, bool, bool], subprocess.CompletedProcess[str]] | None = None,
+    post_merge_lane_audit_provider: PostMergeLaneAuditProvider | None = None,
+    apply_post_merge_lane_audit: bool = False,
     delete_branch_on_merge: bool = False,
     now: datetime.datetime | None = None,
 ) -> tuple[list[MergeDecision], int]:
@@ -644,6 +663,12 @@ def decide(
             _review_queue_source_tripwire if using_default_merge_packet_provider else (lambda: None)
         )
     merger = merger or gh_pr_merge_squash
+    if post_merge_lane_audit_provider is None:
+
+        def _default_post_merge_lane_audit(pr: int, audit_apply: bool = False) -> dict[str, Any]:
+            return run_post_merge_lane_audit(pr, repo_root=REPO_ROOT, apply=audit_apply)
+
+        post_merge_lane_audit_provider = _default_post_merge_lane_audit
 
     decisions: list[MergeDecision] = []
     tripwire_exit = 0
@@ -825,14 +850,37 @@ def decide(
                 )
                 tripwire_exit = 1
                 continue
+            try:
+                post_merge_lane_audit = post_merge_lane_audit_provider(
+                    pr_number,
+                    apply_post_merge_lane_audit,
+                )
+            except Exception as exc:
+                post_merge_lane_audit = {
+                    "audit_ok": False,
+                    "audit_applied": False,
+                    "audit_apply_requested": apply_post_merge_lane_audit,
+                    "audit_error": str(exc),
+                }
+            reason = "bucket A + tripwire clear + settling window met"
+            if post_merge_lane_audit_failed(
+                post_merge_lane_audit,
+                apply_requested=apply_post_merge_lane_audit,
+            ):
+                tripwire_exit = 1
+                reason = (
+                    f"{reason}; post-merge lane audit failed: "
+                    f"{post_merge_lane_audit_failure_reason(post_merge_lane_audit)}"
+                )
             decisions.append(
                 MergeDecision(
                     pr_number=pr_number,
                     title=title,
                     decision="merge",
-                    reason="bucket A + tripwire clear + settling window met",
+                    reason=reason,
                     head_sha=head_sha or None,
                     applied=True,
+                    post_merge_lane_audit=post_merge_lane_audit,
                 )
             )
         else:
@@ -902,6 +950,21 @@ def render_receipt(
             f"| #{d.pr_number} | `{d.decision}` | {'yes' if d.applied else 'no'} | "
             f"`{head}` | {d.reason} |"
         )
+    audit_decisions = [d for d in decisions if d.post_merge_lane_audit is not None]
+    if audit_decisions:
+        lines.append("")
+        lines.append("## Post-merge lane audit")
+        lines.append("")
+        lines.append("| PR | Findings | Resolved | Blocked reason | Operator apply command |")
+        lines.append("|---|---:|---:|---|---|")
+        for d in audit_decisions:
+            audit = d.post_merge_lane_audit or {}
+            command = str(audit.get("operator_apply_command") or "—").replace("|", "\\|")
+            lines.append(
+                f"| #{d.pr_number} | {audit.get('finding_count', '—')} | "
+                f"{audit.get('resolved_count', '—')} | "
+                f"{audit.get('blocked_reason') or '—'} | `{command}` |"
+            )
     lines.append("")
     return "\n".join(lines)
 
@@ -1058,11 +1121,23 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Delete merged PR branches. Default keeps branches for auditability.",
     )
+    parser.add_argument(
+        "--apply-post-merge-lane-audit",
+        action="store_true",
+        help=(
+            "After a successful protected merge, apply the merged-PR lane audit "
+            "with operator authorization and the live merge commit guard. "
+            "Default is dry-run/report only."
+        ),
+    )
 
     args = parser.parse_args(argv)
 
     if args.settling_minutes < 0:
         print("error: --settling-minutes must be non-negative", file=sys.stderr)
+        return 2
+    if args.apply_post_merge_lane_audit and not args.apply:
+        print("error: --apply-post-merge-lane-audit requires --apply", file=sys.stderr)
         return 2
 
     try:
@@ -1093,6 +1168,7 @@ def main(argv: list[str] | None = None) -> int:
         settling_minutes=args.settling_minutes,
         only_pr=args.only_pr,
         delete_branch_on_merge=args.delete_branch_on_merge,
+        apply_post_merge_lane_audit=args.apply_post_merge_lane_audit,
     )
 
     if args.apply:

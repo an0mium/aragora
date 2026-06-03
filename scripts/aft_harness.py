@@ -625,6 +625,9 @@ def summarize(
     for name, preds in results.items():
         latencies = [p.latency_ms for p in preds]
         costs = [p.cost_usd_estimate for p in preds]
+        stubbed_predictions = sum(1 for p in preds if p.condition.endswith("_stubbed"))
+        error_predictions = sum(1 for p in preds if p.condition.endswith("_error"))
+        real_predictions = len(preds) - stubbed_predictions - error_predictions
         summary["conditions"][name] = {
             "accuracy": accuracy(preds, labels),
             "brier": brier_score(preds, labels),
@@ -637,6 +640,11 @@ def summarize(
             "cost_usd_total": sum(costs),
             "cost_usd_mean": statistics.fmean(costs) if costs else 0.0,
             "n_predictions": len(preds),
+            "stubbed_predictions": stubbed_predictions,
+            "mock_predictions": stubbed_predictions,
+            "real_predictions": real_predictions,
+            "error_predictions": error_predictions,
+            "stubbed": bool(preds and stubbed_predictions == len(preds)),
         }
         order = sorted(preds, key=lambda p: p.pr_number)
         correctness[name] = [

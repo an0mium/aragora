@@ -16,7 +16,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 import re
 import subprocess
 import sys
@@ -26,12 +25,19 @@ from pathlib import Path
 from typing import Any, cast
 
 from aragora.agents.base import AgentType, create_agent
+from aragora.config.secrets import get_secret_presence
 from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.config.settings import DebateSettings, AgentSettings
 
 logger = logging.getLogger(__name__)
+
+
+def _has_api_key(*names: str) -> bool:
+    """Return API-key availability without exposing secret values."""
+    return any(get_secret_presence(name).source in {"aws", "env"} for name in names)
+
 
 # Default agents for code review (fast, diverse perspectives)
 DEFAULT_REVIEW_AGENTS = AgentSettings().default_agents
@@ -150,23 +156,23 @@ def get_available_agents() -> str:
     agents = []
 
     # Check Anthropic
-    if os.environ.get("ANTHROPIC_API_KEY"):
+    if _has_api_key("ANTHROPIC_API_KEY"):
         agents.append("anthropic-api")
 
     # Check OpenAI
-    if os.environ.get("OPENAI_API_KEY"):
+    if _has_api_key("OPENAI_API_KEY"):
         agents.append("openai-api")
 
     # Check OpenRouter as fallback
-    if os.environ.get("OPENROUTER_API_KEY"):
+    if _has_api_key("OPENROUTER_API_KEY"):
         if len(agents) < 2:
             agents.append("openrouter")
 
     # Check other providers
-    if os.environ.get("GEMINI_API_KEY") and len(agents) < 2:
+    if _has_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY") and len(agents) < 2:
         agents.append("gemini")
 
-    if os.environ.get("MISTRAL_API_KEY") and len(agents) < 2:
+    if _has_api_key("MISTRAL_API_KEY") and len(agents) < 2:
         agents.append("mistral-api")
 
     if not agents:

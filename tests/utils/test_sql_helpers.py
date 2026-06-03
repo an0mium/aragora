@@ -1,8 +1,42 @@
 """Tests for SQL helper utilities."""
 
+from collections.abc import Iterator
+import sqlite3
+
 import pytest
 
 from aragora.utils.sql_helpers import _escape_like_pattern, escape_like_pattern
+
+
+@pytest.fixture
+def sqlite_items() -> Iterator[sqlite3.Connection]:
+    """In-memory table for validating real LIKE ESCAPE behavior."""
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE items (value TEXT NOT NULL)")
+    conn.executemany(
+        "INSERT INTO items (value) VALUES (?)",
+        [
+            ("100% match",),
+            ("1000 match",),
+            ("user_name",),
+            ("userXname",),
+            (r"folder\name",),
+            ("folder/name",),
+        ],
+    )
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+def _literal_like_matches(conn: sqlite3.Connection, term: str) -> list[str]:
+    escaped = escape_like_pattern(term)
+    rows = conn.execute(
+        "SELECT value FROM items WHERE value LIKE ? ESCAPE '\\' ORDER BY value",
+        (f"%{escaped}%",),
+    ).fetchall()
+    return [str(row[0]) for row in rows]
 
 
 def test_escape_like_pattern_leaves_plain_text_unchanged():
@@ -70,3 +104,24 @@ def test__escape_like_pattern_matches_public_function():
     """Backward-compatible wrapper delegates to the public helper."""
     value = r"report_%\2026"
     assert _escape_like_pattern(value) == escape_like_pattern(value)
+
+
+def test_escape_like_pattern_prevents_percent_wildcard_expansion_in_sqlite(
+    sqlite_items: sqlite3.Connection,
+):
+    """Escaped percent signs match literal percent signs in SQLite LIKE."""
+    assert _literal_like_matches(sqlite_items, "100%") == ["100% match"]
+
+
+def test_escape_like_pattern_prevents_underscore_wildcard_expansion_in_sqlite(
+    sqlite_items: sqlite3.Connection,
+):
+    """Escaped underscores match literal underscores in SQLite LIKE."""
+    assert _literal_like_matches(sqlite_items, "user_name") == ["user_name"]
+
+
+def test_escape_like_pattern_matches_literal_backslashes_in_sqlite(
+    sqlite_items: sqlite3.Connection,
+):
+    """Escaped backslashes remain searchable as literal characters."""
+    assert _literal_like_matches(sqlite_items, r"folder\name") == [r"folder\name"]

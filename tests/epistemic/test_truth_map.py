@@ -1,4 +1,7 @@
-"""Tests for DIC-18 Organizational Truth Map (aragora.epistemic.truth_map)."""
+"""Tests for DIC-18 Organizational Truth Map (aragora.epistemic.truth_map).
+
+Includes DIC-24 genealogy drill-down tests (GenealogyRow integration).
+"""
 
 from __future__ import annotations
 
@@ -132,3 +135,100 @@ class TestBuildTruthMapFromManifests:
         assert r.total_claims > 0
         assert all(row.statement for row in r.claims)
         assert "b0.benchmark_truth.complete_current_corpus" in {row.claim_id for row in r.claims}
+
+
+# ---------------------------------------------------------------------------
+# DIC-24: GenealogyRow integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestGenealogyRows:
+    """Verify that build_truth_map populates genealogy drill-downs (DIC-24)."""
+
+    def _store_with_entries(self) -> tuple[object, str]:
+        """Return (InMemoryGenealogyStore, code_unit_id) with two sample entries."""
+        from aragora.epistemic.genealogy import GenealogyEntry, InMemoryGenealogyStore
+
+        store = InMemoryGenealogyStore()
+        uid = "scripts.run_proof_first_shift.evaluate_green_shift"
+        store.add(
+            uid,
+            GenealogyEntry(
+                entry_kind="decision_receipt",
+                entry_id="dr-001",
+                checksum="aabbcc112233",
+                timestamp="2026-04-16T10:00:00Z",
+            ),
+        )
+        store.add(
+            uid,
+            GenealogyEntry(
+                entry_kind="decay_signal",
+                entry_id="ds-002",
+                checksum="ddeeff445566",
+                timestamp="2026-05-01T08:30:00Z",
+            ),
+        )
+        return store, uid
+
+    def test_genealogy_row_to_dict_structure(self) -> None:
+        from aragora.epistemic.truth_map import GenealogyRow
+
+        row = GenealogyRow(
+            code_unit_id="unit.a",
+            entry_count=2,
+            chain_checksum="deadbeef",
+            generated_at="2026-06-03T00:00:00Z",
+            entries=[{"entry_kind": "decay_signal", "entry_id": "ds-1"}],
+        )
+        d = row.to_dict()
+        assert d["code_unit_id"] == "unit.a"
+        assert d["entry_count"] == 2
+        assert d["chain_checksum"] == "deadbeef"
+        assert len(d["entries"]) == 1
+
+    def test_genealogy_disabled_returns_empty_list(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ARAGORA_GENEALOGY_ENABLED", raising=False)
+        store, uid = self._store_with_entries()
+        r = build_truth_map(
+            claim_results=[],
+            genealogy_inputs=[(uid, store)],  # type: ignore[list-item]
+        )
+        assert r.genealogies == []
+
+    def test_genealogy_enabled_populates_rows(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "1")
+        store, uid = self._store_with_entries()
+        r = build_truth_map(
+            claim_results=[],
+            genealogy_inputs=[(uid, store)],  # type: ignore[list-item]
+        )
+        assert len(r.genealogies) == 1
+        row = r.genealogies[0]
+        assert row.code_unit_id == uid
+        assert row.entry_count == 2
+        assert len(row.chain_checksum) == 64  # SHA-256 hex
+        assert len(row.entries) == 2
+
+    def test_proof_first_shift_unit_id_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The real DIC-24 target code unit ID round-trips through the report."""
+        monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "1")
+        store, uid = self._store_with_entries()
+        r = build_truth_map(claim_results=[], genealogy_inputs=[(uid, store)])  # type: ignore[list-item]
+        assert r.genealogies[0].code_unit_id == uid
+
+    def test_to_dict_includes_genealogies_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "1")
+        store, uid = self._store_with_entries()
+        d = build_truth_map(
+            claim_results=[],
+            genealogy_inputs=[(uid, store)],  # type: ignore[list-item]
+        ).to_dict()
+        assert "genealogies" in d
+        assert len(d["genealogies"]) == 1
+        assert d["genealogies"][0]["entry_count"] == 2
+
+    def test_genealogy_no_inputs_returns_empty_list(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_GENEALOGY_ENABLED", "1")
+        r = build_truth_map(claim_results=[])
+        assert r.genealogies == []

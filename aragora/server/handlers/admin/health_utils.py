@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from aragora.config.secrets import is_secret_usable
+
 logger = logging.getLogger(__name__)
 
 
@@ -109,8 +111,7 @@ def check_ai_providers_health() -> dict[str, Any]:
 
     available = {}
     for name, env_var in providers.items():
-        key = os.environ.get(env_var)
-        available[name] = key is not None and len(key) > 10
+        available[name] = is_secret_usable(env_var, min_length=11)
 
     any_available = any(available.values())
     available_count = sum(1 for v in available.values() if v)

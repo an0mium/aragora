@@ -126,12 +126,12 @@
     "git_short_sha": "dda5581b2",
     "head_committer_date": "2026-04-17T11:50:50-05:00",
     "head_subject": "fix(preflight): structured field-level drift diagnostics (#6148)",
-    "root": "/Users/armand/Development/aragora"
+    "root": "~/aragora"
   },
   "venv": {
     "packages_count": 324,
     "pip_freeze_hash": "sha256:cb799f467ce146638eba22d5b590e931bfee0f5d1162197c3ba26ed82b9a4204",
-    "python_bin": "/Users/armand/Development/aragora/.venv/bin/python",
-    "python_bin_exists": true
+    "python_bin": "~/aragora/.venv/bin/python",
+    "python_bin_exists": null
   }
 }

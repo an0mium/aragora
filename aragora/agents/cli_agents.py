@@ -32,6 +32,7 @@ from aragora.agents.errors import (
     ErrorClassifier,
 )
 from aragora.agents.registry import AgentRegistry
+from aragora.config import get_api_key
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
 from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
@@ -200,13 +201,14 @@ class CLIAgent(CritiqueMixin, Agent):
     # Map CLI agent models to OpenRouter model identifiers
     OPENROUTER_MODEL_MAP: dict[str, str] = {
         # Claude models
-        "claude": "anthropic/claude-opus-4.7",  # Default claude CLI
-        "claude-opus-4-7": "anthropic/claude-opus-4.7",
-        "claude-sonnet-4-6": "anthropic/claude-opus-4.7",
-        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.7",
-        "claude-sonnet-4-20250514": "anthropic/claude-opus-4.7",
-        "claude-3-opus-20240229": "anthropic/claude-opus-4.7",
-        "claude-3-sonnet-20240229": "anthropic/claude-opus-4.7",
+        "claude": "anthropic/claude-opus-4.8",  # Default claude CLI
+        "claude-opus-4-8": "anthropic/claude-opus-4.8",
+        "claude-opus-4-7": "anthropic/claude-opus-4.8",
+        "claude-sonnet-4-6": "anthropic/claude-opus-4.8",
+        "claude-opus-4-5-20251101": "anthropic/claude-opus-4.8",
+        "claude-sonnet-4-20250514": "anthropic/claude-opus-4.8",
+        "claude-3-opus-20240229": "anthropic/claude-opus-4.8",
+        "claude-3-sonnet-20240229": "anthropic/claude-opus-4.8",
         # OpenAI/Codex models
         "gpt-5.5": "openai/gpt-5.5",
         "gpt-5.4": "openai/gpt-5.5",
@@ -306,7 +308,7 @@ class CLIAgent(CritiqueMixin, Agent):
             return None
 
         if self._fallback_agent is None:
-            api_key = os.environ.get("OPENROUTER_API_KEY")
+            api_key = get_api_key("OPENROUTER_API_KEY", required=False)
             if not api_key:
                 logger.warning(
                     "[%s] No OPENROUTER_API_KEY set, fallback disabled - rate limit errors will not have a fallback",
@@ -327,7 +329,7 @@ class CLIAgent(CritiqueMixin, Agent):
                     else:
                         openrouter_model = self.model
                 else:
-                    openrouter_model = "anthropic/claude-opus-4.7"  # Default fallback model
+                    openrouter_model = "anthropic/claude-opus-4.8"  # Default fallback model
 
             self._fallback_agent = OpenRouterAgent(
                 name=f"{self.name}_fallback",
@@ -769,7 +771,7 @@ Be constructive but thorough. Identify both technical and conceptual issues."""
 
 @AgentRegistry.register(
     "claude",
-    default_model="claude-opus-4-7",
+    default_model="claude-opus-4-8",
     agent_type="CLI",
     requires="claude CLI (npm install -g @anthropic-ai/claude-code)",
 )

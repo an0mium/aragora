@@ -13,7 +13,6 @@ No single model acts as judge - consensus emerges from the debate itself.
 
 import asyncio
 import sys
-import os
 import time
 from pathlib import Path
 from datetime import datetime
@@ -22,6 +21,7 @@ from dataclasses import dataclass
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from aragora.agents.cli_agents import ClaudeAgent, CodexAgent, GeminiCLIAgent
+from aragora.config import get_api_key
 from aragora.core import Environment, Message
 
 # Output file for full transcript
@@ -406,7 +406,7 @@ Be gracious in victory or defeat. Focus on what's best for developers."""
 
 async def main():
     # Ensure Gemini API key is set
-    gemini_key = os.environ.get("GEMINI_API_KEY")
+    gemini_key = get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY", required=False)
     if not gemini_key:
         print("ERROR: GEMINI_API_KEY not set. This debate requires all 3 providers.")
         print("Usage: GEMINI_API_KEY='your-key' python scripts/debate_best_model.py")

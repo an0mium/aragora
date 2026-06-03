@@ -109,6 +109,26 @@ def test_audit_accepts_staggered_writer_contracts(tmp_path: Path) -> None:
     assert payload["summary"] == {"active_count": 4, "error_count": 0, "warning_count": 0}
 
 
+def test_build_payload_exposes_summary_counts_at_top_level(tmp_path: Path) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+        )
+
+    payload = mod.build_payload(tmp_path)
+
+    assert payload["active_count"] == payload["summary"]["active_count"] == 4
+    assert payload["error_count"] == payload["summary"]["error_count"] == 0
+    assert payload["warning_count"] == payload["summary"]["warning_count"] == 0
+
+
 def test_audit_warns_active_writer_missing_memory_file(tmp_path: Path) -> None:
     import check_codex_desktop_automations as mod
 

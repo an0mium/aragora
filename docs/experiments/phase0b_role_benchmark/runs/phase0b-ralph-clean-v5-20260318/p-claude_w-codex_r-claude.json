@@ -4,6 +4,6 @@
   "experiment_label": "p-claude_w-codex_r-claude (v5 - post-988 clean rerun)",
   "project_id": "V-4",
   "recorded_at": "2026-03-18T15:40:40.346465+00:00",
-  "runtime_manifest_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260318-153843-52faebe7/.aragora/phase0b_runtime_manifest.yaml",
-  "runtime_path": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260318-153843-52faebe7"
+  "runtime_manifest_path": "~/aragora/.worktrees/codex-auto/codex-20260318-153843-52faebe7/.aragora/phase0b_runtime_manifest.yaml",
+  "runtime_path": "~/aragora/.worktrees/codex-auto/codex-20260318-153843-52faebe7"
 }

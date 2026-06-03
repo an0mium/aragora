@@ -38,12 +38,18 @@ if TYPE_CHECKING:
 
 @dataclass
 class MockQueryResult:
-    """Mock query result."""
+    """Mock query result.
+
+    Mirrors the real ``aragora.knowledge.types.QueryResult`` contract:
+    supporting facts live on ``facts`` (not ``facts_used``) and chunk counts
+    are reported via ``metadata["chunks_searched"]`` (there is no
+    ``chunks_used`` attribute).
+    """
 
     answer: str = "Test answer"
     confidence: float = 0.85
-    facts_used: list = field(default_factory=list)
-    chunks_used: list = field(default_factory=list)
+    facts: list = field(default_factory=list)
+    metadata: dict = field(default_factory=lambda: {"chunks_searched": 0})
 
 
 @dataclass
@@ -311,7 +317,7 @@ class TestCmdQuery:
     def test_query_with_facts(self, mock_run, query_args, capsys):
         """Test query that returns supporting facts."""
         mock_result = MockQueryResult(
-            facts_used=[MockFact(), MockFact(id="fact-2", statement="Second fact")]
+            facts=[MockFact(), MockFact(id="fact-2", statement="Second fact")]
         )
         mock_run.return_value = mock_result
 
@@ -346,6 +352,83 @@ class TestCmdQuery:
         assert result == 1
         captured = capsys.readouterr()
         assert "Error: Knowledge module not available" in captured.out
+
+    # -- Regression tests for the QueryOptions/QueryResult contract --------
+    #
+    # The tests above replace QueryOptions/QueryResult with MagicMock, which
+    # silently accepts any kwarg/attribute and therefore masked two real
+    # crashes in cmd_query:
+    #   1. QueryOptions(max_facts=...) -> TypeError (no such field)
+    #   2. result.facts_used / result.chunks_used -> AttributeError
+    # These tests exercise cmd_query against the REAL in-memory engine
+    # (offline, no API key) so the actual dataclass contracts are checked.
+
+    def test_query_options_has_no_max_facts_field(self):
+        """The real QueryOptions must not accept a max_facts kwarg.
+
+        cmd_query passes --limit through to QueryOptions; the only chunk/fact
+        sizing field on the dataclass is max_chunks. Constructing with
+        max_facts is the original defect and must remain a TypeError so we
+        never regress to it.
+        """
+        import dataclasses
+
+        from aragora.knowledge import QueryOptions
+
+        field_names = {f.name for f in dataclasses.fields(QueryOptions)}
+        assert "max_facts" not in field_names
+        assert "max_chunks" in field_names
+
+        # max_chunks is the correct mapping for --limit and must be accepted.
+        opts = QueryOptions(max_chunks=7)
+        assert opts.max_chunks == 7
+
+        with pytest.raises(TypeError):
+            QueryOptions(max_facts=7)  # type: ignore[call-arg]
+
+    def test_query_result_uses_facts_not_facts_used(self):
+        """QueryResult exposes `facts` and metadata, not facts_used/chunks_used."""
+        import dataclasses
+
+        from aragora.knowledge.types import QueryResult
+
+        field_names = {f.name for f in dataclasses.fields(QueryResult)}
+        assert "facts" in field_names
+        assert "facts_used" not in field_names
+        assert "chunks_used" not in field_names
+
+    def test_query_real_engine_text_output(self, query_args, capsys):
+        """cmd_query runs end-to-end on the real in-memory engine (text)."""
+        result = cmd_query(query_args)
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "ANSWER" in captured.out
+        assert "Facts used:" in captured.out
+        assert "Chunks used:" in captured.out
+
+    def test_query_real_engine_json_output(self, query_args, capsys):
+        """cmd_query runs end-to-end on the real in-memory engine (JSON)."""
+        query_args.json = True
+
+        result = cmd_query(query_args)
+
+        assert result == 0
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert set(output) == {"answer", "confidence", "facts_used", "chunks_used"}
+        assert isinstance(output["facts_used"], int)
+        assert isinstance(output["chunks_used"], int)
+
+    def test_query_real_engine_debate_flag(self, query_args, capsys):
+        """cmd_query with --debate does not crash during options construction."""
+        query_args.debate = True
+
+        result = cmd_query(query_args)
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "ANSWER" in captured.out
 
 
 # ===========================================================================

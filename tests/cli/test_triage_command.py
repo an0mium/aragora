@@ -477,6 +477,45 @@ def test_get_gmail_connector_uses_secret_fallback_for_credentials(tmp_path, monk
     assert connector._refresh_token == "refresh-from-file"
 
 
+def test_get_secret_fallback_returns_empty_on_secret_not_found(monkeypatch):
+    """Strict-mode SecretNotFoundError must degrade to '' (read-only diagnostics)."""
+    from aragora.config.secrets import SecretNotFoundError
+
+    def _raise(name, *args, **kwargs):
+        raise SecretNotFoundError(name)
+
+    monkeypatch.setattr("aragora.config.secrets.get_secret", _raise)
+
+    assert triage_cmd._get_secret_fallback("OPENROUTER_API_KEY") == ""
+
+
+def test_show_status_survives_strict_secrets(tmp_path, monkeypatch, capsys):
+    """`triage status` must not crash when critical secrets are absent in strict mode."""
+    from aragora.config.secrets import SecretNotFoundError
+
+    token_dir = Path(tmp_path) / ".aragora"
+    token_dir.mkdir()
+    (token_dir / "signing.key").write_text("dummy-signing-key")
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("GMAIL_CLIENT_ID", raising=False)
+    monkeypatch.delenv("GMAIL_CLIENT_SECRET", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+    def _raise(name, *args, **kwargs):
+        raise SecretNotFoundError(name)
+
+    with (
+        patch("aragora.config.secrets.get_secret", _raise),
+        patch.object(triage_cmd, "_load_local_dotenv"),
+    ):
+        triage_cmd._show_status()
+
+    out = capsys.readouterr().out
+    assert "OpenRouter fallback:  NO" in out
+    assert "Durable signing key:  yes" in out
+
+
 def test_show_status_reports_refresh_token(tmp_path, monkeypatch, capsys):
     token_dir = Path(tmp_path) / ".aragora"
     token_dir.mkdir()
