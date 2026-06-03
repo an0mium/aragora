@@ -671,9 +671,6 @@
     "test_debate.py": [
       "users_home"
     ],
-    "tests/agents/test_devops_agent.py": [
-      "legacy_slug"
-    ],
     "tests/auth/scim/test_scim.py": [
       "users_home"
     ],
@@ -682,9 +679,6 @@
     ],
     "tests/codex/conftest.py": [
       "users_home"
-    ],
-    "tests/compat/openclaw/test_next_steps_runner.py": [
-      "legacy_slug"
     ],
     "tests/debate/test_graph.py": [
       "users_home"
