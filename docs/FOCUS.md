@@ -51,7 +51,7 @@
    `aragora validate-env --json`, `aragora doctor --validate`,
    `aragora ask --agents grok --decision-integrity`, and
    `aragora receipt verify` all exiting 0 on current main. The receipt
-   `/Users/armand/.aragora/receipts/9e2e072d-04e7-4968-8475-a2d134b85656_b6f334a28539822d.json`
+   `~/.aragora/receipts/9e2e072d-04e7-4968-8475-a2d134b85656_b6f334a28539822d.json`
    verified successfully. After #7496 (`933c82b183404eaf92e30bbbbf50a0e4afea3dd7`)
    landed, the strict non-operator/fresh-user demo proof recorded under
    `.aragora/proof/post-7496-demo/20260528T061018Z/` shows provider keys

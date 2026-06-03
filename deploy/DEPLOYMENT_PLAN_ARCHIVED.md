@@ -145,7 +145,7 @@ LIGHTSAIL_IP=$(aws lightsail get-instance --instance-name aragora-api \
 ssh -i ~/.ssh/lightsail-aragora.pem ubuntu@$LIGHTSAIL_IP
 
 # On the instance, run:
-curl -sL https://raw.githubusercontent.com/an0mium/aragora/main/deploy/lightsail-setup.sh | bash
+curl -sL https://raw.githubusercontent.com/synaptent/aragora/main/deploy/lightsail-setup.sh | bash
 ```
 
 ### Step 5: Install Cloudflare Tunnel on Lightsail

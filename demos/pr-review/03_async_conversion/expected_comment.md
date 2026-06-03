@@ -40,4 +40,4 @@ await asyncio.gather(*[
 ```
 
 ---
-*Agreement score: 95% | Powered by [Aragora](https://github.com/an0mium/aragora) - AI Red Team*
+*Agreement score: 95% | Powered by [Aragora](https://github.com/synaptent/aragora) - AI Red Team*

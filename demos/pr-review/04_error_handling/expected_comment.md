@@ -46,4 +46,4 @@ with get_session() as session:
 ```
 
 ---
-*Agreement score: 100% | Powered by [Aragora](https://github.com/an0mium/aragora) - AI Red Team*
+*Agreement score: 100% | Powered by [Aragora](https://github.com/synaptent/aragora) - AI Red Team*

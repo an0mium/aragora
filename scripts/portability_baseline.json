@@ -5,24 +5,6 @@
       "legacy_slug",
       "venv_python"
     ],
-    "DEVELOPMENT.md": [
-      "legacy_slug"
-    ],
-    "INSTALL.md": [
-      "legacy_slug"
-    ],
-    "SECURITY.md": [
-      "legacy_slug"
-    ],
-    "SECURITY_AUDIT_INPUT_VALIDATION.md": [
-      "users_home"
-    ],
-    "aragora-debate/CHANGELOG.md": [
-      "legacy_slug"
-    ],
-    "aragora-debate/README.md": [
-      "legacy_slug"
-    ],
     "aragora/live/e2e/admin.spec.ts": [
       "users_home"
     ],
@@ -38,37 +20,7 @@
     "benchmarks/bench_readiness/write_manifest.py": [
       "venv_python"
     ],
-    "demos/pr-review/01_sql_injection/expected_comment.md": [
-      "legacy_slug"
-    ],
-    "demos/pr-review/02_caching_tradeoff/expected_comment.md": [
-      "legacy_slug"
-    ],
-    "demos/pr-review/03_async_conversion/expected_comment.md": [
-      "legacy_slug"
-    ],
-    "demos/pr-review/04_error_handling/expected_comment.md": [
-      "legacy_slug"
-    ],
-    "deploy/DEPLOYMENT_CHECKLIST_v2.md": [
-      "legacy_slug"
-    ],
-    "deploy/DEPLOYMENT_PLAN_ARCHIVED.md": [
-      "legacy_slug"
-    ],
-    "deploy/DISASTER_RECOVERY.md": [
-      "legacy_slug"
-    ],
-    "deploy/QUICK_SETUP.md": [
-      "legacy_slug"
-    ],
-    "deploy/argo-rollouts/README.md": [
-      "legacy_slug"
-    ],
     "deploy/argo-rollouts/rollout.yaml": [
-      "legacy_slug"
-    ],
-    "deploy/argocd/README.md": [
       "legacy_slug"
     ],
     "deploy/argocd/applications/applicationset.yaml": [
@@ -107,9 +59,6 @@
     "deploy/kubernetes/secrets-rotation/cronjob.yaml": [
       "legacy_slug"
     ],
-    "deploy/kyverno/README.md": [
-      "legacy_slug"
-    ],
     "deploy/lightsail-setup.sh": [
       "legacy_slug"
     ],
@@ -128,25 +77,10 @@
     "deploy/self-hosted/.env.example": [
       "legacy_slug"
     ],
-    "deploy/self-hosted/README.md": [
-      "legacy_slug"
-    ],
     "deploy/self-hosted/docker-compose.yml": [
       "legacy_slug"
     ],
     "docs-site/docs/guides/connectors.md": [
-      "users_home"
-    ],
-    "docs/FOCUS.md": [
-      "users_home"
-    ],
-    "docs/benchmarks/corpus_honesty_audit_2026-04-17.md": [
-      "users_home"
-    ],
-    "docs/briefs/automation-merge-contract.md": [
-      "users_home"
-    ],
-    "docs/briefs/codex-desktop-automation-autonomy.md": [
       "users_home"
     ],
     "docs/examples/boss-lane-manifest-2026-03-19.yaml": [
@@ -173,94 +107,11 @@
     "docs/integrations/CONNECTORS.md": [
       "users_home"
     ],
-    "docs/missions/H1_DISCIPLINED_MISSION_PROMPT.md": [
-      "users_home"
-    ],
-    "docs/plans/2026-03-01-doc-consolidation-dogfood.md": [
-      "users_home"
-    ],
-    "docs/plans/2026-03-02-ship-and-verify-plan.md": [
-      "users_home"
-    ],
-    "docs/plans/2026-03-05-next-roadmap-items-plan.md": [
-      "users_home"
-    ],
-    "docs/plans/2026-03-05-prove-the-engine.md": [
-      "users_home"
-    ],
-    "docs/plans/2026-03-24-overnight-founder-process.md": [
-      "users_home"
-    ],
-    "docs/plans/2026-04-17-trust-compound-plan.md": [
-      "legacy_slug"
-    ],
-    "docs/plans/2026-04-21-agent-bridge-pr2-scoping.md": [
-      "users_home"
-    ],
-    "docs/plans/2026-04-28-p8-parity-gap-audit.md": [
-      "users_home"
-    ],
-    "docs/prompts/MASTER_FANOUT_PROMPT.md": [
-      "users_home"
-    ],
-    "docs/runbooks/RUNBOOK_ROOT_GUARD_HYGIENE.md": [
-      "users_home"
-    ],
-    "docs/status/AGENT_FANOUT_JOURNAL.md": [
-      "users_home"
-    ],
-    "docs/status/BACKLOG_Q1_2026_SPRINT_2_PR_PLAN.md": [
-      "users_home"
-    ],
     "docs/status/P03-lane-registry-claim-helper-rebase_RECEIPT_droid-DC5A5821.md": [
-      "users_home",
       "venv_python"
     ],
     "docs/status/P05-publication-freshness-probe-rebase_RECEIPT_droid-A5312D6A.md": [
-      "users_home",
       "venv_python"
-    ],
-    "docs/status/P102_HARVEST_RECOVERY_RECEIPT_claude-51C05A58.md": [
-      "users_home"
-    ],
-    "docs/status/P29-steering-mailbox-writer_RECEIPT_claude-86616832.md": [
-      "users_home"
-    ],
-    "docs/status/P45-legacy-worktree-dir-audit-clean_RECEIPT_codex-5B032BF7.md": [
-      "users_home"
-    ],
-    "docs/status/P67_PUBLICATION_FRESHNESS_PROBE_RECEIPT_20260518T193316Z.md": [
-      "users_home"
-    ],
-    "docs/status/P68-cherry-patch-equivalence-sweep_RECEIPT_droid-P68-2B0AEE5B.md": [
-      "users_home"
-    ],
-    "docs/status/P71_MYPY_PREEMPT_RECEIPT_20260518T193210Z.md": [
-      "users_home"
-    ],
-    "docs/status/P72-publish-reconcile-outbox-target-filter_RECEIPT_codex-80DCFB2B.md": [
-      "users_home"
-    ],
-    "docs/status/P73-lane-registry-sweep-cadence_RECEIPT_droid-04B8F610.md": [
-      "users_home"
-    ],
-    "docs/status/Q09-observer-truth-probe_RECEIPT_droid-E288A23E.md": [
-      "users_home"
-    ],
-    "docs/status/SESSION_BRIEF_codex-5B032BF7.md": [
-      "users_home"
-    ],
-    "docs/status/SESSION_BRIEF_codex-80DCFB2B.md": [
-      "users_home"
-    ],
-    "docs/status/SESSION_BRIEF_droid-DC5A5821.md": [
-      "users_home"
-    ],
-    "docs/status/STRUCTURAL_UNJAM_PATH_claude-1843EC1A.md": [
-      "users_home"
-    ],
-    "docs/status/WORKTREE_VALUE_INVENTORY_STATUS.md": [
-      "users_home"
     ],
     "examples/github-action/advanced.yml": [
       "legacy_slug"
@@ -272,9 +123,6 @@
       "legacy_slug"
     ],
     "examples/github-action/basic.yml": [
-      "legacy_slug"
-    ],
-    "examples/nextjs-app-router/README.md": [
       "legacy_slug"
     ],
     "examples/quickstart/code_review.py": [
@@ -333,9 +181,6 @@
       "users_home"
     ],
     "tests/scripts/test_disk_recovery_coordinator.py": [
-      "users_home"
-    ],
-    "tests/scripts/test_generate_runner_health_plist.py": [
       "users_home"
     ],
     "tests/scripts/test_identify_lane_owner.py": [

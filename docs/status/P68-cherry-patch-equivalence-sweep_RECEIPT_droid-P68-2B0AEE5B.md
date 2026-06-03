@@ -59,7 +59,7 @@ fan-out.
   "deleted_branches": [],
   "dry_run": true,
   "errors": [],
-  "lane_registry": "/Users/armand/Development/aragora/.aragora/agent-bridge/lanes.json",
+  "lane_registry": "<repo-root>/.aragora/agent-bridge/lanes.json",
   "limit": null,
   "preserved_with_unique": 153,
   "scanned": 1334,

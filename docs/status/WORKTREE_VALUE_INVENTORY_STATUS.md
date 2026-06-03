@@ -8,7 +8,7 @@ This repo-tracked status surface captures the most recent run of `scripts/codex_
 
 - Source inventory: `/private/tmp/v11_smart_inv.json`
 - Base ref: `origin/main`
-- Roots: `/Users/armand/Development/aragora/.worktrees/codex-auto`
+- Roots: `~/aragora/.worktrees/codex-auto`
 - Total candidates: `44`
 - Active sessions: `12`
 - Registered worktrees: `29`

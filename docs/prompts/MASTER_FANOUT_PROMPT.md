@@ -2,7 +2,7 @@
 
 Canonical idempotent prompt for autonomous parallel agents working the Aragora
 proof-first loop. Drop this prompt unchanged into any agent (Claude Code, Codex
-CLI, Codex Desktop, Factory Droid) running against `/Users/armand/Development/aragora`
+CLI, Codex Desktop, Factory Droid) running against `~/aragora`
 or any worktree thereof. Multiple sessions can run concurrently — coordination
 is by file-locked lane registry and append-only journal, not by shared context.
 

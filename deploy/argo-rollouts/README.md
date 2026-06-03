@@ -313,7 +313,7 @@ metadata:
 spec:
   project: aragora
   source:
-    repoURL: https://github.com/an0mium/aragora
+    repoURL: https://github.com/synaptent/aragora
     targetRevision: main
     path: deploy/argo-rollouts
   destination:

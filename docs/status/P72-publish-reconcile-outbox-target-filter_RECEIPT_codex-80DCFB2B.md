@@ -28,7 +28,7 @@ Validation:
 - `python3 -m mypy scripts/reconcile_automation_outbox.py` -> passed
 - `git diff --check origin/main...HEAD && git diff --check` -> passed
 - `bash scripts/automation_pr_preflight.sh origin/main HEAD` -> passed
-- `python3 scripts/reconcile_automation_outbox.py --repo /Users/armand/Development/aragora --base origin/main --dry-run --json` -> `archived=0`, `kept=6`, `blocked_receipt_issue_only=1`, `still_protecting_active_work=6`
+- `python3 scripts/reconcile_automation_outbox.py --repo ~/aragora --base origin/main --dry-run --json` -> `archived=0`, `kept=6`, `blocked_receipt_issue_only=1`, `still_protecting_active_work=6`
 - Pre-push hooks passed on final push, including `mypy (baseline-filtered)`.
 
 Non-touches:

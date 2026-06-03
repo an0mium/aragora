@@ -319,4 +319,4 @@ markupsafe>=2.1.0      # XSS prevention
 
 - **Security Issues:** security@aragora.ai
 - **General Support:** support@aragora.ai
-- **GitHub Issues:** https://github.com/an0mium/aragora/security/advisories
+- **GitHub Issues:** https://github.com/synaptent/aragora/security/advisories

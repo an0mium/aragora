@@ -58,7 +58,7 @@ Rationale: highest-priority non-skipped lane in canonical order; the PR is alrea
 
 - **P05** (#7261 publication-freshness-probe ready-flip): finish-existing, just flip after P03 verified clean.
 - **P04** (#7272 LaunchAgent template ready-flip): finish-existing, just flip after P05.
-- **P06** rescue-productize-next-class: pick next failure class from production ledger (`/Users/armand/.aragora/rescue_events.jsonl` if present) and follow the pattern in #7265.
+- **P06** rescue-productize-next-class: pick next failure class from production ledger (`~/.aragora/rescue_events.jsonl` if present) and follow the pattern in #7265.
 - **P07** worktree-inventory-rerun: run `python3 scripts/publish_worktree_value_inventory.py` and commit the resulting `latest.json` to a tiny PR.
 - **P09** overlap-detector-improve: reconcile #7270's `agent_overlap_report.py` approach with my #7267 — pick one as canonical or unify the schemas.
 - **P10** codex-automation-handoff: run `scripts/reconcile_automation_outbox.py` and triage unpublished handoffs.

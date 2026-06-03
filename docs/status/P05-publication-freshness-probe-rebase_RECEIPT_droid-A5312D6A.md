@@ -46,13 +46,13 @@ Finish/rebase PR #7261 (publication-freshness probe) onto current `origin/main`,
 
 ```bash
 # Re-run the validation chain on this PR's branch
-cd /Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260517-062140-26e58382
+cd ~/aragora/.worktrees/codex-auto/claude-20260517-062140-26e58382
 git fetch origin droid/phase4-publication-freshness-probe-20260516 main
 git log origin/main..HEAD --oneline   # expect 1 commit (00308bd8b)
 bash scripts/automation_pr_preflight.sh origin/main HEAD
-/Users/armand/Development/aragora/.venv/bin/python3 -m pytest \
+~/aragora/.venv/bin/python3 -m pytest \
     tests/scripts/test_publish_publication_freshness_probe.py -q
-/Users/armand/Development/aragora/.venv/bin/python3 -m ruff check \
+~/aragora/.venv/bin/python3 -m ruff check \
     scripts/publish_publication_freshness_probe.py \
     tests/scripts/test_publish_publication_freshness_probe.py
 gh pr view 7261 --json state,isDraft,mergeable,statusCheckRollup

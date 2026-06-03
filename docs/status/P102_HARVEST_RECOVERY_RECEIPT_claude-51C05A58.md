@@ -109,7 +109,7 @@ This session did NOT touch:
 After this session, the operator should next do **non-author approval pass**:
 
 ```
-Start from live truth in /Users/armand/Development/aragora. Use a NON-AUTHOR GitHub identity (NOT @an0mium).
+Start from live truth in ~/aragora. Use a NON-AUTHOR GitHub identity (NOT @an0mium).
 
 Verify identity first:
 gh api user --jq .login

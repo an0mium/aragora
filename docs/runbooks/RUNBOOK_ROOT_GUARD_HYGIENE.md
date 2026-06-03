@@ -9,7 +9,7 @@ branches, edit local automation configuration, or reconcile worktrees.
 Apply this stanza to local automation prompts or local `~/.codex/automations/*`
 configuration outside the repository:
 
-> Before any git-mutating action run python3 scripts/assert_not_root_checkout.py and stand down on non-zero. Never git switch/checkout -b/commit/worktree add inside /Users/armand/Development/aragora; always create and cd into a disposable worktree first. At start, run python3 scripts/assert_root_clean_on_main.py; if it fails, do read-only work from a clean worktree and do not mutate the shared root.
+> Before any git-mutating action run python3 scripts/assert_not_root_checkout.py and stand down on non-zero. Never git switch/checkout -b/commit/worktree add inside ~/aragora; always create and cd into a disposable worktree first. At start, run python3 scripts/assert_root_clean_on_main.py; if it fails, do read-only work from a clean worktree and do not mutate the shared root.
 
 This repository change intentionally does not edit local `~/.codex/automations/*`
 files. Operators apply the stanza locally after the PR lands.
