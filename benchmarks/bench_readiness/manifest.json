@@ -132,6 +132,6 @@
     "packages_count": 324,
     "pip_freeze_hash": "sha256:cb799f467ce146638eba22d5b590e931bfee0f5d1162197c3ba26ed82b9a4204",
     "python_bin": "~/aragora/.venv/bin/python",
-    "python_bin_exists": true
+    "python_bin_exists": null
   }
 }
