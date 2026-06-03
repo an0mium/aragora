@@ -221,6 +221,49 @@ def test_work_robot_marks_tier_four_pr_human_gated(
     assert payload["recommendations"][0]["item"]["metadata"]["tier"] == 4
 
 
+def test_work_robot_marks_non_clean_pr_review_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: "/usr/bin/gh")
+
+    def fake_run(*_args, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=["gh"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 7633,
+                        "title": "fix(status): report H1 PR lookup status",
+                        "url": "https://github.com/synaptent/aragora/pull/7633",
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "headRefName": "codex/h1-pr-evidence-lookup-status",
+                        "headRefOid": "abc123",
+                        "updatedAt": _now_iso(),
+                        "createdAt": _now_iso(),
+                        "reviewDecision": "APPROVED",
+                        "mergeStateStatus": "DIRTY",
+                        "labels": [{"name": "codex"}],
+                        "assignees": [],
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("aragora.work.sources.subprocess.run", fake_run)
+
+    assert cmd_work_robot(_args(tmp_path)) == 0
+    payload = _capture_json(capsys)
+    recommendation = payload["recommendations"][0]
+
+    assert recommendation["item_id"] == "pr:7633"
+    assert recommendation["classification"] == "review-only"
+    assert recommendation["blockers"] == ["merge state not policy-clean: DIRTY"]
+    assert recommendation["item"]["metadata"]["merge_state_status"] == "DIRTY"
+
+
 def test_work_show_enriches_github_pr_with_active_lane_owner(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:

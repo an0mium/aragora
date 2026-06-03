@@ -162,3 +162,29 @@ def test_human_gated_pr_is_not_auto_ready() -> None:
 
     assert recommendations[0].classification == "human-gated"
     assert "human-gated risk surface" in recommendations[0].blockers
+
+
+def test_non_clean_pr_merge_state_is_review_only_not_ready() -> None:
+    item = WorkItem(
+        id="pr:100",
+        source="github_pr",
+        item_type="pull_request",
+        title="fix(queue): repair settlement routing",
+        status="open",
+        branch="codex/fix",
+        metadata={
+            "is_draft": False,
+            "review_decision": "APPROVED",
+            "merge_state_status": "DIRTY",
+        },
+    )
+
+    score = score_work_item(item)
+    classification, blockers = classify_work_item(item, score=score)
+    recommendation = build_recommendations([item])[0]
+
+    assert score.readiness < 0.75
+    assert classification == "review-only"
+    assert blockers == ["merge state not policy-clean: DIRTY"]
+    assert recommendation.classification == "review-only"
+    assert recommendation.blockers == ["merge state not policy-clean: DIRTY"]

@@ -36,6 +36,8 @@ _SWARM_READY_FIELDS = (
     ("validation", "tests/validation missing"),
 )
 
+_POLICY_CLEAN_PR_MERGE_STATES = {"CLEAN"}
+
 
 def _clamp(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
@@ -105,6 +107,18 @@ def _swarm_ready_blockers(item: WorkItem) -> list[str]:
     return blockers
 
 
+def _pr_merge_state_blocker(item: WorkItem) -> str | None:
+    if item.source != "github_pr":
+        return None
+    raw = item.metadata.get("merge_state_status")
+    if raw is None:
+        return None
+    state = str(raw).strip().upper()
+    if not state or state in _POLICY_CLEAN_PR_MERGE_STATES:
+        return None
+    return f"merge state not policy-clean: {state}"
+
+
 def score_work_item(item: WorkItem, *, now: datetime | None = None) -> WorkScore:
     status = item.status.lower()
     title = item.title.lower()
@@ -116,6 +130,9 @@ def score_work_item(item: WorkItem, *, now: datetime | None = None) -> WorkScore
         if item.metadata.get("is_draft"):
             readiness = 0.25
             rationale.append("draft PR is not ready for settlement")
+        elif _pr_merge_state_blocker(item):
+            readiness = 0.5
+            rationale.append("PR merge state is not policy-clean")
         elif item.metadata.get("review_decision") == "REVIEW_REQUIRED":
             readiness = 0.62
             rationale.append("PR is ready for focused review/settlement")
@@ -269,6 +286,10 @@ def classify_work_item(item: WorkItem, *, score: WorkScore | None = None) -> tup
         return "blocked", blockers
     if item.source == "github_pr" and item.metadata.get("is_draft"):
         return "review-only", ["draft PR"]
+    if item.source == "github_pr":
+        merge_state_blocker = _pr_merge_state_blocker(item)
+        if merge_state_blocker:
+            return "review-only", [merge_state_blocker]
     if item.source in {"bead", "convoy", "automation_outbox"}:
         blockers = _swarm_ready_blockers(item)
         if blockers:
@@ -284,6 +305,9 @@ def recommended_action(item: WorkItem) -> tuple[str, str, list[str]]:
         if item.metadata.get("is_draft"):
             blockers.append("draft PR")
             return "keep_draft_until_evidence_ready", "hold", blockers
+        merge_state_blocker = _pr_merge_state_blocker(item)
+        if merge_state_blocker:
+            blockers.append(merge_state_blocker)
         if item.metadata.get("review_decision") == "REVIEW_REQUIRED":
             blockers.append("human/model review required")
         return "review_and_settle_when_policy_clean", "high", blockers
@@ -312,7 +336,7 @@ def build_recommendations(items: list[WorkItem]) -> list[WorkRecommendation]:
         action, priority, blockers = recommended_action(item)
         score = item.score or WorkScore()
         classification, class_blockers = classify_work_item(item, score=score)
-        blockers = [*blockers, *class_blockers]
+        blockers = list(dict.fromkeys([*blockers, *class_blockers]))
         if classification in {"human-gated", "blocked"}:
             priority = "hold"
         elif classification == "needs-polish" and priority == "high":
