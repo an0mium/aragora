@@ -887,6 +887,9 @@ def _add_epistemic_check_parser(subparsers) -> None:
             "Load *.yaml claim manifests from docs/status/claims/ (or a path you\n"
             "supply) and verify each claim via the DIC-14 ClaimVerifier.  Outputs\n"
             "a human-readable table or JSON.  No queue mutation, no issue creation.\n\n"
+            "Read-only by default: manifest-provided verification commands are NOT\n"
+            "executed unless you pass --execute (command-kind claims are reported\n"
+            "UNSUPPORTED). Only pass --execute for manifests you trust.\n\n"
             "Requires ARAGORA_EPISTEMIC_CLAIMS_ENABLED=1 to execute; otherwise exits\n"
             "0 with an informational message."
         ),
@@ -909,7 +912,22 @@ def _add_epistemic_check_parser(subparsers) -> None:
         "--dry-run",
         action="store_true",
         default=False,
-        help="Skip command execution; return UNSUPPORTED for command-kind claims",
+        help=(
+            "Skip command execution; return UNSUPPORTED for command-kind claims. "
+            "This is already the DEFAULT behavior — the flag is accepted for "
+            "explicitness and backward compatibility."
+        ),
+    )
+    p.add_argument(
+        "--execute",
+        action="store_true",
+        default=False,
+        help=(
+            "Opt in to running manifest-provided verification commands as "
+            "subprocesses. Off by default: command-kind claims are skipped "
+            "(reported UNSUPPORTED) unless this flag is set. Only pass --execute "
+            "for manifests you trust, since commands run with your shell privileges."
+        ),
     )
     p.add_argument(
         "--repo-root",

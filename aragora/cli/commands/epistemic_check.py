@@ -2,8 +2,14 @@
 
 Loads claim manifests from ``docs/status/claims/`` (or a path you supply)
 and runs the DIC-14 ClaimVerifier against them, emitting a JSON or
-human-readable status report.  No network, no queue mutation, no issue
-creation.
+human-readable status report.  No queue mutation, no issue creation.
+
+Read-only by default: manifest-provided ``command``-kind verifications are
+**not** executed unless the operator opts in with ``--execute``.  Without
+``--execute`` the verifier runs in dry-run mode and reports command-kind
+claims as UNSUPPORTED, so pointing the CLI at an untrusted manifest cannot
+run arbitrary subprocesses.  ``--execute`` runs those commands with the
+caller's shell privileges and should only be used for trusted manifests.
 
 Flag-gated: set ``ARAGORA_EPISTEMIC_CLAIMS_ENABLED=1`` to enable command
 execution.  When the flag is not set the command exits 0 and prints a
@@ -63,7 +69,14 @@ def cmd_epistemic_check(args: argparse.Namespace) -> int:
     target = Path(args.path).expanduser() if args.path else _DEFAULT_CLAIMS_DIR
     repo_root = Path(args.repo_root).expanduser() if args.repo_root else Path.cwd()
 
-    verifier = ClaimVerifier(repo_root=repo_root, dry_run=args.dry_run)
+    # Read-only by default: only run manifest-provided commands when the
+    # operator explicitly opts in with --execute. --dry-run is accepted for
+    # explicitness/back-compat but is already the default. This keeps the
+    # documented "read-only" invariant true even for untrusted manifests.
+    execute = bool(getattr(args, "execute", False))
+    dry_run = True if not execute else bool(getattr(args, "dry_run", False))
+
+    verifier = ClaimVerifier(repo_root=repo_root, dry_run=dry_run)
 
     if target.is_file():
         manifest_files = [target]

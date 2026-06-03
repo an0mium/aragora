@@ -26,11 +26,12 @@ _PATCH = "aragora.epistemic.claim_verifier.ClaimVerifier"
 _real_report_json = ClaimVerifier.report_json  # captured before any patching
 
 
-def _ns(path=None, *, json_output=False, dry_run=False, repo_root=None):
+def _ns(path=None, *, json_output=False, dry_run=False, execute=False, repo_root=None):
     ns = argparse.Namespace()
     ns.path = path
     ns.json = json_output
     ns.dry_run = dry_run
+    ns.execute = execute
     ns.repo_root = repo_root
     return ns
 
@@ -149,9 +150,11 @@ def test_empty_dir_exits_zero(tmp_path):
         assert cmd_epistemic_check(_ns(str(tmp_path))) == 0
 
 
-def test_dry_run_forwarded(tmp_path):
+def _capture_verifier_kwargs(tmp_path, ns):
+    """Run the command with ClaimVerifier mocked and return its ctor kwargs."""
     p = tmp_path / "m.yaml"
     p.write_text("placeholder")
+    ns.path = str(p)
     captured_kwargs: dict = {}
 
     def _ctor(**kw):
@@ -162,6 +165,78 @@ def test_dry_run_forwarded(tmp_path):
         patch.dict("os.environ", {"ARAGORA_EPISTEMIC_CLAIMS_ENABLED": "1"}),
         patch(_PATCH, _ctor),
     ):
-        cmd_epistemic_check(_ns(str(p), dry_run=True, json_output=True))
+        cmd_epistemic_check(ns)
+    return captured_kwargs
 
-    assert captured_kwargs.get("dry_run") is True
+
+def test_dry_run_forwarded(tmp_path):
+    kwargs = _capture_verifier_kwargs(tmp_path, _ns(dry_run=True, json_output=True))
+    assert kwargs.get("dry_run") is True
+
+
+def test_default_invocation_is_read_only(tmp_path):
+    """Read-only by default: without --execute the verifier runs dry-run, so
+    manifest-provided commands are never executed even for untrusted paths."""
+    kwargs = _capture_verifier_kwargs(tmp_path, _ns(json_output=True))
+    assert kwargs.get("dry_run") is True
+
+
+def test_execute_flag_enables_command_execution(tmp_path):
+    """--execute opts in to running commands (dry_run forwarded as False)."""
+    kwargs = _capture_verifier_kwargs(tmp_path, _ns(execute=True, json_output=True))
+    assert kwargs.get("dry_run") is False
+
+
+def test_dry_run_overrides_execute(tmp_path):
+    """If both flags are passed, --dry-run wins (fail safe, no execution)."""
+    kwargs = _capture_verifier_kwargs(tmp_path, _ns(execute=True, dry_run=True, json_output=True))
+    assert kwargs.get("dry_run") is True
+
+
+def test_default_does_not_run_command_kind_claims(tmp_path):
+    """End-to-end: a manifest whose command would mutate state is NOT run by
+    default. We use a real ClaimVerifier with an injected command runner and
+    confirm the runner is never invoked unless --execute is set."""
+    import yaml as _yaml
+
+    if isinstance(_yaml, MagicMock) or isinstance(getattr(_yaml, "safe_load", None), MagicMock):
+        pytest.skip("real PyYAML required to parse the manifest in this end-to-end test")
+
+    from aragora.epistemic.claim_verifier import ClaimVerifier
+
+    manifest = tmp_path / "danger.yaml"
+    manifest.write_text(
+        "claims:\n"
+        "  - claim_id: danger.command\n"
+        "    verification:\n"
+        "      kind: command\n"
+        "      command: echo pwned\n"
+    )
+
+    runner_calls: list = []
+
+    def _spy_runner(args):
+        runner_calls.append(args)
+        return 0, "", ""
+
+    real_ctor = ClaimVerifier
+
+    def _ctor(**kw):
+        kw.pop("command_runner", None)
+        return real_ctor(command_runner=_spy_runner, **kw)
+
+    # Default (no --execute): runner must never be called.
+    with (
+        patch.dict("os.environ", {"ARAGORA_EPISTEMIC_CLAIMS_ENABLED": "1"}),
+        patch(_PATCH, _ctor),
+    ):
+        cmd_epistemic_check(_ns(str(manifest), json_output=True))
+    assert runner_calls == []
+
+    # With --execute: the command runs.
+    with (
+        patch.dict("os.environ", {"ARAGORA_EPISTEMIC_CLAIMS_ENABLED": "1"}),
+        patch(_PATCH, _ctor),
+    ):
+        cmd_epistemic_check(_ns(str(manifest), execute=True, json_output=True))
+    assert runner_calls == [["echo", "pwned"]]
