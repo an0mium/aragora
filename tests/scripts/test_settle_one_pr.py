@@ -185,6 +185,27 @@ def test_no_candidate_diagnostics_names_next_check_blocked_pr() -> None:
     assert "Do not merge" in action["operator_action"]
 
 
+def test_no_candidate_diagnostics_prioritizes_independent_of_packet_order() -> None:
+    packet = _packet(
+        _entry(
+            1010,
+            tier=2,
+            checks_summary="5/6 green; pending: aragora-merge-quorum",
+            reasons=["live automation surface", "model quorum incomplete: 0/2 signal(s)"],
+        ),
+        _entry(
+            1009,
+            tier=1,
+            checks_summary="5/6 green; pending: lint",
+            reasons=["internal surface", "model quorum incomplete: 0/2 signal(s)"],
+        ),
+    )
+
+    diagnostics = no_candidate_diagnostics(packet, policy_exclusions=[])
+
+    assert diagnostics["top_check_blocked_candidate"]["pr_number"] == 1009
+
+
 def test_select_candidate_skips_repair_first_prs() -> None:
     selected, blockers = select_candidate(
         _packet(

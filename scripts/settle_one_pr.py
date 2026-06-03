@@ -355,6 +355,21 @@ def _candidate_record(
     }
 
 
+def _diagnostic_priority(record: dict[str, Any]) -> tuple[int, int, str]:
+    """Stable priority for no-candidate hints, independent of packet ordering."""
+    tier = _coerce_int(record.get("tier"))
+    pr_number = _coerce_int(record.get("pr_number"))
+    return (
+        tier if tier is not None else 99,
+        pr_number if pr_number is not None else 999_999_999,
+        str(record.get("title") or ""),
+    )
+
+
+def _prioritize_diagnostic_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(records, key=_diagnostic_priority)
+
+
 def _reason_counts(records: list[dict[str, Any]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for record in records:
@@ -432,6 +447,11 @@ def no_candidate_diagnostics(
                     reasons=["packet satisfied but not in selected autonomous order"],
                 )
             )
+
+    check_blocked = _prioritize_diagnostic_records(check_blocked)
+    repair_first = _prioritize_diagnostic_records(repair_first)
+    evidence_not_green = _prioritize_diagnostic_records(evidence_not_green)
+    already_satisfied_not_ordered = _prioritize_diagnostic_records(already_satisfied_not_ordered)
 
     top_human_risk = _first_by_reason(policy_exclusions, "requires_human_risk_settlement")
     if top_human_risk is None:
