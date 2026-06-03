@@ -159,6 +159,8 @@ def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     assert compact["records_omitted"] is True
     assert compact["record_examples"] == {}
     assert compact["record_examples_limit"] == 0
+    assert compact["patch_equivalence_skipped_examples"] == {}
+    assert compact["patch_equivalence_skipped_examples_limit"] == 0
     assert payload["records"] == [{"name": "codex/one"}, {"name": "codex/two"}]
 
 
@@ -251,6 +253,69 @@ def test_summary_only_payload_keeps_compact_category_examples() -> None:
     assert len(payload["records"]) == 5
 
 
+def test_summary_only_payload_keeps_patch_equivalence_skipped_examples() -> None:
+    payload = {
+        "branch_count": 3,
+        "summary": {
+            "patch_equivalence_skipped_by_category": {
+                "salvage_diverged_local": 2,
+            }
+        },
+        "records": [
+            {
+                "name": "codex/skipped-one",
+                "category": "salvage_diverged_local",
+                "head_sha": "1111111",
+                "committed_at": "2026-05-06T00:00:00+00:00",
+                "subject": "first skipped",
+                "ahead_count": 1,
+                "behind_count": 8,
+                "patch_equivalence_skipped": True,
+                "huge_field": "not copied",
+            },
+            {
+                "name": "codex/checked-one",
+                "category": "salvage_diverged_local",
+                "head_sha": "2222222",
+                "committed_at": "2026-05-06T00:01:00+00:00",
+                "subject": "checked",
+                "ahead_count": 1,
+                "behind_count": 2,
+                "patch_equivalence_skipped": False,
+            },
+            {
+                "name": "codex/skipped-two",
+                "category": "salvage_diverged_local",
+                "head_sha": "3333333",
+                "committed_at": "2026-05-06T00:02:00+00:00",
+                "subject": "second skipped",
+                "ahead_count": 2,
+                "behind_count": 6,
+                "patch_equivalence_skipped": True,
+            },
+        ],
+    }
+
+    compact = mod.summary_only_payload(payload, example_limit=1)
+
+    skipped_examples = compact["patch_equivalence_skipped_examples"]["salvage_diverged_local"]
+    assert skipped_examples == [
+        {
+            "name": "codex/skipped-one",
+            "category": "salvage_diverged_local",
+            "head_sha": "1111111",
+            "committed_at": "2026-05-06T00:00:00+00:00",
+            "subject": "first skipped",
+            "ahead_count": 1,
+            "behind_count": 8,
+            "patch_equivalence_skipped": True,
+        }
+    ]
+    assert "huge_field" not in skipped_examples[0]
+    assert compact["patch_equivalence_skipped_examples_limit"] == 1
+    assert compact["records"] == []
+
+
 def test_summary_only_payload_honors_example_limit() -> None:
     payload = {
         "branch_count": 1,
@@ -273,6 +338,8 @@ def test_summary_only_payload_honors_example_limit() -> None:
     assert compact["records"] == []
     assert compact["record_examples"] == {}
     assert compact["record_examples_limit"] == 0
+    assert compact["patch_equivalence_skipped_examples"] == {}
+    assert compact["patch_equivalence_skipped_examples_limit"] == 0
     assert compact["records_omitted"] is True
 
 
@@ -303,6 +370,8 @@ def test_main_summary_only_json_honors_examples_flag(
     assert compact["records"] == []
     assert compact["record_examples"] == {}
     assert compact["record_examples_limit"] == 0
+    assert compact["patch_equivalence_skipped_examples"] == {}
+    assert compact["patch_equivalence_skipped_examples_limit"] == 0
 
 
 def test_print_markdown_includes_revision_metadata(tmp_path: Path, capsys: Any) -> None:
