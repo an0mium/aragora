@@ -219,12 +219,15 @@ def build_payload(root: Path) -> dict[str, Any]:
         "warning_count": sum(1 for issue in issues if issue.severity == "warning"),
         "active_count": sum(1 for record in records if _normalized_status(record) == "ACTIVE"),
     }
+    issue_count = len(issues)
     return {
         "root": str(root),
+        "ok": summary["error_count"] == 0,
         "automation_count": _automation_file_count(root),
         "active_count": summary["active_count"],
         "error_count": summary["error_count"],
         "warning_count": summary["warning_count"],
+        "issue_count": issue_count,
         "core_writers": {
             writer_id: next((asdict(r) for r in records if r.id == writer_id), None)
             for writer_id in CORE_WRITERS

@@ -220,6 +220,8 @@ def test_main_invalid_toml_summary_only_json_returns_structured_error(
 
     assert mod.main(["--root", str(tmp_path), "--json", "--summary-only"]) == 1
     payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["issue_count"] == 1
     assert payload["summary"]["error_count"] == 1
     assert payload["issues"][0]["code"] == "invalid_automation_toml"
     assert payload["prompt_details_omitted"] is True
@@ -269,6 +271,8 @@ def test_main_summary_only_json_omits_prompts(
 
     assert mod.main(["--root", str(tmp_path), "--json", "--summary-only"]) == 0
     payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["issue_count"] == 0
     assert payload["prompt_details_omitted"] is True
     assert all("prompt" not in record for record in payload["core_writers"].values())
 
