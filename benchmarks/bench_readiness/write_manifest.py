@@ -40,7 +40,7 @@ def _portable_path(path: Path) -> tuple[str, bool]:
     """
     raw = str(path)
     home = os.path.expanduser("~")
-    if home and home != "~" and raw.startswith(home):
+    if home and home != "~" and (raw == home or raw.startswith(home + os.sep)):
         return "~" + raw[len(home) :], True
     return raw, False
 
