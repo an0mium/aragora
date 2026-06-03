@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -14,6 +16,26 @@ from aragora.swarm.review_routing import (
     preflight_review_candidate,
     resolve_review_candidates,
 )
+
+
+def _make_repo_with_profile_script(root: Path) -> Path:
+    scripts_dir = root / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "claude_profile.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    return root
+
+
+def _write_pool_health(
+    root: Path, profiles: list[dict[str, str]], *, age_seconds: float = 0.0
+) -> None:
+    generated_at = datetime.now(timezone.utc) - timedelta(seconds=age_seconds)
+    payload = {
+        "generated_at": generated_at.isoformat().replace("+00:00", "Z"),
+        "profiles": profiles,
+    }
+    health_path = root / ".aragora" / "claude_pool_health.json"
+    health_path.parent.mkdir(parents=True, exist_ok=True)
+    health_path.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def test_resolve_review_candidates_skips_worker_family_and_expands_claude_profiles(
@@ -304,6 +326,129 @@ async def test_generate_review_response_raises_with_attempt_history() -> None:
             "detail": "OpenRouter TLS check failed",
         },
     ]
+
+
+def test_resolve_review_candidates_includes_max_13_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ARAGORA_CLAUDE_REVIEW_PROFILES", raising=False)
+    monkeypatch.setenv("ARAGORA_REVIEW_PROVIDER_ORDER", "codex,claude")
+
+    candidates = resolve_review_candidates(
+        worker_model="codex",
+        preferred_review_model="claude",
+    )
+    claude_profiles = [c.profile for c in candidates if c.provider == "claude"]
+
+    assert claude_profiles == [f"max-{i:02d}" for i in range(1, 14)]
+    assert "max-13" in claude_profiles
+
+
+def test_claude_preflight_skips_expired_profile_from_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_CLAUDE_REVIEW_PROBE", "snapshot")
+    repo = _make_repo_with_profile_script(tmp_path)
+    _write_pool_health(repo, [{"name": "max-01", "email": "a@b.c", "state": "expired"}])
+
+    with patch("aragora.swarm.review_routing.shutil.which", return_value="/usr/bin/claude"):
+        result = preflight_review_candidate(
+            ReviewCandidate(provider="claude", label="claude:max-01", profile="max-01"),
+            repo_root=repo,
+        )
+
+    assert result["ok"] is False
+    assert result["kind"] == "claude_unauthenticated"
+    assert "login" in result["detail"]
+
+
+def test_claude_preflight_trusts_ok_snapshot_without_status_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_CLAUDE_REVIEW_PROBE", "snapshot")
+    repo = _make_repo_with_profile_script(tmp_path)
+    _write_pool_health(repo, [{"name": "max-02", "email": "a@b.c", "state": "ok"}])
+
+    run_spy = MagicMock(
+        side_effect=AssertionError("status subprocess must not run for ok snapshot")
+    )
+    with (
+        patch("aragora.swarm.review_routing.shutil.which", return_value="/usr/bin/claude"),
+        patch("aragora.swarm.review_routing.subprocess.run", run_spy),
+    ):
+        result = preflight_review_candidate(
+            ReviewCandidate(provider="claude", label="claude:max-02", profile="max-02"),
+            repo_root=repo,
+        )
+
+    assert result == {"ok": True, "detail": "claude:max-02 verified (snapshot)"}
+    run_spy.assert_not_called()
+
+
+def test_claude_preflight_falls_back_to_status_when_snapshot_stale(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_CLAUDE_REVIEW_PROBE", "snapshot")
+    monkeypatch.setenv("ARAGORA_CLAUDE_POOL_HEALTH_TTL", "3600")
+    repo = _make_repo_with_profile_script(tmp_path)
+    _write_pool_health(
+        repo,
+        [{"name": "max-03", "email": "a@b.c", "state": "expired"}],
+        age_seconds=7200,
+    )
+
+    with (
+        patch("aragora.swarm.review_routing.shutil.which", return_value="/usr/bin/claude"),
+        patch(
+            "aragora.swarm.review_routing.subprocess.run",
+            return_value=SimpleNamespace(returncode=0, stdout="", stderr=""),
+        ),
+    ):
+        result = preflight_review_candidate(
+            ReviewCandidate(provider="claude", label="claude:max-03", profile="max-03"),
+            repo_root=repo,
+        )
+
+    assert result == {"ok": True, "detail": "claude:max-03 authenticated"}
+
+
+@pytest.mark.asyncio
+async def test_generate_review_response_reports_claude_pool_unauthenticated() -> None:
+    with (
+        patch(
+            "aragora.swarm.review_routing.resolve_review_candidates",
+            return_value=[
+                ReviewCandidate(provider="claude", label="claude:max-01", profile="max-01"),
+                ReviewCandidate(provider="claude", label="claude:max-02", profile="max-02"),
+            ],
+        ),
+        patch(
+            "aragora.swarm.review_routing.preflight_review_candidate",
+            side_effect=[
+                {
+                    "ok": False,
+                    "kind": "claude_unauthenticated",
+                    "detail": "max-01 token is expired",
+                },
+                {
+                    "ok": False,
+                    "kind": "claude_unauthenticated",
+                    "detail": "max-02 token is expired",
+                },
+            ],
+        ),
+    ):
+        with pytest.raises(ReviewRoutingError) as exc_info:
+            await generate_review_response(
+                "review this",
+                worker_model="codex",
+                preferred_review_model="claude",
+                repo_root=Path("/tmp/repo"),
+            )
+
+    assert exc_info.value.category == "claude_pool_unauthenticated"
+    assert "claude_profiles_bootstrap.sh login" in str(exc_info.value)
+    assert exc_info.value.attempts[0]["kind"] == "claude_unauthenticated"
 
 
 @pytest.mark.asyncio

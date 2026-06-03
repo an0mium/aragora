@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import shutil
@@ -9,6 +10,7 @@ import ssl
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +21,10 @@ from aragora.config.secrets import get_secret_presence
 logger = logging.getLogger(__name__)
 
 DEFAULT_REVIEW_PROVIDER_ORDER = ("codex", "claude", "openrouter")
-DEFAULT_CLAUDE_REVIEW_PROFILES = tuple(f"max-{index:02d}" for index in range(1, 13))
+DEFAULT_CLAUDE_REVIEW_PROFILES = tuple(f"max-{index:02d}" for index in range(1, 14))
+DEFAULT_POOL_HEALTH_TTL_SECONDS = 3600.0
+_POOL_HEALTH_RELATIVE_PATH = ".aragora/claude_pool_health.json"
+_UNHEALTHY_PROFILE_STATES = {"expired", "not_configured", "unauthenticated", "logged_out"}
 _BILLING_MARKERS = ("credit balance", "billing", "payment required", "purchase credits")
 _DIRECT_API_PROVIDER_KEYS = {
     "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
@@ -150,13 +155,15 @@ async def generate_review_response(
     ):
         preflight = preflight_review_candidate(candidate, repo_root=repo_root)
         if not preflight.get("ok", False):
-            attempts.append(
-                {
-                    "candidate": candidate.label,
-                    "stage": "preflight",
-                    "detail": str(preflight.get("detail", "unavailable")).strip() or "unavailable",
-                }
-            )
+            attempt = {
+                "candidate": candidate.label,
+                "stage": "preflight",
+                "detail": str(preflight.get("detail", "unavailable")).strip() or "unavailable",
+            }
+            preflight_kind = str(preflight.get("kind", "")).strip()
+            if preflight_kind:
+                attempt["kind"] = preflight_kind
+            attempts.append(attempt)
             continue
         blocked = candidate_blocker(candidate) if candidate_blocker else None
         if blocked:
@@ -272,6 +279,30 @@ def _claude_profile_preflight(candidate: ReviewCandidate, *, repo_root: Path) ->
         return {"ok": False, "detail": "Claude review profile is missing"}
     if not shutil.which("claude"):
         return {"ok": False, "detail": "claude CLI not found on PATH"}
+
+    # ``status`` only reports the locally cached login flag, which stays "true"
+    # even after the subscription token has expired. Prefer a verify-backed
+    # health snapshot (or a live probe) so expired profiles are skipped instead
+    # of wasting a full generate attempt on every dead profile in the pool.
+    mode = _review_probe_mode()
+    if mode in {"snapshot", "live"}:
+        health = _load_pool_health(repo_root)
+        state = health.get(candidate.profile) if health else None
+        if state in _UNHEALTHY_PROFILE_STATES:
+            return {
+                "ok": False,
+                "kind": "claude_unauthenticated",
+                "detail": (
+                    f"{candidate.label} token is {state} "
+                    "(scripts/claude_profiles_bootstrap.sh login)"
+                ),
+            }
+        if state == "ok":
+            return {"ok": True, "detail": f"{candidate.label} verified (snapshot)"}
+        if mode == "live":
+            return _claude_live_probe(candidate, script=script, repo_root=repo_root)
+        # snapshot mode with no fresh signal falls back to the local status check
+
     result = subprocess.run(
         [str(script), "status", candidate.profile],
         cwd=str(repo_root),
@@ -283,7 +314,11 @@ def _claude_profile_preflight(candidate: ReviewCandidate, *, repo_root: Path) ->
     if result.returncode == 0:
         return {"ok": True, "detail": f"{candidate.label} authenticated"}
     detail = (result.stderr or result.stdout or "").strip()
-    return {"ok": False, "detail": detail or f"{candidate.label} is unavailable"}
+    return {
+        "ok": False,
+        "kind": "claude_unauthenticated",
+        "detail": detail or f"{candidate.label} is unavailable",
+    }
 
 
 def _openrouter_preflight() -> dict[str, Any]:
@@ -310,6 +345,113 @@ def _direct_api_provider_preflight(provider: str) -> dict[str, Any]:
 def _claude_profile_script(repo_root: Path) -> Path | None:
     script = (repo_root / "scripts" / "claude_profile.sh").resolve()
     return script if script.exists() else None
+
+
+def _review_probe_mode() -> str:
+    raw = str(os.environ.get("ARAGORA_CLAUDE_REVIEW_PROBE", "")).strip().lower()
+    if raw in {"snapshot", "live", "status"}:
+        return raw
+    return "snapshot"
+
+
+def _pool_health_path(repo_root: Path) -> Path:
+    override = str(os.environ.get("ARAGORA_CLAUDE_POOL_HEALTH_FILE", "")).strip()
+    if override:
+        return Path(override).expanduser()
+    return repo_root / _POOL_HEALTH_RELATIVE_PATH
+
+
+def _pool_health_ttl_seconds() -> float:
+    raw = str(os.environ.get("ARAGORA_CLAUDE_POOL_HEALTH_TTL", "")).strip()
+    if not raw:
+        return DEFAULT_POOL_HEALTH_TTL_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_POOL_HEALTH_TTL_SECONDS
+    return value if value >= 0 else DEFAULT_POOL_HEALTH_TTL_SECONDS
+
+
+def _parse_timestamp(value: Any) -> datetime | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _load_pool_health(repo_root: Path) -> dict[str, str] | None:
+    """Return ``{profile_name: state}`` from a fresh verify-backed snapshot.
+
+    Returns ``None`` when the snapshot is missing, malformed, or older than the
+    configured TTL so callers fall back to a best-effort local status check.
+    """
+    path = _pool_health_path(repo_root)
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        payload = json.loads(raw)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    ttl = _pool_health_ttl_seconds()
+    if ttl > 0:
+        generated_at = _parse_timestamp(payload.get("generated_at"))
+        if generated_at is None:
+            return None
+        age = (datetime.now(timezone.utc) - generated_at).total_seconds()
+        if age > ttl:
+            return None
+    states: dict[str, str] = {}
+    for entry in payload.get("profiles", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name", "")).strip()
+        state = str(entry.get("state", "")).strip().lower()
+        if name and state:
+            states[name] = state
+    return states or None
+
+
+def _claude_live_probe(
+    candidate: ReviewCandidate, *, script: Path, repo_root: Path
+) -> dict[str, Any]:
+    profile = candidate.profile or ""
+    if not profile:
+        return {"ok": False, "detail": "Claude review profile is missing"}
+    try:
+        result = subprocess.run(
+            [str(script), "exec", profile, "--", "claude", "-p", "ok"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "ok": False,
+            "kind": "claude_unauthenticated",
+            "detail": f"{candidate.label} live probe timed out",
+        }
+    if result.returncode == 0:
+        return {"ok": True, "detail": f"{candidate.label} live-probe ok"}
+    detail = (result.stderr or result.stdout or "").strip()
+    return {
+        "ok": False,
+        "kind": "claude_unauthenticated",
+        "detail": detail[:200] or f"{candidate.label} live probe failed",
+    }
 
 
 async def _run_claude_profile_candidate(
@@ -393,14 +535,27 @@ def _failure_attempt(candidate: str, *, stage: str, exc: Exception) -> dict[str,
 
 
 def _review_routing_category(attempts: list[dict[str, Any]]) -> str:
-    if any(str(item.get("kind", "")).strip() == "billing_exhausted" for item in attempts):
+    kinds = [str(item.get("kind", "")).strip() for item in attempts]
+    if "billing_exhausted" in kinds:
         return "billing_exhausted"
+    has_claude_unauth = "claude_unauthenticated" in kinds
+    tried_non_claude = any(
+        not str(item.get("candidate", "")).strip().startswith("claude") for item in attempts
+    )
+    if has_claude_unauth and not tried_non_claude:
+        return "claude_pool_unauthenticated"
     return "unavailable"
 
 
 def _review_routing_public_message(category: str) -> str:
     if category == "billing_exhausted":
         return "Reviewer capacity is exhausted. Check the active reviewer account and available credits."
+    if category == "claude_pool_unauthenticated":
+        return (
+            "No authenticated Claude Max review profile is available. "
+            "Re-login with: scripts/claude_profiles_bootstrap.sh login "
+            "(then refresh: scripts/claude_profiles_bootstrap.sh verify --json)."
+        )
     return "No configured review candidate succeeded. Check logs for detail."
 
 
