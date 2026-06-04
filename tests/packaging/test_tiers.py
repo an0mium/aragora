@@ -276,9 +276,17 @@ class TestDependencyGroups:
         deps = " ".join(optional_deps.get("enterprise", []))
         assert "python3-saml" in deps
 
+    def test_blockchain_declares_aiohttp_floor(self, optional_deps: dict) -> None:
+        deps = " ".join(optional_deps.get("blockchain", []))
+        assert "aiohttp>=3.14.0,<4.0" in deps
+
     def test_connectors_includes_kafka(self, optional_deps: dict) -> None:
         deps = " ".join(optional_deps.get("connectors", []))
         assert "aiokafka" in deps
 
     def test_all_group_exists(self, optional_deps: dict) -> None:
         assert "all" in optional_deps
+
+    def test_all_declares_aiohttp_floor(self, optional_deps: dict) -> None:
+        deps = " ".join(optional_deps.get("all", []))
+        assert "aiohttp>=3.14.0,<4.0" in deps
