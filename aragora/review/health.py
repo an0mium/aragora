@@ -41,6 +41,7 @@ DEFAULT_WATCHDOG_LOG_REL = DEFAULT_OVERNIGHT_REL / "watchdog.log"
 DEFAULT_B0_STATUS_REL = Path("docs") / "status" / "B0_BENCHMARK_TRUTH_STATUS.md"
 DEFAULT_TW03_STATUS_REL = Path("docs") / "status" / "TW03_RESCUE_PRODUCTIZATION_STATUS.md"
 GIT_SHOW_TIMEOUT_SECONDS = 5
+GIT_STATUS_TIMEOUT_SECONDS = 5
 
 # Status severities (ordered ascending so max() returns worst).
 STATUS_FRESH = "fresh"
@@ -380,7 +381,75 @@ _PYTHON_WARNING_PATTERN = re.compile(r"ARAGORA_PYTHON is set but not executable:
 _PYTHON_INTERPRETER_PATTERN = re.compile(r"Using Python interpreter: .+")
 
 
-def _check_boss_loop_log(path: Path, warn_h: float, crit_h: float) -> SurfaceCheck:
+def _git_output(repo: Path, *args: str) -> str | None:
+    """Run a local read-only git command and return stripped stdout."""
+    try:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=GIT_STATUS_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip()
+
+
+def _runtime_checkout_extra(repo: Path) -> dict[str, object]:
+    """Return local checkout drift diagnostics for a daemon runtime repo."""
+    if not (repo / ".git").exists():
+        return {"runtime_repo": str(repo), "runtime_checkout_status": "not_git"}
+
+    head = _git_output(repo, "rev-parse", "HEAD")
+    origin_main = _git_output(repo, "rev-parse", "origin/main")
+    merge_base = (
+        _git_output(repo, "merge-base", "HEAD", "origin/main") if head and origin_main else None
+    )
+    status_text = _git_output(repo, "status", "--short", "--untracked-files=all")
+    dirty_count = len(status_text.splitlines()) if status_text else 0
+
+    if not head:
+        checkout_status = "unknown"
+    elif not origin_main:
+        checkout_status = "no_origin_main"
+    elif head == origin_main:
+        checkout_status = "current"
+    elif merge_base == head:
+        checkout_status = "behind_origin_main"
+    elif merge_base == origin_main:
+        checkout_status = "ahead_of_origin_main"
+    elif merge_base:
+        checkout_status = "diverged_from_origin_main"
+    else:
+        checkout_status = "unknown"
+
+    extra: dict[str, object] = {
+        "runtime_repo": str(repo),
+        "runtime_checkout_status": checkout_status,
+        "runtime_checkout_dirty_count": dirty_count,
+    }
+    if head:
+        extra["runtime_head"] = head
+    if origin_main:
+        extra["runtime_origin_main"] = origin_main
+    if merge_base:
+        extra["runtime_merge_base"] = merge_base
+    return extra
+
+
+def _check_boss_loop_log(
+    path: Path,
+    warn_h: float,
+    crit_h: float,
+    *,
+    runtime_repo_root: Path | None = None,
+) -> SurfaceCheck:
     if not path.exists():
         return SurfaceCheck(
             name="boss_loop_log",
@@ -446,6 +515,8 @@ def _check_boss_loop_log(path: Path, warn_h: float, crit_h: float) -> SurfaceChe
         extra["latest_python_warning"] = latest_python_warning[-240:]
     if latest_python_interpreter:
         extra["latest_python_interpreter"] = latest_python_interpreter[-240:]
+    if last_terminal_event in {"traceback", "exit_fail"} and runtime_repo_root is not None:
+        extra.update(_runtime_checkout_extra(runtime_repo_root))
     detail = (
         f"tracebacks={tracebacks_total} crashes={crashes_total} "
         f"ok={exits_ok_total} fail={exits_fail_total}"
@@ -454,6 +525,9 @@ def _check_boss_loop_log(path: Path, warn_h: float, crit_h: float) -> SurfaceChe
         detail = f"{detail}; latest_failure={latest_failure[-120:]}"
     if latest_failure_signature and latest_failure_signature != latest_failure:
         detail = f"{detail}; failure_signature={latest_failure_signature[-120:]}"
+    checkout_status = extra.get("runtime_checkout_status")
+    if checkout_status and checkout_status != "current":
+        detail = f"{detail}; runtime_checkout={checkout_status}"
     return SurfaceCheck(
         name="boss_loop_log",
         status=status,
@@ -596,6 +670,7 @@ def gather_health(
             on_root / "boss-loop-launchd.log",
             warn_h=warn_hours_boss_log,
             crit_h=warn_hours_boss_log * crit_multiplier,
+            runtime_repo_root=state_dir.parent,
         )
     )
 

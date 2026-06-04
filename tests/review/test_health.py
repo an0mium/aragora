@@ -42,6 +42,20 @@ def _write_status_doc(path: Path, last_updated: str) -> None:
     path.write_text(f"# A status doc\n\nLast updated: {last_updated}\n\nsome content\n")
 
 
+def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
+def _git_stdout(repo: Path, *args: str) -> str:
+    return _git(repo, *args).stdout.strip()
+
+
 def _setup_proof_loop(tmp_path: Path) -> dict[str, Path]:
     """Create the canonical directory layout the health command inspects."""
     repo = tmp_path / "repo"
@@ -480,6 +494,63 @@ class TestBossLoopLogCounter:
             == "Using Python interpreter: /Users/armand/miniforge3/bin/python"
         )
         assert "failure_signature=AttributeError" in str(bl.detail)
+
+    def test_failed_exit_reports_stale_runtime_checkout(self, tmp_path: Path) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        repo = layout["repo"]
+        _git(repo, "init")
+        (repo / "tracked.txt").write_text("stale checkout\n", encoding="utf-8")
+        _git(repo, "add", "tracked.txt")
+        _git(
+            repo,
+            "-c",
+            "user.name=Aragora Test",
+            "-c",
+            "user.email=aragora-test@example.com",
+            "commit",
+            "-m",
+            "stale checkout",
+        )
+        stale_head = _git_stdout(repo, "rev-parse", "HEAD")
+        (repo / "tracked.txt").write_text("origin main\n", encoding="utf-8")
+        _git(repo, "add", "tracked.txt")
+        _git(
+            repo,
+            "-c",
+            "user.name=Aragora Test",
+            "-c",
+            "user.email=aragora-test@example.com",
+            "commit",
+            "-m",
+            "origin main",
+        )
+        origin_main = _git_stdout(repo, "rev-parse", "HEAD")
+        _git(repo, "update-ref", "refs/remotes/origin/main", origin_main)
+        _git(repo, "checkout", "-q", stale_head)
+
+        log = layout["overnight"] / "boss-loop-launchd.log"
+        log.write_text(
+            "Traceback (most recent call last):\n"
+            "AttributeError: 'NoneType' object has no attribute 'ndarray'\n"
+            "Boss loop exited with status 1\n",
+            encoding="utf-8",
+        )
+        os.utime(log, (time.time() - 600, time.time() - 600))
+
+        report = gather_health(
+            repo_root=repo,
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+        )
+
+        bl = {s.name: s for s in report.surfaces}["boss_loop_log"]
+        assert bl.status == STATUS_STALE
+        assert bl.extra["runtime_repo"] == str(repo)
+        assert bl.extra["runtime_checkout_status"] == "behind_origin_main"
+        assert bl.extra["runtime_head"] == stale_head
+        assert bl.extra["runtime_origin_main"] == origin_main
+        assert "runtime_checkout=behind_origin_main" in str(bl.detail)
 
     def test_later_success_clears_historical_boss_loop_failures(self, tmp_path: Path) -> None:
         layout = _setup_proof_loop(tmp_path)
