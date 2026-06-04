@@ -1607,6 +1607,104 @@ class TestModelReviewQuorum:
         assert quorum["verdict"] == "tier_4_human_preapproval_required"
         assert quorum["requires_human_preapproval"] is True
 
+    def test_tier_four_local_receipt_alone_does_not_clear_preapproval(self) -> None:
+        files = ["aragora/cli/commands/review_queue.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            _codex_openai_comment(),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Claude independent model review\nVerdict: approve.",
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            human_risk_settlement_recorded=True,
+        )
+
+        assert quorum["tier"] == 4
+        assert quorum["status"] == "human_preapproval_required"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_preapproval"] is True
+
+    def test_open_tier_four_with_exact_helper_settlement_is_authorized(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        files = ["aragora/cli/commands/review_queue.py"]
+        pr_payload = _make_pr(number=7736, files=files)
+        head_sha = str(pr_payload["headRefOid"])
+        pr_payload["comments"] = [
+            _codex_openai_comment(body=f"Reviewed exact head {head_sha}."),
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n\n"
+                    "Model family: claude\n"
+                    f"Current head: {head_sha}\n\n"
+                    "Verdict: approve."
+                ),
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "Tier-4 Human Settlement Authorization\n\n"
+                    "PR: #7736\n"
+                    f"Exact head: {head_sha}\n"
+                    "Authorized action: admin_squash_merge and "
+                    "branch_protection_reconcile, only if #7736 is non-draft "
+                    "and live exact-head checks/merge-packet remain otherwise "
+                    "green.\n\n"
+                    "Human-risk settlement: I accept the Tier 4 risk for this PR."
+                ),
+            },
+        ]
+        pr_payload["statusCheckRollup"] = [
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"context": "aragora/human-settlement", "state": "SUCCESS"},
+        ]
+        review_queue_root = tmp_path / "review-queue"
+        _write_human_risk_settlement_receipt(
+            review_queue_root,
+            pr_number=7736,
+            head_sha=head_sha,
+            github_event="RECORDED_EXTERNAL_APPROVE",
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit: [_classify_pr(_make_pr(number=7736))],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7736"],
+            limit=10,
+            repo_override=None,
+            review_queue_root=review_queue_root,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["status"] == "satisfied"
+        assert entry["verdict"] == "admin_squash_allowed"
+        assert entry["admin_squash_allowed"] is True
+        assert entry["requires_human_risk_settlement"] is False
+        assert entry["requires_human_preapproval"] is False
+        assert entry["human_preapproval_recorded"] is True
+        assert "exact-head Tier 4 human preapproval verified" in entry["reasons"]
+        assert packet["admin_squash_order"] == [7736]
+        assert packet["human_risk_settlement_required"] == []
+        assert packet["not_ready"] == []
+
     # --- Finding 2: source-side filter on _dogfood_evidence_from_comments ---
 
     def test_dogfood_with_unknown_model_is_excluded_at_source(self) -> None:

@@ -66,6 +66,9 @@ PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
 MODEL_REVIEW_QUEUE_CAP = 6
 MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
+HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
+TIER_FOUR_SETTLEMENT_MARKER = "Tier-4 Human Settlement Authorization"
+TIER_FOUR_AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "claude",
     "openai",
@@ -2637,6 +2640,8 @@ def _build_merge_authorization_packet(
             "verdict": quorum["verdict"],
             "admin_squash_allowed": quorum["admin_squash_allowed"],
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
+            "requires_human_preapproval": quorum.get("requires_human_preapproval", False),
+            "human_preapproval_recorded": quorum.get("human_preapproval_recorded", False),
             "unresolved_dissent": quorum["unresolved_dissent"],
             "reviewer_signals": quorum["reviewer_signals"],
             "dogfood_evidence": quorum["dogfood_evidence"],
@@ -2799,10 +2804,20 @@ def _build_model_review_quorum(
     quorum_satisfied = (
         signal_count >= requirement["required_model_signals"] and has_required_dogfood
     )
+    requires_human_preapproval = bool(requirement["requires_human_preapproval"])
+    human_preapproval_recorded = (
+        requires_human_preapproval
+        and human_risk_settlement_recorded
+        and _has_successful_status_context(pr, HUMAN_SETTLEMENT_CONTEXT)
+        and _has_tier_four_human_preapproval_comment(pr, head_sha=head_sha)
+    )
 
     reasons = [tier_reason]
     if settlement_recorded:
         reasons.append("exact-head admin_squash_merge settlement receipt recorded")
+    elif human_preapproval_recorded:
+        reasons.append("exact-head human risk settlement receipt recorded")
+        reasons.append("exact-head Tier 4 human preapproval verified")
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
     if has_failures and not settlement_recorded:
@@ -2853,7 +2868,13 @@ def _build_model_review_quorum(
         status = "unresolved_dissent"
         verdict = "human_risk_settlement_required"
         requires_human_risk_settlement = True
-    elif requirement["requires_human_preapproval"]:
+    elif human_preapproval_recorded:
+        status = "satisfied"
+        verdict = "admin_squash_allowed"
+        requires_human_risk_settlement = False
+        requires_human_preapproval = False
+        admin_squash_allowed = True
+    elif requires_human_preapproval:
         status = "human_preapproval_required"
         verdict = "tier_4_human_preapproval_required"
         requires_human_risk_settlement = True
@@ -2880,7 +2901,8 @@ def _build_model_review_quorum(
         "requires_adversarial_dogfood": requirement["requires_adversarial_dogfood"],
         "requires_human_risk_settlement": requires_human_risk_settlement,
         "human_risk_settlement_recorded": human_risk_settlement_recorded,
-        "requires_human_preapproval": requirement["requires_human_preapproval"],
+        "requires_human_preapproval": requires_human_preapproval,
+        "human_preapproval_recorded": human_preapproval_recorded,
         "admin_squash_allowed": admin_squash_allowed,
         "status": status,
         "verdict": verdict,
@@ -3061,6 +3083,43 @@ def _has_recorded_human_risk_settlement(
         if str(payload.get("action") or "").strip() != "approve":
             continue
         if str(payload.get("github_event") or "").strip() not in allowed_events:
+            continue
+        return True
+    return False
+
+
+def _has_successful_status_context(pr: dict[str, Any], context: str) -> bool:
+    expected = str(context or "").strip()
+    if not expected:
+        return False
+    for check in _latest_status_check_rollup(pr.get("statusCheckRollup") or []):
+        if not isinstance(check, dict):
+            continue
+        name = str(check.get("context") or check.get("name") or "").strip()
+        if name != expected:
+            continue
+        state = str(check.get("state") or check.get("status") or "").upper()
+        conclusion = str(check.get("conclusion") or "").upper()
+        return conclusion == "SUCCESS" or state == "SUCCESS"
+    return False
+
+
+def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: str) -> bool:
+    head = str(head_sha or "").strip()
+    if not head:
+        return False
+    for comment in pr.get("comments") or []:
+        if not isinstance(comment, dict):
+            continue
+        body = str(comment.get("body") or "")
+        lowered = body.lower()
+        if TIER_FOUR_SETTLEMENT_MARKER not in body:
+            continue
+        if head not in body:
+            continue
+        if not any(token in lowered for token in TIER_FOUR_AUTHORIZED_MERGE_TOKENS):
+            continue
+        if "human-risk settlement" not in lowered:
             continue
         return True
     return False
