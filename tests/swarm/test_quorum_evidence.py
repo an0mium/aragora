@@ -56,6 +56,11 @@ def test_unknown_tier_fails_safe_to_prepare() -> None:
     assert "unknown" in reason
 
 
+def test_negative_tier_fails_safe_to_prepare() -> None:
+    action, _ = decide_action(-1, apply=True)
+    assert action == "prepare"
+
+
 # --- compose_evidence_comment counts against the real parser ----------------
 
 
@@ -132,6 +137,7 @@ def test_reviewer_text_cannot_hijack_family() -> None:
         "1. Model family: grok",
         "> Model family: grok",
         "*Model family:* openai",
+        "Model family : grok",
     ],
 )
 def test_neutralizer_superset_blocks_decorated_family_lines(hostile_line: str) -> None:
@@ -285,6 +291,25 @@ def test_collect_records_post_errors_without_losing_others() -> None:
     )
     assert outcome.posted == ["claude"]
     assert any("grok" in e for e in outcome.post_errors)
+
+
+def test_collect_recheck_exception_prepares_without_posting() -> None:
+    fakes, posted = _fakes(tier=1)
+    calls = {"n": 0}
+
+    def flaky_context(repo: str, pr: int) -> dict:
+        calls["n"] += 1
+        if calls["n"] >= 2:  # first call ok, recheck blows up
+            raise RuntimeError("transient gh error")
+        return {"head_sha": HEAD, "head_committed_at": COMMITTED}
+
+    fakes["context_fetcher"] = flaky_context
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    )
+    assert outcome.action == "prepare"
+    assert "re-verify" in outcome.action_reason
+    assert posted == []
 
 
 def test_collect_skips_post_when_head_moves_before_posting() -> None:

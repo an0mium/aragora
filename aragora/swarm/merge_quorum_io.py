@@ -266,7 +266,7 @@ def fetch_pr_tier(repo: str, pr: int) -> int | None:
     for entry in entries:
         if (
             isinstance(entry, dict)
-            and entry.get("pr_number") == pr
+            and _coerce(entry.get("pr_number")) == pr
             and entry.get("tier") is not None
         ):
             return _coerce(entry["tier"])

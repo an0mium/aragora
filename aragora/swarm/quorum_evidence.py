@@ -162,7 +162,7 @@ def decide_action(tier: int | None, apply: bool) -> tuple[str, str]:
     to post there regardless of ``apply``. Tier 0-2 posts only when ``apply`` is
     set; otherwise it is a dry run.
     """
-    if tier is None:
+    if tier is None or tier < 0:
         return ("prepare", "tier unknown; preparing evidence only (fail-safe)")
     if tier >= SETTLEMENT_TIER_FLOOR:
         return (
@@ -198,8 +198,9 @@ def _neutralize_reviewer_text(text: str) -> str:
         is_heading = probe.startswith("#")
         is_setext = bool(re.fullmatch(r"[=\-]{2,}", stripped))
         # Over-quoting is harmless; a missed disclosure is not, so match the
-        # ``model family:`` label anywhere it could be parsed.
-        has_family = "model family:" in lower
+        # ``model family:`` label anywhere it could be parsed (the gate parser
+        # tolerates whitespace before the colon).
+        has_family = bool(re.search(r"model\s+family\s*:", lower))
         if is_heading or is_setext or has_family:
             out.append(f"> {line}")
         else:
@@ -497,8 +498,15 @@ def collect_evidence(
         # Reviewers can take minutes; re-verify the head and tier immediately
         # before posting so a head that moved or a PR promoted to a settlement
         # tier in the meantime is never posted against.
-        recheck_head = str((context_fetcher(repo, pr) or {}).get("head_sha") or "").strip()
-        recheck_tier = tier_fetcher(repo, pr)
+        try:
+            recheck_head = str((context_fetcher(repo, pr) or {}).get("head_sha") or "").strip()
+            recheck_tier = tier_fetcher(repo, pr)
+        except Exception as exc:
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                f"could not re-verify head/tier before posting ({str(exc)[:120]}); prepared only"
+            )
+            return outcome
         recheck_action, recheck_reason = decide_action(recheck_tier, apply)
         if recheck_head != head_sha or recheck_action != "post":
             outcome.action = "prepare"

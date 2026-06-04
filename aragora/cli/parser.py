@@ -2330,7 +2330,7 @@ def _add_review_queue_parser(subparsers) -> None:
         ),
     )
     collect_evidence_parser.add_argument(
-        "--pr", required=True, help="PR number to collect evidence for"
+        "--pr", required=True, type=int, help="PR number to collect evidence for"
     )
     collect_evidence_parser.add_argument(
         "--repo", default="", help="owner/name of the target repo (default: current gh context)"
