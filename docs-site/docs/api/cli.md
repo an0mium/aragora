@@ -121,7 +121,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `review` | - | Run AI code review on a diff or PR | - |
 | `review-local` | - | Run a non-OpenAI (Claude Max pool) review on a LOCAL diff, no GitHub required | - |
 | `review-pr` | - | Review a live GitHub PR head and optionally run a fixer loop | - |
-| `review-queue` | - | PR review queue + advisory packets + human settlement | `act`, `baseline`, `build`, `evidence-lint`, `health`, `health-alert`, `lint-comment`, `merge-packet`, `observe-outcomes`, `packet`, `record-settlement`, `run` |
+| `review-queue` | - | PR review queue + advisory packets + human settlement | `act`, `baseline`, `build`, `collect-evidence`, `evidence-lint`, `health`, `health-alert`, `lint-comment`, `merge-packet`, `observe-outcomes`, `packet`, `record-settlement`, `run` |
 | `rlm` | - | RLM (Recursive Language Models) operations | `clear-cache`, `compress`, `query`, `stats` |
 | `secrets` | - | Inspect AWS Secrets Manager-backed secret presence | `health`, `hydrate` |
 | `security` | - | Security operations (encryption, key rotation) | `health`, `list-tokens`, `migrate`, `rotate-key`, `rotate-token`, `status`, `verify-token` |
