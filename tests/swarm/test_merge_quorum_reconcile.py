@@ -12,7 +12,11 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from aragora.swarm.merge_quorum_io import _could_count, _looks_like_shadow
+from aragora.swarm.merge_quorum_io import (
+    _could_count,
+    _evidence_lint_args,
+    _looks_like_shadow,
+)
 from aragora.swarm.merge_quorum_reconcile import (
     EvidenceComment,
     QuorumRun,
@@ -224,6 +228,28 @@ class TestLooksLikeShadow:
     def test_plain_required_check(self) -> None:
         assert _looks_like_shadow("aragora-merge-quorum") is False
         assert _looks_like_shadow("") is False
+
+
+class TestEvidenceLintArgs:
+    def test_never_passes_repo(self) -> None:
+        # evidence-lint rejects --repo; building it would break every lint call.
+        args = _evidence_lint_args(7735, "abc1234", "2026-06-04T13:18:35Z", "someone", "/tmp/b.md")
+        assert "--repo" not in args
+
+    def test_includes_required_flags(self) -> None:
+        args = _evidence_lint_args(7735, "abc1234", "", "someone", "/tmp/b.md")
+        assert "evidence-lint" in args
+        assert args[args.index("--pr") + 1] == "7735"
+        assert args[args.index("--head-sha") + 1] == "abc1234"
+        assert args[args.index("--body-file") + 1] == "/tmp/b.md"
+        assert args[args.index("--author") + 1] == "someone"
+        assert "--json" in args
+        # No committed-at supplied -> flag omitted.
+        assert "--head-committed-at" not in args
+
+    def test_includes_committed_at_when_present(self) -> None:
+        args = _evidence_lint_args(7735, "abc1234", "2026-06-04T13:18:35Z", "someone", "/tmp/b.md")
+        assert args[args.index("--head-committed-at") + 1] == "2026-06-04T13:18:35Z"
 
 
 class TestCouldCount:

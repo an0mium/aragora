@@ -269,7 +269,7 @@ def fetch_evidence_comments(
             # cannot possibly count (evidence-lint rejects github-actions
             # authors and anything too short for a head citation + heading).
             continue
-        lint = lint_comment(repo, pr, head_sha, head_committed_at, author, body, env)
+        lint = lint_comment(pr, head_sha, head_committed_at, author, body, env)
         counted = lint.get("counted_reviewer_ids") or []
         results.append(
             EvidenceComment(
@@ -282,8 +282,37 @@ def fetch_evidence_comments(
     return results
 
 
+def _evidence_lint_args(
+    pr: int, head_sha: str, head_committed_at: str, author: str, body_file: str
+) -> list[str]:
+    """Build the ``review-queue evidence-lint`` argv.
+
+    Note: ``evidence-lint`` infers the repo from the current context and does
+    *not* accept ``--repo``; passing it makes argparse reject the call. With
+    ``--head-committed-at`` supplied the lint is fully offline.
+    """
+    args = [
+        sys.executable,
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "evidence-lint",
+        "--pr",
+        str(pr),
+        "--head-sha",
+        head_sha,
+        "--author",
+        author,
+        "--body-file",
+        body_file,
+        "--json",
+    ]
+    if head_committed_at:
+        args.extend(["--head-committed-at", head_committed_at])
+    return args
+
+
 def lint_comment(
-    repo: str,
     pr: int,
     head_sha: str,
     head_committed_at: str,
@@ -295,26 +324,7 @@ def lint_comment(
         fh.write(body)
         body_file = fh.name
     try:
-        args = [
-            sys.executable,
-            "-m",
-            "aragora.cli.main",
-            "review-queue",
-            "evidence-lint",
-            "--pr",
-            str(pr),
-            "--head-sha",
-            head_sha,
-            "--author",
-            author,
-            "--body-file",
-            body_file,
-            "--repo",
-            repo,
-            "--json",
-        ]
-        if head_committed_at:
-            args.extend(["--head-committed-at", head_committed_at])
+        args = _evidence_lint_args(pr, head_sha, head_committed_at, author, body_file)
         try:
             proc = run(args, env=env, timeout=_EVIDENCE_LINT_TIMEOUT)
         except subprocess.TimeoutExpired:
