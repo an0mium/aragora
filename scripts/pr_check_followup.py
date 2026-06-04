@@ -53,6 +53,13 @@ META_AUTOMATION_SENTENCE = (
 FAILURE_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "ACTION_REQUIRED"}
 GREEN_CONCLUSIONS = {"SUCCESS", "SKIPPED", "NEUTRAL"}
 PENDING_STATUSES = {"IN_PROGRESS", "QUEUED", "PENDING", "EXPECTED", "REQUESTED", "WAITING"}
+NAMED_NON_REQUIRED_ROLLUP_WORKFLOWS = {
+    "aragora code review",
+    "core suites",
+    "release readiness",
+    "security gate",
+    "smoke tests",
+}
 CHECKOUT_MARKERS = ("checkout", "sparse-checkout", "repository checkout")
 SUBSTANTIVE_MARKERS = (
     "verify",
@@ -369,6 +376,23 @@ def _has_dependency_security_failure(check: CheckDiagnosis) -> bool:
 
 def _has_superseding_dependency_pr(check: CheckDiagnosis) -> bool:
     return bool(check.superseding_dependency_prs) and _has_dependency_security_failure(check)
+
+
+def _is_named_non_required_rollup_gate(check: CheckDiagnosis) -> bool:
+    workflow = check.workflow.lower()
+    if workflow == "tests":
+        return True
+    return any(marker in workflow for marker in NAMED_NON_REQUIRED_ROLLUP_WORKFLOWS)
+
+
+def _pending_named_non_required_rollup_gates(
+    checks: list[CheckDiagnosis],
+) -> list[CheckDiagnosis]:
+    return [
+        check
+        for check in checks
+        if check.classification == "in_progress" and _is_named_non_required_rollup_gate(check)
+    ]
 
 
 def _dependency_repair_file(path: str) -> bool:
@@ -702,6 +726,8 @@ def _derive_action(
         return "rerun_cancelled"
 
     real_checks = [check for check in checks if check.classification == "real_failure"]
+    if _pending_named_non_required_rollup_gates(checks):
+        return "monitor_named_rollup_gates"
     if real_checks and any(_has_superseding_dependency_pr(check) for check in real_checks):
         unsuperseded = [check for check in real_checks if not _has_superseding_dependency_pr(check)]
         if all(_has_model_quorum_blocker(check) for check in unsuperseded):
@@ -866,6 +892,13 @@ def build_prompt(
                 "",
             ]
         )
+    elif action == "monitor_named_rollup_gates":
+        lines.extend(
+            [
+                f"Goal: monitor #{pr_number} at head {pin} until named non-required rollup gates settle. Do not collect model evidence, merge, rerun, push, edit files, start cleanup, or start broader queue settlement while these gates are pending.",
+                "",
+            ]
+        )
     elif action == "diagnose_branch_conflict":
         lines.extend(
             [
@@ -980,6 +1013,10 @@ def build_prompt(
         )
     elif action == "monitor":
         lines.append("If checks are still in progress, report exact names and stop.")
+    elif action == "monitor_named_rollup_gates":
+        lines.append(
+            "Named non-required rollup gates are still pending. Report the exact pending names and stop; do not collect model evidence or start repair until they settle."
+        )
     elif action == "green":
         lines.append(
             f"If #{pr_number} remains green/green-equivalent, run review-queue merge-packet for the PR. Do not merge."

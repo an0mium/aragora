@@ -123,7 +123,7 @@ def test_in_progress_checks_monitor_without_repair_or_rerun() -> None:
         _pr(
             [
                 {
-                    "workflowName": "Tests",
+                    "workflowName": "Metrics Drift",
                     "name": "Type Check",
                     "status": "IN_PROGRESS",
                     "conclusion": "",
@@ -136,6 +136,52 @@ def test_in_progress_checks_monitor_without_repair_or_rerun() -> None:
     assert result.action == "monitor"
     assert result.rerun_commands == []
     assert "monitor #7443" in result.prompt
+
+
+def test_pending_named_rollup_gate_preempts_model_evidence_prompt() -> None:
+    result = followup.build_followup_result(
+        _pr(
+            [
+                _check(
+                    "Aragora Merge Quorum",
+                    "aragora-merge-quorum",
+                    "FAILURE",
+                    run_id="7",
+                    job_id="70",
+                ),
+                {
+                    "workflowName": "Tests",
+                    "name": "test-fast (infra, tests/nomic tests/control_plane, infra, 30)",
+                    "status": "IN_PROGRESS",
+                    "conclusion": "",
+                    "detailsUrl": ("https://github.com/synaptent/aragora/actions/runs/8/job/80"),
+                    "startedAt": "2026-05-23T19:27:02Z",
+                    "completedAt": "",
+                },
+            ],
+            head="evidence-head",
+        ),
+        run_data_by_id={
+            "7": {
+                "headSha": "evidence-head",
+                "workflowName": "Aragora Merge Quorum",
+                "jobs": [_job("aragora-merge-quorum", "failure", job_id="70")],
+            }
+        },
+        log_summary_by_job={
+            "70": [
+                "PR #7474 | Tier 2 | status=needs_model_review_quorum | verdict=collect_model_quorum_before_merge",
+                "- model quorum incomplete: 0/2 signal(s)",
+                "- focused adversarial dogfood evidence is required",
+            ]
+        },
+    )
+
+    assert result.action == "monitor_named_rollup_gates"
+    assert result.rerun_commands == []
+    assert "named non-required rollup gates settle" in result.prompt
+    assert "Tests / test-fast (infra" in result.prompt
+    assert "Post exactly one valid PR comment" not in result.prompt
 
 
 def test_expected_head_drift_stops_followup() -> None:
