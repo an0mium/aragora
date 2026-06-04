@@ -253,12 +253,29 @@ def fetch_pr_tier(repo: str, pr: int) -> int | None:
         entries = nested if isinstance(nested, list) else [payload]
     else:
         entries = []
+
+    def _coerce(value: Any) -> int | None:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    # Prefer the row whose pr_number matches the requested PR. The normal
+    # single-PR --json shape always discloses pr_number, so a multi-PR envelope
+    # can never resolve the wrong PR's tier (which would mis-gate posting).
     for entry in entries:
-        if isinstance(entry, dict) and entry.get("tier") is not None:
-            try:
-                return int(entry["tier"])
-            except (TypeError, ValueError):
-                return None
+        if (
+            isinstance(entry, dict)
+            and entry.get("pr_number") == pr
+            and entry.get("tier") is not None
+        ):
+            return _coerce(entry["tier"])
+    # Fall back to the first disclosed tier only when NO row carries a pr_number
+    # (forward-compat shapes such as a bare list or single entry).
+    if not any(isinstance(e, dict) and e.get("pr_number") is not None for e in entries):
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("tier") is not None:
+                return _coerce(entry["tier"])
     return None
 
 

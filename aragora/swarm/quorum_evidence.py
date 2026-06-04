@@ -162,6 +162,31 @@ def decide_action(tier: int | None, apply: bool) -> tuple[str, str]:
     return ("post", f"tier {tier} is auto-postable")
 
 
+def _neutralize_reviewer_text(text: str) -> str:
+    """Quote reviewer lines that could hijack the quorum identity parser.
+
+    The composed comment owns its identity via the first heading and a single
+    ``Model family:`` disclosure line. A reviewer that happens to emit its own
+    ``## ... model review`` heading or a ``Model family: <other>`` line must not
+    be able to change the attributed family. Such lines are prefixed with ``> ``
+    so the parser (which keys on a leading ``#`` or a ``model family:`` label)
+    ignores them, while the text stays human-readable. Everything else passes
+    through verbatim — the reviewer's findings are never altered.
+    """
+    out: list[str] = []
+    for line in text.strip().splitlines():
+        probe = line.lstrip()
+        for marker in ("- ", "* ", "-", "*"):
+            if probe.startswith(marker):
+                probe = probe[len(marker) :].lstrip()
+                break
+        if line.lstrip().startswith("#") or probe.lower().startswith("model family:"):
+            out.append(f"> {line}")
+        else:
+            out.append(line)
+    return "\n".join(out)
+
+
 def compose_evidence_comment(
     *,
     family: str,
@@ -177,7 +202,8 @@ def compose_evidence_comment(
     countable direct model reviewer) and an ``independent model review`` review
     trigger; a ``Model family:`` disclosure line plus a 7-char head citation are
     placed immediately under the heading so the comment is grounded on the exact
-    head. ``reviewer_text`` is the genuine, unmodified reviewer output.
+    head. ``reviewer_text`` is the genuine reviewer output; only lines that could
+    hijack the identity parser are quoted (see :func:`_neutralize_reviewer_text`).
     """
     fam = family.strip().lower()
     display = FAMILY_DISPLAY.get(fam, fam.title())
@@ -192,7 +218,7 @@ def compose_evidence_comment(
         f"Head: {short} ({head_sha}){committed}.\n"
         f"PR: #{pr}.\n"
         f"Model family: {fam}\n\n"
-        f"{reviewer_text.strip()}\n\n"
+        f"{_neutralize_reviewer_text(reviewer_text)}\n\n"
         f"dogfood: yes\n"
     )
 
@@ -275,7 +301,16 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
         env=merge_quorum_io.aragora_env(),
         timeout=120,
     )
-    diff_text = proc.stdout if proc.returncode == 0 else ""
+    # Refuse to review nothing: a failed or empty diff fetch would otherwise let
+    # a reviewer emit a "PASS" against an empty prompt while the composed comment
+    # still claims it is grounded on the head. Fail loudly instead.
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"could not fetch diff for PR #{pr}: {(proc.stderr or '').strip()[:200]}"
+        )
+    diff_text = proc.stdout or ""
+    if not diff_text.strip():
+        raise RuntimeError(f"PR #{pr} has an empty diff; nothing to review")
     return build_review_prompt(repo=repo, pr=pr, head_sha=head_sha, diff_text=diff_text)
 
 
@@ -399,11 +434,25 @@ def collect_evidence(
         )
 
     if action == "post":
-        for item in outcome.items:
-            if not item.would_count:
-                continue
-            poster(repo, pr, item.body)
-            outcome.posted.append(item.family)
+        # Reviewers can take minutes; re-verify the head and tier immediately
+        # before posting so a head that moved or a PR promoted to a settlement
+        # tier in the meantime is never posted against.
+        recheck_head = str((context_fetcher(repo, pr) or {}).get("head_sha") or "").strip()
+        recheck_tier = tier_fetcher(repo, pr)
+        recheck_action, recheck_reason = decide_action(recheck_tier, apply)
+        if recheck_head != head_sha or recheck_action != "post":
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                f"head/tier changed before posting "
+                f"(head {head_sha[:7]}->{recheck_head[:7] or 'none'}, "
+                f"tier {tier}->{recheck_tier}); prepared only: {recheck_reason}"
+            )
+        else:
+            for item in outcome.items:
+                if not item.would_count:
+                    continue
+                poster(repo, pr, item.body)
+                outcome.posted.append(item.family)
 
     return outcome
 
@@ -457,7 +506,7 @@ def run_collect_cli(
             apply=apply,
             env=merge_quorum_io.aragora_env(),
         )
-    except ValueError as exc:
+    except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         if json_output:
             import json
 

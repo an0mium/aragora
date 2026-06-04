@@ -25,6 +25,21 @@ def test_fetch_pr_tier_reads_nested_entries(monkeypatch) -> None:
     assert m.fetch_pr_tier("o/r", 7742) == 4
 
 
+def test_fetch_pr_tier_filters_by_pr_number(monkeypatch) -> None:
+    # A multi-PR envelope must resolve the requested PR, never the first row.
+    payload = {"entries": [{"pr_number": 111, "tier": 1}, {"pr_number": 7742, "tier": 4}]}
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(payload)))
+    assert m.fetch_pr_tier("o/r", 7742) == 4
+    assert m.fetch_pr_tier("o/r", 111) == 1
+
+
+def test_fetch_pr_tier_none_when_pr_number_absent_from_envelope(monkeypatch) -> None:
+    # Rows disclose pr_number but none match the request -> no wrong-PR fallback.
+    payload = {"entries": [{"pr_number": 111, "tier": 1}]}
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(payload)))
+    assert m.fetch_pr_tier("o/r", 999) is None
+
+
 def test_fetch_pr_tier_accepts_bare_list(monkeypatch) -> None:
     monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps([{"tier": 2}])))
     assert m.fetch_pr_tier("o/r", 1) == 2
