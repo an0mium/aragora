@@ -105,9 +105,15 @@ def _pool_health_states(repo_root: Path) -> dict[str, str]:
 def _healthy_profiles(repo_root: Path, profiles: list[str]) -> list[str]:
     states = _pool_health_states(repo_root)
     if not states:
+        # No verify-backed snapshot: we cannot assess health, so keep the full
+        # list and let the caller's runtime fallback handle any dead profile.
         return profiles
-    filtered = [p for p in profiles if states.get(p) not in _UNHEALTHY_PROFILE_STATES]
-    return filtered or profiles
+    # A snapshot exists, so trust it even when it filters everything out: if every
+    # configured profile is known-bad, returning an empty list (=> select_profile
+    # yields None => bare claude => OpenRouter fallback) is correct. Falling back
+    # to the full known-bad list would defeat the safety gate this module exists
+    # for. Profiles absent from the snapshot (state is None) are treated as usable.
+    return [p for p in profiles if states.get(p) not in _UNHEALTHY_PROFILE_STATES]
 
 
 def select_profile(*, repo_root: Path | None = None, index: int | None = None) -> str | None:

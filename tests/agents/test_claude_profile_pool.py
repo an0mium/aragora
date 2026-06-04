@@ -125,3 +125,34 @@ def test_strip_profile_preamble_removes_wrapper_lines():
 
 def test_strip_profile_preamble_noop_on_plain_text():
     assert strip_profile_preamble("just a response\nsecond line") == "just a response\nsecond line"
+
+
+def test_all_unhealthy_snapshot_yields_no_profile(tmp_path, monkeypatch):
+    """Regression: when the verify snapshot marks every configured profile
+    unhealthy, selection must return None (=> bare claude => OpenRouter fallback)
+    rather than handing back a known-bad profile and defeating the safety gate.
+    """
+    monkeypatch.setenv("ARAGORA_CLAUDE_REVIEW_PROFILES", "max-01,max-02,max-03")
+    profiles = [
+        {"profile": "max-01", "state": "expired"},
+        {"profile": "max-02", "state": "logged_out"},
+        {"profile": "max-03", "state": "unauthenticated"},
+    ]
+    repo = _make_repo(tmp_path, health={"generated_at": "2026-06-04T00:00:00Z", "profiles": profiles})
+
+    assert select_profile(repo_root=repo, index=0) is None
+    command, used_profile = build_claude_command(BASE_CMD, repo_root=repo, index=0)
+    assert used_profile is False
+    assert command == BASE_CMD
+
+
+def test_profiles_absent_from_snapshot_are_treated_as_usable(tmp_path, monkeypatch):
+    """A profile not listed in the snapshot (unknown state) stays selectable."""
+    monkeypatch.setenv("ARAGORA_CLAUDE_REVIEW_PROFILES", "max-01,max-09")
+    # Snapshot only knows max-01 (expired); max-09 is unlisted => unknown => usable.
+    repo = _make_repo(
+        tmp_path,
+        health={"generated_at": "x", "profiles": [{"profile": "max-01", "state": "expired"}]},
+    )
+
+    assert select_profile(repo_root=repo, index=0) == "max-09"
