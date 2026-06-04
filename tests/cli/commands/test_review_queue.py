@@ -26,9 +26,11 @@ from aragora.cli.commands.review_queue import (
     _classify_pr,
     _classify_model_review_tier,
     _extract_validation_commands,
+    _effective_required_pr_check_count,
     _filter_lanes,
     _GhError,
     _is_high_risk_path,
+    _is_merge_quorum_check,
     _parse_pr_number,
     _record_external_settlement,
     _render_packet,
@@ -36,6 +38,7 @@ from aragora.cli.commands.review_queue import (
     _settle_packet,
     _subsystem_for,
     _summarize_checks,
+    _summarize_required_pr_checks,
     add_review_queue_parser,
     cmd_review_queue,
 )
@@ -721,6 +724,91 @@ class TestSummarizeChecks:
         assert summary == "1 failing / 2 total"
         assert has_fail
         assert not has_pending
+
+
+# --- B2: --ignore-own-quorum-check (diagnostic only) -----------------------
+
+
+class TestIgnoreOwnQuorumCheck:
+    """B2: a diagnostic-only switch that additionally excludes a *concluded*
+    merge-quorum self-check so out-of-CI callers observe the real check state.
+    The enforcing CI path never sets the flag, so default behavior is unchanged.
+    """
+
+    @staticmethod
+    def _quorum_failure_plus_green() -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+
+    @staticmethod
+    def _clear_ci_env(monkeypatch: pytest.MonkeyPatch) -> None:
+        for var in ("GITHUB_WORKFLOW", "GITHUB_JOB", "GITHUB_RUN_ID", "GITHUB_REPOSITORY"):
+            monkeypatch.delenv(var, raising=False)
+
+    def test_default_blocks_on_concluded_quorum_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._clear_ci_env(monkeypatch)
+        summary, has_fail, has_pending = _summarize_checks(self._quorum_failure_plus_green())
+        assert has_fail
+        assert summary == "1 failing / 2 total"
+
+    def test_flag_excludes_concluded_quorum_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._clear_ci_env(monkeypatch)
+        summary, has_fail, has_pending = _summarize_checks(
+            self._quorum_failure_plus_green(), ignore_quorum_check=True
+        )
+        assert not has_fail
+        assert not has_pending
+        assert summary == "1/1 green"
+
+    def test_flag_does_not_hide_unrelated_failures(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._clear_ci_env(monkeypatch)
+        checks = self._quorum_failure_plus_green() + [
+            {"name": "typecheck", "status": "COMPLETED", "conclusion": "FAILURE"},
+        ]
+        summary, has_fail, _ = _summarize_checks(checks, ignore_quorum_check=True)
+        assert has_fail  # the real typecheck failure is preserved
+        assert summary == "1 failing / 2 total"
+
+    def test_required_summary_flag_excludes_quorum(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._clear_ci_env(monkeypatch)
+        required = [
+            {"name": "aragora-merge-quorum", "workflow": "Aragora Merge Quorum", "bucket": "fail"},
+            {"name": "required-lint", "bucket": "pass"},
+        ]
+        _, default_fail, _ = _summarize_required_pr_checks(required)
+        assert default_fail
+        summary, has_fail, _ = _summarize_required_pr_checks(required, ignore_quorum_check=True)
+        assert not has_fail
+        assert summary == "1/1 required green"
+
+    def test_effective_required_count_flag_excludes_quorum(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._clear_ci_env(monkeypatch)
+        required = [
+            {"name": "aragora-merge-quorum", "workflow": "Aragora Merge Quorum", "bucket": "fail"},
+            {"name": "required-lint", "bucket": "pass"},
+        ]
+        assert _effective_required_pr_check_count(required) == 2
+        assert _effective_required_pr_check_count(required, ignore_quorum_check=True) == 1
+
+    def test_is_merge_quorum_check_matches_rollup_and_required_rows(self) -> None:
+        assert _is_merge_quorum_check(
+            {"name": "aragora-merge-quorum", "workflowName": "Aragora Merge Quorum"}
+        )
+        assert _is_merge_quorum_check(
+            {"name": "aragora-merge-quorum", "workflow": "Aragora Merge Quorum"}
+        )
+        assert not _is_merge_quorum_check({"name": "lint", "workflow": "Tests"})
 
 
 # --- _classify_pr lane logic -----------------------------------------------
@@ -1607,6 +1695,104 @@ class TestModelReviewQuorum:
         assert quorum["verdict"] == "tier_4_human_preapproval_required"
         assert quorum["requires_human_preapproval"] is True
 
+    def test_tier_four_local_receipt_alone_does_not_clear_preapproval(self) -> None:
+        files = ["aragora/cli/commands/review_queue.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            _codex_openai_comment(),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Claude independent model review\nVerdict: approve.",
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            human_risk_settlement_recorded=True,
+        )
+
+        assert quorum["tier"] == 4
+        assert quorum["status"] == "human_preapproval_required"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_preapproval"] is True
+
+    def test_open_tier_four_with_exact_helper_settlement_is_authorized(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        files = ["aragora/cli/commands/review_queue.py"]
+        pr_payload = _make_pr(number=7736, files=files)
+        head_sha = str(pr_payload["headRefOid"])
+        pr_payload["comments"] = [
+            _codex_openai_comment(body=f"Reviewed exact head {head_sha}."),
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n\n"
+                    "Model family: claude\n"
+                    f"Current head: {head_sha}\n\n"
+                    "Verdict: approve."
+                ),
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "Tier-4 Human Settlement Authorization\n\n"
+                    "PR: #7736\n"
+                    f"Exact head: {head_sha}\n"
+                    "Authorized action: admin_squash_merge and "
+                    "branch_protection_reconcile, only if #7736 is non-draft "
+                    "and live exact-head checks/merge-packet remain otherwise "
+                    "green.\n\n"
+                    "Human-risk settlement: I accept the Tier 4 risk for this PR."
+                ),
+            },
+        ]
+        pr_payload["statusCheckRollup"] = [
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"context": "aragora/human-settlement", "state": "SUCCESS"},
+        ]
+        review_queue_root = tmp_path / "review-queue"
+        _write_human_risk_settlement_receipt(
+            review_queue_root,
+            pr_number=7736,
+            head_sha=head_sha,
+            github_event="RECORDED_EXTERNAL_APPROVE",
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_queue",
+            lambda limit: [_classify_pr(_make_pr(number=7736))],
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda args: pr_payload,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7736"],
+            limit=10,
+            repo_override=None,
+            review_queue_root=review_queue_root,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["status"] == "satisfied"
+        assert entry["verdict"] == "admin_squash_allowed"
+        assert entry["admin_squash_allowed"] is True
+        assert entry["requires_human_risk_settlement"] is False
+        assert entry["requires_human_preapproval"] is False
+        assert entry["human_preapproval_recorded"] is True
+        assert "exact-head Tier 4 human preapproval verified" in entry["reasons"]
+        assert packet["admin_squash_order"] == [7736]
+        assert packet["human_risk_settlement_required"] == []
+        assert packet["not_ready"] == []
+
     # --- Finding 2: source-side filter on _dogfood_evidence_from_comments ---
 
     def test_dogfood_with_unknown_model_is_excluded_at_source(self) -> None:
@@ -2221,8 +2407,20 @@ class TestBuildQueueAndPacket:
                 },
             )
 
+        preflighted_refs: list[tuple[str, str | None]] = []
+
+        def fake_explicit_merged_entry(
+            ref: str, repo_override: str | None
+        ) -> dict[str, Any] | None:
+            preflighted_refs.append((ref, repo_override))
+            return None
+
         monkeypatch.setattr("aragora.cli.commands.review_queue._build_queue", fail_build_queue)
         monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            fake_explicit_merged_entry,
+        )
 
         packet = _build_merge_authorization_packet(
             pr_refs=["7528"],
@@ -2236,6 +2434,7 @@ class TestBuildQueueAndPacket:
             "active": False,
             "scope": "explicit_pr_refs",
         }
+        assert preflighted_refs == [("7528", None)]
         assert packet["admin_squash_order"] == [7528]
 
     def test_build_queue_classifies_and_sorts(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2693,6 +2892,71 @@ class TestBuildQueueAndPacket:
             "Self-Hosted Shadow CI / Hetzner Offline Golden Path Shadow",
         ]
         assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
+
+    def test_ignore_own_quorum_flag_drops_required_quorum_row_out_of_ci(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Out-of-CI: the self-check helper does NOT ignore the merge-quorum row,
+        # so by default a concluded merge-quorum FAILURE blocks. The B2 flag is
+        # the only thing that excludes it from gating + diagnostics. An unrelated
+        # typecheck failure keeps the rollup non-green so the required surface is
+        # still fetched even when the flag drops the merge-quorum row.
+        for var in ("GITHUB_WORKFLOW", "GITHUB_JOB", "GITHUB_RUN_ID", "GITHUB_REPOSITORY"):
+            monkeypatch.delenv(var, raising=False)
+        pr_payload = _make_pr(
+            number=7465,
+            files=["docs/status/open.md"],
+            checks=[
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "FAILURE"},
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+            ],
+        )
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "state": "FAILURE",
+                        "bucket": "fail",
+                        "workflow": "Aragora Merge Quorum",
+                        "link": "https://github.com/synaptent/aragora/actions/runs/old/job/1",
+                    },
+                    {"name": "lint", "state": "SUCCESS", "bucket": "pass", "workflow": "Lint"},
+                    {"name": "typecheck", "state": "FAILURE", "bucket": "fail", "workflow": "Lint"},
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        default_required = _build_packet("7465", repo_override=None).check_surfaces[
+            "required_pr_checks"
+        ]
+        assert default_required["effective_total"] == 3
+        assert "aragora-merge-quorum" in default_required["failing_or_cancelled"]
+        assert default_required["ignored_by_ignore_own_quorum_flag_count"] == 0
+
+        flagged_required = _build_packet(
+            "7465", repo_override=None, ignore_own_quorum_check=True
+        ).check_surfaces["required_pr_checks"]
+        assert flagged_required["effective_total"] == 2
+        # The real typecheck failure is preserved; only the merge-quorum row is dropped.
+        assert flagged_required["failing_or_cancelled"] == ["typecheck"]
+        assert flagged_required["ignored_by_ignore_own_quorum_flag_count"] == 1
+        # Diagnostic accounting stays self-consistent: total - effective_total equals
+        # the self-check exclusions plus the flag exclusions.
+        assert flagged_required["total"] - flagged_required["effective_total"] == (
+            flagged_required["ignored_current_merge_quorum_self_check_count"]
+            + flagged_required["ignored_by_ignore_own_quorum_flag_count"]
+        )
 
     def test_required_gate_classifies_real_rollup_shaped_long_queued_shadows(
         self, monkeypatch: pytest.MonkeyPatch
@@ -3645,10 +3909,89 @@ class TestBuildQueueAndPacket:
             repo_override=None,
         )
 
-        assert packet["entries"][0]["status"] == "repair_or_wait"
+        assert packet["entries"][0]["status"] == "already_merged"
+        assert packet["entries"][0]["verdict"] == "already_merged_noop"
         assert packet["entries"][0]["admin_squash_allowed"] is False
         assert packet["admin_squash_order"] == []
-        assert packet["not_ready"] == [7470]
+        assert packet["not_ready"] == []
+
+    def test_merge_packet_short_circuits_explicit_merged_pr_before_full_hydration(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7470,
+            title="merged docs update",
+            files=["docs/status/focus.md"],
+            state="MERGED",
+            merged_at="2026-05-27T00:19:36Z",
+        )
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            assert args[:3] == ["pr", "view", "7470"]
+            assert "comments" not in str(args)
+            assert "reviews" not in str(args)
+            assert "commits" not in str(args)
+            return pr_payload
+
+        def fail_build_packet(*_args: Any, **_kwargs: Any) -> None:
+            raise AssertionError("merged PRs must not build a full readiness packet")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_packet",
+            fail_build_packet,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7470"],
+            limit=10,
+            repo_override=None,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["status"] == "already_merged"
+        assert entry["verdict"] == "already_merged_noop"
+        assert entry["machine_recommendation"] == "settled_noop"
+        assert entry["admin_squash_allowed"] is False
+        assert entry["requires_human_risk_settlement"] is False
+        assert entry["reasons"] == [
+            "PR is already merged; merge-packet readiness is obsolete",
+        ]
+        assert packet["admin_squash_order"] == []
+        assert packet["human_risk_settlement_required"] == []
+        assert packet["not_ready"] == []
+
+    def test_merge_packet_preserves_explicit_ref_order_with_merged_short_circuit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        merged_payload = _make_pr(
+            number=7470,
+            files=["docs/status/focus.md"],
+            state="MERGED",
+            merged_at="2026-05-27T00:19:36Z",
+        )
+        open_payload = _make_pr(
+            number=7471,
+            files=["docs/status/next.md"],
+        )
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:3] == ["pr", "view", "7470"]:
+                return merged_payload
+            if args[:3] == ["pr", "view", "7471"]:
+                return open_payload
+            raise AssertionError(f"unexpected gh args: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7471", "7470"],
+            limit=10,
+            repo_override=None,
+        )
+
+        assert [entry["pr_number"] for entry in packet["entries"]] == [7471, 7470]
+        assert packet["entries"][1]["status"] == "already_merged"
 
     def test_merged_pr_with_exact_settlement_receipt_is_settled_noop(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -3674,25 +4017,21 @@ class TestBuildQueueAndPacket:
             lambda args: pr_payload,
         )
 
-        packet = _build_merge_authorization_packet(
-            pr_refs=["7447"],
-            limit=10,
+        packet = _build_packet(
+            "7447",
             repo_override=None,
             review_queue_root=review_queue_root,
         )
 
-        entry = packet["entries"][0]
-        assert entry["status"] == "settled"
-        assert entry["verdict"] == "already_merged_settlement_recorded"
-        assert entry["admin_squash_allowed"] is False
-        assert entry["requires_human_risk_settlement"] is False
-        assert entry["reasons"] == [
+        quorum = packet.model_review_quorum
+        assert quorum["status"] == "settled"
+        assert quorum["verdict"] == "already_merged_settlement_recorded"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_risk_settlement"] is False
+        assert quorum["reasons"] == [
             "workflow/deploy/destructive surface touched",
             "exact-head admin_squash_merge settlement receipt recorded",
         ]
-        assert packet["admin_squash_order"] == []
-        assert packet["human_risk_settlement_required"] == []
-        assert packet["not_ready"] == []
 
     @pytest.mark.parametrize("github_event", ["APPROVE", "RECORDED_EXTERNAL_APPROVE"])
     def test_open_tier_three_with_exact_human_risk_receipt_is_authorized(
@@ -5090,6 +5429,7 @@ class TestSettlementHelpers:
             *,
             repo_override: str | None,
             execute_reviewers: bool = False,
+            ignore_own_quorum_check: bool = False,
         ) -> ReviewPacket:
             return ReviewPacket(
                 pr_number=int(pr_ref),

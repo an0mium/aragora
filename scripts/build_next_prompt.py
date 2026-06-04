@@ -51,6 +51,7 @@ PENDING_CHECK_STATES = {
     "REQUESTED",
     "WAITING",
 }
+POST_MERGE_LANE_KEYWORDS = ("evidence", "review", "quorum", "settle", "settlement")
 
 
 def _read_lanes(path: Path) -> list[dict[str, Any]]:
@@ -143,6 +144,55 @@ def _run_text(command: list[str], command_runner: CommandRunner) -> dict[str, An
         "stdout": result.stdout or "",
         "stderr": result.stderr or "",
         "returncode": result.returncode,
+    }
+
+
+def _tmux_pane_packet(command_runner: CommandRunner) -> dict[str, Any]:
+    """Return a compact tmux pane inventory for active-lane coordination."""
+
+    result = _run_text(
+        [
+            "tmux",
+            "list-panes",
+            "-a",
+            "-F",
+            "#{session_name}\t#{window_name}\t#{pane_index}\t#{pane_pid}\t#{pane_current_path}\t#{pane_current_command}",
+        ],
+        command_runner,
+    )
+    panes: list[dict[str, Any]] = []
+    if result["returncode"] != 0:
+        return {
+            "available": False,
+            "returncode": result["returncode"],
+            "stderr": result["stderr"].strip(),
+            "panes": panes,
+        }
+    for raw_line in result["stdout"].splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) == 6:
+            session_name, window_name, pane_index, pane_pid, current_path, command = parts
+            panes.append(
+                {
+                    "tmux_target": f"{session_name}:{window_name}",
+                    "session_name": session_name,
+                    "window_name": window_name,
+                    "pane_index": pane_index,
+                    "pane_pid": pane_pid,
+                    "current_path": current_path,
+                    "command": command,
+                }
+            )
+        else:
+            panes.append({"raw": raw_line})
+    return {
+        "available": True,
+        "returncode": 0,
+        "stderr": "",
+        "panes": panes,
     }
 
 
@@ -553,6 +603,80 @@ def _active_target_lanes(
     return rows
 
 
+def _contains_target_token(text: str, *, pr: int | None, branch: str | None) -> bool:
+    lowered = text.lower()
+    if pr is not None and str(pr) in lowered:
+        return True
+    return bool(branch and branch.lower() in lowered)
+
+
+def _active_session_matches_target(text: str, *, pr: int | None, branch: str | None) -> bool:
+    if not _contains_target_token(text, pr=pr, branch=branch):
+        return False
+    lowered = text.lower()
+    if branch and branch.lower() in lowered:
+        return True
+    return any(keyword in lowered for keyword in POST_MERGE_LANE_KEYWORDS)
+
+
+def _post_merge_lane_matches(packet: dict[str, Any], *, pr: int | None) -> list[dict[str, Any]]:
+    """Return active lane/session rows for a PR that has already merged."""
+
+    pr_packet = packet.get("pr") if isinstance(packet.get("pr"), dict) else {}
+    branch = str(pr_packet.get("headRefName") or "")
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for lane in packet.get("target_active_lanes") or []:
+        if not isinstance(lane, dict):
+            continue
+        key = f"lane:{lane.get('lane_id') or lane.get('owner_session') or id(lane)}"
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({"source": "agent_bridge_lane", **_sanitize(lane)})
+
+    tmux_panes = packet.get("tmux_panes") if isinstance(packet.get("tmux_panes"), dict) else {}
+    for pane in tmux_panes.get("panes") or []:
+        if not isinstance(pane, dict):
+            continue
+        text = json.dumps(_sanitize(pane), sort_keys=True)
+        if not _active_session_matches_target(text, pr=pr, branch=branch):
+            continue
+        key = f"tmux:{pane.get('tmux_target') or pane.get('raw') or id(pane)}"
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({"source": "tmux_pane", **_sanitize(pane)})
+
+    active_sessions = (
+        packet.get("active_sessions") if isinstance(packet.get("active_sessions"), dict) else {}
+    )
+    for collection_name in (
+        "agent_bridge_lanes",
+        "codex_cli_sessions",
+        "process_census",
+        "overlap_report",
+    ):
+        collection = active_sessions.get(collection_name)
+        if not collection:
+            continue
+        items = collection if isinstance(collection, list) else [collection]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            text = json.dumps(_sanitize(item), sort_keys=True)
+            if not _active_session_matches_target(text, pr=pr, branch=branch):
+                continue
+            key = f"active:{collection_name}:{item.get('lane_id') or item.get('owner_session') or item.get('tmux_target') or id(item)}"
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({"source": collection_name, **_sanitize(item)})
+
+    return rows
+
+
 def _merge_packet_entry(merge_packet: Any, pr: int | None) -> dict[str, Any]:
     if not isinstance(merge_packet, dict):
         return {}
@@ -616,6 +740,118 @@ def _pending_required_checks(checks: Any) -> list[dict[str, str]]:
                 }
             )
     return pending
+
+
+def build_post_merge_lane_coordination_prompt(
+    packet: dict[str, Any],
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    pr: int | None = None,
+) -> str | None:
+    """Build a stop-first prompt when a merged PR still has an active target lane."""
+
+    pr_packet = packet.get("pr") if isinstance(packet.get("pr"), dict) else {}
+    if str(pr_packet.get("state") or "").upper() != "MERGED":
+        return None
+    active_matches = _post_merge_lane_matches(packet, pr=pr)
+    if not active_matches:
+        return None
+
+    target = f"#{pr}" if pr is not None else "the target PR"
+    head = str(pr_packet.get("headRefOid") or "unknown")
+    merge_commit = pr_packet.get("mergeCommit")
+    merge_commit_oid = ""
+    if isinstance(merge_commit, dict):
+        merge_commit_oid = str(merge_commit.get("oid") or "")
+    merged_at = str(pr_packet.get("mergedAt") or "unknown")
+    lane_lines = []
+    for row in active_matches:
+        if row.get("source") == "tmux_pane":
+            label = row.get("tmux_target") or row.get("window_name") or row.get("raw")
+            cwd = row.get("current_path") or ""
+            lane_lines.append(f"- tmux {label} cwd={cwd}".rstrip())
+        else:
+            label = row.get("lane_id") or row.get("owner_session") or row.get("source")
+            lane_lines.append(f"- {row.get('source')}: {label}")
+    lane_summary = "\n".join(lane_lines) or "- active target lane detected"
+
+    return "\n".join(
+        [
+            f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+            "Do not duplicate active lanes. Do not touch unrelated PRs. Do not merge without separate explicit operator authorization. Do not use or mutate dirty root source files.",
+            "",
+            f"Goal: coordinate stale active lane(s) after PR {target} already merged.",
+            f"Live merged PR state to verify, not trust: head={head}, merge_commit={merge_commit_oid or 'unknown'}, merged_at={merged_at}.",
+            "",
+            "Active target lane(s) detected:",
+            lane_summary,
+            "",
+            "First re-check tmux active sessions and gh pr view for the PR. If any listed target lane is still active and no explicit operator action is present, stop and repeat these choices:",
+            "1. Let the active lane finish naturally, then re-ground queue selection from a clean current origin/main checkout.",
+            "2. Explicitly terminate/retire the active lane, then re-ground queue selection from a clean current origin/main checkout.",
+            "3. Explicitly supersede the lane only for post-merge cleanup/receipt inspection; do not collect evidence, rerun checks, mark statuses, or merge.",
+            "",
+            "If the active lane is gone, explicitly retired, or explicitly superseded, use a clean current origin/main checkout only. Re-check git status, agent health, active sessions, work robot, and open PR list before selecting the next highest-ranked unowned non-draft PR that is not policy-excluded.",
+            "Before any new lane work, check mailbox, owner state, gh pr view/checks, full checks, merge-packet, and settle_one_pr.py.",
+            "",
+            "Final report: merged PR state, active-lane coordination result, action taken or withheld, and a fresh recursive best-next prompt that starts with mailbox checking.",
+            CONVERGENCE_SENTENCE,
+            "",
+        ]
+    )
+
+
+def build_post_merge_fast_packet(
+    *,
+    registry_path: Path,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    pr: int,
+    command_runner: CommandRunner | None = None,
+) -> dict[str, Any]:
+    """Build the cheapest packet needed to route merged PR stale-lane prompts."""
+
+    runner = command_runner or _repo_runner(repo_root)
+    pr_packet = _run_json(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(pr),
+            "--json",
+            "number,state,headRefOid,headRefName,url,mergedAt,mergeCommit",
+        ],
+        runner,
+    )
+    pr_packet = pr_packet if isinstance(pr_packet, dict) else {}
+    lanes = _read_lanes(registry_path)
+    branch = str(pr_packet.get("headRefName") or "")
+    target_active_lanes = _active_target_lanes(
+        lanes,
+        lane=_find_lane(lanes, pr=pr, branch=branch),
+        pr=pr,
+        branch=branch or None,
+    )
+    packet: dict[str, Any] = {
+        "pr": pr_packet,
+        "target_active_lanes": target_active_lanes,
+        "active_sessions": {},
+        "tmux_panes": _tmux_pane_packet(runner),
+        "post_merge_lane_coordination": {},
+        "blockers": [],
+        "selected_action": "continue_standard_prompt",
+    }
+    active_post_merge_lanes = _post_merge_lane_matches(packet, pr=pr)
+    post_merge_detected = str(pr_packet.get("state") or "").upper() == "MERGED" and bool(
+        active_post_merge_lanes
+    )
+    packet["post_merge_lane_coordination"] = {
+        "detected": post_merge_detected,
+        "active_lanes": active_post_merge_lanes,
+    }
+    if post_merge_detected:
+        packet["blockers"].append("merged PR still has active target lane")
+        packet["selected_action"] = "post_merge_lane_retirement_coordination"
+    return packet
 
 
 def build_settlement_guard(
@@ -726,10 +962,12 @@ def build_decision_packet(
             ],
             runner,
         ),
+        "tmux_panes": _tmux_pane_packet(runner),
         "disk_outbox": _disk_outbox_packet(runner, repo_root=repo_root),
         "pr": {},
         "checks": {"required": []},
         "merge_packet": {},
+        "post_merge_lane_coordination": {},
         "blockers": blockers,
         "selected_action": "read_only_owner_routing"
         if "active owner exists for target" in blockers
@@ -750,7 +988,7 @@ def build_decision_packet(
                 "view",
                 str(pr),
                 "--json",
-                "number,state,isDraft,headRefOid,headRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,url",
+                "number,state,isDraft,headRefOid,headRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,url,mergedAt,mergeCommit",
             ],
             runner,
         )
@@ -780,6 +1018,19 @@ def build_decision_packet(
             ],
             runner,
         )
+    active_post_merge_lanes = _post_merge_lane_matches(packet, pr=pr)
+    post_merge_detected = (
+        isinstance(packet.get("pr"), dict)
+        and str(packet["pr"].get("state") or "").upper() == "MERGED"
+        and bool(active_post_merge_lanes)
+    )
+    packet["post_merge_lane_coordination"] = {
+        "detected": post_merge_detected,
+        "active_lanes": active_post_merge_lanes,
+    }
+    if post_merge_detected:
+        packet["blockers"].append("merged PR still has active target lane")
+        packet["selected_action"] = "post_merge_lane_retirement_coordination"
     packet["settlement_guard"] = build_settlement_guard(packet, pr=pr, expected_head=expected_head)
     return packet
 
@@ -998,18 +1249,42 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    prompt = build_prompt(
-        registry_path=args.registry_path,
-        repo_root=args.repo_root,
-        lane_id=args.lane_id,
-        pr=args.pr,
-        branch=args.branch,
-        expected_head=args.expected_head,
-    )
+    prompt: str | None = None
     packet: dict[str, Any] | None = None
     guard_prompt: str | None = None
-    if args.json or args.settlement_guard:
-        packet = build_decision_packet(
+    if args.pr is not None:
+        fast_packet = build_post_merge_fast_packet(
+            registry_path=args.registry_path,
+            repo_root=args.repo_root,
+            pr=args.pr,
+        )
+        post_merge_prompt = build_post_merge_lane_coordination_prompt(
+            fast_packet,
+            repo_root=args.repo_root,
+            pr=args.pr,
+        )
+        if post_merge_prompt:
+            prompt = post_merge_prompt
+            packet = fast_packet
+    if args.pr is not None or args.json or args.settlement_guard:
+        if packet is None:
+            packet = build_decision_packet(
+                registry_path=args.registry_path,
+                repo_root=args.repo_root,
+                lane_id=args.lane_id,
+                pr=args.pr,
+                branch=args.branch,
+                expected_head=args.expected_head,
+            )
+            post_merge_prompt = build_post_merge_lane_coordination_prompt(
+                packet,
+                repo_root=args.repo_root,
+                pr=args.pr,
+            )
+            if post_merge_prompt:
+                prompt = post_merge_prompt
+    if prompt is None:
+        prompt = build_prompt(
             registry_path=args.registry_path,
             repo_root=args.repo_root,
             lane_id=args.lane_id,
@@ -1017,6 +1292,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             branch=args.branch,
             expected_head=args.expected_head,
         )
+    if args.json or args.settlement_guard:
+        if packet is None:
+            packet = build_decision_packet(
+                registry_path=args.registry_path,
+                repo_root=args.repo_root,
+                lane_id=args.lane_id,
+                pr=args.pr,
+                branch=args.branch,
+                expected_head=args.expected_head,
+            )
         guard_prompt = build_settlement_guard_prompt(
             packet,
             repo_root=args.repo_root,

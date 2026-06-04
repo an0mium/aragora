@@ -78,6 +78,8 @@ def _clean_checkout_runner(
 
 def test_prompt_starts_with_mailbox_and_owner_verification(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
     registry.write_text(
         json.dumps(
             [
@@ -96,8 +98,10 @@ def test_prompt_starts_with_mailbox_and_owner_verification(tmp_path: Path) -> No
 
     prompt = prompt_builder.build_prompt(
         registry_path=registry,
+        repo_root=repo_root,
         lane_id="P106-merge-gate-settlement",
         pr=7423,
+        command_runner=_clean_checkout_runner(repo_root=repo_root, root_dirty=False),
     )
 
     assert prompt.startswith("Start from live repo truth")
@@ -117,9 +121,16 @@ def test_prompt_starts_with_mailbox_and_owner_verification(tmp_path: Path) -> No
 
 def test_prompt_for_non_owner_read_only_when_no_lane_match(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
     registry.write_text("[]\n", encoding="utf-8")
 
-    prompt = prompt_builder.build_prompt(registry_path=registry, pr=7407)
+    prompt = prompt_builder.build_prompt(
+        registry_path=registry,
+        repo_root=repo_root,
+        pr=7407,
+        command_runner=_clean_checkout_runner(repo_root=repo_root, root_dirty=False),
+    )
 
     assert "If you cannot map yourself to a lane, run read-only only" in prompt
     assert "Do not paste raw transcripts" in prompt
@@ -127,6 +138,8 @@ def test_prompt_for_non_owner_read_only_when_no_lane_match(tmp_path: Path) -> No
 
 def test_prompt_shell_quotes_live_lane_values(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
     registry.write_text(
         json.dumps(
             [
@@ -142,7 +155,12 @@ def test_prompt_shell_quotes_live_lane_values(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    prompt = prompt_builder.build_prompt(registry_path=registry, pr=7425)
+    prompt = prompt_builder.build_prompt(
+        registry_path=registry,
+        repo_root=repo_root,
+        pr=7425,
+        command_runner=_clean_checkout_runner(repo_root=repo_root, root_dirty=False),
+    )
 
     assert "--lane-id 'lane; echo pwned'" in prompt
     assert "--lane-id lane; echo pwned" not in prompt
@@ -722,3 +740,115 @@ def test_settlement_guard_prompt_uses_pr_mailbox_when_only_completed_lane_matche
 
     assert "python3 scripts/read_operator_steering.py --pr 7435" in prompt
     assert "--lane-id completed-lane" not in prompt
+
+
+def test_decision_packet_detects_merged_pr_with_active_tmux_evidence_lane(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+
+    def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+        joined = " ".join(command)
+        if command[:2] == ["git", "status"]:
+            return subprocess.CompletedProcess(command, 0, "## main...origin/main\n", "")
+        if command[:3] == ["gh", "pr", "view"]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                json.dumps(
+                    {
+                        "number": 7735,
+                        "state": "MERGED",
+                        "headRefOid": "merged-head",
+                        "headRefName": "droid/merge-quorum-reconcile",
+                        "mergedAt": "2026-06-04T13:43:56Z",
+                        "mergeCommit": {"oid": "merge-commit"},
+                    }
+                ),
+                "",
+            )
+        if command[:3] == ["gh", "pr", "checks"]:
+            return subprocess.CompletedProcess(command, 0, "[]", "")
+        if "merge-packet" in joined:
+            return subprocess.CompletedProcess(command, 0, "{}", "")
+        if command[:2] == ["df", "-h"]:
+            return subprocess.CompletedProcess(command, 0, "Filesystem Size Used Avail\n", "")
+        if command[:2] == ["tmux", "list-panes"]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                "aragora\tclaude-7735-evidence-20260604T1258Z\t0\t30664\t/tmp/wt\tclaude\n",
+                "",
+            )
+        return subprocess.CompletedProcess(command, 0, "{}", "")
+
+    packet = prompt_builder.build_decision_packet(
+        registry_path=registry,
+        pr=7735,
+        command_runner=fake_runner,
+    )
+
+    coordination = packet["post_merge_lane_coordination"]
+    assert coordination["detected"] is True
+    assert coordination["active_lanes"][0]["source"] == "tmux_pane"
+    assert coordination["active_lanes"][0]["tmux_target"] == (
+        "aragora:claude-7735-evidence-20260604T1258Z"
+    )
+    assert packet["selected_action"] == "post_merge_lane_retirement_coordination"
+    assert "merged PR still has active target lane" in packet["blockers"]
+
+    prompt = prompt_builder.build_post_merge_lane_coordination_prompt(packet, pr=7735)
+
+    assert prompt is not None
+    assert "Goal: coordinate stale active lane(s) after PR #7735 already merged." in prompt
+    assert "merge_commit=merge-commit" in prompt
+    assert "aragora:claude-7735-evidence-20260604T1258Z" in prompt
+    assert "do not collect evidence, rerun checks, mark statuses, or merge" in prompt
+
+
+def test_main_replaces_standard_prompt_with_post_merge_coordination(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+    packet = {
+        "pr": {
+            "state": "MERGED",
+            "headRefOid": "merged-head",
+            "headRefName": "droid/merge-quorum-reconcile",
+            "mergedAt": "2026-06-04T13:43:56Z",
+            "mergeCommit": {"oid": "merge-commit"},
+        },
+        "target_active_lanes": [],
+        "tmux_panes": {
+            "panes": [
+                {
+                    "tmux_target": "aragora:claude-7735-evidence-20260604T1258Z",
+                    "window_name": "claude-7735-evidence-20260604T1258Z",
+                }
+            ]
+        },
+        "active_sessions": {},
+    }
+
+    monkeypatch.setattr(prompt_builder, "build_prompt", lambda **_kwargs: "standard prompt\n")
+    monkeypatch.setattr(prompt_builder, "build_post_merge_fast_packet", lambda **_kwargs: packet)
+    monkeypatch.setattr(
+        prompt_builder,
+        "build_decision_packet",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("full packet not needed")),
+    )
+
+    assert (
+        prompt_builder.main(
+            ["--pr", "7735", "--registry-path", str(registry), "--repo-root", str(tmp_path)]
+        )
+        == 0
+    )
+
+    out = capsys.readouterr().out
+    assert "standard prompt" not in out
+    assert "coordinate stale active lane(s) after PR #7735 already merged" in out

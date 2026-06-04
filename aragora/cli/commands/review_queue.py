@@ -66,6 +66,9 @@ PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
 MODEL_REVIEW_QUEUE_CAP = 6
 MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
+HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
+TIER_FOUR_SETTLEMENT_MARKER = "Tier-4 Human Settlement Authorization"
+TIER_FOUR_AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "claude",
     "openai",
@@ -540,6 +543,16 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         "--execute-reviewers",
         action="store_true",
         help="Attempt live heterogeneous reviewer execution for each packet.",
+    )
+    merge_packet_p.add_argument(
+        "--ignore-own-quorum-check",
+        action="store_true",
+        help=(
+            "Diagnostic only: exclude the aragora-merge-quorum check (any state) from "
+            "the packet's check gating so out-of-CI callers can observe the real "
+            "model-quorum state instead of short-circuiting on a stale self-failure. "
+            "The enforcing CI gate never sets this; it does not weaken the gate."
+        ),
     )
     merge_packet_p.add_argument("--json", action="store_true", help="Output as JSON")
 
@@ -1078,6 +1091,7 @@ def _cmd_merge_packet(args: argparse.Namespace) -> int:
             repo_override=getattr(args, "repo", None),
             review_queue_root=getattr(args, "review_queue_root", None),
             execute_reviewers=bool(getattr(args, "execute_reviewers", False)),
+            ignore_own_quorum_check=bool(getattr(args, "ignore_own_quorum_check", False)),
         )
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -1416,13 +1430,22 @@ def _classify_pr(pr: dict[str, Any]) -> QueueItem:
     )
 
 
-def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
-    """Return ``(summary, has_failures, has_pending)`` for a statusCheckRollup."""
+def _summarize_checks(checks: list, *, ignore_quorum_check: bool = False) -> tuple[str, bool, bool]:
+    """Return ``(summary, has_failures, has_pending)`` for a statusCheckRollup.
+
+    ``ignore_quorum_check`` is a diagnostic-only switch (never set by the
+    enforcing CI path) that additionally excludes the ``aragora-merge-quorum``
+    check in any state (pending or concluded), so out-of-CI callers can observe
+    the real non-self check state instead of short-circuiting on a stale
+    self-failure. See B2 in docs/governance/BOSS_LOOP_MERGE_GATE_RESILIENCE.md.
+    """
     success = failure = pending = 0
     for check in _latest_status_check_rollup(checks):
         if not isinstance(check, dict):
             continue
-        if _is_current_merge_quorum_self_check(check):
+        if _is_current_merge_quorum_self_check(check) or (
+            ignore_quorum_check and _is_merge_quorum_check(check)
+        ):
             continue
         status = str(check.get("status") or check.get("state") or "").upper()
         conclusion = str(check.get("conclusion") or "").upper()
@@ -1520,11 +1543,15 @@ def _required_pr_check_bucket(check: dict[str, Any]) -> str:
     return state.lower()
 
 
-def _summarize_required_pr_checks(checks: list[dict[str, Any]]) -> tuple[str, bool, bool]:
+def _summarize_required_pr_checks(
+    checks: list[dict[str, Any]], *, ignore_quorum_check: bool = False
+) -> tuple[str, bool, bool]:
     """Return ``(summary, has_failures, has_pending)`` for required PR checks."""
     success = failure = pending = 0
     for check in checks:
-        if _is_required_pr_check_current_merge_quorum_self_check(check):
+        if _is_required_pr_check_current_merge_quorum_self_check(check) or (
+            ignore_quorum_check and _is_merge_quorum_check(check)
+        ):
             continue
         bucket = _required_pr_check_bucket(check)
         if bucket in {"pass", "skipping"}:
@@ -1545,13 +1572,16 @@ def _summarize_required_pr_checks(checks: list[dict[str, Any]]) -> tuple[str, bo
     return ("no required checks", False, False)
 
 
-def _effective_required_pr_check_count(checks: list[dict[str, Any]]) -> int:
+def _effective_required_pr_check_count(
+    checks: list[dict[str, Any]], *, ignore_quorum_check: bool = False
+) -> int:
     """Count required PR checks after excluding the current merge-quorum self-check."""
     return sum(
         1
         for check in checks
         if isinstance(check, dict)
         and not _is_required_pr_check_current_merge_quorum_self_check(check)
+        and not (ignore_quorum_check and _is_merge_quorum_check(check))
     )
 
 
@@ -2193,6 +2223,7 @@ def _build_packet(
     repo_override: str | None,
     review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
+    ignore_own_quorum_check: bool = False,
 ) -> ReviewPacket:
     number = _parse_pr_number(pr_ref)
     light_fields = [
@@ -2264,7 +2295,7 @@ def _build_packet(
     else:
         checks_unavailable = _check_rollup_unavailable(pr)
         checks_summary, has_failures, has_pending = _summarize_checks(
-            pr.get("statusCheckRollup") or []
+            pr.get("statusCheckRollup") or [], ignore_quorum_check=ignore_own_quorum_check
         )
         if checks_unavailable:
             checks_summary = "no checks reported"
@@ -2284,19 +2315,38 @@ def _build_packet(
         required_available = bool(required_surface.get("available"))
         if required_available:
             required_summary, required_has_failures, required_has_pending = (
-                _summarize_required_pr_checks(required_pr_checks)
+                _summarize_required_pr_checks(
+                    required_pr_checks, ignore_quorum_check=ignore_own_quorum_check
+                )
             )
         else:
             required_summary = "required PR checks unavailable"
             required_has_failures = False
             required_has_pending = True
-        effective_required_count = _effective_required_pr_check_count(required_pr_checks)
+        effective_required_count = _effective_required_pr_check_count(
+            required_pr_checks, ignore_quorum_check=ignore_own_quorum_check
+        )
         ignored_self_check_count = sum(
             1
             for check in required_pr_checks
             if isinstance(check, dict)
             and _is_required_pr_check_current_merge_quorum_self_check(check)
         )
+        ignored_by_flag_count = (
+            sum(
+                1
+                for check in required_pr_checks
+                if isinstance(check, dict)
+                and _is_merge_quorum_check(check)
+                and not _is_required_pr_check_current_merge_quorum_self_check(check)
+            )
+            if ignore_own_quorum_check
+            else 0
+        )
+        # _rollup_non_green_diagnostics reports the raw GitHub rollup counts/sample
+        # and is intentionally not filtered by ignore_own_quorum_check. The flag's
+        # effect on the rollup is limited to the summary text computed above; the
+        # gating decision lives in the required_pr_checks surface.
         rollup_required_diagnostics = _rollup_non_green_diagnostics(
             pr.get("statusCheckRollup") or [],
             required_checks=required_pr_checks if required_available else None,
@@ -2310,9 +2360,14 @@ def _build_packet(
                 "cannot distinguish required checks from non-required PR rollup checks."
             )
         elif effective_required_count == 0:
+            flag_note = (
+                " (and the broader aragora-merge-quorum row, --ignore-own-quorum-check set)"
+                if ignore_own_quorum_check
+                else ""
+            )
             gate_blocked_reason = (
                 "GitHub reported no effective branch-protection required checks "
-                "after ignoring the current merge-quorum self-check."
+                f"after ignoring the current merge-quorum self-check{flag_note}."
             )
         elif required_has_failures:
             gate_blocked_reason = (
@@ -2327,6 +2382,7 @@ def _build_packet(
             "total": len(required_pr_checks),
             "effective_total": effective_required_count,
             "ignored_current_merge_quorum_self_check_count": ignored_self_check_count,
+            "ignored_by_ignore_own_quorum_flag_count": ignored_by_flag_count,
             "summary": required_summary,
             "gate_selected": False,
             "gate_blocked_reason": gate_blocked_reason,
@@ -2335,12 +2391,14 @@ def _build_packet(
                 for check in required_pr_checks
                 if _required_pr_check_bucket(check) in {"fail", "cancel"}
                 and not _is_required_pr_check_current_merge_quorum_self_check(check)
+                and not (ignore_own_quorum_check and _is_merge_quorum_check(check))
             ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
             "pending": [
                 str(check.get("name") or "").strip()
                 for check in required_pr_checks
                 if _required_pr_check_bucket(check) == "pending"
                 and not _is_required_pr_check_current_merge_quorum_self_check(check)
+                and not (ignore_own_quorum_check and _is_merge_quorum_check(check))
             ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
         }
         if required_surface.get("error"):
@@ -2601,6 +2659,7 @@ def _build_merge_authorization_packet(
     repo_override: str | None,
     review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
+    ignore_own_quorum_check: bool = False,
 ) -> dict[str, Any]:
     scoped_pr_refs = False
     if pr_refs:
@@ -2612,15 +2671,27 @@ def _build_merge_authorization_packet(
         refs = [str(item.number) for item in queue]
         queue_size = len(queue)
 
+    prebuilt_entries: dict[str, dict[str, Any]] = {}
+    refs_to_hydrate = refs
+    if scoped_pr_refs:
+        refs_to_hydrate = []
+        for ref in refs:
+            merged_entry = _explicit_merged_pr_merge_packet_entry(ref, repo_override)
+            if merged_entry is not None:
+                prebuilt_entries[str(merged_entry["pr_number"])] = merged_entry
+            else:
+                refs_to_hydrate.append(ref)
+
     packet_kwargs: dict[str, Any] = {
         "repo_override": repo_override,
         "execute_reviewers": execute_reviewers,
+        "ignore_own_quorum_check": ignore_own_quorum_check,
     }
     if review_queue_root is not None:
         packet_kwargs["review_queue_root"] = review_queue_root
-    packets = [_build_packet(ref, **packet_kwargs) for ref in refs]
+    packets = [_build_packet(ref, **packet_kwargs) for ref in refs_to_hydrate]
+    hydrated_entries_by_pr: dict[str, dict[str, Any]] = {}
     queue_pressure_active = queue_size > MODEL_REVIEW_QUEUE_CAP
-    entries = []
     for packet in packets:
         quorum = dict(packet.model_review_quorum)
         quorum["queue_pressure"] = {
@@ -2649,6 +2720,8 @@ def _build_merge_authorization_packet(
             "verdict": quorum["verdict"],
             "admin_squash_allowed": quorum["admin_squash_allowed"],
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
+            "requires_human_preapproval": quorum.get("requires_human_preapproval", False),
+            "human_preapproval_recorded": quorum.get("human_preapproval_recorded", False),
             "unresolved_dissent": quorum["unresolved_dissent"],
             "reviewer_signals": quorum["reviewer_signals"],
             "dogfood_evidence": quorum["dogfood_evidence"],
@@ -2660,7 +2733,15 @@ def _build_merge_authorization_packet(
         }
         if packet.check_surfaces:
             entry["check_surfaces"] = packet.check_surfaces
-        entries.append(entry)
+        hydrated_entries_by_pr[str(packet.pr_number)] = entry
+
+    entries = []
+    for ref in refs:
+        pr_key = str(_parse_pr_number(ref))
+        if pr_key in prebuilt_entries:
+            entries.append(prebuilt_entries[pr_key])
+        elif pr_key in hydrated_entries_by_pr:
+            entries.append(hydrated_entries_by_pr[pr_key])
 
     return {
         "version": "merge_authorization_packet.v1",
@@ -2688,7 +2769,67 @@ def _build_merge_authorization_packet(
         "not_ready": [
             entry["pr_number"]
             for entry in entries
-            if entry["status"] not in {"satisfied", "human_risk_settlement_required", "settled"}
+            if entry["status"]
+            not in {"satisfied", "human_risk_settlement_required", "settled", "already_merged"}
+        ],
+    }
+
+
+def _explicit_merged_pr_merge_packet_entry(
+    pr_ref: str,
+    repo_override: str | None,
+) -> dict[str, Any] | None:
+    """Return a lightweight no-op entry for explicit merged PR probes.
+
+    Post-merge audit prompts sometimes re-run ``review-queue merge-packet
+    --pr`` after the PR has already merged. At that point merge readiness is
+    obsolete, so avoid hydrating comments/reviews/commits and return a stable
+    no-op entry instead of re-entering model-quorum settlement logic.
+    """
+
+    number = _parse_pr_number(pr_ref)
+    fields = ",".join(
+        [
+            "number",
+            "title",
+            "url",
+            "headRefOid",
+            "state",
+            "mergedAt",
+            "mergeCommit",
+        ]
+    )
+    args = ["pr", "view", str(number), "--json", fields]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    pr = _gh_json(args)
+    if pr is None or not isinstance(pr, dict):
+        raise _GhError(f"PR #{number} not found")
+    state = str(pr.get("state") or "").strip().upper()
+    merged_at = str(pr.get("mergedAt") or "").strip()
+    if state != "MERGED" and not (merged_at and state != "OPEN"):
+        return None
+
+    return {
+        "pr_number": int(pr.get("number") or number),
+        "title": str(pr.get("title") or "").strip(),
+        "url": str(pr.get("url") or "").strip(),
+        "head_sha": str(pr.get("headRefOid") or "").strip(),
+        "checks_summary": "already merged; checks obsolete for merge-packet",
+        "machine_recommendation": "settled_noop",
+        "tier": 0,
+        "tier_name": "already_merged",
+        "status": "already_merged",
+        "verdict": "already_merged_noop",
+        "admin_squash_allowed": False,
+        "requires_human_risk_settlement": False,
+        "unresolved_dissent": False,
+        "reviewer_signals": [],
+        "dogfood_evidence": [],
+        "counted_reviewer_ids": [],
+        "counted_model_families": [],
+        "reasons": [
+            "PR is already merged; merge-packet readiness is obsolete",
         ],
     }
 
@@ -2743,10 +2884,20 @@ def _build_model_review_quorum(
     quorum_satisfied = (
         signal_count >= requirement["required_model_signals"] and has_required_dogfood
     )
+    requires_human_preapproval = bool(requirement["requires_human_preapproval"])
+    human_preapproval_recorded = (
+        requires_human_preapproval
+        and human_risk_settlement_recorded
+        and _has_successful_status_context(pr, HUMAN_SETTLEMENT_CONTEXT)
+        and _has_tier_four_human_preapproval_comment(pr, head_sha=head_sha)
+    )
 
     reasons = [tier_reason]
     if settlement_recorded:
         reasons.append("exact-head admin_squash_merge settlement receipt recorded")
+    elif human_preapproval_recorded:
+        reasons.append("exact-head human risk settlement receipt recorded")
+        reasons.append("exact-head Tier 4 human preapproval verified")
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
     if has_failures and not settlement_recorded:
@@ -2797,7 +2948,13 @@ def _build_model_review_quorum(
         status = "unresolved_dissent"
         verdict = "human_risk_settlement_required"
         requires_human_risk_settlement = True
-    elif requirement["requires_human_preapproval"]:
+    elif human_preapproval_recorded:
+        status = "satisfied"
+        verdict = "admin_squash_allowed"
+        requires_human_risk_settlement = False
+        requires_human_preapproval = False
+        admin_squash_allowed = True
+    elif requires_human_preapproval:
         status = "human_preapproval_required"
         verdict = "tier_4_human_preapproval_required"
         requires_human_risk_settlement = True
@@ -2824,7 +2981,8 @@ def _build_model_review_quorum(
         "requires_adversarial_dogfood": requirement["requires_adversarial_dogfood"],
         "requires_human_risk_settlement": requires_human_risk_settlement,
         "human_risk_settlement_recorded": human_risk_settlement_recorded,
-        "requires_human_preapproval": requirement["requires_human_preapproval"],
+        "requires_human_preapproval": requires_human_preapproval,
+        "human_preapproval_recorded": human_preapproval_recorded,
         "admin_squash_allowed": admin_squash_allowed,
         "status": status,
         "verdict": verdict,
@@ -3005,6 +3163,43 @@ def _has_recorded_human_risk_settlement(
         if str(payload.get("action") or "").strip() != "approve":
             continue
         if str(payload.get("github_event") or "").strip() not in allowed_events:
+            continue
+        return True
+    return False
+
+
+def _has_successful_status_context(pr: dict[str, Any], context: str) -> bool:
+    expected = str(context or "").strip()
+    if not expected:
+        return False
+    for check in _latest_status_check_rollup(pr.get("statusCheckRollup") or []):
+        if not isinstance(check, dict):
+            continue
+        name = str(check.get("context") or check.get("name") or "").strip()
+        if name != expected:
+            continue
+        state = str(check.get("state") or check.get("status") or "").upper()
+        conclusion = str(check.get("conclusion") or "").upper()
+        return conclusion == "SUCCESS" or state == "SUCCESS"
+    return False
+
+
+def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: str) -> bool:
+    head = str(head_sha or "").strip()
+    if not head:
+        return False
+    for comment in pr.get("comments") or []:
+        if not isinstance(comment, dict):
+            continue
+        body = str(comment.get("body") or "")
+        lowered = body.lower()
+        if TIER_FOUR_SETTLEMENT_MARKER not in body:
+            continue
+        if head not in body:
+            continue
+        if not any(token in lowered for token in TIER_FOUR_AUTHORIZED_MERGE_TOKENS):
+            continue
+        if "human-risk settlement" not in lowered:
             continue
         return True
     return False
