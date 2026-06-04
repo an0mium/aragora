@@ -70,6 +70,23 @@ MODEL_QUORUM_MARKERS = (
     "model quorum incomplete",
     "focused adversarial dogfood evidence is required",
 )
+DEPENDENCY_SECURITY_MARKERS = (
+    "pip-audit",
+    "known vulnerabilit",
+    "fix versions",
+    "cve-",
+    "pysec-",
+    "ghsa-",
+)
+DEPENDENCY_REPAIR_FILES = {
+    "pyproject.toml",
+    "uv.lock",
+    "aragora/live/package-lock.json",
+    "aragora/live/package.json",
+    "sdk/typescript/package-lock.json",
+    "sdk/typescript/package.json",
+}
+DEPENDENCY_REPAIR_PREFIXES = ("requirements",)
 
 
 @dataclass
@@ -89,6 +106,7 @@ class CheckDiagnosis:
     rerun_command: str | None = None
     log_command: str | None = None
     log_summary: list[str] = field(default_factory=list)
+    superseding_dependency_prs: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -336,6 +354,162 @@ def _has_model_quorum_blocker(check: CheckDiagnosis) -> bool:
     return any(marker in text for marker in MODEL_QUORUM_MARKERS)
 
 
+def _is_security_gate_check(check: CheckDiagnosis) -> bool:
+    workflow = check.workflow.lower()
+    name = check.name.lower()
+    return "security gate" in workflow or "security" in workflow or "security" in name
+
+
+def _has_dependency_security_failure(check: CheckDiagnosis) -> bool:
+    if check.classification != "real_failure" or not _is_security_gate_check(check):
+        return False
+    text = "\n".join([check.summary, *check.log_summary]).lower()
+    return any(marker in text for marker in DEPENDENCY_SECURITY_MARKERS)
+
+
+def _has_superseding_dependency_pr(check: CheckDiagnosis) -> bool:
+    return bool(check.superseding_dependency_prs) and _has_dependency_security_failure(check)
+
+
+def _dependency_repair_file(path: str) -> bool:
+    normalized = path.strip()
+    if normalized in DEPENDENCY_REPAIR_FILES:
+        return True
+    name = normalized.rsplit("/", maxsplit=1)[-1]
+    return any(name.startswith(prefix) for prefix in DEPENDENCY_REPAIR_PREFIXES)
+
+
+def dependency_search_terms_from_logs(lines: list[str]) -> list[str]:
+    """Extract package/advisory terms from dependency-audit log summaries."""
+    terms: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: str) -> None:
+        normalized = value.strip()
+        if not normalized:
+            return
+        key = normalized.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        terms.append(normalized)
+
+    for line in lines:
+        for match in re.findall(
+            r"\b(?:CVE-\d{4}-\d{4,}|PYSEC-\d{4}-\d+|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b",
+            line,
+            flags=re.IGNORECASE,
+        ):
+            add(match.upper() if match.lower().startswith(("cve-", "pysec-")) else match)
+        table_match = re.match(
+            r"\s*([A-Za-z0-9][A-Za-z0-9_.-]+)\s+[0-9][^\s]*\s+"
+            r"(?:CVE-\d{4}-\d{4,}|PYSEC-\d{4}-\d+|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b",
+            line,
+            flags=re.IGNORECASE,
+        )
+        if table_match:
+            add(table_match.group(1))
+    return terms
+
+
+def _view_pr_files(pr_number: int) -> list[str]:
+    try:
+        payload = _run_gh_json(["gh", "pr", "view", str(pr_number), "--json", "files"])
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
+        return []
+    files: list[str] = []
+    for item in payload.get("files") or []:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path") or "").strip()
+        if path:
+            files.append(path)
+    return files
+
+
+def _search_superseding_dependency_prs(
+    *,
+    current_pr: int,
+    terms: list[str],
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Find open or recently merged PRs that repair the dependency audit failure."""
+    candidates: dict[int, dict[str, Any]] = {}
+    for term in terms:
+        try:
+            payload = _run_gh_json(
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--state",
+                    "all",
+                    "--limit",
+                    str(limit),
+                    "--search",
+                    term,
+                    "--json",
+                    "number,title,state,url,headRefOid,headRefName,baseRefName,mergedAt",
+                ]
+            )
+        except (subprocess.CalledProcessError, json.JSONDecodeError):
+            continue
+        rows = payload if isinstance(payload, list) else []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            number = int(row.get("number") or 0)
+            if not number or number == current_pr:
+                continue
+            state = str(row.get("state") or "").upper()
+            if state not in {"OPEN", "MERGED"}:
+                continue
+            candidate = candidates.setdefault(number, dict(row))
+            match_terms = candidate.setdefault("match_terms", [])
+            if term not in match_terms:
+                match_terms.append(term)
+
+    repairs: list[dict[str, Any]] = []
+    for number, row in sorted(candidates.items()):
+        files = _view_pr_files(number)
+        dependency_files = [path for path in files if _dependency_repair_file(path)]
+        if not dependency_files:
+            continue
+        repairs.append(
+            {
+                "number": number,
+                "state": str(row.get("state") or ""),
+                "title": str(row.get("title") or ""),
+                "url": str(row.get("url") or ""),
+                "headRefOid": str(row.get("headRefOid") or ""),
+                "headRefName": str(row.get("headRefName") or ""),
+                "baseRefName": str(row.get("baseRefName") or ""),
+                "mergedAt": str(row.get("mergedAt") or ""),
+                "files": dependency_files,
+                "match_terms": list(row.get("match_terms") or []),
+            }
+        )
+    return repairs
+
+
+def _find_superseding_dependency_prs_by_job(
+    *,
+    pr_number: int,
+    checks: list[CheckDiagnosis],
+) -> dict[str, list[dict[str, Any]]]:
+    by_job: dict[str, list[dict[str, Any]]] = {}
+    for check in checks:
+        if not check.job_id or not _has_dependency_security_failure(check):
+            continue
+        terms = dependency_search_terms_from_logs(check.log_summary)
+        if not terms:
+            continue
+        repairs = _search_superseding_dependency_prs(current_pr=pr_number, terms=terms)
+        if repairs:
+            by_job[check.job_id] = repairs
+    return by_job
+
+
 def _wait_check_selector_parts(selector: str) -> tuple[str, str] | None:
     """Parse a workflow/name selector into normalized parts."""
     parts = [part.strip().lower() for part in selector.split("/", maxsplit=1)]
@@ -444,6 +618,11 @@ def summarize_log(log_text: str, max_lines: int = 12) -> list[str]:
         "status=needs_model_review_quorum",
         "model quorum incomplete",
         "focused adversarial dogfood evidence is required",
+        "CVE-",
+        "PYSEC-",
+        "GHSA-",
+        "Fix Versions",
+        "known vulnerabilit",
     )
     lines: list[str] = []
     for raw in log_text.splitlines():
@@ -497,6 +676,11 @@ def _derive_action(
         return "stale_wait_run"
 
     wait_jobs = wait_run.jobs if wait_run else []
+    real_wait_jobs = [job for job in wait_jobs if job.classification == "real_failure"]
+    if real_wait_jobs and any(_has_superseding_dependency_pr(job) for job in real_wait_jobs):
+        unsuperseded = [job for job in real_wait_jobs if not _has_superseding_dependency_pr(job)]
+        if all(_has_model_quorum_blocker(job) for job in unsuperseded):
+            return "verify_superseding_dependency_pr"
     if wait_run and (
         wait_run.timed_out or any(job.classification == "in_progress" for job in wait_jobs)
     ):
@@ -517,6 +701,11 @@ def _derive_action(
     ):
         return "rerun_cancelled"
 
+    real_checks = [check for check in checks if check.classification == "real_failure"]
+    if real_checks and any(_has_superseding_dependency_pr(check) for check in real_checks):
+        unsuperseded = [check for check in real_checks if not _has_superseding_dependency_pr(check)]
+        if all(_has_model_quorum_blocker(check) for check in unsuperseded):
+            return "verify_superseding_dependency_pr"
     if any(check.classification == "real_failure" for check in checks):
         if all(
             check.classification != "real_failure" or _has_model_quorum_blocker(check)
@@ -541,6 +730,7 @@ def build_followup_result(
     expected_head: str | None = None,
     run_data_by_id: dict[str, dict[str, Any]] | None = None,
     log_summary_by_job: dict[str, list[str]] | None = None,
+    superseding_dependency_prs_by_job: dict[str, list[dict[str, Any]]] | None = None,
     wait_run: WaitRunDiagnosis | None = None,
     allow_rerun_commands: bool = False,
 ) -> FollowupResult:
@@ -555,9 +745,19 @@ def build_followup_result(
         diagnosis = classify_check(check, head, (run_data_by_id or {}).get(run_id or ""))
         if diagnosis.job_id and log_summary_by_job:
             diagnosis.log_summary = log_summary_by_job.get(diagnosis.job_id, [])
+        if diagnosis.job_id and superseding_dependency_prs_by_job:
+            diagnosis.superseding_dependency_prs = superseding_dependency_prs_by_job.get(
+                diagnosis.job_id, []
+            )
         checks.append(diagnosis)
 
     if wait_run and not (wait_run.head_sha and head and wait_run.head_sha != head):
+        if superseding_dependency_prs_by_job:
+            for job in wait_run.jobs:
+                if job.job_id:
+                    job.superseding_dependency_prs = superseding_dependency_prs_by_job.get(
+                        job.job_id, []
+                    )
         waited_job_ids = {job.job_id for job in wait_run.jobs if job.job_id}
         checks = [check for check in checks if check.job_id not in waited_job_ids]
         checks.extend(wait_run.jobs)
@@ -645,6 +845,13 @@ def build_prompt(
                 "",
             ]
         )
+    elif action == "verify_superseding_dependency_pr":
+        lines.extend(
+            [
+                f"Goal: avoid duplicate branch-local dependency repair on #{pr_number} at head {pin}; verify the dependency-security superseding PR instead. Do not merge, push, edit #{pr_number}, rerun CI, start cleanup, or touch unrelated PRs/files.",
+                "",
+            ]
+        )
     elif action == "rerun_cancelled":
         lines.extend(
             [
@@ -713,6 +920,18 @@ def build_prompt(
                 lines.append(f"  inspect: {check.log_command}")
             for item in check.log_summary[-3:]:
                 lines.append(f"  log: {item}")
+            for repair in check.superseding_dependency_prs:
+                number = repair.get("number")
+                state = repair.get("state") or "UNKNOWN"
+                title = repair.get("title") or ""
+                url = repair.get("url") or ""
+                files = ", ".join(repair.get("files") or [])
+                terms = ", ".join(repair.get("match_terms") or [])
+                lines.append(f"  superseded-by: PR #{number} [{state}] {title} {url}".rstrip())
+                if terms:
+                    lines.append(f"  match: {terms}")
+                if files:
+                    lines.append(f"  files: {files}")
         lines.append("")
 
     if action == "repair_failures":
@@ -734,6 +953,13 @@ def build_prompt(
         )
         lines.append(
             "Then rerun review-queue merge-packet for the PR and report the next blocker. Do not merge."
+        )
+    elif action == "verify_superseding_dependency_pr":
+        lines.append(
+            "Do not open or continue a branch-local dependency repair for this PR while the superseding dependency-security PR is open or newly merged."
+        )
+        lines.append(
+            "Verify the superseding PR's exact head, dependency files, Security Gate, required checks, and merge-packet state; if it is merged into current main, re-evaluate this PR from current main before collecting fresh evidence or settlement."
         )
     elif action == "rerun_cancelled" and rerun_commands:
         lines.append("If the same rows remain current-head early cancellations, run only:")
@@ -894,7 +1120,8 @@ def fetch_live_result(
         except (subprocess.CalledProcessError, json.JSONDecodeError):
             continue
         should_fetch_log = include_logs or (
-            diagnosis.classification == "real_failure" and _is_merge_quorum_check(diagnosis)
+            diagnosis.classification == "real_failure"
+            and (_is_merge_quorum_check(diagnosis) or _is_security_gate_check(diagnosis))
         )
         if should_fetch_log and diagnosis.classification == "real_failure":
             try:
@@ -905,11 +1132,26 @@ def fetch_live_result(
             except subprocess.CalledProcessError:
                 log_summary_by_job[diagnosis.job_id] = ["failed to fetch job log"]
 
+    preliminary = build_followup_result(
+        pr_data,
+        expected_head=expected_head,
+        run_data_by_id=run_data_by_id,
+        log_summary_by_job=log_summary_by_job,
+        wait_run=wait_run,
+        allow_rerun_commands=allow_rerun_commands,
+    )
+    superseding_dependency_prs_by_job = _find_superseding_dependency_prs_by_job(
+        pr_number=int(pr_data.get("number") or pr_number),
+        checks=preliminary.checks,
+    )
+    if not superseding_dependency_prs_by_job:
+        return preliminary
     return build_followup_result(
         pr_data,
         expected_head=expected_head,
         run_data_by_id=run_data_by_id,
         log_summary_by_job=log_summary_by_job,
+        superseding_dependency_prs_by_job=superseding_dependency_prs_by_job,
         wait_run=wait_run,
         allow_rerun_commands=allow_rerun_commands,
     )

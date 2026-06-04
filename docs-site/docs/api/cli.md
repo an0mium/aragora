@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **108**
-- Total top-level invocations (including aliases): **109**
+- Canonical top-level commands: **109**
+- Total top-level invocations (including aliases): **110**
 
 ## Installation
 
@@ -119,6 +119,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `repl` | - | Interactive debate mode | - |
 | `replay` | - | Replay stored debates | - |
 | `review` | - | Run AI code review on a diff or PR | - |
+| `review-local` | - | Run a non-OpenAI (Claude Max pool) review on a LOCAL diff, no GitHub required | - |
 | `review-pr` | - | Review a live GitHub PR head and optionally run a fixer loop | - |
 | `review-queue` | - | PR review queue + advisory packets + human settlement | `act`, `baseline`, `build`, `evidence-lint`, `health`, `health-alert`, `lint-comment`, `merge-packet`, `observe-outcomes`, `packet`, `record-settlement`, `run` |
 | `rlm` | - | RLM (Recursive Language Models) operations | `clear-cache`, `compress`, `query`, `stats` |

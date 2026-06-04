@@ -151,6 +151,7 @@ Examples:
     _add_bench_parser(subparsers)
     _add_review_parser(subparsers)
     _add_review_pr_parser(subparsers)
+    _add_review_local_parser(subparsers)
     _add_review_queue_parser(subparsers)
     _add_codebase_audit_parser(subparsers)
     _add_external_parsers(subparsers)
@@ -2074,6 +2075,56 @@ def _add_review_pr_parser(subparsers) -> None:
     from aragora.cli.document_audit import create_document_audit_parser
 
     create_document_audit_parser(subparsers)
+
+
+def _add_review_local_parser(subparsers) -> None:
+    """Register the offline local-diff review parser without heavy imports."""
+    parser = subparsers.add_parser(
+        "review-local",
+        help="Run a non-OpenAI (Claude Max pool) review on a LOCAL diff, no GitHub required",
+        description=(
+            "Read a local diff (file or stdin), route it to a non-worker reviewer family "
+            "(default: claude via the Max profile pool), and write a review receipt. Works "
+            "fully offline so OpenAI/codex sessions can attach a heterogeneous, non-OpenAI "
+            "verdict even when GitHub is degraded."
+        ),
+    )
+    parser.add_argument(
+        "--diff",
+        default="-",
+        help="Path to a unified diff, or - to read from stdin (default: -)",
+    )
+    parser.add_argument(
+        "--spec",
+        default=None,
+        help="Optional path to spec/context text to include in the review prompt",
+    )
+    parser.add_argument("--title", default=None, help="Optional short title for the change")
+    parser.add_argument(
+        "--worker-model",
+        dest="worker_model",
+        default="codex",
+        help="Model family that produced the change (excluded from review; default: codex)",
+    )
+    parser.add_argument(
+        "--review-model",
+        "--reviewer",
+        dest="reviewer",
+        default="claude",
+        help="Preferred non-worker review family (default: claude)",
+    )
+    parser.add_argument(
+        "--artifact-dir",
+        default=None,
+        help="Directory for run artifacts (default: .aragora/review-local under repo root)",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Print the review result as JSON",
+    )
+    parser.set_defaults(func=_lazy("aragora.cli.commands.review_pr", "cmd_review_local"))
 
 
 def _add_review_queue_parser(subparsers) -> None:
