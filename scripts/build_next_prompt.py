@@ -52,6 +52,14 @@ PENDING_CHECK_STATES = {
     "WAITING",
 }
 POST_MERGE_LANE_KEYWORDS = ("evidence", "review", "quorum", "settle", "settlement")
+UNRESOLVED_OPERATOR_CHOICE_MARKERS = (
+    "1|2|3",
+    "option <",
+    "I explicitly choose option <",
+    "<let lane",
+    "<terminate",
+    "<supersede",
+)
 
 
 def _read_lanes(path: Path) -> list[dict[str, Any]]:
@@ -145,6 +153,41 @@ def _run_text(command: list[str], command_runner: CommandRunner) -> dict[str, An
         "stderr": result.stderr or "",
         "returncode": result.returncode,
     }
+
+
+def _has_unresolved_operator_choice_placeholder(prompt: str) -> bool:
+    normalized = prompt.lower()
+    return any(marker.lower() in normalized for marker in UNRESOLVED_OPERATOR_CHOICE_MARKERS)
+
+
+def _operator_choice_placeholder_guard_prompt(
+    prompt: str,
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+) -> str:
+    """Fail closed when a generated prompt still contains operator-choice placeholders."""
+
+    if not _has_unresolved_operator_choice_placeholder(prompt):
+        return prompt
+    return "\n".join(
+        [
+            f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+            "",
+            "Goal: stop because the generated next prompt still contains an unresolved operator-choice placeholder.",
+            "",
+            "Do not continue lane work from a prompt containing placeholders such as 1|2|3 or angle-bracketed operator actions.",
+            "Rebuild the prompt with one explicit operator action sentence before any evidence, ready, rerun, merge, or lane-retirement work.",
+            "",
+            "Required operator action format:",
+            "I explicitly choose option 1: let the active lane finish.",
+            "I explicitly choose option 2: terminate/retire the active lane and resume at the current live head.",
+            "I explicitly choose option 3: supersede the active lane and authorize this session to continue at the exact live head.",
+            "",
+            "Final report: exact placeholder detected, action withheld, and the corrected explicit operator-action prompt.",
+            CONVERGENCE_SENTENCE,
+            "",
+        ]
+    )
 
 
 def _tmux_pane_packet(command_runner: CommandRunner) -> dict[str, Any]:
@@ -603,6 +646,63 @@ def _active_target_lanes(
     return rows
 
 
+def _owner_lookup_packet(
+    *,
+    registry_path: Path,
+    repo_root: Path,
+    lane_id: str | None,
+    pr: int | None,
+    branch: str | None,
+    command_runner: CommandRunner,
+) -> dict[str, Any]:
+    """Run the repo-supported owner lookup for the selected target."""
+
+    selector: list[str]
+    if lane_id:
+        selector = ["--lane-id", lane_id]
+    elif pr is not None:
+        selector = ["--pr", str(pr)]
+    elif branch:
+        selector = ["--branch", branch]
+    else:
+        return {}
+    return _run_json(
+        [
+            "python3",
+            "scripts/identify_lane_owner.py",
+            *selector,
+            "--json",
+            "--registry-path",
+            str(registry_path),
+            "--steering-inbox-root",
+            str(repo_root / ".aragora" / "operator-steering"),
+        ],
+        command_runner,
+    )
+
+
+def _is_stale_mailbox_only_owner(owner_state: Any) -> bool:
+    if not isinstance(owner_state, dict):
+        return False
+    if str(owner_state.get("status") or "") not in ACTIVE_STATUSES:
+        return False
+    live_process = owner_state.get("live_process")
+    live_process_found = (
+        isinstance(live_process, dict) and str(live_process.get("found")).lower() == "true"
+    )
+    if live_process_found:
+        return False
+    harness_confidence = str(owner_state.get("harness_confidence") or "").lower()
+    mailbox_only = "mailbox_only" in harness_confidence
+    no_live_prompt = owner_state.get("live_prompt_dispatchable") is False
+    unread = int(owner_state.get("unread_message_count") or 0)
+    pending = int(owner_state.get("pending_message_count") or 0)
+    never_checked_mailbox = not str(owner_state.get("last_mailbox_check_at") or "").strip()
+    return bool(
+        mailbox_only and no_live_prompt and (unread > 0 or pending > 0 or never_checked_mailbox)
+    )
+
+
 def _contains_target_token(text: str, *, pr: int | None, branch: str | None) -> bool:
     lowered = text.lower()
     if pr is not None and str(pr) in lowered:
@@ -801,6 +901,81 @@ def build_post_merge_lane_coordination_prompt(
     )
 
 
+def build_stale_owner_steering_prompt(
+    packet: dict[str, Any],
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    pr: int | None = None,
+    branch: str | None = None,
+) -> str | None:
+    """Build a concrete steering prompt for stale mailbox-only owner lanes."""
+
+    owner_state = packet.get("owner_state")
+    if not _is_stale_mailbox_only_owner(owner_state):
+        return None
+    assert isinstance(owner_state, dict)
+    owner_session = str(owner_state.get("owner_session") or "")
+    lane_id = str(owner_state.get("lane_id") or "")
+    if not owner_session or not lane_id:
+        return None
+
+    target = f"PR #{pr}" if pr is not None else branch or "the target branch"
+    owner_branch = str(owner_state.get("branch") or branch or "")
+    heartbeat = str(owner_state.get("last_heartbeat_at") or "unknown")
+    pending_count = int(owner_state.get("pending_message_count") or 0)
+    unread_count = int(owner_state.get("unread_message_count") or 0)
+    receipt_count = int(owner_state.get("read_receipt_count") or 0)
+    body = (
+        f"Please finish or explicitly retire lane {lane_id} for {target}. "
+        "The lane is mailbox-only/stale: no live process is dispatchable, "
+        f"last heartbeat is {heartbeat}, pending_message_count={pending_count}, "
+        f"unread_message_count={unread_count}, read_receipt_count={receipt_count}. "
+        "Do not leave the target blocked by stale ownership; write an outcome receipt "
+        "or update the lane status to completed, released, or superseded."
+    )
+    steering_command = " ".join(
+        [
+            "python3",
+            "scripts/send_operator_steering.py",
+            "--to",
+            shlex.quote(owner_session),
+            "--lane-id",
+            shlex.quote(lane_id),
+            "--priority",
+            "blocking",
+            "--body",
+            shlex.quote(body),
+        ]
+    )
+
+    return "\n".join(
+        [
+            f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+            "Do not duplicate active lanes. Do not touch unrelated PRs. Do not merge without separate explicit operator authorization. Do not use or mutate dirty root source files.",
+            "",
+            f"Goal: steer stale mailbox-only owner lane for {target}; do not supersede it from this session.",
+            "",
+            "Live owner state to verify, not trust:",
+            f"- lane_id: {lane_id}",
+            f"- owner_session: {owner_session}",
+            f"- status: {owner_state.get('status') or 'unknown'}",
+            f"- branch: {owner_branch or 'unknown'}",
+            f"- last_heartbeat_at: {heartbeat}",
+            f"- pending_message_count: {pending_count}",
+            f"- unread_message_count: {unread_count}",
+            f"- read_receipt_count: {receipt_count}",
+            "",
+            "First re-check mailbox and owner state from a clean current origin/main checkout. If the lane still resolves stale/mailbox-only and no explicit retirement/supersession authority is present, send this exact steering command and stop:",
+            steering_command,
+            "",
+            "If the lane has retired or no longer owns the target, re-ground the target from live gh state before doing any further work.",
+            "Final report: mailbox receipt state, owner status, steering command run or withheld, and the next recursive prompt.",
+            CONVERGENCE_SENTENCE,
+            "",
+        ]
+    )
+
+
 def build_post_merge_fast_packet(
     *,
     registry_path: Path,
@@ -931,15 +1106,26 @@ def build_decision_packet(
         pr=pr,
         expected_head=expected_head,
     )
+    owner_state = _owner_lookup_packet(
+        registry_path=registry_path,
+        repo_root=repo_root,
+        lane_id=lane_id,
+        pr=pr,
+        branch=branch,
+        command_runner=runner,
+    )
     if root["dirty"]:
         blockers.append("dirty root")
     if lane and str(lane.get("status") or "") in ACTIVE_STATUSES:
         blockers.append("active owner exists for target")
     if len(target_active_lanes) > 1:
         blockers.append("multiple active owners exist for target")
+    if _is_stale_mailbox_only_owner(owner_state):
+        blockers.append("stale mailbox-only owner needs steering")
 
     packet: dict[str, Any] = {
         "owner": _sanitize(lane) if lane else None,
+        "owner_state": _sanitize(owner_state),
         "target_active_lanes": target_active_lanes,
         "root": root,
         "clean_checkout": clean_checkout,
@@ -969,7 +1155,9 @@ def build_decision_packet(
         "merge_packet": {},
         "post_merge_lane_coordination": {},
         "blockers": blockers,
-        "selected_action": "read_only_owner_routing"
+        "selected_action": "stale_owner_steering_prompt"
+        if "stale mailbox-only owner needs steering" in blockers
+        else "read_only_owner_routing"
         if "active owner exists for target" in blockers
         else "queue_prompt_from_clean_checkout"
         if root["dirty"] and clean_checkout.get("status") == "selected"
@@ -1266,7 +1454,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         if post_merge_prompt:
             prompt = post_merge_prompt
             packet = fast_packet
-    if args.pr is not None or args.json or args.settlement_guard:
+    if (
+        args.pr is not None
+        or args.branch is not None
+        or args.lane_id is not None
+        or args.json
+        or args.settlement_guard
+    ):
         if packet is None:
             packet = build_decision_packet(
                 registry_path=args.registry_path,
@@ -1283,6 +1477,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             if post_merge_prompt:
                 prompt = post_merge_prompt
+        if prompt is None and packet is not None:
+            stale_owner_prompt = build_stale_owner_steering_prompt(
+                packet,
+                repo_root=args.repo_root,
+                pr=args.pr,
+                branch=args.branch,
+            )
+            if stale_owner_prompt:
+                prompt = stale_owner_prompt
     if prompt is None:
         prompt = build_prompt(
             registry_path=args.registry_path,
@@ -1292,6 +1495,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             branch=args.branch,
             expected_head=args.expected_head,
         )
+    prompt = _operator_choice_placeholder_guard_prompt(prompt, repo_root=args.repo_root)
     if args.json or args.settlement_guard:
         if packet is None:
             packet = build_decision_packet(

@@ -852,3 +852,81 @@ def test_main_replaces_standard_prompt_with_post_merge_coordination(
     out = capsys.readouterr().out
     assert "standard prompt" not in out
     assert "coordinate stale active lane(s) after PR #7735 already merged" in out
+
+
+def test_main_routes_stale_mailbox_only_owner_to_steering_prompt(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+    packet = {
+        "owner_state": {
+            "lane_id": "Q324-repair-build-next-prompt-merged-active-lane-handoff",
+            "owner_session": "engineering-autopilot-2-Q324-build-next-prompt",
+            "status": "blocked",
+            "branch": "codex/build-next-prompt-merged-active-lane-20260604",
+            "last_heartbeat_at": "2026-06-04T14:45:34Z",
+            "pending_message_count": 1,
+            "unread_message_count": 1,
+            "read_receipt_count": 0,
+            "harness_confidence": "mailbox_only_fuzzy_thread",
+            "live_prompt_dispatchable": False,
+            "live_process": {"found": False},
+        }
+    }
+
+    monkeypatch.setattr(prompt_builder, "build_decision_packet", lambda **_kwargs: packet)
+    monkeypatch.setattr(
+        prompt_builder,
+        "build_prompt",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("standard prompt not needed")),
+    )
+
+    assert (
+        prompt_builder.main(
+            [
+                "--branch",
+                "codex/build-next-prompt-merged-active-lane-20260604",
+                "--registry-path",
+                str(registry),
+                "--repo-root",
+                str(tmp_path),
+            ]
+        )
+        == 0
+    )
+
+    out = capsys.readouterr().out
+    assert "Goal: steer stale mailbox-only owner lane" in out
+    assert "scripts/send_operator_steering.py" in out
+    assert "--to engineering-autopilot-2-Q324-build-next-prompt" in out
+    assert "--lane-id Q324-repair-build-next-prompt-merged-active-lane-handoff" in out
+    assert "last heartbeat is 2026-06-04T14:45:34Z" in out
+
+
+def test_main_guards_unresolved_operator_choice_placeholders(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+    monkeypatch.setattr(
+        prompt_builder,
+        "build_prompt",
+        lambda **_kwargs: (
+            "Operator action:\n"
+            "I explicitly choose option 1|2|3>: <let lane finish | retire | supersede>.\n"
+        ),
+    )
+
+    assert (
+        prompt_builder.main(["--registry-path", str(registry), "--repo-root", str(tmp_path)]) == 0
+    )
+
+    out = capsys.readouterr().out
+    assert "unresolved operator-choice placeholder" in out
+    assert "Do not continue lane work" in out
+    assert "I explicitly choose option 1|2|3" not in out
