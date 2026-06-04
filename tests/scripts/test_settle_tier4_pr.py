@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 
 def _load_module(script_name: str) -> Any:
     here = Path(__file__).resolve()
@@ -801,7 +803,119 @@ def test_check_json_includes_authorization_diagnostics(
     ]
 
 
-def test_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> None:
+def test_settle_only_posts_comment_and_status_without_merge(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[tuple[list[str], str | None]] = []
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: (
+            text_commands.append((command, input_text))
+            or "https://github.example/pr/7423#issuecomment-1\n"
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+
+    rc = settler.main(["--settle-only", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
+
+    assert rc == 0
+    all_commands = [command for command, _ in [*text_commands, *commands]]
+    assert not any(command[:3] == ["gh", "pr", "merge"] for command in all_commands)
+    assert text_commands[0][0][:3] == ["gh", "pr", "comment"]
+    assert any("Tier-4 Human Settlement Authorization" in arg for arg in text_commands[0][0])
+    assert commands == [
+        (
+            [
+                "gh",
+                "api",
+                "--method",
+                "POST",
+                f"repos/synaptent/aragora/statuses/{head}",
+                "-f",
+                "state=success",
+                "-f",
+                "context=aragora/human-settlement",
+                "-f",
+                "description=Tier 4 exact-head human-risk settlement recorded for PR #7423",
+                "-f",
+                "target_url=https://github.example/pr/7423#issuecomment-1",
+            ],
+            None,
+        )
+    ]
+
+
+def test_settle_only_rejects_unrelated_required_failure(monkeypatch: Any, tmp_path: Path) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "FAILURE"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)) or "",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+
+    rc = settler.main(
+        ["--settle-only", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"]
+    )
+
+    assert rc == 2
+    assert commands == []
+
+
+def test_ambiguous_apply_mode_is_rejected() -> None:
+    with pytest.raises(SystemExit) as exc:
+        settler.main(
+            [
+                "--apply",
+                "--pr",
+                "7423",
+                "--head",
+                "57c740022e3c432718462efa12ca79f1df4f674d",
+            ]
+        )
+
+    assert exc.value.code == 2
+
+
+def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     commands: list[tuple[list[str], str | None]] = []
 
@@ -830,7 +944,7 @@ def test_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> 
         lambda repo, cwd: {},
     )
 
-    rc = settler.main(["--apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
+    rc = settler.main(["--merge-apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
 
     assert rc == 0
     assert commands[0][0] == [
@@ -896,7 +1010,7 @@ def test_required_status_check_patch_adds_missing_quorum_from_checks(
     }
 
 
-def test_apply_skips_required_status_check_patch_when_quorum_already_required(
+def test_merge_apply_skips_required_status_check_patch_when_quorum_already_required(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
@@ -927,7 +1041,7 @@ def test_apply_skips_required_status_check_patch_when_quorum_already_required(
         lambda repo, cwd: {},
     )
 
-    rc = settler.main(["--apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
+    rc = settler.main(["--merge-apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
 
     assert rc == 0
     command_lines = [" ".join(command) for command, _payload in commands]
@@ -937,7 +1051,7 @@ def test_apply_skips_required_status_check_patch_when_quorum_already_required(
     assert any("enforce_admins" in line for line in command_lines)
 
 
-def test_apply_merge_only_authorization_skips_branch_protection(
+def test_merge_apply_merge_only_authorization_skips_branch_protection(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
@@ -966,7 +1080,7 @@ def test_apply_merge_only_authorization_skips_branch_protection(
         lambda repo, cwd: {"unexpected": "snapshot"},
     )
 
-    rc = settler.main(["--apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
+    rc = settler.main(["--merge-apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
 
     assert rc == 0
     assert commands == [

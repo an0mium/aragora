@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check or apply an exact-head Tier 4 PR settlement.
+"""Check, record, or merge-apply an exact-head Tier 4 PR settlement.
 
 Tier 4 automation may prepare a packet, but merge/protection mutation requires
 a repo-visible operator settlement comment naming the exact head and action.
@@ -469,6 +469,30 @@ def _packet_marks_tier4_human_settlement(merge_packet: dict[str, Any], *, pr: in
     return isinstance(required, list) and str(pr) in {str(item) for item in required}
 
 
+def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: int) -> bool:
+    entry = _entry_for_pr(merge_packet, pr=pr)
+    if not entry:
+        return False
+    if bool(entry.get("requires_human_risk_settlement")):
+        return True
+    required = merge_packet.get("human_risk_settlement_required")
+    if isinstance(required, list) and str(pr) in {str(item) for item in required}:
+        return True
+    tier = entry.get("tier")
+    try:
+        return int(tier) >= 4
+    except (TypeError, ValueError):
+        return False
+
+
+def _required_check_name(check: dict[str, Any]) -> str:
+    return str(check.get("name") or check.get("workflow") or "required check")
+
+
+def _required_check_state(check: dict[str, Any]) -> str:
+    return str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
+
+
 def evaluate_tier4_gate(
     *,
     pr: int,
@@ -494,8 +518,8 @@ def evaluate_tier4_gate(
     if merge_state in {"DIRTY", "CONFLICTING"}:
         blockers.append(f"PR #{pr} is {merge_state}")
     for check in required_checks or []:
-        name = str(check.get("name") or check.get("workflow") or "required check")
-        state = str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
+        name = _required_check_name(check)
+        state = _required_check_state(check)
         if not _state_is_success(state):
             blockers.append(f"required check {name} is {state}")
     not_ready = merge_packet.get("not_ready")
@@ -563,6 +587,59 @@ def evaluate_tier4_gate(
         "blockers": blockers,
         "authorized_actions": sorted(authorized_actions),
         **diagnostic_report,
+    }
+
+
+def evaluate_tier4_settlement_preconditions(
+    *,
+    pr: int,
+    expected_head: str,
+    pr_view: dict[str, Any],
+    merge_packet: dict[str, Any],
+    required_checks: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    blockers: list[str] = []
+    actual_head = str(pr_view.get("headRefOid") or "")
+    if actual_head != expected_head:
+        blockers.append(f"head mismatch: expected {expected_head}, got {actual_head}")
+    if str(pr_view.get("state") or "").upper() != "OPEN":
+        blockers.append(f"PR #{pr} is not open")
+    if bool(pr_view.get("isDraft")):
+        blockers.append(f"PR #{pr} is draft")
+    merge_state = str(pr_view.get("mergeStateStatus") or "")
+    if merge_state in {"DIRTY", "CONFLICTING"}:
+        blockers.append(f"PR #{pr} is {merge_state}")
+
+    if not required_checks:
+        blockers.append(REQUIRED_CHECKS_BLOCKER)
+    else:
+        for check in required_checks:
+            name = _required_check_name(check)
+            state = _required_check_state(check)
+            if _state_is_success(state) or name == "aragora-merge-quorum":
+                continue
+            blockers.append(f"required check {name} is {state}")
+
+    not_ready = merge_packet.get("not_ready")
+    if isinstance(not_ready, list):
+        allowed_not_ready = set(ALLOWED_TIER4_NOT_READY)
+        allowed_not_ready.add(str(pr))
+        unexpected = sorted({str(item) for item in not_ready} - allowed_not_ready)
+        if unexpected:
+            blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
+
+    if not _packet_marks_tier4_settlement_surface(merge_packet, pr=pr):
+        blockers.append("merge-packet does not mark Tier 4 human-risk settlement")
+    if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
+        blockers.append(TIER4_EVIDENCE_BLOCKER)
+
+    return {
+        "ok": not blockers,
+        "pr": pr,
+        "expected_head": expected_head,
+        "actual_head": actual_head,
+        "merge_state": merge_state,
+        "blockers": blockers,
     }
 
 
@@ -664,6 +741,19 @@ def _run_command(command: list[str], *, cwd: Path, input_text: str | None = None
     subprocess.run(command, cwd=cwd, input=input_text, text=True, check=True, timeout=180)
 
 
+def _run_text_command(command: list[str], *, cwd: Path, input_text: str | None = None) -> str:
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        input=input_text,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=180,
+    )
+    return result.stdout.strip()
+
+
 def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
     base = f"repos/{repo}/branches/main/protection"
     snapshot: dict[str, Any] = {}
@@ -729,7 +819,39 @@ def _restore_branch_protection(*, repo: str, cwd: Path, snapshot: dict[str, Any]
     return errors
 
 
-def _apply_settlement(
+def _apply_settlement_signal(*, pr: int, head: str, repo: str, cwd: Path) -> list[list[str]]:
+    comment_command = [
+        "gh",
+        "pr",
+        "comment",
+        str(pr),
+        "--body",
+        _settlement_comment_template(pr=pr, head=head),
+    ]
+    status_command = [
+        "gh",
+        "api",
+        "--method",
+        "POST",
+        f"repos/{repo}/statuses/{head}",
+        "-f",
+        "state=success",
+        "-f",
+        f"context={HUMAN_SETTLEMENT_CONTEXT}",
+        "-f",
+        f"description=Tier 4 exact-head human-risk settlement recorded for PR #{pr}",
+    ]
+    try:
+        comment_url = _run_text_command(comment_command, cwd=cwd).strip()
+        if comment_url:
+            status_command.extend(["-f", f"target_url={comment_url}"])
+        _run_command(status_command, cwd=cwd)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"Tier 4 settlement signal failed: {exc}") from exc
+    return [comment_command, status_command]
+
+
+def _apply_merge(
     *,
     pr: int,
     head: str,
@@ -807,7 +929,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true")
-    mode.add_argument("--apply", action="store_true")
+    mode.add_argument(
+        "--settle-only",
+        action="store_true",
+        help="Post the exact-head Tier 4 settlement comment/status only; never merge.",
+    )
+    mode.add_argument(
+        "--merge-apply",
+        action="store_true",
+        help="Apply the already-settled Tier 4 merge/protection action.",
+    )
     parser.add_argument("--pr", type=int, required=True)
     parser.add_argument("--head", required=True)
     parser.add_argument("--repo", default=DEFAULT_REPO)
@@ -831,22 +962,41 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         pr_view, merge_packet, required_checks = _load_live_inputs(args.pr, cwd=args.cwd)
-        gate = evaluate_tier4_gate(
-            pr=args.pr,
-            expected_head=args.head,
-            pr_view=pr_view,
-            merge_packet=merge_packet,
-            required_checks=required_checks,
-            require_branch_protection_token=False,
-            repo=args.repo,
-            cwd=args.cwd,
-            trusted_operator_logins=args.trusted_operator_login,
-        )
         applied_commands: list[list[str]] = []
-        if args.apply:
+        if args.settle_only:
+            gate = evaluate_tier4_settlement_preconditions(
+                pr=args.pr,
+                expected_head=args.head,
+                pr_view=pr_view,
+                merge_packet=merge_packet,
+                required_checks=required_checks,
+            )
             if not gate["ok"]:
-                raise RuntimeError("Tier 4 gate is not satisfied; refusing --apply")
-            applied_commands = _apply_settlement(
+                raise RuntimeError(
+                    "Tier 4 settlement preconditions are not satisfied; refusing --settle-only"
+                )
+            applied_commands = _apply_settlement_signal(
+                pr=args.pr,
+                head=args.head,
+                repo=args.repo,
+                cwd=args.cwd,
+            )
+        else:
+            gate = evaluate_tier4_gate(
+                pr=args.pr,
+                expected_head=args.head,
+                pr_view=pr_view,
+                merge_packet=merge_packet,
+                required_checks=required_checks,
+                require_branch_protection_token=False,
+                repo=args.repo,
+                cwd=args.cwd,
+                trusted_operator_logins=args.trusted_operator_login,
+            )
+        if args.merge_apply:
+            if not gate["ok"]:
+                raise RuntimeError("Tier 4 gate is not satisfied; refusing --merge-apply")
+            applied_commands = _apply_merge(
                 pr=args.pr,
                 head=args.head,
                 repo=args.repo,
