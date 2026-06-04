@@ -381,6 +381,24 @@ class TestSummarizeChecks:
         assert has_fail
         assert not has_pending
 
+    def test_completed_merge_quorum_failure_can_be_ignored_for_diagnostics(self) -> None:
+        checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        summary, has_fail, has_pending = _summarize_checks(
+            checks,
+            ignore_own_quorum_check=True,
+        )
+        assert summary == "1/1 green"
+        assert not has_fail
+        assert not has_pending
+
     def test_unrelated_failure_still_blocks_with_merge_quorum_present(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -3679,6 +3697,64 @@ class TestBuildQueueAndPacket:
             "checks are failing; repair before settlement" in packet.model_review_quorum["reasons"]
         )
 
+    def test_build_packet_diagnostic_ignore_own_quorum_exposes_tier_four_gate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7736,
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            ],
+            files=["aragora/cli/commands/review_queue.py"],
+        )
+        pr_payload["comments"] = [
+            _codex_openai_comment(body="Exact-head review passed."),
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve after Tier-4 settlement.",
+            },
+        ]
+        required_checks = [
+            {
+                "name": "aragora-merge-quorum",
+                "workflow": "Aragora Merge Quorum",
+                "state": "FAILURE",
+                "bucket": "fail",
+            },
+            {"name": "lint", "state": "SUCCESS", "bucket": "pass"},
+        ]
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any] | list[dict[str, Any]]:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:3] == ["pr", "checks", "7736"]:
+                return required_checks
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7736", repo_override=None, ignore_own_quorum_check=True)
+
+        assert packet.checks_summary == "1/1 required green (required PR checks)"
+        assert packet.machine_recommendation == "approve_candidate"
+        assert "checks failing (1 failing / 2 total)" not in packet.risk_flags
+        required_surface = packet.check_surfaces["required_pr_checks"]
+        assert required_surface["effective_total"] == 1
+        assert required_surface["ignored_current_merge_quorum_self_check_count"] == 1
+        assert required_surface["diagnostic_ignore_own_quorum_check"] is True
+        quorum = packet.model_review_quorum
+        assert quorum["tier"] == 4
+        assert quorum["status"] == "human_preapproval_required"
+        assert quorum["verdict"] == "tier_4_human_preapproval_required"
+        assert quorum["requires_human_preapproval"] is True
+        assert "checks are failing; repair before settlement" not in quorum["reasons"]
+
     def test_build_packet_preserves_non_self_check_failure(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -3944,6 +4020,7 @@ class TestCommandDispatch:
         ns_merge_packet = root.parse_args(["review-queue", "merge-packet", "--pr", "6280"])
         assert ns_merge_packet.review_queue_command == "merge-packet"
         assert ns_merge_packet.pr == ["6280"]
+        assert ns_merge_packet.ignore_own_quorum_check is False
         ns_merge_packet_root = root.parse_args(
             [
                 "review-queue",
@@ -3952,10 +4029,12 @@ class TestCommandDispatch:
                 "6280",
                 "--review-queue-root",
                 "/tmp/review-queue",
+                "--ignore-own-quorum-check",
             ]
         )
         assert ns_merge_packet_root.review_queue_command == "merge-packet"
         assert ns_merge_packet_root.review_queue_root == "/tmp/review-queue"
+        assert ns_merge_packet_root.ignore_own_quorum_check is True
         # evidence-lint invocation parses
         ns_evidence_lint = root.parse_args(
             [
@@ -4899,7 +4978,9 @@ class TestSettlementHelpers:
             *,
             repo_override: str | None,
             execute_reviewers: bool = False,
+            ignore_own_quorum_check: bool = False,
         ) -> ReviewPacket:
+            _ = ignore_own_quorum_check
             return ReviewPacket(
                 pr_number=int(pr_ref),
                 title="bounded docs",

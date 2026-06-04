@@ -541,6 +541,14 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Attempt live heterogeneous reviewer execution for each packet.",
     )
+    merge_packet_p.add_argument(
+        "--ignore-own-quorum-check",
+        action="store_true",
+        help=(
+            "Diagnostic-only: ignore aragora-merge-quorum self-check rows when "
+            "building the packet outside the enforcing CI job."
+        ),
+    )
     merge_packet_p.add_argument("--json", action="store_true", help="Output as JSON")
 
     evidence_lint_p = sub.add_parser(
@@ -1078,6 +1086,7 @@ def _cmd_merge_packet(args: argparse.Namespace) -> int:
             repo_override=getattr(args, "repo", None),
             review_queue_root=getattr(args, "review_queue_root", None),
             execute_reviewers=bool(getattr(args, "execute_reviewers", False)),
+            ignore_own_quorum_check=bool(getattr(args, "ignore_own_quorum_check", False)),
         )
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -1416,13 +1425,20 @@ def _classify_pr(pr: dict[str, Any]) -> QueueItem:
     )
 
 
-def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
+def _summarize_checks(
+    checks: list,
+    *,
+    ignore_own_quorum_check: bool = False,
+) -> tuple[str, bool, bool]:
     """Return ``(summary, has_failures, has_pending)`` for a statusCheckRollup."""
     success = failure = pending = 0
     for check in _latest_status_check_rollup(checks):
         if not isinstance(check, dict):
             continue
-        if _is_current_merge_quorum_self_check(check):
+        if _should_ignore_pr_rollup_check(
+            check,
+            ignore_own_quorum_check=ignore_own_quorum_check,
+        ):
             continue
         status = str(check.get("status") or check.get("state") or "").upper()
         conclusion = str(check.get("conclusion") or "").upper()
@@ -1520,11 +1536,18 @@ def _required_pr_check_bucket(check: dict[str, Any]) -> str:
     return state.lower()
 
 
-def _summarize_required_pr_checks(checks: list[dict[str, Any]]) -> tuple[str, bool, bool]:
+def _summarize_required_pr_checks(
+    checks: list[dict[str, Any]],
+    *,
+    ignore_own_quorum_check: bool = False,
+) -> tuple[str, bool, bool]:
     """Return ``(summary, has_failures, has_pending)`` for required PR checks."""
     success = failure = pending = 0
     for check in checks:
-        if _is_required_pr_check_current_merge_quorum_self_check(check):
+        if _should_ignore_required_pr_check(
+            check,
+            ignore_own_quorum_check=ignore_own_quorum_check,
+        ):
             continue
         bucket = _required_pr_check_bucket(check)
         if bucket in {"pass", "skipping"}:
@@ -1545,13 +1568,20 @@ def _summarize_required_pr_checks(checks: list[dict[str, Any]]) -> tuple[str, bo
     return ("no required checks", False, False)
 
 
-def _effective_required_pr_check_count(checks: list[dict[str, Any]]) -> int:
+def _effective_required_pr_check_count(
+    checks: list[dict[str, Any]],
+    *,
+    ignore_own_quorum_check: bool = False,
+) -> int:
     """Count required PR checks after excluding the current merge-quorum self-check."""
     return sum(
         1
         for check in checks
         if isinstance(check, dict)
-        and not _is_required_pr_check_current_merge_quorum_self_check(check)
+        and not _should_ignore_required_pr_check(
+            check,
+            ignore_own_quorum_check=ignore_own_quorum_check,
+        )
     )
 
 
@@ -1707,14 +1737,22 @@ def _rollup_non_green_diagnostics(
     checks: list,
     *,
     required_checks: list[dict[str, Any]] | None = None,
+    ignore_own_quorum_check: bool = False,
 ) -> dict[str, Any]:
     non_green: list[str] = []
     non_required_non_green: list[str] = []
     optional_runner_capacity_noise: list[str] = []
     long_queued_shadow_without_runner_metadata: list[str] = []
+    ignored_own_quorum = 0
     pending = failing_or_cancelled = 0
     for check in _latest_status_check_rollup(checks):
         if not isinstance(check, dict):
+            continue
+        if _should_ignore_pr_rollup_check(
+            check,
+            ignore_own_quorum_check=ignore_own_quorum_check,
+        ):
+            ignored_own_quorum += 1
             continue
         bucket = _rollup_non_green_bucket(check)
         if not bucket:
@@ -1742,6 +1780,9 @@ def _rollup_non_green_diagnostics(
         "pending_count": pending,
         "failing_or_cancelled_count": failing_or_cancelled,
     }
+    if ignore_own_quorum_check:
+        diagnostics["diagnostic_ignore_own_quorum_check"] = True
+        diagnostics["ignored_own_quorum_check_count"] = ignored_own_quorum
     if required_checks is not None:
         diagnostics["non_required_non_green_count"] = len(non_required_non_green)
         diagnostics["non_required_non_green_sample"] = non_required_non_green[
@@ -1952,6 +1993,7 @@ def _build_check_surface_diagnostics(
     repo_override: str | None,
     checks_summary: str,
     checks_unavailable: bool,
+    ignore_own_quorum_check: bool = False,
 ) -> dict[str, Any]:
     """Explain PR-facing check rollup separately from direct commit check-runs.
 
@@ -1962,7 +2004,10 @@ def _build_check_surface_diagnostics(
     rollup = pr.get("statusCheckRollup")
     rollup_count = len(rollup) if isinstance(rollup, list) else None
     rollup_diagnostics = (
-        _rollup_non_green_diagnostics(rollup)
+        _rollup_non_green_diagnostics(
+            rollup,
+            ignore_own_quorum_check=ignore_own_quorum_check,
+        )
         if isinstance(rollup, list) and not checks_unavailable
         else {}
     )
@@ -2123,6 +2168,26 @@ def _is_merge_quorum_check(check: dict[str, Any]) -> bool:
     return workflow == MERGE_QUORUM_WORKFLOW_NAME and name == MERGE_QUORUM_CHECK_NAME
 
 
+def _should_ignore_pr_rollup_check(
+    check: dict[str, Any],
+    *,
+    ignore_own_quorum_check: bool,
+) -> bool:
+    if ignore_own_quorum_check and _is_merge_quorum_check(check):
+        return True
+    return _is_current_merge_quorum_self_check(check)
+
+
+def _should_ignore_required_pr_check(
+    check: dict[str, Any],
+    *,
+    ignore_own_quorum_check: bool,
+) -> bool:
+    if ignore_own_quorum_check and _is_merge_quorum_check(check):
+        return True
+    return _is_required_pr_check_current_merge_quorum_self_check(check)
+
+
 def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
     """Ignore only this merge-quorum workflow run while building its packet."""
     if not _is_merge_quorum_check(check):
@@ -2193,6 +2258,7 @@ def _build_packet(
     repo_override: str | None,
     review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
+    ignore_own_quorum_check: bool = False,
 ) -> ReviewPacket:
     number = _parse_pr_number(pr_ref)
     fields = ",".join(
@@ -2243,18 +2309,37 @@ def _build_packet(
     touched = sorted({_subsystem_for(p) for p in files})
     high_risk = [p for p in files if _is_high_risk_path(p)]
     checks_unavailable = _check_rollup_unavailable(pr)
-    checks_summary, has_failures, has_pending = _summarize_checks(pr.get("statusCheckRollup") or [])
+    rollup = pr.get("statusCheckRollup") or []
+    checks_summary, has_failures, has_pending = _summarize_checks(
+        rollup,
+        ignore_own_quorum_check=ignore_own_quorum_check,
+    )
     if checks_unavailable:
         checks_summary = "no checks reported"
         has_pending = True
+    ignored_rollup_own_quorum_count = sum(
+        1
+        for check in _latest_status_check_rollup(rollup)
+        if isinstance(check, dict)
+        and _should_ignore_pr_rollup_check(
+            check,
+            ignore_own_quorum_check=ignore_own_quorum_check,
+        )
+    )
     check_surfaces = _build_check_surface_diagnostics(
         pr,
         repo_override=repo_override,
         checks_summary=checks_summary,
         checks_unavailable=checks_unavailable,
+        ignore_own_quorum_check=ignore_own_quorum_check,
     )
     required_pr_check_gate_satisfied = False
-    if not checks_unavailable and (has_failures or has_pending):
+    should_probe_required_checks = not checks_unavailable and (
+        has_failures
+        or has_pending
+        or (ignore_own_quorum_check and ignored_rollup_own_quorum_count > 0)
+    )
+    if should_probe_required_checks:
         required_surface = _fetch_required_pr_check_surface(number, repo_override)
         required_pr_checks = [
             item for item in required_surface.get("checks") or [] if isinstance(item, dict)
@@ -2262,22 +2347,32 @@ def _build_packet(
         required_available = bool(required_surface.get("available"))
         if required_available:
             required_summary, required_has_failures, required_has_pending = (
-                _summarize_required_pr_checks(required_pr_checks)
+                _summarize_required_pr_checks(
+                    required_pr_checks,
+                    ignore_own_quorum_check=ignore_own_quorum_check,
+                )
             )
         else:
             required_summary = "required PR checks unavailable"
             required_has_failures = False
             required_has_pending = True
-        effective_required_count = _effective_required_pr_check_count(required_pr_checks)
+        effective_required_count = _effective_required_pr_check_count(
+            required_pr_checks,
+            ignore_own_quorum_check=ignore_own_quorum_check,
+        )
         ignored_self_check_count = sum(
             1
             for check in required_pr_checks
             if isinstance(check, dict)
-            and _is_required_pr_check_current_merge_quorum_self_check(check)
+            and _should_ignore_required_pr_check(
+                check,
+                ignore_own_quorum_check=ignore_own_quorum_check,
+            )
         )
         rollup_required_diagnostics = _rollup_non_green_diagnostics(
             pr.get("statusCheckRollup") or [],
             required_checks=required_pr_checks if required_available else None,
+            ignore_own_quorum_check=ignore_own_quorum_check,
         )
         check_surfaces["pr_rollup"].update(rollup_required_diagnostics)
 
@@ -2312,15 +2407,23 @@ def _build_packet(
                 str(check.get("name") or "").strip()
                 for check in required_pr_checks
                 if _required_pr_check_bucket(check) in {"fail", "cancel"}
-                and not _is_required_pr_check_current_merge_quorum_self_check(check)
+                and not _should_ignore_required_pr_check(
+                    check,
+                    ignore_own_quorum_check=ignore_own_quorum_check,
+                )
             ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
             "pending": [
                 str(check.get("name") or "").strip()
                 for check in required_pr_checks
                 if _required_pr_check_bucket(check) == "pending"
-                and not _is_required_pr_check_current_merge_quorum_self_check(check)
+                and not _should_ignore_required_pr_check(
+                    check,
+                    ignore_own_quorum_check=ignore_own_quorum_check,
+                )
             ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
         }
+        if ignore_own_quorum_check:
+            check_surfaces["required_pr_checks"]["diagnostic_ignore_own_quorum_check"] = True
         if required_surface.get("error"):
             check_surfaces["required_pr_checks"]["error"] = str(required_surface.get("error"))
         if (
@@ -2364,6 +2467,12 @@ def _build_packet(
                 "do not settle or merge until required checks can be separated from "
                 "non-required PR rollup checks."
             )
+            if ignore_own_quorum_check and ignored_rollup_own_quorum_count > 0:
+                checks_summary = required_summary
+                if required_has_failures:
+                    has_failures = True
+                else:
+                    has_pending = True
     direct_check_fallback_satisfied = (
         checks_unavailable and _direct_required_check_fallback_satisfied(check_surfaces)
     )
@@ -2578,6 +2687,7 @@ def _build_merge_authorization_packet(
     repo_override: str | None,
     review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
+    ignore_own_quorum_check: bool = False,
 ) -> dict[str, Any]:
     scoped_pr_refs = False
     if pr_refs:
@@ -2592,6 +2702,7 @@ def _build_merge_authorization_packet(
     packet_kwargs: dict[str, Any] = {
         "repo_override": repo_override,
         "execute_reviewers": execute_reviewers,
+        "ignore_own_quorum_check": ignore_own_quorum_check,
     }
     if review_queue_root is not None:
         packet_kwargs["review_queue_root"] = review_queue_root

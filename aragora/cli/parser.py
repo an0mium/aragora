@@ -2450,6 +2450,14 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Attempt live heterogeneous reviewer execution for each packet.",
     )
     merge_packet_parser.add_argument(
+        "--ignore-own-quorum-check",
+        action="store_true",
+        help=(
+            "Diagnostic-only: ignore aragora-merge-quorum self-check rows when "
+            "building the packet outside the enforcing CI job."
+        ),
+    )
+    merge_packet_parser.add_argument(
         "--json",
         dest="json_output",
         action="store_true",

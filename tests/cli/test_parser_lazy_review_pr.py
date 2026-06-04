@@ -176,6 +176,7 @@ def test_build_parser_registers_review_queue_merge_packet_lazily(monkeypatch):
             "--review-queue-root",
             "/tmp/review-queue",
             "--execute-reviewers",
+            "--ignore-own-quorum-check",
             "--json",
         ]
     )
@@ -186,5 +187,6 @@ def test_build_parser_registers_review_queue_merge_packet_lazily(monkeypatch):
     assert args.pr == ["6779"]
     assert args.review_queue_root == "/tmp/review-queue"
     assert args.execute_reviewers is True
+    assert args.ignore_own_quorum_check is True
     assert args.json_output is True
     assert args.func.__name__ == "cmd_review_queue"
