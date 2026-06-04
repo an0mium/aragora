@@ -188,6 +188,12 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     # registration surface follow the same human-chain-of-trust rule as
     # ``review_queue.py`` itself.
     "aragora/cli/parser.py",
+    # Settlement and merge helpers can mark human-settlement status, reconcile
+    # branch protection, or merge/admin-merge PRs. A PR changing those helpers
+    # is changing the authority surface that future settlement runs trust.
+    "scripts/settle_tier4_pr.py",
+    "scripts/settle_one_pr.py",
+    "scripts/merge_codex_automation_prs.py",
 )
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
 MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"

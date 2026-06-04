@@ -1018,6 +1018,9 @@ class TestModelReviewQuorum:
             # Merge-authority self-modification: see TIER_4_PREFIXES rationale.
             (["aragora/cli/commands/review_queue.py"], 4),
             (["aragora/cli/parser.py"], 4),
+            (["scripts/settle_tier4_pr.py"], 4),
+            (["scripts/settle_one_pr.py"], 4),
+            (["scripts/merge_codex_automation_prs.py"], 4),
         ],
     )
     def test_classifies_merge_tiers(self, files: list[str], expected_tier: int) -> None:
