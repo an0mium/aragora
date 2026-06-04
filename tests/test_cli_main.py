@@ -6,6 +6,7 @@ Covers argument parsing, command handlers, and utility functions.
 
 import argparse
 import asyncio
+import runpy
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch, Mock
 import sys
@@ -612,6 +613,17 @@ class TestMain:
                 }
                 main()
                 mock_store.assert_called_once()
+
+    def test_package_module_entrypoint_delegates_to_main(self, monkeypatch):
+        """``python -m aragora.cli`` should use the same entry point as ``aragora``."""
+        import aragora.cli.main as cli_main
+
+        monkeypatch.setattr(cli_main, "main", lambda: 17)
+
+        with pytest.raises(SystemExit) as exc_info:
+            runpy.run_module("aragora.cli.__main__", run_name="__main__")
+
+        assert exc_info.value.code == 17
 
 
 # =============================================================================
