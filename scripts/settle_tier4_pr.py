@@ -30,6 +30,8 @@ HUMAN_SETTLEMENT_STATUS_BLOCKER = f"missing or unsuccessful {HUMAN_SETTLEMENT_CO
 MERGE_QUORUM_CONTEXT = "aragora-merge-quorum"
 OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comment"
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
+SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER = "trusted operator allowlist is required for --settle-only"
+SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
@@ -102,6 +104,14 @@ def _trusted_operator_logins(extra_logins: Sequence[str] | None = None) -> froze
     }
     explicit = {login.strip().lower() for login in extra_logins or () if login.strip()}
     return frozenset(configured | explicit)
+
+
+def _current_gh_login(*, cwd: Path) -> str:
+    payload = _run_json(["gh", "api", "user"], cwd=cwd)
+    login = str(payload.get("login") or "").strip().lower()
+    if not login:
+        raise RuntimeError("gh api user did not return a login")
+    return login
 
 
 def _author_login(item: dict[str, Any]) -> str:
@@ -597,6 +607,9 @@ def evaluate_tier4_settlement_preconditions(
     pr_view: dict[str, Any],
     merge_packet: dict[str, Any],
     required_checks: list[dict[str, Any]] | None = None,
+    trusted_operator_logins: Sequence[str] | None = None,
+    invoker_login: str | None = None,
+    require_trusted_invoker: bool = False,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     actual_head = str(pr_view.get("headRefOid") or "")
@@ -633,12 +646,24 @@ def evaluate_tier4_settlement_preconditions(
     if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
         blockers.append(TIER4_EVIDENCE_BLOCKER)
 
+    allowed_logins = _trusted_operator_logins(trusted_operator_logins)
+    normalized_invoker = str(invoker_login or "").strip().lower()
+    if require_trusted_invoker:
+        if not allowed_logins:
+            blockers.append(SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER)
+        elif not normalized_invoker:
+            blockers.append(SETTLE_ONLY_INVOKER_BLOCKER)
+        elif normalized_invoker not in allowed_logins:
+            blockers.append(f"gh login {normalized_invoker} is not in trusted operator allowlist")
+
     return {
         "ok": not blockers,
         "pr": pr,
         "expected_head": expected_head,
         "actual_head": actual_head,
         "merge_state": merge_state,
+        "trusted_operator_logins": sorted(allowed_logins),
+        "invoker_login": normalized_invoker,
         "blockers": blockers,
     }
 
@@ -951,7 +976,9 @@ def build_parser() -> argparse.ArgumentParser:
             "Restrict repo-visible MEMBER authorization comments to this admin "
             "login. Repeatable; also reads comma-separated "
             f"{TRUSTED_OPERATOR_LOGINS_ENV}. If omitted, any live admin MEMBER "
-            f"may authorize when {HUMAN_SETTLEMENT_CONTEXT} is success."
+            f"may authorize when {HUMAN_SETTLEMENT_CONTEXT} is success. "
+            "--settle-only additionally requires the invoking gh login to be "
+            "present in this allowlist."
         ),
     )
     parser.add_argument("--json", action="store_true")
@@ -970,10 +997,29 @@ def main(argv: Sequence[str] | None = None) -> int:
                 pr_view=pr_view,
                 merge_packet=merge_packet,
                 required_checks=required_checks,
+                trusted_operator_logins=args.trusted_operator_login,
             )
             if not gate["ok"]:
                 raise RuntimeError(
                     "Tier 4 settlement preconditions are not satisfied; refusing --settle-only"
+                )
+            allowed_logins = _trusted_operator_logins(args.trusted_operator_login)
+            invoker_login = _current_gh_login(cwd=args.cwd) if allowed_logins else ""
+            gate = evaluate_tier4_settlement_preconditions(
+                pr=args.pr,
+                expected_head=args.head,
+                pr_view=pr_view,
+                merge_packet=merge_packet,
+                required_checks=required_checks,
+                trusted_operator_logins=args.trusted_operator_login,
+                invoker_login=invoker_login,
+                require_trusted_invoker=True,
+            )
+            if not gate["ok"]:
+                blocker_text = "; ".join(str(blocker) for blocker in gate["blockers"])
+                raise RuntimeError(
+                    "Tier 4 settlement invoker is not trusted; "
+                    f"refusing --settle-only: {blocker_text}"
                 )
             applied_commands = _apply_settlement_signal(
                 pr=args.pr,

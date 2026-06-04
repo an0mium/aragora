@@ -835,8 +835,21 @@ def test_settle_only_posts_comment_and_status_without_merge(
         "_run_command",
         lambda command, cwd, input_text=None: commands.append((command, input_text)),
     )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
 
-    rc = settler.main(["--settle-only", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
+    rc = settler.main(
+        [
+            "--settle-only",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+        ]
+    )
 
     assert rc == 0
     all_commands = [command for command, _ in [*text_commands, *commands]]
@@ -863,6 +876,101 @@ def test_settle_only_posts_comment_and_status_without_merge(
             None,
         )
     ]
+
+
+def test_settle_only_rejects_untrusted_invoking_login(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "untrusted-member")
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)) or "",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+
+    rc = settler.main(
+        [
+            "--settle-only",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    assert commands == []
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload == {
+        "ok": False,
+        "error": (
+            "Tier 4 settlement invoker is not trusted; refusing --settle-only: "
+            "gh login untrusted-member is not in trusted operator allowlist"
+        ),
+    }
+
+
+def test_settle_only_requires_trusted_operator_allowlist(monkeypatch: Any, tmp_path: Path) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_current_gh_login",
+        lambda cwd: pytest.fail("gh identity should not be queried without an allowlist"),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)) or "",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+
+    rc = settler.main(["--settle-only", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
+
+    assert rc == 2
+    assert commands == []
 
 
 def test_settle_only_rejects_unrelated_required_failure(monkeypatch: Any, tmp_path: Path) -> None:
