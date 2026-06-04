@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 from dataclasses import asdict
@@ -68,6 +69,43 @@ def test_normalize_optional_agent_rejects_placeholder_none() -> None:
     assert review_pr._normalize_optional_agent("None") is None
     assert review_pr._normalize_optional_agent("null") is None
     assert review_pr._normalize_optional_agent(" codex ") == "codex"
+
+
+def test_cmd_review_pr_closes_shared_api_connector(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    closed = False
+
+    async def _fake_review_loop(**_: object) -> dict[str, object]:
+        return {"final_status": "passed"}
+
+    async def _fake_close_shared_connector() -> None:
+        nonlocal closed
+        closed = True
+
+    monkeypatch.setattr(review_pr, "resolve_repo_root", lambda *_: tmp_path)
+    monkeypatch.setattr(review_pr, "run_review_pr_loop", _fake_review_loop)
+    monkeypatch.setattr(review_pr, "close_shared_connector", _fake_close_shared_connector)
+
+    exit_code = review_pr.cmd_review_pr(
+        argparse.Namespace(
+            pr="1137",
+            repo=None,
+            reviewer="grok",
+            fixer=None,
+            auto_rerun=False,
+            artifact_dir=None,
+            keep_worktree=False,
+            publish_review=False,
+            json_output=True,
+        )
+    )
+
+    assert exit_code == 0
+    assert closed is True
+    assert json.loads(capsys.readouterr().out)["final_status"] == "passed"
 
 
 @pytest.mark.asyncio

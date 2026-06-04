@@ -10,11 +10,13 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Awaitable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.agents.api_agents.common import close_shared_connector
 from aragora.connectors.github import GitHubConnector
 from aragora.swarm.review_routing import ReviewRoutingError, generate_review_response
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher
@@ -155,18 +157,20 @@ def _normalize_optional_agent(value: object) -> str | None:
 def cmd_review_pr(args: argparse.Namespace) -> int:
     repo_root = resolve_repo_root(Path.cwd())
     result = asyncio.run(
-        run_review_pr_loop(
-            pr_ref=str(args.pr),
-            repo_root=repo_root,
-            repo_override=getattr(args, "repo", None),
-            reviewer=str(getattr(args, "reviewer", "claude") or "claude"),
-            fixer=_normalize_optional_agent(getattr(args, "fixer", None)),
-            auto_rerun=bool(getattr(args, "auto_rerun", False)),
-            artifact_root=Path(getattr(args, "artifact_dir", "")).resolve()
-            if getattr(args, "artifact_dir", None)
-            else None,
-            keep_worktree=bool(getattr(args, "keep_worktree", False)),
-            publish_review=bool(getattr(args, "publish_review", True)),
+        _await_with_api_cleanup(
+            run_review_pr_loop(
+                pr_ref=str(args.pr),
+                repo_root=repo_root,
+                repo_override=getattr(args, "repo", None),
+                reviewer=str(getattr(args, "reviewer", "claude") or "claude"),
+                fixer=_normalize_optional_agent(getattr(args, "fixer", None)),
+                auto_rerun=bool(getattr(args, "auto_rerun", False)),
+                artifact_root=Path(getattr(args, "artifact_dir", "")).resolve()
+                if getattr(args, "artifact_dir", None)
+                else None,
+                keep_worktree=bool(getattr(args, "keep_worktree", False)),
+                publish_review=bool(getattr(args, "publish_review", True)),
+            )
         )
     )
     if getattr(args, "json_output", False):
@@ -179,6 +183,13 @@ def cmd_review_pr(args: argparse.Namespace) -> int:
     if final_status == "changes_requested":
         return 2
     return 1
+
+
+async def _await_with_api_cleanup(awaitable: Awaitable[dict[str, Any]]) -> dict[str, Any]:
+    try:
+        return await awaitable
+    finally:
+        await close_shared_connector()
 
 
 async def run_review_pr_loop(
