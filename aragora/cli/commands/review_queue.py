@@ -2815,7 +2815,7 @@ def _explicit_merged_pr_merge_packet_entry(
         "title": str(pr.get("title") or "").strip(),
         "url": str(pr.get("url") or "").strip(),
         "head_sha": str(pr.get("headRefOid") or "").strip(),
-        "checks_summary": "already merged; checks obsolete for merge-packet",
+        "checks_summary": "failing PR state (already merged; checks obsolete for merge-packet)",
         "machine_recommendation": "settled_noop",
         "tier": 0,
         "tier_name": "already_merged",

@@ -2575,10 +2575,14 @@ class TestBuildQueueAndPacket:
         )
 
         assert len(requested_fields) == 1
-        assert packet["entries"][0]["status"] == "repair_or_wait"
+        assert packet["entries"][0]["status"] == "already_merged"
+        assert packet["entries"][0]["verdict"] == "already_merged_noop"
+        assert packet["entries"][0]["checks_summary"] == (
+            "failing PR state (already merged; checks obsolete for merge-packet)"
+        )
         assert packet["entries"][0]["admin_squash_allowed"] is False
         assert packet["admin_squash_order"] == []
-        assert packet["not_ready"] == [7470]
+        assert packet["not_ready"] == []
 
     def test_closed_pr_fails_closed_before_admin_authorization(
         self, monkeypatch: pytest.MonkeyPatch
