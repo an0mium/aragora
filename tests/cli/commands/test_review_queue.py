@@ -2190,6 +2190,40 @@ class TestBuildQueueAndPacket:
         assert quorum["status"] == "repair_or_wait"
         assert "PR is MERGED; settlement applies only to open PRs" in quorum["reasons"]
 
+    def test_merged_pr_short_circuits_heavy_packet_fields(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7470,
+            files=["docs/status/focus.md"],
+            state="MERGED",
+            merged_at="2026-05-27T00:19:36Z",
+        )
+        requested_fields: list[str] = []
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            fields = args[args.index("--json") + 1]
+            requested_fields.append(fields)
+            assert "statusCheckRollup" not in fields
+            assert "comments" not in fields
+            assert "reviews" not in fields
+            assert "commits" not in fields
+            return pr_payload
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7470"],
+            limit=10,
+            repo_override=None,
+        )
+
+        assert len(requested_fields) == 1
+        assert packet["entries"][0]["status"] == "repair_or_wait"
+        assert packet["entries"][0]["admin_squash_allowed"] is False
+        assert packet["admin_squash_order"] == []
+        assert packet["not_ready"] == [7470]
+
     def test_closed_pr_fails_closed_before_admin_authorization(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

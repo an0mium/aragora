@@ -542,6 +542,63 @@ def test_open_pr_metadata_uses_light_list_fields(monkeypatch) -> None:
     assert "statusCheckRollup" not in fields
 
 
+def test_explicit_merged_pr_load_packet_skips_merge_packet(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        if args[:3] == ["gh", "pr", "view"]:
+            fields = args[args.index("--json") + 1]
+            assert "statusCheckRollup" not in fields
+            return (
+                {
+                    "number": 7737,
+                    "title": "docs(status): refresh TW03 proof surface",
+                    "url": "https://github.com/synaptent/aragora/pull/7737",
+                    "state": "MERGED",
+                    "mergedAt": "2026-06-04T14:03:38Z",
+                    "headRefName": "codex/refresh-tw03-proof-surface",
+                    "headRefOid": "f1ecb30764adf9a390e42fff9be6a2f89ec63692",
+                    "mergeable": "UNKNOWN",
+                    "mergeStateStatus": "UNKNOWN",
+                    "isDraft": False,
+                    "files": [{"path": "docs/status/proofs.md"}],
+                },
+                {"command": "gh pr view", "returncode": 0},
+            )
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            raise AssertionError("merged explicit PR should not shell out to merge-packet")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = settle_one_pr.load_packet(
+        cwd=Path.cwd(),
+        pr=7737,
+        limit=100,
+        repo="synaptent/aragora",
+    )
+
+    assert packet["entries"][0]["pr_number"] == 7737
+    assert packet["entries"][0]["status"] == "repair_or_wait"
+    assert packet["admin_squash_order"] == []
+    assert packet["not_ready"] == [7737]
+    assert packet["load_blockers"] == ["PR is MERGED; settlement applies only to open PRs"]
+    assert commands == [
+        [
+            "gh",
+            "pr",
+            "view",
+            "7737",
+            "--json",
+            settle_one_pr.PR_TERMINAL_STATE_FIELDS,
+            "--repo",
+            "synaptent/aragora",
+        ]
+    ]
+
+
 def test_broad_packet_lazy_loader_uses_single_bulk_packet(monkeypatch) -> None:
     commands: list[list[str]] = []
 
