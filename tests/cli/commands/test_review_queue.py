@@ -2162,8 +2162,20 @@ class TestBuildQueueAndPacket:
                 },
             )
 
+        preflighted_refs: list[tuple[str, str | None]] = []
+
+        def fake_explicit_merged_entry(
+            ref: str, repo_override: str | None
+        ) -> dict[str, Any] | None:
+            preflighted_refs.append((ref, repo_override))
+            return None
+
         monkeypatch.setattr("aragora.cli.commands.review_queue._build_queue", fail_build_queue)
         monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._explicit_merged_pr_merge_packet_entry",
+            fake_explicit_merged_entry,
+        )
 
         packet = _build_merge_authorization_packet(
             pr_refs=["7528"],
@@ -2177,6 +2189,7 @@ class TestBuildQueueAndPacket:
             "active": False,
             "scope": "explicit_pr_refs",
         }
+        assert preflighted_refs == [("7528", None)]
         assert packet["admin_squash_order"] == [7528]
 
     def test_build_queue_classifies_and_sorts(self, monkeypatch: pytest.MonkeyPatch) -> None:
