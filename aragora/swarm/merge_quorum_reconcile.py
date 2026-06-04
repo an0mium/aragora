@@ -49,6 +49,11 @@ TIER_REQUIREMENTS: Final[dict[int, tuple[int, bool, bool]]] = {
 }
 
 _SUCCESS: Final[str] = "SUCCESS"
+# Non-terminal states that may arrive via the check-run ``state`` fallback; the
+# gate has not concluded, so the right hint is "wait", not "re-run".
+_NON_FINAL_STATES: Final[frozenset[str]] = frozenset(
+    {"IN_PROGRESS", "QUEUED", "PENDING", "WAITING", "REQUESTED", "EXPECTED"}
+)
 
 
 def parse_iso8601(value: str | None) -> datetime | None:
@@ -243,7 +248,7 @@ def summarize_settlement(
             "operator: record human settlement for the current head "
             "(scripts/settle_tier4_pr.py --apply)"
         )
-    elif not quorum_conclusion:
+    elif not quorum_conclusion or quorum_conclusion.upper() in _NON_FINAL_STATES:
         next_action = "wait for the aragora-merge-quorum check to run on the current head"
     else:
         next_action = (

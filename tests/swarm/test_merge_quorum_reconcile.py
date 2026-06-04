@@ -200,6 +200,11 @@ class TestSummarizeSettlement:
         status = self._call(tier=2, quorum_conclusion="")
         assert "wait for the aragora-merge-quorum check" in status.next_action
 
+    def test_non_final_state_waits(self) -> None:
+        # A non-terminal state (via the check-run state fallback) is not a stale run.
+        status = self._call(tier=2, quorum_conclusion="IN_PROGRESS")
+        assert "wait for the aragora-merge-quorum check" in status.next_action
+
     def test_unknown_tier_defaults_strict(self) -> None:
         status = self._call(tier=None, human_settlement_present=False)
         # Strict default requires human settlement.

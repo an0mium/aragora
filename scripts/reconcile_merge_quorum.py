@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -125,7 +126,11 @@ def evaluate_pr(
 
 
 def execute_rerun(repo: str, run_id: int) -> bool:
-    proc = run(["gh", "run", "rerun", str(run_id), "--repo", repo])
+    try:
+        proc = run(["gh", "run", "rerun", str(run_id), "--repo", repo])
+    except subprocess.TimeoutExpired:
+        print(f"warning: rerun timed out for run {run_id}", file=sys.stderr)
+        return False
     if proc.returncode != 0:
         print(f"warning: rerun failed for run {run_id}: {proc.stderr.strip()}", file=sys.stderr)
         return False

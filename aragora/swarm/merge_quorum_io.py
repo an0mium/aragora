@@ -64,8 +64,10 @@ def aragora_env() -> dict[str, str]:
 
 
 def run(
-    args: list[str], *, env: dict[str, str] | None = None, timeout: int | None = None
+    args: list[str], *, env: dict[str, str] | None = None, timeout: int | None = _GH_TIMEOUT
 ) -> subprocess.CompletedProcess:
+    # Default to a bounded timeout so no bare call can hang the reconciler;
+    # callers that need longer (model-review CLIs) pass an explicit timeout.
     return subprocess.run(
         args, capture_output=True, text=True, check=False, env=env, timeout=timeout
     )
