@@ -243,6 +243,8 @@ def summarize_settlement(
             "operator: record human settlement for the current head "
             "(scripts/settle_tier4_pr.py --apply)"
         )
+    elif not quorum_conclusion:
+        next_action = "wait for the aragora-merge-quorum check to run on the current head"
     else:
         next_action = (
             "re-run aragora-merge-quorum so it re-reads the current evidence "

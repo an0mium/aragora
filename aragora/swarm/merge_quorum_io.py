@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -24,6 +25,18 @@ HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
 _SHADOW_MARKERS = ("shadow", "advisory")
 _FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "ERROR", "STARTUP_FAILURE"}
 _MERGE_PACKET_TIMEOUT = 120
+_EVIDENCE_LINT_TIMEOUT = 90
+
+
+def _looks_like_shadow(name: str) -> bool:
+    """Whether a check name is a non-required shadow/advisory check.
+
+    Matches whole tokens (split on non-alphanumerics) so a required check whose
+    name merely contains the substring (e.g. ``aragora-shadow-deploy-required``)
+    is not misclassified as a shadow.
+    """
+    tokens = re.split(r"[^a-z0-9]+", name.lower())
+    return any(marker in tokens for marker in _SHADOW_MARKERS)
 
 
 def aragora_env() -> dict[str, str]:
@@ -99,10 +112,15 @@ def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
         if isinstance(entry, dict) and str(entry.get("oid") or "") == head_sha:
             head_committed_at = str(entry.get("committedDate") or "")
             break
-    if not head_committed_at and commits:
-        last = commits[-1]
-        if isinstance(last, dict):
-            head_committed_at = str(last.get("committedDate") or "")
+    if not head_committed_at and head_sha:
+        # The head may be beyond the returned commit slice; fetch its date
+        # directly rather than guessing from the last listed commit.
+        try:
+            commit = run_json(["gh", "api", f"repos/{repo}/commits/{head_sha}"]) or {}
+        except RuntimeError:
+            commit = {}
+        committer = (commit.get("commit") or {}).get("committer") or {}
+        head_committed_at = str(committer.get("date") or "")
 
     real_failure = False
     quorum_conclusion = ""
@@ -119,7 +137,7 @@ def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
         is_required = check.get("isRequired")
         if is_required is True:
             real_failure = True
-        elif is_required is None and not any(m in name.lower() for m in _SHADOW_MARKERS):
+        elif is_required is None and not _looks_like_shadow(name):
             real_failure = True
     return {
         "head_sha": head_sha,
@@ -143,8 +161,15 @@ def fetch_latest_quorum_run(repo: str, head_sha: str) -> QuorumRun | None:
     if not runs:
         return None
     run_obj = runs[0]
+    raw_id = run_obj.get("id")
+    if raw_id is None:
+        return None
+    try:
+        run_id = int(raw_id)
+    except (TypeError, ValueError):
+        return None
     return QuorumRun(
-        run_id=int(run_obj.get("id")),
+        run_id=run_id,
         created_at=str(run_obj.get("created_at") or ""),
         conclusion=str(run_obj.get("conclusion") or "").upper(),
         head_sha=str(run_obj.get("head_sha") or ""),
@@ -238,7 +263,7 @@ def lint_comment(
     body: str,
     env: dict[str, str],
 ) -> dict[str, Any]:
-    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
         fh.write(body)
         body_file = fh.name
     try:
@@ -262,7 +287,10 @@ def lint_comment(
         ]
         if head_committed_at:
             args.extend(["--head-committed-at", head_committed_at])
-        proc = run(args, env=env)
+        try:
+            proc = run(args, env=env, timeout=_EVIDENCE_LINT_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            return {}
         if proc.returncode != 0 or not proc.stdout.strip():
             return {}
         try:

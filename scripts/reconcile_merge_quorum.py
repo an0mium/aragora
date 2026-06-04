@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -50,6 +51,9 @@ from aragora.swarm.merge_quorum_reconcile import (  # noqa: E402
 DEFAULT_STATE_FILE = Path.home() / ".aragora" / "merge_quorum_reconcile_state.json"
 
 
+_MAX_STATE_ENTRIES = 500
+
+
 def _load_state(path: Path) -> dict[str, Any]:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -57,10 +61,24 @@ def _load_state(path: Path) -> dict[str, Any]:
         return {}
 
 
+def _prune_state(state: dict[str, Any]) -> dict[str, Any]:
+    if len(state) <= _MAX_STATE_ENTRIES:
+        return state
+    items = sorted(
+        state.items(),
+        key=lambda kv: str((kv[1] or {}).get("last_rerun_at") or ""),
+        reverse=True,
+    )
+    return dict(items[:_MAX_STATE_ENTRIES])
+
+
 def _save_state(path: Path, state: dict[str, Any]) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+        payload = json.dumps(_prune_state(state), indent=2, sort_keys=True)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(payload, encoding="utf-8")
+        os.replace(tmp, path)
     except OSError as exc:
         print(f"warning: could not persist state to {path}: {exc}", file=sys.stderr)
 
