@@ -1395,7 +1395,8 @@ def publish_handoffs(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Publish structured automation memory handoffs as GitHub issues."
+        description="Publish structured automation memory handoffs as GitHub issues.",
+        allow_abbrev=False,
     )
     parser.add_argument("--repo", default=".", help="Path inside the target repository")
     parser.add_argument(

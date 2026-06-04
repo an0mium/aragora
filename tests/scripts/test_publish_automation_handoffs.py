@@ -1702,8 +1702,8 @@ def test_main_preview_does_not_write_outbox_receipt(
     monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
     monkeypatch.setattr(
         mod,
-        "load_outbox_handoffs",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: [handoff],
+        "_load_outbox_handoffs_with_skip_reasons",
+        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter()),
     )
     monkeypatch.setattr(
         mod,
@@ -1773,8 +1773,8 @@ def test_main_accepts_explicit_dry_run_alias(monkeypatch: Any, tmp_path: Path, c
     monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
     monkeypatch.setattr(
         mod,
-        "load_outbox_handoffs",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: [handoff],
+        "_load_outbox_handoffs_with_skip_reasons",
+        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter()),
     )
     monkeypatch.setattr(
         mod,
@@ -1970,8 +1970,8 @@ def test_main_reports_handoff_context_when_github_unavailable(
     monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
     monkeypatch.setattr(
         mod,
-        "load_outbox_handoffs",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: [handoff],
+        "_load_outbox_handoffs_with_skip_reasons",
+        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter()),
     )
     monkeypatch.setattr(
         mod,
@@ -2257,6 +2257,18 @@ def test_main_limits_github_unavailable_decision_preview(
             "github_unavailable": 1,
         },
     }
+
+
+def test_parser_rejects_abbreviated_max_options() -> None:
+    parser = mod._build_parser()
+
+    with pytest.raises(SystemExit) as max_exc:
+        parser.parse_args(["--max", "10"])
+    with pytest.raises(SystemExit) as max_open_exc:
+        parser.parse_args(["--max-open", "10"])
+
+    assert max_exc.value.code == 2
+    assert max_open_exc.value.code == 2
 
 
 def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path) -> None:
