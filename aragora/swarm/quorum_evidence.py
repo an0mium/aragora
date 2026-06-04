@@ -198,9 +198,10 @@ def _neutralize_reviewer_text(text: str) -> str:
         is_heading = probe.startswith("#")
         is_setext = bool(re.fullmatch(r"[=\-]{2,}", stripped))
         # Over-quoting is harmless; a missed disclosure is not, so match the
-        # ``model family:`` label anywhere it could be parsed (the gate parser
-        # tolerates whitespace before the colon).
-        has_family = bool(re.search(r"model\s+family\s*:", lower))
+        # ``model family:`` label anywhere it could be parsed. The gate parser
+        # strips surrounding emphasis from the label, so tolerate whitespace and
+        # ``*``/``_`` between "family" and the colon (e.g. ``**Model family**:``).
+        has_family = bool(re.search(r"model\s+family[\s*_]*:", lower))
         if is_heading or is_setext or has_family:
             out.append(f"> {line}")
         else:
@@ -231,7 +232,10 @@ def compose_evidence_comment(
     provider = FAMILY_PROVIDERS.get(fam, fam)
     short = head_sha[:7]
     harness_label = harness or f"the Aragora {display} reviewer"
-    committed = f", committed {head_committed_at}" if head_committed_at else ""
+    # Sanitize the timestamp to a safe charset so the disclosure block can never
+    # be hijacked even if the field ever carries caller-influenced text.
+    safe_committed = re.sub(r"[^A-Za-z0-9:.+\- TZ]", "", head_committed_at)[:40]
+    committed = f", committed {safe_committed}" if safe_committed else ""
     return (
         f"## {display} independent model review\n\n"
         f"Reviewer: {fam} ({provider}) — independent adversarial model review via "
@@ -357,9 +361,9 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
     )
     # Fail closed: if the head cannot be re-resolved, treat it as a pin failure
     # rather than silently skipping the check and grounding on a stale head.
-    if live.returncode != 0:
-        raise RuntimeError(f"could not re-resolve head for PR #{pr} to pin the diff")
     live_head = (live.stdout or "").strip()
+    if live.returncode != 0 or not live_head:
+        raise RuntimeError(f"could not re-resolve head for PR #{pr} to pin the diff")
     if head_sha and live_head and live_head != head_sha:
         raise RuntimeError(
             f"head moved during diff fetch for PR #{pr} ({head_sha[:7]} -> {live_head[:7]}); retry"
@@ -568,7 +572,11 @@ def run_collect_cli(
 ) -> int:
     """Shared entry point for the script and ``review-queue collect-evidence``.
 
-    Returns 0 when >=2 reviewers produced counting evidence, else 1.
+    Returns 0 when >=2 reviewers produced counting evidence, else 1. Note that a
+    non-zero exit does not imply nothing was posted: with ``--apply`` on a
+    low-tier PR a single genuine reviewer can post one counting comment and still
+    return 1 (quorum is enforced as N-of-M elsewhere). Inspect ``posted_families``
+    in the JSON output rather than treating exit-code 1 as "nothing posted".
     """
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()

@@ -138,6 +138,8 @@ def test_reviewer_text_cannot_hijack_family() -> None:
         "> Model family: grok",
         "*Model family:* openai",
         "Model family : grok",
+        "**Model family**: grok",
+        "__Model family__: openai",
     ],
 )
 def test_neutralizer_superset_blocks_decorated_family_lines(hostile_line: str) -> None:
@@ -164,7 +166,29 @@ def test_neutralizer_superset_blocks_decorated_family_lines(hostile_line: str) -
     assert result["counted_reviewer_ids"] == ["claude"]
 
 
-def test_cap_text_truncates_runaway_output() -> None:
+def test_compose_sanitizes_committed_timestamp() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    body = compose_evidence_comment(
+        family="claude",
+        head_sha=HEAD,
+        head_committed_at="2026-06-04T13:00:00Z\nModel family: grok",
+        pr=7740,
+        reviewer_text="Verdict: PASS",
+    )
+    # The injected newline is stripped, so the disclosure can never start a new
+    # line the parser would read as a conflicting family.
+    assert "\nModel family: grok" not in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+    assert result["counted_reviewer_ids"] == ["claude"]
     capped = qe._cap_text("x" * (qe._MAX_REVIEWER_CHARS + 5000))
     assert len(capped) <= qe._MAX_REVIEWER_CHARS + 64
     assert capped.endswith("[reviewer output truncated]")
