@@ -27,6 +27,7 @@ all network/process I/O is injected so the orchestrator
 from __future__ import annotations
 
 import asyncio
+import re
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -74,8 +75,17 @@ DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "grok")
 SETTLEMENT_TIER_FLOOR = 3
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
+# Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
+_MAX_REVIEWER_CHARS = 32_000
 _CLAUDE_TIMEOUT = 300
 _REVIEWER_TIMEOUT = 300
+
+
+def _cap_text(text: str) -> str:
+    text = text.strip()
+    if len(text) > _MAX_REVIEWER_CHARS:
+        return text[:_MAX_REVIEWER_CHARS].rstrip() + "\n\n[reviewer output truncated]"
+    return text
 
 
 @dataclass
@@ -175,12 +185,20 @@ def _neutralize_reviewer_text(text: str) -> str:
     """
     out: list[str] = []
     for line in text.strip().splitlines():
-        probe = line.lstrip()
-        for marker in ("- ", "* ", "-", "*"):
-            if probe.startswith(marker):
-                probe = probe[len(marker) :].lstrip()
-                break
-        if line.lstrip().startswith("#") or probe.lower().startswith("model family:"):
+        stripped = line.strip()
+        lower = stripped.lower()
+        # Canonicalize the way the parser does (strip leading quote/list markers
+        # and surrounding emphasis) so the neutralizer is a strict superset of
+        # what the identity parser will accept as a heading or disclosure line.
+        probe = stripped.lstrip(">").strip()
+        probe = re.sub(r"^([-*+]\s+|\d+[.)]\s+)+", "", probe)
+        probe = probe.strip("*_ ").strip()
+        is_heading = probe.startswith("#")
+        is_setext = bool(re.fullmatch(r"[=\-]{2,}", stripped))
+        # Over-quoting is harmless; a missed disclosure is not, so match the
+        # ``model family:`` label anywhere it could be parsed.
+        has_family = "model family:" in lower
+        if is_heading or is_setext or has_family:
             out.append(f"> {line}")
         else:
             out.append(line)
@@ -267,6 +285,10 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
         return ReviewerResult("claude", "", False, "claude CLI not found on PATH")
     except subprocess.TimeoutExpired:
         return ReviewerResult("claude", "", False, f"claude CLI timed out after {_CLAUDE_TIMEOUT}s")
+    except (OSError, subprocess.SubprocessError) as exc:
+        # Convert any other subprocess error (e.g. broken pipe writing stdin)
+        # into a recorded failure so one bad reviewer never aborts the run.
+        return ReviewerResult("claude", "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     text = (proc.stdout or "").strip()
     if proc.returncode != 0 or not text:
         return ReviewerResult(
@@ -275,7 +297,7 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
             False,
             f"claude CLI exit {proc.returncode}: {(proc.stderr or '').strip()[:200]}",
         )
-    return ReviewerResult("claude", text, True)
+    return ReviewerResult("claude", _cap_text(text), True)
 
 
 def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
@@ -291,7 +313,7 @@ def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
     text = (text or "").strip()
     if not text:
         return ReviewerResult(family, "", False, "empty reviewer output")
-    return ReviewerResult(family, text, True)
+    return ReviewerResult(family, _cap_text(text), True)
 
 
 def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
@@ -311,6 +333,30 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
     diff_text = proc.stdout or ""
     if not diff_text.strip():
         raise RuntimeError(f"PR #{pr} has an empty diff; nothing to review")
+    # Pin the diff to the resolved head: `gh pr diff` returns whatever the head
+    # is at call time, so if it moved between context resolution and now the
+    # reviewer would see a different diff than the comment claims to ground on.
+    live = merge_quorum_io.run(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(pr),
+            "--repo",
+            repo,
+            "--json",
+            "headRefOid",
+            "--jq",
+            ".headRefOid",
+        ],
+        env=merge_quorum_io.aragora_env(),
+        timeout=30,
+    )
+    live_head = (live.stdout or "").strip() if live.returncode == 0 else ""
+    if head_sha and live_head and live_head != head_sha:
+        raise RuntimeError(
+            f"head moved during diff fetch for PR #{pr} ({head_sha[:7]} -> {live_head[:7]}); retry"
+        )
     return build_review_prompt(repo=repo, pr=pr, head_sha=head_sha, diff_text=diff_text)
 
 

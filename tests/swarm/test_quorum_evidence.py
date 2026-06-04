@@ -124,6 +124,46 @@ def test_reviewer_text_cannot_hijack_family() -> None:
     assert result["counted_reviewer_ids"] == ["claude"]
 
 
+@pytest.mark.parametrize(
+    "hostile_line",
+    [
+        "**Model family:** grok",
+        "- Model family: grok",
+        "1. Model family: grok",
+        "> Model family: grok",
+        "*Model family:* openai",
+    ],
+)
+def test_neutralizer_superset_blocks_decorated_family_lines(hostile_line: str) -> None:
+    # Decorated disclosure lines the parser would otherwise read must be quoted
+    # so they can never change the attributed family.
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    body = compose_evidence_comment(
+        family="claude",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=f"Verdict: PASS\n{hostile_line}",
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+    assert result["counted_reviewer_ids"] == ["claude"]
+
+
+def test_cap_text_truncates_runaway_output() -> None:
+    capped = qe._cap_text("x" * (qe._MAX_REVIEWER_CHARS + 5000))
+    assert len(capped) <= qe._MAX_REVIEWER_CHARS + 64
+    assert capped.endswith("[reviewer output truncated]")
+
+
 # --- collect_evidence orchestration (fully offline via injected callables) ---
 
 
