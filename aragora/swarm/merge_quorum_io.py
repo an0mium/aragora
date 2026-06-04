@@ -320,10 +320,12 @@ def lint_comment(
     body: str,
     env: dict[str, str],
 ) -> dict[str, Any]:
-    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
-        fh.write(body)
-        body_file = fh.name
+    body_file = ""
     try:
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
+            # Capture the path before writing so a write failure still cleans up.
+            body_file = fh.name
+            fh.write(body)
         args = _evidence_lint_args(pr, head_sha, head_committed_at, author, body_file)
         try:
             proc = run(args, env=env, timeout=_EVIDENCE_LINT_TIMEOUT)
@@ -336,7 +338,8 @@ def lint_comment(
         except json.JSONDecodeError:
             return {}
     finally:
-        try:
-            os.unlink(body_file)
-        except OSError:
-            pass
+        if body_file:
+            try:
+                os.unlink(body_file)
+            except OSError:
+                pass
