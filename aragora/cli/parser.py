@@ -373,6 +373,11 @@ def _add_work_parser(subparsers) -> None:
     )
     add_common(robot_cmd)
     add_limit(robot_cmd)
+    robot_cmd.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit full recommendation records and emit compact routing counts",
+    )
     robot_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_robot"))
 
 

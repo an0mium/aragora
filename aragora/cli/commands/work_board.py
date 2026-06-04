@@ -6,11 +6,14 @@ import argparse
 import json
 import os
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
 from aragora.work.board import build_robot_recommendations, build_work_graph, collect_work_items
 from aragora.work.models import SCHEMA_VERSION
+
+SUMMARY_ONLY_DEFAULT_TOP_LIMIT = 20
 
 
 def _repo_root(args: argparse.Namespace) -> Path:
@@ -81,6 +84,23 @@ def _render_human(payload: dict[str, Any]) -> str:
                 if blockers:
                     lines.append(f"    blockers: {', '.join(blockers)}")
 
+    if "recommendation_summary" in payload:
+        summary = payload.get("recommendation_summary") or {}
+        lines.append("recommendation_summary:")
+        for key in ("by_classification", "by_action", "by_priority"):
+            values = summary.get(key) or {}
+            if values:
+                rendered = ", ".join(f"{name}={count}" for name, count in values.items())
+                lines.append(f"  {key}: {rendered}")
+        top = summary.get("top") or []
+        if top:
+            lines.append("  top:")
+            for rec in top:
+                lines.append(
+                    f"    #{rec.get('rank')} {rec.get('item_id')} "
+                    f"[{rec.get('classification')}] -> {rec.get('action')}"
+                )
+
     # work show emits a single item under "found"/"item".
     if "found" in payload:
         lines.append(f"id: {payload.get('id')}")
@@ -125,6 +145,38 @@ def _mute_stdout_after_broken_pipe() -> None:
     sys.stdout = open(os.devnull, "w", encoding="utf-8")
 
 
+def _counts(values: list[str]) -> dict[str, int]:
+    return dict(sorted(Counter(value for value in values if value).items()))
+
+
+def _compact_recommendation(rec: Any) -> dict[str, Any]:
+    item = rec.item
+    row: dict[str, Any] = {
+        "rank": rec.rank,
+        "item_id": rec.item_id,
+        "classification": rec.classification,
+        "action": rec.action,
+        "priority": rec.priority,
+    }
+    if item is not None:
+        if item.source:
+            row["source"] = item.source
+        if item.branch:
+            row["branch"] = item.branch
+    if rec.blockers:
+        row["blocker_count"] = len(rec.blockers)
+    return row
+
+
+def _recommendation_summary(recommendations: list[Any], emitted: list[Any]) -> dict[str, Any]:
+    return {
+        "by_classification": _counts([rec.classification for rec in recommendations]),
+        "by_action": _counts([rec.action for rec in recommendations]),
+        "by_priority": _counts([rec.priority for rec in recommendations]),
+        "top": [_compact_recommendation(rec) for rec in emitted],
+    }
+
+
 def cmd_work_list(args: argparse.Namespace) -> int:
     items, health = collect_work_items(_repo_root(args), scope=args.scope)
     limit = getattr(args, "limit", None)
@@ -164,17 +216,27 @@ def cmd_work_graph(args: argparse.Namespace) -> int:
 def cmd_work_robot(args: argparse.Namespace) -> int:
     recommendations, health = build_robot_recommendations(_repo_root(args), scope="current")
     limit = getattr(args, "limit", None)
-    emitted_recommendations = recommendations[:limit] if limit is not None else recommendations
-    return _emit(
-        {
-            "schema_version": SCHEMA_VERSION,
-            "scope": "current",
-            "count": len(recommendations),
-            "emitted_count": len(emitted_recommendations),
-            "limit": limit,
-            "recommendations": [rec.to_dict() for rec in emitted_recommendations],
-            "source_health": health,
-            "mutations": [],
-        },
-        as_json=getattr(args, "json", False),
+    summary_only = getattr(args, "summary_only", False)
+    summary_limit = SUMMARY_ONLY_DEFAULT_TOP_LIMIT if summary_only and limit is None else None
+    effective_limit = limit if limit is not None else summary_limit
+    emitted_recommendations = (
+        recommendations[:effective_limit] if effective_limit is not None else recommendations
     )
+    payload: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "scope": "current",
+        "count": len(recommendations),
+        "emitted_count": len(emitted_recommendations),
+        "limit": limit,
+        "source_health": health,
+        "mutations": [],
+    }
+    if summary_limit is not None:
+        payload["summary_limit"] = summary_limit
+    if summary_only:
+        payload["recommendation_summary"] = _recommendation_summary(
+            recommendations, emitted_recommendations
+        )
+    else:
+        payload["recommendations"] = [rec.to_dict() for rec in emitted_recommendations]
+    return _emit(payload, as_json=getattr(args, "json", False))

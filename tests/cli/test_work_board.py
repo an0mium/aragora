@@ -26,6 +26,7 @@ def _args(tmp_path: Path, **kwargs) -> argparse.Namespace:
         "scope": "current",
         "work_id": None,
         "limit": None,
+        "summary_only": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -70,6 +71,15 @@ def test_work_parser_registers_robot_limit() -> None:
     assert args.command == "work"
     assert args.work_cmd == "robot"
     assert args.limit == 4
+
+
+def test_work_parser_registers_robot_summary_only() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["work", "robot", "--json", "--summary-only"])
+
+    assert args.command == "work"
+    assert args.work_cmd == "robot"
+    assert args.summary_only is True
 
 
 def test_work_parser_registers_list_limit() -> None:
@@ -657,6 +667,56 @@ def test_work_robot_limit_bounds_emitted_recommendations_but_preserves_total_cou
     assert payload["count"] == 3
     assert payload["emitted_count"] == 2
     assert len(payload["recommendations"]) == 2
+    assert payload["mutations"] == []
+
+
+def test_work_robot_summary_only_omits_full_recommendations(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    for name in ("one", "two", "three"):
+        (outbox / f"{name}.json").write_text(
+            json.dumps({"task": f"repair {name}", "branch": f"codex/{name}"}),
+            encoding="utf-8",
+        )
+
+    assert cmd_work_robot(_args(tmp_path, limit=2, summary_only=True)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 3
+    assert payload["emitted_count"] == 2
+    assert "recommendations" not in payload
+    assert payload["recommendation_summary"]["by_classification"] == {"needs-polish": 3}
+    assert payload["recommendation_summary"]["by_action"] == {"publish_or_reconcile_handoff": 3}
+    assert len(payload["recommendation_summary"]["top"]) == 2
+    assert "item" not in payload["recommendation_summary"]["top"][0]
+    assert "score" not in payload["recommendation_summary"]["top"][0]
+    assert payload["mutations"] == []
+
+
+def test_work_robot_summary_only_defaults_to_compact_top_limit(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    for index in range(25):
+        (outbox / f"item-{index:02d}.json").write_text(
+            json.dumps({"task": f"repair {index}", "branch": f"codex/item-{index:02d}"}),
+            encoding="utf-8",
+        )
+
+    assert cmd_work_robot(_args(tmp_path, summary_only=True)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 25
+    assert payload["emitted_count"] == 20
+    assert payload["limit"] is None
+    assert payload["summary_limit"] == 20
+    assert "recommendations" not in payload
+    assert len(payload["recommendation_summary"]["top"]) == 20
     assert payload["mutations"] == []
 
 
