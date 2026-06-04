@@ -262,6 +262,31 @@ def test_collect_does_not_post_uncountable_evidence() -> None:
     assert all(not item.would_count for item in outcome.items)
 
 
+def test_collect_rejects_unsupported_family() -> None:
+    fakes, posted = _fakes(tier=1)
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "bogus"], author="me", apply=True, **fakes
+    )
+    assert "bogus" in [f.family for f in outcome.failures]
+    assert "claude" in outcome.posted
+    assert "bogus" not in outcome.counting_families
+
+
+def test_collect_records_post_errors_without_losing_others() -> None:
+    fakes, _ = _fakes(tier=1)
+
+    def flaky_poster(repo: str, pr: int, body: str) -> None:
+        if "Grok" in body:
+            raise RuntimeError("gh rejected comment")
+
+    fakes["poster"] = flaky_poster
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    )
+    assert outcome.posted == ["claude"]
+    assert any("grok" in e for e in outcome.post_errors)
+
+
 def test_collect_skips_post_when_head_moves_before_posting() -> None:
     fakes, posted = _fakes(tier=1)
     heads = iter([HEAD, "0" * 40])  # initial fetch, then recheck = moved head

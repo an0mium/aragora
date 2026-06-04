@@ -121,6 +121,7 @@ class CollectOutcome:
     items: list[EvidenceItem] = field(default_factory=list)
     failures: list[ReviewerResult] = field(default_factory=list)
     posted: list[str] = field(default_factory=list)
+    post_errors: list[str] = field(default_factory=list)
 
     @property
     def counting_families(self) -> list[str]:
@@ -138,6 +139,7 @@ class CollectOutcome:
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,
             "posted_families": list(self.posted),
+            "post_errors": list(self.post_errors),
             "items": [
                 {
                     "family": item.family,
@@ -352,7 +354,11 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
         env=merge_quorum_io.aragora_env(),
         timeout=30,
     )
-    live_head = (live.stdout or "").strip() if live.returncode == 0 else ""
+    # Fail closed: if the head cannot be re-resolved, treat it as a pin failure
+    # rather than silently skipping the check and grounding on a stale head.
+    if live.returncode != 0:
+        raise RuntimeError(f"could not re-resolve head for PR #{pr} to pin the diff")
+    live_head = (live.stdout or "").strip()
     if head_sha and live_head and live_head != head_sha:
         raise RuntimeError(
             f"head moved during diff fetch for PR #{pr} ({head_sha[:7]} -> {live_head[:7]}); retry"
@@ -457,6 +463,14 @@ def collect_evidence(
         if not family or family in seen:
             continue
         seen.add(family)
+        if family not in FAMILY_PROVIDERS:
+            # Only direct families the quorum parser can count are supported;
+            # reject anything else early instead of producing an uncountable
+            # (or malformed) comment.
+            outcome.failures.append(
+                ReviewerResult(family, "", False, f"unsupported reviewer family: {family}")
+            )
+            continue
         result = reviewer_runner(family, prompt)
         if not result.ok or not result.text.strip():
             outcome.failures.append(result)
@@ -497,7 +511,12 @@ def collect_evidence(
             for item in outcome.items:
                 if not item.would_count:
                     continue
-                poster(repo, pr, item.body)
+                try:
+                    poster(repo, pr, item.body)
+                except Exception as exc:
+                    # One failed post must not lose the record of the others.
+                    outcome.post_errors.append(f"{item.family}: {str(exc)[:200]}")
+                    continue
                 outcome.posted.append(item.family)
 
     return outcome
@@ -512,6 +531,8 @@ def _render_outcome(outcome: CollectOutcome) -> str:
     ]
     if outcome.posted:
         lines.append(f"  posted: {', '.join(outcome.posted)}")
+    if outcome.post_errors:
+        lines.append(f"  post errors: {'; '.join(outcome.post_errors)}")
     for item in outcome.items:
         flag = "counts" if item.would_count else f"DOES NOT count ({', '.join(item.problems)})"
         lines.append(f"  - {item.family}: {flag}")
