@@ -2043,6 +2043,25 @@ class TestParentheticalModelFamily:
         # The fix's intended cases (parenthetical present) still resolve.
         assert _normalize_model_family("openai (gpt-5.5)") == "openai"
 
+    def test_malformed_or_non_trailing_parenthetical_stays_unknown(self) -> None:
+        """Second codex-review regression (PR #7743): only a *well-formed,
+        trailing, closed* ``(...)`` suffix is tolerated. Text after the closing
+        paren, an unclosed paren, or a multi-word head must all stay "" so they
+        remain ``unknown_model_family`` blockers — the relaxation must not be a
+        blanket "strip from the first ``(`` to end of string"."""
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        # Text after the closing parenthetical -> not a trailing suffix.
+        assert _normalize_model_family("openai (gpt-5.5) claude") == ""
+        # Unclosed parenthetical.
+        assert _normalize_model_family("openai (") == ""
+        assert _normalize_model_family("openai (not actually closed") == ""
+        # Multi-word head before a closed parenthetical.
+        assert _normalize_model_family("openai gpt (x)") == ""
+        # Well-formed trailing suffix (incl. multi-word alias head) still works.
+        assert _normalize_model_family("openai (gpt-5.5)") == "openai"
+        assert _normalize_model_family("nous hermes (8x7b)") == "hermes"
+
     def test_paren_disclosure_still_detects_heading_conflict(self) -> None:
         """A real heading/disclosed conflict must STILL fire even after the
         parenthetical is stripped — the disclosed family resolves correctly

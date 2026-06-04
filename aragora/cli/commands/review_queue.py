@@ -3232,26 +3232,32 @@ def _normalize_model_family(value: str) -> str:
     # of the canonical family token, so a literal lookup of the whole string used
     # to fail and de-count an otherwise-valid reviewer.
     #
-    # We ONLY relax the lookup when a trailing ``(...)`` is actually present:
-    # strip it and retry, then fall back to the leading whitespace-delimited
-    # token of the *parenthetical-stripped* value (handles ``openai (gpt-5.5)``).
-    # When no parenthetical is present we deliberately do NOT take a leading
-    # token, so malformed multi-word disclosures such as ``openai claude`` or
-    # ``openai not-a-valid-family`` still resolve to "" and stay a count blocker
-    # exactly as before. This keeps the gate fail-closed for everything except
-    # the well-formed parenthetical disclosures that were being lost.
-    if "(" not in lower:
+    # We ONLY relax the lookup for a *well-formed, trailing, closed*
+    # parenthetical suffix: ``<token> (<detail>)`` with nothing but optional
+    # whitespace after the closing ``)``. The match captures the text before the
+    # ``(`` as ``head`` and the canonical token is the head's *single*
+    # whitespace-delimited word (which covers ``openai (gpt-5.5)``). This keeps
+    # the gate fail-closed for everything the PR intends to remain blocked:
+    #   - no parenthetical at all (``openai claude``) -> no match -> "".
+    #   - text *after* the closing paren (``openai (gpt-5.5) claude``) -> the
+    #     ``$`` anchor rejects it -> "".
+    #   - unclosed parenthetical (``openai (``, ``openai (not closed``) -> no
+    #     ``)`` -> no match -> "".
+    #   - multi-word head (``openai gpt (x)``) -> head has >1 word -> "".
+    # A genuinely-unknown leading token (``mystery (x)``) still resolves to "".
+    match = re.fullmatch(r"\s*([^()]*?)\s*\([^()]*\)\s*", lower)
+    if not match:
         return ""
-    stripped = re.sub(r"\s*\(.*$", "", lower).strip()
-    resolved = _lookup(stripped)
-    if resolved:
-        return resolved
-    leading = stripped.split()[0] if stripped.split() else ""
-    if leading and leading != stripped:
-        resolved = _lookup(leading)
+    head = match.group(1).strip()
+    head_words = head.split()
+    if len(head_words) != 1:
+        # Multi-word alias such as "nous hermes (8x7b)" is still a legitimate
+        # disclosure: try the full head before rejecting a >1-word head.
+        resolved = _lookup(head)
         if resolved:
             return resolved
-    return ""
+        return ""
+    return _lookup(head_words[0])
 
 
 def _first_heading_candidate(text: str) -> tuple[str, int | None]:
