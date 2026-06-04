@@ -1275,14 +1275,48 @@ class _GhError(RuntimeError):
     """Raised when a 'gh' invocation fails or returns malformed JSON."""
 
 
+def _env_timeout_seconds(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+REVIEW_QUEUE_GH_TIMEOUT_SECONDS = _env_timeout_seconds(
+    "REVIEW_QUEUE_GH_TIMEOUT_SECONDS",
+    30,
+)
+
+
+def _format_gh_timeout(args: list[str], timeout: float | None) -> str:
+    timeout_value = timeout if timeout is not None else REVIEW_QUEUE_GH_TIMEOUT_SECONDS
+    return f"gh {' '.join(args)} timed out after {timeout_value:g}s"
+
+
+def _run_gh(
+    args: list[str],
+    *,
+    run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        return run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=REVIEW_QUEUE_GH_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise _GhError(_format_gh_timeout(args, exc.timeout)) from exc
+
+
 def _gh_text(args: list[str]) -> str:
     """Run a 'gh' command and return plain stdout."""
-    proc = subprocess.run(
-        ["gh", *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    proc = _run_gh(args)
     if proc.returncode != 0:
         stderr = proc.stderr.strip() or "no stderr"
         raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
@@ -1291,12 +1325,7 @@ def _gh_text(args: list[str]) -> str:
 
 def _gh_json(args: list[str]) -> Any:
     """Run a 'gh' command and parse JSON output. Returns None for empty stdout."""
-    proc = subprocess.run(
-        ["gh", *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    proc = _run_gh(args)
     if proc.returncode != 0:
         stderr = proc.stderr.strip() or "no stderr"
         raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
