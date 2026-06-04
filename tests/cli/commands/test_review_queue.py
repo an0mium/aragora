@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import subprocess
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,7 @@ from aragora.cli.commands.review_queue import (
     _record_external_settlement,
     _render_packet,
     _requested_action,
+    _run_gh,
     _settle_packet,
     _subsystem_for,
     _summarize_checks,
@@ -1978,6 +1980,22 @@ class TestModelReviewQuorum:
 
 
 # --- _parse_pr_number ------------------------------------------------------
+
+
+class TestGhHelpers:
+    def test_run_gh_fails_closed_on_subprocess_timeout(self) -> None:
+        calls: list[tuple[list[str], dict[str, Any]]] = []
+
+        def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            calls.append((cmd, kwargs))
+            raise subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs["timeout"])
+
+        with pytest.raises(_GhError, match="timed out"):
+            _run_gh(["pr", "view", "1", "--json", "number"], run=fake_run)
+
+        assert calls
+        assert calls[0][0] == ["gh", "pr", "view", "1", "--json", "number"]
+        assert calls[0][1]["timeout"] > 0
 
 
 class TestParsePRNumber:
