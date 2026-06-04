@@ -27,7 +27,7 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.github_cli_health import check_github_cli_health
+from scripts.github_cli_health import check_github_cli_health, github_cli_env
 from scripts.publish_automation_handoffs import _open_boss_ready_count
 from scripts.publish_codex_automation_branches import (
     CODEX_BRANCH_PREFIX,
@@ -40,6 +40,8 @@ DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_LABELS = ("boss-ready",)
 DEFAULT_MAX_OPEN_ISSUES = 16
 DEFAULT_MAX_OPEN_PRS = 12
+DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS = 5
+DEFAULT_LIGHTWEIGHT_GH_TIMEOUT_SECONDS = 20
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_OUTPUT = Path(".aragora/automation-github-status/latest.json")
@@ -565,28 +567,39 @@ def _is_transient_open_pr_query_error(error: str) -> bool:
     return any(marker in normalized for marker in TRANSIENT_OPEN_PR_QUERY_ERROR_MARKERS)
 
 
-def _open_codex_prs_lightweight(repo_root: Path, repo: str) -> list[dict[str, Any]]:
+def _open_codex_prs_lightweight(
+    repo_root: Path,
+    repo: str,
+    *,
+    timeout_seconds: int = DEFAULT_LIGHTWEIGHT_GH_TIMEOUT_SECONDS,
+) -> list[dict[str, Any]]:
     """List open Codex PRs without check rollups for cache-refresh degraded mode."""
 
-    proc = subprocess.run(
-        [
-            "gh",
-            "pr",
-            "list",
-            "--repo",
-            repo,
-            "--state",
-            "open",
-            "--limit",
-            "200",
-            "--json",
-            "number,title,headRefName,isDraft,mergeStateStatus,reviewDecision",
-        ],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    args = [
+        "gh",
+        "pr",
+        "list",
+        "--repo",
+        repo,
+        "--state",
+        "open",
+        "--limit",
+        "200",
+        "--json",
+        "number,title,headRefName,isDraft,mergeStateStatus,reviewDecision",
+    ]
+    try:
+        proc = subprocess.run(
+            args,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout_seconds,
+            env=github_cli_env(os.environ),
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"gh pr list timed out after {timeout_seconds}s") from exc
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or "failed to list open PRs")
     payload = json.loads(proc.stdout or "[]")
@@ -608,8 +621,13 @@ def build_status(
     max_open_issues: int,
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
+    github_timeout_seconds: int = DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS,
+    lightweight_query_timeout_seconds: int = DEFAULT_LIGHTWEIGHT_GH_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
-    health = check_github_cli_health(repo_root)
+    health = check_github_cli_health(
+        repo_root,
+        timeout_seconds=max(1, int(github_timeout_seconds)),
+    )
     payload: dict[str, Any] = {
         "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "repo_root": str(repo_root),
@@ -643,7 +661,11 @@ def build_status(
             )
             return payload
         try:
-            open_prs = _open_codex_prs_lightweight(repo_root, github_repo)
+            open_prs = _open_codex_prs_lightweight(
+                repo_root,
+                github_repo,
+                timeout_seconds=max(1, int(lightweight_query_timeout_seconds)),
+            )
         except RuntimeError as fallback_exc:
             payload["github_queue"] = _github_queue_unavailable(
                 reason="remote_query_failed",
@@ -783,6 +805,24 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--label", action="append", dest="labels", default=list(DEFAULT_LABELS))
     parser.add_argument("--max-open-prs", type=int, default=DEFAULT_MAX_OPEN_PRS)
     parser.add_argument("--max-open-issues", type=int, default=DEFAULT_MAX_OPEN_ISSUES)
+    parser.add_argument(
+        "--github-timeout-seconds",
+        type=int,
+        default=DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS,
+        help=(
+            "Timeout for each GitHub CLI health probe during cache refresh "
+            f"(default: {DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS})"
+        ),
+    )
+    parser.add_argument(
+        "--lightweight-query-timeout-seconds",
+        type=int,
+        default=DEFAULT_LIGHTWEIGHT_GH_TIMEOUT_SECONDS,
+        help=(
+            "Timeout for the degraded lightweight open-PR query "
+            f"(default: {DEFAULT_LIGHTWEIGHT_GH_TIMEOUT_SECONDS})"
+        ),
+    )
     parser.add_argument("--outbox-dir", type=Path, default=None)
     parser.add_argument("--receipt-dir", type=Path, default=None)
     parser.add_argument(
@@ -860,6 +900,8 @@ def main(argv: list[str] | None = None) -> int:
             if state_root is not None
             else None
         ),
+        github_timeout_seconds=args.github_timeout_seconds,
+        lightweight_query_timeout_seconds=args.lightweight_query_timeout_seconds,
     )
     payload = preserve_cached_github_queue(output, payload)
     write_status(output, payload)

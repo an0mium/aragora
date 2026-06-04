@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 import scripts.cache_codex_automation_github_status as mod
 import scripts.refresh_automation_status_cache as refresh_mod
@@ -22,7 +25,7 @@ def test_build_status_uses_local_queue_when_github_unavailable(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root: GitHubCLIHealth(
+        lambda repo_root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -66,7 +69,7 @@ def test_build_status_uses_lightweight_fallback_when_remote_query_times_out(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root: GitHubCLIHealth(
+        lambda repo_root, **_kwargs: GitHubCLIHealth(
             ready=True,
             auth_ok=True,
             api_ok=True,
@@ -83,7 +86,7 @@ def test_build_status_uses_lightweight_fallback_when_remote_query_times_out(
     monkeypatch.setattr(
         mod,
         "_open_codex_prs_lightweight",
-        lambda repo_root, repo: [
+        lambda repo_root, repo, **_kwargs: [
             {
                 "number": 123,
                 "title": "repair cache",
@@ -132,7 +135,7 @@ def test_build_status_still_fails_closed_for_non_timeout_remote_query_errors(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root: GitHubCLIHealth(
+        lambda repo_root, **_kwargs: GitHubCLIHealth(
             ready=True,
             auth_ok=True,
             api_ok=True,
@@ -163,6 +166,24 @@ def test_build_status_still_fails_closed_for_non_timeout_remote_query_errors(
     }
     assert payload["local_queue"]["outbox_count"] == 1
     assert payload["local_queue"]["unreceipted_outbox_count"] == 1
+
+
+def test_lightweight_open_pr_query_times_out_cleanly(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def fake_run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(kwargs)
+        raise subprocess.TimeoutExpired(args, timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="timed out after 20s"):
+        mod._open_codex_prs_lightweight(tmp_path, "synaptent/aragora")
+
+    assert calls[0]["timeout"] == 20
 
 
 def test_preserves_cached_open_pr_heads_when_github_queue_unavailable(tmp_path: Path) -> None:
@@ -747,7 +768,7 @@ def test_main_default_output_uses_explicit_aragora_state_root(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root: GitHubCLIHealth(
+        lambda repo_root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -775,7 +796,7 @@ def test_main_accepts_cache_path_alias(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root: GitHubCLIHealth(
+        lambda repo_root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -802,7 +823,7 @@ def test_main_accepts_status_cache_alias(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root: GitHubCLIHealth(
+        lambda repo_root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -829,7 +850,7 @@ def test_main_accepts_cache_dir_alias(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root: GitHubCLIHealth(
+        lambda repo_root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -845,6 +866,46 @@ def test_main_accepts_cache_dir_alias(
     assert (cache_dir / "latest.json").is_file()
 
 
+def test_main_accepts_github_timeout_seconds(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    state_root = tmp_path / ".aragora"
+    (state_root / "automation-outbox").mkdir(parents=True)
+    (state_root / "automation-receipts").mkdir(parents=True)
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+
+    def fake_health(repo_root: Path, **kwargs: Any) -> GitHubCLIHealth:
+        calls.append(kwargs)
+        return GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="sandboxed",
+            repo=str(repo_root),
+        )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fake_health)
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(repo_root),
+            "--state-root",
+            str(state_root),
+            "--github-timeout-seconds",
+            "2",
+        ]
+    )
+
+    assert rc == 0
+    assert calls == [{"timeout_seconds": 2}]
+
+
 def test_main_status_cache_overrides_cache_dir_alias(
     monkeypatch: Any,
     tmp_path: Path,
@@ -857,7 +918,7 @@ def test_main_status_cache_overrides_cache_dir_alias(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root: GitHubCLIHealth(
+        lambda repo_root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -950,7 +1011,7 @@ def test_main_summary_only_prints_compact_json_but_writes_full_cache(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root: GitHubCLIHealth(
+        lambda repo_root, **_kwargs: GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
@@ -988,7 +1049,7 @@ def test_build_status_records_remote_pressure_when_github_available(
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root: GitHubCLIHealth(
+        lambda repo_root, **_kwargs: GitHubCLIHealth(
             ready=True,
             auth_ok=True,
             api_ok=True,
