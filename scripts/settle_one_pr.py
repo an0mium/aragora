@@ -1019,6 +1019,10 @@ def load_pr_policy_metadata(
     return {}, command
 
 
+def _has_policy_file_scope(metadata: dict[str, Any]) -> bool:
+    return "files" in metadata
+
+
 def load_active_owned_prs(cwd: Path) -> tuple[set[int], dict[str, Any]]:
     payload, command = _run_json(
         ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json"],
@@ -1115,7 +1119,11 @@ def select_candidate_with_lazy_policy_metadata(
 ) -> tuple[dict[str, Any] | None, list[str], list[dict[str, Any]], list[dict[str, Any]]]:
     """Select a candidate while loading heavy file metadata only as needed."""
     metadata_commands: list[dict[str, Any]] = []
-    loaded: set[int] = set()
+    loaded: set[int] = {
+        pr_number
+        for pr_number, metadata in policy_metadata.items()
+        if isinstance(metadata, dict) and _has_policy_file_scope(metadata)
+    }
     unavailable: set[int] = set()
     accumulated_exclusions: list[dict[str, Any]] = []
     max_attempts = len([entry for entry in packet.get("entries") or [] if isinstance(entry, dict)])

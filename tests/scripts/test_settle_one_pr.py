@@ -1188,6 +1188,110 @@ def test_lazy_policy_metadata_continues_past_failed_pr_view(monkeypatch) -> None
     ]
 
 
+def test_explicit_pr_reuses_preloaded_policy_file_scope(monkeypatch) -> None:
+    policy_view_calls = 0
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        nonlocal policy_view_calls
+        del cwd, timeout
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "7451"
+            and args[5] == settle_one_pr.PR_POLICY_FIELDS
+        ):
+            policy_view_calls += 1
+            if policy_view_calls > 1:
+                return None, {
+                    "command": "policy-view-7451",
+                    "returncode": 1,
+                    "stderr": "error connecting to api.github.com",
+                }
+            return (
+                {
+                    "number": 7451,
+                    "title": "docs: candidate",
+                    "headRefName": "codex/docs-candidate",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "docs/status/example.md"}],
+                },
+                {"command": "policy-view-7451", "returncode": 0},
+            )
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "7451"
+            and "statusCheckRollup" in args[5]
+        ):
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000007451",
+                    "baseRefName": "main",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "statusCheckRollup": [
+                        {
+                            "__typename": "CheckRun",
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "SUCCESS",
+                        }
+                    ],
+                },
+                {"command": "view-7451", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return (
+                {"checks": [{"context": "aragora-merge-quorum", "app_id": 15368}]},
+                {"command": "protection", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return (
+                {
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "success",
+                            "app": {"id": 15368},
+                        }
+                    ]
+                },
+                {"command": "check-runs", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "checks"]:
+            return (
+                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                {"command": "checks", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                7451, tier=0, reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"]
+            ),
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=7451,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert policy_view_calls == 1
+    assert report["selected_pr"] == 7451
+    assert report["status"] == "ready_for_minimum_evidence"
+    assert report["policy_exclusions"] == []
+
+
 def test_build_report_fails_closed_when_selected_policy_metadata_unavailable(
     monkeypatch,
 ) -> None:
