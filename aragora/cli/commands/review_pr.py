@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 UTC = timezone.utc
 MAX_DIFF_CHARS = 60000
+MAX_SPEC_CHARS = 60000
 _VALID_REVIEW_STATUSES = {"passed", "changes_requested", "blocked_nonreviewable"}
 _STATUS_REVIEW_EVENT_BY_STATUS = {
     "passed": "APPROVE",
@@ -181,57 +182,17 @@ def cmd_review_pr(args: argparse.Namespace) -> int:
     return 1
 
 
-def add_review_local_parser(subparsers) -> None:
-    parser = subparsers.add_parser(
-        "review-local",
-        help="Run a non-OpenAI (Claude Max pool) review on a LOCAL diff, no GitHub required",
-        description=(
-            "Read a local diff (file or stdin), route it to a non-worker reviewer family "
-            "(default: claude via the Max profile pool), and write a review receipt. Works "
-            "fully offline so OpenAI/codex sessions can attach a heterogeneous, non-OpenAI "
-            "verdict even when GitHub is degraded."
-        ),
-    )
-    parser.add_argument(
-        "--diff",
-        default="-",
-        help="Path to a unified diff, or - to read from stdin (default: -)",
-    )
-    parser.add_argument(
-        "--spec",
-        default=None,
-        help="Optional path to spec/context text to include in the review prompt",
-    )
-    parser.add_argument("--title", default=None, help="Optional short title for the change")
-    parser.add_argument(
-        "--worker-model",
-        dest="worker_model",
-        default="codex",
-        help="Model family that produced the change (excluded from review; default: codex)",
-    )
-    parser.add_argument(
-        "--review-model",
-        "--reviewer",
-        dest="reviewer",
-        default="claude",
-        help="Preferred non-worker review family (default: claude)",
-    )
-    parser.add_argument(
-        "--artifact-dir",
-        default=None,
-        help="Directory for run artifacts (default: .aragora/review-local under repo root)",
-    )
-    parser.add_argument(
-        "--json",
-        dest="json_output",
-        action="store_true",
-        help="Print the review result as JSON",
-    )
-    parser.set_defaults(func=cmd_review_local)
-
-
 def cmd_review_local(args: argparse.Namespace) -> int:
     repo_root = resolve_repo_root(Path.cwd())
+    reviewer = str(getattr(args, "reviewer", "claude") or "claude")
+    worker_model = str(getattr(args, "worker_model", "codex") or "codex")
+    if _reviewer_family(reviewer) == _reviewer_family(worker_model):
+        print(
+            "review-local: reviewer must be a non-worker model family "
+            f"(reviewer={reviewer!r}, worker-model={worker_model!r})",
+            file=sys.stderr,
+        )
+        return 1
     diff_source = str(getattr(args, "diff", "-") or "-")
     if diff_source == "-":
         diff_text = sys.stdin.read()
@@ -254,12 +215,14 @@ def cmd_review_local(args: argparse.Namespace) -> int:
         except OSError as exc:
             print(f"review-local: cannot read spec {spec_path!r}: {exc}", file=sys.stderr)
             return 1
+    if len(spec_text) > MAX_SPEC_CHARS:
+        spec_text = spec_text[:MAX_SPEC_CHARS] + f"\n\n... [truncated at {MAX_SPEC_CHARS} chars]"
     result = asyncio.run(
         run_review_local(
             diff_text=diff_text,
             repo_root=repo_root,
-            reviewer=str(getattr(args, "reviewer", "claude") or "claude"),
-            worker_model=str(getattr(args, "worker_model", "codex") or "codex"),
+            reviewer=reviewer,
+            worker_model=worker_model,
             spec_text=spec_text,
             title=str(getattr(args, "title", "") or ""),
             artifact_root=Path(getattr(args, "artifact_dir", "")).resolve()

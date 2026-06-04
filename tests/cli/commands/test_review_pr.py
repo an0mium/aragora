@@ -192,6 +192,53 @@ def test_cmd_review_local_truncates_oversized_diff(
     assert "[truncated at" in captured["diff_text"]
 
 
+def test_cmd_review_local_truncates_oversized_spec(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    diff = tmp_path / "small.diff"
+    diff.write_text("diff --git a/x b/x\n+ok\n", encoding="utf-8")
+    spec = tmp_path / "big-spec.md"
+    spec.write_text("x" * (review_pr.MAX_SPEC_CHARS + 1000), encoding="utf-8")
+
+    captured: dict[str, str] = {}
+
+    async def _fake_run(**kwargs: object) -> dict[str, object]:
+        captured["spec_text"] = str(kwargs["spec_text"])
+        return {"final_status": "passed", "review": {}, "artifact_dir": str(tmp_path)}
+
+    monkeypatch.setattr(review_pr, "run_review_local", _fake_run)
+    args = build_parser().parse_args(
+        ["review-local", "--diff", str(diff), "--spec", str(spec), "--json"]
+    )
+    rc = review_pr.cmd_review_local(args)
+    assert rc == 0
+    assert len(captured["spec_text"]) <= review_pr.MAX_SPEC_CHARS + 64
+    assert "[truncated at" in captured["spec_text"]
+
+
+def test_cmd_review_local_rejects_worker_family_reviewer(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    diff = tmp_path / "small.diff"
+    diff.write_text("diff --git a/x b/x\n+ok\n", encoding="utf-8")
+    args = build_parser().parse_args(
+        [
+            "review-local",
+            "--diff",
+            str(diff),
+            "--reviewer",
+            "openai",
+            "--worker-model",
+            "codex",
+        ]
+    )
+    rc = review_pr.cmd_review_local(args)
+    assert rc == 1
+    assert "reviewer must be a non-worker model family" in capsys.readouterr().err
+
+
 def test_normalize_optional_agent_rejects_placeholder_none() -> None:
     assert review_pr._normalize_optional_agent(None) is None
     assert review_pr._normalize_optional_agent("") is None
