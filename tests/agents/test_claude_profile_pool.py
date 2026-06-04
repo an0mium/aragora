@@ -89,7 +89,9 @@ def test_unhealthy_profiles_are_dropped(tmp_path, monkeypatch):
     # Only max-13 healthy; the rest expired/logged out.
     profiles = [{"profile": f"max-{i:02d}", "state": "expired"} for i in range(1, 13)]
     profiles.append({"profile": "max-13", "state": "ok"})
-    repo = _make_repo(tmp_path, health={"generated_at": "2026-06-04T00:00:00Z", "profiles": profiles})
+    repo = _make_repo(
+        tmp_path, health={"generated_at": "2026-06-04T00:00:00Z", "profiles": profiles}
+    )
 
     # Any rotation index must resolve to the single healthy profile.
     for idx in (0, 1, 5, 12, 99):
@@ -138,7 +140,9 @@ def test_all_unhealthy_snapshot_yields_no_profile(tmp_path, monkeypatch):
         {"profile": "max-02", "state": "logged_out"},
         {"profile": "max-03", "state": "unauthenticated"},
     ]
-    repo = _make_repo(tmp_path, health={"generated_at": "2026-06-04T00:00:00Z", "profiles": profiles})
+    repo = _make_repo(
+        tmp_path, health={"generated_at": "2026-06-04T00:00:00Z", "profiles": profiles}
+    )
 
     assert select_profile(repo_root=repo, index=0) is None
     command, used_profile = build_claude_command(BASE_CMD, repo_root=repo, index=0)
