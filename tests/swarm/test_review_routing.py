@@ -560,3 +560,30 @@ async def test_generate_review_response_marks_billing_exhaustion() -> None:
             "detail": "Reviewer credits are exhausted.",
         }
     ]
+
+
+def test_default_provider_order_includes_grok_as_counting_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """grok must be a DEFAULT fallback (no env override) so codex outages do not
+    strand the merge quorum on the non-counting openrouter family.
+
+    Regression guard for the codex single-point-of-failure: when codex is the
+    requested reviewer and the worker is claude, the default candidate order
+    must offer grok (a counting family) *before* openrouter (which does not
+    count toward the heterogeneous quorum).
+    """
+    monkeypatch.delenv("ARAGORA_REVIEW_PROVIDER_ORDER", raising=False)
+    monkeypatch.setenv("ARAGORA_CLAUDE_REVIEW_PROFILES", "max-01")
+
+    candidates = resolve_review_candidates(
+        worker_model="claude",
+        preferred_review_model="codex",
+    )
+    labels = [candidate.label for candidate in candidates]
+
+    assert "grok" in labels, labels
+    assert "openrouter" in labels, labels
+    assert labels.index("grok") < labels.index("openrouter"), labels
+    # codex stays first (the preferred reviewer); grok is the counting fallback.
+    assert labels[0] == "codex", labels

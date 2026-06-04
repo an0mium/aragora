@@ -20,7 +20,14 @@ from aragora.config.secrets import get_secret_presence
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_REVIEW_PROVIDER_ORDER = ("codex", "claude", "openrouter")
+# grok precedes openrouter so that when codex (the usual distinct counter) is
+# unavailable, the next default fallback is a provider whose family still COUNTS
+# toward the heterogeneous merge quorum (claude/codex/grok/factory). openrouter
+# does not count, so leaving it as the only fallback turned codex into a single
+# point of failure for quorum. grok stays key-gated: if XAI_API_KEY/GROK_API_KEY
+# is unset its preflight fails and routing falls through to openrouter as before,
+# so this is non-breaking when grok is not configured.
+DEFAULT_REVIEW_PROVIDER_ORDER = ("codex", "claude", "grok", "openrouter")
 DEFAULT_CLAUDE_REVIEW_PROFILES = tuple(f"max-{index:02d}" for index in range(1, 14))
 DEFAULT_POOL_HEALTH_TTL_SECONDS = 3600.0
 _POOL_HEALTH_RELATIVE_PATH = ".aragora/claude_pool_health.json"
