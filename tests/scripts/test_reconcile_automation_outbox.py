@@ -173,6 +173,38 @@ def test_json_summary_only_omits_action_details(
     assert "actions" not in payload
 
 
+def test_limit_caps_selected_outbox_handoffs(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    keys = [
+        "open-pr-codex-limited-first-abc123",
+        "open-pr-codex-limited-second-def456",
+    ]
+    for key in keys:
+        _write_outbox_handoff(outbox_dir, branch=f"codex/{key}", key=key)
+    receipt_dir.mkdir(parents=True)
+    for key in keys:
+        (receipt_dir / f"{key}.json").write_text(
+            json.dumps({"idempotency_key": key, "status": "published"}),
+            encoding="utf-8",
+        )
+
+    rc = mod.main(["--repo", str(tmp_path), "--json", "--summary-only", "--limit", "1"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["limit"] == 1
+    assert payload["outbox_count"] == 1
+    assert payload["total_outbox_count"] == 2
+    assert payload["archived"] == 1
+    assert payload["action_count"] == 1
+    assert payload["reason_counts"] == {"matching receipt exists": 1}
+    assert "actions" not in payload
+
+
 def test_reconcile_automation_handoffs_wrapper_executes_primary_script(tmp_path: Path) -> None:
     result = subprocess.run(
         [

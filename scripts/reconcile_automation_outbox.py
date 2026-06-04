@@ -61,6 +61,16 @@ def _list_json(path: Path) -> list[Path]:
     return sorted(p for p in path.iterdir() if p.is_file() and p.suffix == ".json")
 
 
+def _non_negative_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be a non-negative integer") from None
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be a non-negative integer")
+    return parsed
+
+
 def _resolve_outbox_file_filter(outbox_dir: Path, value: Path) -> Path:
     expanded = value.expanduser()
     if expanded.is_absolute():
@@ -650,6 +660,15 @@ def main(argv: list[str] | None = None) -> int:
         help="With --json, omit per-handoff action details and print only compact counts.",
     )
     parser.add_argument(
+        "--limit",
+        type=_non_negative_int,
+        default=None,
+        help=(
+            "Maximum number of selected outbox handoffs to reconcile. "
+            "Useful for bounded dry-run probes; defaults to no cap."
+        ),
+    )
+    parser.add_argument(
         "--write-report",
         action="store_true",
         help=(
@@ -756,6 +775,9 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     else:
         outbox_files = all_outbox_files
+
+    if args.limit is not None:
+        outbox_files = outbox_files[: args.limit]
 
     open_prs_cache: dict[str, int] | None = None
     open_pr_state_available = False
@@ -1126,6 +1148,7 @@ def main(argv: list[str] | None = None) -> int:
             "counts": counts,
             "dry_run": not args.apply,
             "kept": kept,
+            "limit": args.limit,
             "outbox_count": len(outbox_files),
             "outbox_dir": str(outbox_dir),
             "reason_counts": reason_counts,
