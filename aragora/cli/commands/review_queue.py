@@ -2589,15 +2589,26 @@ def _build_merge_authorization_packet(
         refs = [str(item.number) for item in queue]
         queue_size = len(queue)
 
+    prebuilt_entries: dict[str, dict[str, Any]] = {}
+    refs_to_hydrate = refs
+    if scoped_pr_refs:
+        refs_to_hydrate = []
+        for ref in refs:
+            merged_entry = _explicit_merged_pr_merge_packet_entry(ref, repo_override)
+            if merged_entry is not None:
+                prebuilt_entries[str(merged_entry["pr_number"])] = merged_entry
+            else:
+                refs_to_hydrate.append(ref)
+
     packet_kwargs: dict[str, Any] = {
         "repo_override": repo_override,
         "execute_reviewers": execute_reviewers,
     }
     if review_queue_root is not None:
         packet_kwargs["review_queue_root"] = review_queue_root
-    packets = [_build_packet(ref, **packet_kwargs) for ref in refs]
+    packets = [_build_packet(ref, **packet_kwargs) for ref in refs_to_hydrate]
+    hydrated_entries_by_pr: dict[str, dict[str, Any]] = {}
     queue_pressure_active = queue_size > MODEL_REVIEW_QUEUE_CAP
-    entries = []
     for packet in packets:
         quorum = dict(packet.model_review_quorum)
         quorum["queue_pressure"] = {
@@ -2637,7 +2648,15 @@ def _build_merge_authorization_packet(
         }
         if packet.check_surfaces:
             entry["check_surfaces"] = packet.check_surfaces
-        entries.append(entry)
+        hydrated_entries_by_pr[str(packet.pr_number)] = entry
+
+    entries = []
+    for ref in refs:
+        pr_key = str(_parse_pr_number(ref))
+        if pr_key in prebuilt_entries:
+            entries.append(prebuilt_entries[pr_key])
+        elif pr_key in hydrated_entries_by_pr:
+            entries.append(hydrated_entries_by_pr[pr_key])
 
     return {
         "version": "merge_authorization_packet.v1",
@@ -2665,7 +2684,67 @@ def _build_merge_authorization_packet(
         "not_ready": [
             entry["pr_number"]
             for entry in entries
-            if entry["status"] not in {"satisfied", "human_risk_settlement_required", "settled"}
+            if entry["status"]
+            not in {"satisfied", "human_risk_settlement_required", "settled", "already_merged"}
+        ],
+    }
+
+
+def _explicit_merged_pr_merge_packet_entry(
+    pr_ref: str,
+    repo_override: str | None,
+) -> dict[str, Any] | None:
+    """Return a lightweight no-op entry for explicit merged PR probes.
+
+    Post-merge audit prompts sometimes re-run ``review-queue merge-packet
+    --pr`` after the PR has already merged. At that point merge readiness is
+    obsolete, so avoid hydrating comments/reviews/commits and return a stable
+    no-op entry instead of re-entering model-quorum settlement logic.
+    """
+
+    number = _parse_pr_number(pr_ref)
+    fields = ",".join(
+        [
+            "number",
+            "title",
+            "url",
+            "headRefOid",
+            "state",
+            "mergedAt",
+            "mergeCommit",
+        ]
+    )
+    args = ["pr", "view", str(number), "--json", fields]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    pr = _gh_json(args)
+    if pr is None or not isinstance(pr, dict):
+        raise _GhError(f"PR #{number} not found")
+    state = str(pr.get("state") or "").strip().upper()
+    merged_at = str(pr.get("mergedAt") or "").strip()
+    if state != "MERGED" and not (merged_at and state != "OPEN"):
+        return None
+
+    return {
+        "pr_number": int(pr.get("number") or number),
+        "title": str(pr.get("title") or "").strip(),
+        "url": str(pr.get("url") or "").strip(),
+        "head_sha": str(pr.get("headRefOid") or "").strip(),
+        "checks_summary": "already merged; checks obsolete for merge-packet",
+        "machine_recommendation": "settled_noop",
+        "tier": 0,
+        "tier_name": "already_merged",
+        "status": "already_merged",
+        "verdict": "already_merged_noop",
+        "admin_squash_allowed": False,
+        "requires_human_risk_settlement": False,
+        "unresolved_dissent": False,
+        "reviewer_signals": [],
+        "dogfood_evidence": [],
+        "counted_reviewer_ids": [],
+        "counted_model_families": [],
+        "reasons": [
+            "PR is already merged; merge-packet readiness is obsolete",
         ],
     }
 
