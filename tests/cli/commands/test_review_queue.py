@@ -3454,10 +3454,89 @@ class TestBuildQueueAndPacket:
             repo_override=None,
         )
 
-        assert packet["entries"][0]["status"] == "repair_or_wait"
+        assert packet["entries"][0]["status"] == "already_merged"
+        assert packet["entries"][0]["verdict"] == "already_merged_noop"
         assert packet["entries"][0]["admin_squash_allowed"] is False
         assert packet["admin_squash_order"] == []
-        assert packet["not_ready"] == [7470]
+        assert packet["not_ready"] == []
+
+    def test_merge_packet_short_circuits_explicit_merged_pr_before_full_hydration(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=7470,
+            title="merged docs update",
+            files=["docs/status/focus.md"],
+            state="MERGED",
+            merged_at="2026-05-27T00:19:36Z",
+        )
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            assert args[:3] == ["pr", "view", "7470"]
+            assert "comments" not in str(args)
+            assert "reviews" not in str(args)
+            assert "commits" not in str(args)
+            return pr_payload
+
+        def fail_build_packet(*_args: Any, **_kwargs: Any) -> None:
+            raise AssertionError("merged PRs must not build a full readiness packet")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_packet",
+            fail_build_packet,
+        )
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7470"],
+            limit=10,
+            repo_override=None,
+        )
+
+        entry = packet["entries"][0]
+        assert entry["status"] == "already_merged"
+        assert entry["verdict"] == "already_merged_noop"
+        assert entry["machine_recommendation"] == "settled_noop"
+        assert entry["admin_squash_allowed"] is False
+        assert entry["requires_human_risk_settlement"] is False
+        assert entry["reasons"] == [
+            "PR is already merged; merge-packet readiness is obsolete",
+        ]
+        assert packet["admin_squash_order"] == []
+        assert packet["human_risk_settlement_required"] == []
+        assert packet["not_ready"] == []
+
+    def test_merge_packet_preserves_explicit_ref_order_with_merged_short_circuit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        merged_payload = _make_pr(
+            number=7470,
+            files=["docs/status/focus.md"],
+            state="MERGED",
+            merged_at="2026-05-27T00:19:36Z",
+        )
+        open_payload = _make_pr(
+            number=7471,
+            files=["docs/status/next.md"],
+        )
+
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:3] == ["pr", "view", "7470"]:
+                return merged_payload
+            if args[:3] == ["pr", "view", "7471"]:
+                return open_payload
+            raise AssertionError(f"unexpected gh args: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_merge_authorization_packet(
+            pr_refs=["7471", "7470"],
+            limit=10,
+            repo_override=None,
+        )
+
+        assert [entry["pr_number"] for entry in packet["entries"]] == [7471, 7470]
+        assert packet["entries"][1]["status"] == "already_merged"
 
     def test_merged_pr_with_exact_settlement_receipt_is_settled_noop(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -3483,25 +3562,21 @@ class TestBuildQueueAndPacket:
             lambda args: pr_payload,
         )
 
-        packet = _build_merge_authorization_packet(
-            pr_refs=["7447"],
-            limit=10,
+        packet = _build_packet(
+            "7447",
             repo_override=None,
             review_queue_root=review_queue_root,
         )
 
-        entry = packet["entries"][0]
-        assert entry["status"] == "settled"
-        assert entry["verdict"] == "already_merged_settlement_recorded"
-        assert entry["admin_squash_allowed"] is False
-        assert entry["requires_human_risk_settlement"] is False
-        assert entry["reasons"] == [
+        quorum = packet.model_review_quorum
+        assert quorum["status"] == "settled"
+        assert quorum["verdict"] == "already_merged_settlement_recorded"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_risk_settlement"] is False
+        assert quorum["reasons"] == [
             "workflow/deploy/destructive surface touched",
             "exact-head admin_squash_merge settlement receipt recorded",
         ]
-        assert packet["admin_squash_order"] == []
-        assert packet["human_risk_settlement_required"] == []
-        assert packet["not_ready"] == []
 
     @pytest.mark.parametrize("github_event", ["APPROVE", "RECORDED_EXTERNAL_APPROVE"])
     def test_open_tier_three_with_exact_human_risk_receipt_is_authorized(
