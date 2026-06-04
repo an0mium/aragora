@@ -137,6 +137,22 @@ def _bridge_file_for_read(default_path: Path) -> Path:
     return default_path
 
 
+def _bridge_files_for_session_snapshot_read() -> list[Path]:
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    for path in (SESSION_SNAPSHOT_FILE, _state_root_bridge_dir() / SESSION_SNAPSHOT_FILE.name):
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if path.exists():
+            paths.append(path)
+    return paths or [SESSION_SNAPSHOT_FILE]
+
+
 def _heartbeat_file_for_read() -> Path:
     repo_path = HEARTBEATS_FILE
     if repo_path.exists():
@@ -214,6 +230,26 @@ class Session:
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v}
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "Session":
+        pr_number = payload.get("pr_number")
+        return cls(
+            name=str(payload.get("name", "")),
+            agent=str(payload.get("agent", "unknown")),
+            status=str(payload.get("status", "unknown")),
+            source=str(payload.get("source", "")),
+            lifecycle=str(payload.get("lifecycle", "")),
+            tmux_target=str(payload.get("tmux_target", "")),
+            branch=str(payload.get("branch", "")),
+            worktree=str(payload.get("worktree", "")),
+            session_id=str(payload.get("session_id", "")),
+            updated_at=str(payload.get("updated_at", "")),
+            summary=str(payload.get("summary", "")),
+            log_file=str(payload.get("log_file", "")),
+            transcript_file=str(payload.get("transcript_file", "")),
+            pr_number=pr_number if isinstance(pr_number, int) else None,
+        )
 
 
 @dataclass
@@ -399,6 +435,43 @@ def _write_session_snapshot(sessions: list[Session]) -> None:
     snapshot = [{"timestamp": timestamp, **s.to_dict()} for s in sessions]
     snapshot_file = _bridge_file_for_write(SESSION_SNAPSHOT_FILE)
     _atomic_write_json(snapshot_file, snapshot)
+
+
+def _session_snapshot_timestamp(payload: dict[str, Any]) -> float:
+    for key in ("timestamp", "updated_at"):
+        value = payload.get(key)
+        if not isinstance(value, str):
+            continue
+        parsed = _parse_timestamp(value)
+        if parsed is not None:
+            return parsed.timestamp()
+    return 0.0
+
+
+def _load_session_snapshot() -> list[Session]:
+    sessions_by_name: dict[str, tuple[float, int, Session]] = {}
+    sequence = 0
+    for snapshot_file in _bridge_files_for_session_snapshot_read():
+        if not snapshot_file.exists():
+            continue
+        try:
+            payload = json.loads(snapshot_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(payload, list):
+            continue
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            session = Session.from_dict(item)
+            if not session.name:
+                continue
+            sequence += 1
+            candidate = (_session_snapshot_timestamp(item), sequence, session)
+            current = sessions_by_name.get(session.name)
+            if current is None or candidate[:2] > current[:2]:
+                sessions_by_name[session.name] = candidate
+    return [entry[2] for entry in sessions_by_name.values()]
 
 
 def _filter_current_sessions(sessions: list[Session]) -> list[Session]:
@@ -938,6 +1011,16 @@ def _collect_health_issues(
     active_lane_owners = {
         record.owner_session for record in records if record.status in ACTIVE_LANE_STATUSES
     }
+    inactive_owner_sessions: set[str] = set()
+    for s in sessions:
+        lifecycle = s.lifecycle or _session_lifecycle(
+            source=s.source,
+            status=s.status,
+            updated_at=s.updated_at,
+            session_id=s.session_id,
+        )
+        if lifecycle in {"dead", "stale", "orphaned"} or s.status == "dead":
+            inactive_owner_sessions.add(s.name)
 
     # Missing paths are actionable for active/unknown sessions. A dead session
     # whose worktree is already gone has no remaining worktree cleanup action.
@@ -993,6 +1076,11 @@ def _collect_health_issues(
 
     for r in records:
         if r.status not in ACTIVE_LANE_STATUSES:
+            continue
+        if r.owner_session in inactive_owner_sessions:
+            # Once the owner session is known dead/stale, missing heartbeat or
+            # steering metadata is a symptom of that terminal owner state. The
+            # session/worktree issue above is the actionable operator signal.
             continue
         if not r.next_action or r.next_action == DEFAULT_ACTIVE_NEXT_ACTION:
             issues.append(
@@ -2166,6 +2254,37 @@ def _operator_recent_blockers(
     return blockers[:limit]
 
 
+def _operator_health_sessions(
+    *,
+    discovered_sessions: list[Session],
+    current_sessions: list[Session],
+    records: list[LaneRecord],
+    include_historical: bool,
+) -> list[Session]:
+    if include_historical:
+        return current_sessions
+    included = {session.name for session in current_sessions}
+    active_lane_owners = {
+        record.owner_session for record in records if record.status in ACTIVE_LANE_STATUSES
+    }
+    sessions = list(current_sessions)
+    for session in discovered_sessions:
+        if session.name in included:
+            continue
+        if session.name not in active_lane_owners:
+            continue
+        sessions.append(session)
+        included.add(session.name)
+    for session in _load_session_snapshot():
+        if session.name in included:
+            continue
+        if session.name not in active_lane_owners:
+            continue
+        sessions.append(session)
+        included.add(session.name)
+    return sessions
+
+
 def _coerce_success_rate(raw_rate: Any) -> float | None:
     if raw_rate is None or isinstance(raw_rate, bool):
         return None
@@ -2244,7 +2363,13 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     if not include_historical:
         records = _filter_current_lane_records(records)
 
-    issues = _collect_health_issues(sessions, records)
+    health_sessions = _operator_health_sessions(
+        discovered_sessions=discovered_sessions,
+        current_sessions=sessions,
+        records=records,
+        include_historical=include_historical,
+    )
+    issues = _collect_health_issues(health_sessions, records)
     lane_conflicts = _active_lane_identity_conflicts(records)
     computed_conflict_lane_ids = {
         lane_id

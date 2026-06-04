@@ -422,6 +422,134 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert discover_include_summaries == [False]
 
 
+def test_operator_snapshot_summary_only_health_uses_snapshot_for_dead_lane_owner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    bridge_dir = tmp_path / "bridge"
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    bridge_dir.mkdir(parents=True)
+    dead_worktree = tmp_path / "dead-owner-worktree"
+    dead_worktree.mkdir()
+    mod.SESSION_SNAPSHOT_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "name": "claude-dead",
+                    "agent": "claude",
+                    "status": "dead",
+                    "source": "tmux",
+                    "lifecycle": "dead",
+                    "worktree": str(dead_worktree),
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_discover(
+        *, include_summaries: bool = True, include_historical: bool = True, **_kwargs
+    ):
+        assert include_summaries is False
+        assert include_historical is False
+        return []
+
+    monkeypatch.setattr(mod, "discover", fake_discover)
+    monkeypatch.setattr(
+        mod,
+        "_load_lane_registry",
+        lambda: [
+            mod.LaneRecord(
+                lane_id="claude-dead",
+                owner_session="claude-dead",
+                status="active",
+                next_action="finish exact-head evidence",
+                worktree=str(dead_worktree),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+    monkeypatch.setattr(mod, "_collect_pending_steering_messages", lambda _recipient: {"count": 0})
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}},
+    )
+    monkeypatch.setattr(mod, "_collect_b0_success_rate", lambda: None)
+
+    assert mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True)) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert "sessions" not in payload
+    assert payload["health"]["issues"] == [
+        {
+            "type": "stale_worktree",
+            "session": "claude-dead",
+            "detail": f"dead session with lingering worktree: {dead_worktree}",
+        }
+    ]
+    assert not (bridge_dir / "sessions.json.tmp").exists()
+
+
+def test_load_session_snapshot_prefers_fresh_shared_state_over_stale_home_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True)
+    shared_bridge_dir = mod.CANONICAL_REPO_ROOT / ".aragora" / "agent-bridge"
+    shared_bridge_dir.mkdir(parents=True)
+    mod.SESSION_SNAPSHOT_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "timestamp": "2026-06-04T19:20:18+00:00",
+                    "name": "claude-7749",
+                    "agent": "claude",
+                    "status": "live",
+                    "source": "tmux",
+                    "lifecycle": "live",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (shared_bridge_dir / "sessions.json").write_text(
+        json.dumps(
+            [
+                {
+                    "timestamp": "2026-06-04T20:01:33+00:00",
+                    "name": "claude-7749",
+                    "agent": "claude",
+                    "status": "dead",
+                    "source": "tmux",
+                    "lifecycle": "dead",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    sessions = mod._load_session_snapshot()
+
+    assert [(session.name, session.status, session.lifecycle) for session in sessions] == [
+        ("claude-7749", "dead", "dead")
+    ]
+
+
 def test_operator_snapshot_exposes_b0_issue_contract_fields(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1431,6 +1559,88 @@ def test_operator_snapshot_current_output_preserves_full_canonical_snapshot(
     assert payload["summary"]["historical_sessions"] == 0
     snapshot = json.loads((bridge_dir / "sessions.json").read_text(encoding="utf-8"))
     assert [session["name"] for session in snapshot] == ["codex-live", "claude-history"]
+
+
+def test_operator_snapshot_health_checks_dead_active_lane_owner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    dead_worktree = tmp_path / "dead-owner-worktree"
+    dead_worktree.mkdir()
+
+    def fake_discover(*, include_historical: bool, **_kwargs):
+        assert include_historical is True
+        return [
+            mod.Session(name="codex-live", agent="codex", status="alive", lifecycle="live"),
+            mod.Session(
+                name="claude-dead",
+                agent="claude",
+                status="dead",
+                source="tmux",
+                lifecycle="dead",
+                worktree=str(dead_worktree),
+            ),
+        ]
+
+    monkeypatch.setattr(mod, "discover", fake_discover)
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(
+        mod,
+        "_load_lane_registry",
+        lambda: [
+            mod.LaneRecord(
+                lane_id="claude-dead",
+                owner_session="claude-dead",
+                status="active",
+                next_action="finish exact-head evidence",
+                worktree=str(dead_worktree),
+            )
+        ],
+    )
+    monkeypatch.setattr(mod, "_load_broker_run_summaries", lambda: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+            **({"records": []} if include_records else {}),
+        },
+    )
+    monkeypatch.setattr(mod, "_collect_pending_steering_messages", lambda _recipient: {"count": 0})
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}},
+    )
+    monkeypatch.setattr(mod, "_collect_b0_success_rate", lambda: None)
+
+    assert (
+        mod.cmd_operator_snapshot(
+            argparse.Namespace(
+                json=True,
+                summary_only=False,
+                include_historical=False,
+                scope="current",
+            )
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert [session["name"] for session in payload["sessions"]] == ["codex-live"]
+    assert payload["health"]["issues"] == [
+        {
+            "type": "stale_worktree",
+            "session": "claude-dead",
+            "detail": f"dead session with lingering worktree: {dead_worktree}",
+        }
+    ]
 
 
 def test_operator_snapshot_includes_broker_runs(
