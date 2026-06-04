@@ -81,6 +81,17 @@ def test_work_parser_registers_list_limit() -> None:
     assert args.limit == 3
 
 
+def test_work_parser_registers_board_alias() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["work", "board", "--json", "--limit", "3", "--scope", "all"])
+
+    assert args.command == "work"
+    assert args.work_cmd == "board"
+    assert args.json is True
+    assert args.limit == 3
+    assert args.scope == "all"
+
+
 def test_work_parser_rejects_negative_list_limit() -> None:
     parser = build_parser()
 
@@ -140,6 +151,24 @@ def test_work_list_json_flag_emits_parseable_json(
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["schema_version"] == "aragora.work.v1"
+
+
+def test_work_board_alias_uses_list_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["aragora", "work", "board", "--repo", str(tmp_path), "--json", "--limit", "1"],
+    )
+
+    assert cli_main() == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["schema_version"] == "aragora.work.v1"
+    assert payload["scope"] == "current"
+    assert payload["limit"] == 1
+    assert payload["items"] == []
 
 
 @pytest.mark.parametrize("as_json", [True, False])

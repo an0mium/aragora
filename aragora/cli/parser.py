@@ -346,16 +346,20 @@ def _add_work_parser(subparsers) -> None:
             help="Maximum number of records to emit while preserving the total count",
         )
 
-    list_cmd = work_sub.add_parser("list", help="List normalized work items")
-    add_common(list_cmd)
-    list_cmd.add_argument(
-        "--scope",
-        choices=("current", "all"),
-        default="current",
-        help="current excludes terminal/historical noise; all includes context records",
-    )
-    add_limit(list_cmd)
-    list_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_list"))
+    def add_list_like_command(name: str, *, help_text: str) -> None:
+        list_like_cmd = work_sub.add_parser(name, help=help_text)
+        add_common(list_like_cmd)
+        list_like_cmd.add_argument(
+            "--scope",
+            choices=("current", "all"),
+            default="current",
+            help="current excludes terminal/historical noise; all includes context records",
+        )
+        add_limit(list_like_cmd)
+        list_like_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_list"))
+
+    add_list_like_command("list", help_text="List normalized work items")
+    add_list_like_command("board", help_text="Alias for list; show the read-only work board")
 
     show_cmd = work_sub.add_parser("show", help="Show one normalized work item")
     add_common(show_cmd)
