@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 from aragora.agents.base import MAX_CONTEXT_CHARS, MAX_MESSAGE_CHARS, CritiqueMixin
+from aragora.agents.claude_profile_pool import build_claude_command, strip_profile_preamble
 from aragora.agents.errors import (
     RATE_LIMIT_PATTERNS,
     AgentStreamError,
@@ -782,14 +783,25 @@ class ClaudeAgent(CLIAgent):
     """
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using claude CLI via stdin."""
+        """Generate a response using claude CLI via stdin.
+
+        When the authenticated ``claude_profile.sh`` subscription pool is
+        available, the bare CLI call is routed through a healthy profile so the
+        debate path uses a logged-in subscription instead of the (often
+        unauthenticated) default ``$HOME/.claude``. Falls back to the bare
+        command unchanged when no pool/profile is available.
+        """
         full_prompt = self._build_full_prompt(prompt, context)
-        # Pass prompt via stdin to avoid shell argument length limits
+        command, used_profile = build_claude_command(["claude", "--print", "-p", "-"])
+        # Pass prompt via stdin to avoid shell argument length limits.
         return await self._generate_with_fallback(
-            ["claude", "--print", "-p", "-"],
+            command,
             prompt,
             context,
             input_text=full_prompt,
+            # The profile wrapper echoes a 2-line preamble to stdout; strip it
+            # from CLI output only (the OpenRouter fallback path has no preamble).
+            response_extractor=strip_profile_preamble if used_profile else None,
         )
 
 
