@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import subprocess
 import sys
@@ -15,15 +16,42 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.harvest_rescue_classes import DEFAULT_PRODUCTIZATION_MAP_PATH  # noqa: E402
-from scripts.rescue_to_fixtures import (  # noqa: E402
-    build_issue_drafts,
-    build_issue_title,
-    load_rescue_productization_report,
-)
+# NOTE: ``scripts.rescue_to_fixtures`` (and ``scripts.harvest_rescue_classes``)
+# import ``aragora.swarm.rescue_events``, which triggers ``aragora.swarm``'s
+# package ``__init__`` and its heavy commander/supervisor/worker-launcher/agents
+# import chain. Importing those eagerly at module load made this publisher hang
+# on the swarm/agents stack (observed 300s+), forcing a fall-back to a
+# timestamp-only refresh. The rescue-fixture helpers are therefore imported
+# lazily inside ``_rescue_fixtures()`` so the publisher's pure-Python surface
+# (path normalization, JSON IO, argument parsing) loads instantly and the swarm
+# dependency is only paid — and only required — when a report is actually built.
+
+# ``DEFAULT_PRODUCTIZATION_MAP_PATH`` is a trivial repo-relative constant in
+# ``scripts.harvest_rescue_classes``; re-deriving it here avoids importing that
+# module (and its swarm dependency) merely to build the argument parser.
+DEFAULT_PRODUCTIZATION_MAP_PATH = REPO_ROOT / "docs" / "benchmarks" / "rescue_productization.json"
 
 DEFAULT_RESCUE_LEDGER_PATH = Path.home() / ".aragora" / "rescue_events.jsonl"
 DEFAULT_PUBLISH_DIR = REPO_ROOT / ".aragora" / "rescue_productization"
+
+
+def _rescue_fixtures() -> Any:
+    """Lazily import the rescue-fixture helpers from ``scripts.rescue_to_fixtures``.
+
+    Deferred to call time so the swarm/agents import chain is only loaded when a
+    report is genuinely being built. Raises a clear, actionable error if the
+    dependency stack is unavailable rather than hanging or failing opaquely.
+    """
+    try:
+        from scripts import rescue_to_fixtures
+    except ImportError as exc:  # pragma: no cover - defensive guard
+        raise RuntimeError(
+            "rescue productization helpers are unavailable: "
+            "scripts.rescue_to_fixtures could not be imported "
+            "(the aragora.swarm dependency stack may be missing). "
+            f"original error: {exc}"
+        ) from exc
+    return rescue_to_fixtures
 
 
 def _coerce_utc_datetime(value: str | None = None) -> dt.datetime:
@@ -40,12 +68,29 @@ def normalize_generated_at(value: str | None = None) -> str:
     return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
 
 
+def _home_relative_path(raw: str) -> str:
+    """Collapse a ``$HOME``-rooted absolute path to its ``~``-prefixed form.
+
+    The published report is a committed truth surface in a public repo, so an
+    absolute home-dir path (``/Users/<name>/.aragora/...``) would leak the local
+    username, re-introduce the leak #7706 fixed, and trip both
+    ``scripts/check_portability.py`` and the truth-surface consistency test
+    (which expects ``~/.aragora/...``). Mirror
+    ``benchmarks/bench_readiness/write_manifest._portable_path``: rewrite a
+    ``$HOME``-rooted path to ``~``; leave non-home / CI paths untouched.
+    """
+    home = os.path.expanduser("~")
+    if home and home != "~" and (raw == home or raw.startswith(home + os.sep)):
+        return "~" + raw[len(home) :]
+    return raw
+
+
 def _repo_stable_path(path: Path) -> str:
     resolved = path.resolve()
     try:
         return resolved.relative_to(REPO_ROOT).as_posix()
     except ValueError:
-        return str(resolved)
+        return _home_relative_path(str(resolved))
 
 
 def resolve_published_report_path(
@@ -217,7 +262,9 @@ def ensure_issue_linkage(
 
     for draft in issue_drafts:
         class_name = str(draft.get("class") or "").strip()
-        title = str(draft.get("title") or "").strip() or build_issue_title(class_name)
+        title = str(draft.get("title") or "").strip() or _rescue_fixtures().build_issue_title(
+            class_name
+        )
         if not class_name or not title:
             continue
         try:
@@ -295,7 +342,8 @@ def build_published_report(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     normalized_generated_at = normalize_generated_at(generated_at)
-    initial_report = load_rescue_productization_report(
+    fixtures = _rescue_fixtures()
+    initial_report = fixtures.load_rescue_productization_report(
         ledger_path=ledger_path,
         threshold=threshold,
         recent_limit=recent_limit,
@@ -303,7 +351,7 @@ def build_published_report(
         one_off_limit=one_off_limit,
         productization_map_path=productization_map_path,
     )
-    initial_issue_drafts = build_issue_drafts(initial_report)
+    initial_issue_drafts = fixtures.build_issue_drafts(initial_report)
 
     issue_linkage_results: list[dict[str, Any]] = []
     if ensure_issues and initial_issue_drafts:
@@ -314,7 +362,7 @@ def build_published_report(
             dry_run=dry_run,
         )
 
-    final_report = load_rescue_productization_report(
+    final_report = fixtures.load_rescue_productization_report(
         ledger_path=ledger_path,
         threshold=threshold,
         recent_limit=recent_limit,
@@ -322,7 +370,7 @@ def build_published_report(
         one_off_limit=one_off_limit,
         productization_map_path=productization_map_path,
     )
-    final_issue_drafts = build_issue_drafts(final_report)
+    final_issue_drafts = fixtures.build_issue_drafts(final_report)
     return {
         "generated_at": normalized_generated_at,
         "repo": repo,
