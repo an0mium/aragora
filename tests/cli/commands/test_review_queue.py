@@ -1977,6 +1977,163 @@ class TestModelReviewQuorum:
         assert "claude" in quorum["counted_reviewer_ids"]
 
 
+# --- parenthetical model-family disclosure ---------------------------------
+
+
+class TestParentheticalModelFamily:
+    """Agents commonly disclose `**Model family:** openai (gpt-5.5, harness)`.
+
+    The trailing parenthetical detail used to contaminate the value so the
+    canonical/alias lookup returned "" → ``unknown_model_family`` → the reviewer
+    was NOT counted → the merge quorum stalled at 1/2. The normalizer now
+    tolerates the parenthetical without weakening the gate.
+    """
+
+    def test_paren_openai_normalizes_to_openai(self) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        assert _normalize_model_family("openai (gpt-5.5, harness)") == "openai"
+        assert _normalize_model_family("openai (gpt-5.5)") == "openai"
+        assert _normalize_model_family("openai(gpt-5.5)") == "openai"
+
+    def test_paren_claude_normalizes_to_claude(self) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        assert _normalize_model_family("claude (opus-4.8)") == "claude"
+
+    def test_bare_tokens_still_work(self) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        assert _normalize_model_family("openai") == "openai"
+        assert _normalize_model_family("claude") == "claude"
+
+    def test_aliases_still_resolve_including_multiword(self) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        # Single-token alias.
+        assert _normalize_model_family("anthropic") == "claude"
+        # Multi-word alias must NOT be truncated to its first token.
+        assert _normalize_model_family("nous hermes") == "hermes"
+        assert _normalize_model_family("nous-hermes") == "hermes"
+        # Multi-word alias with a trailing parenthetical still resolves.
+        assert _normalize_model_family("nous hermes (8x7b)") == "hermes"
+
+    def test_unknown_leading_token_still_unknown(self) -> None:
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        # A genuinely-unknown leading token must still fail-closed even when a
+        # parenthetical is present — the gate is not weakened.
+        assert _normalize_model_family("mystery (x)") == ""
+        assert _normalize_model_family("acme-frontier-9000") == ""
+        assert _normalize_model_family("acme (gpt-5.5)") == ""
+
+    def test_non_parenthetical_extra_text_stays_unknown(self) -> None:
+        """Codex-review regression (PR #7743): the first-token fallback must be
+        scoped to the parenthetical-stripped path ONLY. A malformed multi-word
+        disclosure with NO parenthetical — e.g. ``openai claude`` or
+        ``openai not-a-valid-family`` — must still resolve to "" and stay a
+        ``unknown_model_family`` blocker, exactly as before this fix. Otherwise
+        the gate would be weakened beyond the stated scope by silently accepting
+        the leading token of any multi-word value."""
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        assert _normalize_model_family("openai claude") == ""
+        assert _normalize_model_family("claude unknown") == ""
+        assert _normalize_model_family("openai not-a-valid-family") == ""
+        # The fix's intended cases (parenthetical present) still resolve.
+        assert _normalize_model_family("openai (gpt-5.5)") == "openai"
+
+    def test_malformed_or_non_trailing_parenthetical_stays_unknown(self) -> None:
+        """Second codex-review regression (PR #7743): only a *well-formed,
+        trailing, closed* ``(...)`` suffix is tolerated. Text after the closing
+        paren, an unclosed paren, or a multi-word head must all stay "" so they
+        remain ``unknown_model_family`` blockers — the relaxation must not be a
+        blanket "strip from the first ``(`` to end of string"."""
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        # Text after the closing parenthetical -> not a trailing suffix.
+        assert _normalize_model_family("openai (gpt-5.5) claude") == ""
+        # Unclosed parenthetical.
+        assert _normalize_model_family("openai (") == ""
+        assert _normalize_model_family("openai (not actually closed") == ""
+        # Multi-word head before a closed parenthetical.
+        assert _normalize_model_family("openai gpt (x)") == ""
+        # Well-formed trailing suffix (incl. multi-word alias head) still works.
+        assert _normalize_model_family("openai (gpt-5.5)") == "openai"
+        assert _normalize_model_family("nous hermes (8x7b)") == "hermes"
+
+    def test_paren_disclosure_still_detects_heading_conflict(self) -> None:
+        """A real heading/disclosed conflict must STILL fire even after the
+        parenthetical is stripped — the disclosed family resolves correctly
+        (``openai``) but it conflicts with the ``claude`` heading."""
+        from aragora.cli.commands.review_queue import (
+            _resolve_model_review_identity,
+        )
+
+        body = (
+            "## Claude review\n\n"
+            "**Model family:** openai (gpt-5.5, codex exec --sandbox read-only)\n"
+            "**Model id:** gpt-5.5\n"
+            "**Receipt artifact:** /tmp/r.md\n\n"
+            "review."
+        )
+        ident = _resolve_model_review_identity(body)
+        assert "heading_model_family_conflict" in ident.identity_problems
+
+    def test_paren_disclosure_non_conflict_now_counts(self) -> None:
+        """An ``openai (gpt-5.5)`` disclosure under a codex/openai heading must
+        resolve to ``openai`` with NO ``unknown_model_family`` blocker, so the
+        reviewer is counted (the bug that stalled the tail PRs)."""
+        from aragora.cli.commands.review_queue import (
+            _resolve_model_review_identity,
+        )
+
+        body = (
+            "## Codex review\n\n"
+            "**Reviewer harness:** codex\n"
+            "**Model family:** openai (gpt-5.5)\n"
+            "**Model id:** gpt-5.5\n"
+            "**Receipt artifact:** /tmp/r.md\n\n"
+            "review."
+        )
+        ident = _resolve_model_review_identity(body)
+        assert ident.model_family == "openai"
+        assert "unknown_model_family" not in ident.identity_problems
+        assert "heading_model_family_conflict" not in ident.identity_problems
+
+    def test_paren_disclosure_counts_in_full_quorum(self) -> None:
+        """End-to-end: a dogfood comment disclosing ``openai (gpt-5.5)`` under a
+        codex heading is counted in the model-review quorum (previously it was
+        silently dropped, stalling quorum at 1/2)."""
+        files = ["aragora/agents/router.py"]  # Tier 1
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Codex review\n\n"
+                    "**Reviewer harness:** codex\n"
+                    "**Model family:** openai (gpt-5.5, codex exec)\n"
+                    "**Model id:** gpt-5.5\n"
+                    "**Receipt artifact:** /tmp/r.md\n\n"
+                    "codex review: 6/6 cases pass."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        # The reviewer is now counted (previously the parenthetical de-counted
+        # it, leaving counted_reviewer_ids empty). The quorum credits the
+        # resolved model family, so "openai" appears.
+        assert quorum["counted_reviewer_ids"] == ["openai"]
+
+
 # --- _parse_pr_number ------------------------------------------------------
 
 

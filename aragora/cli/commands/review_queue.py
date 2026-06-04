@@ -3226,8 +3226,6 @@ def _normalize_model_family(value: str) -> str:
     lower = str(value or "").strip().lower()
     if not lower:
         return ""
-    if lower in CANONICAL_MODEL_FAMILIES:
-        return lower
     aliases = {
         "anthropic": "claude",
         "google": "gemini",
@@ -3239,7 +3237,50 @@ def _normalize_model_family(value: str) -> str:
         "nous-hermes": "hermes",
         "nous hermes": "hermes",
     }
-    return aliases.get(lower, "")
+
+    def _lookup(token: str) -> str:
+        if token in CANONICAL_MODEL_FAMILIES:
+            return token
+        return aliases.get(token, "")
+
+    # Fast path: the disclosed value is already a bare canonical family or a
+    # known (possibly multi-word) alias such as "nous hermes".
+    resolved = _lookup(lower)
+    if resolved:
+        return resolved
+
+    # Agents commonly disclose the family with a trailing parenthetical detail,
+    # e.g. ``openai (gpt-5.5, codex exec --sandbox read-only)`` or
+    # ``claude (opus-4.8)``. The parenthetical is descriptive metadata, not part
+    # of the canonical family token, so a literal lookup of the whole string used
+    # to fail and de-count an otherwise-valid reviewer.
+    #
+    # We ONLY relax the lookup for a *well-formed, trailing, closed*
+    # parenthetical suffix: ``<token> (<detail>)`` with nothing but optional
+    # whitespace after the closing ``)``. The match captures the text before the
+    # ``(`` as ``head`` and the canonical token is the head's *single*
+    # whitespace-delimited word (which covers ``openai (gpt-5.5)``). This keeps
+    # the gate fail-closed for everything the PR intends to remain blocked:
+    #   - no parenthetical at all (``openai claude``) -> no match -> "".
+    #   - text *after* the closing paren (``openai (gpt-5.5) claude``) -> the
+    #     ``$`` anchor rejects it -> "".
+    #   - unclosed parenthetical (``openai (``, ``openai (not closed``) -> no
+    #     ``)`` -> no match -> "".
+    #   - multi-word head (``openai gpt (x)``) -> head has >1 word -> "".
+    # A genuinely-unknown leading token (``mystery (x)``) still resolves to "".
+    match = re.fullmatch(r"\s*([^()]*?)\s*\([^()]*\)\s*", lower)
+    if not match:
+        return ""
+    head = match.group(1).strip()
+    head_words = head.split()
+    if len(head_words) != 1:
+        # Multi-word alias such as "nous hermes (8x7b)" is still a legitimate
+        # disclosure: try the full head before rejecting a >1-word head.
+        resolved = _lookup(head)
+        if resolved:
+            return resolved
+        return ""
+    return _lookup(head_words[0])
 
 
 def _first_heading_candidate(text: str) -> tuple[str, int | None]:
