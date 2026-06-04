@@ -46,7 +46,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.issue.pull_request &&
-       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+       github.event.comment.user.type != 'Bot' &&
+       contains(fromJSON('["OWNER","MEMBER"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -98,11 +99,14 @@ jobs:
           # Most recent COMPLETED enforcing merge-quorum run for this exact head.
           # gh run rerun only works on completed runs; an in-progress run will
           # already evaluate the current head, so skipping it is correct.
+          # head_sha is bound through jq --arg (never interpolated into the program)
+          # so the selection is independent of upstream API formatting guarantees.
           run_id="$(gh run list --repo "$GH_REPO" --workflow "$WORKFLOW_NAME" \
-            --limit 50 \
+            --limit 100 \
             --json databaseId,headSha,status,createdAt \
-            --jq "[.[] | select(.headSha==\"${head_sha}\" and .status==\"completed\")] \
-                  | sort_by(.createdAt) | last | .databaseId")"
+            | jq -r --arg head "$head_sha" \
+                '[.[] | select(.headSha==$head and .status=="completed")]
+                 | sort_by(.createdAt) | last | .databaseId // empty')"
 
           if [[ -z "$run_id" || "$run_id" == "null" ]]; then
             echo "No completed merge-quorum run for head ${head_sha}; nothing to re-run."
