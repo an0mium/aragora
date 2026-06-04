@@ -2587,6 +2587,71 @@ class TestBuildQueueAndPacket:
         ]
         assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
 
+    def test_ignore_own_quorum_flag_drops_required_quorum_row_out_of_ci(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Out-of-CI: the self-check helper does NOT ignore the merge-quorum row,
+        # so by default a concluded merge-quorum FAILURE blocks. The B2 flag is
+        # the only thing that excludes it from gating + diagnostics. An unrelated
+        # typecheck failure keeps the rollup non-green so the required surface is
+        # still fetched even when the flag drops the merge-quorum row.
+        for var in ("GITHUB_WORKFLOW", "GITHUB_JOB", "GITHUB_RUN_ID", "GITHUB_REPOSITORY"):
+            monkeypatch.delenv(var, raising=False)
+        pr_payload = _make_pr(
+            number=7465,
+            files=["docs/status/open.md"],
+            checks=[
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "FAILURE"},
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+            ],
+        )
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "state": "FAILURE",
+                        "bucket": "fail",
+                        "workflow": "Aragora Merge Quorum",
+                        "link": "https://github.com/synaptent/aragora/actions/runs/old/job/1",
+                    },
+                    {"name": "lint", "state": "SUCCESS", "bucket": "pass", "workflow": "Lint"},
+                    {"name": "typecheck", "state": "FAILURE", "bucket": "fail", "workflow": "Lint"},
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        default_required = _build_packet("7465", repo_override=None).check_surfaces[
+            "required_pr_checks"
+        ]
+        assert default_required["effective_total"] == 3
+        assert "aragora-merge-quorum" in default_required["failing_or_cancelled"]
+        assert default_required["ignored_by_ignore_own_quorum_flag_count"] == 0
+
+        flagged_required = _build_packet(
+            "7465", repo_override=None, ignore_own_quorum_check=True
+        ).check_surfaces["required_pr_checks"]
+        assert flagged_required["effective_total"] == 2
+        # The real typecheck failure is preserved; only the merge-quorum row is dropped.
+        assert flagged_required["failing_or_cancelled"] == ["typecheck"]
+        assert flagged_required["ignored_by_ignore_own_quorum_flag_count"] == 1
+        # Diagnostic accounting stays self-consistent: total - effective_total equals
+        # the self-check exclusions plus the flag exclusions.
+        assert flagged_required["total"] - flagged_required["effective_total"] == (
+            flagged_required["ignored_current_merge_quorum_self_check_count"]
+            + flagged_required["ignored_by_ignore_own_quorum_flag_count"]
+        )
+
     def test_required_gate_classifies_real_rollup_shaped_long_queued_shadows(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

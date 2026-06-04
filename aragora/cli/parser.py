@@ -2453,7 +2453,7 @@ def _add_review_queue_parser(subparsers) -> None:
         "--ignore-own-quorum-check",
         action="store_true",
         help=(
-            "Diagnostic only: exclude a concluded aragora-merge-quorum check from "
+            "Diagnostic only: exclude the aragora-merge-quorum check (any state) from "
             "the packet's check gating so out-of-CI callers can observe the real "
             "model-quorum state instead of short-circuiting on a stale self-failure. "
             "The enforcing CI gate never sets this; it does not weaken the gate."

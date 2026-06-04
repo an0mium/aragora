@@ -545,7 +545,7 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         "--ignore-own-quorum-check",
         action="store_true",
         help=(
-            "Diagnostic only: exclude a concluded aragora-merge-quorum check from "
+            "Diagnostic only: exclude the aragora-merge-quorum check (any state) from "
             "the packet's check gating so out-of-CI callers can observe the real "
             "model-quorum state instead of short-circuiting on a stale self-failure. "
             "The enforcing CI gate never sets this; it does not weaken the gate."
@@ -1431,10 +1431,10 @@ def _summarize_checks(checks: list, *, ignore_quorum_check: bool = False) -> tup
     """Return ``(summary, has_failures, has_pending)`` for a statusCheckRollup.
 
     ``ignore_quorum_check`` is a diagnostic-only switch (never set by the
-    enforcing CI path) that additionally excludes a *concluded*
-    ``aragora-merge-quorum`` check, so out-of-CI callers can observe the real
-    non-self check state instead of short-circuiting on a stale self-failure.
-    See B2 in docs/governance/BOSS_LOOP_MERGE_GATE_RESILIENCE.md.
+    enforcing CI path) that additionally excludes the ``aragora-merge-quorum``
+    check in any state (pending or concluded), so out-of-CI callers can observe
+    the real non-self check state instead of short-circuiting on a stale
+    self-failure. See B2 in docs/governance/BOSS_LOOP_MERGE_GATE_RESILIENCE.md.
     """
     success = failure = pending = 0
     for check in _latest_status_check_rollup(checks):
@@ -2309,6 +2309,17 @@ def _build_packet(
             if isinstance(check, dict)
             and _is_required_pr_check_current_merge_quorum_self_check(check)
         )
+        ignored_by_flag_count = (
+            sum(
+                1
+                for check in required_pr_checks
+                if isinstance(check, dict)
+                and _is_merge_quorum_check(check)
+                and not _is_required_pr_check_current_merge_quorum_self_check(check)
+            )
+            if ignore_own_quorum_check
+            else 0
+        )
         rollup_required_diagnostics = _rollup_non_green_diagnostics(
             pr.get("statusCheckRollup") or [],
             required_checks=required_pr_checks if required_available else None,
@@ -2322,9 +2333,14 @@ def _build_packet(
                 "cannot distinguish required checks from non-required PR rollup checks."
             )
         elif effective_required_count == 0:
+            flag_note = (
+                " (and the broader aragora-merge-quorum row, --ignore-own-quorum-check set)"
+                if ignore_own_quorum_check
+                else ""
+            )
             gate_blocked_reason = (
                 "GitHub reported no effective branch-protection required checks "
-                "after ignoring the current merge-quorum self-check."
+                f"after ignoring the current merge-quorum self-check{flag_note}."
             )
         elif required_has_failures:
             gate_blocked_reason = (
@@ -2339,6 +2355,7 @@ def _build_packet(
             "total": len(required_pr_checks),
             "effective_total": effective_required_count,
             "ignored_current_merge_quorum_self_check_count": ignored_self_check_count,
+            "ignored_by_ignore_own_quorum_flag_count": ignored_by_flag_count,
             "summary": required_summary,
             "gate_selected": False,
             "gate_blocked_reason": gate_blocked_reason,
