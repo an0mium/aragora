@@ -2064,6 +2064,12 @@ class TestBuildQueueAndPacket:
                 },
             )
 
+        def fake_gh_json(args: list[str]) -> dict[str, Any]:
+            if args[:3] == ["pr", "view", "7528"]:
+                return _make_pr(number=7528)
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
         monkeypatch.setattr("aragora.cli.commands.review_queue._build_queue", fail_build_queue)
         monkeypatch.setattr("aragora.cli.commands.review_queue._build_packet", fake_build_packet)
 
