@@ -2249,7 +2249,7 @@ def _build_packet(
     check_surfaces: dict[str, Any]
     if settlement_state_block:
         checks_unavailable = False
-        checks_summary = f"not applicable ({settlement_state_block})"
+        checks_summary = f"failing PR state ({settlement_state_block})"
         has_failures = False
         has_pending = False
         check_surfaces = {

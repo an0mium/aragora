@@ -56,10 +56,6 @@ OPEN_PR_LIGHT_FIELDS = (
     "reviewDecision,labels,author,additions,deletions,changedFiles"
 )
 PR_POLICY_FIELDS = "number,title,headRefName,author,mergeable,mergeStateStatus,files"
-PR_TERMINAL_STATE_FIELDS = (
-    "number,title,url,state,mergedAt,headRefName,headRefOid,mergeable,"
-    "mergeStateStatus,isDraft,files"
-)
 SURFACE_EXCLUDE_REASON = (
     "security/auth/RBAC/secrets/deploy/workflow/legal/compliance/destructive/"
     "migration/public-API surface"
@@ -1605,84 +1601,6 @@ def _light_entry_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _terminal_pr_reason(metadata: dict[str, Any]) -> str:
-    state = str(metadata.get("state") or "").strip().upper()
-    merged_at = str(metadata.get("mergedAt") or "").strip()
-    if merged_at:
-        if state == "OPEN":
-            return (
-                "PR state is OPEN but mergedAt is set; settlement applies only to open unmerged PRs"
-            )
-        return f"PR is {state or 'MERGED'}; settlement applies only to open PRs"
-    if state and state != "OPEN":
-        return f"PR is {state}; settlement applies only to open PRs"
-    return ""
-
-
-def _terminal_pr_packet(metadata: dict[str, Any], *, reason: str) -> dict[str, Any]:
-    pr_number = _coerce_int(metadata.get("number"))
-    files: list[str] = []
-    for item in metadata.get("files") or []:
-        if isinstance(item, dict):
-            path = str(item.get("path") or "").strip()
-            if path:
-                files.append(path)
-    head_sha = str(metadata.get("headRefOid") or "").strip()
-    entry = {
-        "pr_number": pr_number,
-        "title": str(metadata.get("title") or ""),
-        "url": str(metadata.get("url") or ""),
-        "head_sha": head_sha,
-        "checks_summary": f"not applicable ({reason})",
-        "machine_recommendation": "needs_human_attention",
-        "tier": 0 if files else 1,
-        "tier_name": "terminal_pr_state",
-        "status": "repair_or_wait",
-        "verdict": "not_ready_for_settlement",
-        "admin_squash_allowed": False,
-        "requires_human_risk_settlement": False,
-        "unresolved_dissent": False,
-        "reviewer_signals": [],
-        "dogfood_evidence": [],
-        "counted_reviewer_ids": [],
-        "counted_model_families": [],
-        "reasons": [reason],
-        "check_surfaces": {
-            "pr_state": {
-                "available": True,
-                "state": str(metadata.get("state") or "").strip().upper(),
-                "merged_at": str(metadata.get("mergedAt") or "").strip(),
-                "summary": reason,
-            }
-        },
-    }
-    not_ready = [pr_number] if pr_number is not None else []
-    return {
-        "version": "merge_authorization_packet.v1",
-        "generated_at": datetime.now(UTC).isoformat(),
-        "entries": [entry],
-        "admin_squash_order": [],
-        "human_risk_settlement_required": [],
-        "not_ready": not_ready,
-        "load_blockers": [reason],
-        "load_warnings": ["explicit PR is already terminal; skipped merge-packet"],
-    }
-
-
-def _load_terminal_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str, Any] | None:
-    command = _with_repo(
-        ["gh", "pr", "view", str(pr), "--json", PR_TERMINAL_STATE_FIELDS],
-        repo,
-    )
-    payload, result = _run_json(command, cwd=cwd, timeout=GH_METADATA_TIMEOUT_SECONDS)
-    if result["returncode"] != 0 or not isinstance(payload, dict):
-        return None
-    reason = _terminal_pr_reason(payload)
-    if not reason:
-        return None
-    return _terminal_pr_packet(payload, reason=reason)
-
-
 def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict[str, Any]:
     try:
         return _load_broad_packet_bulk(cwd=cwd, limit=limit, repo=repo)
@@ -1758,9 +1676,6 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
 
 def load_packet(*, cwd: Path, pr: int | None, limit: int, repo: str | None) -> dict[str, Any]:
     if pr is not None:
-        terminal_packet = _load_terminal_pr_packet(cwd=cwd, pr=pr, repo=repo)
-        if terminal_packet is not None:
-            return terminal_packet
         return _load_single_pr_packet(cwd=cwd, pr=pr, repo=repo)
     return load_broad_packet_lazily(cwd=cwd, limit=limit, repo=repo)
 
