@@ -709,6 +709,10 @@ def test_worktree_is_dirty_ignores_untracked_files(tmp_path: Path) -> None:
     assert _worktree_is_dirty(repo) is True
 
 
+def test_worktree_is_dirty_treats_missing_path_as_clean(tmp_path: Path) -> None:
+    assert _worktree_is_dirty(tmp_path / "missing-worktree") is False
+
+
 def test_list_worktrees_filters_before_dirty_checks(monkeypatch: Any, tmp_path: Path) -> None:
     payload = """
 worktree /tmp/codex-a
