@@ -275,6 +275,7 @@ source = { editable = "." }
 [package.optional-dependencies]
 all = [
     { name = "aio-pika" },
+    { name = "aiohttp" },
     { name = "aiokafka" },
     { name = "asyncpg" },
     { name = "fastapi" },
@@ -285,6 +286,7 @@ all = [
     { name = "web3" },
 ]
 blockchain = [
+    { name = "aiohttp" },
     { name = "web3" },
 ]
 connectors = [
@@ -324,6 +326,8 @@ test = [
 requires-dist = [
     { name = "aio-pika", marker = "extra == 'all'", specifier = ">=9.6.2,<10.0" },
     { name = "aio-pika", marker = "extra == 'connectors'", specifier = ">=9.6.2,<10.0" },
+    { name = "aiohttp", marker = "extra == 'all'", specifier = ">=3.14.0,<4.0" },
+    { name = "aiohttp", marker = "extra == 'blockchain'", specifier = ">=3.14.0,<4.0" },
     { name = "aiokafka", marker = "extra == 'all'", specifier = ">=0.14.0,<1.0" },
     { name = "aiokafka", marker = "extra == 'connectors'", specifier = ">=0.14.0,<1.0" },
     { name = "asyncpg", marker = "extra == 'all'", specifier = ">=0.31.0,<1.0" },
