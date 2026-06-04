@@ -213,7 +213,7 @@ def test_build_live_receipt_data_parses_string_consensus_flags(raw_consensus, ex
     )
 
     assert receipt["consensus_proof"]["reached"] is expected
-    assert receipt["verdict"] == ("consensus" if expected else "no_consensus")
+    assert receipt["verdict"] == ("PASS" if expected else "FAIL")
     assert receipt["timestamp"]
     assert receipt["artifact_hash"]
     assert receipt["question"] == "Should we ship?"

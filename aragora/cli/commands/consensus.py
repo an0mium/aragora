@@ -209,8 +209,17 @@ def cmd_consensus_detect(args: argparse.Namespace) -> int:
         print("Error: No valid proposals found", file=sys.stderr)
         return 1
 
-    # Try API-first
-    result = _try_api_detect(task, proposals, threshold, args)
+    # Try API-first. _try_api_detect returns None when the server is
+    # unavailable (so we fall back to local); a genuine client-side request
+    # error (4xx) is re-raised and surfaced here as a clean CLI message
+    # instead of an uncaught traceback.
+    from aragora.client.errors import AragoraAPIError
+
+    try:
+        result = _try_api_detect(task, proposals, threshold, args)
+    except AragoraAPIError as e:
+        print(f"Error: API request failed: {e}", file=sys.stderr)
+        return 1
 
     # Fallback to local detection
     if result is None:
@@ -295,6 +304,7 @@ def _try_api_detect(
         import os
 
         from aragora.client.client import AragoraClient
+        from aragora.client.errors import AragoraAPIError
 
         api_url = getattr(args, "api_url", None) or os.environ.get(
             "ARAGORA_API_URL", "http://localhost:8080"
@@ -313,6 +323,19 @@ def _try_api_detect(
         return result
     except ImportError:
         logger.debug("AragoraClient not available")
+        return None
+    except AragoraAPIError as e:
+        # When the server is unavailable -- connection refused (status_code 0)
+        # or a 5xx server error -- fall back to local detection, since
+        # consensus over caller-supplied proposals is computable in-process.
+        # Genuine client-side request errors (4xx, e.g. validation) indicate a
+        # bad request rather than an unavailable server, so re-raise them.
+        status = getattr(e, "status_code", 0) or 0
+        if 400 <= status < 500:
+            raise
+        logger.debug(
+            "API consensus detect unavailable (status=%s); using local fallback: %s", status, e
+        )
         return None
     except (OSError, ConnectionError, RuntimeError, ValueError, KeyError) as e:
         logger.debug("API consensus detect failed: %s", e)

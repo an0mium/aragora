@@ -278,3 +278,106 @@ class TestConsensusMainCommand:
 
         captured = capsys.readouterr()
         assert "aragora consensus" in captured.out
+
+
+class TestConsensusDetectOfflineFallback:
+    """Regression: when the API server is unavailable, `consensus detect` must
+    fall back to local detection instead of crashing.
+
+    Previously ``_try_api_detect`` only caught a fixed tuple of builtin
+    exceptions, so the ``AragoraAPIError`` raised by the SDK client on a
+    connection failure propagated out and the documented local fallback never
+    ran (the command exited non-zero with a connection error).
+    """
+
+    @staticmethod
+    def _args(**kw):
+        base = dict(api_url=None, api_key=None)
+        base.update(kw)
+        return argparse.Namespace(**base)
+
+    def test_api_connection_error_falls_back(self):
+        from aragora.cli.commands.consensus import _try_api_detect
+        from aragora.client.errors import AragoraAPIError
+
+        with patch("aragora.client.client.AragoraClient") as MockClient:
+            MockClient.return_value.request.side_effect = AragoraAPIError(
+                "Connection error", "CONNECTION_ERROR", 0
+            )
+            result = _try_api_detect(
+                "Choose a DB", [{"agent": "a", "content": "Use Postgres"}], 0.7, self._args()
+            )
+        assert result is None
+
+    def test_api_server_5xx_falls_back(self):
+        from aragora.cli.commands.consensus import _try_api_detect
+        from aragora.client.errors import AragoraAPIError
+
+        with patch("aragora.client.client.AragoraClient") as MockClient:
+            MockClient.return_value.request.side_effect = AragoraAPIError(
+                "Server error", "INTERNAL", 500
+            )
+            result = _try_api_detect(
+                "Choose a DB", [{"agent": "a", "content": "Use Postgres"}], 0.7, self._args()
+            )
+        assert result is None
+
+    def test_api_client_4xx_is_reraised(self):
+        from aragora.cli.commands.consensus import _try_api_detect
+        from aragora.client.errors import ValidationError
+
+        with patch("aragora.client.client.AragoraClient") as MockClient:
+            MockClient.return_value.request.side_effect = ValidationError(
+                "bad proposals", field="proposals"
+            )
+            with pytest.raises(ValidationError):
+                _try_api_detect("Choose a DB", [{"agent": "a", "content": "x"}], 0.7, self._args())
+
+    @patch("aragora.cli.commands.consensus._try_local_detect")
+    def test_detect_command_falls_back_to_local_when_api_down(self, mock_local):
+        from aragora.client.errors import AragoraAPIError
+
+        mock_local.return_value = {
+            "debate_id": "detect-x",
+            "consensus_reached": True,
+            "confidence": 0.8,
+        }
+        args = argparse.Namespace(
+            task="Choose a DB",
+            proposals='["Use PostgreSQL", "PostgreSQL with Redis"]',
+            file=None,
+            stdin=False,
+            threshold=0.7,
+            output_format="json",
+            api_url=None,
+            api_key=None,
+        )
+        with patch("aragora.client.client.AragoraClient") as MockClient:
+            MockClient.return_value.request.side_effect = AragoraAPIError(
+                "Connection error", "CONNECTION_ERROR", 0
+            )
+            result = cmd_consensus_detect(args)
+        assert result == 0
+        mock_local.assert_called_once()
+
+    def test_detect_command_surfaces_client_4xx(self, capsys):
+        from aragora.client.errors import ValidationError
+
+        args = argparse.Namespace(
+            task="Choose a DB",
+            proposals='["Use PostgreSQL"]',
+            file=None,
+            stdin=False,
+            threshold=0.7,
+            output_format="text",
+            api_url=None,
+            api_key=None,
+        )
+        with patch("aragora.client.client.AragoraClient") as MockClient:
+            MockClient.return_value.request.side_effect = ValidationError(
+                "bad proposals", field="proposals"
+            )
+            result = cmd_consensus_detect(args)
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "API request failed" in captured.err

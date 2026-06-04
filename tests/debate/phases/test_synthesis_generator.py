@@ -448,6 +448,23 @@ class TestGenerateMandatorySynthesis:
         assert ctx.result.final_answer == ctx.result.synthesis
 
     @pytest.mark.asyncio
+    async def test_single_agent_direct_answer_preserved(self):
+        """Single-agent direct ask should not be wrapped as Final Synthesis."""
+        ctx = MockDebateContext()
+        ctx.proposals = {"grok": "2+2 is 4, answered by xAI/Grok."}
+        protocol = MagicMock()
+        protocol.single_agent_direct_answer = True
+
+        gen = SynthesisGenerator(protocol=protocol)
+        result = await gen.generate_mandatory_synthesis(ctx)
+
+        assert result is True
+        assert ctx.result.final_answer == "2+2 is 4, answered by xAI/Grok."
+        assert ctx.result.synthesis == ctx.result.final_answer
+        assert "Final Synthesis" not in ctx.result.final_answer
+        assert "Combined Perspectives" not in ctx.result.final_answer
+
+    @pytest.mark.asyncio
     async def test_synthesis_stored_in_result(self):
         """Synthesis is stored in result."""
         ctx = MockDebateContext()

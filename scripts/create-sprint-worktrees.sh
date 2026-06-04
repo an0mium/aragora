@@ -15,8 +15,8 @@
 
 set -euo pipefail
 
-REPO="/Users/armand/Development/aragora"
-BASE="/Users/armand/Development"
+REPO="${ARAGORA_REPO_ROOT:-$(git rev-parse --show-toplevel)}"
+BASE="$(dirname "$REPO")"
 TS=$(date +%Y%m%d)
 
 declare -A TRACKS=(

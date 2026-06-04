@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	aragorav1alpha1 "github.com/an0mium/aragora-operator/api/v1alpha1"
+	aragorav1alpha1 "github.com/synaptent/aragora-operator/api/v1alpha1"
 )
 
 // Client is the Aragora control plane API client

@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from aragora.epistemic.coherence import CoherenceIssue
     from aragora.reasoning.cruxset import Crux, CruxSet
     from aragora.reputation.types import (
         ReputationDelta,
@@ -51,7 +52,7 @@ MAX_BODY_STATEMENT_CHARS = 800
 class FollowupProposal:
     """A proposed bounded follow-up issue.
 
-    - ``source_kind``: ``"crux"`` or ``"failed_claim"``
+    - ``source_kind``: ``"crux"``, ``"failed_claim"``, or ``"coherence_issue"``
     - ``source_key``: stable dedup key; callers should skip proposals
       whose source_key they have already filed
     - ``labels``: intentionally excludes ``boss-ready`` by default;
@@ -71,7 +72,7 @@ class FollowupProposal:
     provenance: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.source_kind not in {"crux", "failed_claim"}:
+        if self.source_kind not in {"crux", "failed_claim", "coherence_issue"}:
             raise ValueError(f"unsupported source_kind: {self.source_kind!r}")
         if not str(self.source_key).strip():
             raise ValueError("source_key must be non-empty")
@@ -156,7 +157,7 @@ def propose_followup_for_crux(
             ]
         )
     if crux.evidence_gaps:
-        body_lines.extend(["", "## Evidence gaps"])
+        body_lines.extend(["\n## Evidence gaps"])
         body_lines.extend(f"- {gap.strip()}" for gap in crux.evidence_gaps if gap.strip())
     if crux.candidate_verifier:
         body_lines.extend(
@@ -330,11 +331,103 @@ def propose_followup_for_failed_claim(
     )
 
 
+# ---------------------------------------------------------------------------
+# Coherence issue → proposal  (DIC-26 → DIC-17 bridge)
+# ---------------------------------------------------------------------------
+
+
+def propose_followup_for_coherence_issue(
+    issue: "CoherenceIssue",
+    *,
+    source_context: str = "",
+    extra_labels: tuple[str, ...] = (),
+) -> FollowupProposal | None:
+    """Propose exactly one bounded follow-up issue for a CoherenceIssue, or None.
+
+    Returns ``None`` for ``severity="warning"`` issues — warning-level
+    incoherence (mild confidence rot, single-evidence conflicts) does
+    not automatically merit actionable queue work. Only ``severity="error"``
+    (hard contradictions, deep confidence rot) produces a proposal.
+
+    This implements the DIC-26 acceptance criterion: "Output flows
+    through DIC-17 bridge only when explicitly enabled" — this function
+    is the bridge side; the caller controls whether to invoke it.
+
+    The ``boss-ready`` label is always excluded; the proof-first
+    reconciler will strip it if ever added externally.
+    """
+    if issue.severity != "error":
+        return None
+
+    kind_slug = {
+        "contradiction": "contradiction",
+        "evidence_conflict": "evidence-conflict",
+        "confidence_rot": "confidence-rot",
+    }.get(issue.kind.value, issue.kind.value)
+
+    belief_ids_excerpt = ", ".join(str(b) for b in list(issue.belief_ids)[:3])
+    if len(issue.belief_ids) > 3:
+        belief_ids_excerpt += f" (+{len(issue.belief_ids) - 3})"
+
+    title = f"[DIC-26] Resolve coherence {issue.kind.value}: [{belief_ids_excerpt[:55]}]"
+    if len(title) > 140:
+        title = title[:139] + "…"
+
+    body_lines = [
+        "## Goal",
+        f"Resolve a {issue.kind.value} surfaced by the DIC-26 Belief Coherence Monitor.",
+        "",
+        "## Incoherence",
+        f"- kind: {issue.kind.value}",
+        f"- severity: {issue.severity}",
+        f"- belief_ids: {', '.join(str(b) for b in issue.belief_ids)}",
+        "",
+        "## Detail",
+        _truncate(issue.detail),
+    ]
+    if source_context:
+        body_lines.extend(["", "## Source context", _truncate(source_context, 200)])
+    body_lines.extend(
+        [
+            "",
+            "## Provenance",
+            "- source: DIC-26 coherence-monitor → DIC-17 follow-up bridge",
+            "",
+            "## Queue policy",
+            "This issue is a DIC-17 proposal. It MUST NOT carry `boss-ready` unless the "
+            "current tranche in `docs/status/NEXT_STEPS_CANONICAL.md` explicitly permits "
+            "it. The proof-first reconciler in `scripts/reconcile_proof_first_queue.py` "
+            "will strip the label if it is added outside the permitted lane.",
+        ]
+    )
+
+    labels = tuple(sorted({"epistemic", "coherence", kind_slug, *extra_labels} - {"boss-ready"}))
+    # Dedup key: stable hash of belief_ids (sorted) + kind so the same
+    # incoherence produces the same source_key regardless of scan order.
+    dedup_material = "|".join(sorted(str(b) for b in issue.belief_ids)) + f"|{issue.kind.value}"
+    source_key = _source_key("coherence_issue", dedup_material)
+
+    return FollowupProposal(
+        source_kind="coherence_issue",
+        source_key=source_key,
+        title=title,
+        body="\n".join(body_lines),
+        labels=labels,
+        rationale=f"severity={issue.severity!r} {issue.kind.value} across {len(issue.belief_ids)} belief(s)",
+        provenance={
+            "kind": issue.kind.value,
+            "severity": issue.severity,
+            "belief_ids": list(issue.belief_ids),
+        },
+    )
+
+
 __all__ = [
     "DEFAULT_CRUX_LOAD_BEARING_THRESHOLD",
     "DEFAULT_DELTA_LOSS_THRESHOLD",
     "FollowupProposal",
     "MAX_BODY_STATEMENT_CHARS",
+    "propose_followup_for_coherence_issue",
     "propose_followup_for_crux",
     "propose_followup_for_cruxset",
     "propose_followup_for_failed_claim",

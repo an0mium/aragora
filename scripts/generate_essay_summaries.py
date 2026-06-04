@@ -38,7 +38,7 @@ OUTPUT_DIR = REPO_ROOT / "aragora" / "server" / "handlers" / "essay_summaries"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 MODELS: dict[str, str] = {
-    "claude": "anthropic/claude-opus-4.7",
+    "claude": "anthropic/claude-opus-4.8",
     "gpt": "openai/gpt-5.3",
     "grok": "x-ai/grok-4.1-fast",
     "deepseek": "deepseek/deepseek-v4-pro",
@@ -91,7 +91,7 @@ def build_payload(model_id: str, essay_text: str) -> dict[str, Any]:
     """Build the OpenRouter API request payload.
 
     Args:
-        model_id: The OpenRouter model identifier (e.g. ``anthropic/claude-opus-4.7``).
+        model_id: The OpenRouter model identifier (e.g. ``anthropic/claude-opus-4.8``).
         essay_text: The full essay to include in the user message.
 
     Returns:

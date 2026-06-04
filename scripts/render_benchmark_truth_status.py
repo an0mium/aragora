@@ -166,6 +166,20 @@ def _format_issue_numbers(values: Any) -> str:
     return ", ".join(f"`#{value}`" for value in sorted(issue_numbers))
 
 
+def _issue_numbers_for_records(records: list[dict[str, Any]], *, state: str) -> list[int]:
+    normalized_state = state.strip().upper()
+    issue_numbers: list[int] = []
+    for record in records:
+        if str(record.get("expected_status") or "").strip() != "in_progress":
+            continue
+        if str(record.get("issue_state") or "").strip().upper() != normalized_state:
+            continue
+        issue_number = record.get("issue_number")
+        if isinstance(issue_number, int) and issue_number > 0:
+            issue_numbers.append(issue_number)
+    return sorted(issue_numbers)
+
+
 def _render_stale_closed_issues(issues: list[dict[str, Any]]) -> list[str]:
     lines: list[str] = []
     for issue in issues:
@@ -302,6 +316,9 @@ def render_status_markdown(
     failure_distribution = dict(scorecard_payload.get("failure_class_distribution") or {})
     rescue_counts = dict(scorecard_payload.get("rescue_counts_by_type") or {})
     neutral_classes = dict(proxy_metrics.get("neutral_classes") or {})
+    issue_records = [
+        item for item in list(truth_payload.get("issues") or []) if isinstance(item, dict)
+    ]
     corpus_freshness = dict(truth_payload.get("corpus_freshness") or {})
     stale_closed_issues = [
         item
@@ -414,8 +431,16 @@ def render_status_markdown(
                     f"{_format_percent(in_flight_metrics.get('in_progress_graduation_rate'))} |"
                 ),
                 (
-                    "| In-progress issue numbers | "
+                    "| Expected in-progress issue numbers | "
                     f"{_format_issue_numbers(in_flight_metrics.get('in_progress_issue_numbers'))} |"
+                ),
+                (
+                    "| Live-open expected issue numbers | "
+                    f"{_format_issue_numbers(_issue_numbers_for_records(issue_records, state='OPEN'))} |"
+                ),
+                (
+                    "| Live-closed expected issue numbers | "
+                    f"{_format_issue_numbers(_issue_numbers_for_records(issue_records, state='CLOSED'))} |"
                 ),
             ]
         )

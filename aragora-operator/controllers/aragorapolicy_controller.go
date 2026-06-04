@@ -33,9 +33,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	aragorav1alpha1 "github.com/an0mium/aragora-operator/api/v1alpha1"
-	"github.com/an0mium/aragora-operator/internal/aragora"
-	"github.com/an0mium/aragora-operator/internal/metrics"
+	aragorav1alpha1 "github.com/synaptent/aragora-operator/api/v1alpha1"
+	"github.com/synaptent/aragora-operator/internal/aragora"
+	"github.com/synaptent/aragora-operator/internal/metrics"
 )
 
 const (

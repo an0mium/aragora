@@ -21,6 +21,7 @@ from aragora.cli.commands.quickstart import (
     _build_live_team,
     _can_reach_provider_tls,
     _configure_inline_api_key,
+    _derive_receipt_id,
     _detect_agents,
     _filter_reachable_live_agents,
     _get_question,
@@ -613,10 +614,56 @@ class TestCmdQuickstart:
         assert result["debate_status"] == DebateStatus.COMPLETED.value
         assert result["debate_status_source"] == DebateStatusSource.SYNTHETIC.value
         assert result["synthetic"] is True
-        assert result["verdict"] == "consensus"
+        assert result["verdict"] == "approved"
         assert result["confidence"] == 0.85
         assert result["agents"] == ["analyst", "critic", "synthesizer"]
         assert "Demo synthesis for: Should we ship the fallback fix?" in result["summary"]
+
+    @pytest.mark.asyncio
+    async def test_run_demo_debate_verdict_passes_bundled_verify(self):
+        """The demo receipt's verdict must be accepted by `aragora verify`.
+
+        Regression for the quickstart lane defect where the demo hardcoded
+        verdict='consensus', a value absent from verify's recognised Verdict
+        set, so the headline zero-to-receipt artifact failed `aragora verify`.
+        """
+        from aragora.cli.commands.verify import _is_valid_verdict
+
+        result = await _run_demo_debate("Should we ship the fallback fix?", rounds=2)
+
+        # Verdict must be a verify-recognised Verdict value.
+        assert _is_valid_verdict(result["verdict"]), result["verdict"]
+
+        # The persisted demo receipt (post-canonicalize) must also carry a
+        # recognised verdict and keep its consensus signal intact.
+        payload = _build_quickstart_receipt_payload(result)
+        assert _is_valid_verdict(payload["verdict"]), payload["verdict"]
+        assert payload["consensus_reached"] is True
+
+    @pytest.mark.asyncio
+    async def test_run_demo_debate_payload_carries_generated_receipt_id(self):
+        """The demo result payload must surface the generated stable receipt id.
+
+        Regression for the accidental drop of the top-level ``receipt_id`` key
+        while fixing the verdict to 'approved': the receipt id is still
+        generated via ``_derive_receipt_id`` but must flow through to the
+        result payload (and stay aligned with the nested receipt block) so
+        downstream callers and receipt-building paths keep their stable id.
+        The verdict fix ('approved') must remain intact alongside it.
+        """
+        question = "Should we ship the fallback fix?"
+        rounds = 2
+        expected_receipt_id = _derive_receipt_id(mode="demo", question=question, rounds=rounds)
+
+        result = await _run_demo_debate(question, rounds=rounds)
+
+        # The original (pre-regression) top-level receipt_id key is restored
+        # and matches the deterministically derived id.
+        assert result["receipt_id"] == expected_receipt_id
+        # It stays consistent with the nested receipt block.
+        assert result["receipt"]["id"] == expected_receipt_id
+        # The verdict fix from #7566 remains intact.
+        assert result["verdict"] == "approved"
 
     @pytest.mark.asyncio
     async def test_run_live_debate_raises_when_arena_returns_none(self):

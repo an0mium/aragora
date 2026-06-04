@@ -214,19 +214,23 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
 def build_payload(root: Path) -> dict[str, Any]:
     records, load_issues = _load_records_with_issues(root)
     issues = [*load_issues, *audit(records)]
+    summary = {
+        "error_count": sum(1 for issue in issues if issue.severity == "error"),
+        "warning_count": sum(1 for issue in issues if issue.severity == "warning"),
+        "active_count": sum(1 for record in records if _normalized_status(record) == "ACTIVE"),
+    }
     return {
         "root": str(root),
         "automation_count": _automation_file_count(root),
+        "active_count": summary["active_count"],
+        "error_count": summary["error_count"],
+        "warning_count": summary["warning_count"],
         "core_writers": {
             writer_id: next((asdict(r) for r in records if r.id == writer_id), None)
             for writer_id in CORE_WRITERS
         },
         "issues": [asdict(issue) for issue in issues],
-        "summary": {
-            "error_count": sum(1 for issue in issues if issue.severity == "error"),
-            "warning_count": sum(1 for issue in issues if issue.severity == "warning"),
-            "active_count": sum(1 for record in records if _normalized_status(record) == "ACTIVE"),
-        },
+        "summary": summary,
     }
 
 

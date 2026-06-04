@@ -4,7 +4,7 @@ Canonical frontier-model pin registry.
 All code that needs a "best available" model for a given role should import
 constants from this module instead of hardcoding IDs. The goal is:
 
-1. One place to bump the frontier (Opus 4.7 -> 4.8, GPT 5.5 -> 5.6, etc.)
+1. One place to bump the frontier (Opus 4.8 -> 4.9, GPT 5.5 -> 5.6, etc.)
 2. OpenRouter aliases are the default transport so a missing direct-provider
    key never blocks functionality. Set ARAGORA_ROUTE_THROUGH_OPENROUTER=true
    to force every call through OpenRouter even if a direct key is present.
@@ -13,9 +13,9 @@ constants from this module instead of hardcoding IDs. The goal is:
 
 Naming convention:
 - ``*_VIA_OPENROUTER`` -> the alias you pass to ``OpenRouterAgent``
-  (e.g. ``anthropic/claude-opus-4.7``).
+  (e.g. ``anthropic/claude-opus-4.8``).
 - ``*_DIRECT``         -> the raw model ID the native provider expects
-  (e.g. ``claude-opus-4-7``).
+  (e.g. ``claude-opus-4-8``).
 
 Role-keyed helpers (``frontier_model_for_role``, ``openrouter_alias_for_role``)
 return the best pin for a debate role (proposer, critic, synthesizer, etc.).
@@ -34,12 +34,15 @@ logger = logging.getLogger(__name__)
 
 
 # -----------------------------------------------------------------------------
-# Frontier pins (user-requested floor: Opus 4.7 / GPT 5.5 / Gemini 3.1 Pro)
+# Frontier pins (user-requested floor: Opus 4.8 / GPT 5.5 / Gemini 3.1 Pro)
 # -----------------------------------------------------------------------------
 
-# Anthropic Claude Opus 4.7 - top-tier reasoning, debate, synthesis
-OPUS_47_DIRECT: Final = "claude-opus-4-7"
-OPUS_47_VIA_OPENROUTER: Final = "anthropic/claude-opus-4.7"
+# Anthropic Claude Opus 4.8 - top-tier reasoning, debate, synthesis.
+OPUS_48_DIRECT: Final = "claude-opus-4-8"
+OPUS_48_VIA_OPENROUTER: Final = "anthropic/claude-opus-4.8"
+# Backwards-compatible constant names for callers that have not migrated yet.
+OPUS_47_DIRECT: Final = OPUS_48_DIRECT
+OPUS_47_VIA_OPENROUTER: Final = OPUS_48_VIA_OPENROUTER
 
 # OpenAI GPT-5.5 - top-tier general reasoning
 GPT55_DIRECT: Final = "gpt-5.5"
@@ -72,6 +75,7 @@ MISTRAL_LARGE_VIA_OPENROUTER: Final = "mistralai/mistral-large"
 # constants above; expose them at module scope so the security
 # canonical-metrics gate can see that the frontier floor is honored.
 OPUS_4_7: Final = OPUS_47_DIRECT
+OPUS_4_8: Final = OPUS_48_DIRECT
 GPT_5_4: Final = GPT55_DIRECT
 GEMINI_3_1_PRO: Final = GEMINI_31_PRO_DIRECT
 
@@ -176,7 +180,9 @@ def direct_model_for_role(role: Role = "default") -> str:
 # without doing a risky global sed.
 
 _LEGACY_UPGRADES: Final[dict[str, tuple[str, str]]] = {
-    # Claude family -> Opus 4.7
+    # Claude family -> Opus 4.8
+    "claude-opus-4-7": (OPUS_48_DIRECT, OPUS_48_VIA_OPENROUTER),
+    "anthropic/claude-opus-4.7": (OPUS_48_DIRECT, OPUS_48_VIA_OPENROUTER),
     "claude-opus-4-5-20251101": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "claude-opus-4-5": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
     "claude-opus-4": (OPUS_47_DIRECT, OPUS_47_VIA_OPENROUTER),
@@ -246,6 +252,8 @@ def upgrade_legacy_pin(model_id: str) -> str:
 
 
 __all__ = [
+    "OPUS_48_DIRECT",
+    "OPUS_48_VIA_OPENROUTER",
     "OPUS_47_DIRECT",
     "OPUS_47_VIA_OPENROUTER",
     "GPT55_DIRECT",
@@ -259,6 +267,7 @@ __all__ = [
     "MISTRAL_LARGE_DIRECT",
     "MISTRAL_LARGE_VIA_OPENROUTER",
     "OPUS_4_7",
+    "OPUS_4_8",
     "GPT_5_4",
     "GEMINI_3_1_PRO",
     "Role",

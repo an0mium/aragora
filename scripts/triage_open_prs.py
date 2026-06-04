@@ -55,6 +55,11 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from aragora.config.trusted_authors import resolve_trusted_authors  # noqa: E402
+
 # ---------------------------------------------------------------------------
 # Policy constants — keep in sync with docs/governance/OPERATOR_DELEGATION_POLICY.md
 # ---------------------------------------------------------------------------
@@ -77,10 +82,15 @@ PROTECTED_PATHS: frozenset[str] = frozenset(
     }
 )
 
-# Trusted authors — Bucket A is gated on author membership here. Adding
-# a new entry is itself an operator-only tripwire (the policy doc names
+
+# Trusted authors — Bucket A is gated on author membership here. No personal
+# login is trusted by default; operators opt in via ARAGORA_TRUSTED_AUTHORS
+# (comma separated). Resolved per call so env/test changes take effect. Adding
+# a trusted author is itself an operator-only tripwire (the policy doc names
 # this explicitly).
-TRUSTED_AUTHORS: frozenset[str] = frozenset({"an0mium"})
+def trusted_authors() -> frozenset[str]:
+    return resolve_trusted_authors()
+
 
 # Labels that cannot be added by a Bucket-A PR without an operator look.
 OPERATOR_ONLY_LABELS: frozenset[str] = frozenset({"boss-ready", "autonomous"})
@@ -384,7 +394,7 @@ def _would_qualify_for_bucket_a(
         return False
     author_raw = pr.get("author") or {}
     author = author_raw.get("login", "") if isinstance(author_raw, dict) else str(author_raw)
-    if author not in TRUSTED_AUTHORS:
+    if author not in trusted_authors():
         return False
     if bool(pr.get("isDraft")):
         return False
@@ -705,7 +715,7 @@ def classify(
         )
 
     # --- Bucket C: non-trusted author ---
-    if author not in TRUSTED_AUTHORS:
+    if author not in trusted_authors():
         return _result(
             n,
             title,

@@ -8,6 +8,7 @@ Supports HTML, JSON, and Markdown export formats.
 from __future__ import annotations
 
 import argparse
+import sqlite3
 from pathlib import Path
 
 
@@ -150,7 +151,11 @@ def main(args: argparse.Namespace) -> None:
     elif args.debate_id:
         try:
             artifact = load_artifact_from_debate(args.debate_id, getattr(args, "db", None))
-        except (OSError, RuntimeError, ValueError, KeyError) as e:
+        except (OSError, RuntimeError, ValueError, KeyError, sqlite3.Error) as e:
+            # sqlite3.Error covers the common fresh-user case where the traces
+            # DB exists but has no `traces` table (sqlite3.OperationalError),
+            # which is not a subclass of the other caught types and would
+            # otherwise surface as a raw traceback.
             print(f"Error loading debate: {e}")
             print("Use --demo for a sample export, or ensure the debate ID exists.")
             return

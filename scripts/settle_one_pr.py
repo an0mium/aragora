@@ -15,6 +15,7 @@ import argparse
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -32,6 +33,24 @@ VERSION = "settle_one_steward.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
 BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
+
+
+def _env_timeout_seconds(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return default
+
+
+GH_METADATA_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_GH_TIMEOUT_SECONDS", 60)
+OPERATOR_SNAPSHOT_TIMEOUT_SECONDS = _env_timeout_seconds(
+    "SETTLE_ONE_OPERATOR_SNAPSHOT_TIMEOUT_SECONDS", 30
+)
+BROAD_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_BROAD_PACKET_TIMEOUT_SECONDS", 90)
+SINGLE_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_SINGLE_PACKET_TIMEOUT_SECONDS", 90)
 OPEN_PR_LIGHT_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,mergeable,mergeStateStatus,"
     "reviewDecision,labels,author,additions,deletions,changedFiles"
@@ -68,19 +87,37 @@ def _state_repo_root(cwd: Path) -> Path:
 
 
 def _run(args: list[str], *, cwd: Path, timeout: int = 120) -> dict[str, Any]:
-    proc = subprocess.run(
+    proc = subprocess.Popen(
         args,
         cwd=cwd,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=timeout,
-        check=False,
+        start_new_session=True,
     )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (AttributeError, OSError, ProcessLookupError):
+            proc.kill()
+        stdout, stderr = proc.communicate()
+        return {
+            "command": " ".join(args),
+            "returncode": 124,
+            "stdout": (stdout or "").strip(),
+            "stderr": (
+                (stderr or "").strip() or f"command timed out after {timeout}s and was terminated"
+            ),
+            "timed_out": True,
+            "timeout_seconds": timeout,
+        }
     return {
         "command": " ".join(args),
         "returncode": proc.returncode,
-        "stdout": proc.stdout.strip(),
-        "stderr": proc.stderr.strip(),
+        "stdout": (stdout or "").strip(),
+        "stderr": (stderr or "").strip(),
     }
 
 
@@ -182,7 +219,15 @@ def _has_prefixed_component(component: str, stem: str) -> bool:
 
 
 def _is_docs_or_tests_path(segments: list[str]) -> bool:
-    return bool(segments) and segments[0] in {"doc", "docs", "test", "tests"}
+    if not segments:
+        return False
+    if segments[0] in {"doc", "docs", "test", "tests"}:
+        return True
+    return (
+        len(segments) >= 2
+        and segments[0] in {"docs-site", "documentation-site", "site", "website"}
+        and segments[1] in {"doc", "docs", "documentation"}
+    )
 
 
 def _is_dependabot_pr(entry: dict[str, Any], metadata: dict[str, Any]) -> bool:
@@ -291,6 +336,206 @@ def _exclusion_record(entry: dict[str, Any], reasons: list[str]) -> dict[str, An
         "title": entry.get("title"),
         "head_sha": entry.get("head_sha"),
         "reasons": reasons,
+    }
+
+
+def _candidate_record(
+    entry: dict[str, Any], *, category: str, reasons: list[str]
+) -> dict[str, Any]:
+    return {
+        "category": category,
+        "pr_number": _entry_pr(entry),
+        "title": entry.get("title"),
+        "head_sha": entry.get("head_sha"),
+        "checks_summary": entry.get("checks_summary"),
+        "tier": entry.get("tier"),
+        "status": entry.get("status"),
+        "machine_recommendation": entry.get("machine_recommendation"),
+        "reasons": reasons,
+    }
+
+
+def _diagnostic_priority(record: dict[str, Any]) -> tuple[int, int, str]:
+    """Stable priority for no-candidate hints, independent of packet ordering."""
+    tier = _coerce_int(record.get("tier"))
+    pr_number = _coerce_int(record.get("pr_number"))
+    return (
+        tier if tier is not None else 99,
+        pr_number if pr_number is not None else 999_999_999,
+        str(record.get("title") or ""),
+    )
+
+
+def _prioritize_diagnostic_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(records, key=_diagnostic_priority)
+
+
+def _reason_counts(records: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for record in records:
+        for reason in record.get("reasons") or []:
+            reason_text = str(reason)
+            counts[reason_text] = counts.get(reason_text, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _first_by_reason(records: list[dict[str, Any]], needle: str) -> dict[str, Any] | None:
+    needle_lower = needle.lower()
+    for record in records:
+        if any(needle_lower in str(reason).lower() for reason in record.get("reasons") or []):
+            return record
+    return None
+
+
+def no_candidate_diagnostics(
+    packet: dict[str, Any],
+    *,
+    policy_exclusions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Explain why broad steward selection found no autonomous candidate."""
+    entries = [entry for entry in packet.get("entries") or [] if isinstance(entry, dict)]
+    excluded_prs = {
+        _coerce_int(item.get("pr_number"))
+        for item in policy_exclusions
+        if _coerce_int(item.get("pr_number")) is not None
+    }
+    non_excluded: list[dict[str, Any]] = []
+    check_blocked: list[dict[str, Any]] = []
+    repair_first: list[dict[str, Any]] = []
+    evidence_not_green: list[dict[str, Any]] = []
+    already_satisfied_not_ordered: list[dict[str, Any]] = []
+
+    for entry in entries:
+        pr_number = _entry_pr(entry)
+        if pr_number is None or pr_number in excluded_prs:
+            continue
+        non_excluded.append(entry)
+        summary = str(entry.get("checks_summary", "") or "")
+        recommendation = str(entry.get("machine_recommendation", "") or "").strip()
+        reasons_text = " ".join(str(reason).lower() for reason in entry.get("reasons") or [])
+        missing_evidence = "model quorum incomplete" in reasons_text or "dogfood" in reasons_text
+        if not _is_green_summary(summary):
+            check_blocked.append(
+                _candidate_record(
+                    entry,
+                    category="check_blocked",
+                    reasons=[f"checks_summary={summary or 'unknown'}"],
+                )
+            )
+        elif recommendation == "repair_first":
+            repair_first.append(
+                _candidate_record(
+                    entry,
+                    category="repair_first",
+                    reasons=["machine_recommendation=repair_first"],
+                )
+            )
+        elif missing_evidence:
+            # These would normally be selected. Reaching here means another selector guard blocked it.
+            evidence_not_green.append(
+                _candidate_record(
+                    entry,
+                    category="evidence_blocked",
+                    reasons=[reason for reason in entry.get("reasons") or [] if reason],
+                )
+            )
+        elif bool(entry.get("admin_squash_allowed")) or entry.get("status") == "satisfied":
+            already_satisfied_not_ordered.append(
+                _candidate_record(
+                    entry,
+                    category="satisfied_not_selected",
+                    reasons=["packet satisfied but not in selected autonomous order"],
+                )
+            )
+
+    check_blocked = _prioritize_diagnostic_records(check_blocked)
+    repair_first = _prioritize_diagnostic_records(repair_first)
+    evidence_not_green = _prioritize_diagnostic_records(evidence_not_green)
+    already_satisfied_not_ordered = _prioritize_diagnostic_records(already_satisfied_not_ordered)
+
+    top_human_risk = _first_by_reason(policy_exclusions, "requires_human_risk_settlement")
+    if top_human_risk is None:
+        top_human_risk = _first_by_reason(policy_exclusions, "Tier ")
+
+    return {
+        "packet_entry_count": len(entries),
+        "non_excluded_entry_count": len(non_excluded),
+        "policy_exclusion_count": len(policy_exclusions),
+        "policy_exclusion_reason_counts": _reason_counts(policy_exclusions),
+        "top_check_blocked_candidate": check_blocked[0] if check_blocked else None,
+        "top_repair_first_candidate": repair_first[0] if repair_first else None,
+        "top_conflict_candidate": _first_by_reason(policy_exclusions, "dirty/conflicting PR"),
+        "top_human_risk_candidate": top_human_risk,
+        "top_evidence_blocked_candidate": evidence_not_green[0] if evidence_not_green else None,
+        "top_satisfied_not_selected_candidate": (
+            already_satisfied_not_ordered[0] if already_satisfied_not_ordered else None
+        ),
+    }
+
+
+def no_candidate_next_action(diagnostics: dict[str, Any]) -> dict[str, Any]:
+    """Return the safest single next action for a no-candidate steward result."""
+    check_blocked = diagnostics.get("top_check_blocked_candidate")
+    if isinstance(check_blocked, dict) and check_blocked.get("pr_number"):
+        pr_number = check_blocked["pr_number"]
+        return {
+            "kind": "recheck_or_clear_required_checks",
+            "pr_number": pr_number,
+            "reason": "nearest non-excluded PR is blocked by non-green required or packet checks",
+            "operator_action": (
+                f"Re-check PR #{pr_number} exact head, required checks, merge-packet, and "
+                "settle_one_pr.py; if only a stale/cancelled required workflow blocks it, rerun "
+                "that workflow only. Do not merge."
+            ),
+        }
+
+    repair_first = diagnostics.get("top_repair_first_candidate")
+    if isinstance(repair_first, dict) and repair_first.get("pr_number"):
+        pr_number = repair_first["pr_number"]
+        return {
+            "kind": "repair_first_pr",
+            "pr_number": pr_number,
+            "reason": "nearest non-excluded PR has machine_recommendation=repair_first",
+            "operator_action": (
+                f"Diagnose PR #{pr_number} from a clean worktree and implement the smallest "
+                "branch-local repair, then rerun focused tests. Do not merge."
+            ),
+        }
+
+    conflict = diagnostics.get("top_conflict_candidate")
+    if isinstance(conflict, dict) and conflict.get("pr_number"):
+        pr_number = conflict["pr_number"]
+        return {
+            "kind": "repair_conflict",
+            "pr_number": pr_number,
+            "reason": "nearest blocked queue item is dirty/conflicting",
+            "operator_action": (
+                f"Repair conflicts for PR #{pr_number} in a clean disposable worktree, run focused "
+                "tests, push the branch only if validation passes. Do not merge."
+            ),
+        }
+
+    human_risk = diagnostics.get("top_human_risk_candidate")
+    if isinstance(human_risk, dict) and human_risk.get("pr_number"):
+        pr_number = human_risk["pr_number"]
+        return {
+            "kind": "prepare_human_settlement_packet",
+            "pr_number": pr_number,
+            "reason": "remaining high-value candidate requires Tier 3/4 human-risk settlement",
+            "operator_action": (
+                f"Prepare a read-only exact-head Tier 3/4 settlement packet for PR #{pr_number}; "
+                "do not set statuses, mark ready, or merge."
+            ),
+        }
+
+    return {
+        "kind": "inspect_steward_inputs",
+        "pr_number": None,
+        "reason": "no PR-level next action could be inferred from packet entries",
+        "operator_action": (
+            "Inspect merge-packet inputs and operator-snapshot freshness; improve steward "
+            "classification before selecting queue work."
+        ),
     }
 
 
@@ -745,6 +990,7 @@ def load_open_pr_metadata(
             repo,
         ),
         cwd=cwd,
+        timeout=GH_METADATA_TIMEOUT_SECONDS,
     )
     metadata: dict[int, dict[str, Any]] = {}
     if isinstance(payload, list):
@@ -766,6 +1012,7 @@ def load_pr_policy_metadata(
             repo,
         ),
         cwd=cwd,
+        timeout=GH_METADATA_TIMEOUT_SECONDS,
     )
     if isinstance(payload, dict):
         return payload, command
@@ -776,6 +1023,7 @@ def load_active_owned_prs(cwd: Path) -> tuple[set[int], dict[str, Any]]:
     payload, command = _run_json(
         ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json"],
         cwd=cwd,
+        timeout=OPERATOR_SNAPSHOT_TIMEOUT_SECONDS,
     )
     active_owned: set[int] = set()
     if isinstance(payload, dict):
@@ -939,9 +1187,10 @@ def select_candidate_with_lazy_policy_metadata(
 
 def recursive_prompt(report: dict[str, Any]) -> str:
     pr_number = report.get("selected_pr")
+    repo = _repo_root()
     if pr_number:
         prompt = (
-            f"Start from live truth in /Users/armand/Development/aragora. Goal: continue one-PR "
+            f"Start from live truth in {repo}. Goal: continue one-PR "
             f"settlement for #{pr_number} only using scripts/settle_one_pr.py as the steward. "
             "Do not broad-drain, do not touch #7407/#7425/#7438/#7439/#7443 unless live owner "
             "checks release them, no branch protection, labels, outbox, harvest, admin merge, or "
@@ -952,14 +1201,26 @@ def recursive_prompt(report: dict[str, Any]) -> str:
             "status=satisfied and verdict=admin_squash_allowed."
         )
     else:
-        prompt = (
-            "Start from live truth in /Users/armand/Development/aragora. Goal: make incremental "
-            "progress without broad queue drain by selecting exactly one Tier 0-2 non-human-risk PR "
-            "or one steward-tooling repair. Run scripts/settle_one_pr.py --json first; if it reports "
-            "no candidate, improve the steward's candidate diagnostics or target provider bootstrap "
-            "so dogfood evidence collection becomes reliable. Do not touch Tier 3/4 or active-owned "
-            "PRs, branch protection, labels, outbox, harvest, or admin merge."
-        )
+        next_action = report.get("next_bounded_action")
+        if isinstance(next_action, dict) and next_action.get("operator_action"):
+            action_text = str(next_action["operator_action"])
+            prompt = (
+                f"Start from live truth in {repo}. Goal: make exactly one bounded increment from "
+                "the current no-candidate steward state. First run scripts/settle_one_pr.py --json "
+                f"and confirm the recommended action still matches live truth. Then: {action_text} "
+                "Do not broad-drain, do not touch Tier 3/4 settlement signals unless separately "
+                "authorized, and do not touch branch protection, labels, outbox, harvest, or admin "
+                "merge."
+            )
+        else:
+            prompt = (
+                f"Start from live truth in {repo}. Goal: make incremental "
+                "progress without broad queue drain by selecting exactly one Tier 0-2 non-human-risk "
+                "PR or one steward-tooling repair. Run scripts/settle_one_pr.py --json first; if it "
+                "reports no candidate, improve the steward's candidate diagnostics or target provider "
+                "bootstrap so dogfood evidence collection becomes reliable. Do not touch Tier 3/4 or "
+                "active-owned PRs, branch protection, labels, outbox, harvest, or admin merge."
+            )
     return f"{prompt}\n{CONVERGENCE_SENTENCE}"
 
 
@@ -984,7 +1245,11 @@ def build_report(
         repo_blocker, repo_command, cwd_repo = repo_cwd_blocker(cwd, repo)
         if repo_blocker:
             preselection_blockers.append(repo_blocker)
-        policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
+        if explicit_pr is not None:
+            metadata, metadata_command = load_pr_policy_metadata(cwd, explicit_pr, repo=repo)
+            policy_metadata = {explicit_pr: metadata} if metadata else {}
+        else:
+            policy_metadata, metadata_command = load_open_pr_metadata(cwd, repo=repo)
         policy_metadata_commands.append(metadata_command)
         active_owned_command: dict[str, Any] | None = None
         snapshot_preblocked = _has_operator_snapshot_load_blocker(preselection_blockers)
@@ -1062,6 +1327,11 @@ def build_report(
         "suggested_commands": [],
     }
     if selected is None:
+        diagnostics = no_candidate_diagnostics(packet, policy_exclusions=policy_exclusions)
+        next_action = no_candidate_next_action(diagnostics)
+        report["candidate_diagnostics"] = diagnostics
+        report["next_bounded_action"] = next_action
+        report["suggested_commands"].append(str(next_action["operator_action"]))
         if has_preselection_blockers:
             report["status"] = "blocked"
         report["recursive_best_next_prompt"] = recursive_prompt(report)
@@ -1245,7 +1515,7 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
     ]
     if repo:
         command.extend(["--repo", repo])
-    payload, result = _run_json(command, cwd=cwd, timeout=600)
+    payload, result = _run_json(command, cwd=cwd, timeout=SINGLE_PACKET_TIMEOUT_SECONDS)
     if result["returncode"] != 0:
         raise RuntimeError(result["stderr"] or result["stdout"] or "merge-packet failed")
     if not isinstance(payload, dict):
@@ -1266,7 +1536,7 @@ def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[
     ]
     if repo:
         command.extend(["--repo", repo])
-    payload, result = _run_json(command, cwd=cwd, timeout=600)
+    payload, result = _run_json(command, cwd=cwd, timeout=BROAD_PACKET_TIMEOUT_SECONDS)
     if result["returncode"] != 0:
         raise RuntimeError(result["stderr"] or result["stdout"] or "merge-packet failed")
     if not isinstance(payload, dict):

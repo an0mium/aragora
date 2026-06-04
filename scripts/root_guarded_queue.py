@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -124,7 +125,18 @@ def _owner_attribution(cwd: Path, *, branch: str, pr: int | None) -> dict[str, A
 
 
 def _process_attribution(patterns: list[str]) -> dict[str, Any]:
-    result = _run(["ps", "-axo", "pid,ppid,etime,state,time,%cpu,command"], cwd=Path.cwd())
+    command = ["ps", "-axo", "pid,ppid,etime,state,time,%cpu,command"]
+    try:
+        result = _run(command, cwd=Path.cwd())
+    except OSError as exc:
+        return {
+            "available": False,
+            "reason": f"{type(exc).__name__}: {exc}",
+            "patterns": patterns,
+            "matches": [],
+            "command": command,
+            "returncode": None,
+        }
     matches: list[str] = []
     current_pid = os.getpid()
     parent_pid = os.getppid()
@@ -139,6 +151,7 @@ def _process_attribution(patterns: list[str]) -> dict[str, Any]:
         if any(pattern in stripped for pattern in patterns):
             matches.append(stripped)
     return {
+        "available": True,
         "patterns": patterns,
         "matches": matches,
         "command": result.command,
@@ -157,6 +170,16 @@ def _read_only_sequence(pr: int | None) -> str:
     )
 
 
+def _clean_checkout_routing_command(pr: int | None, expected_head: str | None) -> str:
+    command = ["python3", "scripts/build_next_prompt.py"]
+    if pr is not None:
+        command.extend(["--pr", str(pr)])
+    if expected_head:
+        command.extend(["--expected-head", expected_head])
+    command.append("--json")
+    return " ".join(shlex.quote(part) for part in command)
+
+
 def _next_prompt(
     *,
     status: str,
@@ -167,11 +190,14 @@ def _next_prompt(
 ) -> str:
     head_text = f" at exact head `{expected_head}`" if expected_head else ""
     if status == "blocked_dirty_root":
+        routing_command = _clean_checkout_routing_command(pr, expected_head)
         body = (
             f"Goal: resolve root hygiene for `{before.branch}`, then continue only after root is "
             f"clean or by using a clean isolated worktree. Dirty paths: "
             f"{', '.join(before.dirty_paths) or 'unknown'}. Do not reset, clean, stash, switch, "
-            "or commit without explicit preserve/revert/switch authorization."
+            "or commit without explicit preserve/revert/switch authorization. For clean-checkout "
+            f"queue routing, run `{routing_command}` and follow its clean_checkout.selected_path "
+            "or clean_checkout.recommended_prompt."
         )
     elif status == "blocked_root_drift":
         body = (
@@ -188,7 +214,7 @@ def _next_prompt(
         )
     return (
         "Check your mailbox for steering messages first, read-only/no receipt if possible. "
-        "Start from live truth in /Users/armand/Development/aragora. Do not trust prior "
+        f"Start from live truth in {_repo_root(Path.cwd())}. Do not trust prior "
         f"transcript state.\n\n{body}\n\n{INCREMENTAL_PROGRESS_SENTENCE} "
         f"{META_AUTOMATION_SENTENCE}"
     )

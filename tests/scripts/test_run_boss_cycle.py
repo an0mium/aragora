@@ -29,6 +29,9 @@ set -euo pipefail
 if [[ "${1:-}" == "-u" ]]; then
   exit "${FAKE_PYTHON3_BOSS_EXIT:-0}"
 fi
+if [[ "${1:-}" == "-c" && "${2:-}" == *"${FAKE_PYTHON3_IMPORT_FAIL_PATTERN:-__never_match__}"* ]]; then
+  exit "${FAKE_PYTHON3_IMPORT_FAIL_EXIT:-23}"
+fi
 exit "${FAKE_PYTHON3_REFILL_EXIT:-0}"
 """,
         encoding="utf-8",
@@ -44,13 +47,13 @@ def _read_calls(log_path: Path) -> list[list[str]]:
 
 
 def _runtime_calls(log_path: Path) -> list[list[str]]:
-    return [call for call in _read_calls(log_path) if call[:2] != ["-c", "import pydantic"]]
+    return [call for call in _read_calls(log_path) if call[:1] != ["-c"]]
 
 
 def test_run_boss_cycle_runs_post_loop_refill_after_success(tmp_path: Path) -> None:
     _fake_python3, log_path = _write_fake_python3(tmp_path)
     env = os.environ.copy()
-    env["PATH"] = f"{tmp_path}:{env['PATH']}"
+    env["PATH"] = f"{tmp_path}:/usr/bin:/bin:/usr/sbin:/sbin"
     env["FAKE_PYTHON3_LOG"] = str(log_path)
     env["FAKE_PYTHON3_BOSS_EXIT"] = "0"
     env["FAKE_PYTHON3_REFILL_EXIT"] = "0"
@@ -124,3 +127,35 @@ def test_run_boss_cycle_skips_post_loop_refill_after_failure(tmp_path: Path) -> 
     assert len(calls) == 1
     assert calls[0][:5] == ["-u", "-m", "aragora.cli.main", "swarm", "boss-loop"]
     assert "Skipping post-loop issue refill because boss loop exited non-zero." in result.stderr
+
+
+def test_run_boss_cycle_rejects_python_without_boss_loop_imports(tmp_path: Path) -> None:
+    _fake_python3, log_path = _write_fake_python3(tmp_path)
+    env = os.environ.copy()
+    env["PATH"] = f"{tmp_path}:/usr/bin:/bin:/usr/sbin:/sbin"
+    env["FAKE_PYTHON3_LOG"] = str(log_path)
+    env["FAKE_PYTHON3_IMPORT_FAIL_PATTERN"] = "aragora.cli.commands.swarm"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(SCRIPT_PATH),
+            "--boss-repo",
+            "org/repo",
+            "--label",
+            "boss-ready",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert _runtime_calls(log_path) == []
+    assert "Skipping Python candidate without usable boss-loop imports:" in result.stderr
+    assert (
+        "No usable python interpreter with pydantic and boss-loop imports found for boss-loop runtime."
+        in result.stderr
+    )

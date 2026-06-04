@@ -13,6 +13,7 @@ from aragora.cli.api_keys import (
     get_provider_key,
     hydrate_env_from_secure_store,
     list_provider_statuses,
+    validate_provider_key,
 )
 from aragora.cli.commands.api_key import cmd_api_key
 from aragora.cli.parser import build_parser
@@ -50,6 +51,31 @@ class TestApiKeyParser:
         assert args.command == "api-key"
         assert args.api_key_command == "validate"
         assert args.provider == "anthropic"
+
+
+class TestValidateParserHelp:
+    """The top-level ``validate`` command must document what it actually does."""
+
+    def _validate_subparser(self):
+        parser = build_parser()
+        # argparse stores subparsers under the _SubParsersAction choices.
+        for action in parser._actions:  # noqa: SLF001 - introspecting argparse
+            choices = getattr(action, "choices", None)
+            if choices and "validate" in choices:
+                return choices["validate"]
+        raise AssertionError("validate subparser not found")
+
+    def test_validate_has_a_description(self):
+        subparser = self._validate_subparser()
+        assert subparser.description, "validate subparser must set a description"
+        # Description should mention the actual behavior (full health check).
+        assert "health" in subparser.description.lower()
+
+    def test_validate_help_output_includes_description(self, capsys):
+        subparser = self._validate_subparser()
+        help_text = subparser.format_help()
+        # The empty-description bug emitted only usage + the -h line.
+        assert "health" in help_text.lower()
 
 
 class TestApiKeyCommands:
@@ -140,6 +166,62 @@ class TestApiKeyCommands:
         assert exc_info.value.code == 1
         output = capsys.readouterr().out
         assert "No API key configured for Mistral" in output
+
+    def test_deepseek_validation_makes_a_real_test_call(self, tmp_path, monkeypatch):
+        """A DeepSeek key must be live-probed, not rubber-stamped as a pass.
+
+        Regression: ``_probe_provider_key`` previously returned ``"skipped"``
+        for DeepSeek with no network call, and ``"skipped"`` was mapped to
+        ``is_valid=True`` — so a fabricated key reported a verified pass.
+        """
+        for key, value in _file_store_env(tmp_path).items():
+            monkeypatch.setenv(key, value)
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-totallyfakekey1234567890abcdef")
+
+        # 200 → key really is valid.
+        ok_response = MagicMock(status_code=200)
+        with patch("aragora.security.safe_http.safe_get", return_value=ok_response) as mock_get:
+            report = validate_provider_key("deepseek")
+
+        # A real test call was made against DeepSeek.
+        mock_get.assert_called_once()
+        assert "deepseek.com" in mock_get.call_args.args[0]
+        assert report.remote_status == "valid"
+        assert report.is_valid is True
+        assert report.unverified is False
+
+    def test_bogus_deepseek_key_is_not_reported_valid(self, tmp_path, monkeypatch):
+        """A fabricated DeepSeek key rejected by the provider must report as
+        invalid (is_valid False), not as a passing/verified check."""
+        for key, value in _file_store_env(tmp_path).items():
+            monkeypatch.setenv(key, value)
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-totallyfakekey1234567890abcdef")
+
+        rejected = MagicMock(status_code=401)
+        with patch("aragora.security.safe_http.safe_get", return_value=rejected):
+            report = validate_provider_key("deepseek")
+
+        assert report.is_valid is False
+        assert report.unverified is False
+        assert report.remote_status == "invalid"
+
+    def test_skipped_remote_status_is_unverified_not_valid(self, tmp_path, monkeypatch):
+        """When live validation genuinely cannot run (probe returns 'skipped'),
+        the key is reported as present-but-unverified, never a verified pass."""
+        for key, value in _file_store_env(tmp_path).items():
+            monkeypatch.setenv(key, value)
+        monkeypatch.setenv("MISTRAL_API_KEY", "sk-mistral-fakekey1234567890")
+
+        with patch(
+            "aragora.cli.api_keys._probe_provider_key",
+            return_value=("skipped", "live validation is unavailable"),
+        ):
+            report = validate_provider_key("mistral")
+
+        assert report.remote_status == "skipped"
+        # The crux: skipped must NOT be a verified pass.
+        assert report.is_valid is False
+        assert report.unverified is True
 
     def test_list_provider_statuses_shows_environment_alias(self, tmp_path, monkeypatch):
         monkeypatch.setenv("HOME", str(tmp_path))

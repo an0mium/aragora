@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import scripts.settle_one_pr as settle_one_pr
@@ -10,6 +11,8 @@ from scripts.settle_one_pr import (
     head_blockers,
     load_broad_packet_lazily,
     load_open_pr_metadata,
+    no_candidate_diagnostics,
+    no_candidate_next_action,
     owner_blockers,
     policy_exclusion_reasons,
     recursive_prompt,
@@ -64,6 +67,52 @@ def _packet(*entries: dict, admin_order: list[int] | None = None) -> dict:
     }
 
 
+def test_run_reports_timeout_and_terminates_process_group(monkeypatch) -> None:
+    killed: list[tuple[int, int]] = []
+
+    class SlowProc:
+        pid = 4242
+        returncode = None
+
+        def __init__(self) -> None:
+            self.communicate_calls = 0
+
+        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
+            self.communicate_calls += 1
+            if self.communicate_calls == 1:
+                raise subprocess.TimeoutExpired(
+                    cmd=["slow"],
+                    timeout=timeout if timeout is not None else 0.0,
+                )
+            self.returncode = -9
+            return "", ""
+
+        def kill(self) -> None:
+            self.returncode = -9
+
+    proc = SlowProc()
+
+    def fake_popen(*args, **kwargs):
+        assert args[0] == ["slow"]
+        assert kwargs["start_new_session"] is True
+        return proc
+
+    monkeypatch.setattr(settle_one_pr.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(
+        settle_one_pr.os,
+        "killpg",
+        lambda pid, sig: killed.append((pid, sig)),
+    )
+
+    result = settle_one_pr._run(["slow"], cwd=Path.cwd(), timeout=7)
+
+    assert result["returncode"] == 124
+    assert result["timed_out"] is True
+    assert result["timeout_seconds"] == 7
+    assert "timed out after 7s" in result["stderr"]
+    assert killed == [(4242, settle_one_pr.signal.SIGKILL)]
+
+
 def test_select_candidate_prefers_admin_order() -> None:
     unauthorized = _entry(1001)
     authorized = _entry(
@@ -94,6 +143,67 @@ def test_select_candidate_reports_no_eligible_pr() -> None:
 
     assert selected is None
     assert blockers == ["no Tier 0-2 non-human-risk green PR needs only settlement evidence"]
+
+
+def test_no_candidate_diagnostics_names_next_check_blocked_pr() -> None:
+    packet = _packet(
+        _entry(
+            1003,
+            checks_summary="5/6 green; pending: aragora-merge-quorum",
+            reasons=["live automation surface", "model quorum incomplete: 0/2 signal(s)"],
+        ),
+        _entry(
+            1004,
+            tier=4,
+            requires_human_risk_settlement=True,
+            reasons=["workflow/deploy/destructive surface touched"],
+        ),
+    )
+    diagnostics = no_candidate_diagnostics(
+        packet,
+        policy_exclusions=[
+            {
+                "pr_number": 1004,
+                "title": "PR 1004",
+                "head_sha": "sha1004",
+                "reasons": ["Tier 4", "requires_human_risk_settlement=true"],
+            }
+        ],
+    )
+
+    assert diagnostics["packet_entry_count"] == 2
+    assert diagnostics["policy_exclusion_reason_counts"] == {
+        "Tier 4": 1,
+        "requires_human_risk_settlement=true": 1,
+    }
+    assert diagnostics["top_check_blocked_candidate"]["pr_number"] == 1003
+    assert diagnostics["top_human_risk_candidate"]["pr_number"] == 1004
+
+    action = no_candidate_next_action(diagnostics)
+    assert action["kind"] == "recheck_or_clear_required_checks"
+    assert action["pr_number"] == 1003
+    assert "Do not merge" in action["operator_action"]
+
+
+def test_no_candidate_diagnostics_prioritizes_independent_of_packet_order() -> None:
+    packet = _packet(
+        _entry(
+            1010,
+            tier=2,
+            checks_summary="5/6 green; pending: aragora-merge-quorum",
+            reasons=["live automation surface", "model quorum incomplete: 0/2 signal(s)"],
+        ),
+        _entry(
+            1009,
+            tier=1,
+            checks_summary="5/6 green; pending: lint",
+            reasons=["internal surface", "model quorum incomplete: 0/2 signal(s)"],
+        ),
+    )
+
+    diagnostics = no_candidate_diagnostics(packet, policy_exclusions=[])
+
+    assert diagnostics["top_check_blocked_candidate"]["pr_number"] == 1009
 
 
 def test_select_candidate_skips_repair_first_prs() -> None:
@@ -294,6 +404,34 @@ def test_policy_exclusion_reasons_does_not_flag_plain_unsafe_words_in_docs() -> 
     assert reasons == []
 
 
+def test_policy_exclusion_reasons_allows_docs_site_generated_secrets_deploy_docs() -> None:
+    docs = _entry(
+        7485,
+        tier=0,
+        reasons=["docs/tests/status-only", "model quorum incomplete: 0/1"],
+    )
+
+    reasons = policy_exclusion_reasons(
+        docs,
+        policy_metadata={
+            7485: {
+                "title": "docs: refresh generated deployment status",
+                "headRefName": "codex/docs-site-status-refresh",
+                "files": [
+                    {"path": "docs-site/docs/contributing/b0-benchmark-truth-status.md"},
+                    {"path": "docs-site/docs/deployment/secrets-management.md"},
+                    {"path": "docs-site/docs/getting-started/environment.md"},
+                    {"path": "docs-site/docs/operations/overview.md"},
+                    {"path": "docs/FOCUS.md"},
+                    {"path": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md"},
+                ],
+            }
+        },
+    )
+
+    assert reasons == []
+
+
 def test_policy_exclusion_reasons_scopes_adc_to_title_and_branch() -> None:
     entry = _entry(
         7461,
@@ -472,6 +610,46 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
     assert targeted[0][targeted[0].index("--pr") + 1] == "7449"
 
 
+def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_times_out(
+    monkeypatch,
+) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            if "--limit" in args:
+                return None, {
+                    "command": "bulk-packet",
+                    "returncode": 124,
+                    "stderr": "command timed out after 90s and was terminated",
+                    "timed_out": True,
+                }
+            pr_number = int(args[args.index("--pr") + 1])
+            return _packet(_entry(pr_number)), {"command": "packet", "returncode": 0}
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {
+                        "number": 7449,
+                        "title": "fix(settlement): exclude unsafe PR surfaces",
+                        "headRefName": "codex/settle-one-policy-exclusions-20260523",
+                    },
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert [entry["pr_number"] for entry in packet["entries"]] == [7449]
+    assert packet["load_warnings"] == [
+        "bulk merge-packet failed; using fallback: command timed out after 90s and was terminated"
+    ]
+
+
 def test_broad_packet_lazy_loader_returns_empty_when_bulk_and_light_metadata_fail(
     monkeypatch,
 ) -> None:
@@ -527,6 +705,46 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
     assert packet["entries"] == []
     assert packet["load_warnings"] == ["bulk merge-packet failed; using fallback: HTTP 504"]
     assert packet["load_blockers"] == ["merge-packet for #7449 failed: GraphQL timeout"]
+
+
+def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
+    monkeypatch,
+) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+            if "--limit" in args:
+                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
+            return None, {
+                "command": "packet",
+                "returncode": 124,
+                "stderr": "command timed out after 90s and was terminated",
+                "timed_out": True,
+            }
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {
+                        "number": 7449,
+                        "title": "fix(settlement): exclude unsafe PR surfaces",
+                        "headRefName": "codex/settle-one-policy-exclusions-20260523",
+                    },
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert packet["entries"] == []
+    assert packet["load_warnings"] == ["bulk merge-packet failed; using fallback: HTTP 504"]
+    assert packet["load_blockers"] == [
+        "merge-packet for #7449 failed: command timed out after 90s and was terminated"
+    ]
 
 
 def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) -> None:
@@ -673,6 +891,55 @@ def test_build_report_threads_repo_to_policy_metadata(monkeypatch) -> None:
     view_command = next(args for args in commands if args[:3] == ["gh", "pr", "view"])
     assert list_command[-2:] == ["--repo", "example/repo"]
     assert view_command[-2:] == ["--repo", "example/repo"]
+
+
+def test_build_report_explicit_pr_loads_policy_metadata_without_broad_list(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        if args[:3] == ["gh", "pr", "list"]:
+            raise AssertionError("explicit --pr settlement must not call gh pr list")
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return (
+                {
+                    "number": 7451,
+                    "title": "fix: candidate",
+                    "headRefName": "codex/candidate",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "aragora/server/routes.py"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                7451,
+                tier=3,
+                requires_human_risk_settlement=True,
+                reasons=["semantic, persistence, security, API, or SDK surface touched"],
+            )
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=7451,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["selected_pr"] == 7451
+    assert report["status"] == "blocked"
+    assert commands[0][:3] == ["gh", "pr", "view"]
+    assert all(command[:3] != ["gh", "pr", "list"] for command in commands)
 
 
 def test_build_report_fails_closed_when_operator_snapshot_fails(monkeypatch) -> None:
@@ -1071,6 +1338,31 @@ def test_missing_evidence_yields_ready_for_minimum_evidence() -> None:
 
     assert report["status"] == "ready_for_minimum_evidence"
     assert "model quorum incomplete: 0/2 signal(s)" in report["evidence"]["missing_model_quorum"]
+    assert report["recursive_best_next_prompt"].endswith(CONVERGENCE_SENTENCE)
+
+
+def test_no_candidate_report_includes_actionable_diagnostics() -> None:
+    report = build_report(
+        _packet(
+            _entry(
+                1006,
+                checks_summary="5/6 green; pending: aragora-merge-quorum",
+                reasons=["live automation surface", "model quorum incomplete: 0/2 signal(s)"],
+            )
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=None,
+        exclude_prs=set(),
+        live=False,
+        validate=False,
+    )
+
+    assert report["status"] == "no_candidate"
+    assert report["candidate_diagnostics"]["top_check_blocked_candidate"]["pr_number"] == 1006
+    assert report["next_bounded_action"]["kind"] == "recheck_or_clear_required_checks"
+    assert report["suggested_commands"] == [report["next_bounded_action"]["operator_action"]]
+    assert "Then: Re-check PR #1006" in report["recursive_best_next_prompt"]
     assert report["recursive_best_next_prompt"].endswith(CONVERGENCE_SENTENCE)
 
 

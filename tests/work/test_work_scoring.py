@@ -162,3 +162,27 @@ def test_human_gated_pr_is_not_auto_ready() -> None:
 
     assert recommendations[0].classification == "human-gated"
     assert "human-gated risk surface" in recommendations[0].blockers
+
+
+def test_dependabot_pr_is_policy_excluded_not_auto_ready() -> None:
+    item = WorkItem(
+        id="pr:7463",
+        source="github_pr",
+        item_type="pull_request",
+        title="chore(deps): update fastapi requirement",
+        status="open",
+        branch="dependabot/pip/fastapi-gte-0.136.3-and-lt-1.0",
+        metadata={
+            "is_draft": False,
+            "review_decision": "APPROVED",
+            "author_login": "app/dependabot",
+        },
+    )
+
+    recommendation = build_recommendations([item])[0]
+
+    assert recommendation.classification == "policy-excluded"
+    assert recommendation.action == "hold_policy_excluded_pr"
+    assert recommendation.priority == "hold"
+    assert "policy-excluded: Dependabot PR" in recommendation.blockers
+    assert recommendation.action != "review_and_settle_when_policy_clean"

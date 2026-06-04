@@ -12,12 +12,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
+
+
+def _repo_root() -> str:
+    env = os.environ.get("ARAGORA_REPO_ROOT")
+    if env:
+        return env
+    proc = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode == 0 and proc.stdout.strip():
+        return proc.stdout.strip()
+    return str(Path(__file__).resolve().parents[1])
 
 
 INCREMENTAL_PROGRESS_SENTENCE = (
@@ -595,7 +612,7 @@ def build_prompt(
 ) -> str:
     """Render the recursive best-next prompt."""
     lines = [
-        "Start from live repo truth in /Users/armand/Development/aragora. Do not trust prior transcript state. Check your Aragora operator-steering mailbox before lane work.",
+        f"Start from live repo truth in {_repo_root()}. Do not trust prior transcript state. Check your Aragora operator-steering mailbox before lane work.",
         "",
     ]
     pin = expected_head or head
@@ -707,7 +724,13 @@ def build_prompt(
             "If merge-packet still blocks on model quorum or focused adversarial dogfood, collect exactly one current-head non-Codex model/dogfood evidence signal."
         )
         lines.append(
-            "Post exactly one valid PR comment only if the evidence is current-head, non-Codex, lists files reviewed, puts findings first, includes validation run/not-run reasons, includes focused adversarial dogfood verdict, and states that it is not merge authorization."
+            "Before posting, lint the exact comment with `python3 -m aragora.cli.main review-queue evidence-lint --pr <PR> --head-sha <HEAD> --body-file <FILE> --author <GITHUB_LOGIN> --json` and require `would_count=true` with no problems."
+        )
+        lines.append(
+            "Use a countable non-Codex header and metadata block, for example `## Claude focused adversarial dogfood`, `Exact head: <HEAD>`, `Reviewer harness: claude-code`, `Model family: claude`, `Model id: <MODEL>`, and `Receipt artifact: <PATH>`."
+        )
+        lines.append(
+            "Post exactly one valid PR comment only if the evidence is current-head, not Codex, not any OpenAI-family model, lists files reviewed, puts findings first, includes validation run/not-run reasons, includes focused adversarial dogfood verdict, and states that it is not merge authorization."
         )
         lines.append(
             "Then rerun review-queue merge-packet for the PR and report the next blocker. Do not merge."

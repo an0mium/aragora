@@ -24,6 +24,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -33,7 +34,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from aragora.review.invalidation import (
     BaselineMeasurement,
@@ -65,6 +66,63 @@ PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
 MODEL_REVIEW_QUEUE_CAP = 6
 MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
+CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
+    "claude",
+    "openai",
+    "gemini",
+    "grok",
+    "mistral",
+    "deepseek",
+    "qwen",
+    "kimi",
+    "yi",
+    "glm",
+    "minimax",
+    "hermes",
+)
+DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
+    "claude": ("claude", "anthropic"),
+    "openai": ("openai",),
+    "gemini": ("gemini", "google"),
+    "grok": ("grok", "xai"),
+    "mistral": ("mistral", "codestral"),
+    "deepseek": ("deepseek",),
+    "qwen": ("qwen",),
+    "kimi": ("kimi", "moonshot"),
+    "yi": ("yi", "yi-large"),
+    "glm": ("glm", "zhipu", "z-ai"),
+    "minimax": ("minimax",),
+    "hermes": ("hermes", "nous hermes"),
+}
+ROUTER_SURFACE_REVIEWERS: frozenset[str] = frozenset(("factory", "codex", "tesla", "harvey"))
+IDENTITY_COUNT_BLOCKERS: frozenset[str] = frozenset(
+    (
+        "missing_model_family_disclosure",
+        "unknown_model_family",
+        "heading_model_family_conflict",
+        "unknown_surface_reviewer",
+    )
+)
+
+
+@dataclass(frozen=True)
+class ModelReviewIdentity:
+    surface_reviewer_id: str
+    model_family: str
+    model_id: str
+    identity_source: str
+    identity_problems: tuple[str, ...] = ()
+
+    def as_packet_fields(self) -> dict[str, Any]:
+        return {
+            "surface_reviewer_id": self.surface_reviewer_id,
+            "model_family": self.model_family,
+            "model_id": self.model_id,
+            "identity_source": self.identity_source,
+            "identity_problems": list(self.identity_problems),
+        }
+
+
 HIGH_RISK_PATHS: tuple[str, ...] = (
     "CLAUDE.md",
     "aragora/__init__.py",
@@ -135,6 +193,8 @@ PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
 MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
 MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
 MERGE_QUORUM_JOB_ID = "merge-quorum"
+CHECK_SURFACE_DIAGNOSTIC_LIMIT = 12
+OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS = 60 * 60
 
 LANE_ORDER: dict[str, int] = {
     "ready_now": 0,
@@ -203,6 +263,7 @@ class ReviewPacket:
     machine_recommendation_reason: str
     packet_sha: str
     generated_at: str
+    check_surfaces: dict[str, Any] = field(default_factory=dict)
     protocol: dict[str, Any] = field(default_factory=dict)
     model_review_quorum: dict[str, Any] = field(default_factory=dict)
     advisory_only: bool = True
@@ -515,6 +576,43 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     evidence_lint_p.add_argument("--json", action="store_true", help="Output as JSON")
 
+    lint_comment_p = sub.add_parser(
+        "lint-comment",
+        help="Dry-run whether a proposed reviewer comment will count before posting",
+        description=(
+            "Lint a proposed PR reviewer comment against the same current-head evidence "
+            "parsers used by review-queue merge-packet. This is read-only: it does not "
+            "fetch GitHub, post comments, write receipts, or mutate state."
+        ),
+    )
+    lint_comment_p.add_argument("--pr", required=True, help="PR number the comment targets")
+    lint_comment_p.add_argument(
+        "--head",
+        "--head-sha",
+        dest="head_sha",
+        required=True,
+        help="Exact PR head SHA the proposed comment must cite.",
+    )
+    lint_comment_p.add_argument(
+        "--head-committed-at",
+        default="",
+        help=(
+            "Optional current head committedDate. When supplied, comments must either "
+            "cite --head or have a createdAt at/after this timestamp."
+        ),
+    )
+    lint_body_group = lint_comment_p.add_mutually_exclusive_group(required=True)
+    lint_body_group.add_argument("--body", help="Proposed reviewer comment body to lint")
+    lint_body_group.add_argument(
+        "--body-file", help="Read proposed reviewer comment body from file"
+    )
+    lint_comment_p.add_argument(
+        "--author",
+        default="local",
+        help="GitHub author login to simulate for the proposed comment (default: local)",
+    )
+    lint_comment_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     baseline_p = sub.add_parser(
         "baseline",
         help="Measure empirical invalidation baseline from on-disk stores (#6375)",
@@ -701,7 +799,7 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_record_settlement(args)
     if command == "merge-packet":
         return _cmd_merge_packet(args)
-    if command == "evidence-lint":
+    if command in {"evidence-lint", "lint-comment"}:
         return _cmd_evidence_lint(args)
     if command == "baseline":
         return _cmd_baseline(args)
@@ -715,7 +813,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_health_alert(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,baseline,"
+        "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,lint-comment,"
+        "baseline,"
         "observe-outcomes,"
         "health,health-alert} [...]\n"
         "Run 'aragora review-queue run --help' for the human settlement loop.",
@@ -1364,6 +1463,303 @@ def _summarize_checks(checks: list) -> tuple[str, bool, bool]:
     return ("no checks", False, False)
 
 
+def _fetch_required_pr_check_surface(pr_number: int, repo_override: str | None) -> dict[str, Any]:
+    """Fetch GitHub's branch-protection-required PR checks with diagnostics."""
+    args = [
+        "pr",
+        "checks",
+        str(pr_number),
+        "--required",
+        "--json",
+        "name,state,bucket,workflow,link,startedAt,completedAt",
+    ]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    try:
+        payload = _gh_json(args)
+    except _GhError as exc:
+        return {
+            "available": False,
+            "checks": [],
+            "error": str(exc),
+        }
+    if not isinstance(payload, list):
+        return {
+            "available": False,
+            "checks": [],
+            "error": "gh pr checks --required returned a non-list payload",
+        }
+    return {
+        "available": True,
+        "checks": [item for item in payload if isinstance(item, dict)],
+        "error": "",
+    }
+
+
+def _fetch_required_pr_checks(pr_number: int, repo_override: str | None) -> list[dict[str, Any]]:
+    """Fetch GitHub's branch-protection-required PR checks."""
+    surface = _fetch_required_pr_check_surface(pr_number, repo_override)
+    return [item for item in surface.get("checks") or [] if isinstance(item, dict)]
+
+
+def _required_pr_check_bucket(check: dict[str, Any]) -> str:
+    bucket = str(check.get("bucket") or "").strip().lower()
+    if bucket:
+        return bucket
+    state = str(check.get("state") or "").strip().upper()
+    if state in {"SUCCESS", "SUCCESSFUL", "COMPLETED"}:
+        return "pass"
+    if state in {"SKIPPED", "NEUTRAL"}:
+        return "skipping"
+    if state in {"FAILURE", "FAILED", "ERROR", "TIMED_OUT", "ACTION_REQUIRED"}:
+        return "fail"
+    if state in {"CANCELLED", "CANCELED"}:
+        return "cancel"
+    if state in {"PENDING", "QUEUED", "IN_PROGRESS", "EXPECTED", ""}:
+        return "pending"
+    return state.lower()
+
+
+def _summarize_required_pr_checks(checks: list[dict[str, Any]]) -> tuple[str, bool, bool]:
+    """Return ``(summary, has_failures, has_pending)`` for required PR checks."""
+    success = failure = pending = 0
+    for check in checks:
+        if _is_required_pr_check_current_merge_quorum_self_check(check):
+            continue
+        bucket = _required_pr_check_bucket(check)
+        if bucket in {"pass", "skipping"}:
+            success += 1
+        elif bucket in {"fail", "cancel"}:
+            failure += 1
+        elif bucket == "pending":
+            pending += 1
+        else:
+            pending += 1
+    total = success + failure + pending
+    if failure > 0:
+        return (f"{failure} failing / {total} required", True, pending > 0)
+    if pending > 0:
+        return (f"{pending} pending / {total} required", False, True)
+    if success > 0:
+        return (f"{success}/{total} required green", False, False)
+    return ("no required checks", False, False)
+
+
+def _effective_required_pr_check_count(checks: list[dict[str, Any]]) -> int:
+    """Count required PR checks after excluding the current merge-quorum self-check."""
+    return sum(
+        1
+        for check in checks
+        if isinstance(check, dict)
+        and not _is_required_pr_check_current_merge_quorum_self_check(check)
+    )
+
+
+def _status_check_display_name(check: dict[str, Any]) -> str:
+    workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
+    name = str(check.get("name") or check.get("context") or "").strip()
+    if workflow and name:
+        return f"{workflow} / {name}"
+    return name or workflow
+
+
+def _parse_github_datetime(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _queued_duration_seconds(check: dict[str, Any]) -> int:
+    for key in ("queued_duration_seconds", "queuedDurationSeconds"):
+        value = check.get(key)
+        if value is None:
+            continue
+        try:
+            return max(0, int(float(value)))
+        except (TypeError, ValueError):
+            continue
+
+    for key in (
+        "queuedAt",
+        "queued_at",
+        "createdAt",
+        "created_at",
+        "startedAt",
+        "started_at",
+        "updatedAt",
+        "updated_at",
+    ):
+        queued_at = _parse_github_datetime(check.get(key))
+        if queued_at:
+            return max(0, int((datetime.now(UTC) - queued_at).total_seconds()))
+    return 0
+
+
+def _self_hosted_shadow_check(check: dict[str, Any]) -> bool:
+    workflow = str(check.get("workflowName") or check.get("workflow") or "").lower()
+    name = str(check.get("name") or check.get("context") or "").lower()
+    labels = {str(label).lower() for label in check.get("labels") or []}
+    if "self-hosted shadow" in workflow:
+        return True
+    return "shadow" in name and ("self-hosted" in workflow or "self-hosted" in labels)
+
+
+def _has_runner_metadata(check: dict[str, Any]) -> bool:
+    return any(key in check for key in ("runner_id", "runnerId", "runner_name", "runnerName"))
+
+
+def _runner_unassigned(check: dict[str, Any]) -> bool:
+    if not _has_runner_metadata(check):
+        return False
+    for key in ("runner_id", "runnerId"):
+        if key not in check:
+            continue
+        value = check.get(key)
+        if value is not None and str(value).strip() not in {"", "0"}:
+            return False
+    for key in ("runner_name", "runnerName"):
+        if key not in check:
+            continue
+        if str(check.get(key) or "").strip():
+            return False
+    return True
+
+
+def _is_optional_runner_capacity_noise(check: dict[str, Any], bucket: str) -> bool:
+    return (
+        bucket == "pending"
+        and _self_hosted_shadow_check(check)
+        and _runner_unassigned(check)
+        and _queued_duration_seconds(check) >= OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS
+    )
+
+
+def _is_long_queued_self_hosted_shadow_without_runner_metadata(
+    check: dict[str, Any],
+    bucket: str,
+) -> bool:
+    return (
+        bucket == "pending"
+        and _self_hosted_shadow_check(check)
+        and not _has_runner_metadata(check)
+        and _queued_duration_seconds(check) >= OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS
+    )
+
+
+def _rollup_non_green_bucket(check: dict[str, Any]) -> str:
+    if _is_current_merge_quorum_self_check(check):
+        return ""
+    status = str(check.get("status") or check.get("state") or "").upper()
+    conclusion = str(check.get("conclusion") or "").upper()
+    if not conclusion and status in {
+        "SUCCESS",
+        "FAILURE",
+        "TIMED_OUT",
+        "ACTION_REQUIRED",
+        "CANCELLED",
+        "SKIPPED",
+        "NEUTRAL",
+        "STALE",
+    }:
+        conclusion = status
+    elif not conclusion and status in {"ERROR", "FAILED"}:
+        conclusion = "FAILURE"
+    if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL", "STALE"}:
+        return ""
+    if conclusion == "CANCELLED" and not _is_merge_quorum_check(check):
+        return ""
+    if conclusion in {"FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "CANCELLED"}:
+        return "failing_or_cancelled"
+    if status in {"IN_PROGRESS", "QUEUED", "PENDING", "EXPECTED"} or not conclusion:
+        return "pending"
+    return "pending"
+
+
+def _rollup_check_matches_required(
+    check: dict[str, Any],
+    required_checks: list[dict[str, Any]],
+) -> bool:
+    identity = _status_check_identity(check)
+    name = str(check.get("name") or check.get("context") or "").strip()
+    required_identities = {
+        _status_check_identity(required)
+        for required in required_checks
+        if isinstance(required, dict) and _status_check_identity(required)
+    }
+    required_names = {
+        str(required.get("name") or required.get("context") or "").strip()
+        for required in required_checks
+        if isinstance(required, dict)
+    }
+    return bool((identity and identity in required_identities) or (name and name in required_names))
+
+
+def _rollup_non_green_diagnostics(
+    checks: list,
+    *,
+    required_checks: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    non_green: list[str] = []
+    non_required_non_green: list[str] = []
+    optional_runner_capacity_noise: list[str] = []
+    long_queued_shadow_without_runner_metadata: list[str] = []
+    pending = failing_or_cancelled = 0
+    for check in _latest_status_check_rollup(checks):
+        if not isinstance(check, dict):
+            continue
+        bucket = _rollup_non_green_bucket(check)
+        if not bucket:
+            continue
+        name = _status_check_display_name(check)
+        if not name:
+            continue
+        non_green.append(name)
+        if bucket == "pending":
+            pending += 1
+        else:
+            failing_or_cancelled += 1
+        is_non_required = required_checks is not None and not _rollup_check_matches_required(
+            check, required_checks
+        )
+        if is_non_required:
+            non_required_non_green.append(name)
+            if _is_optional_runner_capacity_noise(check, bucket):
+                optional_runner_capacity_noise.append(name)
+            if _is_long_queued_self_hosted_shadow_without_runner_metadata(check, bucket):
+                long_queued_shadow_without_runner_metadata.append(name)
+    diagnostics: dict[str, Any] = {
+        "non_green_count": len(non_green),
+        "non_green_sample": non_green[:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+        "pending_count": pending,
+        "failing_or_cancelled_count": failing_or_cancelled,
+    }
+    if required_checks is not None:
+        diagnostics["non_required_non_green_count"] = len(non_required_non_green)
+        diagnostics["non_required_non_green_sample"] = non_required_non_green[
+            :CHECK_SURFACE_DIAGNOSTIC_LIMIT
+        ]
+        diagnostics["optional_runner_capacity_noise_count"] = len(optional_runner_capacity_noise)
+        diagnostics["optional_runner_capacity_noise_sample"] = optional_runner_capacity_noise[
+            :CHECK_SURFACE_DIAGNOSTIC_LIMIT
+        ]
+        diagnostics["long_queued_self_hosted_shadow_without_runner_metadata_count"] = len(
+            long_queued_shadow_without_runner_metadata
+        )
+        diagnostics["long_queued_self_hosted_shadow_without_runner_metadata_sample"] = (
+            long_queued_shadow_without_runner_metadata[:CHECK_SURFACE_DIAGNOSTIC_LIMIT]
+        )
+    return diagnostics
+
+
 def _check_rollup_unavailable(pr: dict[str, Any]) -> bool:
     """Return true when an open PR has no GitHub PR-facing check rollup."""
     pr_state = str(pr.get("state") or "").strip().upper()
@@ -1373,6 +1769,312 @@ def _check_rollup_unavailable(pr: dict[str, Any]) -> bool:
         return False
     rollup = pr.get("statusCheckRollup")
     return rollup is None or rollup == []
+
+
+def _repo_slug_from_pr_payload(pr: dict[str, Any], repo_override: str | None) -> str:
+    """Resolve owner/repo from an explicit override or the PR URL."""
+    override = str(repo_override or "").strip()
+    if override:
+        parsed = urlparse(override)
+        if parsed.netloc:
+            parts = [part for part in parsed.path.split("/") if part]
+            if len(parts) >= 2:
+                return f"{parts[0]}/{parts[1]}"
+        if "/" in override and not override.startswith("-"):
+            return override.removeprefix("repos/").strip("/")
+
+    url = str(pr.get("url") or "").strip()
+    parsed = urlparse(url)
+    parts = [part for part in parsed.path.split("/") if part]
+    if len(parts) >= 2:
+        return f"{parts[0]}/{parts[1]}"
+    return ""
+
+
+def _fetch_required_status_check_protection(
+    repo_slug: str,
+    base_ref: str,
+) -> dict[str, Any]:
+    """Best-effort branch-protection required status-check settings."""
+    if not repo_slug or not base_ref:
+        return {"available": False, "contexts": [], "strict": None}
+    try:
+        payload = _gh_json(
+            [
+                "api",
+                f"repos/{repo_slug}/branches/{quote(base_ref, safe='')}"
+                "/protection/required_status_checks",
+            ]
+        )
+    except Exception:
+        return {"available": False, "contexts": [], "strict": None}
+    if not isinstance(payload, dict):
+        return {"available": False, "contexts": [], "strict": None}
+    required_by_context: dict[str, dict[str, Any]] = {}
+    for item in payload.get("contexts") or []:
+        context = str(item).strip()
+        if context:
+            required_by_context.setdefault(context, {"context": context, "app_id": None})
+    for item in payload.get("checks") or []:
+        if not isinstance(item, dict):
+            continue
+        context = str(item.get("context") or "").strip()
+        if context:
+            app_id = item.get("app_id")
+            required_by_context[context] = {
+                "context": context,
+                "app_id": app_id if app_id is not None else None,
+            }
+    required_checks = list(required_by_context.values())
+    return {
+        "available": True,
+        "contexts": [item["context"] for item in required_checks],
+        "checks": required_checks,
+        "strict": bool(payload.get("strict")),
+    }
+
+
+def _fetch_direct_commit_check_runs(repo_slug: str, head_sha: str) -> list[dict[str, Any]]:
+    """Best-effort direct commit check-runs for diagnostics only."""
+    if not repo_slug or not head_sha:
+        return []
+    try:
+        payload = _gh_json(
+            [
+                "api",
+                f"repos/{repo_slug}/commits/{head_sha}/check-runs?per_page=100",
+            ]
+        )
+    except Exception:
+        return []
+    if not isinstance(payload, dict):
+        return []
+    runs = payload.get("check_runs") or []
+    return [run for run in runs if isinstance(run, dict)]
+
+
+def _direct_check_run_name(run: dict[str, Any]) -> str:
+    return str(run.get("name") or run.get("context") or "").strip()
+
+
+def _direct_check_run_is_success(run: dict[str, Any]) -> bool:
+    return str(run.get("conclusion") or "").strip().upper() in {
+        "SUCCESS",
+        "SKIPPED",
+        "NEUTRAL",
+    }
+
+
+def _direct_check_run_is_non_green(run: dict[str, Any]) -> bool:
+    status = str(run.get("status") or "").strip().upper()
+    conclusion = str(run.get("conclusion") or "").strip().upper()
+    if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL"}:
+        return False
+    if conclusion:
+        return True
+    if status in {"", "COMPLETED"}:
+        return True
+    return status in {"QUEUED", "IN_PROGRESS", "PENDING", "EXPECTED"}
+
+
+def _latest_direct_check_runs_by_name(
+    runs: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    latest: dict[str, tuple[str, int, dict[str, Any]]] = {}
+    for index, run in enumerate(runs):
+        name = _direct_check_run_name(run)
+        if not name:
+            continue
+        timestamp = str(
+            run.get("completed_at")
+            or run.get("started_at")
+            or run.get("created_at")
+            or run.get("completedAt")
+            or run.get("startedAt")
+            or run.get("createdAt")
+            or ""
+        )
+        previous = latest.get(name)
+        if (
+            previous is None
+            or timestamp > previous[0]
+            or (timestamp == previous[0] and index < previous[1])
+        ):
+            latest[name] = (timestamp, index, run)
+    return {name: item[2] for name, item in latest.items()}
+
+
+def _direct_check_run_app_id(run: dict[str, Any]) -> Any:
+    app = run.get("app")
+    if isinstance(app, dict):
+        return app.get("id")
+    return None
+
+
+def _direct_check_run_matches_required(run: dict[str, Any], required: dict[str, Any]) -> bool:
+    if _direct_check_run_name(run) != required.get("context"):
+        return False
+    required_app_id = required.get("app_id")
+    if required_app_id is None:
+        return True
+    return _direct_check_run_app_id(run) == required_app_id
+
+
+def _latest_direct_check_run_for_required(
+    runs: list[dict[str, Any]],
+    required: dict[str, Any],
+) -> dict[str, Any] | None:
+    latest: tuple[str, int, dict[str, Any]] | None = None
+    for index, run in enumerate(runs):
+        if not _direct_check_run_matches_required(run, required):
+            continue
+        timestamp = str(
+            run.get("completed_at")
+            or run.get("started_at")
+            or run.get("created_at")
+            or run.get("completedAt")
+            or run.get("startedAt")
+            or run.get("createdAt")
+            or ""
+        )
+        if (
+            latest is None
+            or timestamp > latest[0]
+            or (timestamp == latest[0] and index < latest[1])
+        ):
+            latest = (timestamp, index, run)
+    return latest[2] if latest else None
+
+
+def _build_check_surface_diagnostics(
+    pr: dict[str, Any],
+    *,
+    repo_override: str | None,
+    checks_summary: str,
+    checks_unavailable: bool,
+) -> dict[str, Any]:
+    """Explain PR-facing check rollup separately from direct commit check-runs.
+
+    Direct commit check-runs are a fail-closed fallback only when branch
+    protection required contexts are known and all are successful at the exact
+    PR head.
+    """
+    rollup = pr.get("statusCheckRollup")
+    rollup_count = len(rollup) if isinstance(rollup, list) else None
+    rollup_diagnostics = (
+        _rollup_non_green_diagnostics(rollup)
+        if isinstance(rollup, list) and not checks_unavailable
+        else {}
+    )
+    diagnostics: dict[str, Any] = {
+        "pr_rollup": {
+            "available": not checks_unavailable,
+            "count": rollup_count,
+            "summary": checks_summary,
+            **rollup_diagnostics,
+        }
+    }
+    if not checks_unavailable:
+        return diagnostics
+
+    head_sha = str(pr.get("headRefOid") or "").strip()
+    repo_slug = _repo_slug_from_pr_payload(pr, repo_override)
+    base_ref = str(pr.get("baseRefName") or "").strip()
+    required_status_checks = _fetch_required_status_check_protection(repo_slug, base_ref)
+    required_contexts = required_status_checks["contexts"]
+    required_check_specs = required_status_checks.get("checks") or []
+    strict_required = bool(required_status_checks["strict"])
+    direct_runs = _fetch_direct_commit_check_runs(repo_slug, head_sha)
+    latest_direct_runs = _latest_direct_check_runs_by_name(direct_runs)
+    non_green = [
+        name for name, run in latest_direct_runs.items() if _direct_check_run_is_non_green(run)
+    ]
+    missing_required_contexts: list[str] = []
+    successful_required_contexts: list[str] = []
+    non_success_required_contexts: list[str] = []
+    for required in required_check_specs:
+        context = str(required.get("context") or "").strip()
+        if not context:
+            continue
+        run = _latest_direct_check_run_for_required(direct_runs, required)
+        if run is None:
+            missing_required_contexts.append(context)
+        elif _direct_check_run_is_success(run):
+            successful_required_contexts.append(context)
+        else:
+            non_success_required_contexts.append(context)
+    required_contexts_satisfied = (
+        bool(required_contexts)
+        and not strict_required
+        and not (missing_required_contexts or non_success_required_contexts)
+    )
+    direct_summary = {
+        "available": bool(direct_runs),
+        "total": len(direct_runs),
+        "branch_protection_required_status_checks_available": bool(
+            required_status_checks["available"]
+        ),
+        "branch_protection_strict": strict_required,
+        "required_contexts": required_contexts,
+        "required_checks": required_check_specs,
+        "successful_required_contexts": successful_required_contexts,
+        "missing_required_contexts": missing_required_contexts,
+        "non_success_required_contexts": non_success_required_contexts,
+        "required_contexts_satisfied": required_contexts_satisfied,
+        "non_green_sample": non_green[:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+        "non_green_count": len(non_green),
+    }
+    diagnostics["direct_commit_check_runs"] = direct_summary
+    if required_contexts_satisfied:
+        diagnostics["diagnosis"] = (
+            "GitHub PR statusCheckRollup is empty, but exact-head direct commit "
+            "check-runs show every branch-protection required context successful; "
+            "merge-packet uses the direct required check-run fallback."
+        )
+        diagnostics["remediation_prompt"] = (
+            "No check-rollup nudge is required for settlement; continue gating on "
+            "exact-head branch-protection required check-runs."
+        )
+    elif direct_runs:
+        if strict_required:
+            diagnostics["diagnosis"] = (
+                "GitHub PR statusCheckRollup is empty while exact-head direct commit "
+                "check-runs exist, but branch protection requires strict base freshness; "
+                "merge-packet fails closed because direct commit check-runs alone do "
+                "not prove the PR is up to date with base."
+            )
+            diagnostics["remediation_prompt"] = (
+                "Refresh the PR-facing check rollup after the branch is current with "
+                "base, or keep the PR blocked. Do not settle from direct commit "
+                "check-runs alone when branch protection is strict."
+            )
+        else:
+            diagnostics["diagnosis"] = (
+                "GitHub PR statusCheckRollup is empty while direct commit check-runs "
+                "exist at the head; merge-packet fails closed because direct checks "
+                "do not satisfy all branch-protection required contexts."
+            )
+            diagnostics["remediation_prompt"] = (
+                "Authorize only a PR-state/check-only nudge to refresh GitHub's PR "
+                "check rollup, or keep the PR blocked and open a bounded CI/tooling "
+                "repair lane. Do not merge from direct commit check-runs alone."
+            )
+    else:
+        diagnostics["diagnosis"] = (
+            "GitHub PR statusCheckRollup is empty and no direct commit check-runs were found."
+        )
+        diagnostics["remediation_prompt"] = (
+            "Wait for checks or authorize a minimal check-only action; do not "
+            "settle or merge while the PR-facing rollup is unavailable."
+        )
+    return diagnostics
+
+
+def _direct_required_check_fallback_satisfied(check_surfaces: dict[str, Any]) -> bool:
+    direct = check_surfaces.get("direct_commit_check_runs")
+    if not isinstance(direct, dict):
+        return False
+    return bool(direct.get("required_contexts_satisfied"))
 
 
 def _latest_status_check_rollup(checks: list) -> list[dict[str, Any]]:
@@ -1454,6 +2156,24 @@ def _is_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
     )
 
 
+def _is_required_pr_check_current_merge_quorum_self_check(check: dict[str, Any]) -> bool:
+    """Return true for the merge-quorum job's own required PR check row.
+
+    ``gh pr checks --required`` can report the previous merge-quorum attempt
+    while the new merge-quorum job is computing its packet. For that required
+    PR-check fallback only, the workflow must ignore its own row regardless of
+    whether GitHub labels the stale row pending, failed, or cancelled. Other
+    call sites keep the stricter URL/status match so stale completed
+    merge-quorum failures still block local settlement.
+    """
+    if not _is_merge_quorum_check(check):
+        return False
+    return (
+        os.environ.get("GITHUB_WORKFLOW") == MERGE_QUORUM_WORKFLOW_NAME
+        and os.environ.get("GITHUB_JOB") == MERGE_QUORUM_JOB_ID
+    )
+
+
 def _filter_lanes(
     items: list[QueueItem],
     *,
@@ -1484,6 +2204,7 @@ def _build_packet(
             "baseRefOid",
             "state",
             "mergedAt",
+            "baseRefName",
             "isDraft",
             "mergeable",
             "reviewDecision",
@@ -1496,6 +2217,7 @@ def _build_packet(
             "files",
             "body",
             "comments",
+            "reviews",
             "commits",
         ]
     )
@@ -1525,6 +2247,141 @@ def _build_packet(
     if checks_unavailable:
         checks_summary = "no checks reported"
         has_pending = True
+    check_surfaces = _build_check_surface_diagnostics(
+        pr,
+        repo_override=repo_override,
+        checks_summary=checks_summary,
+        checks_unavailable=checks_unavailable,
+    )
+    required_pr_check_gate_satisfied = False
+    if not checks_unavailable and (has_failures or has_pending):
+        required_surface = _fetch_required_pr_check_surface(number, repo_override)
+        required_pr_checks = [
+            item for item in required_surface.get("checks") or [] if isinstance(item, dict)
+        ]
+        required_available = bool(required_surface.get("available"))
+        if required_available:
+            required_summary, required_has_failures, required_has_pending = (
+                _summarize_required_pr_checks(required_pr_checks)
+            )
+        else:
+            required_summary = "required PR checks unavailable"
+            required_has_failures = False
+            required_has_pending = True
+        effective_required_count = _effective_required_pr_check_count(required_pr_checks)
+        ignored_self_check_count = sum(
+            1
+            for check in required_pr_checks
+            if isinstance(check, dict)
+            and _is_required_pr_check_current_merge_quorum_self_check(check)
+        )
+        rollup_required_diagnostics = _rollup_non_green_diagnostics(
+            pr.get("statusCheckRollup") or [],
+            required_checks=required_pr_checks if required_available else None,
+        )
+        check_surfaces["pr_rollup"].update(rollup_required_diagnostics)
+
+        gate_blocked_reason = ""
+        if not required_available:
+            gate_blocked_reason = (
+                "GitHub required PR checks surface is unavailable; merge-packet "
+                "cannot distinguish required checks from non-required PR rollup checks."
+            )
+        elif effective_required_count == 0:
+            gate_blocked_reason = (
+                "GitHub reported no effective branch-protection required checks "
+                "after ignoring the current merge-quorum self-check."
+            )
+        elif required_has_failures:
+            gate_blocked_reason = (
+                f"branch-protection required checks are failing ({required_summary})."
+            )
+        elif required_has_pending:
+            gate_blocked_reason = (
+                f"branch-protection required checks are pending ({required_summary})."
+            )
+        check_surfaces["required_pr_checks"] = {
+            "available": required_available,
+            "total": len(required_pr_checks),
+            "effective_total": effective_required_count,
+            "ignored_current_merge_quorum_self_check_count": ignored_self_check_count,
+            "summary": required_summary,
+            "gate_selected": False,
+            "gate_blocked_reason": gate_blocked_reason,
+            "failing_or_cancelled": [
+                str(check.get("name") or "").strip()
+                for check in required_pr_checks
+                if _required_pr_check_bucket(check) in {"fail", "cancel"}
+                and not _is_required_pr_check_current_merge_quorum_self_check(check)
+            ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+            "pending": [
+                str(check.get("name") or "").strip()
+                for check in required_pr_checks
+                if _required_pr_check_bucket(check) == "pending"
+                and not _is_required_pr_check_current_merge_quorum_self_check(check)
+            ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+        }
+        if required_surface.get("error"):
+            check_surfaces["required_pr_checks"]["error"] = str(required_surface.get("error"))
+        if (
+            required_available
+            and effective_required_count > 0
+            and not required_has_pending
+            and has_pending
+        ):
+            # Required-check gating can separate branch-protection waits from
+            # optional full-rollup capacity noise even when a required check
+            # still fails and keeps the packet blocked.
+            has_pending = False
+        if effective_required_count > 0 and not required_has_failures and not required_has_pending:
+            required_pr_check_gate_satisfied = True
+            check_surfaces["required_pr_checks"]["gate_selected"] = True
+            check_surfaces["required_pr_checks"]["gate_blocked_reason"] = ""
+            checks_summary = f"{required_summary} (required PR checks)"
+            has_pending = False
+            has_failures = False
+            checks_unavailable = False
+            check_surfaces["effective_gate"] = {
+                "source": "required_pr_checks",
+                "summary": checks_summary,
+            }
+            check_surfaces["diagnosis"] = (
+                "The PR check rollup includes non-required non-green checks, "
+                "but GitHub reports every branch-protection required check green; "
+                "merge-packet uses the required PR checks gate."
+            )
+            check_surfaces["remediation_prompt"] = (
+                "Continue gating on branch-protection required checks; keep "
+                "non-required shadow/advisory check failures visible but non-blocking."
+            )
+        elif gate_blocked_reason:
+            check_surfaces["diagnosis"] = (
+                "The PR check rollup is non-green and merge-packet did not select "
+                f"the required PR checks gate: {gate_blocked_reason}"
+            )
+            check_surfaces["remediation_prompt"] = (
+                "Keep the PR blocked or authorize a bounded check-surface repair; "
+                "do not settle or merge until required checks can be separated from "
+                "non-required PR rollup checks."
+            )
+    direct_check_fallback_satisfied = (
+        checks_unavailable and _direct_required_check_fallback_satisfied(check_surfaces)
+    )
+    if direct_check_fallback_satisfied:
+        direct_summary = check_surfaces["direct_commit_check_runs"]
+        successful_required = direct_summary.get("successful_required_contexts") or []
+        required_contexts = direct_summary.get("required_contexts") or []
+        checks_summary = (
+            f"{len(successful_required)}/{len(required_contexts)} required green "
+            "(direct check-runs fallback)"
+        )
+        has_pending = False
+        has_failures = False
+        checks_unavailable = False
+        check_surfaces["effective_gate"] = {
+            "source": "direct_commit_check_runs",
+            "summary": checks_summary,
+        }
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
@@ -1572,6 +2429,18 @@ def _build_packet(
         risk_flags.append("check rollup unavailable")
     if has_failures:
         risk_flags.append(f"checks failing ({checks_summary})")
+    required_pr_check_surface = check_surfaces.get("required_pr_checks") or {}
+    if required_pr_check_gate_satisfied and required_pr_check_surface:
+        risk_flags.append(
+            "non-required PR checks are non-green; "
+            "effective gate uses branch-protection required checks"
+        )
+    direct_summary = check_surfaces.get("direct_commit_check_runs") or {}
+    if direct_check_fallback_satisfied and direct_summary.get("non_green_count", 0):
+        risk_flags.append(
+            "non-required direct check-runs are non-green; "
+            "fallback gates only branch-protection required contexts"
+        )
 
     if settlement_recorded:
         recommendation = "settled_noop"
@@ -1601,7 +2470,17 @@ def _build_packet(
         recommendation_reason = "checks still pending — wait for completion"
     else:
         recommendation = "approve_candidate"
-        recommendation_reason = "all green, bounded diff, no high-risk paths"
+        if required_pr_check_gate_satisfied:
+            recommendation_reason = (
+                "branch-protection required checks green; non-required PR checks are non-green"
+            )
+        elif direct_check_fallback_satisfied and direct_summary.get("non_green_count", 0):
+            recommendation_reason = (
+                "branch-protection required contexts green via direct check-run fallback; "
+                "non-required direct check-runs are non-green"
+            )
+        else:
+            recommendation_reason = "all green, bounded diff, no high-risk paths"
 
     author = ""
     author_payload = pr.get("author")
@@ -1673,6 +2552,7 @@ def _build_packet(
         machine_recommendation_reason=recommendation_reason,
         packet_sha="",
         generated_at=datetime.now(UTC).isoformat(),
+        check_surfaces=check_surfaces,
         protocol=protocol_dict,
         model_review_quorum=_build_model_review_quorum(
             pr=pr,
@@ -1684,6 +2564,7 @@ def _build_packet(
             checks_unavailable=checks_unavailable,
             settlement_recorded=settlement_recorded,
             human_risk_settlement_recorded=human_risk_settlement_recorded,
+            check_surfaces=check_surfaces,
         ),
     )
     packet.packet_sha = _packet_sha(packet)
@@ -1698,9 +2579,11 @@ def _build_merge_authorization_packet(
     review_queue_root: str | Path | None = None,
     execute_reviewers: bool = False,
 ) -> dict[str, Any]:
+    scoped_pr_refs = False
     if pr_refs:
         refs = list(dict.fromkeys(str(ref).strip() for ref in pr_refs if str(ref).strip()))
-        queue_size = len(_build_queue(limit=max(limit, len(refs), MODEL_REVIEW_QUEUE_CAP + 1)))
+        queue_size = len(refs)
+        scoped_pr_refs = True
     else:
         queue = _build_queue(limit=limit)
         refs = [str(item.number) for item in queue]
@@ -1721,6 +2604,7 @@ def _build_merge_authorization_packet(
             "current_open_prs": queue_size,
             "cap": MODEL_REVIEW_QUEUE_CAP,
             "active": queue_pressure_active,
+            "scope": "explicit_pr_refs" if scoped_pr_refs else "open_pr_queue",
             "allowed_work_when_active": [
                 "review",
                 "dogfood",
@@ -1746,8 +2630,13 @@ def _build_merge_authorization_packet(
             "reviewer_signals": quorum["reviewer_signals"],
             "dogfood_evidence": quorum["dogfood_evidence"],
             "counted_reviewer_ids": quorum["counted_reviewer_ids"],
+            "counted_model_families": quorum.get(
+                "counted_model_families", quorum["counted_reviewer_ids"]
+            ),
             "reasons": quorum["reasons"],
         }
+        if packet.check_surfaces:
+            entry["check_surfaces"] = packet.check_surfaces
         entries.append(entry)
 
     return {
@@ -1757,6 +2646,7 @@ def _build_merge_authorization_packet(
             "current_open_prs": queue_size,
             "cap": MODEL_REVIEW_QUEUE_CAP,
             "active": queue_pressure_active,
+            "scope": "explicit_pr_refs" if scoped_pr_refs else "open_pr_queue",
         },
         "authorization_sentence": (
             "I accept the model quorum evidence for Tier 0-2 PRs in this packet "
@@ -1791,6 +2681,7 @@ def _build_model_review_quorum(
     checks_unavailable: bool = False,
     settlement_recorded: bool = False,
     human_risk_settlement_recorded: bool = False,
+    check_surfaces: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     tier, tier_name, tier_reason = _classify_model_review_tier(files, pr=pr)
     requirement = _tier_requirement(tier)
@@ -1816,6 +2707,12 @@ def _build_model_review_quorum(
     blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
+    review_object_warnings = _review_object_quorum_warnings(
+        pr.get("reviews") or [],
+        counted_reviewer_ids=counted_reviewer_ids,
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+    )
     signal_count = len(counted_reviewer_ids)
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
         _known_model_reviewer_id(item) for item in dogfood_evidence
@@ -1833,6 +2730,13 @@ def _build_model_review_quorum(
         reasons.append("checks are failing; repair before settlement")
     if checks_unavailable and not settlement_recorded:
         reasons.append("checks are unavailable; wait for GitHub check rollup before settlement")
+        if isinstance(check_surfaces, dict) and (
+            check_surfaces.get("direct_commit_check_runs") or {}
+        ).get("total", 0):
+            reasons.append(
+                "direct commit check-runs are visible, but PR statusCheckRollup is empty; "
+                "refresh the PR-facing check rollup before settlement"
+            )
     elif has_pending and not settlement_recorded:
         reasons.append("checks are pending; wait before settlement")
     if not settlement_recorded:
@@ -1846,6 +2750,7 @@ def _build_model_review_quorum(
         )
         if not has_required_dogfood:
             reasons.append("focused adversarial dogfood evidence is required")
+        reasons.extend(review_object_warnings)
 
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
@@ -1903,6 +2808,7 @@ def _build_model_review_quorum(
         "reviewer_signals": reviewer_signals,
         "dogfood_evidence": dogfood_evidence,
         "counted_reviewer_ids": counted_reviewer_ids,
+        "counted_model_families": counted_reviewer_ids,
         "dissenting_views": dissenting_views,
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
@@ -2089,11 +2995,24 @@ def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, 
     signals = []
     for index, reviewer_id in enumerate(reviewer_ids):
         provider = providers[index] if index < len(providers) else ""
+        model_family = _normalize_model_reviewer_id(str(provider)) or _normalize_model_reviewer_id(
+            str(reviewer_id)
+        )
+        identity_problems: list[str] = []
+        if not model_family:
+            identity_problems.append("unknown_model_family")
         signals.append(
             {
                 "reviewer_id": str(reviewer_id),
                 "provider": str(provider),
                 "source": protocol.get("status", ""),
+                "surface_reviewer_id": _infer_surface_reviewer_from_candidate(
+                    str(provider) or str(reviewer_id)
+                ),
+                "model_family": model_family,
+                "model_id": "",
+                "identity_source": "protocol_provider",
+                "identity_problems": identity_problems,
             }
         )
     return signals
@@ -2101,7 +3020,7 @@ def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, 
 
 def _counted_model_reviewer_ids(
     reviewer_signals: list[dict[str, Any]],
-    dogfood_evidence: list[dict[str, str]],
+    dogfood_evidence: list[dict[str, Any]],
 ) -> list[str]:
     reviewer_ids: set[str] = set()
     for item in [*reviewer_signals, *dogfood_evidence]:
@@ -2134,7 +3053,8 @@ def _lint_evidence_comment(
         dogfood_evidence = []
         reviewer_signals = []
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
-    inferred_reviewer = _infer_model_reviewer_from_text(body)
+    identity = _resolve_model_review_identity(body)
+    inferred_reviewer = identity.surface_reviewer_id
     lower = body.lower()
 
     problems: list[str] = []
@@ -2142,10 +3062,13 @@ def _lint_evidence_comment(
         problems.append("empty_body")
     if not grounded:
         problems.append("missing_current_head_grounding")
-    if str(author or "").strip() == "github-actions":
+    if _is_github_actions_author(author):
         problems.append("github_actions_author_not_counted")
     if inferred_reviewer == "unknown_model_reviewer":
         problems.append("missing_known_model_reviewer_heading")
+    for problem in identity.identity_problems:
+        if problem in IDENTITY_COUNT_BLOCKERS:
+            problems.append(problem)
     if not any(
         token in lower
         for token in (
@@ -2164,6 +3087,7 @@ def _lint_evidence_comment(
     ):
         problems.append("missing_dogfood_or_review_trigger")
     if not counted_reviewer_ids:
+        problems.append("no_counted_model_family")
         problems.append("no_counted_model_reviewer")
 
     return {
@@ -2175,11 +3099,17 @@ def _lint_evidence_comment(
         "author": author,
         "comment_summary": _first_nonempty_line(body)[:240],
         "inferred_reviewer": inferred_reviewer,
+        "surface_reviewer_id": identity.surface_reviewer_id,
+        "model_family": identity.model_family,
+        "model_id": identity.model_id,
+        "identity_source": identity.identity_source,
+        "identity_problems": list(identity.identity_problems),
         "current_head_grounded": grounded,
         "current_head_grounding_method": grounding_method,
         "dogfood_evidence": dogfood_evidence,
         "reviewer_signals": reviewer_signals,
         "counted_reviewer_ids": counted_reviewer_ids,
+        "counted_model_families": counted_reviewer_ids,
         "would_count": bool(counted_reviewer_ids),
         "problems": problems,
     }
@@ -2230,9 +3160,19 @@ def _head_committed_at_from_pr(pr: dict[str, Any]) -> str:
 
 
 def _known_model_reviewer_id(item: dict[str, Any]) -> str:
+    problems = [str(problem) for problem in (item.get("identity_problems") or [])]
+    if any(problem in IDENTITY_COUNT_BLOCKERS for problem in problems):
+        return ""
+    model_family = _normalize_model_family(str(item.get("model_family", "") or ""))
+    if model_family:
+        return model_family
     provider = str(item.get("provider", "") or "")
     reviewer_id = str(item.get("reviewer_id", "") or "")
     return _normalize_model_reviewer_id(provider) or _normalize_model_reviewer_id(reviewer_id)
+
+
+def _is_github_actions_author(author: str) -> bool:
+    return str(author or "").strip().lower() in {"github-actions", "github-actions[bot]"}
 
 
 def _normalize_model_reviewer_id(value: str) -> str:
@@ -2241,7 +3181,6 @@ def _normalize_model_reviewer_id(value: str) -> str:
         return ""
     known_markers = (
         ("claude", ("claude", "anthropic")),
-        ("codex", ("codex",)),
         ("openai", ("openai", "gpt")),
         ("grok", ("grok", "xai")),
         ("gemini", ("gemini", "google")),
@@ -2249,9 +3188,10 @@ def _normalize_model_reviewer_id(value: str) -> str:
         ("deepseek", ("deepseek",)),
         ("qwen", ("qwen",)),
         ("kimi", ("kimi", "moonshot")),
-        ("tesla", ("tesla",)),
-        ("harvey", ("harvey",)),
-        ("factory", ("factory",)),
+        ("yi", ("yi",)),
+        ("glm", ("glm", "zhipu", "z-ai")),
+        ("minimax", ("minimax",)),
+        ("hermes", ("hermes", "nous hermes")),
     )
     for normalized, markers in known_markers:
         if any(marker in lower for marker in markers):
@@ -2259,24 +3199,243 @@ def _normalize_model_reviewer_id(value: str) -> str:
     return ""
 
 
+def _normalize_model_family(value: str) -> str:
+    lower = str(value or "").strip().lower()
+    if not lower:
+        return ""
+    if lower in CANONICAL_MODEL_FAMILIES:
+        return lower
+    aliases = {
+        "anthropic": "claude",
+        "google": "gemini",
+        "xai": "grok",
+        "codestral": "mistral",
+        "moonshot": "kimi",
+        "zhipu": "glm",
+        "z-ai": "glm",
+        "nous-hermes": "hermes",
+        "nous hermes": "hermes",
+    }
+    return aliases.get(lower, "")
+
+
+def _first_heading_candidate(text: str) -> tuple[str, int | None]:
+    for index, line in enumerate(str(text).splitlines()):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            candidate = stripped.lstrip("#").strip()
+            if candidate:
+                return candidate, index
+    return str(text)[:200], None
+
+
+def _infer_surface_reviewer_from_candidate(candidate: str) -> str:
+    lower = str(candidate or "").lower()
+    for name in ("claude", "codex", "tesla", "harvey", "factory", "grok", "gemini"):
+        if name in lower:
+            return name
+    for family, markers in DIRECT_MODEL_FAMILY_MARKERS.items():
+        if any(marker in lower for marker in markers):
+            return family
+    return "unknown_model_reviewer"
+
+
+def _structured_identity_metadata(text: str, heading_index: int | None) -> dict[str, str]:
+    if heading_index is None:
+        return {}
+    lines = str(text).splitlines()
+    metadata: dict[str, str] = {}
+    in_fence = False
+    fence_marker = ""
+    for line in lines[heading_index + 1 : heading_index + 26]:
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence:
+            continue
+        if stripped.startswith("#"):
+            break
+        label, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        normalized_label = label.strip().strip("*").lower()
+        normalized_value = value.strip().strip("*").strip()
+        if normalized_label in {
+            "reviewer harness",
+            "model family",
+            "model id",
+            "receipt artifact",
+        }:
+            metadata[normalized_label] = normalized_value
+    return metadata
+
+
+def _resolve_model_review_identity(text: str) -> ModelReviewIdentity:
+    candidate, heading_index = _first_heading_candidate(text)
+    surface = _infer_surface_reviewer_from_candidate(candidate)
+    metadata = _structured_identity_metadata(text, heading_index)
+    explicit_family_raw = metadata.get("model family", "")
+    explicit_family = _normalize_model_family(explicit_family_raw)
+    model_id = metadata.get("model id", "")
+    receipt_artifact = metadata.get("receipt artifact", "")
+    problems: list[str] = []
+
+    if surface == "unknown_model_reviewer":
+        problems.append("unknown_surface_reviewer")
+
+    if explicit_family_raw and not explicit_family:
+        problems.append("unknown_model_family")
+
+    model_family = explicit_family
+    identity_source = "model_family_metadata" if explicit_family_raw else "none"
+
+    if surface in ROUTER_SURFACE_REVIEWERS:
+        if not explicit_family_raw:
+            problems.append("missing_model_family_disclosure")
+    elif surface != "unknown_model_reviewer":
+        direct_family = _normalize_model_family(surface)
+        if explicit_family and direct_family and explicit_family != direct_family:
+            problems.append("heading_model_family_conflict")
+        if not explicit_family_raw and direct_family:
+            model_family = direct_family
+            identity_source = "direct_heading"
+        elif explicit_family and direct_family == explicit_family:
+            identity_source = "model_family_metadata"
+
+    if not receipt_artifact:
+        problems.append("missing_receipt_artifact")
+
+    return ModelReviewIdentity(
+        surface_reviewer_id=surface,
+        model_family=model_family,
+        model_id=model_id,
+        identity_source=identity_source,
+        identity_problems=tuple(dict.fromkeys(problems)),
+    )
+
+
+def _model_family_from_body(body: str) -> str:
+    """Resolve a known model family from a ``Model family:`` line anywhere.
+
+    The structured-metadata reader (:func:`_structured_identity_metadata`) only
+    inspects the lines immediately following the first heading. Dogfood comments
+    in the wild disclose the model family in a ``Model family: <name>`` bullet
+    that may appear lower in the body — or under a plain
+    ``## Focused adversarial dogfood`` heading that names no model. Scan the full
+    body for such a line and normalize it to a canonical family. Returns ``""``
+    when no recognizable family is disclosed (fail-closed: no phantom inflation).
+
+    Fenced code blocks (```` ``` ````/``~~~``) and inline-code spans (`` `...` ``)
+    are skipped so a merely *quoted* ``Model family:`` example — e.g. someone
+    pasting the disclosure template into a code fence — cannot inflate quorum.
+    """
+    in_fence = False
+    fence_marker = ""
+    for raw_line in str(body).splitlines():
+        stripped = raw_line.strip()
+        # Track fenced code blocks and skip everything inside them.
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence:
+            continue
+        # Drop inline-code spans so a back-ticked example label is not parsed
+        # as a real disclosure line.
+        stripped = re.sub(r"`[^`]*`", "", stripped).strip()
+        if stripped.startswith("-"):
+            stripped = stripped[1:].strip()
+        label, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        normalized_label = label.strip().strip("*").strip().lower()
+        if normalized_label != "model family":
+            continue
+        candidate = value.strip().strip("*").strip().strip("`")
+        family = _normalize_model_family(candidate)
+        if family:
+            return family
+    return ""
+
+
+def _resolve_dogfood_identity(body: str) -> ModelReviewIdentity:
+    """Resolve dogfood-comment identity, allowing a body-named model family.
+
+    Starts from the shared :func:`_resolve_model_review_identity` (heading +
+    post-heading structured metadata). When that yields a countable model
+    reviewer, it is returned unchanged.
+
+    The body-family fallback is applied **only** when the original resolution
+    failed for the benign reason "no model was inferable from the heading or its
+    structured metadata" — i.e. the heading named no surface and the only
+    count-blocker is ``unknown_surface_reviewer``. If the original identity
+    carries a *real* problem — an unknown/unnormalizable disclosed family
+    (``unknown_model_family``), a router surface that disclosed no family
+    (``missing_model_family_disclosure``), or a heading/metadata family
+    *conflict* (``heading_model_family_conflict``) — we stay fail-closed and do
+    NOT count, exactly as the original resolver intended. Falling back in those
+    cases would let a body-scanned family silently override a deliberate block.
+    """
+    identity = _resolve_model_review_identity(body)
+    if _known_model_reviewer_id(identity.as_packet_fields()):
+        return identity
+
+    # Only the benign "heading named no model" failure is eligible for the
+    # body-family fallback. Any other count-blocker is a real signal that the
+    # original resolver intentionally refused to count.
+    blockers = {
+        problem for problem in identity.identity_problems if problem in IDENTITY_COUNT_BLOCKERS
+    }
+    if blockers - {"unknown_surface_reviewer"}:
+        return identity
+
+    family = _model_family_from_body(body)
+    if not family:
+        return identity
+
+    metadata = _structured_identity_metadata(body, _first_heading_candidate(body)[1])
+    model_id = metadata.get("model id", "")
+    return ModelReviewIdentity(
+        surface_reviewer_id=family,
+        model_family=family,
+        model_id=model_id,
+        identity_source="dogfood_body_model_family",
+    )
+
+
 def _dogfood_evidence_from_comments(
     comments: list[Any],
     *,
     head_sha: str = "",
     head_committed_at: str = "",
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """Extract focused-adversarial dogfood signals from PR comments.
 
     Mirrors the source-side filtering of
-    :func:`_model_review_signals_from_comments` for symmetry: an entry is
-    only emitted when (a) the comment is SHA-grounded on the current head,
-    (b) a known model reviewer can be inferred from the comment's
-    structured header, and (c) the comment was not posted by GitHub
-    Actions. Unknowns are still neutralised at counting time by
-    :func:`_known_model_reviewer_id`, but excluding them at the source
-    keeps the evidence list interpretable for downstream consumers.
+    :func:`_model_review_signals_from_comments` for symmetry. Router
+    comments whose first heading names a known surface but whose metadata
+    is missing or conflicted remain visible in the evidence list with
+    ``identity_problems``; counting remains fail-closed.
+
+    Identity is resolved via :func:`_resolve_dogfood_identity`, which accepts a
+    model family disclosed anywhere in the body (e.g. a ``Model family: claude``
+    line under a plain ``## Focused adversarial dogfood`` heading), not only one
+    named in the first heading. The head-grounding and github-actions exclusions
+    below are preserved unchanged.
     """
-    evidence: list[dict[str, str]] = []
+    evidence: list[dict[str, Any]] = []
     for comment in comments:
         if not isinstance(comment, dict):
             continue
@@ -2288,21 +3447,22 @@ def _dogfood_evidence_from_comments(
             token in lower for token in ("dogfood", "adversarial", "cross-author", "recheck")
         ):
             continue
-        reviewer = _infer_model_reviewer_from_text(body)
-        if reviewer == "unknown_model_reviewer":
+        identity = _resolve_dogfood_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
             continue
         author_payload = comment.get("author")
         author = ""
         if isinstance(author_payload, dict):
             author = str(author_payload.get("login", "") or "")
-        if author == "github-actions":
+        if _is_github_actions_author(author):
             continue
         evidence.append(
             {
-                "reviewer_id": reviewer,
+                "reviewer_id": identity.model_family or identity.surface_reviewer_id,
                 "github_author": author,
                 "source": "pr_comment",
                 "summary": _first_nonempty_line(body)[:240],
+                **identity.as_packet_fields(),
             }
         )
     return evidence[:5]
@@ -2313,8 +3473,8 @@ def _model_review_signals_from_comments(
     *,
     head_sha: str = "",
     head_committed_at: str = "",
-) -> list[dict[str, str]]:
-    signals: list[dict[str, str]] = []
+) -> list[dict[str, Any]]:
+    signals: list[dict[str, Any]] = []
     for comment in comments:
         if not isinstance(comment, dict):
             continue
@@ -2335,24 +3495,163 @@ def _model_review_signals_from_comments(
             )
         ):
             continue
-        reviewer = _infer_model_reviewer_from_text(body)
-        if reviewer == "unknown_model_reviewer":
+        identity = _resolve_model_review_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
             continue
         author_payload = comment.get("author")
         github_author = ""
         if isinstance(author_payload, dict):
             github_author = str(author_payload.get("login", "") or "")
-        if github_author == "github-actions":
+        if _is_github_actions_author(github_author):
             continue
         signals.append(
             {
-                "reviewer_id": reviewer,
-                "provider": reviewer,
+                "reviewer_id": identity.model_family or identity.surface_reviewer_id,
+                "provider": identity.model_family,
                 "source": "pr_comment",
                 "summary": _first_nonempty_line(body)[:240],
+                "github_author": github_author,
+                **identity.as_packet_fields(),
             }
         )
     return signals[:5]
+
+
+def _review_object_quorum_warnings(
+    reviews: list[Any],
+    *,
+    counted_reviewer_ids: list[str],
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> list[str]:
+    """Warn when ``review-pr`` evidence is present in non-countable form.
+
+    Merge quorum intentionally counts model evidence from PR comments because
+    comments are easier to audit, quote, and mirror across queue tooling. A
+    GitHub review object alone should therefore not satisfy quorum, but it
+    should produce an operator-visible warning instead of silently looking like
+    missing evidence.
+    """
+    counted = set(counted_reviewer_ids)
+    warnings: list[str] = []
+    warned: set[str] = set()
+    for review in reviews:
+        if not isinstance(review, dict):
+            continue
+        if not _is_review_grounded_on_head(review, head_sha, head_committed_at):
+            continue
+        body = str(review.get("body", "") or "")
+        identity = _resolve_review_object_model_identity(body)
+        reviewer_id = _known_model_reviewer_id(identity.as_packet_fields())
+        if reviewer_id:
+            if reviewer_id in counted or reviewer_id in warned:
+                continue
+            warnings.append(
+                "GitHub review object from "
+                f"{reviewer_id} is advisory-only for merge-packet model quorum; "
+                "mirror the review-pr output into a current-head PR comment before settlement"
+            )
+            warned.add(reviewer_id)
+            continue
+        surface = identity.surface_reviewer_id
+        if surface == "unknown_model_reviewer" or surface in warned:
+            continue
+        if any(problem in IDENTITY_COUNT_BLOCKERS for problem in identity.identity_problems):
+            warnings.append(
+                "GitHub review object from "
+                f"{surface} lacks lineage-bound model family metadata; mirror the "
+                "review-pr output into a current-head PR comment with Model family "
+                "metadata before settlement"
+            )
+            warned.add(surface)
+    return warnings
+
+
+def _resolve_review_object_model_identity(body: str) -> ModelReviewIdentity:
+    identity = _resolve_model_review_identity(body)
+    if _known_model_reviewer_id(identity.as_packet_fields()):
+        return identity
+
+    metadata = _review_pr_metadata_from_body(body)
+    reviewer = metadata.get("reviewer", "")
+    if not reviewer:
+        return identity
+
+    surface = _infer_surface_reviewer_from_candidate(reviewer)
+    explicit_family_raw = metadata.get("model family", "")
+    explicit_family = _normalize_model_family(explicit_family_raw)
+    model_id = metadata.get("model id", "")
+    problems: list[str] = []
+
+    if surface == "unknown_model_reviewer":
+        problems.append("unknown_surface_reviewer")
+    if explicit_family_raw and not explicit_family:
+        problems.append("unknown_model_family")
+
+    model_family = explicit_family
+    identity_source = "review_pr_model_family_metadata" if explicit_family_raw else "none"
+    if surface in ROUTER_SURFACE_REVIEWERS:
+        if not explicit_family_raw:
+            problems.append("missing_model_family_disclosure")
+    elif surface != "unknown_model_reviewer":
+        direct_family = _normalize_model_family(surface)
+        if explicit_family and direct_family and explicit_family != direct_family:
+            problems.append("heading_model_family_conflict")
+        if not explicit_family_raw and direct_family:
+            model_family = direct_family
+            identity_source = "review_pr_direct_reviewer"
+        elif explicit_family and direct_family == explicit_family:
+            identity_source = "review_pr_model_family_metadata"
+
+    return ModelReviewIdentity(
+        surface_reviewer_id=surface,
+        model_family=model_family,
+        model_id=model_id,
+        identity_source=identity_source,
+        identity_problems=tuple(dict.fromkeys(problems)),
+    )
+
+
+def _review_pr_metadata_from_body(body: str) -> dict[str, str]:
+    metadata: dict[str, str] = {}
+    for line in str(body).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("-"):
+            stripped = stripped[1:].strip()
+        label, sep, value = stripped.partition(":")
+        if not sep:
+            continue
+        normalized_label = label.strip().strip("*").lower()
+        if normalized_label not in {"reviewer", "model family", "model id"}:
+            continue
+        metadata[normalized_label] = value.strip().strip("*").strip().strip("`")
+    return metadata
+
+
+def _is_review_grounded_on_head(
+    review: dict[str, Any],
+    head_sha: str,
+    head_committed_at: str,
+) -> bool:
+    if not head_sha:
+        return True
+    commit = review.get("commit")
+    body = str(review.get("body", "") or "")
+    head_short = head_sha[:7]
+    if isinstance(commit, dict):
+        commit_oid = str(commit.get("oid", "") or "").strip()
+        if commit_oid:
+            if commit_oid == head_sha:
+                return True
+            return bool(head_short and head_short in body)
+    if head_short and head_short in body:
+        return True
+    if not head_committed_at:
+        return False
+    submitted = str(review.get("submittedAt", "") or "")
+    if not submitted:
+        return False
+    return submitted >= head_committed_at
 
 
 def _infer_model_reviewer_from_text(text: str) -> str:
@@ -2366,20 +3665,8 @@ def _infer_model_reviewer_from_text(text: str) -> str:
     ``claude-mem`` in a file path.  Reviewers conventionally announce
     their identity in the comment's first heading.
     """
-    candidate = ""
-    for line in str(text).splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            candidate = stripped.lstrip("#").strip()
-            if candidate:
-                break
-    if not candidate:
-        candidate = str(text)[:200]
-    lower = candidate.lower()
-    for name in ("claude", "codex", "tesla", "harvey", "factory", "grok", "gemini"):
-        if name in lower:
-            return name
-    return "unknown_model_reviewer"
+    candidate, _ = _first_heading_candidate(text)
+    return _infer_surface_reviewer_from_candidate(candidate)
 
 
 def _is_comment_grounded_on_head(
@@ -2980,6 +4267,61 @@ def _render_packet(packet: ReviewPacket) -> None:
         f"across {packet.changed_files} files"
     )
     print(f"checks:          {packet.checks_summary}")
+    if packet.check_surfaces:
+        rollup = packet.check_surfaces.get("pr_rollup") or {}
+        direct = packet.check_surfaces.get("direct_commit_check_runs") or {}
+        required = packet.check_surfaces.get("required_pr_checks") or {}
+        print(
+            "check surfaces:  "
+            f"pr_rollup_available={str(bool(rollup.get('available'))).lower()} "
+            f"pr_rollup_count={rollup.get('count')}"
+        )
+        if required:
+            gate_selected = str(bool(required.get("gate_selected"))).lower()
+            print(
+                "                 "
+                f"required_pr_checks={required.get('total', 0)} "
+                f"summary={required.get('summary')} "
+                f"gate_selected={gate_selected}"
+            )
+            gate_blocked_reason = str(required.get("gate_blocked_reason") or "").strip()
+            if gate_blocked_reason:
+                print(f"                 required_gate_blocker: {gate_blocked_reason}")
+        non_required_rollup_sample = rollup.get("non_required_non_green_sample") or []
+        if non_required_rollup_sample:
+            print(
+                "                 "
+                "non_required_non_green_rollup="
+                + ", ".join(str(item) for item in non_required_rollup_sample[:3])
+            )
+        optional_noise_sample = rollup.get("optional_runner_capacity_noise_sample") or []
+        if optional_noise_sample:
+            print(
+                "                 "
+                "optional_runner_capacity_noise="
+                + ", ".join(str(item) for item in optional_noise_sample[:3])
+            )
+        long_queued_shadow_sample = (
+            rollup.get("long_queued_self_hosted_shadow_without_runner_metadata_sample") or []
+        )
+        if long_queued_shadow_sample:
+            print(
+                "                 "
+                "long_queued_self_hosted_shadow_without_runner_metadata="
+                + ", ".join(str(item) for item in long_queued_shadow_sample[:3])
+            )
+        if direct:
+            print(
+                "                 "
+                f"direct_commit_check_runs={direct.get('total', 0)} "
+                f"successful_required={len(direct.get('successful_required_contexts') or [])}"
+            )
+        diagnosis = str(packet.check_surfaces.get("diagnosis") or "").strip()
+        if diagnosis:
+            print(f"                 diagnosis: {diagnosis}")
+        remediation = str(packet.check_surfaces.get("remediation_prompt") or "").strip()
+        if remediation:
+            print(f"                 remediation: {remediation}")
     print()
     if packet.touched_subsystems:
         print("touched subsystems:")
@@ -3174,6 +4516,25 @@ def _render_merge_authorization_packet(packet: dict[str, Any]) -> None:
         print(f"  {entry.get('title', '')}")
         print(f"  head: {entry.get('head_sha', '')}")
         print(f"  checks: {entry.get('checks_summary', '')}")
+        surfaces = entry.get("check_surfaces") or {}
+        if isinstance(surfaces, dict) and surfaces:
+            rollup = surfaces.get("pr_rollup") or {}
+            direct = surfaces.get("direct_commit_check_runs") or {}
+            print(
+                "  check surfaces: "
+                f"pr_rollup_available={str(bool(rollup.get('available'))).lower()} "
+                f"pr_rollup_count={rollup.get('count')}"
+            )
+            if direct:
+                print(
+                    "  direct checks: "
+                    f"total={direct.get('total', 0)}, "
+                    f"successful_required={len(direct.get('successful_required_contexts') or [])}, "
+                    f"non_green={direct.get('non_green_count', 0)}"
+                )
+            remediation = str(surfaces.get("remediation_prompt") or "").strip()
+            if remediation:
+                print(f"  remediation: {remediation}")
         print(
             "  evidence: "
             f"{len(entry.get('reviewer_signals') or [])} reviewer signal(s), "

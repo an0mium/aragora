@@ -553,7 +553,7 @@ Return ONLY the refined prompt, no explanations."""
                             "content-type": "application/json",
                         },
                         json={
-                            "model": "claude-opus-4-7",
+                            "model": "claude-opus-4-8",
                             "max_tokens": 2048,
                             "messages": [{"role": "user", "content": refinement_prompt}],
                         },

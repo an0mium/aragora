@@ -144,7 +144,7 @@ class TestAnthropicAgentInit:
     def test_default_model(self, api_key):
         """Should use default model."""
         agent = AnthropicAPIAgent(api_key=api_key)
-        assert agent.model == "claude-opus-4-7"
+        assert agent.model == "claude-opus-4-8"
 
     def test_custom_model(self, agent):
         """Should accept custom model."""
@@ -210,17 +210,18 @@ class TestAnthropicAgentInit:
 class TestOpenRouterModelMapping:
     """Tests for OpenRouter model mapping."""
 
-    def test_opus_46_mapping(self):
-        """Should map claude-opus-4-7 to OpenRouter format."""
+    def test_opus_48_mapping(self):
+        """Should map current Claude Opus to OpenRouter format."""
         mapping = AnthropicAPIAgent.OPENROUTER_MODEL_MAP
-        assert "claude-opus-4-7" in mapping
-        assert mapping["claude-opus-4-7"] == "anthropic/claude-opus-4.7"
+        assert "claude-opus-4-8" in mapping
+        assert mapping["claude-opus-4-8"] == "anthropic/claude-opus-4.8"
+        assert mapping["claude-opus-4-7"] == "anthropic/claude-opus-4.8"
 
     def test_sonnet_46_mapping(self):
         """Should map claude-sonnet-4-6 to OpenRouter format."""
         mapping = AnthropicAPIAgent.OPENROUTER_MODEL_MAP
         assert "claude-sonnet-4-6" in mapping
-        assert mapping["claude-sonnet-4-6"] == "anthropic/claude-sonnet-4.6"
+        assert mapping["claude-sonnet-4-6"] == "anthropic/claude-opus-4.8"
 
     def test_legacy_opus_45_mapping(self):
         """Should still map legacy claude-opus-4-5 to OpenRouter format."""
@@ -231,19 +232,19 @@ class TestOpenRouterModelMapping:
         """Should map claude-3.5-sonnet to OpenRouter format."""
         mapping = AnthropicAPIAgent.OPENROUTER_MODEL_MAP
         assert "claude-3-5-sonnet-20241022" in mapping
-        assert mapping["claude-3-5-sonnet-20241022"] == "anthropic/claude-3.5-sonnet"
+        assert mapping["claude-3-5-sonnet-20241022"] == "anthropic/claude-opus-4.8"
 
     def test_opus_3_mapping(self):
         """Should map claude-3-opus to OpenRouter format."""
         mapping = AnthropicAPIAgent.OPENROUTER_MODEL_MAP
         assert "claude-3-opus-20240229" in mapping
-        assert mapping["claude-3-opus-20240229"] == "anthropic/claude-3-opus"
+        assert mapping["claude-3-opus-20240229"] == "anthropic/claude-opus-4.8"
 
     def test_haiku_mapping(self):
         """Should map claude-3-haiku to OpenRouter format."""
         mapping = AnthropicAPIAgent.OPENROUTER_MODEL_MAP
         assert "claude-3-haiku-20240307" in mapping
-        assert mapping["claude-3-haiku-20240307"] == "anthropic/claude-3-haiku"
+        assert mapping["claude-3-haiku-20240307"] == "anthropic/claude-opus-4.8"
 
 
 # =============================================================================
@@ -317,7 +318,7 @@ class TestFallbackAgent:
                 model="claude-3-opus-20240229",
             )
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "anthropic/claude-3-opus"
+        assert fallback.model == "anthropic/claude-opus-4.8"
 
     def test_fallback_inherits_role(self, api_key):
         """Should inherit role for fallback."""

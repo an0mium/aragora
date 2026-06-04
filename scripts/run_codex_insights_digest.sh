@@ -13,23 +13,18 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${REPO_ROOT}"
+# shellcheck source=scripts/aragora_runtime.sh
+source "${REPO_ROOT}/scripts/aragora_runtime.sh"
 
 SINCE="${ARAGORA_CODEX_INSIGHTS_SINCE:-1h}"
 INGEST_KM="${ARAGORA_CODEX_INSIGHTS_INGEST_KM:-1}"
 RECEIPT_DIR="${ARAGORA_CODEX_INSIGHTS_RECEIPT_DIR:-${REPO_ROOT}/.aragora/codex_insights}"
-ARAGORA_PYTHON="${ARAGORA_PYTHON:-}"
 
 mkdir -p "${RECEIPT_DIR}"
 
-if [[ -z "${ARAGORA_PYTHON}" ]]; then
-    if [[ -x "${REPO_ROOT}/.venv/bin/python3" ]]; then
-        ARAGORA_PYTHON="${REPO_ROOT}/.venv/bin/python3"
-    elif command -v python3 >/dev/null 2>&1; then
-        ARAGORA_PYTHON="$(command -v python3)"
-    else
-        echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') ERROR: no python3 found" >&2
-        exit 2
-    fi
+if ! ARAGORA_PYTHON="$(resolve_aragora_python 'import pydantic' 'codex-insights' 'codex insights digest')"; then
+    echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') ERROR: no usable python3 found" >&2
+    exit 2
 fi
 
 DIGEST_ARGS=(codex insights digest "--since" "${SINCE}" "--emit-receipt" "--receipt-dir" "${RECEIPT_DIR}")
