@@ -78,6 +78,7 @@ def _prune_state(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def _save_state(path: Path, state: dict[str, Any]) -> None:
+    tmp: Path | None = None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(_prune_state(state), indent=2, sort_keys=True)
@@ -89,11 +90,19 @@ def _save_state(path: Path, state: dict[str, Any]) -> None:
             delete=False,
             encoding="utf-8",
         ) as fh:
-            fh.write(payload)
+            # Capture the path before writing so a write failure still cleans up.
             tmp = Path(fh.name)
+            fh.write(payload)
         os.replace(tmp, path)
+        tmp = None  # consumed by os.replace
     except OSError as exc:
         print(f"warning: could not persist state to {path}: {exc}", file=sys.stderr)
+    finally:
+        if tmp is not None:
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
 
 
 def evaluate_pr(
