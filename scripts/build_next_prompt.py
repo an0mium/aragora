@@ -449,6 +449,13 @@ def _automation_state_default_path(state_root: Path, default_relative: Path) -> 
     return expanded / default_relative
 
 
+def _default_registry_path(repo_root: Path) -> Path:
+    repo_registry = _state_dir(repo_root) / REGISTRY_RELATIVE_PATH.relative_to(".aragora")
+    if repo_registry.exists():
+        return repo_registry
+    return _automation_state_default_path(_automation_state_root(repo_root), REGISTRY_RELATIVE_PATH)
+
+
 def _count_files(path: Path) -> tuple[int | None, int]:
     if not path.is_dir():
         return None, 1
@@ -978,7 +985,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--registry-path",
         type=Path,
-        default=DEFAULT_REPO_ROOT / REGISTRY_RELATIVE_PATH,
+        default=None,
+        help=(
+            "Lane registry path. Defaults to the repo-local registry when present, "
+            "otherwise the shared automation state registry."
+        ),
     )
     parser.add_argument(
         "--repo-root",
@@ -998,8 +1009,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    registry_path = args.registry_path or _default_registry_path(args.repo_root)
     prompt = build_prompt(
-        registry_path=args.registry_path,
+        registry_path=registry_path,
         repo_root=args.repo_root,
         lane_id=args.lane_id,
         pr=args.pr,
@@ -1010,7 +1022,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     guard_prompt: str | None = None
     if args.json or args.settlement_guard:
         packet = build_decision_packet(
-            registry_path=args.registry_path,
+            registry_path=registry_path,
             repo_root=args.repo_root,
             lane_id=args.lane_id,
             pr=args.pr,

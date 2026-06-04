@@ -302,6 +302,54 @@ def test_decision_packet_counts_shared_outbox_when_local_outbox_absent(
     assert packet["disk_outbox"]["outbox_returncode"] == 0
 
 
+def test_default_registry_path_uses_shared_state_root(tmp_path: Path, monkeypatch: Any) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    state_root = tmp_path / "shared-checkout"
+    outbox = state_root / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    registry = state_root / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text("[]\n", encoding="utf-8")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    assert prompt_builder._default_registry_path(repo_root) == registry
+
+
+def test_prompt_defaults_to_shared_registry_path(tmp_path: Path, monkeypatch: Any) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    state_root = tmp_path / "shared-checkout"
+    outbox = state_root / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    registry = state_root / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q-shared",
+                    "owner_session": "codex-owner",
+                    "status": "blocked",
+                    "branch": "codex/shared-registry",
+                    "next_action": "publish existing handoff",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    prompt = prompt_builder.build_prompt(
+        registry_path=prompt_builder._default_registry_path(repo_root),
+        repo_root=repo_root,
+        branch="codex/shared-registry",
+        command_runner=_clean_checkout_runner(repo_root=repo_root, root_dirty=False),
+    )
+
+    assert "Continue only if you are owner_session codex-owner for lane Q-shared" in prompt
+
+
 def test_clean_checkout_packet_selects_clean_detached_origin_main_worktree(
     tmp_path: Path,
 ) -> None:
