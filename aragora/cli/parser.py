@@ -222,6 +222,7 @@ Examples:
     _add_coherence_scan_parser(subparsers)  # DIC-26 / #6220
     _add_truth_map_parser(subparsers)  # DIC-18 / #6028
     _add_decay_monitor_parser(subparsers)  # DIC-20 / #6031
+    _add_quarantine_eval_parser(subparsers)  # DIC-21 / #6032
     _add_epistemic_check_parser(subparsers)  # DIC-14 / #6024
 
     # DIC-27: operator crux arbitration surface
@@ -785,6 +786,48 @@ def _add_decay_monitor_parser(subparsers) -> None:
     )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     p.set_defaults(func=_lazy("aragora.cli.commands.dic20_decay_monitor", "cmd_decay_monitor"))
+
+
+def _add_quarantine_eval_parser(subparsers) -> None:
+    """Add the 'quarantine-eval' subcommand (DIC-21 / #6032).
+
+    Flag-gated: ARAGORA_QUARANTINE_POLICY_ENABLED must be set.
+    Live queue effect: none (read-only operator report).
+    """
+    p = subparsers.add_parser(
+        "quarantine-eval",
+        help="DIC-21: evaluate fail-closed quarantine policy for a decayed code proof",
+        description=(
+            "Read-only quarantine policy evaluation for a proof-carrying code unit. "
+            "Reads a DecaySignal JSON file, applies the configured policy, and reports "
+            "the QuarantineDecision (action, rationale, provenance hash). "
+            "Requires ARAGORA_QUARANTINE_POLICY_ENABLED=1."
+        ),
+    )
+    p.add_argument(
+        "--signal",
+        required=True,
+        metavar="FILE",
+        help="Path to a DecaySignal JSON file (DIC-20 decay-monitor output)",
+    )
+    p.add_argument(
+        "--class",
+        dest="code_unit_class",
+        default="default",
+        choices=["default", "live_dispatch", "report_surface", "demo", "pure_policy"],
+        help="Code-unit class for policy lookup (default: 'default')",
+    )
+    p.add_argument(
+        "--request-live-swap",
+        dest="request_live_swap",
+        action="store_true",
+        default=False,
+        help="Simulate a live-routing request to verify it is blocked (default: off)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.set_defaults(
+        func=_lazy("aragora.cli.commands.dic21_quarantine", "cmd_quarantine_eval")
+    )
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:
