@@ -32,7 +32,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -2268,6 +2268,7 @@ def _operator_health_sessions(
         record.owner_session for record in records if record.status in ACTIVE_LANE_STATUSES
     }
     sessions = list(current_sessions)
+    discovered_names = {session.name for session in discovered_sessions}
     for session in discovered_sessions:
         if session.name in included:
             continue
@@ -2280,6 +2281,10 @@ def _operator_health_sessions(
             continue
         if session.name not in active_lane_owners:
             continue
+        if session.name not in discovered_names and (
+            session.lifecycle in CURRENT_SESSION_LIFECYCLES or session.status == "alive"
+        ):
+            session = replace(session, status="orphaned", lifecycle="orphaned")
         sessions.append(session)
         included.add(session.name)
     return sessions

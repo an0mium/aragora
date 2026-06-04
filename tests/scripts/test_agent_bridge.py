@@ -502,6 +502,84 @@ def test_operator_snapshot_summary_only_health_uses_snapshot_for_dead_lane_owner
     assert not (bridge_dir / "sessions.json.tmp").exists()
 
 
+def test_operator_snapshot_summary_only_treats_snapshot_only_live_owner_as_orphaned(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.SESSION_SNAPSHOT_FILE.parent.mkdir(parents=True)
+    owner_worktree = tmp_path / "snapshot-owner-worktree"
+    owner_worktree.mkdir()
+    mod.SESSION_SNAPSHOT_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "timestamp": "2026-06-04T22:54:42+00:00",
+                    "name": "claude-stale-live",
+                    "agent": "claude",
+                    "status": "live",
+                    "source": "tmux",
+                    "lifecycle": "live",
+                    "worktree": str(owner_worktree),
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_discover(
+        *, include_summaries: bool = True, include_historical: bool = True, **_kwargs
+    ):
+        assert include_summaries is False
+        assert include_historical is False
+        return []
+
+    monkeypatch.setattr(mod, "discover", fake_discover)
+    monkeypatch.setattr(
+        mod,
+        "_load_lane_registry",
+        lambda: [
+            mod.LaneRecord(
+                lane_id="claude-stale-live",
+                owner_session="claude-stale-live",
+                status="active",
+                next_action="finish exact-head evidence",
+                worktree=str(owner_worktree),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+    monkeypatch.setattr(mod, "_collect_pending_steering_messages", lambda _recipient: {"count": 0})
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}},
+    )
+    monkeypatch.setattr(mod, "_collect_b0_success_rate", lambda: None)
+
+    assert mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True)) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["health"]["issues"] == [
+        {
+            "type": "stale_worktree",
+            "session": "claude-stale-live",
+            "detail": f"dead session with lingering worktree: {owner_worktree}",
+        }
+    ]
+
+
 def test_load_session_snapshot_prefers_fresh_shared_state_over_stale_home_snapshot(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
