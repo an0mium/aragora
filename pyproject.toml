@@ -23,7 +23,14 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    # botocore (pulled in transitively by boto3/supabase for AWS Secrets Manager)
+    # accepts python-dateutil>=2.1, but versions <2.8.1 call the removed
+    # ``collections.Callable`` and crash on Python 3.10+ during AWS timestamp
+    # parsing — which aborts ``hydrate_env_from_secrets`` and the whole
+    # settlement/secrets CLI path. Floor it above the fixed release.
+    "python-dateutil>=2.8.2",
+]
 
 [project.optional-dependencies]
 test = [
