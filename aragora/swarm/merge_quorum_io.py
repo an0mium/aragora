@@ -26,17 +26,35 @@ _SHADOW_MARKERS = ("shadow", "advisory")
 _FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "ERROR", "STARTUP_FAILURE"}
 _MERGE_PACKET_TIMEOUT = 120
 _EVIDENCE_LINT_TIMEOUT = 90
+_GH_TIMEOUT = 60
+_GITHUB_ACTIONS_AUTHOR = "github-actions[bot]"
+_MIN_EVIDENCE_BODY = 40
+
+
+def _could_count(author: str, body: str) -> bool:
+    """Cheap pre-check mirroring evidence-lint's hard rejections.
+
+    A countable comment must have a non-github-actions author and enough text to
+    carry a 7-char head citation plus a reviewer heading. Used only to skip
+    obviously-uncountable comments before spawning the lint subprocess; the lint
+    CLI remains the source of truth for everything that passes this filter.
+    """
+    if author == _GITHUB_ACTIONS_AUTHOR:
+        return False
+    return len(body.strip()) >= _MIN_EVIDENCE_BODY
 
 
 def _looks_like_shadow(name: str) -> bool:
     """Whether a check name is a non-required shadow/advisory check.
 
-    Matches whole tokens (split on non-alphanumerics) so a required check whose
-    name merely contains the substring (e.g. ``aragora-shadow-deploy-required``)
-    is not misclassified as a shadow.
+    Shadow checks are named with a trailing marker word (e.g. ``... Shadow``),
+    so this matches only the *last* token. A required check that merely contains
+    a marker earlier in its name (e.g. ``aragora-shadow-deploy-required``, whose
+    last token is ``required``) is therefore not misclassified as a shadow. This
+    heuristic is only consulted when GitHub does not report ``isRequired``.
     """
-    tokens = re.split(r"[^a-z0-9]+", name.lower())
-    return any(marker in tokens for marker in _SHADOW_MARKERS)
+    tokens = [t for t in re.split(r"[^a-z0-9]+", name.lower()) if t]
+    return bool(tokens) and tokens[-1] in _SHADOW_MARKERS
 
 
 def aragora_env() -> dict[str, str]:
@@ -53,8 +71,13 @@ def run(
     )
 
 
-def run_json(args: list[str], *, env: dict[str, str] | None = None) -> Any:
-    proc = run(args, env=env)
+def run_json(
+    args: list[str], *, env: dict[str, str] | None = None, timeout: int = _GH_TIMEOUT
+) -> Any:
+    try:
+        proc = run(args, env=env, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"command timed out after {timeout}s: {' '.join(args)}") from exc
     if proc.returncode != 0:
         raise RuntimeError(f"command failed ({proc.returncode}): {' '.join(args)}\n{proc.stderr}")
     return json.loads(proc.stdout or "null")
@@ -238,9 +261,12 @@ def fetch_evidence_comments(
         if not isinstance(comment, dict):
             continue
         body = str(comment.get("body") or "")
-        if not body.strip():
-            continue
         author = str((comment.get("user") or {}).get("login") or "")
+        if not _could_count(author, body):
+            # Cheap pre-filter: avoid spawning evidence-lint for comments that
+            # cannot possibly count (evidence-lint rejects github-actions
+            # authors and anything too short for a head citation + heading).
+            continue
         lint = lint_comment(repo, pr, head_sha, head_committed_at, author, body, env)
         counted = lint.get("counted_reviewer_ids") or []
         results.append(

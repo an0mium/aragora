@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+from aragora.swarm.merge_quorum_io import _could_count, _looks_like_shadow
 from aragora.swarm.merge_quorum_reconcile import (
     EvidenceComment,
     QuorumRun,
@@ -203,3 +204,30 @@ class TestSummarizeSettlement:
         status = self._call(tier=None, human_settlement_present=False)
         # Strict default requires human settlement.
         assert "human settlement" in status.next_action
+
+
+class TestLooksLikeShadow:
+    def test_trailing_marker_is_shadow(self) -> None:
+        assert _looks_like_shadow("Mac TypeScript SDK Shadow") is True
+        assert _looks_like_shadow("Hetzner Offline Golden Path Shadow") is True
+        assert _looks_like_shadow("deploy advisory") is True
+
+    def test_hyphenated_required_not_misclassified(self) -> None:
+        # Marker appears mid-name but the last token is "required".
+        assert _looks_like_shadow("aragora-shadow-deploy-required") is False
+
+    def test_plain_required_check(self) -> None:
+        assert _looks_like_shadow("aragora-merge-quorum") is False
+        assert _looks_like_shadow("") is False
+
+
+class TestCouldCount:
+    def test_github_actions_author_rejected(self) -> None:
+        assert _could_count("github-actions[bot]", "x" * 80) is False
+
+    def test_short_body_rejected(self) -> None:
+        assert _could_count("someone", "too short") is False
+
+    def test_plausible_comment_passes(self) -> None:
+        body = "Claude review of head abc1234: VERDICT passed, dogfood adversarial check."
+        assert _could_count("someone", body) is True

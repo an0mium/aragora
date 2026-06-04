@@ -27,6 +27,7 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -61,12 +62,15 @@ def _load_state(path: Path) -> dict[str, Any]:
         return {}
 
 
+_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
+
+
 def _prune_state(state: dict[str, Any]) -> dict[str, Any]:
     if len(state) <= _MAX_STATE_ENTRIES:
         return state
     items = sorted(
         state.items(),
-        key=lambda kv: str((kv[1] or {}).get("last_rerun_at") or ""),
+        key=lambda kv: parse_iso8601((kv[1] or {}).get("last_rerun_at")) or _EPOCH,
         reverse=True,
     )
     return dict(items[:_MAX_STATE_ENTRIES])
@@ -76,8 +80,16 @@ def _save_state(path: Path, state: dict[str, Any]) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(_prune_state(state), indent=2, sort_keys=True)
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(payload, encoding="utf-8")
+        with tempfile.NamedTemporaryFile(
+            "w",
+            dir=path.parent,
+            prefix=path.name + ".",
+            suffix=".tmp",
+            delete=False,
+            encoding="utf-8",
+        ) as fh:
+            fh.write(payload)
+            tmp = Path(fh.name)
         os.replace(tmp, path)
     except OSError as exc:
         print(f"warning: could not persist state to {path}: {exc}", file=sys.stderr)
