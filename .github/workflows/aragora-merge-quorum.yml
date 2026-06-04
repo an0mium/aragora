@@ -51,6 +51,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The quorum evaluator is merge-authority tooling. Run the current
+          # default-branch implementation so old PR-event reruns do not execute
+          # stale packet logic from an outdated synthetic merge ref.
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Set up Python
         id: setup-python
