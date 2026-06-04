@@ -82,8 +82,9 @@ def _parse_signal(data: dict) -> _Signal:
 
 def cmd_quarantine_eval(args: argparse.Namespace) -> int:
     if not _flag_enabled():
-        print(f"error: {_FLAG} is not set; set it to '1' to enable quarantine-eval",
-              file=sys.stderr)
+        print(
+            f"error: {_FLAG} is not set; set it to '1' to enable quarantine-eval", file=sys.stderr
+        )
         return 1
 
     signal_path = Path(getattr(args, "signal", "")).expanduser()

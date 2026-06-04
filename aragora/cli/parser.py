@@ -827,9 +827,7 @@ def _add_quarantine_eval_parser(subparsers) -> None:
         help="Simulate a live-routing request to verify it is blocked (default: off)",
     )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
-    p.set_defaults(
-        func=_lazy("aragora.cli.commands.dic21_quarantine", "cmd_quarantine_eval")
-    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.dic21_quarantine", "cmd_quarantine_eval"))
 
 
 def _add_crux_arbitrate_parser(subparsers) -> None:
