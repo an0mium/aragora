@@ -2222,6 +2222,23 @@ def _collect_b0_success_rate(repo_root: Path | None = None) -> float | None:
     return _coerce_success_rate(payload.get("no_rescue_success_rate", payload.get("success_rate")))
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_text(output: str) -> int:
+    try:
+        print(output)
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+    return 0
+
+
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
@@ -2310,8 +2327,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         snapshot["records_omitted"] = True
 
     if args.json:
-        print(json.dumps(snapshot, indent=2))
-        return 0
+        return _emit_text(json.dumps(snapshot, indent=2))
 
     print(f"Operator Snapshot @ {snapshot['timestamp']}")
     print("=" * 80)
