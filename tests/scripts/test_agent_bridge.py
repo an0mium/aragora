@@ -809,6 +809,7 @@ def test_cmd_owner_json_reports_active_pr_owner(
                     "owner_session": "codex-owner",
                     "status": "active",
                     "updated_at": "2026-05-18T17:00:00Z",
+                    "last_heartbeat_at": "2026-05-18T17:00:30Z",
                     "branch": "droid/P16-stage2",
                     "worktree": str(worktree),
                     "pr_number": 7292,
@@ -828,19 +829,61 @@ def test_cmd_owner_json_reports_active_pr_owner(
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload == {
-        "owner_status": "owned",
-        "active_owner": True,
-        "lane_id": "q01-settle-7292",
-        "owner_session": "codex-owner",
-        "pr_number": 7292,
-        "branch": "droid/P16-stage2",
-        "worktree": str(worktree),
-        "head": "a" * 40,
-        "status": "active",
-        "updated_at": "2026-05-18T17:00:00Z",
-        "recommended_operator_action": "route mutation/comment work to owner_session codex-owner; non-owners should stop or request release",
-    }
+    assert payload["owner_status"] == "owned"
+    assert payload["active_owner"] is True
+    assert payload["lane_id"] == "q01-settle-7292"
+    assert payload["owner_session"] == "codex-owner"
+    assert payload["pr_number"] == 7292
+    assert payload["branch"] == "droid/P16-stage2"
+    assert payload["worktree"] == str(worktree)
+    assert payload["head"] == "a" * 40
+    assert payload["status"] == "active"
+    assert payload["updated_at"] == "2026-05-18T17:00:00Z"
+    assert payload["owner_heartbeat_at"] == "2026-05-18T17:00:30Z"
+    assert isinstance(payload["owner_heartbeat_age_seconds"], int)
+    assert payload["owner_heartbeat_age_human"]
+    assert payload["owner_heartbeat_fresh"] is False
+    assert payload["recommended_operator_action"] == (
+        "route mutation/comment work to owner_session codex-owner; non-owners should stop or request release"
+    )
+
+
+def test_cmd_owner_json_reports_fresh_owner_heartbeat(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    heartbeat_at = mod._now_iso()
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "q01-settle-7292",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "last_heartbeat_at": heartbeat_at,
+                    "branch": "droid/P16-stage2",
+                    "pr_number": 7292,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+
+    rc = mod.cmd_owner(argparse.Namespace(json=True, pr=7292, branch=None, worktree=None))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["owner_status"] == "owned"
+    assert payload["owner_heartbeat_at"] == heartbeat_at
+    assert payload["owner_heartbeat_age_seconds"] <= 5
+    assert payload["owner_heartbeat_fresh"] is True
 
 
 def test_cmd_owner_preserves_registry_identity_when_live_session_is_sparse(

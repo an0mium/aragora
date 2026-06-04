@@ -648,6 +648,37 @@ def _owner_action_for(record: LaneRecord) -> str:
     )
 
 
+def _human_duration(seconds: int) -> str:
+    if seconds < 60:
+        return f"{seconds}s"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes}m"
+    hours = minutes // 60
+    if hours < 48:
+        return f"{hours}h"
+    return f"{hours // 24}d"
+
+
+def _owner_heartbeat_payload(record: LaneRecord) -> dict[str, Any]:
+    heartbeat_at = record.last_heartbeat_at or record.updated_at
+    parsed = _parse_timestamp(heartbeat_at)
+    if parsed is None:
+        return {
+            "owner_heartbeat_at": heartbeat_at or None,
+            "owner_heartbeat_age_seconds": None,
+            "owner_heartbeat_age_human": None,
+            "owner_heartbeat_fresh": False,
+        }
+    age_seconds = max(0, int((datetime.now(UTC) - parsed).total_seconds()))
+    return {
+        "owner_heartbeat_at": heartbeat_at,
+        "owner_heartbeat_age_seconds": age_seconds,
+        "owner_heartbeat_age_human": _human_duration(age_seconds),
+        "owner_heartbeat_fresh": age_seconds <= HEARTBEAT_FRESH_SECONDS,
+    }
+
+
 def _unowned_owner_payload(
     *,
     pr_number: int | None,
@@ -682,7 +713,7 @@ def _owned_owner_payload(record: LaneRecord) -> dict[str, Any]:
         "status": record.status,
         "updated_at": record.updated_at or None,
         "recommended_operator_action": _owner_action_for(record),
-    }
+    } | _owner_heartbeat_payload(record)
 
 
 def _historical_owner_payload(record: LaneRecord) -> dict[str, Any]:
@@ -700,7 +731,7 @@ def _historical_owner_payload(record: LaneRecord) -> dict[str, Any]:
         "recommended_operator_action": (
             f"latest matching lane is {record.status}; claim the lane before mutation"
         ),
-    }
+    } | _owner_heartbeat_payload(record)
 
 
 def _conflict_status_owner_payload(record: LaneRecord) -> dict[str, Any]:
@@ -719,7 +750,7 @@ def _conflict_status_owner_payload(record: LaneRecord) -> dict[str, Any]:
         "conflict_session": record.conflict_session or None,
         "conflict_reason": record.conflict_reason or None,
         "recommended_operator_action": f"resolve lane conflict before mutation: {reason}",
-    }
+    } | _owner_heartbeat_payload(record)
 
 
 def _conflicted_owner_payload(records: list[LaneRecord]) -> dict[str, Any]:
@@ -1745,6 +1776,10 @@ def cmd_owner(args: argparse.Namespace) -> int:
         f"owner={payload['owner_session']} pr={payload['pr_number'] or '-'} "
         f"branch={payload['branch'] or '-'} worktree={payload['worktree'] or '-'}"
     )
+    heartbeat_age = payload.get("owner_heartbeat_age_human")
+    if heartbeat_age is not None:
+        heartbeat_state = "fresh" if payload.get("owner_heartbeat_fresh") else "stale"
+        print(f"owner heartbeat: {heartbeat_age} old ({heartbeat_state})")
     print(payload["recommended_operator_action"])
     return 0
 
