@@ -27,6 +27,7 @@ TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
 PermissionChecker = Callable[[str], bool]
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
 HUMAN_SETTLEMENT_STATUS_BLOCKER = f"missing or unsuccessful {HUMAN_SETTLEMENT_CONTEXT} status"
+MERGE_QUORUM_CONTEXT = "aragora-merge-quorum"
 OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comment"
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
@@ -636,7 +637,7 @@ def _load_live_inputs(
     return pr_view, merge_packet, required_checks
 
 
-def _required_status_check_patch(*, repo: str, cwd: Path) -> tuple[list[str], str]:
+def _required_status_check_patch(*, repo: str, cwd: Path) -> tuple[list[str], str] | None:
     endpoint = f"repos/{repo}/branches/main/protection/required_status_checks"
     current = _run_json(["gh", "api", endpoint], cwd=cwd)
     contexts = current.get("contexts")
@@ -652,7 +653,9 @@ def _required_status_check_patch(*, repo: str, cwd: Path) -> tuple[list[str], st
             else []
         )
     context_set = {str(context) for context in contexts if str(context)}
-    context_set.add("aragora-merge-quorum")
+    if MERGE_QUORUM_CONTEXT in context_set:
+        return None
+    context_set.add(MERGE_QUORUM_CONTEXT)
     payload = {"strict": bool(current.get("strict", True)), "contexts": sorted(context_set)}
     return ["gh", "api", "--method", "PATCH", endpoint, "--input", "-"], json.dumps(payload)
 
@@ -776,9 +779,11 @@ def _apply_settlement(
         )
         commands.append(reviews_command)
 
-        checks_command, checks_payload = _required_status_check_patch(repo=repo, cwd=cwd)
-        _run_command(checks_command, cwd=cwd, input_text=checks_payload)
-        commands.append(checks_command)
+        checks_patch = _required_status_check_patch(repo=repo, cwd=cwd)
+        if checks_patch is not None:
+            checks_command, checks_payload = checks_patch
+            _run_command(checks_command, cwd=cwd, input_text=checks_payload)
+            commands.append(checks_command)
 
         enforce_command = [
             "gh",

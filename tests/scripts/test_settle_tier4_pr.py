@@ -847,6 +847,96 @@ def test_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> 
     assert commands[-1][0][-1].endswith("/protection/enforce_admins")
 
 
+def test_required_status_check_patch_skips_when_quorum_already_required(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_run_json",
+        lambda command, cwd: {
+            "strict": False,
+            "contexts": ["Generate & Validate", "aragora-merge-quorum", "lint"],
+        },
+    )
+
+    patch = settler._required_status_check_patch(repo="owner/repo", cwd=tmp_path)
+
+    assert patch is None
+
+
+def test_required_status_check_patch_adds_missing_quorum_from_checks(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_run_json",
+        lambda command, cwd: {
+            "strict": False,
+            "checks": [
+                {"context": "Generate & Validate", "app_id": 15368},
+                {"context": "lint", "app_id": 15368},
+            ],
+        },
+    )
+
+    command, payload = settler._required_status_check_patch(repo="owner/repo", cwd=tmp_path)
+
+    assert command == [
+        "gh",
+        "api",
+        "--method",
+        "PATCH",
+        "repos/owner/repo/branches/main/protection/required_status_checks",
+        "--input",
+        "-",
+    ]
+    assert settler.json.loads(payload) == {
+        "strict": False,
+        "contexts": ["Generate & Validate", "aragora-merge-quorum", "lint"],
+    }
+
+
+def test_apply_skips_required_status_check_patch_when_quorum_already_required(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_required_status_check_patch",
+        lambda repo, cwd: None,
+    )
+    monkeypatch.setattr(
+        settler,
+        "_branch_protection_snapshot",
+        lambda repo, cwd: {},
+    )
+
+    rc = settler.main(["--apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
+
+    assert rc == 0
+    command_lines = [" ".join(command) for command, _payload in commands]
+    assert command_lines[0].endswith(head)
+    assert any("required_pull_request_reviews" in line for line in command_lines)
+    assert not any("required_status_checks" in line for line in command_lines)
+    assert any("enforce_admins" in line for line in command_lines)
+
+
 def test_apply_merge_only_authorization_skips_branch_protection(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
