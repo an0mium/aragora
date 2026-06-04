@@ -778,7 +778,8 @@ class TestIgnoreOwnQuorumCheck:
         assert has_fail  # the real typecheck failure is preserved
         assert summary == "1 failing / 2 total"
 
-    def test_required_summary_flag_excludes_quorum(self) -> None:
+    def test_required_summary_flag_excludes_quorum(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._clear_ci_env(monkeypatch)
         required = [
             {"name": "aragora-merge-quorum", "workflow": "Aragora Merge Quorum", "bucket": "fail"},
             {"name": "required-lint", "bucket": "pass"},
@@ -789,7 +790,10 @@ class TestIgnoreOwnQuorumCheck:
         assert not has_fail
         assert summary == "1/1 required green"
 
-    def test_effective_required_count_flag_excludes_quorum(self) -> None:
+    def test_effective_required_count_flag_excludes_quorum(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._clear_ci_env(monkeypatch)
         required = [
             {"name": "aragora-merge-quorum", "workflow": "Aragora Merge Quorum", "bucket": "fail"},
             {"name": "required-lint", "bucket": "pass"},

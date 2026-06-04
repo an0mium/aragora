@@ -2320,6 +2320,9 @@ def _build_packet(
             if ignore_own_quorum_check
             else 0
         )
+        # pr_rollup is intentionally the raw "what GitHub reports" view and is not
+        # filtered by ignore_own_quorum_check; only the gating surface
+        # (required_pr_checks) honors the diagnostic flag.
         rollup_required_diagnostics = _rollup_non_green_diagnostics(
             pr.get("statusCheckRollup") or [],
             required_checks=required_pr_checks if required_available else None,
