@@ -31,6 +31,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -46,6 +47,7 @@ UTC = timezone.utc
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
+DEFAULT_PATCH_EQUIVALENCE_TIME_BUDGET_SECONDS = 15.0
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -84,19 +86,50 @@ def _resolve_path(repo_root: Path, value: Path | None, default: Path) -> Path:
     return (repo_root / expanded).resolve()
 
 
-def _branch_has_landed_on_main(root: Path, base: str, branch: str) -> bool:
+def _patch_budget_deadline(time_budget_seconds: float | None) -> float | None:
+    if time_budget_seconds is None:
+        return None
+    return monotonic() + max(0.0, time_budget_seconds)
+
+
+def _patch_budget_exhausted(deadline: float | None) -> bool:
+    return deadline is not None and monotonic() >= deadline
+
+
+def _patch_timeout(deadline: float | None, default: int) -> int:
+    if deadline is None:
+        return default
+    remaining = deadline - monotonic()
+    if remaining <= 0:
+        return 1
+    return max(1, min(default, int(remaining)))
+
+
+def _branch_has_landed_on_main(
+    root: Path,
+    base: str,
+    branch: str,
+    *,
+    patch_deadline: float | None = None,
+) -> tuple[bool, bool]:
     """Return True if the branch's HEAD or a patch-equivalent commit is on main."""
     proc = run_git(["rev-parse", "--verify", branch], root, timeout=15)
     if proc.returncode != 0:
-        return False
+        return False, False
     proc = run_git(["merge-base", "--is-ancestor", branch, base], root, timeout=15)
     if proc.returncode == 0:
-        return True
-    proc = run_git(["cherry", base, branch], root, timeout=120)
+        return True, False
+    if _patch_budget_exhausted(patch_deadline):
+        return False, True
+    proc = run_git(
+        ["cherry", base, branch],
+        root,
+        timeout=_patch_timeout(patch_deadline, 120),
+    )
     if proc.returncode != 0:
-        return False
+        return False, proc.returncode == 124 and patch_deadline is not None
     statuses = [line.split(" ", 1)[0] for line in proc.stdout.splitlines() if line.strip()]
-    return bool(statuses) and all(status == "-" for status in statuses)
+    return bool(statuses) and all(status == "-" for status in statuses), False
 
 
 def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
@@ -650,6 +683,15 @@ def main(argv: list[str] | None = None) -> int:
         help="With --json, omit per-handoff action details and print only compact counts.",
     )
     parser.add_argument(
+        "--patch-equivalence-time-budget-seconds",
+        type=float,
+        default=DEFAULT_PATCH_EQUIVALENCE_TIME_BUDGET_SECONDS,
+        help=(
+            "Wall-clock budget for git cherry patch-equivalence checks. "
+            "Use 0 to skip them immediately or a negative value for no budget."
+        ),
+    )
+    parser.add_argument(
         "--write-report",
         action="store_true",
         help=(
@@ -695,6 +737,27 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.apply:
         archive_dir.mkdir(parents=True, exist_ok=True)
+
+    patch_budget = (
+        None
+        if args.patch_equivalence_time_budget_seconds < 0
+        else args.patch_equivalence_time_budget_seconds
+    )
+    patch_deadline = _patch_budget_deadline(patch_budget)
+    patch_equivalence_budget_exhausted = False
+
+    def branch_has_landed_on_main(branch: str) -> bool:
+        nonlocal patch_equivalence_budget_exhausted
+        landed, budget_exhausted = _branch_has_landed_on_main(
+            root,
+            args.base,
+            branch,
+            patch_deadline=patch_deadline,
+        )
+        if budget_exhausted:
+            patch_equivalence_budget_exhausted = True
+            counts["patch_equivalence_skipped"] += 1
+        return landed
 
     emit("loading existing terminal receipt keys...")
     receipt_payloads_by_key = _terminal_receipts_by_key(receipt_dir)
@@ -784,6 +847,7 @@ def main(argv: list[str] | None = None) -> int:
         "missing_branch": 0,
         "blocked_missing_branch_open_pr_unknown": 0,
         "skipped_unparseable": 0,
+        "patch_equivalence_skipped": 0,
     }
 
     actions: list[dict[str, Any]] = []
@@ -876,7 +940,7 @@ def main(argv: list[str] | None = None) -> int:
                 if args.apply:
                     shutil.move(str(path), str(archive_dir / path.name))
                 continue
-            if _branch_has_landed_on_main(root, args.base, branch):
+            if branch_has_landed_on_main(branch):
                 counts["satisfied_by_landed_on_main"] += 1
                 actions.append(
                     {
@@ -1025,7 +1089,7 @@ def main(argv: list[str] | None = None) -> int:
                 shutil.move(str(path), str(archive_dir / path.name))
             continue
 
-        if _branch_has_landed_on_main(root, args.base, branch):
+        if branch_has_landed_on_main(branch):
             counts["satisfied_by_landed_on_main"] += 1
             actions.append(
                 {
@@ -1083,6 +1147,12 @@ def main(argv: list[str] | None = None) -> int:
     emit("\n--- summary ---")
     for k, v in counts.items():
         emit(f"  {k:>40}: {v}")
+    emit(
+        "  "
+        f"{'patch_equivalence_time_budget_seconds':>40}: "
+        f"{patch_budget if patch_budget is not None else 'none'}"
+    )
+    emit(f"  {'patch_equivalence_budget_exhausted':>40}: {patch_equivalence_budget_exhausted}")
     archived = sum(1 for a in actions if a["decision"] == "archive")
     kept = sum(1 for a in actions if a["decision"] == "keep")
     reason_counts: dict[str, int] = {}
@@ -1128,6 +1198,8 @@ def main(argv: list[str] | None = None) -> int:
             "kept": kept,
             "outbox_count": len(outbox_files),
             "outbox_dir": str(outbox_dir),
+            "patch_equivalence_budget_exhausted": patch_equivalence_budget_exhausted,
+            "patch_equivalence_time_budget_seconds": patch_budget,
             "reason_counts": reason_counts,
             "receipt_dir": str(receipt_dir),
             "repo": str(root),

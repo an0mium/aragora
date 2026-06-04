@@ -1205,3 +1205,113 @@ def test_patch_equivalent_target_pr_receipt_archives_before_remote_check(
     assert (
         payload["actions"][0]["reason"] == "branch work landed on main (merge or patch-equivalent)"
     )
+
+
+def test_patch_equivalence_budget_zero_preserves_active_work_without_cherry(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-budgeted-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/budgeted", key=key)
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:2] == ["rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout="abc123\n", stderr=""
+            )
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            raise AssertionError("git cherry should be skipped after budget exhaustion")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _unhealthy_github())
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("open PR fetch should not run when GitHub is unhealthy")
+        ),
+    )
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--json",
+            "--patch-equivalence-time-budget-seconds",
+            "0",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["patch_equivalence_time_budget_seconds"] == 0.0
+    assert payload["patch_equivalence_budget_exhausted"] is True
+    assert payload["counts"]["patch_equivalence_skipped"] == 1
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "open PR state is unavailable" in payload["actions"][0]["reason"]
+
+
+def test_negative_patch_equivalence_budget_preserves_unbounded_cherry(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-unbounded-budget-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/unbounded-budget", key=key)
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:2] == ["rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout="abc123\n", stderr=""
+            )
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            assert timeout == 120
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="- abc123\n")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: (_ for _ in ()).throw(
+            AssertionError("GitHub should not be queried for patch-equivalent work")
+        ),
+    )
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--json",
+            "--summary-only",
+            "--patch-equivalence-time-budget-seconds",
+            "-1",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["patch_equivalence_time_budget_seconds"] is None
+    assert payload["patch_equivalence_budget_exhausted"] is False
+    assert payload["counts"]["patch_equivalence_skipped"] == 0
+    assert payload["counts"]["satisfied_by_landed_on_main"] == 1
+    assert payload["actions_omitted"] is True
