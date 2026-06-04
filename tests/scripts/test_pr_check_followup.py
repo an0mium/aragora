@@ -318,6 +318,120 @@ def test_summarize_log_keeps_model_quorum_lines() -> None:
     assert any("focused adversarial dogfood" in line for line in summary)
 
 
+def test_summarize_log_keeps_dependency_audit_lines() -> None:
+    summary = followup.summarize_log(
+        "\n".join(
+            [
+                "noise",
+                "Found 1 known vulnerability in 1 package",
+                "Name    Version ID             Fix Versions",
+                "aiohttp 3.13.5  CVE-2026-34993 3.14.0",
+                "##[error]Process completed with exit code 1.",
+            ]
+        )
+    )
+
+    assert any("known vulnerability" in line for line in summary)
+    assert any("CVE-2026-34993" in line for line in summary)
+    assert "CVE-2026-34993" in followup.dependency_search_terms_from_logs(summary)
+    assert "aiohttp" in followup.dependency_search_terms_from_logs(summary)
+
+
+def test_dependency_security_failure_with_superseding_pr_avoids_branch_repair() -> None:
+    result = followup.build_followup_result(
+        _pr(
+            [
+                _check("Security Gate", "Python Security Scan", "FAILURE", run_id="8", job_id="80"),
+                _check(
+                    "Aragora Merge Quorum",
+                    "aragora-merge-quorum",
+                    "FAILURE",
+                    run_id="7",
+                    job_id="70",
+                    started_at="2026-05-27T00:12:07Z",
+                    completed_at="2026-05-27T00:13:12Z",
+                ),
+            ],
+            head="security-head",
+        ),
+        run_data_by_id={
+            "8": {
+                "headSha": "security-head",
+                "workflowName": "Security Gate",
+                "jobs": [_job("Python Security Scan", "failure", job_id="80")],
+            },
+            "7": {
+                "headSha": "security-head",
+                "workflowName": "Aragora Merge Quorum",
+                "jobs": [_job("aragora-merge-quorum", "failure", job_id="70")],
+            },
+        },
+        log_summary_by_job={
+            "80": [
+                "Found 1 known vulnerability in 1 package",
+                "aiohttp 3.13.5  CVE-2026-34993 3.14.0",
+            ],
+            "70": [
+                "PR #7720 | Tier 4 | status=needs_model_review_quorum | verdict=collect_model_quorum_before_merge",
+                "- model quorum incomplete: 0/2 signal(s)",
+            ],
+        },
+        superseding_dependency_prs_by_job={
+            "80": [
+                {
+                    "number": 7727,
+                    "state": "MERGED",
+                    "title": "fix(security): bump aiohttp to 3.14.0 (CVE-2026-34993)",
+                    "url": "https://github.com/synaptent/aragora/pull/7727",
+                    "files": ["uv.lock"],
+                    "match_terms": ["CVE-2026-34993", "aiohttp"],
+                }
+            ]
+        },
+    )
+
+    assert result.action == "verify_superseding_dependency_pr"
+    assert "avoid duplicate branch-local dependency repair" in result.prompt
+    assert "superseded-by: PR #7727 [MERGED]" in result.prompt
+    assert "Do not open or continue a branch-local dependency repair" in result.prompt
+
+
+def test_dependency_supersession_search_ignores_closed_unmerged_prs(monkeypatch: Any) -> None:
+    def fake_run_gh_json(args: list[str]) -> Any:
+        if args[:3] == ["gh", "pr", "list"]:
+            return [
+                {
+                    "number": 7727,
+                    "state": "MERGED",
+                    "title": "fix(security): bump aiohttp to 3.14.0",
+                    "url": "https://github.com/synaptent/aragora/pull/7727",
+                    "headRefOid": "fixed-head",
+                    "headRefName": "fix/aiohttp",
+                    "baseRefName": "main",
+                    "mergedAt": "2026-06-03T23:58:57Z",
+                },
+                {
+                    "number": 7728,
+                    "state": "CLOSED",
+                    "title": "chore(deps): bump aiohttp from 3.13.5 to 3.14.0",
+                    "url": "https://github.com/synaptent/aragora/pull/7728",
+                    "headRefOid": "abandoned-head",
+                    "headRefName": "dependabot/uv/aiohttp-3.14.0",
+                    "baseRefName": "main",
+                    "mergedAt": "",
+                },
+            ]
+        if args[:4] == ["gh", "pr", "view", "7727"]:
+            return {"files": [{"path": "uv.lock"}]}
+        raise AssertionError(f"unexpected gh json call: {args}")
+
+    monkeypatch.setattr(followup, "_run_gh_json", fake_run_gh_json)
+
+    repairs = followup._search_superseding_dependency_prs(current_pr=7720, terms=["aiohttp"])
+
+    assert [repair["number"] for repair in repairs] == [7727]
+
+
 def test_wait_run_only_current_head_early_cancellations_emit_reruns() -> None:
     wait_run = followup.diagnose_wait_run(
         "99",
