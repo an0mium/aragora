@@ -2226,38 +2226,42 @@ def _build_packet(
     ignore_own_quorum_check: bool = False,
 ) -> ReviewPacket:
     number = _parse_pr_number(pr_ref)
-    fields = ",".join(
-        [
-            "number",
-            "title",
-            "url",
-            "headRefOid",
-            "baseRefOid",
-            "state",
-            "mergedAt",
-            "baseRefName",
-            "isDraft",
-            "mergeable",
-            "reviewDecision",
-            "labels",
-            "author",
-            "additions",
-            "deletions",
-            "changedFiles",
-            "statusCheckRollup",
-            "files",
-            "body",
-            "comments",
-            "reviews",
-            "commits",
-        ]
-    )
-    args = ["pr", "view", str(number), "--json", fields]
+    light_fields = [
+        "number",
+        "title",
+        "url",
+        "headRefOid",
+        "baseRefOid",
+        "state",
+        "mergedAt",
+        "baseRefName",
+        "isDraft",
+        "mergeable",
+        "reviewDecision",
+        "labels",
+        "author",
+        "additions",
+        "deletions",
+        "changedFiles",
+        "files",
+        "body",
+    ]
+    heavy_fields = ["statusCheckRollup", "comments", "reviews", "commits"]
+    args = ["pr", "view", str(number), "--json", ",".join(light_fields)]
     if repo_override:
         args.extend(["--repo", repo_override])
     pr = _gh_json(args)
     if pr is None or not isinstance(pr, dict):
         raise _GhError(f"PR #{number} not found")
+    settlement_state_block = _settlement_state_block_reason(pr)
+    if not settlement_state_block:
+        args = ["pr", "view", str(number), "--json", ",".join([*light_fields, *heavy_fields])]
+        if repo_override:
+            args.extend(["--repo", repo_override])
+        pr = _gh_json(args)
+        if pr is None or not isinstance(pr, dict):
+            raise _GhError(f"PR #{number} not found")
+        settlement_state_block = _settlement_state_block_reason(pr)
 
     files: list[str] = []
     for item in pr.get("files") or []:
@@ -2273,21 +2277,38 @@ def _build_packet(
     parked_label_hits = [lab for lab in labels if lab in PARKED_LABELS]
     touched = sorted({_subsystem_for(p) for p in files})
     high_risk = [p for p in files if _is_high_risk_path(p)]
-    checks_unavailable = _check_rollup_unavailable(pr)
-    checks_summary, has_failures, has_pending = _summarize_checks(
-        pr.get("statusCheckRollup") or [], ignore_quorum_check=ignore_own_quorum_check
-    )
-    if checks_unavailable:
-        checks_summary = "no checks reported"
-        has_pending = True
-    check_surfaces = _build_check_surface_diagnostics(
-        pr,
-        repo_override=repo_override,
-        checks_summary=checks_summary,
-        checks_unavailable=checks_unavailable,
-    )
+    check_surfaces: dict[str, Any]
+    if settlement_state_block:
+        checks_unavailable = False
+        checks_summary = f"not applicable ({settlement_state_block})"
+        has_failures = False
+        has_pending = False
+        check_surfaces = {
+            "pr_state": {
+                "available": True,
+                "state": str(pr.get("state") or "").strip().upper(),
+                "merged_at": str(pr.get("mergedAt") or "").strip(),
+                "summary": settlement_state_block,
+                "gate_selected": True,
+            }
+        }
+    else:
+        checks_unavailable = _check_rollup_unavailable(pr)
+        checks_summary, has_failures, has_pending = _summarize_checks(
+            pr.get("statusCheckRollup") or [],
+            ignore_quorum_check=ignore_own_quorum_check,
+        )
+        if checks_unavailable:
+            checks_summary = "no checks reported"
+            has_pending = True
+        check_surfaces = _build_check_surface_diagnostics(
+            pr,
+            repo_override=repo_override,
+            checks_summary=checks_summary,
+            checks_unavailable=checks_unavailable,
+        )
     required_pr_check_gate_satisfied = False
-    if not checks_unavailable and (has_failures or has_pending):
+    if not settlement_state_block and not checks_unavailable and (has_failures or has_pending):
         required_surface = _fetch_required_pr_check_surface(number, repo_override)
         required_pr_checks = [
             item for item in required_surface.get("checks") or [] if isinstance(item, dict)
@@ -2425,7 +2446,9 @@ def _build_packet(
                 "non-required PR rollup checks."
             )
     direct_check_fallback_satisfied = (
-        checks_unavailable and _direct_required_check_fallback_satisfied(check_surfaces)
+        not settlement_state_block
+        and checks_unavailable
+        and _direct_required_check_fallback_satisfied(check_surfaces)
     )
     if direct_check_fallback_satisfied:
         direct_summary = check_surfaces["direct_commit_check_runs"]
@@ -2445,7 +2468,6 @@ def _build_packet(
     additions = int(pr.get("additions", 0) or 0)
     deletions = int(pr.get("deletions", 0) or 0)
     is_draft = bool(pr.get("isDraft", False))
-    settlement_state_block = _settlement_state_block_reason(pr)
     pr_state = str(pr.get("state") or "").strip().upper()
     head_sha = str(pr.get("headRefOid", "")).strip()
     settlement_recorded = pr_state == "MERGED" and _has_recorded_admin_squash_settlement(
