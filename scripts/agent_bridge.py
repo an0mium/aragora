@@ -1193,12 +1193,13 @@ def _persist_lane_claim(
 ) -> None:
     existing = _find_lane_record(records, lane_id)
     conflict = _lane_conflict(records, lane_id, session.name)
+    now = _now_iso()
     if conflict is not None and allow_conflict:
         conflict.status = "conflict"
         conflict.conflict_session = session.name
         conflict.conflict_reason = f"conflicting active owner claim from {session.name}"
         conflict.next_action = next_action or "resolve ambiguous lane ownership"
-        conflict.updated_at = _now_iso()
+        conflict.updated_at = now
         _write_lane_registry(records)
         return
 
@@ -1208,12 +1209,19 @@ def _persist_lane_claim(
     record.source = source or record.source
     record.status = status or record.status
     record.next_action = next_action or record.next_action
-    record.updated_at = _now_iso()
+    record.updated_at = now
     record.branch = session.branch
     record.worktree = session.worktree
     record.pr_number = session.pr_number
     record.conflict_session = ""
     record.conflict_reason = ""
+    if record.status in ACTIVE_LANE_STATUSES:
+        record.last_heartbeat_at = now
+        if (
+            not record.last_steering_outcome
+            or record.last_steering_outcome == DEFAULT_STEERING_OUTCOME
+        ):
+            record.last_steering_outcome = "obeyed"
     if existing is None:
         records.append(record)
     _write_lane_registry(records)

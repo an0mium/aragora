@@ -129,6 +129,7 @@ def test_cmd_send_persists_lane_registry(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(mod, "discover", lambda: [session])
     monkeypatch.setattr(mod, "_resolve_tmux_target", lambda _session: "aragora:codex-strategic")
     monkeypatch.setattr(mod, "_send_tmux", lambda _target, _prompt: True)
+    monkeypatch.setattr(mod, "_now_iso", lambda: "2026-06-04T19:00:00+00:00")
 
     def _enrich_prs(sessions):
         sessions[0].pr_number = 5401
@@ -158,12 +159,15 @@ def test_cmd_send_persists_lane_registry(tmp_path: Path, monkeypatch: pytest.Mon
             "source": "#5320",
             "status": "active",
             "next_action": "open PR",
-            "updated_at": payload[0]["updated_at"],
+            "updated_at": "2026-06-04T19:00:00+00:00",
             "branch": "codex/issue-5320",
             "worktree": "/tmp/aragora-5320",
             "pr_number": 5401,
+            "last_heartbeat_at": "2026-06-04T19:00:00+00:00",
+            "last_steering_outcome": "obeyed",
         }
     ]
+    assert mod._collect_health_issues([], [mod.LaneRecord.from_dict(payload[0])]) == []
 
 
 def test_cmd_send_rejects_active_lane_owner_conflict(
