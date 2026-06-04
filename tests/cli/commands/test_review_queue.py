@@ -2027,6 +2027,22 @@ class TestParentheticalModelFamily:
         assert _normalize_model_family("acme-frontier-9000") == ""
         assert _normalize_model_family("acme (gpt-5.5)") == ""
 
+    def test_non_parenthetical_extra_text_stays_unknown(self) -> None:
+        """Codex-review regression (PR #7743): the first-token fallback must be
+        scoped to the parenthetical-stripped path ONLY. A malformed multi-word
+        disclosure with NO parenthetical — e.g. ``openai claude`` or
+        ``openai not-a-valid-family`` — must still resolve to "" and stay a
+        ``unknown_model_family`` blocker, exactly as before this fix. Otherwise
+        the gate would be weakened beyond the stated scope by silently accepting
+        the leading token of any multi-word value."""
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        assert _normalize_model_family("openai claude") == ""
+        assert _normalize_model_family("claude unknown") == ""
+        assert _normalize_model_family("openai not-a-valid-family") == ""
+        # The fix's intended cases (parenthetical present) still resolve.
+        assert _normalize_model_family("openai (gpt-5.5)") == "openai"
+
     def test_paren_disclosure_still_detects_heading_conflict(self) -> None:
         """A real heading/disclosed conflict must STILL fire even after the
         parenthetical is stripped — the disclosed family resolves correctly

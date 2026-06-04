@@ -3230,16 +3230,22 @@ def _normalize_model_family(value: str) -> str:
     # e.g. ``openai (gpt-5.5, codex exec --sandbox read-only)`` or
     # ``claude (opus-4.8)``. The parenthetical is descriptive metadata, not part
     # of the canonical family token, so a literal lookup of the whole string used
-    # to fail and de-count an otherwise-valid reviewer. Strip a trailing
-    # ``(...)`` and retry; if still unresolved, fall back to the leading
-    # whitespace-delimited token. A genuinely-unknown leading token (e.g.
-    # ``mystery (x)``) still resolves to "" and stays a blocker — the gate is
-    # not weakened, only the well-formed disclosures that were being lost.
+    # to fail and de-count an otherwise-valid reviewer.
+    #
+    # We ONLY relax the lookup when a trailing ``(...)`` is actually present:
+    # strip it and retry, then fall back to the leading whitespace-delimited
+    # token of the *parenthetical-stripped* value (handles ``openai (gpt-5.5)``).
+    # When no parenthetical is present we deliberately do NOT take a leading
+    # token, so malformed multi-word disclosures such as ``openai claude`` or
+    # ``openai not-a-valid-family`` still resolve to "" and stay a count blocker
+    # exactly as before. This keeps the gate fail-closed for everything except
+    # the well-formed parenthetical disclosures that were being lost.
+    if "(" not in lower:
+        return ""
     stripped = re.sub(r"\s*\(.*$", "", lower).strip()
-    if stripped != lower:
-        resolved = _lookup(stripped)
-        if resolved:
-            return resolved
+    resolved = _lookup(stripped)
+    if resolved:
+        return resolved
     leading = stripped.split()[0] if stripped.split() else ""
     if leading and leading != stripped:
         resolved = _lookup(leading)
