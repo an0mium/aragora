@@ -17,13 +17,19 @@ Inconclusive and invalid outcomes always return zero delta: under
 ``refund_on_inconclusive`` semantics the stake is returned; under
 ``forfeit_on_loss`` the caller may separately decide to forfeit.
 This module only computes the delta.
+
+Since AGT-05 SD-4: ``settle_claim`` accepts an optional *stale_policy*
+(``aragora.reputation.stale_policy.StalePolicy``). When supplied, expired
+claims (age > hard_limit_days) are rejected before scoring and stale claims
+(age >= stale_days) are settled but annotated in the ``reason`` dict.
+Passing ``None`` (the default) preserves full backward compatibility.
 """
 
 from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.reputation.types import (
     ReputationDelta,
@@ -31,6 +37,9 @@ from aragora.reputation.types import (
     ScoringRule,
     StakeableClaim,
 )
+
+if TYPE_CHECKING:
+    from aragora.reputation.stale_policy import StalePolicy
 
 
 class SettlementError(RuntimeError):
@@ -54,17 +63,48 @@ def settle_claim(
     scoring_rule: ScoringRule = "brier_proper",
     decay_half_life_days: float | None = 30.0,
     applied_at: str | None = None,
+    stale_policy: "StalePolicy | None" = None,
 ) -> ReputationDelta:
     """Compute the reputation delta for a resolved claim.
 
+    When *stale_policy* is provided, claims are evaluated against the
+    policy before scoring:
+
+    - **Expired** claims (age > ``hard_limit_days``) raise
+      :class:`SettlementError` immediately; no delta is produced.
+    - **Stale** claims (``stale_days <= age <= hard_limit_days``) settle
+      normally but carry ``reason[\"stale_warning\"] = True`` and
+      ``reason[\"staleness_age_days\"]`` for audit visibility.
+    - **Fresh** claims settle without any annotation.
+
+    Omitting *stale_policy* (default ``None``) preserves the existing
+    behavior for all current callers.
+
     Raises :class:`SettlementError` if the claim and resolution do not
-    refer to the same ``claim_id``, or if the scoring rule is not
-    supported for the given claim shape.
+    refer to the same ``claim_id``, if the scoring rule is not
+    supported for the given claim shape, or if *stale_policy* is set and
+    the claim is expired.
     """
     if claim.claim_id != resolved.claim_id:
         raise SettlementError(
             f"claim_id mismatch: claim={claim.claim_id!r} vs resolved={resolved.claim_id!r}"
         )
+
+    # Stale-policy gate (AGT-05 SD-4).  One call to is_stale covers both
+    # the expired-rejection and the stale-annotation paths so we never
+    # compute the age twice.
+    stale_decision = None
+    if stale_policy is not None:
+        from aragora.reputation.stale_policy import is_stale
+
+        stale_decision = is_stale(claim_iso=claim.created_at, policy=stale_policy)
+        if stale_decision.is_expired:
+            raise SettlementError(
+                f"claim {claim.claim_id!r} is expired "
+                f"(age={stale_decision.age_days:.1f}d "
+                f"> hard_limit={stale_policy.hard_limit_days}d); "
+                "settlement refused"
+            )
 
     reason: dict[str, Any] = {
         "claim_id": claim.claim_id,
@@ -74,6 +114,9 @@ def settle_claim(
         "outcome": resolved.outcome,
         "stake_units": claim.stake_units,
     }
+    if stale_decision is not None and stale_decision.is_stale:
+        reason["stale_warning"] = True
+        reason["staleness_age_days"] = round(stale_decision.age_days, 2)
 
     if resolved.outcome in {"inconclusive", "invalid"}:
         delta = 0.0
