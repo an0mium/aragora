@@ -2318,6 +2318,46 @@ def _add_review_queue_parser(subparsers) -> None:
         func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
     )
 
+    collect_evidence_parser = queue_subparsers.add_parser(
+        "collect-evidence",
+        help="Run genuine model reviewers, lint their evidence, post only if tier allows",
+        description=(
+            "Run >=2 genuine heterogeneous model reviewers against a PR's exact head, "
+            "compose evidence comments the quorum parsers recognize, and validate each "
+            "with evidence-lint before posting. Only Tier 0-2 PRs auto-post (with "
+            "--apply); Tier 3-4 always prepare evidence for operator settlement. "
+            "Defaults to a dry run that posts nothing."
+        ),
+    )
+    collect_evidence_parser.add_argument(
+        "--pr", required=True, help="PR number to collect evidence for"
+    )
+    collect_evidence_parser.add_argument(
+        "--repo", default="", help="owner/name of the target repo (default: current gh context)"
+    )
+    collect_evidence_parser.add_argument(
+        "--reviewers",
+        nargs="+",
+        default=None,
+        help="reviewer model families to run (default: claude grok)",
+    )
+    collect_evidence_parser.add_argument(
+        "--author",
+        default=None,
+        help="GitHub login to simulate for evidence-lint (default: gh authenticated user)",
+    )
+    collect_evidence_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
+    )
+    collect_evidence_parser.add_argument(
+        "--json", dest="json_output", action="store_true", help="Output as JSON"
+    )
+    collect_evidence_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
+
     lint_comment_parser = queue_subparsers.add_parser(
         "lint-comment",
         help="Dry-run whether a proposed reviewer comment will count before posting",

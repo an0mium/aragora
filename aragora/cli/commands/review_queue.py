@@ -814,6 +814,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_merge_packet(args)
     if command in {"evidence-lint", "lint-comment"}:
         return _cmd_evidence_lint(args)
+    if command == "collect-evidence":
+        return _cmd_collect_evidence(args)
     if command == "baseline":
         return _cmd_baseline(args)
     if command == "observe-outcomes":
@@ -827,6 +829,7 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
     print(
         "Usage: aragora review-queue "
         "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,lint-comment,"
+        "collect-evidence,"
         "baseline,"
         "observe-outcomes,"
         "health,health-alert} [...]\n"
@@ -1080,6 +1083,47 @@ def _cmd_evidence_lint(args: argparse.Namespace) -> int:
     else:
         _render_evidence_lint(result)
     return 0 if result["would_count"] else 1
+
+
+def _resolve_repo_slug(explicit: str) -> str:
+    """Return owner/name from --repo or the current gh repo context."""
+    explicit = (explicit or "").strip()
+    if explicit:
+        return explicit
+    from aragora.swarm import merge_quorum_io
+
+    try:
+        proc = merge_quorum_io.run(
+            ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
+            env=merge_quorum_io.aragora_env(),
+            timeout=30,
+        )
+    except Exception:
+        return ""
+    return (proc.stdout or "").strip() if proc.returncode == 0 else ""
+
+
+def _cmd_collect_evidence(args: argparse.Namespace) -> int:
+    from aragora.swarm.quorum_evidence import run_collect_cli
+
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
+    repo = _resolve_repo_slug(str(getattr(args, "repo", "") or ""))
+    if not repo:
+        print("error: could not resolve --repo (no gh repo context)", file=sys.stderr)
+        return 2
+    try:
+        pr = int(str(getattr(args, "pr", "") or ""))
+    except (TypeError, ValueError):
+        print("error: --pr must be an integer", file=sys.stderr)
+        return 2
+    return run_collect_cli(
+        repo=repo,
+        pr=pr,
+        families=getattr(args, "reviewers", None),
+        author=getattr(args, "author", None),
+        apply=bool(getattr(args, "apply", False)),
+        json_output=json_output,
+    )
 
 
 def _cmd_merge_packet(args: argparse.Namespace) -> int:

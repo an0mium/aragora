@@ -1,0 +1,272 @@
+"""Tests for the B3 collect-evidence module (aragora.swarm.quorum_evidence).
+
+Covers the two safety invariants directly:
+
+* tier-gating — Tier 3+ (and unknown tier) never post, regardless of --apply;
+* never-fabricate — failed/empty reviewers produce no comment.
+
+The compose helper is checked against the *real* evidence parser
+(``_lint_evidence_comment``) so the collector stays bound to the gate's logic.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from aragora.swarm import quorum_evidence as qe
+from aragora.swarm.quorum_evidence import (
+    CollectOutcome,
+    EvidenceItem,
+    ReviewerResult,
+    collect_evidence,
+    compose_evidence_comment,
+    decide_action,
+)
+
+HEAD = "49a979d587f910aaad4fb0f0bed708dd48c97c35"
+COMMITTED = "2026-06-04T09:57:49-05:00"
+
+
+# --- decide_action (tier gating) -------------------------------------------
+
+
+@pytest.mark.parametrize("tier", [0, 1, 2])
+def test_low_tier_with_apply_posts(tier: int) -> None:
+    action, _ = decide_action(tier, apply=True)
+    assert action == "post"
+
+
+@pytest.mark.parametrize("tier", [0, 1, 2])
+def test_low_tier_without_apply_prepares(tier: int) -> None:
+    action, reason = decide_action(tier, apply=False)
+    assert action == "prepare"
+    assert "dry-run" in reason
+
+
+@pytest.mark.parametrize("tier", [3, 4, 5])
+def test_high_tier_never_posts_even_with_apply(tier: int) -> None:
+    action, reason = decide_action(tier, apply=True)
+    assert action == "prepare"
+    assert "settlement" in reason
+
+
+def test_unknown_tier_fails_safe_to_prepare() -> None:
+    action, reason = decide_action(None, apply=True)
+    assert action == "prepare"
+    assert "unknown" in reason
+
+
+# --- compose_evidence_comment counts against the real parser ----------------
+
+
+@pytest.mark.parametrize("family", ["claude", "grok"])
+def test_composed_comment_counts_in_real_parser(family: str) -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    body = compose_evidence_comment(
+        family=family,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text="Verdict: PASS\n- no blocking issues [P3] none",
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+    assert family in result["counted_reviewer_ids"]
+
+
+def test_composed_comment_includes_head_and_family() -> None:
+    body = compose_evidence_comment(
+        family="claude",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=42,
+        reviewer_text="Verdict: PASS",
+    )
+    assert HEAD[:7] in body
+    assert HEAD in body
+    assert "Model family: claude" in body
+    assert "independent model review" in body.lower()
+    assert "dogfood: yes" in body
+
+
+# --- collect_evidence orchestration (fully offline via injected callables) ---
+
+
+def _fakes(*, tier: int, head: str = HEAD, would_count: bool = True):
+    posted: list[tuple[str, str]] = []
+
+    def context_fetcher(repo: str, pr: int) -> dict:
+        return {"head_sha": head, "head_committed_at": COMMITTED}
+
+    def tier_fetcher(repo: str, pr: int):
+        return tier
+
+    def prompt_builder(repo: str, pr: int, ctx: dict) -> str:
+        return "review prompt"
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        return {
+            "would_count": would_count,
+            "counted_reviewer_ids": [body.split()[1].lower()] if would_count else [],
+            "problems": [] if would_count else ["no_counted_model_family"],
+        }
+
+    def poster(repo: str, pr: int, body: str) -> None:
+        posted.append((repo, body))
+
+    return dict(
+        context_fetcher=context_fetcher,
+        tier_fetcher=tier_fetcher,
+        prompt_builder=prompt_builder,
+        reviewer_runner=reviewer_runner,
+        linter=linter,
+        poster=poster,
+    ), posted
+
+
+def test_collect_low_tier_apply_posts_both() -> None:
+    fakes, posted = _fakes(tier=1)
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    )
+    assert outcome.action == "post"
+    assert sorted(outcome.posted) == ["claude", "grok"]
+    assert len(posted) == 2
+
+
+def test_collect_high_tier_apply_never_posts() -> None:
+    fakes, posted = _fakes(tier=4)
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    )
+    assert outcome.action == "prepare"
+    assert outcome.posted == []
+    assert posted == []
+    # Evidence is still composed + validated for the operator.
+    assert sorted(outcome.counting_families) == ["claude", "grok"]
+
+
+def test_collect_dry_run_prepares_without_posting() -> None:
+    fakes, posted = _fakes(tier=1)
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=False, **fakes
+    )
+    assert outcome.action == "prepare"
+    assert posted == []
+    assert sorted(outcome.counting_families) == ["claude", "grok"]
+
+
+def test_collect_never_fabricates_on_reviewer_failure() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def failing_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult("grok", "", False, "timeout")
+        return ReviewerResult(family, "Verdict: PASS from claude", True)
+
+    fakes["reviewer_runner"] = failing_runner
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    )
+    assert [f.family for f in outcome.failures] == ["grok"]
+    assert outcome.posted == ["claude"]
+    assert len(posted) == 1
+
+
+def test_collect_does_not_post_uncountable_evidence() -> None:
+    fakes, posted = _fakes(tier=1, would_count=False)
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    )
+    assert outcome.action == "post"
+    assert outcome.posted == []
+    assert posted == []
+    assert all(not item.would_count for item in outcome.items)
+
+
+def test_collect_dedupes_families() -> None:
+    fakes, _ = _fakes(tier=4)
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "Claude", "grok"], author="me", apply=False, **fakes
+    )
+    assert [item.family for item in outcome.items] == ["claude", "grok"]
+
+
+def test_collect_missing_head_raises() -> None:
+    fakes, _ = _fakes(tier=1, head="")
+    with pytest.raises(ValueError):
+        collect_evidence(repo="o/r", pr=1, families=["claude"], author="me", apply=True, **fakes)
+
+
+# --- run_collect_cli (monkeypatched orchestrator) ---------------------------
+
+
+def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="post",
+            action_reason="ok",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], []),
+                EvidenceItem("grok", "body", True, ["grok"], []),
+            ],
+            posted=["claude", "grok"],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=True
+    )
+    assert rc == 0
+    assert "collect_evidence" in capsys.readouterr().out
+
+
+def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=4,
+            action="prepare",
+            action_reason="settlement",
+            items=[EvidenceItem("claude", "body", True, ["claude"], [])],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=False, json_output=False
+    )
+    assert rc == 1
+
+
+def test_run_collect_cli_error_path(monkeypatch, capsys) -> None:
+    def boom(**kwargs):
+        raise ValueError("no head")
+
+    monkeypatch.setattr(qe, "collect_evidence", boom)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=False, json_output=True
+    )
+    assert rc == 1
+    assert "no head" in capsys.readouterr().out

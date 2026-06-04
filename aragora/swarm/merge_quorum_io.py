@@ -243,7 +243,16 @@ def fetch_pr_tier(repo: str, pr: int) -> int | None:
         payload = json.loads(proc.stdout)
     except json.JSONDecodeError:
         return None
-    entries = payload if isinstance(payload, list) else [payload]
+    # merge-packet --json returns a top-level object with the per-PR rows under
+    # "entries"; tier lives on each entry, not the envelope. Accept a bare list
+    # or single entry too for forward-compatibility.
+    if isinstance(payload, list):
+        entries = payload
+    elif isinstance(payload, dict):
+        nested = payload.get("entries")
+        entries = nested if isinstance(nested, list) else [payload]
+    else:
+        entries = []
     for entry in entries:
         if isinstance(entry, dict) and entry.get("tier") is not None:
             try:
