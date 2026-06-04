@@ -26,9 +26,11 @@ from aragora.cli.commands.review_queue import (
     _classify_pr,
     _classify_model_review_tier,
     _extract_validation_commands,
+    _effective_required_pr_check_count,
     _filter_lanes,
     _GhError,
     _is_high_risk_path,
+    _is_merge_quorum_check,
     _parse_pr_number,
     _record_external_settlement,
     _render_packet,
@@ -36,6 +38,7 @@ from aragora.cli.commands.review_queue import (
     _settle_packet,
     _subsystem_for,
     _summarize_checks,
+    _summarize_required_pr_checks,
     add_review_queue_parser,
     cmd_review_queue,
 )
@@ -721,6 +724,87 @@ class TestSummarizeChecks:
         assert summary == "1 failing / 2 total"
         assert has_fail
         assert not has_pending
+
+
+# --- B2: --ignore-own-quorum-check (diagnostic only) -----------------------
+
+
+class TestIgnoreOwnQuorumCheck:
+    """B2: a diagnostic-only switch that additionally excludes a *concluded*
+    merge-quorum self-check so out-of-CI callers observe the real check state.
+    The enforcing CI path never sets the flag, so default behavior is unchanged.
+    """
+
+    @staticmethod
+    def _quorum_failure_plus_green() -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "aragora-merge-quorum",
+                "workflowName": "Aragora Merge Quorum",
+                "status": "COMPLETED",
+                "conclusion": "FAILURE",
+            },
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+
+    @staticmethod
+    def _clear_ci_env(monkeypatch: pytest.MonkeyPatch) -> None:
+        for var in ("GITHUB_WORKFLOW", "GITHUB_JOB", "GITHUB_RUN_ID", "GITHUB_REPOSITORY"):
+            monkeypatch.delenv(var, raising=False)
+
+    def test_default_blocks_on_concluded_quorum_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._clear_ci_env(monkeypatch)
+        summary, has_fail, has_pending = _summarize_checks(self._quorum_failure_plus_green())
+        assert has_fail
+        assert summary == "1 failing / 2 total"
+
+    def test_flag_excludes_concluded_quorum_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._clear_ci_env(monkeypatch)
+        summary, has_fail, has_pending = _summarize_checks(
+            self._quorum_failure_plus_green(), ignore_quorum_check=True
+        )
+        assert not has_fail
+        assert not has_pending
+        assert summary == "1/1 green"
+
+    def test_flag_does_not_hide_unrelated_failures(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._clear_ci_env(monkeypatch)
+        checks = self._quorum_failure_plus_green() + [
+            {"name": "typecheck", "status": "COMPLETED", "conclusion": "FAILURE"},
+        ]
+        summary, has_fail, _ = _summarize_checks(checks, ignore_quorum_check=True)
+        assert has_fail  # the real typecheck failure is preserved
+        assert summary == "1 failing / 2 total"
+
+    def test_required_summary_flag_excludes_quorum(self) -> None:
+        required = [
+            {"name": "aragora-merge-quorum", "workflow": "Aragora Merge Quorum", "bucket": "fail"},
+            {"name": "required-lint", "bucket": "pass"},
+        ]
+        _, default_fail, _ = _summarize_required_pr_checks(required)
+        assert default_fail
+        summary, has_fail, _ = _summarize_required_pr_checks(required, ignore_quorum_check=True)
+        assert not has_fail
+        assert summary == "1/1 required green"
+
+    def test_effective_required_count_flag_excludes_quorum(self) -> None:
+        required = [
+            {"name": "aragora-merge-quorum", "workflow": "Aragora Merge Quorum", "bucket": "fail"},
+            {"name": "required-lint", "bucket": "pass"},
+        ]
+        assert _effective_required_pr_check_count(required) == 2
+        assert _effective_required_pr_check_count(required, ignore_quorum_check=True) == 1
+
+    def test_is_merge_quorum_check_matches_rollup_and_required_rows(self) -> None:
+        assert _is_merge_quorum_check(
+            {"name": "aragora-merge-quorum", "workflowName": "Aragora Merge Quorum"}
+        )
+        assert _is_merge_quorum_check(
+            {"name": "aragora-merge-quorum", "workflow": "Aragora Merge Quorum"}
+        )
+        assert not _is_merge_quorum_check({"name": "lint", "workflow": "Tests"})
 
 
 # --- _classify_pr lane logic -----------------------------------------------
@@ -4899,6 +4983,7 @@ class TestSettlementHelpers:
             *,
             repo_override: str | None,
             execute_reviewers: bool = False,
+            ignore_own_quorum_check: bool = False,
         ) -> ReviewPacket:
             return ReviewPacket(
                 pr_number=int(pr_ref),
