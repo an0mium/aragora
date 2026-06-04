@@ -835,7 +835,12 @@ def test_main_replaces_standard_prompt_with_post_merge_coordination(
     }
 
     monkeypatch.setattr(prompt_builder, "build_prompt", lambda **_kwargs: "standard prompt\n")
-    monkeypatch.setattr(prompt_builder, "build_decision_packet", lambda **_kwargs: packet)
+    monkeypatch.setattr(prompt_builder, "build_post_merge_fast_packet", lambda **_kwargs: packet)
+    monkeypatch.setattr(
+        prompt_builder,
+        "build_decision_packet",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("full packet not needed")),
+    )
 
     assert (
         prompt_builder.main(

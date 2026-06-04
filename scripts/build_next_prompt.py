@@ -801,6 +801,59 @@ def build_post_merge_lane_coordination_prompt(
     )
 
 
+def build_post_merge_fast_packet(
+    *,
+    registry_path: Path,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    pr: int,
+    command_runner: CommandRunner | None = None,
+) -> dict[str, Any]:
+    """Build the cheapest packet needed to route merged PR stale-lane prompts."""
+
+    runner = command_runner or _repo_runner(repo_root)
+    pr_packet = _run_json(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(pr),
+            "--json",
+            "number,state,headRefOid,headRefName,url,mergedAt,mergeCommit",
+        ],
+        runner,
+    )
+    pr_packet = pr_packet if isinstance(pr_packet, dict) else {}
+    lanes = _read_lanes(registry_path)
+    branch = str(pr_packet.get("headRefName") or "")
+    target_active_lanes = _active_target_lanes(
+        lanes,
+        lane=_find_lane(lanes, pr=pr, branch=branch),
+        pr=pr,
+        branch=branch or None,
+    )
+    packet: dict[str, Any] = {
+        "pr": pr_packet,
+        "target_active_lanes": target_active_lanes,
+        "active_sessions": {},
+        "tmux_panes": _tmux_pane_packet(runner),
+        "post_merge_lane_coordination": {},
+        "blockers": [],
+        "selected_action": "continue_standard_prompt",
+    }
+    active_post_merge_lanes = _post_merge_lane_matches(packet, pr=pr)
+    post_merge_detected = str(pr_packet.get("state") or "").upper() == "MERGED" and bool(
+        active_post_merge_lanes
+    )
+    packet["post_merge_lane_coordination"] = {
+        "detected": post_merge_detected,
+        "active_lanes": active_post_merge_lanes,
+    }
+    if post_merge_detected:
+        packet["blockers"].append("merged PR still has active target lane")
+        packet["selected_action"] = "post_merge_lane_retirement_coordination"
+    return packet
+
+
 def build_settlement_guard(
     packet: dict[str, Any],
     *,
@@ -1196,18 +1249,42 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    prompt = build_prompt(
-        registry_path=args.registry_path,
-        repo_root=args.repo_root,
-        lane_id=args.lane_id,
-        pr=args.pr,
-        branch=args.branch,
-        expected_head=args.expected_head,
-    )
+    prompt: str | None = None
     packet: dict[str, Any] | None = None
     guard_prompt: str | None = None
+    if args.pr is not None:
+        fast_packet = build_post_merge_fast_packet(
+            registry_path=args.registry_path,
+            repo_root=args.repo_root,
+            pr=args.pr,
+        )
+        post_merge_prompt = build_post_merge_lane_coordination_prompt(
+            fast_packet,
+            repo_root=args.repo_root,
+            pr=args.pr,
+        )
+        if post_merge_prompt:
+            prompt = post_merge_prompt
+            packet = fast_packet
     if args.pr is not None or args.json or args.settlement_guard:
-        packet = build_decision_packet(
+        if packet is None:
+            packet = build_decision_packet(
+                registry_path=args.registry_path,
+                repo_root=args.repo_root,
+                lane_id=args.lane_id,
+                pr=args.pr,
+                branch=args.branch,
+                expected_head=args.expected_head,
+            )
+            post_merge_prompt = build_post_merge_lane_coordination_prompt(
+                packet,
+                repo_root=args.repo_root,
+                pr=args.pr,
+            )
+            if post_merge_prompt:
+                prompt = post_merge_prompt
+    if prompt is None:
+        prompt = build_prompt(
             registry_path=args.registry_path,
             repo_root=args.repo_root,
             lane_id=args.lane_id,
@@ -1215,13 +1292,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             branch=args.branch,
             expected_head=args.expected_head,
         )
-        post_merge_prompt = build_post_merge_lane_coordination_prompt(
-            packet,
-            repo_root=args.repo_root,
-            pr=args.pr,
-        )
-        if post_merge_prompt:
-            prompt = post_merge_prompt
     if args.json or args.settlement_guard:
         if packet is None:
             packet = build_decision_packet(
