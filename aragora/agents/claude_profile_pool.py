@@ -39,8 +39,6 @@ _POOL_HEALTH_RELATIVE_PATH = ".aragora/claude_pool_health.json"
 _UNHEALTHY_PROFILE_STATES = {"expired", "not_configured", "unauthenticated", "logged_out"}
 _TRUTHY = {"1", "true", "yes", "on"}
 
-_PREAMBLE_PREFIXES = ("Using profile home:", "Command:")
-
 
 def _repo_root() -> Path:
     # aragora/agents/claude_profile_pool.py -> parents[2] == repo root.
@@ -159,10 +157,17 @@ def build_claude_command(
 
 
 def strip_profile_preamble(text: str) -> str:
-    """Drop the ``claude_profile.sh`` preamble lines from wrapped CLI output."""
-    lines = [
-        line
-        for line in text.splitlines()
-        if not any(line.startswith(prefix) for prefix in _PREAMBLE_PREFIXES)
-    ]
-    return "\n".join(lines).strip()
+    """Drop the ``claude_profile.sh`` preamble from wrapped CLI output.
+
+    The wrapper emits exactly two preamble lines, in order, *before* the model
+    output: ``Using profile home: ...`` then ``Command: ...``. Only that leading,
+    in-order block is removed, so a legitimate model answer line that happens to
+    start with ``Command:`` (or sits anywhere past the preamble) is preserved.
+    """
+    lines = text.splitlines()
+    index = 0
+    if index < len(lines) and lines[index].startswith("Using profile home:"):
+        index += 1
+        if index < len(lines) and lines[index].startswith("Command:"):
+            index += 1
+    return "\n".join(lines[index:]).strip()

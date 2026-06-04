@@ -156,3 +156,26 @@ def test_profiles_absent_from_snapshot_are_treated_as_usable(tmp_path, monkeypat
     )
 
     assert select_profile(repo_root=repo, index=0) == "max-09"
+
+
+def test_strip_preamble_preserves_body_lines_matching_prefixes():
+    """Only the leading wrapper block is stripped; a model answer that itself
+    contains a 'Command:' line (past the preamble) must be preserved."""
+    raw = (
+        "Using profile home: /home/x/.aragora-claude/max-01\n"
+        "Command: claude --print -p -\n"
+        "To run the migration:\n"
+        "Command: python manage.py migrate\n"
+        "Using profile home: is also a valid sentence here."
+    )
+    assert strip_profile_preamble(raw) == (
+        "To run the migration:\n"
+        "Command: python manage.py migrate\n"
+        "Using profile home: is also a valid sentence here."
+    )
+
+
+def test_strip_preamble_without_leading_wrapper_is_untouched():
+    """If output does not start with the wrapper block, nothing is stripped."""
+    raw = "Command: this is the model's first line\nsecond line"
+    assert strip_profile_preamble(raw) == raw
