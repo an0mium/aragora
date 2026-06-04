@@ -422,6 +422,58 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert discover_include_summaries == [False]
 
 
+def test_operator_snapshot_json_suppresses_broken_pipe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    muted_stdout: list[bool] = []
+
+    def fake_discover(
+        *, include_summaries: bool = True, include_historical: bool = True, **_kwargs
+    ):
+        assert include_historical is False
+        return [
+            mod.Session(
+                name="codex-main",
+                agent="codex",
+                status="alive",
+                lifecycle="live",
+                branch="codex/example",
+                worktree=str(tmp_path),
+            )
+        ]
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr(mod, "discover", fake_discover)
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(
+        mod,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    assert muted_stdout == [True]
+
+
 def test_operator_snapshot_exposes_b0_issue_contract_fields(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
