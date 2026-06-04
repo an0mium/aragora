@@ -3203,8 +3203,6 @@ def _normalize_model_family(value: str) -> str:
     lower = str(value or "").strip().lower()
     if not lower:
         return ""
-    if lower in CANONICAL_MODEL_FAMILIES:
-        return lower
     aliases = {
         "anthropic": "claude",
         "google": "gemini",
@@ -3216,7 +3214,38 @@ def _normalize_model_family(value: str) -> str:
         "nous-hermes": "hermes",
         "nous hermes": "hermes",
     }
-    return aliases.get(lower, "")
+
+    def _lookup(token: str) -> str:
+        if token in CANONICAL_MODEL_FAMILIES:
+            return token
+        return aliases.get(token, "")
+
+    # Fast path: the disclosed value is already a bare canonical family or a
+    # known (possibly multi-word) alias such as "nous hermes".
+    resolved = _lookup(lower)
+    if resolved:
+        return resolved
+
+    # Agents commonly disclose the family with a trailing parenthetical detail,
+    # e.g. ``openai (gpt-5.5, codex exec --sandbox read-only)`` or
+    # ``claude (opus-4.8)``. The parenthetical is descriptive metadata, not part
+    # of the canonical family token, so a literal lookup of the whole string used
+    # to fail and de-count an otherwise-valid reviewer. Strip a trailing
+    # ``(...)`` and retry; if still unresolved, fall back to the leading
+    # whitespace-delimited token. A genuinely-unknown leading token (e.g.
+    # ``mystery (x)``) still resolves to "" and stays a blocker — the gate is
+    # not weakened, only the well-formed disclosures that were being lost.
+    stripped = re.sub(r"\s*\(.*$", "", lower).strip()
+    if stripped != lower:
+        resolved = _lookup(stripped)
+        if resolved:
+            return resolved
+    leading = stripped.split()[0] if stripped.split() else ""
+    if leading and leading != stripped:
+        resolved = _lookup(leading)
+        if resolved:
+            return resolved
+    return ""
 
 
 def _first_heading_candidate(text: str) -> tuple[str, int | None]:
