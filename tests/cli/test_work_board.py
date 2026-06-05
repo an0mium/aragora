@@ -589,6 +589,72 @@ def test_work_graph_includes_bead_dependency_edges(tmp_path: Path, monkeypatch, 
     assert payload["edges"] == [{"from": "bead:a", "relation": "depends_on", "to": "bead:b"}]
 
 
+def test_work_graph_summary_only_omits_full_items_and_edges(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    bead_dir = tmp_path / ".aragora_beads"
+    bead_dir.mkdir()
+    (bead_dir / "beads.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "id": "a",
+                        "bead_type": "task",
+                        "status": "pending",
+                        "title": "A",
+                        "updated_at": _now_iso(),
+                        "dependencies": ["b"],
+                    }
+                ),
+                json.dumps(
+                    {
+                        "id": "b",
+                        "bead_type": "task",
+                        "status": "done",
+                        "title": "B",
+                        "updated_at": _now_iso(),
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_graph(_args(tmp_path, summary_only=True, limit=1)) == 0
+    payload = _capture_json(capsys)
+
+    assert "items" not in payload
+    assert "edges" not in payload
+    assert payload["item_count"] == 2
+    assert payload["edge_count"] == 1
+    assert payload["summary_limit"] == 1
+    assert payload["items_omitted"] == 1
+    assert payload["edges_omitted"] == 0
+    assert payload["source_counts"] == {"bead": 2}
+    assert payload["item_type_counts"] == {"bead": 2}
+    assert payload["status_counts"] == {"done": 1, "pending": 1}
+    assert payload["relation_counts"] == {"depends_on": 1}
+    assert len(payload["top_items"]) == 1
+    assert payload["top_items"][0]["id"] in {"bead:a", "bead:b"}
+    assert payload["edge_examples"] == [
+        {"from": "bead:a", "relation": "depends_on", "to": "bead:b"}
+    ]
+    assert payload["details_omitted"] is True
+
+
+def test_work_graph_parser_accepts_summary_only() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(["work", "graph", "--json", "--summary-only", "--limit", "3"])
+
+    assert args.work_cmd == "graph"
+    assert args.json is True
+    assert args.summary_only is True
+    assert args.limit == 3
+
+
 def test_work_robot_ranks_actionable_current_work(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
     outbox = tmp_path / ".aragora" / "automation-outbox"

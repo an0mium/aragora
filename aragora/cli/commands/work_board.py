@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import os
 import sys
@@ -99,6 +100,23 @@ def _render_human(payload: dict[str, Any]) -> str:
         else:
             lines.append("edges: (none)")
 
+    if "item_count" in payload:
+        lines.append(f"item_count: {payload['item_count']}")
+    if "edge_count" in payload:
+        lines.append(f"edge_count: {payload['edge_count']}")
+    if payload.get("items_omitted"):
+        lines.append(f"items_omitted: {payload['items_omitted']}")
+    if payload.get("edges_omitted"):
+        lines.append(f"edges_omitted: {payload['edges_omitted']}")
+    if payload.get("top_items"):
+        lines.append("top_items:")
+        for item in payload["top_items"]:
+            _fmt_item(item)
+    if payload.get("edge_examples"):
+        lines.append("edge_examples:")
+        for edge in payload["edge_examples"]:
+            lines.append(f"  {edge.get('from')} --{edge.get('relation')}--> {edge.get('to')}")
+
     for health in payload.get("source_health") or []:
         status = health.get("status")
         if status and status != "ok":
@@ -123,6 +141,54 @@ def _mute_stdout_after_broken_pipe() -> None:
     except OSError:
         pass
     sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _sorted_counts(values: list[str]) -> dict[str, int]:
+    return dict(sorted(Counter(values).items()))
+
+
+def _compact_work_item(item: Any) -> dict[str, Any]:
+    payload = item.to_dict(include_score=False)
+    compact: dict[str, Any] = {
+        "id": payload.get("id"),
+        "source": payload.get("source"),
+        "item_type": payload.get("item_type"),
+        "status": payload.get("status"),
+        "scope": payload.get("scope"),
+    }
+    for key in ("owner", "branch", "title", "updated_at"):
+        value = payload.get(key)
+        if value:
+            compact[key] = value
+    dependencies = payload.get("dependencies") or []
+    if dependencies:
+        compact["dependency_count"] = len(dependencies)
+    return compact
+
+
+def _graph_summary_payload(graph: Any, *, limit: int | None) -> dict[str, Any]:
+    summary_limit = limit if limit is not None else 20
+    emitted_items = graph.items[:summary_limit]
+    emitted_edges = graph.edges[:summary_limit]
+    return {
+        "schema_version": graph.schema_version,
+        "root_id": graph.root_id,
+        "item_count": len(graph.items),
+        "edge_count": len(graph.edges),
+        "summary_limit": summary_limit,
+        "items_omitted": max(0, len(graph.items) - len(emitted_items)),
+        "edges_omitted": max(0, len(graph.edges) - len(emitted_edges)),
+        "source_counts": _sorted_counts([item.source for item in graph.items]),
+        "item_type_counts": _sorted_counts([item.item_type for item in graph.items]),
+        "status_counts": _sorted_counts([item.status for item in graph.items]),
+        "relation_counts": _sorted_counts(
+            [str(edge.get("relation") or "unknown") for edge in graph.edges]
+        ),
+        "top_items": [_compact_work_item(item) for item in emitted_items],
+        "edge_examples": list(emitted_edges),
+        "source_health": list(graph.source_health),
+        "details_omitted": True,
+    }
 
 
 def cmd_work_list(args: argparse.Namespace) -> int:
@@ -158,7 +224,12 @@ def cmd_work_show(args: argparse.Namespace) -> int:
 
 def cmd_work_graph(args: argparse.Namespace) -> int:
     graph = build_work_graph(_repo_root(args), scope="all", root_id=getattr(args, "work_id", None))
-    return _emit(graph.to_dict(), as_json=getattr(args, "json", False))
+    payload = (
+        _graph_summary_payload(graph, limit=getattr(args, "limit", None))
+        if getattr(args, "summary_only", False)
+        else graph.to_dict()
+    )
+    return _emit(payload, as_json=getattr(args, "json", False))
 
 
 def cmd_work_robot(args: argparse.Namespace) -> int:

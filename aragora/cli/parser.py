@@ -365,6 +365,12 @@ def _add_work_parser(subparsers) -> None:
     graph_cmd = work_sub.add_parser("graph", help="Show the work dependency/context graph")
     add_common(graph_cmd)
     graph_cmd.add_argument("work_id", nargs="?", help="Optional root work item id")
+    add_limit(graph_cmd)
+    graph_cmd.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact graph counts and bounded examples instead of full items and edges",
+    )
     graph_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_graph"))
 
     robot_cmd = work_sub.add_parser(
