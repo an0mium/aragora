@@ -44,6 +44,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -67,6 +68,20 @@ def _utc_now() -> dt.datetime:
 
 def _iso(value: dt.datetime) -> str:
     return value.astimezone(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _write_stdout(text: str) -> bool:
+    try:
+        sys.stdout.write(text)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        try:
+            sys.stdout.close()
+        except Exception:
+            pass
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        return False
+    return True
 
 
 def _parse_iso(value: Any) -> dt.datetime | None:
@@ -459,7 +474,7 @@ def main(argv: list[str] | None = None) -> int:
         stale_hours=args.stale_hours,
     )
     if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _write_stdout(json.dumps(report, indent=2, sort_keys=True) + "\n")
     if args.dry_run:
         return 0
     paths = publish_report_bundle(report, out_root=args.out_root)
@@ -467,9 +482,9 @@ def main(argv: list[str] | None = None) -> int:
         args.status_md.parent.mkdir(parents=True, exist_ok=True)
         args.status_md.write_text(render_status_markdown(report), encoding="utf-8")
     if not args.json:
-        print(
+        _write_stdout(
             f"published: latest={paths['latest']}; snapshot={paths['snapshot']}; "
-            f"verdict={report.get('verdict')}; total_drift={report.get('total_drift')}"
+            f"verdict={report.get('verdict')}; total_drift={report.get('total_drift')}\n"
         )
     return 0
 

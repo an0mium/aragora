@@ -294,6 +294,46 @@ def test_main_dry_run_writes_nothing(tmp_path: Path, capsys: Any) -> None:
     assert not status_md.exists()
 
 
+def test_main_json_suppresses_flush_time_broken_pipe(tmp_path: Path, monkeypatch: Any) -> None:
+    class FlushClosedStdout:
+        def __init__(self) -> None:
+            self.closed = False
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_stdout = FlushClosedStdout()
+    monkeypatch.setattr(publisher.sys, "stdout", fake_stdout)
+    monkeypatch.setattr(
+        publisher,
+        "build_published_report",
+        lambda **_kwargs: {"schema_version": 1, "verdict": "fresh"},
+    )
+
+    rc = publisher.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--truth-root",
+            str(tmp_path / "absent"),
+            "--json",
+            "--dry-run",
+        ]
+    )
+
+    assert rc == 0
+    assert fake_stdout.closed is True
+    assert fake_stdout.writes
+
+
 def test_main_default_publishes_to_out_root(tmp_path: Path) -> None:
     out_root = tmp_path / "out"
     status_md = tmp_path / "status.md"
