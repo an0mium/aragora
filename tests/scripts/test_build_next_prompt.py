@@ -10,6 +10,14 @@ from pathlib import Path
 from typing import Any
 
 
+class _BrokenStdout:
+    def write(self, _text: str) -> int:
+        raise BrokenPipeError
+
+    def flush(self) -> None:
+        raise BrokenPipeError
+
+
 def _load_module(script_name: str) -> Any:
     here = Path(__file__).resolve()
     script_path = here.parents[2] / "scripts" / script_name
@@ -930,3 +938,29 @@ def test_main_guards_unresolved_operator_choice_placeholders(
     assert "unresolved operator-choice placeholder" in out
     assert "Do not continue lane work" in out
     assert "I explicitly choose option 1|2|3" not in out
+
+
+def test_main_json_suppresses_broken_pipe(tmp_path: Path, monkeypatch: Any) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]\n", encoding="utf-8")
+
+    monkeypatch.setattr(prompt_builder.sys, "stdout", _BrokenStdout())
+    monkeypatch.setattr(prompt_builder.os, "dup2", lambda *_args: None)
+    monkeypatch.setattr(prompt_builder, "build_prompt", lambda **_kwargs: "prompt\n")
+    monkeypatch.setattr(
+        prompt_builder,
+        "build_decision_packet",
+        lambda **_kwargs: {"selected_action": "read_only_owner_routing"},
+    )
+    monkeypatch.setattr(
+        prompt_builder,
+        "build_settlement_guard_prompt",
+        lambda *_args, **_kwargs: "guard\n",
+    )
+
+    assert (
+        prompt_builder.main(
+            ["--json", "--registry-path", str(registry), "--repo-root", str(tmp_path)]
+        )
+        == 0
+    )
