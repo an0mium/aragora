@@ -123,6 +123,51 @@ def test_detect_codex_desktop_automations_returns_empty_when_script_missing(
     assert detector.detect_codex_desktop_automations(tmp_path) == {}
 
 
+def test_detect_codex_desktop_automations_uses_summary_only(tmp_path: Path) -> None:
+    script = tmp_path / "scripts" / "check_codex_desktop_automations.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    calls: list[list[str]] = []
+
+    class _Proc:
+        returncode = 0
+        stdout = json.dumps(
+            {
+                "automation_count": 4,
+                "core_writers": {
+                    "engineering-autopilot": {
+                        "status": "ACTIVE",
+                        "kind": "cron",
+                        "prompt": "large prompt should stay out of startup probes",
+                    }
+                },
+                "issues": [],
+                "prompt_details_omitted": True,
+            }
+        )
+        stderr = ""
+
+    def _fake_run(cmd: list[str], **_kwargs: Any) -> _Proc:
+        calls.append(cmd)
+        return _Proc()
+
+    with patch.object(detector.subprocess, "run", side_effect=_fake_run):
+        out = detector.detect_codex_desktop_automations(tmp_path)
+
+    assert calls
+    assert calls[0][-2:] == ["--json", "--summary-only"]
+    assert out == {
+        "automation_count": 4,
+        "core_writers": {
+            "engineering-autopilot": {
+                "status": "ACTIVE",
+                "kind": "cron",
+            }
+        },
+        "issues": [],
+    }
+
+
 def test_detect_codex_cli_sessions_filters_by_age(tmp_path: Path) -> None:
     sessions = tmp_path / "sessions" / "2026" / "05" / "17"
     sessions.mkdir(parents=True)
@@ -478,6 +523,59 @@ def test_build_payload_assembles_top_level_keys(tmp_path: Path) -> None:
     assert payload["overlap_report"]["overlap_count"] == 0
 
 
+def test_build_summary_payload_omits_detail_lists() -> None:
+    payload = {
+        "schema_version": detector.SCHEMA_VERSION,
+        "generated_at": "2026-05-17T12:00:00Z",
+        "repo_root": "/repo",
+        "codex_home": "/home/u/.codex",
+        "max_age_minutes": 120.0,
+        "codex_session_scan_limit": 500,
+        "skip_gh": True,
+        "skip_codex_desktop": False,
+        "skip_process_census": False,
+        "include_user_lane_registry": False,
+        "worktrees": [{"path": "/repo"}],
+        "dispatch_contracts": [{"name": "dispatch.json"}],
+        "issue_claims": [],
+        "work_leases": [],
+        "automation_outbox": [{"branch": "codex/x"}],
+        "codex_cli_sessions": [{"thread_id": "thread-1"}],
+        "open_prs": [{"number": 1}],
+        "agent_bridge_lanes": [
+            {"lane_id": "lane-a", "is_active": True, "is_conflict": False},
+            {"lane_id": "lane-b", "is_active": False, "is_conflict": True},
+        ],
+        "lane_conflicts": [{"key_kind": "branch"}],
+        "codex_desktop_automations": {"automation_count": 17},
+        "process_census": {"ok": True, "total": 3},
+        "overlap_report": {"overlap_count": 2, "counts": {"branch": 2}},
+    }
+
+    summary = detector.build_summary_payload(payload)
+
+    assert summary["details_omitted"] is True
+    assert summary["counts"] == {
+        "worktrees": 1,
+        "dispatch_contracts": 1,
+        "issue_claims": 0,
+        "work_leases": 0,
+        "automation_outbox": 1,
+        "codex_cli_sessions": 1,
+        "open_prs": 1,
+        "agent_bridge_lanes": 2,
+        "active_agent_bridge_lanes": 1,
+        "conflict_agent_bridge_lanes": 1,
+        "lane_conflicts": 1,
+        "overlaps": 2,
+    }
+    assert summary["codex_desktop_automations"] == {"automation_count": 17}
+    assert summary["process_census"] == {"ok": True, "total": 3}
+    assert summary["overlap_counts"] == {"branch": 2}
+    assert "worktrees" not in summary
+    assert "agent_bridge_lanes" not in summary
+
+
 def test_render_text_contains_expected_sections() -> None:
     payload: dict[str, Any] = {
         "generated_at": "2026-05-17T12:00:00Z",
@@ -555,6 +653,33 @@ def test_main_json_mode_produces_parseable_output(
     assert payload["skip_gh"] is True
     assert payload["skip_codex_desktop"] is True
     assert payload["skip_process_census"] is True
+
+
+def test_main_summary_only_mode_omits_detail_lists(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc = detector.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path / "codex"),
+            "--skip-gh",
+            "--skip-codex-desktop",
+            "--skip-process-census",
+            "--max-age-minutes",
+            "5",
+            "--summary-only",
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["details_omitted"] is True
+    assert payload["counts"]["worktrees"] == 0
+    assert payload["counts"]["open_prs"] == 0
+    assert "worktrees" not in payload
+    assert "open_prs" not in payload
 
 
 def test_main_text_mode_prints_header(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

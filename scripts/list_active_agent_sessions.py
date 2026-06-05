@@ -16,7 +16,7 @@ Inputs (each optional, never errors on missing sources):
 - ``.aragora/work-leases/*.json`` for work board leases
 - ``.aragora/fleet_coordination.json`` and ``fleet_coordination.lock``
 - ``.aragora/automation-outbox/*.json`` for unpublished handoffs
-- ``scripts/check_codex_desktop_automations.py --json`` for Codex
+- ``scripts/check_codex_desktop_automations.py --json --summary-only`` for Codex
   Desktop cron status
 - ``~/.codex/sessions/**/*.jsonl`` for Codex CLI session files
 - ``scripts/agent_bridge.py processes --json --summary-only`` for live
@@ -222,14 +222,14 @@ def detect_codex_desktop_automations(
     *,
     timeout: int = DEFAULT_SUBPROCESS_TIMEOUT,
 ) -> dict[str, Any]:
-    """Invoke ``scripts/check_codex_desktop_automations.py --json`` if present."""
+    """Invoke the compact Codex Desktop automation audit if present."""
     script = repo_root / "scripts" / "check_codex_desktop_automations.py"
     if not script.exists():
         return {}
     python = sys.executable or shutil.which("python3") or "python3"
     try:
         proc = subprocess.run(
-            [python, str(script), "--json"],
+            [python, str(script), "--json", "--summary-only"],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -897,6 +897,57 @@ def build_conflicts_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_summary_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    agent_bridge_lanes = payload.get("agent_bridge_lanes")
+    if not isinstance(agent_bridge_lanes, list):
+        agent_bridge_lanes = []
+    lane_conflicts = payload.get("lane_conflicts")
+    if not isinstance(lane_conflicts, list):
+        lane_conflicts = []
+    overlap = payload.get("overlap_report")
+    if not isinstance(overlap, dict):
+        overlap = {}
+
+    def _list_count(key: str) -> int:
+        value = payload.get(key)
+        return len(value) if isinstance(value, list) else 0
+
+    active_lane_count = sum(1 for row in agent_bridge_lanes if row.get("is_active"))
+    conflict_lane_count = sum(
+        1 for row in agent_bridge_lanes if row.get("is_conflict") or row.get("identity_conflicts")
+    )
+    return {
+        "schema_version": payload.get("schema_version"),
+        "generated_at": payload.get("generated_at"),
+        "repo_root": payload.get("repo_root"),
+        "codex_home": payload.get("codex_home"),
+        "max_age_minutes": payload.get("max_age_minutes"),
+        "codex_session_scan_limit": payload.get("codex_session_scan_limit"),
+        "skip_gh": payload.get("skip_gh"),
+        "skip_codex_desktop": payload.get("skip_codex_desktop"),
+        "skip_process_census": payload.get("skip_process_census"),
+        "include_user_lane_registry": payload.get("include_user_lane_registry"),
+        "details_omitted": True,
+        "counts": {
+            "worktrees": _list_count("worktrees"),
+            "dispatch_contracts": _list_count("dispatch_contracts"),
+            "issue_claims": _list_count("issue_claims"),
+            "work_leases": _list_count("work_leases"),
+            "automation_outbox": _list_count("automation_outbox"),
+            "codex_cli_sessions": _list_count("codex_cli_sessions"),
+            "open_prs": _list_count("open_prs"),
+            "agent_bridge_lanes": len(agent_bridge_lanes),
+            "active_agent_bridge_lanes": active_lane_count,
+            "conflict_agent_bridge_lanes": conflict_lane_count,
+            "lane_conflicts": len(lane_conflicts),
+            "overlaps": int(overlap.get("overlap_count") or 0),
+        },
+        "codex_desktop_automations": payload.get("codex_desktop_automations") or {},
+        "process_census": payload.get("process_census") or {},
+        "overlap_counts": overlap.get("counts") or {},
+    }
+
+
 def _operator_lane_record(row: dict[str, Any]) -> dict[str, Any]:
     """Return lane ownership fields safe for compact operator routing."""
     return {
@@ -1123,6 +1174,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact JSON counts and omit detailed row lists; implies --json.",
+    )
+    parser.add_argument(
         "--include-user-lane-registry",
         action="store_true",
         help="Include legacy ~/.aragora/agent-bridge/lanes.json fallback when no repo registry exists.",
@@ -1150,7 +1206,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.conflicts_only:
         payload = build_conflicts_only_payload(payload)
-    if args.json:
+    elif args.summary_only:
+        payload = build_summary_payload(payload)
+    if args.json or args.summary_only:
         print(json.dumps(payload, indent=2, sort_keys=True, default=str))
     else:
         print(render_text(payload), end="")
