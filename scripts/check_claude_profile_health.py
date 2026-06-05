@@ -261,9 +261,7 @@ def _render_text(health: dict[str, Any], *, handoff_path: Path | None = None) ->
 
 
 def _parse_required_profiles(values: Sequence[str], *, disable_defaults: bool) -> list[str]:
-    if disable_defaults:
-        return []
-    profiles = list(DEFAULT_REQUIRED_PROFILES)
+    profiles = [] if disable_defaults else list(DEFAULT_REQUIRED_PROFILES)
     for value in values:
         for item in value.split(","):
             profile = item.strip()

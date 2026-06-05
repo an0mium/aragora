@@ -70,6 +70,15 @@ def test_health_passes_distinct_pool_with_enough_live_tokens() -> None:
     assert health["live_token_count"] == 3
 
 
+def test_parse_required_profiles_keeps_custom_profiles_when_defaults_disabled() -> None:
+    profiles = mod._parse_required_profiles(
+        ["max-01,max-02", "max-01"],
+        disable_defaults=True,
+    )
+
+    assert profiles == ["max-01", "max-02"]
+
+
 def test_write_operator_handoff_is_idempotent_and_actionable(tmp_path) -> None:
     observed_at = datetime(2026, 6, 5, 2, 30, tzinfo=UTC)
     health = mod.evaluate_profile_health(
