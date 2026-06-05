@@ -1,12 +1,40 @@
 from __future__ import annotations
 
 import json
+import inspect
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 import scripts.cache_codex_automation_github_status as mod
 import scripts.refresh_automation_status_cache as refresh_mod
 from scripts.github_cli_health import GitHubCLIHealth
+
+
+def test_live_publisher_helpers_are_lazy_wrappers() -> None:
+    assert "from scripts.publish_automation_handoffs import" in inspect.getsource(
+        mod._open_boss_ready_count
+    )
+    assert "from scripts.publish_codex_automation_branches import" in inspect.getsource(
+        mod._open_codex_prs
+    )
+    assert "from scripts.publish_codex_automation_branches import" in inspect.getsource(
+        mod._open_codex_pr_is_unhealthy
+    )
+
+
+def test_main_help_returns_without_building_status(monkeypatch: Any, capsys: Any) -> None:
+    def fail_build_status(**_kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("help should not build status")
+
+    monkeypatch.setattr(mod, "build_status", fail_build_status)
+
+    with pytest.raises(SystemExit) as exc:
+        mod.main(["--help"])
+
+    assert exc.value.code == 0
+    assert "--cache-dir" in capsys.readouterr().out
 
 
 def test_build_status_uses_local_queue_when_github_unavailable(
