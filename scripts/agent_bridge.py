@@ -92,10 +92,8 @@ DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"
 RESOLVED_STEERING_OUTCOMES = {
     "obeyed",
-    "held",
     "stale",
     "superseded",
-    "blocked",
     "completed",
 }
 DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS = 5.0

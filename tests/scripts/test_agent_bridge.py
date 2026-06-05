@@ -744,6 +744,51 @@ def test_collect_pending_steering_messages_read_receipts_remain_actionable(
     ]
 
 
+@pytest.mark.parametrize("outcome", ["blocked", "held"])
+def test_collect_pending_steering_messages_blocked_or_held_receipts_remain_actionable(
+    tmp_path: Path,
+    outcome: str,
+) -> None:
+    import agent_bridge as mod
+
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "owner-session"
+    receipts = inbox / "_read_receipts"
+    receipts.mkdir(parents=True)
+    message = {
+        "subject": f"Steering {outcome}",
+        "sent_at_utc": "2026-06-05T12:01:00Z",
+        "priority": "blocking",
+        "lane_id_hint": "blocked-lane",
+        "pr_hint": None,
+        "message_sha256": f"sha-{outcome}",
+    }
+    (inbox / f"2026-06-05T12-01-00Z-{outcome}.json").write_text(
+        json.dumps(message),
+        encoding="utf-8",
+    )
+    receipt = {
+        "read_at_utc": "2026-06-05T12:02:00Z",
+        "read_by_session": "codex-worker",
+        "message_filename": f"2026-06-05T12-01-00Z-{outcome}.json",
+        "message_sha256": f"sha-{outcome}",
+        "outcome": outcome,
+        "subject": message["subject"],
+    }
+    (receipts / f"2026-06-05T12-02-00Z-{outcome}-receipt.json").write_text(
+        json.dumps(receipt),
+        encoding="utf-8",
+    )
+
+    payload = mod._collect_pending_steering_messages(None, steering_root)
+
+    assert payload["count"] == 1
+    assert payload["unresolved_count"] == 1
+    assert payload["latest_unresolved_three"][0]["subject"] == f"Steering {outcome}"
+    assert mod._operator_pending_steering_count(payload) == 1
+    assert mod._operator_recent_blockers([], payload)[0]["detail"] == f"Steering {outcome}"
+
+
 def test_collect_b0_success_rate_times_out_fail_closed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
