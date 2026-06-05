@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 from typing import Any
 
@@ -210,3 +211,63 @@ def test_cli_success_returns_0_and_emits_json(capsys) -> None:
     captured = capsys.readouterr()
     assert code == 0
     assert '"run_id": "bridge_cli"' in captured.out
+
+
+def test_cli_list_runs_json_emits_full_runs(capsys) -> None:
+    module = _load_script_module()
+
+    code = module.main(["list-runs", "--json"], broker_factory=FakeBroker)
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert code == 0
+    assert payload["runs"][0]["run_id"] == "bridge_cli"
+    assert payload["runs"][0]["task"] == "Review"
+    assert "top_runs" not in payload
+
+
+def test_cli_list_runs_summary_only_omits_full_runs(capsys) -> None:
+    module = _load_script_module()
+
+    class MultiRunBroker(FakeBroker):
+        def list_runs(self, *, status: str | None = None) -> list[BridgeRun]:
+            del status
+            running = self.start_run()
+            completed = BridgeRun(
+                run_id="bridge_done",
+                task="Large completed transcript",
+                created_at="2026-04-21T19:00:00Z",
+                updated_at="2026-04-21T19:30:00Z",
+                status="completed",
+                completed_at="2026-04-21T19:30:00Z",
+                last_turn_index=3,
+                next_actor=None,
+                repair_budget_per_turn=1,
+                footer_mode="prompt_injected",
+                worktree_cleanup_mode="operator_triggered",
+                participants=[],
+                worktree_path=str(self.repo_root),
+                worktree_agent_slug="codex",
+            )
+            return [running, completed]
+
+    code = module.main(["list-runs", "--json", "--summary-only"], broker_factory=MultiRunBroker)
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert code == 0
+    assert payload["details_omitted"] is True
+    assert payload["run_count"] == 2
+    assert payload["emitted_count"] == 2
+    assert payload["runs_omitted"] == 0
+    assert payload["status_counts"] == {"completed": 1, "running": 1}
+    assert payload["top_runs"][0] == {
+        "run_id": "bridge_cli",
+        "status": "running",
+        "updated_at": "2026-04-21T20:00:00Z",
+        "next_actor": "reviewer",
+        "last_turn_index": 0,
+        "participant_count": 0,
+        "worktree_agent_slug": "codex",
+    }
+    assert "runs" not in payload

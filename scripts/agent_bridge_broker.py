@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from aragora.swarm.agent_bridge import AgentBridgeBroker
 from aragora.swarm.agent_bridge import BridgeSession
+from aragora.swarm.agent_bridge import BridgeRun
 from aragora.swarm.agent_bridge import SessionRegistry
 from aragora.swarm.agent_bridge import TransportLaunchError
 from aragora.swarm.agent_bridge import TransportNotAvailableError
@@ -54,6 +55,11 @@ def build_parser() -> argparse.ArgumentParser:
     list_runs = subparsers.add_parser("list-runs", help="List all bridge runs")
     list_runs.add_argument("--status", choices=["running", "awaiting_human", "completed", "failed"])
     list_runs.add_argument("--json", action="store_true")
+    list_runs.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit full run payloads and emit compact counts plus top rows.",
+    )
 
     return parser
 
@@ -116,7 +122,12 @@ def main(
         if args.command == "list-runs":
             status: RunStatus | None = args.status
             runs = broker.list_runs(status=status)
-            _emit({"runs": [run.to_dict() for run in runs]}, as_json=args.json)
+            payload: object
+            if args.summary_only:
+                payload = _summarize_runs(runs)
+            else:
+                payload = {"runs": [run.to_dict() for run in runs]}
+            _emit(payload, as_json=args.json)
             return 0
     except ValueError as exc:
         _emit_error(str(exc))
@@ -187,6 +198,33 @@ def _preflight_harnesses(
         )
         if hasattr(transport, "healthcheck") and not transport.healthcheck():
             raise TransportNotAvailableError(f"{harness} is not available")
+
+
+def _summarize_runs(runs: list[BridgeRun], *, limit: int = 20) -> dict[str, object]:
+    status_counts: dict[str, int] = {}
+    for run in runs:
+        status_counts[run.status] = status_counts.get(run.status, 0) + 1
+    top_runs = [
+        {
+            "run_id": run.run_id,
+            "status": run.status,
+            "updated_at": run.updated_at,
+            "next_actor": run.next_actor,
+            "last_turn_index": run.last_turn_index,
+            "participant_count": len(run.participants),
+            "worktree_agent_slug": run.worktree_agent_slug,
+        }
+        for run in runs[:limit]
+    ]
+    return {
+        "details_omitted": True,
+        "run_count": len(runs),
+        "emitted_count": len(top_runs),
+        "summary_limit": limit,
+        "runs_omitted": max(len(runs) - len(top_runs), 0),
+        "status_counts": dict(sorted(status_counts.items())),
+        "top_runs": top_runs,
+    }
 
 
 def _emit(payload: object, *, as_json: bool) -> None:
