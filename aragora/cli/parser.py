@@ -359,6 +359,11 @@ def _add_work_parser(subparsers) -> None:
 
     show_cmd = work_sub.add_parser("show", help="Show one normalized work item")
     add_common(show_cmd)
+    show_cmd.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Omit bulky item metadata while preserving routing fields",
+    )
     show_cmd.add_argument("work_id", help="Work item id, e.g. pr:7210")
     show_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_show"))
 

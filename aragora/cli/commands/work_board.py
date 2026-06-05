@@ -125,6 +125,31 @@ def _mute_stdout_after_broken_pipe() -> None:
     sys.stdout = open(os.devnull, "w", encoding="utf-8")
 
 
+def _summary_work_item(item: dict[str, Any]) -> dict[str, Any]:
+    compact_keys = (
+        "id",
+        "source",
+        "item_type",
+        "title",
+        "status",
+        "scope",
+        "url",
+        "owner",
+        "branch",
+        "created_at",
+        "updated_at",
+        "dependencies",
+        "evidence_refs",
+        "tags",
+    )
+    compact = {key: item.get(key) for key in compact_keys if key in item}
+    metadata = item.get("metadata")
+    if metadata:
+        compact["metadata_omitted"] = True
+        compact["metadata_keys"] = sorted(metadata)
+    return compact
+
+
 def cmd_work_list(args: argparse.Namespace) -> int:
     items, health = collect_work_items(_repo_root(args), scope=args.scope)
     limit = getattr(args, "limit", None)
@@ -146,13 +171,18 @@ def cmd_work_list(args: argparse.Namespace) -> int:
 def cmd_work_show(args: argparse.Namespace) -> int:
     items, health = collect_work_items(_repo_root(args), scope="all")
     item = next((candidate for candidate in items if candidate.id == args.work_id), None)
+    item_payload = item.to_dict() if item else None
+    if item_payload and getattr(args, "summary_only", False):
+        item_payload = _summary_work_item(item_payload)
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "id": args.work_id,
         "found": item is not None,
-        "item": item.to_dict() if item else None,
+        "item": item_payload,
         "source_health": health,
     }
+    if getattr(args, "summary_only", False):
+        payload["details_omitted"] = item is not None
     return _emit(payload, as_json=getattr(args, "json", False))
 
 

@@ -26,6 +26,7 @@ def _args(tmp_path: Path, **kwargs) -> argparse.Namespace:
         "scope": "current",
         "work_id": None,
         "limit": None,
+        "summary_only": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -79,6 +80,17 @@ def test_work_parser_registers_list_limit() -> None:
     assert args.command == "work"
     assert args.work_cmd == "list"
     assert args.limit == 3
+
+
+def test_work_parser_registers_show_summary_only() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["work", "show", "--json", "--summary-only", "pr:7292"])
+
+    assert args.command == "work"
+    assert args.work_cmd == "show"
+    assert args.json is True
+    assert args.summary_only is True
+    assert args.work_id == "pr:7292"
 
 
 def test_work_parser_rejects_negative_list_limit() -> None:
@@ -213,6 +225,70 @@ def test_work_list_preserves_outbox_readiness_metadata(
     assert item["metadata"]["objective"] == "Repair queue health"
     assert item["metadata"]["acceptance_criteria"] == ["robot classifies this handoff as ready"]
     assert item["metadata"]["dependencies_declared"] is True
+
+
+def test_work_show_summary_only_omits_bulky_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "task": "Open PR for work-board compact show",
+                "branch": "codex/work-show",
+                "owner": "codex-worker",
+                "dependencies": ["pr:123"],
+                "objective": "Keep single-item routing output compact",
+                "context": "Automation callers need IDs and owners without full evidence blobs.",
+                "acceptance_criteria": ["summary-only omits metadata"],
+                "mutation_boundary": "work-board show output only",
+                "validation": {"pytest": "passed", "smoke": "passed"},
+                "dependencies_declared": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert (
+        cmd_work_show(
+            _args(
+                tmp_path,
+                work_id="automation-outbox:handoff",
+                json=True,
+                summary_only=True,
+            )
+        )
+        == 0
+    )
+    payload = _capture_json(capsys)
+    item = payload["item"]
+
+    assert payload["found"] is True
+    assert payload["details_omitted"] is True
+    assert item["id"] == "automation-outbox:handoff"
+    assert item["branch"] == "codex/work-show"
+    assert item["owner"] == "codex-worker"
+    assert item["dependencies"] == ["pr:123"]
+    assert "metadata" not in item
+    assert item["metadata_omitted"] is True
+    assert item["metadata_keys"] == sorted(item["metadata_keys"])
+    assert "objective" in item["metadata_keys"]
+    assert "validation" in item["metadata_keys"]
+
+
+def test_work_show_summary_only_marks_missing_item_without_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+
+    assert cmd_work_show(_args(tmp_path, work_id="missing:item", summary_only=True)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["found"] is False
+    assert payload["item"] is None
+    assert payload["details_omitted"] is False
 
 
 def test_work_list_limit_bounds_emitted_items_but_preserves_total_count(
