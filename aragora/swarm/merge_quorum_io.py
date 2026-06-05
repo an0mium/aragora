@@ -17,7 +17,12 @@ import sys
 import tempfile
 from typing import Any
 
-from aragora.swarm.merge_quorum_reconcile import EvidenceComment, QuorumRun
+from aragora.swarm.merge_quorum_reconcile import (
+    EvidenceComment,
+    PacketClassification,
+    QuorumRun,
+    parse_ci_packet_classification,
+)
 
 QUORUM_CHECK_NAME = "aragora-merge-quorum"
 QUORUM_WORKFLOW_FILE = "aragora-merge-quorum.yml"
@@ -218,6 +223,12 @@ def fetch_human_settlement_present(repo: str, head_sha: str) -> bool:
 
 def fetch_pr_tier(repo: str, pr: int) -> int | None:
     """Best-effort tier from ``review-queue merge-packet``; ``None`` if unknown."""
+    packet = fetch_merge_packet_classification(repo, pr)
+    return packet.tier if packet is not None else None
+
+
+def fetch_merge_packet_classification(repo: str, pr: int) -> PacketClassification | None:
+    """Best-effort current local merge-packet classification for one PR."""
     try:
         proc = run(
             [
@@ -260,23 +271,58 @@ def fetch_pr_tier(repo: str, pr: int) -> int | None:
         except (TypeError, ValueError):
             return None
 
+    def _packet(entry: dict[str, Any]) -> PacketClassification | None:
+        tier = _coerce(entry.get("tier"))
+        pr_value = _coerce(entry.get("pr_number"))
+        if pr_value is None:
+            pr_value = pr
+        if pr_value != pr or entry.get("tier") is None:
+            return None
+        return PacketClassification(
+            source="local",
+            pr_number=pr_value,
+            head_sha=str(entry.get("head_sha") or ""),
+            tier=tier,
+            status=str(entry.get("status") or ""),
+            verdict=str(entry.get("verdict") or ""),
+            requires_human_risk_settlement=bool(entry.get("requires_human_risk_settlement")),
+        )
+
     # Prefer the row whose pr_number matches the requested PR. The normal
     # single-PR --json shape always discloses pr_number, so a multi-PR envelope
     # can never resolve the wrong PR's tier (which would mis-gate posting).
     for entry in entries:
-        if (
-            isinstance(entry, dict)
-            and _coerce(entry.get("pr_number")) == pr
-            and entry.get("tier") is not None
-        ):
-            return _coerce(entry["tier"])
+        if not isinstance(entry, dict):
+            continue
+        packet = _packet(entry)
+        if packet is not None and _coerce(entry.get("pr_number")) == pr:
+            return packet
     # Fall back to the first disclosed tier only when NO row carries a pr_number
     # (forward-compat shapes such as a bare list or single entry).
     if not any(isinstance(e, dict) and e.get("pr_number") is not None for e in entries):
         for entry in entries:
-            if isinstance(entry, dict) and entry.get("tier") is not None:
-                return _coerce(entry["tier"])
+            if not isinstance(entry, dict):
+                continue
+            packet = _packet(entry)
+            if packet is not None:
+                return packet
     return None
+
+
+def fetch_quorum_run_packet_classification(
+    repo: str, *, run_id: int, pr: int, head_sha: str
+) -> PacketClassification | None:
+    """Best-effort CI packet classification parsed from a merge-quorum run log."""
+    try:
+        proc = run(
+            ["gh", "run", "view", str(run_id), "--repo", repo, "--log"],
+            timeout=_GH_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    return parse_ci_packet_classification(proc.stdout, pr_number=pr, head_sha=head_sha)
 
 
 def fetch_evidence_comments(

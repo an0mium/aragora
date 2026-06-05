@@ -34,6 +34,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import re
 from typing import Final
 
 # Mirrors aragora/cli/commands/review_queue.py::_tier_requirement. This is a
@@ -113,6 +114,20 @@ class RerunDecision:
     should_rerun: bool
     reason: str
     run_id: int | None = None
+    next_prompt: str = ""
+
+
+@dataclass(frozen=True)
+class PacketClassification:
+    """Semantic merge-packet classification from CI or a local packet."""
+
+    source: str
+    pr_number: int
+    head_sha: str
+    tier: int | None
+    status: str
+    verdict: str
+    requires_human_risk_settlement: bool
 
 
 @dataclass(frozen=True)
@@ -211,6 +226,129 @@ def plan_rerun(
     return decide(
         True,
         "stale quorum check predates newer countable evidence; safe read-only re-run",
+    )
+
+
+_CI_PACKET_RE: Final[re.Pattern[str]] = re.compile(
+    r"PR\s+#(?P<pr>\d+)\s+\|\s+Tier\s+(?P<tier>\d+|None|null)\s+\|\s+"
+    r"status=(?P<status>[^\s|]+)\s+\|\s+verdict=(?P<verdict>[^\s|]+)"
+)
+
+
+def _requires_human_from_ci_packet(*, tier: int | None, status: str, verdict: str) -> bool:
+    text = f"{status} {verdict}".lower()
+    return tier in {3, 4} or "human_preapproval" in text or "human_risk" in text
+
+
+def parse_ci_packet_classification(
+    log_text: str, *, pr_number: int, head_sha: str
+) -> PacketClassification | None:
+    """Parse the CI merge-packet line emitted by ``aragora-merge-quorum``."""
+    for match in _CI_PACKET_RE.finditer(log_text):
+        parsed_pr = int(match.group("pr"))
+        if parsed_pr != pr_number:
+            continue
+        raw_tier = match.group("tier")
+        tier = None if raw_tier.lower() in {"none", "null"} else int(raw_tier)
+        status = match.group("status")
+        verdict = match.group("verdict")
+        return PacketClassification(
+            source="ci",
+            pr_number=parsed_pr,
+            head_sha=head_sha,
+            tier=tier,
+            status=status,
+            verdict=verdict,
+            requires_human_risk_settlement=_requires_human_from_ci_packet(
+                tier=tier, status=status, verdict=verdict
+            ),
+        )
+    return None
+
+
+def packet_classification_summary(packet: PacketClassification | None) -> str:
+    """Human-readable packet classification for logs and prompts."""
+    if packet is None:
+        return "unavailable"
+    human = "human-risk" if packet.requires_human_risk_settlement else "no-human-risk"
+    return (
+        f"{packet.source}: head={packet.head_sha or 'unknown'} "
+        f"tier={packet.tier} status={packet.status} verdict={packet.verdict} {human}"
+    )
+
+
+def packet_classifications_diverge(
+    ci_packet: PacketClassification | None,
+    local_packet: PacketClassification | None,
+) -> bool:
+    """Return true when CI and local packets disagree on semantic risk tier."""
+    if ci_packet is None or local_packet is None:
+        return False
+    if ci_packet.pr_number != local_packet.pr_number:
+        return False
+    if ci_packet.head_sha and local_packet.head_sha and ci_packet.head_sha != local_packet.head_sha:
+        return False
+    return (
+        ci_packet.tier != local_packet.tier
+        or ci_packet.requires_human_risk_settlement != local_packet.requires_human_risk_settlement
+    )
+
+
+def classification_divergence_prompt(
+    *,
+    pr_number: int,
+    head_sha: str,
+    ci_packet: PacketClassification,
+    local_packet: PacketClassification,
+) -> str:
+    """Build the bounded follow-up prompt when a rerun would mask policy drift."""
+    return "\n".join(
+        [
+            "Start from live repo truth. Do not trust prior transcript state. "
+            "Duplicate-owner detection first. Check Aragora operator-steering mailbox before lane work.",
+            "",
+            f"Goal: diagnose and repair only the aragora-merge-quorum classification divergence for PR #{pr_number} at exact head {head_sha}. Do not merge, rerun CI/quorum, mark ready, label, cleanup, mutate publisher/outbox state, touch automations, raw transcripts, unrelated PRs, unrelated worktrees, or unrelated dirty files.",
+            "",
+            "Run root status, fetch origin/main, publisher freshness, active-session conflicts, identify_lane_owner/read_operator_steering for the PR and branch, gh pr view/checks, full check rollup, branch-protection required contexts, latest aragora-merge-quorum log, and a clean current-main/local review-queue merge-packet for the exact PR/head.",
+            "",
+            "Proceed only if the live blocker remains CI/local policy classification divergence:",
+            f"- CI packet: {packet_classification_summary(ci_packet)}",
+            f"- Local packet: {packet_classification_summary(local_packet)}",
+            "",
+            "If clean, use a clean isolated worktree and repair only the smallest policy/classification surface needed so aragora-merge-quorum and merge-packet classify the exact-head PR consistently from workflow context. Preserve the intended policy behavior and do not broaden risk policy.",
+            "",
+            "Validate focused policy classification tests, the exact PR merge-packet where practical, git diff --check, automation_pr_preflight if applicable, and pre-push hooks if pushing. Push only the repair branch if clean. Do not merge.",
+        ]
+    )
+
+
+def guard_rerun_classification_divergence(
+    decision: RerunDecision,
+    *,
+    ci_packet: PacketClassification | None,
+    local_packet: PacketClassification | None,
+    head_sha: str,
+) -> RerunDecision:
+    """Suppress a stale-quorum rerun when CI and local packets disagree."""
+    if not decision.should_rerun or not packet_classifications_diverge(ci_packet, local_packet):
+        return decision
+    if ci_packet is None or local_packet is None:
+        return decision
+    return RerunDecision(
+        pr_number=decision.pr_number,
+        should_rerun=False,
+        reason=(
+            "classification_divergence: CI merge-quorum packet differs from "
+            f"clean local merge-packet; {packet_classification_summary(ci_packet)}; "
+            f"{packet_classification_summary(local_packet)}"
+        ),
+        run_id=decision.run_id,
+        next_prompt=classification_divergence_prompt(
+            pr_number=decision.pr_number,
+            head_sha=head_sha,
+            ci_packet=ci_packet,
+            local_packet=local_packet,
+        ),
     )
 
 
