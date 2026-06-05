@@ -56,7 +56,11 @@ OPERATOR_SNAPSHOT_TIMEOUT_SECONDS = _env_timeout_seconds(
 )
 BROAD_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_BROAD_PACKET_TIMEOUT_SECONDS", 90)
 SINGLE_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_SINGLE_PACKET_TIMEOUT_SECONDS", 90)
-COMMAND_OUTPUT_REPORT_LIMIT = 4096
+GH_JSON_RETRIES = max(1, _env_timeout_seconds("SETTLE_ONE_GH_JSON_RETRIES", 2))
+COMMAND_OUTPUT_CHAR_LIMIT = max(
+    200,
+    _env_timeout_seconds("SETTLE_ONE_COMMAND_OUTPUT_CHAR_LIMIT", 2000),
+)
 OPEN_PR_LIGHT_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,mergeable,mergeStateStatus,"
     "reviewDecision,labels,author,additions,deletions,changedFiles"
@@ -149,35 +153,27 @@ def _run_json(
         return None, result
 
 
-def _truncate_command_output_for_report(value: str) -> tuple[str, bool]:
-    if len(value) <= COMMAND_OUTPUT_REPORT_LIMIT:
-        return value, False
-    omitted = len(value) - COMMAND_OUTPUT_REPORT_LIMIT
-    marker = f"\n... [truncated {omitted} bytes from settle_one_pr report output]"
-    return f"{value[:COMMAND_OUTPUT_REPORT_LIMIT]}{marker}", True
+def _truncate_text(value: str, *, limit: int = COMMAND_OUTPUT_CHAR_LIMIT) -> str:
+    if len(value) <= limit:
+        return value
+    omitted = len(value) - limit
+    return f"{value[:limit]}...[truncated {omitted} chars]"
 
 
-def _command_result_for_report(command: dict[str, Any] | None) -> dict[str, Any] | None:
-    if command is None:
-        return None
-    report_command = dict(command)
-    for field in ("stdout", "stderr"):
-        value = report_command.get(field)
-        if not isinstance(value, str):
-            continue
-        report_command[f"{field}_length"] = len(value)
-        report_command[field], report_command[f"{field}_truncated"] = (
-            _truncate_command_output_for_report(value)
-        )
-    return report_command
+def _bounded_command_result(result: dict[str, Any]) -> dict[str, Any]:
+    bounded = dict(result)
+    for key in ("stdout", "stderr"):
+        value = bounded.get(key)
+        if isinstance(value, str) and len(value) > COMMAND_OUTPUT_CHAR_LIMIT:
+            bounded[f"{key}_truncated"] = True
+            bounded[f"{key}_original_chars"] = len(value)
+            bounded[key] = _truncate_text(value, limit=COMMAND_OUTPUT_CHAR_LIMIT)
+    return bounded
 
 
-def _command_results_for_report(commands: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        sanitized
-        for command in commands
-        if (sanitized := _command_result_for_report(command)) is not None
-    ]
+def _command_failure_detail(result: dict[str, Any], fallback: str) -> str:
+    bounded = _bounded_command_result(result)
+    return str(bounded.get("stderr") or bounded.get("stdout") or fallback)
 
 
 def _merge_packet_failure_message(result: dict[str, Any]) -> str:
@@ -195,7 +191,7 @@ def _merge_packet_failure_message(result: dict[str, Any]) -> str:
                 return f"merge-packet transport blocked: {detail}"
             if error:
                 return f"merge-packet failed: {error}"
-    return stderr or stdout or "merge-packet failed"
+    return _command_failure_detail(result, "merge-packet failed")
 
 
 def _policy_context_for_report(policy_context: dict[str, Any]) -> dict[str, Any]:
@@ -204,16 +200,51 @@ def _policy_context_for_report(policy_context: dict[str, Any]) -> dict[str, Any]
     report_context = dict(policy_context)
     commands = report_context.get("policy_metadata_commands")
     if isinstance(commands, list):
-        report_context["policy_metadata_commands"] = _command_results_for_report(
-            [command for command in commands if isinstance(command, dict)]
-        )
+        report_context["policy_metadata_commands"] = [
+            _bounded_command_result(command) for command in commands if isinstance(command, dict)
+        ]
     operator_command = report_context.get("operator_snapshot_command")
-    if isinstance(operator_command, dict) or operator_command is None:
-        report_context["operator_snapshot_command"] = _command_result_for_report(operator_command)
+    if isinstance(operator_command, dict):
+        report_context["operator_snapshot_command"] = _bounded_command_result(operator_command)
     cwd_repo_command = report_context.get("cwd_repo_command")
-    if isinstance(cwd_repo_command, dict) or cwd_repo_command is None:
-        report_context["cwd_repo_command"] = _command_result_for_report(cwd_repo_command)
+    if isinstance(cwd_repo_command, dict):
+        report_context["cwd_repo_command"] = _bounded_command_result(cwd_repo_command)
     return report_context
+
+
+def _is_transient_gh_failure(args: list[str], result: dict[str, Any]) -> bool:
+    if not args or args[0] != "gh" or result.get("returncode") == 0:
+        return False
+    detail = f"{result.get('stderr') or ''}\n{result.get('stdout') or ''}".lower()
+    transient_markers = (
+        "error connecting to api.github.com",
+        "http 5",
+        "graphql timeout",
+        "connection reset",
+        "connection refused",
+        "could not resolve host",
+        "tls handshake timeout",
+        "operation timed out",
+    )
+    return any(marker in detail for marker in transient_markers)
+
+
+def _run_json_with_gh_retries(
+    args: list[str], *, cwd: Path, timeout: int = 120, retries: int = GH_JSON_RETRIES
+) -> tuple[Any | None, dict[str, Any]]:
+    attempts: list[dict[str, Any]] = []
+    payload: Any | None = None
+    result: dict[str, Any] = {}
+    for _attempt in range(1, max(1, retries) + 1):
+        payload, result = _run_json(args, cwd=cwd, timeout=timeout)
+        attempts.append(_bounded_command_result(result))
+        if payload is not None or not _is_transient_gh_failure(args, result):
+            break
+    if len(attempts) > 1:
+        result = dict(result)
+        result["attempt_count"] = len(attempts)
+        result["attempts"] = attempts
+    return payload, result
 
 
 def _with_repo(args: list[str], repo: str | None) -> list[str]:
@@ -1074,7 +1105,7 @@ def validation_report(
 def load_open_pr_metadata(
     cwd: Path, *, limit: int = 200, repo: str | None = None
 ) -> tuple[dict[int, dict[str, Any]], dict[str, Any]]:
-    payload, command = _run_json(
+    payload, command = _run_json_with_gh_retries(
         _with_repo(
             [
                 "gh",
@@ -1100,13 +1131,13 @@ def load_open_pr_metadata(
             pr_number = _coerce_int(item.get("number"))
             if pr_number is not None:
                 metadata[pr_number] = item
-    return metadata, command
+    return metadata, _bounded_command_result(command)
 
 
 def load_pr_policy_metadata(
     cwd: Path, pr_number: int, *, repo: str | None = None
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    payload, command = _run_json(
+    payload, command = _run_json_with_gh_retries(
         _with_repo(
             ["gh", "pr", "view", str(pr_number), "--json", PR_POLICY_FIELDS],
             repo,
@@ -1115,8 +1146,8 @@ def load_pr_policy_metadata(
         timeout=GH_METADATA_TIMEOUT_SECONDS,
     )
     if isinstance(payload, dict):
-        return payload, command
-    return {}, command
+        return payload, _bounded_command_result(command)
+    return {}, _bounded_command_result(command)
 
 
 def _has_policy_file_scope(metadata: dict[str, Any]) -> bool:
@@ -1144,7 +1175,7 @@ def load_active_owned_prs(cwd: Path) -> tuple[set[int], dict[str, Any]]:
         command["operator_snapshot_ok"] = False
         if command.get("returncode") == 0 and not command.get("json_error"):
             command["json_error"] = "operator-snapshot did not return a JSON object"
-    return active_owned, command
+    return active_owned, _bounded_command_result(command)
 
 
 def active_owned_snapshot_blocker(command: dict[str, Any]) -> str | None:
@@ -1383,7 +1414,9 @@ def build_report(
             "active_owned_prs": sorted(active_owned_prs),
         }
         if repo is not None:
-            policy_context["cwd_repo_command"] = repo_command
+            policy_context["cwd_repo_command"] = (
+                _bounded_command_result(repo_command) if repo_command else None
+            )
             policy_context["cwd_repo"] = cwd_repo
         if load_warnings:
             policy_context["load_warnings"] = load_warnings
@@ -1481,7 +1514,7 @@ def build_report(
             ),
             cwd=cwd,
         )
-        report["owner_check"] = owner_cmd
+        report["owner_check"] = _bounded_command_result(owner_cmd)
         blockers.extend(owner_blockers(owner_payload))
 
         steering_payload, steering_cmd = _run_json(
@@ -1501,11 +1534,11 @@ def build_report(
             ),
             cwd=cwd,
         )
-        report["mailbox_check"] = steering_cmd
+        report["mailbox_check"] = _bounded_command_result(steering_cmd)
         if isinstance(steering_payload, dict) and steering_payload.get("message"):
             blockers.append("operator steering message exists; read and obey before settlement")
 
-        pr_view, view_cmd = _run_json(
+        pr_view, view_cmd = _run_json_with_gh_retries(
             [
                 "gh",
                 "pr",
@@ -1519,7 +1552,7 @@ def build_report(
             ],
             cwd=cwd,
         )
-        report["pr_view_check"] = view_cmd
+        report["pr_view_check"] = _bounded_command_result(view_cmd)
         blockers.extend(head_blockers(selected, pr_view))
 
         base_ref = "main"
@@ -1527,7 +1560,7 @@ def build_report(
             base_ref = str(pr_view.get("baseRefName") or base_ref)
         protected_branch = quote(base_ref, safe="")
 
-        protection, protection_cmd = _run_json(
+        protection, protection_cmd = _run_json_with_gh_retries(
             [
                 "gh",
                 "api",
@@ -1535,12 +1568,12 @@ def build_report(
             ],
             cwd=cwd,
         )
-        report["required_check_source_command"] = protection_cmd
+        report["required_check_source_command"] = _bounded_command_result(protection_cmd)
 
         head_ref = report["head_sha"]
         if isinstance(pr_view, dict):
             head_ref = str(pr_view.get("headRefOid") or head_ref)
-        check_runs_payload, check_runs_cmd = _run_json(
+        check_runs_payload, check_runs_cmd = _run_json_with_gh_retries(
             [
                 "gh",
                 "api",
@@ -1553,9 +1586,9 @@ def build_report(
             ],
             cwd=cwd,
         )
-        report["check_run_source_command"] = check_runs_cmd
+        report["check_run_source_command"] = _bounded_command_result(check_runs_cmd)
 
-        required_checks, required_cmd = _run_json(
+        required_checks, required_cmd = _run_json_with_gh_retries(
             [
                 "gh",
                 "pr",
@@ -1567,7 +1600,7 @@ def build_report(
             ],
             cwd=cwd,
         )
-        report["required_checks_command"] = required_cmd
+        report["required_checks_command"] = _bounded_command_result(required_cmd)
         check_report = required_check_report(required_checks)
         report["checks"]["required"] = check_report
         blockers.extend(check_report["blockers"])
