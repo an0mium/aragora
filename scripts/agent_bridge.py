@@ -13,7 +13,7 @@ Usage:
   python3 scripts/agent_bridge.py approve <name>
   python3 scripts/agent_bridge.py read <name> [--lines 20]
   python3 scripts/agent_bridge.py read-all [--lines 3] [--json]
-  python3 scripts/agent_bridge.py lanes [--json]
+  python3 scripts/agent_bridge.py lanes [--json] [--summary-only]
   python3 scripts/agent_bridge.py owner --pr 7292 [--json]
   python3 scripts/agent_bridge.py processes [--json]
   python3 scripts/agent_bridge.py tmux-map
@@ -1674,10 +1674,68 @@ def cmd_read_all(args: argparse.Namespace) -> int:
 
 
 def cmd_lanes(args: argparse.Namespace) -> int:
-    sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state()
+    summary_only = bool(getattr(args, "summary_only", False))
+    sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state(
+        include_summaries=not summary_only,
+        include_historical=not summary_only,
+    )
     _enrich_prs(sessions)
     _write_session_snapshot(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
+    if summary_only:
+        if records:
+            status_counts: dict[str, int] = {}
+            for record in records:
+                status_counts[record.status] = status_counts.get(record.status, 0) + 1
+            summary = {
+                "record_count": len(records),
+                "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
+                "conflict_lanes": sum(1 for r in records if r.status == "conflict"),
+                "status_counts": dict(sorted(status_counts.items())),
+            }
+            if args.json:
+                print(
+                    json.dumps(
+                        {
+                            "summary": summary,
+                            "records": [],
+                            "records_omitted": True,
+                        },
+                        indent=2,
+                    )
+                )
+                return 0
+            print(
+                "Lanes: "
+                f"{summary['active_lanes']} active / "
+                f"{summary['conflict_lanes']} conflict / "
+                f"{summary['record_count']} total"
+            )
+            return 0
+
+        session_status_counts: dict[str, int] = {}
+        for session in sessions:
+            session_status_counts[session.status] = session_status_counts.get(session.status, 0) + 1
+        summary = {
+            "record_count": 0,
+            "session_count": len(sessions),
+            "session_status_counts": dict(sorted(session_status_counts.items())),
+        }
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "summary": summary,
+                        "sessions": [],
+                        "sessions_omitted": bool(sessions),
+                    },
+                    indent=2,
+                )
+            )
+            return 0
+        print(f"Lanes: 0 records; sessions={summary['session_count']}")
+        return 0
+
     if records:
         _write_lane_registry(records)
         if args.json:
@@ -2593,7 +2651,12 @@ def main() -> int:
     ra_p = sub.add_parser("read-all", parents=[json_parent], help="Read all sessions")
     ra_p.add_argument("--lines", type=int, default=5)
 
-    sub.add_parser("lanes", parents=[json_parent], help="Sessions + PR state")
+    lanes_p = sub.add_parser("lanes", parents=[json_parent], help="Sessions + PR state")
+    lanes_p.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit lane rows and print compact counts only.",
+    )
     owner_p = sub.add_parser(
         "owner",
         parents=[json_parent],

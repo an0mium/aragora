@@ -337,6 +337,58 @@ def test_cmd_lanes_json_prefers_registry_and_syncs_live_session(
     ]
 
 
+def test_cmd_lanes_summary_only_json_omits_records(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "lane-a",
+                    "owner_session": "codex-a",
+                    "status": "active",
+                },
+                {
+                    "lane_id": "lane-b",
+                    "owner_session": "codex-b",
+                    "status": "blocked",
+                },
+                {
+                    "lane_id": "lane-c",
+                    "owner_session": "codex-c",
+                    "status": "conflict",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+
+    rc = mod.cmd_lanes(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "summary": {
+            "record_count": 3,
+            "active_lanes": 2,
+            "conflict_lanes": 1,
+            "status_counts": {
+                "active": 1,
+                "blocked": 1,
+                "conflict": 1,
+            },
+        },
+        "records": [],
+        "records_omitted": True,
+    }
+
+
 def test_main_accepts_json_after_subcommand(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -351,6 +403,30 @@ def test_main_accepts_json_after_subcommand(
 
     assert mod.main() == 0
     assert json.loads(capsys.readouterr().out) == []
+
+
+def test_main_accepts_lanes_summary_only_after_subcommand(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr(sys, "argv", ["agent_bridge.py", "lanes", "--json", "--summary-only"])
+
+    assert mod.main() == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "summary": {
+            "record_count": 0,
+            "session_count": 0,
+            "session_status_counts": {},
+        },
+        "sessions": [],
+        "sessions_omitted": False,
+    }
 
 
 def test_operator_snapshot_summary_only_json_omits_records(
