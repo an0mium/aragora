@@ -1297,3 +1297,30 @@ class TestNumpyAbsentImport:
         )
         assert proc.returncode == 0, proc.stderr
         assert "IMPORT_OK" in proc.stdout
+
+    def test_similarity_package_imports_without_numpy(self):
+        """Guard the package ``__init__`` chain, not just ``.backends``.
+
+        The boss-loop / swarm crash flowed through ``import
+        aragora.debate.similarity`` (the package), which imports both
+        ``backends`` and ``ann``. The submodule-only test above would not
+        catch a regression that drops deferred annotations from ``ann`` (or
+        any other eager ``np.ndarray`` use reachable from the package
+        ``__init__``), so assert the whole entrypoint imports cleanly.
+        """
+        code = (
+            "import sys; sys.modules['numpy'] = None;"
+            "import aragora.debate.similarity as s;"
+            "assert s.SentenceTransformerBackend.__name__ == 'SentenceTransformerBackend';"
+            "from aragora.debate.similarity import ann;"
+            "assert ann.HAS_NUMPY is False;"
+            "print('IMPORT_OK')"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert "IMPORT_OK" in proc.stdout
