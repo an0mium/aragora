@@ -43,11 +43,10 @@ if command -v gh >/dev/null 2>&1; then
   runner_json="$(timeout 25 gh api "repos/${REPO}/actions/runners" \
     --jq '[.runners[] | {name, status}]' 2>/dev/null || echo '[]')"
 fi
-# Parse the runner inventory robustly (handles any JSON spacing/key order, unlike grep).
-declare -A RUNNER_STATUS
-while IFS=$'\t' read -r _rn _rs; do
-  [ -n "$_rn" ] && RUNNER_STATUS["$_rn"]="$_rs"
-done < <(printf '%s' "$runner_json" | python3 -c '
+# Parse the runner inventory into "name<TAB>status" lines (robust to any JSON
+# spacing/key order). Avoids bash-4 associative arrays so it runs under macOS
+# /bin/bash 3.2 (which launchd uses).
+runner_lines="$(printf '%s' "$runner_json" | python3 -c '
 import json, sys
 try:
     arr = json.load(sys.stdin)
@@ -56,13 +55,14 @@ except Exception:
 for d in arr if isinstance(arr, list) else []:
     if isinstance(d, dict):
         print((d.get("name") or "") + "\t" + (d.get("status") or "unknown"))
-' 2>/dev/null)
+' 2>/dev/null)"
 
 offline_watched=""
 IFS=',' read -r -a _watch <<< "$WATCH_RUNNERS"
 for r in "${_watch[@]}"; do
   [ -z "$r" ] && continue
-  st="${RUNNER_STATUS[$r]:-unknown}"
+  st="$(printf '%s\n' "$runner_lines" | awk -F'\t' -v n="$r" '$1==n{print $2; exit}')"
+  [ -z "$st" ] && st="unknown"
   if [ "$st" != "online" ]; then
     offline_watched="${offline_watched} ${r}(${st})"
     degraded=1
@@ -78,14 +78,42 @@ fi
 [ "$gh_auth" = "UNAUTHENTICATED" ] && alerts+=("GITHUB_API slice degraded — gh is not authenticated → workers will queue/blocked_auth_failure")
 
 # --- 3. proof freshness ------------------------------------------------------
+# Check the PUBLISHED surfaces on origin/main, not the local working tree — the local
+# checkout may sit on an older branch and would otherwise false-alarm.
 proof="unknown"
-probe="${REPO_ROOT}/scripts/probe_proof_surface_freshness.py"
-if [ -f "$probe" ]; then
-  if timeout 25 python3 "$probe" --surfaces b0,tw03 --max-age-days "$MAX_AGE_DAYS" >/dev/null 2>&1; then
-    proof="fresh"
-  else
-    proof="STALE"; degraded=1
-    alerts+=("PROOF surfaces STALE (>${MAX_AGE_DAYS}d) — published claim drifting from measured truth")
+if [ -n "$REPO_ROOT" ] && git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  timeout 20 git -C "$REPO_ROOT" fetch origin main --quiet 2>/dev/null || true
+  proof="$(
+    {
+      git -C "$REPO_ROOT" show origin/main:docs/status/B0_BENCHMARK_TRUTH_STATUS.md 2>/dev/null
+      echo '---FLEET-SURFACE-SEP---'
+      git -C "$REPO_ROOT" show origin/main:docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md 2>/dev/null
+    } | MAX_AGE_DAYS="$MAX_AGE_DAYS" python3 -c '
+import sys, re, os, datetime as _dt
+txt = sys.stdin.read()
+maxage = float(os.environ.get("MAX_AGE_DAYS", "7"))
+now = _dt.datetime.now(_dt.timezone.utc)
+ages = []
+for block in txt.split("---FLEET-SURFACE-SEP---"):
+    m = re.search(r"Last updated:\s*([0-9T:+\-]+Z?)", block)
+    if not m:
+        continue
+    s = m.group(1).strip()
+    try:
+        d = _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except Exception:
+        try:
+            d = _dt.datetime.strptime(s[:10], "%Y-%m-%d").replace(tzinfo=_dt.timezone.utc)
+        except Exception:
+            continue
+    ages.append((now - d).total_seconds() / 86400.0)
+print("unknown" if not ages else ("fresh" if max(ages) <= maxage else "STALE"))
+' 2>/dev/null
+  )"
+  proof="${proof:-unknown}"
+  if [ "$proof" = "STALE" ]; then
+    degraded=1
+    alerts+=("PROOF surfaces STALE (>${MAX_AGE_DAYS}d on origin/main) — published claim drifting from measured truth")
   fi
 fi
 
