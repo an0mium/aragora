@@ -385,6 +385,49 @@ def test_run_api_agent_keeps_result_when_shared_connector_close_fails(
     assert events == ["generate", "agent_close", "connector_close"]
 
 
+def test_run_api_agent_allows_consecutive_one_shot_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def generate(self, prompt: str) -> str:
+            events.append(f"generate:{prompt}")
+            return f"Verdict: PASS {prompt}"
+
+        async def close(self) -> None:
+            events.append("agent_close")
+
+    def fake_create_agent(family: str, *, name: str, role: str) -> FakeAgent:
+        events.append(f"create:{family}")
+        return FakeAgent()
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close")
+
+    import aragora.agents
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    first = qe._run_api_agent("grok", "one")
+    second = qe._run_api_agent("grok", "two")
+
+    assert first == ReviewerResult("grok", "Verdict: PASS one", True)
+    assert second == ReviewerResult("grok", "Verdict: PASS two", True)
+    assert events == [
+        "create:grok",
+        "generate:one",
+        "agent_close",
+        "connector_close",
+        "create:grok",
+        "generate:two",
+        "agent_close",
+        "connector_close",
+    ]
+
+
 # --- collect_evidence orchestration (fully offline via injected callables) ---
 
 
