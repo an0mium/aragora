@@ -113,6 +113,59 @@ def test_run_reports_timeout_and_terminates_process_group(monkeypatch) -> None:
     assert killed == [(4242, settle_one_pr.signal.SIGKILL)]
 
 
+def test_run_json_with_gh_retries_retries_transient_connection_error(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        calls.append(args)
+        if len(calls) == 1:
+            return None, {
+                "command": "gh pr view 7766",
+                "returncode": 1,
+                "stdout": "",
+                "stderr": "error connecting to api.github.com",
+            }
+        return (
+            {"number": 7766},
+            {
+                "command": "gh pr view 7766",
+                "returncode": 0,
+                "stdout": '{"number":7766}',
+                "stderr": "",
+            },
+        )
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    payload, result = settle_one_pr._run_json_with_gh_retries(
+        ["gh", "pr", "view", "7766"],
+        cwd=Path.cwd(),
+        retries=2,
+    )
+
+    assert payload == {"number": 7766}
+    assert result["returncode"] == 0
+    assert result["attempt_count"] == 2
+    assert len(result["attempts"]) == 2
+
+
+def test_bounded_command_result_truncates_embedded_stdout() -> None:
+    result = {
+        "command": "python3 scripts/agent_bridge.py operator-snapshot --json",
+        "returncode": 0,
+        "stdout": "x" * (settle_one_pr.COMMAND_OUTPUT_CHAR_LIMIT + 50),
+        "stderr": "",
+    }
+
+    bounded = settle_one_pr._bounded_command_result(result)
+
+    assert bounded["stdout_truncated"] is True
+    assert bounded["stdout_original_chars"] == settle_one_pr.COMMAND_OUTPUT_CHAR_LIMIT + 50
+    assert len(bounded["stdout"]) < len(result["stdout"])
+    assert "[truncated 50 chars]" in bounded["stdout"]
+
+
 def test_select_candidate_prefers_admin_order() -> None:
     unauthorized = _entry(1001)
     authorized = _entry(
