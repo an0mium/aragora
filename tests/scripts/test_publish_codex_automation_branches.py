@@ -144,6 +144,37 @@ def test_parser_defaults_match_publisher_budget_constants() -> None:
     assert args.allow_unhealthy_queue_publish is False
     assert args.receipt_dir is None
     assert args.summary_only is False
+    assert args.draft is False
+
+
+def test_create_pr_adds_draft_flag_when_requested(monkeypatch: Any, tmp_path: Path) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run(args: list[str], *, cwd: Path, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        commands.append(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+    monkeypatch.setattr(mod, "_existing_pr_number", lambda *_args: 7001)
+
+    number = mod._create_pr(tmp_path, "owner/repo", "codex/draft-pr", "origin/main", draft=True)
+
+    assert number == 7001
+    assert commands == [
+        [
+            "gh",
+            "pr",
+            "create",
+            "--repo",
+            "owner/repo",
+            "--base",
+            "main",
+            "--head",
+            "codex/draft-pr",
+            "--fill",
+            "--draft",
+        ]
+    ]
 
 
 def test_main_summary_only_omits_decisions_and_unhealthy_pr_details(
