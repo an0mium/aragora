@@ -135,6 +135,7 @@ def test_select_publishable_branches_marks_recent_clean_branch_eligible() -> Non
 def test_parser_defaults_match_publisher_budget_constants() -> None:
     args = _build_parser().parse_args([])
 
+    assert args.base == mod.DEFAULT_BASE
     assert args.limit == mod.DEFAULT_PUBLISH_LIMIT
     assert args.max_open_prs == mod.DEFAULT_MAX_OPEN_PRS
     assert args.scan_limit == mod.DEFAULT_SCAN_LIMIT
@@ -801,6 +802,8 @@ def test_main_reports_github_health_failure_when_unavailable_with_local_candidat
 
     assert exit_code == 1
     out = capsys.readouterr().out
+    payload = json.loads(out)
+    assert payload["base"] == mod.DEFAULT_BASE
     assert '"mode": "connectivity_failed"' in out
     assert '"scanned_branch_count": 1' in out
     assert '"open_pr_lookup_skipped": true' in out

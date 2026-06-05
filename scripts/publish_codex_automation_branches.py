@@ -34,6 +34,7 @@ DEFAULT_MAX_OPEN_PRS = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
 DEFAULT_GIT_TIMEOUT_SECONDS = 60
 DEFAULT_SCAN_LIMIT = 12
+DEFAULT_BASE = "origin/main"
 DEFAULT_MIN_FREE_GIB = 50.0
 DEFAULT_CODEX_RSS_MAX_GIB = 25.0
 DEFAULT_SPEND_DAILY_CAP_USD = 200.0
@@ -1457,7 +1458,11 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Publish recent committed codex automation branches into GitHub PRs."
     )
     parser.add_argument("--repo", default=".", help="Path inside the target repository")
-    parser.add_argument("--base", default="main", help="Base branch to compare/publish against")
+    parser.add_argument(
+        "--base",
+        default=DEFAULT_BASE,
+        help="Base ref to compare/publish against; origin/main avoids stale local main refs.",
+    )
     parser.add_argument(
         "--github-repo",
         default="synaptent/aragora",
