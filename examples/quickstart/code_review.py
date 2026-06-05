@@ -143,7 +143,7 @@ def findings_to_sarif(findings: list[ReviewFinding]) -> dict:
                     "driver": {
                         "name": "aragora-review",
                         "version": "1.0.0",
-                        "informationUri": "https://github.com/an0mium/aragora",
+                        "informationUri": "https://github.com/synaptent/aragora",
                         "rules": rules,
                     }
                 },

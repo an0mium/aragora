@@ -8,7 +8,7 @@ If you just want to run a debate (not contribute), start at [docs/guides/GETTING
 
 ```bash
 # Clone the repository
-git clone https://github.com/an0mium/aragora.git
+git clone https://github.com/synaptent/aragora.git
 cd aragora
 
 # Create virtual environment

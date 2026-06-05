@@ -336,6 +336,10 @@ def read_codex_session_metadata(path: Path, *, max_lines: int = 50) -> dict[str,
                 metadata["thread_id"] = payload["id"]
             if isinstance(payload.get("source"), str):
                 metadata["source"] = payload["source"]
+            if isinstance(payload.get("originator"), str):
+                metadata["originator"] = payload["originator"]
+            if isinstance(payload.get("thread_source"), str):
+                metadata["thread_source"] = payload["thread_source"]
             if isinstance(cwd, str) and cwd.strip():
                 metadata["cwd"] = cwd.strip()
             if branch:

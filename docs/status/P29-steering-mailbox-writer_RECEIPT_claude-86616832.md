@@ -53,10 +53,10 @@ $ python3 scripts/send_operator_steering.py \
 wrote /tmp/p29-smoke-40660/claude-86616832/2026-05-18T05-17-56-328Z-5c052788.json
        (sha256 21e46f24b5…, priority=normal)
 
-$ python3 /Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260518-043718-a1054f6f/scripts/identify_lane_owner.py \
+$ python3 ~/aragora/.worktrees/codex-auto/claude-20260518-043718-a1054f6f/scripts/identify_lane_owner.py \
     --lane-id P29-steering-mailbox-writer \
     --json \
-    --registry-path /Users/armand/Development/aragora/.aragora/agent-bridge/lanes.json \
+    --registry-path ~/aragora/.aragora/agent-bridge/lanes.json \
     --steering-inbox-root $INBOX
 {
   "lane_id": "P29-steering-mailbox-writer",

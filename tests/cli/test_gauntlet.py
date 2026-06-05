@@ -336,7 +336,8 @@ class TestCmdGauntlet:
 
         with patch.dict("sys.modules", {"aragora.gauntlet": mock_gauntlet}):
             with patch.dict("sys.modules", {"aragora.agents.base": MagicMock()}):
-                cmd_gauntlet(args)
+                with pytest.raises(SystemExit):
+                    cmd_gauntlet(args)
 
         captured = capsys.readouterr()
         assert "Input file not found" in captured.out
@@ -355,10 +356,56 @@ class TestCmdGauntlet:
         with patch.dict("sys.modules", {"aragora.gauntlet": mock_gauntlet}):
             with patch.dict("sys.modules", {"aragora.agents.base": mock_agents}):
                 with patch("aragora.agents.spec.AgentSpec", mock_spec):
-                    cmd_gauntlet(gauntlet_args)
+                    with pytest.raises(SystemExit):
+                        cmd_gauntlet(gauntlet_args)
 
         captured = capsys.readouterr()
         assert "No agents could be created" in captured.out
+
+    def test_no_agents_created_exits_nonzero(self, gauntlet_args, capsys):
+        """No agents is a FATAL condition: must exit non-zero, not 0.
+
+        Regression guard: a bare ``return`` here yields exit code 0, making
+        "gauntlet never ran" indistinguishable from "gauntlet passed" in a
+        gating context like ``aragora gauntlet ... && deploy``.
+        """
+        mock_gauntlet = MagicMock()
+        mock_gauntlet.InputType = MagicMock()
+
+        mock_agents = MagicMock()
+        mock_agents.create_agent.side_effect = RuntimeError("No API key")
+
+        mock_spec = MagicMock()
+        mock_spec.coerce_list.return_value = [MockAgentSpec()]
+
+        with patch.dict("sys.modules", {"aragora.gauntlet": mock_gauntlet}):
+            with patch.dict("sys.modules", {"aragora.agents.base": mock_agents}):
+                with patch("aragora.agents.spec.AgentSpec", mock_spec):
+                    with pytest.raises(SystemExit) as exc_info:
+                        cmd_gauntlet(gauntlet_args)
+
+        assert exc_info.value.code != 0
+        captured = capsys.readouterr()
+        assert "No agents could be created" in captured.out
+
+    def test_input_file_not_found_exits_nonzero(self, capsys):
+        """Missing input file is FATAL: must exit non-zero, not 0."""
+        args = argparse.Namespace()
+        args.input = "/nonexistent/file.md"
+        args.input_type = "spec"
+        args.agents = "anthropic-api"
+
+        mock_gauntlet = MagicMock()
+        mock_gauntlet.InputType = MagicMock()
+
+        with patch.dict("sys.modules", {"aragora.gauntlet": mock_gauntlet}):
+            with patch.dict("sys.modules", {"aragora.agents.base": MagicMock()}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_gauntlet(args)
+
+        assert exc_info.value.code != 0
+        captured = capsys.readouterr()
+        assert "Input file not found" in captured.out
 
     def test_gauntlet_run_success(self, gauntlet_args, capsys):
         """Test successful gauntlet run."""

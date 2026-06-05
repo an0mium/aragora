@@ -62,9 +62,62 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-LANE_REGISTRY_DEFAULT = REPO_ROOT / ".aragora" / "agent-bridge" / "lanes.json"
-HEARTBEATS_DEFAULT = REPO_ROOT / ".aragora" / "agent-bridge" / "heartbeats.json"
-STEERING_INBOX_ROOT_DEFAULT = REPO_ROOT / ".aragora" / "operator-steering"
+
+
+def _state_root_from_env() -> Path | None:
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    if not configured:
+        return None
+    root = Path(configured).expanduser()
+    return root if root.name == ".aragora" else root / ".aragora"
+
+
+def _git_common_repo_root(repo_root: Path) -> Path | None:
+    try:
+        proc = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "rev-parse",
+                "--path-format=absolute",
+                "--git-common-dir",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    common_dir = Path(proc.stdout.strip())
+    if common_dir.name == ".git":
+        return common_dir.parent
+    return None
+
+
+def _default_state_root(repo_root: Path) -> Path:
+    env_root = _state_root_from_env()
+    if env_root is not None:
+        return env_root
+
+    local_root = repo_root / ".aragora"
+    if (local_root / "agent-bridge" / "lanes.json").exists():
+        return local_root
+
+    common_repo_root = _git_common_repo_root(repo_root)
+    if common_repo_root is not None:
+        return common_repo_root / ".aragora"
+
+    return local_root
+
+
+STATE_ROOT_DEFAULT = _default_state_root(REPO_ROOT)
+LANE_REGISTRY_DEFAULT = STATE_ROOT_DEFAULT / "agent-bridge" / "lanes.json"
+HEARTBEATS_DEFAULT = STATE_ROOT_DEFAULT / "agent-bridge" / "heartbeats.json"
+STEERING_INBOX_ROOT_DEFAULT = STATE_ROOT_DEFAULT / "operator-steering"
 CODEX_SESSIONS_ROOT_DEFAULT = Path.home() / ".codex" / "sessions"
 CLAUDE_PROJECTS_ROOT_DEFAULT = Path.home() / ".claude" / "projects"
 FACTORY_BG_PROCESSES_DEFAULT = Path.home() / ".factory" / "background-processes.json"

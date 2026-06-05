@@ -47,7 +47,7 @@ Each step was chosen for **leverage per week** and for compatibility with the su
 **Decisions to make (one-shot):**
 
 - Is `aragora-debate` (the pip package) a separate product or a slice of the main install? Document both shape and relationship in README.
-- Fix `pyproject.toml` git URL: currently `github.com/an0mium/aragora`, repo lives at `github.com/synaptent/aragora`
+- Fix `pyproject.toml` git URL: ensure `[project.urls]` points at the canonical `github.com/synaptent/aragora` (historically pointed at a now-retired legacy slug)
 - README install table: keep the three install surfaces if all three are intended product offerings; merge or remove if not
 
 **Acceptance criteria:**

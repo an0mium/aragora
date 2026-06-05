@@ -40,4 +40,4 @@ This PR adds in-memory caching to improve homepage and search performance. The i
 Consider adding cache invalidation hooks and size limits before merging.
 
 ---
-*Agreement score: 45% | Powered by [Aragora](https://github.com/an0mium/aragora) - AI Red Team*
+*Agreement score: 45% | Powered by [Aragora](https://github.com/synaptent/aragora) - AI Red Team*

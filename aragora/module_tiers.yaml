@@ -26,9 +26,9 @@ thresholds:
 summary:
   core: 21
   integrated: 90
-  experimental: 27
+  experimental: 28
   deprecated: 2
-  total: 140
+  total: 141
 
 modules:
   # --- core (21) ---
@@ -51,9 +51,9 @@ modules:
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
-    py_files: 15
-    importer_count: 329
-    test_file_count: 79
+    py_files: 16
+    importer_count: 331
+    test_file_count: 81
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
     tier: core
@@ -539,7 +539,7 @@ modules:
     tier: integrated
     py_files: 102
     importer_count: 32
-    test_file_count: 161
+    test_file_count: 162
   - name: templates
     tier: integrated
     py_files: 1
@@ -601,7 +601,12 @@ modules:
     importer_count: 16
     test_file_count: 11
 
-  # --- experimental (27) ---
+  # --- experimental (28) ---
+  - name: advocates
+    tier: experimental
+    py_files: 2
+    importer_count: 0
+    test_file_count: 1
   - name: approvals
     tier: experimental
     py_files: 5

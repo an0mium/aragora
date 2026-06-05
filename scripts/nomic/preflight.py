@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Optional
 import logging
 
+from aragora.config import get_api_key
+
 logger = logging.getLogger(__name__)
 
 
@@ -85,8 +87,8 @@ def check_api_keys() -> list[PreflightCheck]:
     checks = []
 
     # At least one primary API key required
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-    openai_key = os.environ.get("OPENAI_API_KEY")
+    anthropic_key = get_api_key("ANTHROPIC_API_KEY", required=False)
+    openai_key = get_api_key("OPENAI_API_KEY", required=False)
 
     has_primary = bool(anthropic_key) or bool(openai_key)
     checks.append(
@@ -127,7 +129,7 @@ def check_api_keys() -> list[PreflightCheck]:
         )
 
     # OpenRouter fallback (recommended but not required)
-    openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+    openrouter_key = get_api_key("OPENROUTER_API_KEY", required=False)
     checks.append(
         PreflightCheck(
             name="OpenRouter Fallback",

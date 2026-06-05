@@ -4,6 +4,145 @@
 > not general-purpose agent orchestration. This document defines what to invest in,
 > what to maintain, and what to deprioritize.
 
+## Sprint 1 — 2026-05-26 → 2026-05-27 — CLOSED
+
+> **Closed early because the four stated goals reached terminal state
+> (shipped, satisfied, or honestly falsified) sooner than the 14-day
+> window contemplated.** The producer:merger ratio went positive over
+> the closing 48 hours; the substrate-overbuild concern flagged at
+> sprint-open re-emerged in a new shape (described under Sprint 2
+> anti-goals below).
+
+### Sprint 1 outcomes
+
+| # | Goal | Outcome | Evidence |
+|---|---|---|---|
+| 1 | Settle #7443 (provider bootstrap + receipt repair) | **Shipped** | Merged 2026-05-27T02:25:17Z as `7318af7e5b`. Tier 4 settled via repaired `scripts/settle_tier4_pr.py` (#7469 / #7471 lineage) using the model-quorum + `aragora/human-settlement` chain, normal protected squash with `--match-head-commit`, no admin-fallback needed. |
+| 2 | Land #7450 (model-quorum family-expansion pre-approval) | **Shipped** | Merged as `dd144b4a3f`. The recognizer-header gap remains — implementation PR is governed by separate Tier 4 pre-approval #7472 (open, awaiting operator design review). |
+| 3 | Land #7451 (model-family bench harness scaffold) | **Evidence satisfied; needs ready/settlement only** | Still open/draft at head `113a706c92831c0fb889d6e3da35ee454ceb6a94`. After repair commit `113a706c92` (addressing the three Codex request-changes blockers), the merge-packet counts `codex` + `factory` and 1 dogfood at the exact head; required checks are green; no unresolved dissent. Remaining blocker is operator/draft boundary, not evidence. |
+| 4 | Publish B0 truth result, whatever it is | **Falsified honestly** | Re-ran `scripts/build_benchmark_truth_artifact.py --publish` 2026-05-26T22:51:31Z; verified `truth_success_rate_verified` is **0.0%** at this corpus. The repo-tracked evidence remains the generated B0 truth pointers under `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/`; local `.aragora/` rerun artifacts are intentionally not tracked. The 0.0% IS the artifact — the public claim must ratchet to what is measured. Legacy/proxy rates (30.8% / 76.9%) are not substitutes. |
+| — | Bonus — #7483 follow-up routing fix | **Shipped** | Merged 2026-05-27T17:22:58Z as `12615421be3af363803c1a68a5bb32d5105028b9`. Not a primary sprint goal but adjacent settlement-tooling work that landed cleanly. |
+
+---
+
+## Sprint 2 — 2026-05-27 → 2026-06-10
+
+> **Operating principle**: settlement / review-queue tooling has
+> saturated. Sprint 1 already pushed producer:merger positive; further
+> iteration in that surface is yielding diminishing returns. Sprint 2
+> deliberately moves the load-bearing work back to *product proof*.
+> When in doubt, *do not* spin a new settlement-tooling lane.
+
+### Sprint 2 goals (≤4)
+
+1. **Land #7479 — load-bearing product-proof unblocker.** **Shipped.**
+   #7479 (`fix(ask): isolate explicit provider credentials`) merged as
+   `d4f488de28877157b3e14156277594f9fe147305` and fixed the strict-
+   secrets bug where `is_openrouter_fallback_available()` raised
+   `SecretNotFoundError` before the `required=False` path was reached.
+   That bug had blocked *all* `aragora ask` calls regardless of provider
+   selection. Goal status: complete; no further #7479 action belongs in
+   this sprint unless a regression appears.
+
+2. **Run fresh-agent product-proof sequence end-to-end.** **Operator
+   proof and strict non-operator demo receipt proof passed.** A local
+   post-#7479 operator proof run recorded under
+   `.aragora/proof/post-7479/20260528T035207Z/` shows
+   `aragora validate-env --json`, `aragora doctor --validate`,
+   `aragora ask --agents grok --decision-integrity`, and
+   `aragora receipt verify` all exiting 0 on current main. The receipt
+   `~/.aragora/receipts/9e2e072d-04e7-4968-8475-a2d134b85656_b6f334a28539822d.json`
+   verified successfully. After #7496 (`933c82b183404eaf92e30bbbbf50a0e4afea3dd7`)
+   landed, the strict non-operator/fresh-user demo proof recorded under
+   `.aragora/proof/post-7496-demo/20260528T061018Z/` shows provider keys
+   unset, Secrets Manager disabled, `aragora demo --receipt` exiting 0,
+   and `aragora receipt verify` exiting 0 for receipt `DR-20260528-fac8d2`
+   (`VALID (3/3 checks passed)`). These `.aragora/` proof files are local
+   operator-held evidence, not repo-tracked public artifacts. Goal status:
+   core product capability and outreach-gate clause (b) are satisfied.
+   After the rev-5 B0 graduation, clause (a) is also satisfied by
+   `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`: `truth_success_rate_verified`
+   is 100.0% across five strict verified entries. Clause (c) is satisfied by
+   the unmodified Claude frontier adversarial review on product-scope SDK PR
+   #7513 at exact head `6531ebad2968ae9e2888f08ba237473c41eb0e21`
+   ([comment](https://github.com/synaptent/aragora/pull/7513#issuecomment-4567004963)).
+   All three outreach evidence gates are now satisfied; actually performing
+   outreach remains an operator decision, not an autonomous action.
+
+3. **Operator design-review of #7472 (advisory-review recognizable
+   header pre-approval).** #7472 is the Tier 4 design doc + 18 passing
+   governance tests for plumbing per-family-named headers through the
+   advisory review workflow. Without an operator yes/no on the design
+   doc, the implementation PR cannot be scoped, and every future
+   `## Aragora Code Review` advisory comment continues to resolve to
+   `unknown_model_reviewer`. Goal acceptance: operator posts a design-
+   review decision (approve / reject / request-changes) on #7472.
+   Falsification: the design review reveals a structural problem with
+   the per-family attribution contract itself; that is itself a useful
+   signal and ends the lane cleanly.
+
+4. **Substrate triage — decide which open review-queue /
+   settlement-tooling PRs survive sprint 2.** **Triage target reached;
+   keep pressure on net-closing behavior.** The initial surface had
+   11+ open `codex/...` branches and ~8 PRs (#7480, #7476, #7473,
+   #7448, #7453, #7481, #7484, plus open settle-tooling drafts). After
+   the triage/merge cycle, the remaining governance/tooling surface is
+   small enough for deliberate handling: #7472 remains the advisory-
+   review recognizable-header pre-approval, #7480 remains the Tier 4
+   pre-merge settlement-recording fix, and #7487 shipped as
+   `08bbd426e0` (`fix(review-queue): block cancelled merge quorum
+   checks`). Goal status: the ≤3 open-surface target is met after #7487
+   merged; future process work must still close or supersede an existing
+   open item or directly unblock the remaining product-proof/demo path.
+
+### Sprint 2 anti-goals
+
+- **No new review-queue, settlement, merge-quorum, or steering meta-
+  tooling unless it (a) directly unblocks the remaining non-operator
+  demo/product-proof path, OR (b) explicitly closes or supersedes an
+  existing open PR in the same surface.** This is the explicit anti-
+  substrate guardrail for sprint 2. Any PR in
+  `aragora/cli/commands/review_queue.py`,
+  `scripts/settle_*.py`, `scripts/*steering*.py`, `scripts/*harvest*.py`,
+  `.github/workflows/aragora-merge-quorum.yml`, or
+  `.github/workflows/aragora-review-gate.yml` must, in its PR body,
+  EITHER state which remaining product-proof/demo gate it unblocks — by
+  file:line — OR cite the open PR number it closes/supersedes, or stand
+  down. Rationale: post-saturation process work in this surface is the
+  dominant form of substrate-overbuild this sprint, and the close-or-
+  supersede clause makes the rule self-policing — every new PR must
+  either advance a load-bearing target or net-close the queue, not
+  extend it.
+- **No premature external outreach.** Same gate as sprint 1: outreach
+  is unlocked only when *all* of these are true: (a) B0
+  `truth_success_rate_verified ≥ 50%` (verified-by-PR-link metric, not
+  legacy/proxy), (b) `aragora demo --receipt` round-trips for a non-
+  operator user (satisfied by the local post-#7496 proof under
+  `.aragora/proof/post-7496-demo/20260528T061018Z/`), (c) at least one
+  frontier-model adversarial review of a real PR survives unmodified
+  (satisfied by the Claude frontier adversarial review on product-scope
+  SDK PR #7513 at exact head
+  `6531ebad2968ae9e2888f08ba237473c41eb0e21`). Clauses (a), (b), and
+  (c) are satisfied; external outreach execution still requires an
+  explicit operator decision.
+- **No Tier 4 self-mods without pre-approval discipline.** Unchanged
+  from sprint 1. Any change to `scripts/settle_tier4_pr.py`,
+  `aragora-merge-quorum.yml`, `aragora-review-gate.yml`, or the family
+  recognizer in `aragora/cli/commands/review_queue.py` requires a
+  design doc in `docs/specs/` and failing governance tests in
+  `tests/governance/` *before* the implementation.
+
+### Sprint 2 exit condition
+
+End of sprint 2 = (a) all four goals reach terminal state (shipped,
+satisfied, or honestly falsified) — same discipline as sprint 1 — or
+(b) explicit operator decision to extend, replace, or abandon a goal.
+The sprint does *not* extend by drift, and substrate-tooling work
+that violates the anti-goal does *not* count toward any sprint goal
+even if it lands successfully.
+
+---
+
 ## The Problem
 
 The codebase has grown to **3,296 Python files / 1.48M LOC** across 120+ top-level modules.

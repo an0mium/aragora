@@ -166,6 +166,7 @@ OPENROUTER_BACKED_FAMILIES: frozenset[str] = frozenset({FAMILY_DEEPSEEK, FAMILY_
 # - Mistral La Plateforme pricing (Mistral Large 2411 / 2512)
 _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # Anthropic
+    "claude-opus-4-8": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-opus-4": (5.00, 25.00),

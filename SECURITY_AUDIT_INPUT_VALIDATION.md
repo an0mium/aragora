@@ -1,7 +1,7 @@
 # ARAGORA SECURITY AUDIT REPORT - INPUT VALIDATION ACROSS HANDLER LAYER
 
 **Generated:** 2026-02-02
-**Scope:** `/Users/armand/Development/aragora/aragora/server/handlers` (579 files analyzed)
+**Scope:** `~/aragora/aragora/server/handlers` (579 files analyzed)
 **Analysis Type:** Input validation, injection vulnerability detection, SSRF/XXE/CSRF/command injection assessment
 
 ---
@@ -28,7 +28,7 @@ None found.
 
 ### Issue #1: Missing SSRF Validation for Webhook URLs
 
-**File:** `/Users/armand/Development/aragora/aragora/server/handlers/external_integrations.py`
+**File:** `~/aragora/aragora/server/handlers/external_integrations.py`
 **Lines:** 555-576, 768-792, 910
 **Severity:** HIGH → ✓ FIXED (2026-02-03)
 **Type:** Server-Side Request Forgery (SSRF)
@@ -105,8 +105,8 @@ trigger = zapier.subscribe_trigger(
 #### Evidence of Safe Implementation
 
 The same validation function is **already properly used** in:
-- `/Users/armand/Development/aragora/aragora/server/handlers/debates/batch.py:237`
-- `/Users/armand/Development/aragora/aragora/server/handlers/webhooks.py:617, 723`
+- `~/aragora/aragora/server/handlers/debates/batch.py:237`
+- `~/aragora/aragora/server/handlers/webhooks.py:617, 723`
 
 This demonstrates the team is aware of SSRF protection; the gap is only in `external_integrations.py`.
 
@@ -116,7 +116,7 @@ This demonstrates the team is aware of SSRF protection; the gap is only in `exte
 
 ### Issue #2: Subprocess Parameter Validation Improvements
 
-**File:** `/Users/armand/Development/aragora/aragora/server/handlers/nomic.py`
+**File:** `~/aragora/aragora/server/handlers/nomic.py`
 **Lines:** 716-722 (subprocess call), 687-695 (parameter validation)
 **Severity:** MEDIUM
 **Type:** Command Injection (Low Risk - Currently Safe, but Could Be More Defensive)
@@ -191,7 +191,7 @@ if not is_valid:
 
 ### Issue #3: Code Example in Codebase Audit Handler
 
-**File:** `/Users/armand/Development/aragora/aragora/server/handlers/features/codebase_audit/scanning.py`
+**File:** `~/aragora/aragora/server/handlers/features/codebase_audit/scanning.py`
 **Line:** 473
 **Severity:** MEDIUM (Low Risk - Intentional)
 **Type:** Security Pattern Detection
@@ -215,7 +215,7 @@ This is a **static string** used as a test case to demonstrate the codebase audi
 
 ### 1. File Upload Validation - EXCELLENT ✓
 
-**File:** `/Users/armand/Development/aragora/aragora/server/handlers/features/smart_upload.py`
+**File:** `~/aragora/aragora/server/handlers/features/smart_upload.py`
 
 - ✓ Magic byte signature validation (89 PNG, FFD8FF JPEG, etc.)
 - ✓ Blocks dangerous MIME types (executables, shell scripts)
@@ -229,7 +229,7 @@ This is a **static string** used as a test case to demonstrate the codebase audi
 
 ### 2. SSRF Protection Infrastructure - EXCELLENT ✓
 
-**File:** `/Users/armand/Development/aragora/aragora/server/handlers/utils/url_security.py`
+**File:** `~/aragora/aragora/server/handlers/utils/url_security.py`
 
 Comprehensive SSRF protection with:
 - ✓ Blocks private IP ranges (10.x, 172.16-31.x, 192.168.x)
@@ -272,7 +272,7 @@ self._backend.execute_write(
 
 ### 4. Path Traversal Protection - EXCELLENT ✓
 
-**File:** `/Users/armand/Development/aragora/aragora/server/handlers/codebase/security/storage.py`
+**File:** `~/aragora/aragora/server/handlers/codebase/security/storage.py`
 
 - ✓ `validate_no_path_traversal()` function blocks ".." sequences
 - ✓ `safe_repo_id()` validates against path traversal:
@@ -293,7 +293,7 @@ self._backend.execute_write(
 
 ### 5. Command Injection Protection - GOOD ✓
 
-**File:** `/Users/armand/Development/aragora/aragora/server/handlers/nomic.py`
+**File:** `~/aragora/aragora/server/handlers/nomic.py`
 
 - ✓ Uses `subprocess.Popen()` with list form (not `shell=True`)
 - ✓ Integer parameters strictly validated and bounded
@@ -303,7 +303,7 @@ self._backend.execute_write(
 
 ### 6. Authentication & CSRF Protection - GOOD ✓
 
-**File:** `/Users/armand/Development/aragora/aragora/server/handlers/base.py` (lines 16-39)
+**File:** `~/aragora/aragora/server/handlers/base.py` (lines 16-39)
 
 - ✓ Bearer token authentication via Authorization header
 - ✓ **Inherently immune to CSRF** because:
@@ -393,7 +393,7 @@ Comprehensive scan found **ZERO instances of:**
 ### Priority 1: CRITICAL (Address Immediately)
 
 1. **Add webhook URL validation to external_integrations.py**
-   - File: `/Users/armand/Development/aragora/aragora/server/handlers/external_integrations.py`
+   - File: `~/aragora/aragora/server/handlers/external_integrations.py`
    - Apply: Lines 555-576 (Zapier), 768-792 (Make), 910 (n8n)
    - Use: `validate_webhook_url()` from `utils.url_security`
    - Estimated effort: 30 minutes
@@ -401,7 +401,7 @@ Comprehensive scan found **ZERO instances of:**
 ### Priority 2: MEDIUM (Address in Next Sprint)
 
 1. **Improve subprocess parameter validation in nomic.py**
-   - File: `/Users/armand/Development/aragora/aragora/server/handlers/nomic.py`
+   - File: `~/aragora/aragora/server/handlers/nomic.py`
    - Add explicit type/range validation (see Issue #2)
    - Estimated effort: 1 hour
 

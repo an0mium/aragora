@@ -43,9 +43,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from aragora.swarm.agent_bridge.exceptions import TransportError
-from aragora.swarm.agent_bridge.harnesses import create_transport
-
 try:
     # When run as `python3 scripts/agent_bridge.py`, Python adds scripts/ to
     # sys.path automatically, so this direct import works.  For package-style
@@ -93,6 +90,26 @@ DEFAULT_STALE_TTL_HOURS = 24
 HEARTBEAT_FRESH_SECONDS = 15 * 60
 DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"
+DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS = 5.0
+
+
+class _LazyTransportError(Exception):
+    """Placeholder so tests can monkeypatch create_transport without eager imports."""
+
+
+TransportError: type[Exception] = _LazyTransportError
+create_transport: Any | None = None
+
+
+def _load_transport_runtime() -> tuple[type[Exception], Any]:
+    global TransportError, create_transport
+    if create_transport is None:
+        from aragora.swarm.agent_bridge.exceptions import TransportError as bridge_error
+        from aragora.swarm.agent_bridge.harnesses import create_transport as bridge_transport
+
+        TransportError = bridge_error
+        create_transport = bridge_transport
+    return TransportError, create_transport
 
 
 def _state_root_bridge_dir() -> Path:
@@ -791,42 +808,67 @@ def _active_owner_payload(
 
 
 def _load_broker_run_summaries() -> list[dict[str, Any]]:
-    try:
-        from aragora.swarm.agent_bridge.store import BridgeStore
-    except ImportError:
+    runs_root = CANONICAL_REPO_ROOT / ".aragora" / "agent_bridge" / "runs"
+    if not runs_root.exists():
         return []
-
+    runs: list[dict[str, Any]] = []
     try:
-        store = BridgeStore(CANONICAL_REPO_ROOT)
-        runs = []
-        for run_path in store.runs_root().glob("*/run.json"):
-            run = store.load_run(run_path.parent.name)
+        for run_path in runs_root.glob("*/run.json"):
+            run_payload = json.loads(run_path.read_text(encoding="utf-8"))
+            if not isinstance(run_payload, dict):
+                continue
+            run_id = str(run_payload.get("run_id") or run_path.parent.name)
+            sessions: dict[str, dict[str, Any]] = {}
+            sessions_path = run_path.parent / "sessions.json"
             try:
-                registry = store.load_sessions(run.run_id)
-                sessions = {role: session.to_dict() for role, session in registry.sessions.items()}
-            except (OSError, TypeError, json.JSONDecodeError, KeyError):
+                sessions_payload = json.loads(sessions_path.read_text(encoding="utf-8"))
+                raw_sessions = (
+                    sessions_payload.get("sessions", {})
+                    if isinstance(sessions_payload, dict)
+                    else {}
+                )
+                if isinstance(raw_sessions, dict):
+                    sessions = {
+                        str(role): session
+                        for role, session in raw_sessions.items()
+                        if isinstance(session, dict)
+                    }
+            except (OSError, TypeError, json.JSONDecodeError):
                 sessions = {}
+            participants = run_payload.get("participants", [])
+            if not isinstance(participants, list):
+                participants = []
             runs.append(
                 {
-                    "run_id": run.run_id,
-                    "status": run.status,
-                    "updated_at": run.updated_at,
-                    "next_actor": run.next_actor,
-                    "last_turn_index": run.last_turn_index,
-                    "participants": [participant.to_dict() for participant in run.participants],
+                    "run_id": run_id,
+                    "status": run_payload.get("status"),
+                    "updated_at": run_payload.get("updated_at"),
+                    "next_actor": run_payload.get("next_actor"),
+                    "last_turn_index": run_payload.get("last_turn_index"),
+                    "participants": [
+                        participant for participant in participants if isinstance(participant, dict)
+                    ],
                     "sessions": sessions,
                 }
             )
         runs.sort(key=lambda item: str(item.get("updated_at", "")), reverse=True)
         return runs
-    except (OSError, TypeError, json.JSONDecodeError, KeyError, ValueError):
+    except (OSError, TypeError, json.JSONDecodeError, ValueError):
         return []
+
+
+def _is_current_broker_run(run: dict[str, Any]) -> bool:
+    return run.get("status") in ACTIVE_LANE_STATUSES or run.get("status") == "awaiting_human"
+
+
+def _filter_current_broker_runs(broker_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [run for run in broker_runs if _is_current_broker_run(run)]
 
 
 def _active_broker_session_ids(broker_runs: list[dict[str, Any]]) -> set[str]:
     ids: set[str] = set()
     for run in broker_runs:
-        if run.get("status") not in ACTIVE_LANE_STATUSES and run.get("status") != "awaiting_human":
+        if not _is_current_broker_run(run):
             continue
         sessions = run.get("sessions", {})
         if not isinstance(sessions, dict):
@@ -1453,14 +1495,33 @@ def cmd_exec(args: argparse.Namespace) -> int:
     allowed_roles = set(args.allowed_role or ["reviewer"])
 
     try:
-        transport = create_transport(
+        transport_error, transport_factory = _load_transport_runtime()
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "agent": agent,
+                        "cwd": str(launch_cwd),
+                        "error": str(exc),
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(f"Exec failed: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        transport = transport_factory(
             agent,
             cwd=launch_cwd,
             model=str(args.model).strip() if args.model else None,
             harness_options=harness_options,
         )
         result = transport.launch(prompt, allowed_roles=allowed_roles)
-    except (TransportError, OSError, ValueError) as exc:
+    except (transport_error, OSError, ValueError) as exc:
         if args.json:
             print(
                 json.dumps(
@@ -2045,6 +2106,143 @@ def _collect_agent_heartbeats(
     }
 
 
+def _operator_pending_steering_count(pending_steering: dict[str, Any]) -> int:
+    try:
+        return max(0, int(pending_steering.get("count", 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _operator_queue_depth(summary: dict[str, Any], pending_steering: dict[str, Any]) -> int:
+    """Return the actionable operator-visible work count for the snapshot."""
+
+    return (
+        int(summary.get("active_lanes", 0))
+        + int(summary.get("active_broker_runs", 0))
+        + _operator_pending_steering_count(pending_steering)
+    )
+
+
+def _operator_boss_loop_alive(summary: dict[str, Any]) -> bool:
+    active_roles = set(summary.get("active_process_roles", []))
+    return bool(
+        int(summary.get("active_broker_runs", 0))
+        or int(summary.get("fresh_agent_heartbeats", 0))
+        or "boss_cycle" in active_roles
+    )
+
+
+def _operator_recent_blockers(
+    issues: list[dict[str, str]],
+    pending_steering: dict[str, Any],
+    *,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
+    if _operator_pending_steering_count(pending_steering):
+        for message in pending_steering.get("latest_three", []):
+            if not isinstance(message, dict):
+                continue
+            blockers.append(
+                {
+                    "type": "pending_steering",
+                    "source": "operator_steering",
+                    "detail": str(message.get("subject") or "(pending steering message)"),
+                    "priority": str(message.get("priority") or ""),
+                    "lane_id_hint": message.get("lane_id_hint"),
+                    "pr_hint": message.get("pr_hint"),
+                }
+            )
+
+    for issue in issues:
+        blockers.append(
+            {
+                "type": str(issue.get("type") or "health_issue"),
+                "source": "health",
+                "detail": str(issue.get("detail") or ""),
+                "session": str(issue.get("session") or ""),
+            }
+        )
+    return blockers[:limit]
+
+
+def _coerce_success_rate(raw_rate: Any) -> float | None:
+    if raw_rate is None or isinstance(raw_rate, bool):
+        return None
+    if isinstance(raw_rate, int | float):
+        return float(raw_rate)
+    try:
+        return float(str(raw_rate))
+    except ValueError:
+        return None
+
+
+def _b0_scorecard_timeout_seconds() -> float:
+    raw = os.environ.get("AGENT_BRIDGE_B0_SCORECARD_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS
+    try:
+        timeout = float(raw)
+    except ValueError:
+        return DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS
+    return max(0.1, timeout)
+
+
+def _collect_b0_success_rate(repo_root: Path | None = None) -> float | None:
+    root = repo_root or CANONICAL_REPO_ROOT
+    scorecard_script = root / "scripts" / "measure_b0_scorecard.py"
+    corpus_path = root / "docs" / "benchmarks" / "corpus.json"
+    if not scorecard_script.exists() or not corpus_path.exists():
+        return None
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(scorecard_script),
+                "--json",
+                "--corpus",
+                str(corpus_path),
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=_b0_scorecard_timeout_seconds(),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return _coerce_success_rate(payload.get("no_rescue_success_rate", payload.get("success_rate")))
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close.
+
+    This is an end-of-process CLI guard; stdout is intentionally redirected
+    rather than restored because the downstream reader has already gone away.
+    """
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_text(output: str) -> int:
+    try:
+        print(output)
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+    return 0
+
+
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
@@ -2055,6 +2253,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         include_summaries=not summary_only,
         include_historical=include_historical or not summary_only,
     )
+    if not include_historical:
+        broker_runs = _filter_current_broker_runs(broker_runs)
     sessions = (
         discovered_sessions if include_historical else _filter_current_sessions(discovered_sessions)
     )
@@ -2087,6 +2287,26 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     )
     pending_steering = _collect_pending_steering_messages(steering_recipient)
     agent_heartbeats = _collect_agent_heartbeats()
+    summary: dict[str, Any] = {
+        "total_sessions": len(sessions),
+        "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
+        "live_sessions": sum(1 for s in sessions if _is_current_session(s)),
+        "dead_sessions": sum(1 for s in sessions if s.status == "dead"),
+        "historical_sessions": sum(
+            1 for s in sessions if (s.lifecycle or s.status) in HISTORICAL_SESSION_LIFECYCLES
+        ),
+        "active_broker_runs": sum(
+            1 for run in broker_runs if run.get("status") in {"running", "awaiting_human"}
+        ),
+        "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
+        "conflict_lanes": sum(1 for r in records if r.status == "conflict")
+        + len(computed_conflict_lane_ids),
+        "health_issues": len(issues),
+        "active_processes": int(process_census.get("total", 0)),
+        "active_process_roles": sorted(process_census.get("by_role", {}).keys()),
+        "agent_heartbeats": int(agent_heartbeats.get("count", 0)),
+        "fresh_agent_heartbeats": int(agent_heartbeats.get("fresh_count", 0)),
+    }
 
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
@@ -2098,26 +2318,11 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "health": {"ok": len(issues) == 0, "issues": issues},
         "pending_steering_messages": pending_steering,
         "agent_heartbeats": agent_heartbeats,
-        "summary": {
-            "total_sessions": len(sessions),
-            "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
-            "live_sessions": sum(1 for s in sessions if _is_current_session(s)),
-            "dead_sessions": sum(1 for s in sessions if s.status == "dead"),
-            "historical_sessions": sum(
-                1 for s in sessions if (s.lifecycle or s.status) in HISTORICAL_SESSION_LIFECYCLES
-            ),
-            "active_broker_runs": sum(
-                1 for run in broker_runs if run.get("status") in {"running", "awaiting_human"}
-            ),
-            "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
-            "conflict_lanes": sum(1 for r in records if r.status == "conflict")
-            + len(computed_conflict_lane_ids),
-            "health_issues": len(issues),
-            "active_processes": int(process_census.get("total", 0)),
-            "active_process_roles": sorted(process_census.get("by_role", {}).keys()),
-            "agent_heartbeats": int(agent_heartbeats.get("count", 0)),
-            "fresh_agent_heartbeats": int(agent_heartbeats.get("fresh_count", 0)),
-        },
+        "queue_depth": _operator_queue_depth(summary, pending_steering),
+        "success_rate": _collect_b0_success_rate(),
+        "recent_blockers": _operator_recent_blockers(issues, pending_steering),
+        "boss_loop_alive": _operator_boss_loop_alive(summary),
+        "summary": summary,
     }
     if summary_only:
         snapshot.pop("sessions")
@@ -2126,56 +2331,57 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         snapshot["records_omitted"] = True
 
     if args.json:
-        print(json.dumps(snapshot, indent=2))
-        return 0
+        return _emit_text(json.dumps(snapshot, indent=2))
 
-    summary = snapshot["summary"]
-    print(f"Operator Snapshot @ {snapshot['timestamp']}")
-    print("=" * 80)
-    print(
-        f"Sessions: {summary['live_sessions']} live / {summary['historical_sessions']} historical / {summary['total_sessions']} total"
+    lines: list[str] = [
+        f"Operator Snapshot @ {snapshot['timestamp']}",
+        "=" * 80,
+        f"Sessions: {summary['live_sessions']} live / {summary['historical_sessions']} historical / {summary['total_sessions']} total",
+    ]
+    lines.append(f"Broker:   {summary['active_broker_runs']} active run(s)")
+    lines.append(
+        f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict"
     )
-    print(f"Broker:   {summary['active_broker_runs']} active run(s)")
-    print(f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict")
-    process_roles = ", ".join(summary["active_process_roles"]) or "-"
-    print(f"Processes:{summary['active_processes']} recognized ({process_roles})")
+    active_process_roles = [str(role) for role in summary.get("active_process_roles", [])]
+    process_roles = ", ".join(active_process_roles) or "-"
+    lines.append(f"Processes:{summary['active_processes']} recognized ({process_roles})")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
-    print(f"Health:   {health_status}")
+    lines.append(f"Health:   {health_status}")
 
     if sessions and not summary_only:
-        print(f"\n{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY")
-        print("-" * 110)
+        lines.extend(["", f"{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY"])
+        lines.append("-" * 110)
         for s in sessions:
             branch = s.branch[:26] if s.branch else "-"
             summary_text = (s.summary[:40] + "..." if len(s.summary) > 40 else s.summary) or "-"
-            print(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary_text}")
+            lines.append(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary_text}")
 
     if records and not summary_only:
-        print(f"\n{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION")
-        print("-" * 90)
+        lines.extend(["", f"{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION"])
+        lines.append("-" * 90)
         for r in records:
             next_action = (
                 r.next_action[:40] + "..." if len(r.next_action) > 40 else r.next_action
             ) or "-"
-            print(f"{r.lane_id:<22} {r.owner_session:<24} {r.status:<10} {next_action}")
+            lines.append(f"{r.lane_id:<22} {r.owner_session:<24} {r.status:<10} {next_action}")
 
     process_records = snapshot.get("process_census", {}).get("records", [])
     if process_records and not summary_only:
-        print(f"\n{'PID':>8} {'ELAPSED':>12} {'ROLE':<22} SUMMARY")
-        print("-" * 85)
+        lines.extend(["", f"{'PID':>8} {'ELAPSED':>12} {'ROLE':<22} SUMMARY"])
+        lines.append("-" * 85)
         for process in process_records:
-            print(
+            lines.append(
                 f"{int(process['pid']):>8} {str(process['elapsed']):>12} "
                 f"{str(process['role']):<22} {process['summary']}"
             )
 
     if issues:
-        print(f"\n{'TYPE':<22} {'SESSION':<26} DETAIL")
-        print("-" * 100)
+        lines.extend(["", f"{'TYPE':<22} {'SESSION':<26} DETAIL"])
+        lines.append("-" * 100)
         for issue in issues:
-            print(f"{issue['type']:<22} {issue['session']:<26} {issue['detail']}")
+            lines.append(f"{issue['type']:<22} {issue['session']:<26} {issue['detail']}")
 
-    return 0
+    return _emit_text("\n".join(lines))
 
 
 def cmd_tmux_map(args: argparse.Namespace) -> int:

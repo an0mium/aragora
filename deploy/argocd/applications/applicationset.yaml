@@ -53,7 +53,7 @@ spec:
 
       # Source repository
       source:
-        repoURL: https://github.com/an0mium/aragora
+        repoURL: https://github.com/synaptent/aragora
         targetRevision: main
         path: deploy/helm/aragora
         helm:
@@ -140,7 +140,7 @@ spec:
       project: aragora-staging
 
       source:
-        repoURL: https://github.com/an0mium/aragora
+        repoURL: https://github.com/synaptent/aragora
         targetRevision: '{{branch}}'
         path: deploy/helm/aragora
         helm:

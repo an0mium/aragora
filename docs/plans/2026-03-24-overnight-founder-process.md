@@ -50,7 +50,7 @@ The loop should not spend the night inventing its own backlog.
 ### 1. Start a managed session
 
 ```bash
-cd /Users/armand/Development/aragora
+cd ~/aragora
 ./scripts/codex_session.sh --agent codex --orchestrator boss-loop
 ```
 

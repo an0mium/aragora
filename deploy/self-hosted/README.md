@@ -13,7 +13,7 @@ Deploy Aragora on your own infrastructure in under 15 minutes.
 ### 1. Clone and Configure
 
 ```bash
-git clone https://github.com/an0mium/aragora.git
+git clone https://github.com/synaptent/aragora.git
 cd aragora/deploy/self-hosted
 
 # Quick setup with auto-generated secrets
@@ -57,8 +57,8 @@ Image defaults are pinned to the current release tag (`2.8.0`) in
 upgrading:
 
 ```bash
-ARAGORA_IMAGE=ghcr.io/an0mium/aragora:2.8.0
-ARAGORA_DASHBOARD_IMAGE=ghcr.io/an0mium/aragora-dashboard:2.8.0
+ARAGORA_IMAGE=ghcr.io/synaptent/aragora:2.8.0
+ARAGORA_DASHBOARD_IMAGE=ghcr.io/synaptent/aragora-dashboard:2.8.0
 ```
 
 ### 3. Verify Deployment
@@ -298,5 +298,5 @@ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -node
 ## Support
 
 - Documentation: https://docs.aragora.ai
-- Issues: https://github.com/an0mium/aragora/issues
+- Issues: https://github.com/synaptent/aragora/issues
 - Enterprise Support: enterprise@aragora.ai

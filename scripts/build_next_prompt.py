@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -15,6 +16,7 @@ from typing import Any
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
+DEFAULT_AUTOMATION_OUTBOX_DIR = Path(".aragora") / "automation-outbox"
 ACTIVE_STATUSES = {
     "active",
     "running",
@@ -49,6 +51,15 @@ PENDING_CHECK_STATES = {
     "REQUESTED",
     "WAITING",
 }
+POST_MERGE_LANE_KEYWORDS = ("evidence", "review", "quorum", "settle", "settlement")
+UNRESOLVED_OPERATOR_CHOICE_MARKERS = (
+    "1|2|3",
+    "option <",
+    "I explicitly choose option <",
+    "<let lane",
+    "<terminate",
+    "<supersede",
+)
 
 
 def _read_lanes(path: Path) -> list[dict[str, Any]]:
@@ -144,6 +155,90 @@ def _run_text(command: list[str], command_runner: CommandRunner) -> dict[str, An
     }
 
 
+def _has_unresolved_operator_choice_placeholder(prompt: str) -> bool:
+    normalized = prompt.lower()
+    return any(marker.lower() in normalized for marker in UNRESOLVED_OPERATOR_CHOICE_MARKERS)
+
+
+def _operator_choice_placeholder_guard_prompt(
+    prompt: str,
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+) -> str:
+    """Fail closed when a generated prompt still contains operator-choice placeholders."""
+
+    if not _has_unresolved_operator_choice_placeholder(prompt):
+        return prompt
+    return "\n".join(
+        [
+            f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+            "",
+            "Goal: stop because the generated next prompt still contains an unresolved operator-choice placeholder.",
+            "",
+            "Do not continue lane work from a prompt containing placeholders such as 1|2|3 or angle-bracketed operator actions.",
+            "Rebuild the prompt with one explicit operator action sentence before any evidence, ready, rerun, merge, or lane-retirement work.",
+            "",
+            "Required operator action format:",
+            "I explicitly choose option 1: let the active lane finish.",
+            "I explicitly choose option 2: terminate/retire the active lane and resume at the current live head.",
+            "I explicitly choose option 3: supersede the active lane and authorize this session to continue at the exact live head.",
+            "",
+            "Final report: exact placeholder detected, action withheld, and the corrected explicit operator-action prompt.",
+            CONVERGENCE_SENTENCE,
+            "",
+        ]
+    )
+
+
+def _tmux_pane_packet(command_runner: CommandRunner) -> dict[str, Any]:
+    """Return a compact tmux pane inventory for active-lane coordination."""
+
+    result = _run_text(
+        [
+            "tmux",
+            "list-panes",
+            "-a",
+            "-F",
+            "#{session_name}\t#{window_name}\t#{pane_index}\t#{pane_pid}\t#{pane_current_path}\t#{pane_current_command}",
+        ],
+        command_runner,
+    )
+    panes: list[dict[str, Any]] = []
+    if result["returncode"] != 0:
+        return {
+            "available": False,
+            "returncode": result["returncode"],
+            "stderr": result["stderr"].strip(),
+            "panes": panes,
+        }
+    for raw_line in result["stdout"].splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) == 6:
+            session_name, window_name, pane_index, pane_pid, current_path, command = parts
+            panes.append(
+                {
+                    "tmux_target": f"{session_name}:{window_name}",
+                    "session_name": session_name,
+                    "window_name": window_name,
+                    "pane_index": pane_index,
+                    "pane_pid": pane_pid,
+                    "current_path": current_path,
+                    "command": command,
+                }
+            )
+        else:
+            panes.append({"raw": raw_line})
+    return {
+        "available": True,
+        "returncode": 0,
+        "stderr": "",
+        "panes": panes,
+    }
+
+
 def _root_packet(command_runner: CommandRunner) -> dict[str, Any]:
     status = _run_text(
         ["git", "status", "--short", "--branch", "--untracked-files=all"],
@@ -154,14 +249,329 @@ def _root_packet(command_runner: CommandRunner) -> dict[str, Any]:
     return {"dirty": dirty, "status": lines, "returncode": status["returncode"]}
 
 
-def _disk_outbox_packet(command_runner: CommandRunner) -> dict[str, Any]:
-    df = _run_text(["df", "-h", "."], command_runner)
-    outbox = _run_text(["find", ".aragora/automation-outbox", "-type", "f"], command_runner)
-    files = [line for line in outbox["stdout"].splitlines() if line.strip()]
+def _worktree_entries(repo_root: Path, command_runner: CommandRunner) -> list[dict[str, Any]]:
+    """Return registered git worktrees from ``git worktree list --porcelain``."""
+
+    result = _run_text(["git", "worktree", "list", "--porcelain"], command_runner)
+    if result["returncode"] != 0:
+        raise RuntimeError(result["stderr"].strip() or "git worktree list failed")
+
+    entries: list[dict[str, Any]] = []
+    current: dict[str, Any] = {}
+    for line in result["stdout"].splitlines():
+        if not line:
+            if current:
+                entries.append(current)
+                current = {}
+            continue
+        key, _, value = line.partition(" ")
+        if key == "worktree":
+            if current:
+                entries.append(current)
+            current = {"path": value}
+        elif key == "HEAD":
+            current["listed_head"] = value
+        elif key == "branch":
+            current["branch"] = value
+        elif key == "detached":
+            current["detached"] = True
+        elif key == "bare":
+            current["bare"] = True
+    if current:
+        entries.append(current)
+
+    if not entries:
+        return [{"path": str(repo_root)}]
+    return entries
+
+
+def _worktree_clean_origin_main_status(
+    path: Path,
+    command_runner: CommandRunner,
+) -> dict[str, Any]:
+    """Classify whether ``path`` is clean and exactly at local ``origin/main``."""
+
+    summary: dict[str, Any] = {
+        "path": str(path),
+        "status": "missing",
+        "head": None,
+        "origin_main": None,
+        "status_lines": [],
+        "dirty_paths": [],
+    }
+    if not path.exists():
+        return summary
+
+    status = _run_text(
+        ["git", "-C", str(path), "status", "--short", "--branch", "--untracked-files=all"],
+        command_runner,
+    )
+    if status["returncode"] != 0:
+        summary.update(
+            {
+                "status": "git_error",
+                "error": status["stderr"].strip() or "git status failed",
+                "returncode": status["returncode"],
+            }
+        )
+        return summary
+
+    lines = [line for line in status["stdout"].splitlines() if line.strip()]
+    dirty_paths = [line[3:].strip() for line in lines if not line.startswith("##")]
+    summary["status_lines"] = lines
+    summary["dirty_paths"] = dirty_paths
+
+    revs = _run_text(["git", "-C", str(path), "rev-parse", "HEAD", "origin/main"], command_runner)
+    rev_lines = [line.strip() for line in revs["stdout"].splitlines() if line.strip()]
+    if revs["returncode"] == 0 and len(rev_lines) >= 2:
+        summary["head"] = rev_lines[0]
+        summary["origin_main"] = rev_lines[1]
+
+    if dirty_paths:
+        summary["status"] = "dirty"
+        return summary
+
+    if revs["returncode"] != 0 or len(rev_lines) < 2:
+        summary.update(
+            {
+                "status": "git_error",
+                "error": revs["stderr"].strip() or "git rev-parse HEAD origin/main failed",
+                "returncode": revs["returncode"],
+            }
+        )
+        return summary
+
+    summary["status"] = (
+        "usable_clean_origin_main"
+        if summary["head"] == summary["origin_main"]
+        else "stale_vs_origin_main"
+    )
+    return summary
+
+
+def _same_path(left: Path, right: Path) -> bool:
+    try:
+        return left.resolve() == right.resolve()
+    except OSError:
+        return left == right
+
+
+def _clean_checkout_prompt(
+    pr: int | None,
+    expected_head: str | None,
+    repo_root: Path,
+) -> str:
+    pr_fragment = f"PR #{pr}" if pr is not None else "the live queue"
+    worktree_name = f"aragora-pr{pr}-triage" if pr is not None else "aragora-queue-triage"
+    worktree_path = f"/private/tmp/{worktree_name}"
+    mailbox = (
+        f"python3 scripts/read_operator_steering.py --pr {pr} --no-receipt --json || true"
+        if pr is not None
+        else "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only || true"
+    )
+    head_guard = (
+        f"Stop if {pr_fragment} head drifted from {expected_head}."
+        if expected_head and pr is not None
+        else "Stop if the target head drifts from the operator-specified exact head."
+    )
+    return "\n".join(
+        [
+            f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+            "Do not use or mutate dirty root source files. Do not merge/admin-merge without separate explicit operator authorization.",
+            "",
+            f"Goal: continue {pr_fragment} from a trusted clean current origin/main checkout.",
+            "",
+            "First create a disposable detached triage worktree because no registered clean origin/main checkout is available:",
+            "git fetch origin main",
+            f"git worktree add --detach {worktree_path} origin/main",
+            "",
+            f"Run all repo-native helpers from {worktree_path} only.",
+            "",
+            "Before lane work, check operator-steering mailbox:",
+            mailbox,
+            "",
+            "Re-check clean checkout truth:",
+            f"git -C {worktree_path} status --short --branch --untracked-files=all",
+            f"git -C {worktree_path} rev-parse HEAD origin/main",
+            "",
+            head_guard,
+            "If the clean checkout is not exactly at origin/main or becomes dirty, stop and report the blocker.",
+            "If live gates are stable, continue only within the original bounded queue prompt. Do not mutate unrelated PRs.",
+            CONVERGENCE_SENTENCE,
+        ]
+    )
+
+
+def _selected_clean_checkout_prompt(
+    selected_path: str,
+    *,
+    pr: int | None,
+    expected_head: str | None,
+) -> str:
+    pr_fragment = f"PR #{pr}" if pr is not None else "the live queue"
+    head_guard = (
+        f"Stop if {pr_fragment} head drifted from {expected_head}."
+        if expected_head and pr is not None
+        else "Stop if the target head drifts from the operator-specified exact head."
+    )
+    return "\n".join(
+        [
+            "Before using the selected clean checkout, refresh remote truth and revalidate it:",
+            f"git -C {selected_path} fetch origin main",
+            f"git -C {selected_path} status --short --branch --untracked-files=all",
+            f"git -C {selected_path} rev-parse HEAD origin/main",
+            "",
+            (
+                "Use the selected checkout for repo-native helpers only if it remains clean "
+                "and HEAD equals the refreshed origin/main after fetch."
+            ),
+            "If it is dirty or stale after fetch, do not use it; create a disposable detached triage worktree from origin/main instead.",
+            head_guard,
+        ]
+    )
+
+
+def _clean_checkout_packet(
+    repo_root: Path,
+    command_runner: CommandRunner,
+    *,
+    pr: int | None = None,
+    expected_head: str | None = None,
+) -> dict[str, Any]:
+    root_summary = _worktree_clean_origin_main_status(repo_root, command_runner)
+    candidates: list[dict[str, Any]] = [{**root_summary, "role": "root"}]
+    if root_summary["status"] == "usable_clean_origin_main":
+        return {
+            "status": "root_usable",
+            "selected_path": str(repo_root),
+            "candidates": candidates,
+            "recommended_prompt": None,
+        }
+
+    try:
+        entries = _worktree_entries(repo_root, command_runner)
+    except RuntimeError as exc:
+        return {
+            "status": "error",
+            "selected_path": None,
+            "candidates": candidates,
+            "recommended_prompt": _clean_checkout_prompt(pr, expected_head, repo_root),
+            "error": str(exc),
+        }
+
+    selected_path: str | None = None
+    for entry in entries:
+        entry_path = Path(str(entry.get("path") or ""))
+        if not entry_path or _same_path(entry_path, repo_root):
+            continue
+        summary = _worktree_clean_origin_main_status(entry_path, command_runner)
+        summary.update(
+            {
+                "role": "worktree",
+                "branch": entry.get("branch"),
+                "detached": bool(entry.get("detached")),
+                "listed_head": entry.get("listed_head"),
+            }
+        )
+        candidates.append(summary)
+        if selected_path is None and summary["status"] == "usable_clean_origin_main":
+            selected_path = str(entry_path)
+
+    if selected_path is not None:
+        return {
+            "status": "selected",
+            "selected_path": selected_path,
+            "candidates": candidates,
+            "recommended_prompt": _selected_clean_checkout_prompt(
+                selected_path,
+                pr=pr,
+                expected_head=expected_head,
+            ),
+        }
+
+    return {
+        "status": "needs_disposable_worktree",
+        "selected_path": None,
+        "candidates": candidates,
+        "recommended_prompt": _clean_checkout_prompt(pr, expected_head, repo_root),
+    }
+
+
+def _clean_checkout_uses_disposable_prompt(clean_checkout: dict[str, Any]) -> bool:
+    return clean_checkout.get("status") in {
+        "needs_disposable_worktree",
+        "error",
+    } and bool(clean_checkout.get("recommended_prompt"))
+
+
+def _state_dir(state_root: Path) -> Path:
+    expanded = state_root.expanduser()
+    return expanded if expanded.name == ".aragora" else expanded / ".aragora"
+
+
+def _has_automation_outbox(state_root: Path) -> bool:
+    return (_state_dir(state_root) / "automation-outbox").is_dir()
+
+
+def _automation_state_root(repo_root: Path) -> Path:
+    """Return the checkout or direct .aragora dir backing shared automation state."""
+
+    if _has_automation_outbox(repo_root):
+        return repo_root
+
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(Path(configured).expanduser())
+    candidates.append(Path.home() / "Development" / "aragora")
+
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if _has_automation_outbox(resolved):
+            return resolved
+    return repo_root
+
+
+def _automation_state_default_path(state_root: Path, default_relative: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default_relative.parts[1:])
+    return expanded / default_relative
+
+
+def _count_files(path: Path) -> tuple[int | None, int]:
+    if not path.is_dir():
+        return None, 1
+    try:
+        return sum(1 for item in path.rglob("*") if item.is_file()), 0
+    except OSError:
+        return None, 1
+
+
+def _existing_df_target(path: Path) -> Path:
+    expanded = path.expanduser()
+    for candidate in (expanded, *expanded.parents):
+        if candidate.exists():
+            return candidate
+    return Path(".")
+
+
+def _disk_outbox_packet(
+    command_runner: CommandRunner, repo_root: Path = DEFAULT_REPO_ROOT
+) -> dict[str, Any]:
+    outbox_dir = _automation_state_default_path(
+        _automation_state_root(repo_root), DEFAULT_AUTOMATION_OUTBOX_DIR
+    )
+    df = _run_text(["df", "-h", str(_existing_df_target(outbox_dir))], command_runner)
+    outbox_file_count, outbox_returncode = _count_files(outbox_dir)
     return {
         "df": df["stdout"].splitlines(),
-        "outbox_file_count": len(files) if outbox["returncode"] == 0 else None,
-        "outbox_returncode": outbox["returncode"],
+        "outbox_dir": str(outbox_dir),
+        "outbox_file_count": outbox_file_count,
+        "outbox_returncode": outbox_returncode,
     }
 
 
@@ -236,6 +646,137 @@ def _active_target_lanes(
     return rows
 
 
+def _owner_lookup_packet(
+    *,
+    registry_path: Path,
+    repo_root: Path,
+    lane_id: str | None,
+    pr: int | None,
+    branch: str | None,
+    command_runner: CommandRunner,
+) -> dict[str, Any]:
+    """Run the repo-supported owner lookup for the selected target."""
+
+    selector: list[str]
+    if lane_id:
+        selector = ["--lane-id", lane_id]
+    elif pr is not None:
+        selector = ["--pr", str(pr)]
+    elif branch:
+        selector = ["--branch", branch]
+    else:
+        return {}
+    return _run_json(
+        [
+            "python3",
+            "scripts/identify_lane_owner.py",
+            *selector,
+            "--json",
+            "--registry-path",
+            str(registry_path),
+            "--steering-inbox-root",
+            str(repo_root / ".aragora" / "operator-steering"),
+        ],
+        command_runner,
+    )
+
+
+def _is_stale_mailbox_only_owner(owner_state: Any) -> bool:
+    if not isinstance(owner_state, dict):
+        return False
+    if str(owner_state.get("status") or "") not in ACTIVE_STATUSES:
+        return False
+    live_process = owner_state.get("live_process")
+    live_process_found = (
+        isinstance(live_process, dict) and str(live_process.get("found")).lower() == "true"
+    )
+    if live_process_found:
+        return False
+    harness_confidence = str(owner_state.get("harness_confidence") or "").lower()
+    mailbox_only = "mailbox_only" in harness_confidence
+    no_live_prompt = owner_state.get("live_prompt_dispatchable") is False
+    unread = int(owner_state.get("unread_message_count") or 0)
+    pending = int(owner_state.get("pending_message_count") or 0)
+    never_checked_mailbox = not str(owner_state.get("last_mailbox_check_at") or "").strip()
+    return bool(
+        mailbox_only and no_live_prompt and (unread > 0 or pending > 0 or never_checked_mailbox)
+    )
+
+
+def _contains_target_token(text: str, *, pr: int | None, branch: str | None) -> bool:
+    lowered = text.lower()
+    if pr is not None and str(pr) in lowered:
+        return True
+    return bool(branch and branch.lower() in lowered)
+
+
+def _active_session_matches_target(text: str, *, pr: int | None, branch: str | None) -> bool:
+    if not _contains_target_token(text, pr=pr, branch=branch):
+        return False
+    lowered = text.lower()
+    if branch and branch.lower() in lowered:
+        return True
+    return any(keyword in lowered for keyword in POST_MERGE_LANE_KEYWORDS)
+
+
+def _post_merge_lane_matches(packet: dict[str, Any], *, pr: int | None) -> list[dict[str, Any]]:
+    """Return active lane/session rows for a PR that has already merged."""
+
+    pr_packet = packet.get("pr") if isinstance(packet.get("pr"), dict) else {}
+    branch = str(pr_packet.get("headRefName") or "")
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for lane in packet.get("target_active_lanes") or []:
+        if not isinstance(lane, dict):
+            continue
+        key = f"lane:{lane.get('lane_id') or lane.get('owner_session') or id(lane)}"
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({"source": "agent_bridge_lane", **_sanitize(lane)})
+
+    tmux_panes = packet.get("tmux_panes") if isinstance(packet.get("tmux_panes"), dict) else {}
+    for pane in tmux_panes.get("panes") or []:
+        if not isinstance(pane, dict):
+            continue
+        text = json.dumps(_sanitize(pane), sort_keys=True)
+        if not _active_session_matches_target(text, pr=pr, branch=branch):
+            continue
+        key = f"tmux:{pane.get('tmux_target') or pane.get('raw') or id(pane)}"
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({"source": "tmux_pane", **_sanitize(pane)})
+
+    active_sessions = (
+        packet.get("active_sessions") if isinstance(packet.get("active_sessions"), dict) else {}
+    )
+    for collection_name in (
+        "agent_bridge_lanes",
+        "codex_cli_sessions",
+        "process_census",
+        "overlap_report",
+    ):
+        collection = active_sessions.get(collection_name)
+        if not collection:
+            continue
+        items = collection if isinstance(collection, list) else [collection]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            text = json.dumps(_sanitize(item), sort_keys=True)
+            if not _active_session_matches_target(text, pr=pr, branch=branch):
+                continue
+            key = f"active:{collection_name}:{item.get('lane_id') or item.get('owner_session') or item.get('tmux_target') or id(item)}"
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({"source": collection_name, **_sanitize(item)})
+
+    return rows
+
+
 def _merge_packet_entry(merge_packet: Any, pr: int | None) -> dict[str, Any]:
     if not isinstance(merge_packet, dict):
         return {}
@@ -299,6 +840,193 @@ def _pending_required_checks(checks: Any) -> list[dict[str, str]]:
                 }
             )
     return pending
+
+
+def build_post_merge_lane_coordination_prompt(
+    packet: dict[str, Any],
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    pr: int | None = None,
+) -> str | None:
+    """Build a stop-first prompt when a merged PR still has an active target lane."""
+
+    pr_packet = packet.get("pr") if isinstance(packet.get("pr"), dict) else {}
+    if str(pr_packet.get("state") or "").upper() != "MERGED":
+        return None
+    active_matches = _post_merge_lane_matches(packet, pr=pr)
+    if not active_matches:
+        return None
+
+    target = f"#{pr}" if pr is not None else "the target PR"
+    head = str(pr_packet.get("headRefOid") or "unknown")
+    merge_commit = pr_packet.get("mergeCommit")
+    merge_commit_oid = ""
+    if isinstance(merge_commit, dict):
+        merge_commit_oid = str(merge_commit.get("oid") or "")
+    merged_at = str(pr_packet.get("mergedAt") or "unknown")
+    lane_lines = []
+    for row in active_matches:
+        if row.get("source") == "tmux_pane":
+            label = row.get("tmux_target") or row.get("window_name") or row.get("raw")
+            cwd = row.get("current_path") or ""
+            lane_lines.append(f"- tmux {label} cwd={cwd}".rstrip())
+        else:
+            label = row.get("lane_id") or row.get("owner_session") or row.get("source")
+            lane_lines.append(f"- {row.get('source')}: {label}")
+    lane_summary = "\n".join(lane_lines) or "- active target lane detected"
+
+    return "\n".join(
+        [
+            f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+            "Do not duplicate active lanes. Do not touch unrelated PRs. Do not merge without separate explicit operator authorization. Do not use or mutate dirty root source files.",
+            "",
+            f"Goal: coordinate stale active lane(s) after PR {target} already merged.",
+            f"Live merged PR state to verify, not trust: head={head}, merge_commit={merge_commit_oid or 'unknown'}, merged_at={merged_at}.",
+            "",
+            "Active target lane(s) detected:",
+            lane_summary,
+            "",
+            "First re-check tmux active sessions and gh pr view for the PR. If any listed target lane is still active and no explicit operator action is present, stop and repeat these choices:",
+            "1. Let the active lane finish naturally, then re-ground queue selection from a clean current origin/main checkout.",
+            "2. Explicitly terminate/retire the active lane, then re-ground queue selection from a clean current origin/main checkout.",
+            "3. Explicitly supersede the lane only for post-merge cleanup/receipt inspection; do not collect evidence, rerun checks, mark statuses, or merge.",
+            "",
+            "If the active lane is gone, explicitly retired, or explicitly superseded, use a clean current origin/main checkout only. Re-check git status, agent health, active sessions, work robot, and open PR list before selecting the next highest-ranked unowned non-draft PR that is not policy-excluded.",
+            "Before any new lane work, check mailbox, owner state, gh pr view/checks, full checks, merge-packet, and settle_one_pr.py.",
+            "",
+            "Final report: merged PR state, active-lane coordination result, action taken or withheld, and a fresh recursive best-next prompt that starts with mailbox checking.",
+            CONVERGENCE_SENTENCE,
+            "",
+        ]
+    )
+
+
+def build_stale_owner_steering_prompt(
+    packet: dict[str, Any],
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    pr: int | None = None,
+    branch: str | None = None,
+) -> str | None:
+    """Build a concrete steering prompt for stale mailbox-only owner lanes."""
+
+    owner_state = packet.get("owner_state")
+    if not _is_stale_mailbox_only_owner(owner_state):
+        return None
+    assert isinstance(owner_state, dict)
+    owner_session = str(owner_state.get("owner_session") or "")
+    lane_id = str(owner_state.get("lane_id") or "")
+    if not owner_session or not lane_id:
+        return None
+
+    target = f"PR #{pr}" if pr is not None else branch or "the target branch"
+    owner_branch = str(owner_state.get("branch") or branch or "")
+    heartbeat = str(owner_state.get("last_heartbeat_at") or "unknown")
+    pending_count = int(owner_state.get("pending_message_count") or 0)
+    unread_count = int(owner_state.get("unread_message_count") or 0)
+    receipt_count = int(owner_state.get("read_receipt_count") or 0)
+    body = (
+        f"Please finish or explicitly retire lane {lane_id} for {target}. "
+        "The lane is mailbox-only/stale: no live process is dispatchable, "
+        f"last heartbeat is {heartbeat}, pending_message_count={pending_count}, "
+        f"unread_message_count={unread_count}, read_receipt_count={receipt_count}. "
+        "Do not leave the target blocked by stale ownership; write an outcome receipt "
+        "or update the lane status to completed, released, or superseded."
+    )
+    steering_command = " ".join(
+        [
+            "python3",
+            "scripts/send_operator_steering.py",
+            "--to",
+            shlex.quote(owner_session),
+            "--lane-id",
+            shlex.quote(lane_id),
+            "--priority",
+            "blocking",
+            "--body",
+            shlex.quote(body),
+        ]
+    )
+
+    return "\n".join(
+        [
+            f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+            "Do not duplicate active lanes. Do not touch unrelated PRs. Do not merge without separate explicit operator authorization. Do not use or mutate dirty root source files.",
+            "",
+            f"Goal: steer stale mailbox-only owner lane for {target}; do not supersede it from this session.",
+            "",
+            "Live owner state to verify, not trust:",
+            f"- lane_id: {lane_id}",
+            f"- owner_session: {owner_session}",
+            f"- status: {owner_state.get('status') or 'unknown'}",
+            f"- branch: {owner_branch or 'unknown'}",
+            f"- last_heartbeat_at: {heartbeat}",
+            f"- pending_message_count: {pending_count}",
+            f"- unread_message_count: {unread_count}",
+            f"- read_receipt_count: {receipt_count}",
+            "",
+            "First re-check mailbox and owner state from a clean current origin/main checkout. If the lane still resolves stale/mailbox-only and no explicit retirement/supersession authority is present, send this exact steering command and stop:",
+            steering_command,
+            "",
+            "If the lane has retired or no longer owns the target, re-ground the target from live gh state before doing any further work.",
+            "Final report: mailbox receipt state, owner status, steering command run or withheld, and the next recursive prompt.",
+            CONVERGENCE_SENTENCE,
+            "",
+        ]
+    )
+
+
+def build_post_merge_fast_packet(
+    *,
+    registry_path: Path,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    pr: int,
+    command_runner: CommandRunner | None = None,
+) -> dict[str, Any]:
+    """Build the cheapest packet needed to route merged PR stale-lane prompts."""
+
+    runner = command_runner or _repo_runner(repo_root)
+    pr_packet = _run_json(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(pr),
+            "--json",
+            "number,state,headRefOid,headRefName,url,mergedAt,mergeCommit",
+        ],
+        runner,
+    )
+    pr_packet = pr_packet if isinstance(pr_packet, dict) else {}
+    lanes = _read_lanes(registry_path)
+    branch = str(pr_packet.get("headRefName") or "")
+    target_active_lanes = _active_target_lanes(
+        lanes,
+        lane=_find_lane(lanes, pr=pr, branch=branch),
+        pr=pr,
+        branch=branch or None,
+    )
+    packet: dict[str, Any] = {
+        "pr": pr_packet,
+        "target_active_lanes": target_active_lanes,
+        "active_sessions": {},
+        "tmux_panes": _tmux_pane_packet(runner),
+        "post_merge_lane_coordination": {},
+        "blockers": [],
+        "selected_action": "continue_standard_prompt",
+    }
+    active_post_merge_lanes = _post_merge_lane_matches(packet, pr=pr)
+    post_merge_detected = str(pr_packet.get("state") or "").upper() == "MERGED" and bool(
+        active_post_merge_lanes
+    )
+    packet["post_merge_lane_coordination"] = {
+        "detected": post_merge_detected,
+        "active_lanes": active_post_merge_lanes,
+    }
+    if post_merge_detected:
+        packet["blockers"].append("merged PR still has active target lane")
+        packet["selected_action"] = "post_merge_lane_retirement_coordination"
+    return packet
 
 
 def build_settlement_guard(
@@ -372,17 +1100,35 @@ def build_decision_packet(
     )
     blockers: list[str] = []
     root = _root_packet(runner)
+    clean_checkout = _clean_checkout_packet(
+        repo_root,
+        runner,
+        pr=pr,
+        expected_head=expected_head,
+    )
+    owner_state = _owner_lookup_packet(
+        registry_path=registry_path,
+        repo_root=repo_root,
+        lane_id=lane_id,
+        pr=pr,
+        branch=branch,
+        command_runner=runner,
+    )
     if root["dirty"]:
         blockers.append("dirty root")
     if lane and str(lane.get("status") or "") in ACTIVE_STATUSES:
         blockers.append("active owner exists for target")
     if len(target_active_lanes) > 1:
         blockers.append("multiple active owners exist for target")
+    if _is_stale_mailbox_only_owner(owner_state):
+        blockers.append("stale mailbox-only owner needs steering")
 
     packet: dict[str, Any] = {
         "owner": _sanitize(lane) if lane else None,
+        "owner_state": _sanitize(owner_state),
         "target_active_lanes": target_active_lanes,
         "root": root,
+        "clean_checkout": clean_checkout,
         "owner_map": _active_owner_map(lanes),
         "bridge_health": _run_json(
             ["python3", "scripts/agent_bridge.py", "--json", "health"],
@@ -402,13 +1148,21 @@ def build_decision_packet(
             ],
             runner,
         ),
-        "disk_outbox": _disk_outbox_packet(runner),
+        "tmux_panes": _tmux_pane_packet(runner),
+        "disk_outbox": _disk_outbox_packet(runner, repo_root=repo_root),
         "pr": {},
         "checks": {"required": []},
         "merge_packet": {},
+        "post_merge_lane_coordination": {},
         "blockers": blockers,
-        "selected_action": "read_only_owner_routing"
+        "selected_action": "stale_owner_steering_prompt"
+        if "stale mailbox-only owner needs steering" in blockers
+        else "read_only_owner_routing"
         if "active owner exists for target" in blockers
+        else "queue_prompt_from_clean_checkout"
+        if root["dirty"] and clean_checkout.get("status") == "selected"
+        else "create_clean_checkout_prompt"
+        if root["dirty"] and _clean_checkout_uses_disposable_prompt(clean_checkout)
         else "repair_or_stop"
         if root["dirty"]
         else "queue_prompt",
@@ -422,7 +1176,7 @@ def build_decision_packet(
                 "view",
                 str(pr),
                 "--json",
-                "number,state,isDraft,headRefOid,headRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,url",
+                "number,state,isDraft,headRefOid,headRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,url,mergedAt,mergeCommit",
             ],
             runner,
         )
@@ -452,6 +1206,19 @@ def build_decision_packet(
             ],
             runner,
         )
+    active_post_merge_lanes = _post_merge_lane_matches(packet, pr=pr)
+    post_merge_detected = (
+        isinstance(packet.get("pr"), dict)
+        and str(packet["pr"].get("state") or "").upper() == "MERGED"
+        and bool(active_post_merge_lanes)
+    )
+    packet["post_merge_lane_coordination"] = {
+        "detected": post_merge_detected,
+        "active_lanes": active_post_merge_lanes,
+    }
+    if post_merge_detected:
+        packet["blockers"].append("merged PR still has active target lane")
+        packet["selected_action"] = "post_merge_lane_retirement_coordination"
     packet["settlement_guard"] = build_settlement_guard(packet, pr=pr, expected_head=expected_head)
     return packet
 
@@ -479,10 +1246,19 @@ def build_prompt(
     lane_id: str | None = None,
     pr: int | None = None,
     branch: str | None = None,
+    expected_head: str | None = None,
+    command_runner: CommandRunner | None = None,
 ) -> str:
     lanes = _read_lanes(registry_path)
     lane = _find_lane(lanes, lane_id=lane_id, pr=pr, branch=branch)
     mailbox = _mailbox_command(lane, pr=pr, branch=branch)
+    runner = command_runner or _repo_runner(repo_root)
+    clean_checkout = _clean_checkout_packet(
+        repo_root,
+        runner,
+        pr=pr,
+        expected_head=expected_head,
+    )
     target = (
         f"lane {lane_id}"
         if lane_id
@@ -506,6 +1282,30 @@ def build_prompt(
         "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only || true",
         "python3 scripts/list_active_agent_sessions.py --json --codex-session-scan-limit 120",
     ]
+    if clean_checkout.get("status") == "selected":
+        selected_path = clean_checkout.get("selected_path")
+        lines.extend(
+            [
+                "",
+                "Clean-checkout routing: root is not suitable for repo-native helpers, but a registered clean origin/main checkout is available.",
+                f"Run repo-native helpers only from this checkout: {selected_path}",
+                clean_checkout.get("recommended_prompt") or "",
+            ]
+        )
+    elif _clean_checkout_uses_disposable_prompt(clean_checkout):
+        routing_reason = (
+            "the registered clean-checkout scan failed"
+            if clean_checkout.get("status") == "error"
+            else "no registered clean origin/main checkout is available"
+        )
+        lines.extend(
+            [
+                "",
+                f"Clean-checkout routing: {routing_reason}.",
+                "Use this bounded prompt before running repo-native queue helpers:",
+                clean_checkout.get("recommended_prompt") or "",
+            ]
+        )
     if pr is not None:
         lines.extend(
             [
@@ -637,17 +1437,57 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    prompt = build_prompt(
-        registry_path=args.registry_path,
-        repo_root=args.repo_root,
-        lane_id=args.lane_id,
-        pr=args.pr,
-        branch=args.branch,
-    )
+    prompt: str | None = None
     packet: dict[str, Any] | None = None
     guard_prompt: str | None = None
-    if args.json or args.settlement_guard:
-        packet = build_decision_packet(
+    if args.pr is not None:
+        fast_packet = build_post_merge_fast_packet(
+            registry_path=args.registry_path,
+            repo_root=args.repo_root,
+            pr=args.pr,
+        )
+        post_merge_prompt = build_post_merge_lane_coordination_prompt(
+            fast_packet,
+            repo_root=args.repo_root,
+            pr=args.pr,
+        )
+        if post_merge_prompt:
+            prompt = post_merge_prompt
+            packet = fast_packet
+    if (
+        args.pr is not None
+        or args.branch is not None
+        or args.lane_id is not None
+        or args.json
+        or args.settlement_guard
+    ):
+        if packet is None:
+            packet = build_decision_packet(
+                registry_path=args.registry_path,
+                repo_root=args.repo_root,
+                lane_id=args.lane_id,
+                pr=args.pr,
+                branch=args.branch,
+                expected_head=args.expected_head,
+            )
+            post_merge_prompt = build_post_merge_lane_coordination_prompt(
+                packet,
+                repo_root=args.repo_root,
+                pr=args.pr,
+            )
+            if post_merge_prompt:
+                prompt = post_merge_prompt
+        if prompt is None and packet is not None:
+            stale_owner_prompt = build_stale_owner_steering_prompt(
+                packet,
+                repo_root=args.repo_root,
+                pr=args.pr,
+                branch=args.branch,
+            )
+            if stale_owner_prompt:
+                prompt = stale_owner_prompt
+    if prompt is None:
+        prompt = build_prompt(
             registry_path=args.registry_path,
             repo_root=args.repo_root,
             lane_id=args.lane_id,
@@ -655,6 +1495,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             branch=args.branch,
             expected_head=args.expected_head,
         )
+    prompt = _operator_choice_placeholder_guard_prompt(prompt, repo_root=args.repo_root)
+    if args.json or args.settlement_guard:
+        if packet is None:
+            packet = build_decision_packet(
+                registry_path=args.registry_path,
+                repo_root=args.repo_root,
+                lane_id=args.lane_id,
+                pr=args.pr,
+                branch=args.branch,
+                expected_head=args.expected_head,
+            )
         guard_prompt = build_settlement_guard_prompt(
             packet,
             repo_root=args.repo_root,

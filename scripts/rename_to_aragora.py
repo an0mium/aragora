@@ -149,7 +149,7 @@ def main():
 After running this script, you should:
 
 1. Rename the project directory:
-   mv /Users/armand/Development/aragora /Users/armand/Development/aragora
+   mv /path/to/your-project /path/to/aragora
 
 2. Update git remote (if applicable):
    git remote set-url origin git@github.com:yourusername/aragora.git

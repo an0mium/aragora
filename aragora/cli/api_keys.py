@@ -67,7 +67,15 @@ class ProviderStatus:
 
 @dataclass(frozen=True)
 class ValidationReport:
-    """Validation result for a provider key."""
+    """Validation result for a provider key.
+
+    ``is_valid`` is reserved for keys that have been *verified* against the
+    provider (``remote_status == "valid"``). A key whose live validation could
+    not be performed (``remote_status == "skipped"``) is reported as
+    ``unverified`` — present but not proven usable — and must NOT be rendered as
+    a verified pass. Only ``remote_status in {"invalid", "error"}`` represents a
+    failure.
+    """
 
     provider: str
     display_name: str
@@ -79,6 +87,10 @@ class ValidationReport:
     remote_status: str
     is_valid: bool
     message: str
+    # True when the key is configured and format-valid but live validation could
+    # not actually verify it (e.g. no network probe implemented/available). Such
+    # a key is "present (unverified)", distinct from a verified pass.
+    unverified: bool = False
 
 
 PROVIDERS: dict[str, ProviderSpec] = {
@@ -315,7 +327,12 @@ def validate_provider_key(provider: str) -> ValidationReport:
         )
 
     remote_status, remote_message = _probe_provider_key(spec, value)
-    is_valid = remote_status in {"valid", "skipped"}
+    # Only a successful live probe ("valid") counts as a verified pass. A
+    # "skipped" probe means we could not actually confirm the key — it is
+    # present but unverified, NOT a green pass (was previously conflated with
+    # "valid", letting fabricated keys render as passing checks).
+    is_valid = remote_status == "valid"
+    unverified = remote_status == "skipped"
 
     return ValidationReport(
         provider=spec.name,
@@ -328,6 +345,7 @@ def validate_provider_key(provider: str) -> ValidationReport:
         remote_status=remote_status,
         is_valid=is_valid,
         message=remote_message,
+        unverified=unverified,
     )
 
 
@@ -609,10 +627,14 @@ def _probe_provider_key(spec: ProviderSpec, value: str) -> tuple[str, str]:
             return _status_from_response(response)
 
         if spec.name == "deepseek":
-            return (
-                "skipped",
-                "DeepSeek keys are accepted for CLI/OpenRouter workflows; live validation is not implemented",
+            # DeepSeek exposes an OpenAI-compatible models endpoint; a real
+            # listing call verifies the key instead of rubber-stamping it.
+            response = safe_get(
+                "https://api.deepseek.com/v1/models",
+                headers={"Authorization": f"Bearer {value}"},
+                timeout=10.0,
             )
+            return _status_from_response(response)
 
         return "skipped", "No live validator implemented for this provider"
     except (OSError, ConnectionError, TimeoutError, RuntimeError) as exc:

@@ -75,7 +75,13 @@ def cmd_status(args: argparse.Namespace) -> int:
 
         print("\nUsage this period:")
         print(f"  Debates: {usage.get('debates', 0)} / {limits.get('debates', 'unlimited')}")
-        print(f"  Tokens: {usage.get('tokens', 0):,} / {limits.get('tokens', 'unlimited'):,}")
+        token_limit = limits.get("tokens", "unlimited")
+        # A numeric limit gets thousands separators; an unlimited (string) limit
+        # is rendered verbatim, since ':,' is invalid on strings.
+        token_limit_str = (
+            f"{token_limit:,}" if isinstance(token_limit, (int, float)) else token_limit
+        )
+        print(f"  Tokens: {usage.get('tokens', 0):,} / {token_limit_str}")
         cost = usage.get("cost_usd", "0")
         print(f"  Cost: ${float(cost):.2f}")
 
@@ -319,7 +325,8 @@ def cmd_invoices(args: argparse.Namespace) -> int:
 
         for inv in invoices:
             date = inv.get("date", "")[:10]
-            amount = inv.get("amount", 0) / 100  # cents to dollars
+            # Coalesce an explicit JSON null (not just a missing key) to 0 cents.
+            amount = (inv.get("amount") or 0) / 100  # cents to dollars
             status = inv.get("status", "unknown")
             inv_id = inv.get("id", "")[:20]
             print(f"{date:<12} ${amount:>9.2f} {status:<10} {inv_id}")

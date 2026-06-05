@@ -30,9 +30,13 @@ from scripts.watch_boss_lane import collect_snapshot  # noqa: E402
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_SHIFT_DIRNAME = "proof_first_shift"
 DEFAULT_AUTOMATION_BACKLOG_LIMIT = 12
+DEFAULT_MERGE_LIMIT = 1
+MAX_UNAUTHORIZED_MERGE_LIMIT = 1
 DEFAULT_REFRESH_MINUTES = 120
 DEFAULT_MAX_HOURS = 12.0
 DEFAULT_INTERVAL_SECONDS = 120
+DEFAULT_MIN_ACTION_SECONDS = 5.0
+DEFAULT_TIME_BUDGET_MARGIN_SECONDS = 1.0
 DEFAULT_BOSS_LABEL = "com.aragora.swarm-boss-loop"
 DEFAULT_MERGE_LABEL = "com.aragora.swarm-merge-arbiter"
 DEFAULT_BOSS_PROCESS_PATTERN = r"aragora\.cli\.main swarm boss-loop|run_boss_cycle\.sh"
@@ -131,6 +135,10 @@ RECOVERY_STOP_REASONS = {
 }
 
 
+class ShiftTimeBudgetExceeded(RuntimeError):
+    """Raised when starting another expensive shift action would exceed the timebox."""
+
+
 @dataclass
 class ProofFirstRuntimeState:
     recovery_shift_id: str | None = None
@@ -166,6 +174,81 @@ def _assessment_id() -> str:
 
 def _runtime_state_path(repo_root: Path) -> Path:
     return repo_root / ".aragora" / DEFAULT_SHIFT_DIRNAME / "runtime_state.json"
+
+
+def _remaining_shift_seconds(
+    deadline_monotonic: float | None,
+    *,
+    now: Callable[[], float] | None = None,
+) -> float | None:
+    if deadline_monotonic is None:
+        return None
+    now_fn = now or time.monotonic
+    return float(deadline_monotonic) - float(now_fn())
+
+
+def _time_limit_reason(
+    *,
+    remaining_seconds: float,
+    max_hours: float,
+    action: str,
+    minimum_seconds: float = DEFAULT_MIN_ACTION_SECONDS,
+) -> str:
+    if remaining_seconds <= 0:
+        elapsed_hours = float(max_hours) + abs(float(remaining_seconds)) / 3600.0
+        return f"TimeLimit: {elapsed_hours:.2f}h >= max {float(max_hours):.2f}h"
+    required_seconds = float(minimum_seconds) + DEFAULT_TIME_BUDGET_MARGIN_SECONDS
+    return (
+        f"TimeLimit: insufficient remaining time for {action}: "
+        f"{remaining_seconds:.1f}s left < {required_seconds:.1f}s required "
+        f"(max {float(max_hours):.2f}h)"
+    )
+
+
+def _time_budget_blocker(
+    *,
+    deadline_monotonic: float | None,
+    max_hours: float,
+    action: str,
+    minimum_seconds: float = DEFAULT_MIN_ACTION_SECONDS,
+    now: Callable[[], float] | None = None,
+) -> str:
+    remaining_seconds = _remaining_shift_seconds(deadline_monotonic, now=now)
+    if remaining_seconds is None:
+        return ""
+    if remaining_seconds - DEFAULT_TIME_BUDGET_MARGIN_SECONDS >= float(minimum_seconds):
+        return ""
+    return _time_limit_reason(
+        remaining_seconds=remaining_seconds,
+        max_hours=max_hours,
+        action=action,
+        minimum_seconds=minimum_seconds,
+    )
+
+
+def _bounded_timeout_seconds(
+    default_timeout_seconds: int | float,
+    *,
+    deadline_monotonic: float | None,
+    max_hours: float,
+    action: str,
+    minimum_seconds: float = DEFAULT_MIN_ACTION_SECONDS,
+    now: Callable[[], float] | None = None,
+) -> int:
+    blocker = _time_budget_blocker(
+        deadline_monotonic=deadline_monotonic,
+        max_hours=max_hours,
+        action=action,
+        minimum_seconds=minimum_seconds,
+        now=now,
+    )
+    if blocker:
+        raise ShiftTimeBudgetExceeded(blocker)
+    remaining_seconds = _remaining_shift_seconds(deadline_monotonic, now=now)
+    if remaining_seconds is None:
+        return int(default_timeout_seconds)
+    available_seconds = max(1.0, remaining_seconds - DEFAULT_TIME_BUDGET_MARGIN_SECONDS)
+    return max(1, min(int(default_timeout_seconds), int(available_seconds)))
 
 
 def _default_recovery_attempt_counts() -> dict[str, int]:
@@ -363,7 +446,7 @@ def collect_boss_lane_snapshot(*, repo_root: Path, repo: str) -> dict[str, Any]:
     return collect_snapshot(args)
 
 
-def list_open_prs(*, repo_root: Path, repo: str) -> list[dict[str, Any]]:
+def list_open_prs(*, repo_root: Path, repo: str, timeout: int = 45) -> list[dict[str, Any]]:
     payload = _run_json(
         [
             "gh",
@@ -379,7 +462,7 @@ def list_open_prs(*, repo_root: Path, repo: str) -> list[dict[str, Any]]:
             "number,title,headRefName,isDraft,url",
         ],
         cwd=repo_root,
-        timeout=45,
+        timeout=timeout,
     )
     if not isinstance(payload, list):
         raise RuntimeError("gh pr list returned a non-list payload")
@@ -405,7 +488,12 @@ def has_open_benchmark_publication_pr(prs: list[dict[str, Any]]) -> bool:
     )
 
 
-def latest_benchmark_run(*, repo_root: Path, repo: str) -> dict[str, Any] | None:
+def latest_benchmark_run(
+    *,
+    repo_root: Path,
+    repo: str,
+    timeout: int = 45,
+) -> dict[str, Any] | None:
     payload = _run_json(
         [
             "gh",
@@ -421,7 +509,7 @@ def latest_benchmark_run(*, repo_root: Path, repo: str) -> dict[str, Any] | None
             "databaseId,createdAt,status,conclusion",
         ],
         cwd=repo_root,
-        timeout=45,
+        timeout=timeout,
     )
     if not isinstance(payload, list) or not payload:
         return None
@@ -578,21 +666,21 @@ def build_failure_policy_status(
     return status
 
 
-def fetch_benchmark_failure_log(*, repo_root: Path, run_id: int) -> str:
+def fetch_benchmark_failure_log(*, repo_root: Path, run_id: int, timeout: int = 60) -> str:
     proc = _run(
         ["gh", "run", "view", str(run_id), "--log-failed"],
         cwd=repo_root,
-        timeout=60,
+        timeout=timeout,
     )
     return proc.stdout or proc.stderr or ""
 
 
-def process_running(pattern: str) -> bool:
+def process_running(pattern: str, *, timeout: int = 10) -> bool:
     proc = subprocess.run(
         ["pgrep", "-f", pattern],
         text=True,
         capture_output=True,
-        timeout=10,
+        timeout=timeout,
         check=False,
     )
     return proc.returncode == 0 and bool(proc.stdout.strip())
@@ -903,18 +991,27 @@ def restart_boss_service(
     repo_root: Path,
     repo: str,
     process_pattern: str,
+    start_timeout_seconds: float | None = None,
 ) -> tuple[bool, str, str]:
     initial_status = inspect_launchd_service(DEFAULT_BOSS_LABEL)
     if launchd_service_missing(initial_status):
+        bootstrap_kwargs: dict[str, float] = {}
+        if start_timeout_seconds is not None:
+            bootstrap_kwargs["start_timeout_seconds"] = start_timeout_seconds
         restarted, detail = start_detached_boss_loop(
             repo_root=repo_root,
             repo=repo,
             process_pattern=process_pattern,
+            **bootstrap_kwargs,
         )
         return restarted, detail, "bootstrap_boss_loop_direct"
+    restart_kwargs: dict[str, float] = {}
+    if start_timeout_seconds is not None:
+        restart_kwargs["start_timeout_seconds"] = start_timeout_seconds
     restarted, detail = restart_service_via_launchd(
         label=DEFAULT_BOSS_LABEL,
         process_pattern=process_pattern,
+        **restart_kwargs,
     )
     return restarted, detail, "restart_boss_loop"
 
@@ -944,6 +1041,7 @@ def run_merge_arbiter_apply(
     repo_root: Path,
     repo: str,
     limit: int,
+    timeout: int = 120,
 ) -> dict[str, Any]:
     payload = _run_json(
         [
@@ -959,18 +1057,35 @@ def run_merge_arbiter_apply(
             "--json",
         ],
         cwd=repo_root,
-        timeout=120,
+        timeout=timeout,
     )
     if not isinstance(payload, dict):
         raise RuntimeError("merge arbiter helper returned a non-object payload")
     return payload
 
 
-def trigger_benchmark_workflow(*, repo_root: Path, repo: str) -> None:
+def resolve_merge_limit(
+    *,
+    merge_limit: int,
+    no_merge: bool = False,
+    allow_multiple_merges: bool = False,
+) -> int:
+    """Return the effective merge limit, failing closed on broad merge requests."""
+
+    if merge_limit < 0:
+        raise ValueError("--merge-limit must be >= 0")
+    if no_merge:
+        return 0
+    if merge_limit > MAX_UNAUTHORIZED_MERGE_LIMIT and not allow_multiple_merges:
+        raise ValueError("--merge-limit above 1 is blocked without --allow-multiple-merges")
+    return merge_limit
+
+
+def trigger_benchmark_workflow(*, repo_root: Path, repo: str, timeout: int = 45) -> None:
     proc = _run(
         ["gh", "workflow", "run", "Benchmark Truth Publication", "--repo", repo],
         cwd=repo_root,
-        timeout=45,
+        timeout=timeout,
     )
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh workflow run failed")
@@ -1042,10 +1157,72 @@ def run_shift_cycle(
     benchmark_mode: str,
     automation_backlog_limit: int,
     runtime_state: ProofFirstRuntimeState,
+    merge_limit: int = DEFAULT_MERGE_LIMIT,
+    no_merge: bool = False,
+    dry_run: bool = False,
+    allow_multiple_merges: bool = False,
     ledger: ShiftLedger | None = None,
     max_hours: float = DEFAULT_MAX_HOURS,
+    deadline_monotonic: float | None = None,
 ) -> dict[str, Any]:
-    queue_report = reconcile_proof_first_queue(repo=repo, repo_root=repo_root, apply=True)
+    def require_time_budget(
+        action: str, *, minimum_seconds: float = DEFAULT_MIN_ACTION_SECONDS
+    ) -> None:
+        blocker = _time_budget_blocker(
+            deadline_monotonic=deadline_monotonic,
+            max_hours=max_hours,
+            action=action,
+            minimum_seconds=minimum_seconds,
+        )
+        if blocker:
+            raise ShiftTimeBudgetExceeded(blocker)
+
+    def bounded_timeout(
+        default_timeout_seconds: int,
+        action: str,
+        *,
+        minimum_seconds: float = DEFAULT_MIN_ACTION_SECONDS,
+    ) -> int:
+        return _bounded_timeout_seconds(
+            default_timeout_seconds,
+            deadline_monotonic=deadline_monotonic,
+            max_hours=max_hours,
+            action=action,
+            minimum_seconds=minimum_seconds,
+        )
+
+    def timeout_kwargs(
+        default_timeout_seconds: int,
+        action: str,
+        *,
+        minimum_seconds: float = DEFAULT_MIN_ACTION_SECONDS,
+    ) -> dict[str, int]:
+        if deadline_monotonic is None:
+            return {}
+        return {
+            "timeout": bounded_timeout(
+                default_timeout_seconds,
+                action,
+                minimum_seconds=minimum_seconds,
+            )
+        }
+
+    def start_timeout_kwargs(
+        default_timeout_seconds: int,
+        action: str,
+    ) -> dict[str, int]:
+        if deadline_monotonic is None:
+            return {}
+        return {"start_timeout_seconds": bounded_timeout(default_timeout_seconds, action)}
+
+    require_time_budget("shift_cycle")
+    effective_merge_limit = resolve_merge_limit(
+        merge_limit=merge_limit,
+        no_merge=no_merge or dry_run,
+        allow_multiple_merges=allow_multiple_merges,
+    )
+    require_time_budget("queue_reconciliation")
+    queue_report = reconcile_proof_first_queue(repo=repo, repo_root=repo_root, apply=not dry_run)
     github_status = dict(queue_report.get("github_status") or {})
     queue_removed_count = len(queue_report.get("removed") or [])
     if github_status.get("available") is False:
@@ -1104,15 +1281,23 @@ def run_shift_cycle(
                 repeated_failure_classes=outage_repeated_failure_classes,
             ),
         }
+    require_time_budget("boss_lane_snapshot")
     snapshot = collect_boss_lane_snapshot(repo_root=repo_root, repo=repo)
-    prs = list_open_prs(repo_root=repo_root, repo=repo)
+    prs = list_open_prs(
+        repo_root=repo_root,
+        repo=repo,
+        **timeout_kwargs(45, "list_open_prs"),
+    )
     actionable_prs = actionable_open_prs(prs)
     automation_backlog = count_automation_backlog(actionable_prs)
     open_pr_count = len(actionable_prs)
     draft_pr_count = len(prs) - open_pr_count
     canonical_queue_count = len(queue_report["kept"])
 
-    boss_process_running = process_running(DEFAULT_BOSS_PROCESS_PATTERN)
+    boss_process_running = process_running(
+        DEFAULT_BOSS_PROCESS_PATTERN,
+        **timeout_kwargs(10, "boss_process_check", minimum_seconds=1.0),
+    )
     boss_throttle_healthy = False
     boss_throttle_reason = ""
     if not boss_process_running:
@@ -1123,7 +1308,10 @@ def run_shift_cycle(
     # and respawns after ThrottleInterval. Treat the throttle window as healthy
     # so the shift does not burn its restart budget on a non-failure.
     boss_running = boss_process_running or boss_throttle_healthy
-    merge_running = process_running(DEFAULT_MERGE_PROCESS_PATTERN)
+    merge_running = process_running(
+        DEFAULT_MERGE_PROCESS_PATTERN,
+        **timeout_kwargs(10, "merge_process_check", minimum_seconds=1.0),
+    )
 
     actions: list[str] = []
     # Surface the throttle-helper's verdict in the cycle_tick payload so that
@@ -1136,7 +1324,9 @@ def run_shift_cycle(
     service_failures: list[str] = []
     runtime_failures: list[str] = []
     repeated_failure_classes: list[str] = []
-    if should_restart_service(
+    if dry_run and (not boss_running) and canonical_queue_count > 0:
+        actions.append("boss_restart_skipped:dry_run")
+    elif should_restart_service(
         is_running=boss_running,
         pending_count=canonical_queue_count,
         restart_count=runtime_state.boss_restart_count,
@@ -1145,6 +1335,7 @@ def run_shift_cycle(
             repo_root=repo_root,
             repo=repo,
             process_pattern=DEFAULT_BOSS_PROCESS_PATTERN,
+            **start_timeout_kwargs(int(DEFAULT_LAUNCHD_START_TIMEOUT_SECONDS), "restart_boss_loop"),
         )
         runtime_state.boss_restart_count += 1
         record_recovery_attempt(
@@ -1171,7 +1362,10 @@ def run_shift_cycle(
         repeated_failure_classes.append(BOSS_RESTART_FAILURE)
         service_failures.append(RECOVERY_STOP_REASONS[BOSS_RESTART_FAILURE])
 
-    if should_restart_service(
+    if (no_merge or dry_run) and (not merge_running) and open_pr_count > 0:
+        reason = "dry_run" if dry_run else "no_merge"
+        actions.append(f"merge_arbiter_restart_skipped:{reason}")
+    elif should_restart_service(
         is_running=merge_running,
         pending_count=open_pr_count,
         restart_count=runtime_state.merge_restart_count,
@@ -1179,6 +1373,10 @@ def run_shift_cycle(
         restarted, detail = restart_service_via_launchd(
             label=DEFAULT_MERGE_LABEL,
             process_pattern=DEFAULT_MERGE_PROCESS_PATTERN,
+            **start_timeout_kwargs(
+                int(DEFAULT_LAUNCHD_START_TIMEOUT_SECONDS),
+                "restart_merge_arbiter",
+            ),
         )
         runtime_state.merge_restart_count += 1
         record_recovery_attempt(
@@ -1205,11 +1403,17 @@ def run_shift_cycle(
         repeated_failure_classes.append(MERGE_RESTART_FAILURE)
         service_failures.append(RECOVERY_STOP_REASONS[MERGE_RESTART_FAILURE])
 
-    merge_report = run_merge_arbiter_apply(
-        repo_root=repo_root,
-        repo=repo,
-        limit=automation_backlog_limit,
-    )
+    if effective_merge_limit == 0:
+        reason = "dry_run" if dry_run else "no_merge"
+        merge_report = {"merged": [], "skipped": True, "reason": reason}
+        actions.append(f"merge_arbiter_apply_skipped:{reason}")
+    else:
+        merge_report = run_merge_arbiter_apply(
+            repo_root=repo_root,
+            repo=repo,
+            limit=effective_merge_limit,
+            **timeout_kwargs(120, "merge_arbiter_apply"),
+        )
     merged_numbers = list(merge_report.get("merged") or [])
     if merged_numbers:
         actions.append(f"merged_prs:{','.join(str(number) for number in merged_numbers)}")
@@ -1217,7 +1421,12 @@ def run_shift_cycle(
             for num in merged_numbers:
                 ledger.record_pr_merged(pr_number=int(num))
 
-    latest_run = latest_benchmark_run(repo_root=repo_root, repo=repo)
+    latest_run = latest_benchmark_run(
+        repo_root=repo_root,
+        repo=repo,
+        **timeout_kwargs(45, "latest_benchmark_run"),
+    )
+    require_time_budget("benchmark_truth_state_drift")
     benchmark_truth_drift = benchmark_truth_state_drift(repo_root=repo_root, repo=repo)
     latest_failure_class = ""
     latest_failure_detail = ""
@@ -1233,7 +1442,11 @@ def run_shift_cycle(
                     created_at=str(latest_run.get("createdAt", "")),
                 )
             if conclusion == "failure":
-                failure_log = fetch_benchmark_failure_log(repo_root=repo_root, run_id=run_id)
+                failure_log = fetch_benchmark_failure_log(
+                    repo_root=repo_root,
+                    run_id=run_id,
+                    **timeout_kwargs(60, "fetch_benchmark_failure_log"),
+                )
                 failure_class = classify_benchmark_failure_log(failure_log)
                 if failure_class == "auth_failure":
                     runtime_state.auth_failure_count += 1
@@ -1296,13 +1509,19 @@ def run_shift_cycle(
     )
     stop_reason = ""
     if should_trigger:
-        if trigger_reason == "retry_after_failed_run" and latest_failure_class:
+        if dry_run:
+            actions.append(f"trigger_benchmark_skipped:dry_run:{trigger_reason}")
+        elif trigger_reason == "retry_after_failed_run" and latest_failure_class:
             if recovery_budget_remaining(runtime_state, latest_failure_class) <= 0:
                 repeated_failure_classes.append(latest_failure_class)
                 stop_reason = RECOVERY_STOP_REASONS[latest_failure_class]
             else:
                 try:
-                    trigger_benchmark_workflow(repo_root=repo_root, repo=repo)
+                    trigger_benchmark_workflow(
+                        repo_root=repo_root,
+                        repo=repo,
+                        **timeout_kwargs(45, "trigger_benchmark_workflow"),
+                    )
                 except RuntimeError as exc:
                     detail = str(exc).strip() or "benchmark workflow trigger failed"
                     runtime_state.runtime_failure_count += 1
@@ -1336,7 +1555,11 @@ def run_shift_cycle(
                         runtime_state.last_triggered_benchmark_run_id = -1
         else:
             try:
-                trigger_benchmark_workflow(repo_root=repo_root, repo=repo)
+                trigger_benchmark_workflow(
+                    repo_root=repo_root,
+                    repo=repo,
+                    **timeout_kwargs(45, "trigger_benchmark_workflow"),
+                )
             except RuntimeError as exc:
                 detail = str(exc).strip() or "benchmark workflow trigger failed"
                 runtime_state.runtime_failure_count += 1
@@ -1408,6 +1631,9 @@ def run_shift_cycle(
         "automation_backlog": automation_backlog,
         "latest_benchmark_run": latest_run,
         "benchmark_truth_state_drift": benchmark_truth_drift,
+        "merge_report": merge_report,
+        "merge_limit": effective_merge_limit,
+        "dry_run": dry_run,
         "actions": actions,
         "stop_reason": stop_reason,
         "failure_policy": failure_policy,
@@ -1448,10 +1674,12 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
     ledger = ShiftLedger(path=repo_root / ".aragora" / DEFAULT_SHIFT_DIRNAME / "shift_ledger.jsonl")
     shift_id = _assessment_id()
     shift_start_time = time.monotonic()
+    max_hours = float(args.max_hours)
+    deadline_monotonic = shift_start_time + max_hours * 3600.0
 
     controller = ShiftController(
         ShiftConfig(
-            max_duration_hours=float(args.max_hours),
+            max_duration_hours=max_hours,
             refresh_interval_minutes=float(args.refresh_minutes),
             budget_limit_usd=9999.0,
             max_cycles=10000,
@@ -1482,7 +1710,28 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
 
     cycle_reports: list[dict[str, Any]] = []
     cycle_count = 0
+
+    def stop_if_time_budget_exhausted(action: str) -> bool:
+        deadline_reason = _time_budget_blocker(
+            deadline_monotonic=deadline_monotonic,
+            max_hours=max_hours,
+            action=action,
+        )
+        if not deadline_reason:
+            return False
+        controller.complete_shift(deadline_reason)
+        ledger.record_shift_stop(
+            shift_id=shift_id,
+            reason=deadline_reason,
+            cycles=cycle_count,
+            duration_seconds=time.monotonic() - shift_start_time,
+        )
+        return True
+
     while True:
+        if stop_if_time_budget_exhausted("shift_cycle"):
+            break
+
         should_stop, reason = controller.check_should_stop()
         if should_stop:
             if reason.startswith("RefreshDue"):
@@ -1498,21 +1747,41 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
                 )
                 break
 
-        report = run_shift_cycle(
-            repo_root=repo_root,
-            repo=args.repo,
-            benchmark_mode=args.benchmark_mode,
-            automation_backlog_limit=int(args.automation_backlog_limit),
-            runtime_state=runtime_state,
-            ledger=ledger,
-            max_hours=float(args.max_hours),
-        )
+        try:
+            report = run_shift_cycle(
+                repo_root=repo_root,
+                repo=args.repo,
+                benchmark_mode=args.benchmark_mode,
+                automation_backlog_limit=int(args.automation_backlog_limit),
+                merge_limit=int(args.merge_limit),
+                no_merge=bool(args.no_merge),
+                dry_run=bool(args.dry_run),
+                allow_multiple_merges=bool(args.allow_multiple_merges),
+                runtime_state=runtime_state,
+                ledger=ledger,
+                max_hours=max_hours,
+                deadline_monotonic=deadline_monotonic,
+            )
+        except ShiftTimeBudgetExceeded as exc:
+            reason = str(exc)
+            controller.complete_shift(reason)
+            ledger.record_shift_stop(
+                shift_id=shift_id,
+                reason=reason,
+                cycles=cycle_count,
+                duration_seconds=time.monotonic() - shift_start_time,
+            )
+            break
         cycle_reports.append(report)
         cycle_count += 1
         save_runtime_state(runtime_state_path, runtime_state)
 
+        if stop_if_time_budget_exhausted("controller_cycle"):
+            break
         objective = build_cycle_objective(report)
         await controller.run_cycle(objective)
+        if stop_if_time_budget_exhausted("post_cycle_wait"):
+            break
         if report["stop_reason"]:
             controller.complete_shift(str(report["stop_reason"]))
             ledger.record_shift_stop(
@@ -1531,13 +1800,17 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
                 duration_seconds=time.monotonic() - shift_start_time,
             )
             break
-        await asyncio.sleep(float(args.interval_seconds))
+        sleep_seconds = float(args.interval_seconds)
+        remaining_seconds = _remaining_shift_seconds(deadline_monotonic)
+        if remaining_seconds is not None:
+            sleep_seconds = min(sleep_seconds, max(0.0, remaining_seconds))
+        await asyncio.sleep(sleep_seconds)
 
     summary = {
         "shift": controller.get_progress_summary(),
         "runtime_state": asdict(runtime_state),
         "cycles": cycle_reports,
-        "ledger_status": ledger.get_status_summary(max_age_hours=float(args.max_hours)),
+        "ledger_status": ledger.get_status_summary(max_age_hours=max_hours),
         "green_shift_evaluation": (
             cycle_reports[-1]["green_shift_evaluation"]
             if cycle_reports
@@ -1550,7 +1823,7 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
                 latest_run=None,
                 benchmark_drift_open=True,
                 runtime_state=runtime_state,
-                max_age_hours=float(args.max_hours),
+                max_age_hours=max_hours,
                 stop_reason=str(controller.get_progress_summary().get("stop_reason") or ""),
                 repeated_failure_classes=[],
             )
@@ -1574,6 +1847,36 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_AUTOMATION_BACKLOG_LIMIT,
     )
+    parser.add_argument(
+        "--merge-limit",
+        type=int,
+        default=DEFAULT_MERGE_LIMIT,
+        help=(
+            "Maximum PRs this shift may merge per cycle. Defaults to 1 and fails "
+            "closed above 1 unless --allow-multiple-merges is explicitly set."
+        ),
+    )
+    parser.add_argument(
+        "--no-merge",
+        action="store_true",
+        help="Observer mode: skip merge arbiter restarts and merge apply calls.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Observer mode: do not apply queue reconciliation, restart services, "
+            "trigger benchmark workflows, or merge PRs."
+        ),
+    )
+    parser.add_argument(
+        "--allow-multiple-merges",
+        action="store_true",
+        help=(
+            "Explicitly allow --merge-limit above 1. Intended only for future "
+            "operator-authorized broad-drain runs."
+        ),
+    )
     parser.add_argument("--interval-seconds", type=float, default=DEFAULT_INTERVAL_SECONDS)
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--json", action="store_true")
@@ -1582,6 +1885,15 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    try:
+        resolve_merge_limit(
+            merge_limit=int(args.merge_limit),
+            no_merge=bool(args.no_merge) or bool(args.dry_run),
+            allow_multiple_merges=bool(args.allow_multiple_merges),
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     summary = asyncio.run(_run_shift(args))
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))

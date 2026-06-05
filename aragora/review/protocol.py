@@ -100,8 +100,8 @@ class RoleFinding:
     """
 
     role: ReviewRole
-    agent: str  # human-readable agent identifier (e.g. "claude-opus-4-7")
-    model: str  # pinned model id (e.g. "claude-opus-4-7-1m")
+    agent: str  # human-readable agent identifier (e.g. "claude-opus-4-8")
+    model: str  # pinned model id (e.g. "claude-opus-4-8-1m")
     confidence: float  # 0.0 to 1.0
     finding_text: str
     latency_ms: int = 0

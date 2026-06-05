@@ -438,7 +438,7 @@ git commit -m "feat: make contract-guided synthesis the default path"
 **Step 1: Run 5 dogfood benchmark debates**
 
 ```bash
-cd /Users/armand/Development/aragora
+cd ~/aragora
 for i in 1 2 3 4 5; do
     echo "=== Run $i ==="
     python -m aragora.cli.main debate \
@@ -503,7 +503,7 @@ Both should be "yes". If not, source `.env`.
 **Step 2: Run staged Nomic Loop with a scoped goal**
 
 ```bash
-cd /Users/armand/Development/aragora
+cd ~/aragora
 python scripts/self_develop.py \
     --goal "Add expanded placeholder detection patterns to aragora/debate/output_quality.py to catch LLM hedging like 'as needed' and 'to be determined'" \
     --dry-run \

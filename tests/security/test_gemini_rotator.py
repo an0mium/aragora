@@ -103,23 +103,44 @@ def test_get_project_id_from_google_cloud_project(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_update_local_env(tmp_path, monkeypatch):
-    """Updates .env file with new key value."""
+def test_update_local_env_skips_dotenv_by_default(tmp_path, monkeypatch):
+    """Rotation does not write rotated keys back into .env by default."""
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "OTHER_KEY=foo\nGEMINI_API_KEY=old-key-value\nGOOGLE_API_KEY=old-key-value\n"
+    )
+    original_content = env_file.read_text()
+
+    monkeypatch.setattr(os, "getcwd", lambda: str(tmp_path))
+    monkeypatch.delenv("ARAGORA_ROTATION_UPDATE_LOCAL_ENV", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+
+    assert _update_local_env("GEMINI_API_KEY", "new-key-value") is False
+
+    assert env_file.read_text() == original_content
+    assert os.environ.get("GEMINI_API_KEY") is None
+    assert os.environ.get("GOOGLE_API_KEY") is None
+
+
+def test_update_local_env_opt_in_legacy_mirror(tmp_path, monkeypatch):
+    """Legacy local .env mirroring is available only via explicit opt-in."""
     env_file = tmp_path / ".env"
     env_file.write_text(
         "OTHER_KEY=foo\nGEMINI_API_KEY=old-key-value\nGOOGLE_API_KEY=old-key-value\n"
     )
 
-    # Patch to find our test .env
     monkeypatch.setattr(os, "getcwd", lambda: str(tmp_path))
+    monkeypatch.setenv("ARAGORA_ROTATION_UPDATE_LOCAL_ENV", "true")
 
-    _update_local_env("GEMINI_API_KEY", "new-key-value")
-
+    assert _update_local_env("GEMINI_API_KEY", "new-key-value") is True
     content = env_file.read_text()
     assert "GEMINI_API_KEY=new-key-value" in content
     assert "GOOGLE_API_KEY=new-key-value" in content
     assert "OTHER_KEY=foo" in content
     assert "old-key-value" not in content
+    assert os.environ["GEMINI_API_KEY"] == "new-key-value"
+    assert os.environ["GOOGLE_API_KEY"] == "new-key-value"
 
 
 # ---------------------------------------------------------------------------

@@ -33,7 +33,7 @@
     "blocked_not_dispatch_bounded": 7
   },
   "generated_at": "2026-04-22T11:33:32Z",
-  "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
+  "metrics_file": "~/aragora/.aragora/overnight/boss_metrics.jsonl",
   "previous_artifact": {
     "generated_at": "2026-04-17T14:33:09Z",
     "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/scorecard-20260417T143309Z.json"

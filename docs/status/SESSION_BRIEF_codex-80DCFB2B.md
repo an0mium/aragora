@@ -8,7 +8,7 @@ Outcome: Published protected automation outbox reconciliation branch as draft PR
 
 Summary:
 - Claimed P72 for `codex/reconcile-outbox-target-filter-20260519`.
-- Reused the existing isolated worktree at `/Users/armand/.codex/worktrees/c801/aragora`.
+- Reused the existing isolated worktree at `~/.codex/worktrees/c801/aragora`.
 - Validated the branch, repaired one branch-local mypy-baseline blocker, pushed to origin, opened draft PR #7362, and posted a self-review comment.
 - Did not touch labels, issues, cleanup worktrees, branch pruning, unrelated PRs, or active #7292/Q17 work.
 

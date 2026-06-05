@@ -133,7 +133,7 @@ Acquired at Phase 0 via `scripts/claim_active_agent_lane.py`:
   "source": "droid",
   "status": "active",
   "updated_at": "2026-05-18T19:29:47Z",
-  "worktree": "/Users/armand/Development/aragora/.worktrees/codex-auto/droid-20260518-192921-1465c7fa"
+  "worktree": "<repo-root>/.worktrees/codex-auto/droid-20260518-192921-1465c7fa"
 }
 ```
 

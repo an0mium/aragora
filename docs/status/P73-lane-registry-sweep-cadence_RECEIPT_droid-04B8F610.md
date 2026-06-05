@@ -24,7 +24,7 @@ registry (4 active rows, 0 stale).
 ```
 $ make sweep-stale-lanes
 python3 scripts/sweep_stale_lane_claims.py --dry-run
-registry=/Users/armand/.aragora/agent-bridge/lanes.json total=63 active=4 stale=0 applied=False
+registry=~/.aragora/agent-bridge/lanes.json total=63 active=4 stale=0 applied=False
 EXIT=0
 ```
 

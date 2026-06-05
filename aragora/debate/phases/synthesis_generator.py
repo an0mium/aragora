@@ -17,6 +17,7 @@ import os
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
+from aragora.debate.phases._phase_invariant import require_phase_result
 from aragora.events.context import streaming_task_context
 
 if TYPE_CHECKING:
@@ -81,23 +82,32 @@ class SynthesisGenerator:
         Returns:
             bool: True if synthesis was successfully generated and emitted
         """
+        result = require_phase_result(ctx)
         # If no proposals, emit a minimal synthesis to avoid silent endings
         if not ctx.proposals:
             logger.warning("synthesis_fallback reason=no_proposals")
-            synthesis = (
+            fallback_synthesis = (
                 "## Debate Summary\n\n"
                 "No proposals were generated. One or more agents may have failed to respond."
             )
-            ctx.result.synthesis = synthesis
+            result.synthesis = fallback_synthesis
             # Synthesis is the definitive final answer — always overwrite.
-            ctx.result.final_answer = synthesis
-            self._emit_synthesis_events(ctx, synthesis, "fallback")
+            result.final_answer = fallback_synthesis
+            self._emit_synthesis_events(ctx, fallback_synthesis, "fallback")
+            self._generate_export_links(ctx)
+            return True
+
+        if self._should_preserve_single_agent_answer(ctx):
+            direct_answer = next(iter(ctx.proposals.values()))
+            result.synthesis = direct_answer
+            result.final_answer = direct_answer
+            self._emit_synthesis_events(ctx, direct_answer, "single_agent_direct")
             self._generate_export_links(ctx)
             return True
 
         logger.info("synthesis_generation_start")
 
-        synthesis = None
+        synthesis: str | None = None
         synthesis_source = "opus"
 
         # In offline/demo mode (or when explicitly disabled), avoid attempting
@@ -109,11 +119,16 @@ class SynthesisGenerator:
             synthesis = self._combine_proposals_as_synthesis(ctx)
             synthesis_source = "combined"
 
+        if not synthesis and not self._anthropic_synthesis_available():
+            logger.debug("synthesis_llm_skipped reason=anthropic_api_key_unavailable")
+            synthesis = self._combine_proposals_as_synthesis(ctx)
+            synthesis_source = "combined"
+
         if synthesis:
             # Store synthesis in result
-            ctx.result.synthesis = synthesis
+            result.synthesis = synthesis
             # Synthesis is the definitive final answer — always overwrite.
-            ctx.result.final_answer = synthesis
+            result.final_answer = synthesis
 
             # Emit explicit synthesis event (guaranteed delivery)
             self._emit_synthesis_events(ctx, synthesis, synthesis_source)
@@ -130,7 +145,7 @@ class SynthesisGenerator:
             # Create dedicated synthesizer (always Opus 4.5)
             synthesizer = AnthropicAPIAgent(
                 name="synthesis-agent",
-                model="claude-opus-4-7",
+                model="claude-opus-4-8",
             )
 
             # Build synthesis prompt — split into system (format) and user (content)
@@ -140,14 +155,14 @@ class SynthesisGenerator:
             # Generate synthesis with timeout (60s to fit within phase budget)
             # Pass user_prompt WITHOUT context_messages to avoid essay-pattern priming
             with streaming_task_context("synthesis-agent:opus_synthesis"):
-                synthesis = await asyncio.wait_for(
+                opus_synthesis = await asyncio.wait_for(
                     synthesizer.generate(user_prompt),
                     timeout=60.0,
                 )
             synthesis = await self._ensure_complete_synthesis(
                 ctx=ctx,
                 synthesizer=synthesizer,
-                synthesis=synthesis,
+                synthesis=opus_synthesis,
                 source="opus",
             )
             logger.info("synthesis_generated_opus chars=%s", len(synthesis))
@@ -169,19 +184,19 @@ class SynthesisGenerator:
 
                 synthesizer = AnthropicAPIAgent(
                     name="synthesis-agent-fallback",
-                    model="claude-opus-4-7",
+                    model="claude-opus-4-8",
                 )
                 system_prompt, user_prompt = self._build_synthesis_prompt_parts(ctx)
                 synthesizer.system_prompt = system_prompt
                 with streaming_task_context("synthesis-agent-fallback:sonnet_synthesis"):
-                    synthesis = await asyncio.wait_for(
+                    sonnet_synthesis = await asyncio.wait_for(
                         synthesizer.generate(user_prompt),
                         timeout=30.0,
                     )
                 synthesis = await self._ensure_complete_synthesis(
                     ctx=ctx,
                     synthesizer=synthesizer,
-                    synthesis=synthesis,
+                    synthesis=sonnet_synthesis,
                     source="sonnet",
                 )
                 logger.info("synthesis_generated_sonnet chars=%s", len(synthesis))
@@ -206,10 +221,10 @@ class SynthesisGenerator:
                 )
 
         # Store synthesis in result
-        ctx.result.synthesis = synthesis
+        result.synthesis = synthesis
         # Only set final_answer if the consensus phase didn't already set one
-        if not ctx.result.final_answer:
-            ctx.result.final_answer = synthesis
+        if not result.final_answer:
+            result.final_answer = synthesis
 
         # Emit explicit synthesis event (guaranteed delivery)
         self._emit_synthesis_events(ctx, synthesis, synthesis_source)
@@ -218,6 +233,27 @@ class SynthesisGenerator:
         self._generate_export_links(ctx)
 
         return True
+
+    def _should_preserve_single_agent_answer(self, ctx: DebateContext) -> bool:
+        if len(ctx.proposals) != 1:
+            return False
+        if getattr(self.protocol, "single_agent_direct_answer", False) is True:
+            return True
+
+        consensus = getattr(self.protocol, "consensus", None)
+        rounds = getattr(self.protocol, "rounds", None)
+        return consensus == "none" and isinstance(rounds, int) and rounds <= 1
+
+    @staticmethod
+    def _anthropic_synthesis_available() -> bool:
+        """Return whether optional Anthropic-backed synthesis can run."""
+        try:
+            from aragora.config import get_api_key
+
+            return bool(get_api_key("ANTHROPIC_API_KEY", required=False))
+        except Exception as exc:  # noqa: BLE001 - optional synthesis probe
+            logger.debug("synthesis_key_probe_failed error=%s", exc)
+            return False
 
     def _is_likely_truncated(self, synthesis: str) -> bool:
         """Heuristic check for truncated/incomplete synthesis output."""

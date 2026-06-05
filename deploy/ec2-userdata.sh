@@ -27,7 +27,7 @@ useradd -m -s /bin/bash aragora || true
 
 # Clone aragora repository
 cd /home/aragora
-sudo -u aragora git clone https://github.com/an0mium/aragora.git || (cd aragora && sudo -u aragora git pull)
+sudo -u aragora git clone https://github.com/synaptent/aragora.git || (cd aragora && sudo -u aragora git pull)
 
 # Install Python dependencies
 cd /home/aragora/aragora

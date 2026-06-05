@@ -7,7 +7,8 @@ import argparse
 import gc
 import inspect
 import json
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -21,6 +22,20 @@ def _stub_cmd_ask_global_side_effects(request):
     async def _fake_shutdown() -> None:
         await asyncio.sleep(0)
 
+    provider_report = SimpleNamespace(
+        any_configured=True,
+        configured_providers=("anthropic", "openai", "gemini", "xai", "openrouter"),
+    )
+    provider_readiness_patches = (
+        patch(
+            "aragora.config.provider_readiness.discover_provider_credentials",
+            return_value=provider_report,
+        ),
+        patch(
+            "aragora.config.provider_readiness.agent_type_has_configured_provider",
+            return_value=True,
+        ),
+    )
     cleanup_sensitive_tests = {
         "test_cmd_ask_demo_forces_local_offline",
         # Demo quality finalization can leave selector sockets pending on
@@ -39,18 +54,24 @@ def _stub_cmd_ask_global_side_effects(request):
 
     receipt_patch = patch.object(debate_cmd, "_persist_debate_receipt", return_value=None)
     if request.node.name in cleanup_sensitive_tests:
-        with receipt_patch:
+        with ExitStack() as stack:
+            for provider_patch in provider_readiness_patches:
+                stack.enter_context(provider_patch)
+            stack.enter_context(receipt_patch)
             yield
         return
 
-    with (
-        patch.object(
-            debate_cmd,
-            "_shutdown_cmd_ask_resources",
-            new=AsyncMock(side_effect=_fake_shutdown),
-        ),
-        receipt_patch,
-    ):
+    with ExitStack() as stack:
+        for provider_patch in provider_readiness_patches:
+            stack.enter_context(provider_patch)
+        stack.enter_context(
+            patch.object(
+                debate_cmd,
+                "_shutdown_cmd_ask_resources",
+                new=AsyncMock(side_effect=_fake_shutdown),
+            )
+        )
+        stack.enter_context(receipt_patch)
         yield
 
 
@@ -959,6 +980,79 @@ def test_cmd_ask_quality_fail_closed_requires_contract(monkeypatch, capsys):
     assert exc_info.value.code == 2
     err = capsys.readouterr().err
     assert "--quality-fail-closed requires an explicit output contract" in err
+
+
+def test_cmd_ask_quality_fail_closed_conflicts_with_no_post_consensus_quality(
+    monkeypatch, capsys, tmp_path
+):
+    """--quality-fail-closed must not be silently dropped when post-consensus
+    quality is disabled.
+
+    Regression: combining --quality-fail-closed with --no-post-consensus-quality
+    used to bypass both the config-validation guard and the runtime gate, so the
+    command exited 0 even when output violated the contract (a false CI green).
+    The contradictory combination must now fail closed with a clear configuration
+    error.
+    """
+    from aragora.cli.commands import debate as debate_cmd
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+    contract_path = tmp_path / "contract.json"
+    contract_path.write_text(
+        '{"required_sections": ["Decision", "Rollback Plan", "Success Metrics"]}',
+        encoding="utf-8",
+    )
+
+    args = argparse.Namespace(
+        task="Should we adopt a four day work week for the team",
+        agents="claude,openai",
+        rounds=2,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=True,
+        api=False,
+        local=True,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        timeout=30,
+        post_consensus_quality=False,
+        upgrade_to_good=True,
+        quality_upgrade_max_loops=2,
+        quality_min_score=9.0,
+        quality_fail_closed=True,
+        required_sections=None,
+        output_contract_file=str(contract_path),
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        debate_cmd.cmd_ask(args)
+
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "--quality-fail-closed cannot be" in err
+    assert "--no-post-consensus-quality" in err
 
 
 def test_cmd_ask_quality_fail_closed_invalid_output_contract_file(monkeypatch, capsys):

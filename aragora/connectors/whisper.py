@@ -14,13 +14,13 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
-import os
 import time
 import uuid
 from dataclasses import dataclass, field
 from collections.abc import AsyncIterator
 
 from aragora.connectors.base import BaseConnector, Evidence
+from aragora.config import get_api_key
 from aragora.connectors.exceptions import (
     ConnectorConfigError,
     ConnectorRateLimitError,
@@ -212,7 +212,7 @@ class WhisperConnector(BaseConnector):
             max_cache_entries=max_cache_entries,
             cache_ttl_seconds=cache_ttl_seconds,
         )
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self.api_key = api_key or get_api_key("OPENAI_API_KEY", required=False)
         self.model = model
         self.language = language
         self.response_format = response_format

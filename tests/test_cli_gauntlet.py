@@ -175,7 +175,9 @@ class TestCmdGauntletInputHandling:
             agents="anthropic-api",
             profile="default",
         )
-        cmd_gauntlet(args)
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_gauntlet(args)
+        assert exc_info.value.code != 0
         captured = capsys.readouterr()
         assert "Error: Input file not found" in captured.out
 
@@ -187,7 +189,8 @@ class TestCmdGauntletInputHandling:
             agents="anthropic-api",
             profile="default",
         )
-        cmd_gauntlet(args)
+        with pytest.raises(SystemExit):
+            cmd_gauntlet(args)
         captured = capsys.readouterr()
         assert "Please check" in captured.out
         assert "file path is correct" in captured.out
@@ -213,7 +216,8 @@ class TestCmdGauntletInputHandling:
         )
 
         with patch("aragora.agents.base.create_agent", side_effect=Exception("No agent")):
-            cmd_gauntlet(args)
+            with pytest.raises(SystemExit):
+                cmd_gauntlet(args)
 
         captured = capsys.readouterr()
         assert "Input:" in captured.out
@@ -240,7 +244,8 @@ class TestCmdGauntletInputHandling:
         )
 
         with patch("aragora.agents.base.create_agent", side_effect=Exception("No agent")):
-            cmd_gauntlet(args)
+            with pytest.raises(SystemExit):
+                cmd_gauntlet(args)
 
         captured = capsys.readouterr()
         assert "Type: architecture" in captured.out
@@ -272,8 +277,10 @@ class TestCmdGauntletAgentCreation:
     def test_all_agents_fail_prints_detailed_error(self, mock_args, capsys):
         """All agents failing prints detailed error."""
         with patch("aragora.agents.base.create_agent", side_effect=Exception("API key missing")):
-            cmd_gauntlet(mock_args)
+            with pytest.raises(SystemExit) as exc_info:
+                cmd_gauntlet(mock_args)
 
+        assert exc_info.value.code != 0
         captured = capsys.readouterr()
         assert "Error: No agents could be created" in captured.out
         assert "Failed agents:" in captured.out
@@ -283,7 +290,8 @@ class TestCmdGauntletAgentCreation:
         """API agent failure shows environment variable hint."""
         mock_args.agents = "anthropic-api"
         with patch("aragora.agents.base.create_agent", side_effect=Exception("No key")):
-            cmd_gauntlet(mock_args)
+            with pytest.raises(SystemExit):
+                cmd_gauntlet(mock_args)
 
         captured = capsys.readouterr()
         assert "ANTHROPIC_API_KEY" in captured.out
@@ -292,7 +300,8 @@ class TestCmdGauntletAgentCreation:
         """OpenAI agent failure shows environment variable hint."""
         mock_args.agents = "openai-api"
         with patch("aragora.agents.base.create_agent", side_effect=Exception("No key")):
-            cmd_gauntlet(mock_args)
+            with pytest.raises(SystemExit):
+                cmd_gauntlet(mock_args)
 
         captured = capsys.readouterr()
         assert "OPENAI_API_KEY" in captured.out
@@ -301,16 +310,19 @@ class TestCmdGauntletAgentCreation:
         """Gemini agent failure shows environment variable hint."""
         mock_args.agents = "gemini"
         with patch("aragora.agents.base.create_agent", side_effect=Exception("No key")):
-            cmd_gauntlet(mock_args)
+            with pytest.raises(SystemExit):
+                cmd_gauntlet(mock_args)
 
         captured = capsys.readouterr()
         assert "GEMINI_API_KEY" in captured.out
 
-    def test_no_agents_returns_early(self, mock_args, capsys):
-        """Zero successful agents returns early."""
+    def test_no_agents_exits_nonzero_before_run(self, mock_args, capsys):
+        """Zero successful agents is fatal: exit non-zero before running."""
         with patch("aragora.agents.base.create_agent", side_effect=Exception("Failed")):
-            cmd_gauntlet(mock_args)
+            with pytest.raises(SystemExit) as exc_info:
+                cmd_gauntlet(mock_args)
 
+        assert exc_info.value.code != 0
         captured = capsys.readouterr()
         assert "No agents could be created" in captured.out
         # Should not see "Running stress-test"

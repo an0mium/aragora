@@ -8,7 +8,7 @@
 #   - api-design-review: REST API best practices
 #   - architecture-stress-test: Scalability assessment
 #
-# Documentation: https://github.com/an0mium/aragora/blob/main/docs/GITHUB_ACTIONS.md
+# Documentation: https://github.com/synaptent/aragora/blob/main/docs/GITHUB_ACTIONS.md
 
 name: Aragora Gauntlet Security Audit
 
@@ -194,7 +194,7 @@ jobs:
           echo "View the full report in the workflow artifacts." >> ./artifacts/summary.md
           echo "" >> ./artifacts/summary.md
           echo "---" >> ./artifacts/summary.md
-          echo "*Powered by [Aragora Gauntlet](https://github.com/an0mium/aragora)*" >> ./artifacts/summary.md
+          echo "*Powered by [Aragora Gauntlet](https://github.com/synaptent/aragora)*" >> ./artifacts/summary.md
 
       - name: Upload Artifacts
         if: steps.check-keys.outputs.has_keys == 'true'

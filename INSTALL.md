@@ -16,7 +16,7 @@ If you want the shortest path to a first debate, start at [docs/guides/GETTING_S
 
 ```bash
 # Clone the repository
-git clone https://github.com/an0mium/aragora.git
+git clone https://github.com/synaptent/aragora.git
 cd aragora
 
 # Create and activate virtual environment
@@ -74,14 +74,14 @@ For production deployments, use the provided setup script.
 SSH into your instance and run:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/an0mium/aragora/main/deploy/lightsail-setup.sh | bash
+curl -sSL https://raw.githubusercontent.com/synaptent/aragora/main/deploy/lightsail-setup.sh | bash
 ```
 
 Or manually:
 
 ```bash
 cd /home/ubuntu
-git clone https://github.com/an0mium/aragora.git
+git clone https://github.com/synaptent/aragora.git
 cd aragora
 ./deploy/lightsail-setup.sh
 ```
@@ -201,5 +201,5 @@ sudo ufw allow 8765
 
 ### Getting Help
 
-- Check existing issues: https://github.com/an0mium/aragora/issues
+- Check existing issues: https://github.com/synaptent/aragora/issues
 - Open a new issue with logs and environment details

@@ -49,7 +49,7 @@ def test_starter_uses_demo_fallback_when_aragora_debate_is_missing(tmp_path, mon
     receipt = json.loads(output_path.read_text())
     assert receipt["question"] == "Should we use a truthful fallback for starter?"
     assert receipt["receipt_id"].startswith("DR-MOCK-")
-    assert receipt["verdict"] == "consensus"
+    assert receipt["verdict"] == "PASS"
 
     captured = capsys.readouterr()
     assert "Built-in mock fallback" in captured.out

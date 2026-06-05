@@ -4,7 +4,7 @@
 **Session:** droid-C4A021F3
 **Timestamp (UTC):** 2026-05-18T19:32:10Z
 **Branch:** codex/droid-20260518-192925-38cd85b1
-**Worktree:** /Users/armand/Development/aragora/.worktrees/codex-auto/droid-20260518-192925-38cd85b1
+**Worktree:** ~/aragora/.worktrees/codex-auto/droid-20260518-192925-38cd85b1
 
 ## Deliverables
 

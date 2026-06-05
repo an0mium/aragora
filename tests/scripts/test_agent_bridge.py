@@ -422,6 +422,251 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert discover_include_summaries == [False]
 
 
+def test_operator_snapshot_json_suppresses_broken_pipe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    muted_stdout: list[bool] = []
+
+    def fake_discover(
+        *, include_summaries: bool = True, include_historical: bool = True, **_kwargs
+    ):
+        assert include_historical is False
+        return [
+            mod.Session(
+                name="codex-main",
+                agent="codex",
+                status="alive",
+                lifecycle="live",
+                branch="codex/example",
+                worktree=str(tmp_path),
+            )
+        ]
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr(mod, "discover", fake_discover)
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(
+        mod,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    assert muted_stdout == [True]
+
+
+def test_operator_snapshot_text_suppresses_broken_pipe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    muted_stdout: list[bool] = []
+
+    def fake_discover(
+        *, include_summaries: bool = True, include_historical: bool = True, **_kwargs
+    ):
+        assert include_historical is False
+        return [
+            mod.Session(
+                name="codex-main",
+                agent="codex",
+                status="alive",
+                lifecycle="live",
+                branch="codex/example",
+                worktree=str(tmp_path),
+            )
+        ]
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr(mod, "discover", fake_discover)
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(
+        mod,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=False, summary_only=True))
+
+    assert rc == 0
+    assert muted_stdout == [True]
+
+
+def test_operator_snapshot_exposes_b0_issue_contract_fields(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    repo_root = tmp_path / "repo"
+    (repo_root / "scripts").mkdir(parents=True)
+    (repo_root / "docs" / "benchmarks").mkdir(parents=True)
+    (repo_root / "scripts" / "measure_b0_scorecard.py").write_text("# fixture\n")
+    (repo_root / "docs" / "benchmarks" / "corpus.json").write_text("{}\n")
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "b0-5426",
+                    "owner_session": "codex-b0",
+                    "status": "active",
+                    "next_action": "finish operator snapshot contract",
+                    "last_steering_outcome": "obeyed",
+                    "last_heartbeat_at": "2026-05-28T12:00:00Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "_discover_with_broker_state",
+        lambda **_kwargs: (
+            [
+                mod.Session(
+                    name="codex-b0",
+                    agent="codex",
+                    status="alive",
+                    lifecycle="live",
+                    session_id="session-b0",
+                )
+            ],
+            [
+                {
+                    "run_id": "boss-loop",
+                    "status": "running",
+                    "updated_at": "2026-05-28T12:00:01Z",
+                    "next_actor": "codex",
+                    "last_turn_index": 3,
+                    "participants": [],
+                    "sessions": {},
+                }
+            ],
+            set(),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 1,
+            "by_role": {"boss_cycle": 1},
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_pending_steering_messages",
+        lambda _recipient: {
+            "count": 1,
+            "latest_three": [
+                {
+                    "subject": "Need B0 action",
+                    "sent_at_utc": "2026-05-28T12:01:00Z",
+                    "priority": "high",
+                    "lane_id_hint": "b0-5426",
+                    "pr_hint": 5426,
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {"count": 1, "fresh_count": 1, "stale_count": 0, "latest_by_owner": {}},
+    )
+
+    def fake_run(args: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        assert "measure_b0_scorecard.py" in args[1]
+        return subprocess.CompletedProcess(
+            args,
+            0,
+            stdout=json.dumps({"no_rescue_success_rate": 0.625, "status": "active"}),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["queue_depth"] == 3
+    assert payload["success_rate"] == 0.625
+    assert payload["boss_loop_alive"] is True
+    assert payload["recent_blockers"] == [
+        {
+            "type": "pending_steering",
+            "source": "operator_steering",
+            "detail": "Need B0 action",
+            "priority": "high",
+            "lane_id_hint": "b0-5426",
+            "pr_hint": 5426,
+        }
+    ]
+
+
+def test_collect_b0_success_rate_times_out_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    repo_root = tmp_path / "repo"
+    (repo_root / "scripts").mkdir(parents=True)
+    (repo_root / "docs" / "benchmarks").mkdir(parents=True)
+    (repo_root / "scripts" / "measure_b0_scorecard.py").write_text("# fixture\n")
+    (repo_root / "docs" / "benchmarks" / "corpus.json").write_text("{}\n")
+    monkeypatch.setenv("AGENT_BRIDGE_B0_SCORECARD_TIMEOUT_SECONDS", "0.25")
+
+    def fake_run(args: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        assert "measure_b0_scorecard.py" in args[1]
+        assert kwargs["timeout"] == 0.25
+        raise subprocess.TimeoutExpired(args, kwargs["timeout"])
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    assert mod._collect_b0_success_rate(repo_root) is None
+
+
 def test_operator_snapshot_summary_counts_repo_local_lane_when_user_registry_exists(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -503,6 +748,9 @@ def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
                     "status": "active",
                     "pr_number": 7245,
                     "branch": "worktree-codex-insights",
+                    "next_action": "settle PR 7245",
+                    "last_steering_outcome": "obeyed",
+                    "last_heartbeat_at": "2026-05-28T12:00:00Z",
                 },
                 {
                     "lane_id": "lane-b",
@@ -510,6 +758,9 @@ def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
                     "status": "active",
                     "pr_number": 7245,
                     "branch": "worktree-codex-insights",
+                    "next_action": "settle PR 7245",
+                    "last_steering_outcome": "obeyed",
+                    "last_heartbeat_at": "2026-05-28T12:00:01Z",
                 },
             ]
         ),
@@ -554,6 +805,9 @@ def test_operator_snapshot_does_not_conflict_same_owner_refreshes(
                     "status": "active",
                     "pr_number": 7245,
                     "branch": "worktree-codex-insights",
+                    "next_action": "settle PR 7245",
+                    "last_steering_outcome": "obeyed",
+                    "last_heartbeat_at": "2026-05-28T12:00:00Z",
                 },
                 {
                     "lane_id": "lane-b",
@@ -561,6 +815,9 @@ def test_operator_snapshot_does_not_conflict_same_owner_refreshes(
                     "status": "active",
                     "pr_number": 7245,
                     "branch": "worktree-codex-insights",
+                    "next_action": "settle PR 7245",
+                    "last_steering_outcome": "obeyed",
+                    "last_heartbeat_at": "2026-05-28T12:00:01Z",
                 },
             ]
         ),
@@ -1323,6 +1580,116 @@ def test_operator_snapshot_includes_broker_runs(
     assert payload["broker_runs"][0]["run_id"] == "bridge-next-work"
 
 
+def test_operator_snapshot_current_scope_filters_terminal_broker_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(
+        mod,
+        "_load_broker_run_summaries",
+        lambda: [
+            {"run_id": "completed-run", "status": "completed"},
+            {"run_id": "failed-run", "status": "failed"},
+            {"run_id": "running-run", "status": "running"},
+            {"run_id": "human-run", "status": "awaiting_human"},
+        ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+            **({"records": []} if include_records else {}),
+        },
+    )
+    monkeypatch.setattr(mod, "_collect_pending_steering_messages", lambda _recipient: {"count": 0})
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}},
+    )
+
+    assert (
+        mod.cmd_operator_snapshot(
+            argparse.Namespace(
+                json=True,
+                summary_only=False,
+                include_historical=False,
+                scope="current",
+            )
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert [run["run_id"] for run in payload["broker_runs"]] == ["running-run", "human-run"]
+    assert payload["summary"]["active_broker_runs"] == 2
+
+
+def test_load_broker_run_summaries_reads_json_without_package_import(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    repo_root = tmp_path / "repo"
+    run_dir = repo_root / ".aragora" / "agent_bridge" / "runs" / "bridge-next-work"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "run_id": "bridge-next-work",
+                "status": "running",
+                "updated_at": "2026-05-31T12:00:00Z",
+                "next_actor": "critic",
+                "last_turn_index": 2,
+                "participants": [{"role": "critic", "harness": "codex"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "sessions.json").write_text(
+        json.dumps(
+            {
+                "sessions": {
+                    "critic": {
+                        "role": "critic",
+                        "session_id": "session-critic",
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", repo_root)
+
+    assert mod._load_broker_run_summaries() == [
+        {
+            "run_id": "bridge-next-work",
+            "status": "running",
+            "updated_at": "2026-05-31T12:00:00Z",
+            "next_actor": "critic",
+            "last_turn_index": 2,
+            "participants": [{"role": "critic", "harness": "codex"}],
+            "sessions": {
+                "critic": {
+                    "role": "critic",
+                    "session_id": "session-critic",
+                }
+            },
+        }
+    ]
+
+
 def test_cmd_launch_invokes_tmux_launcher_for_droid(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1809,6 +2176,9 @@ def test_health_reports_claimed_claude_transcript_missing_worktree(tmp_path: Pat
                 lane_id="review",
                 owner_session="claude-review",
                 status="active",
+                next_action="finish review",
+                last_steering_outcome="obeyed",
+                last_heartbeat_at="2026-05-28T12:00:00Z",
             )
         ],
     )

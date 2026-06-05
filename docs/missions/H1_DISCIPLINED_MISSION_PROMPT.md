@@ -9,7 +9,7 @@
 > and [CANONICAL_GOALS.md](../CANONICAL_GOALS.md).
 >
 > **How to use:** paste the "Mission Prompt" block below as the first message
-> to a fresh Droid session on `/Users/armand/Development/aragora`. Append a
+> to a fresh Droid session on `~/aragora`. Append a
 > mission id (e.g. `mission-id: h1-YYYY-MM-DD-<slot>`) so ledger filenames
 > don't collide across runs.
 

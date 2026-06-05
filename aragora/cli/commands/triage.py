@@ -38,9 +38,16 @@ def _load_local_dotenv() -> None:
 def _get_secret_fallback(name: str) -> str:
     """Resolve a secret via Aragora's secret loader when available."""
     try:
-        from aragora.config.secrets import get_secret
+        from aragora.config.secrets import SecretNotFoundError, get_secret
 
         return str(get_secret(name) or "")
+    except SecretNotFoundError as exc:
+        # Strict-secrets / production posture: a CRITICAL_SECRET absent from
+        # AWS Secrets Manager raises rather than falling back to env. For
+        # read-only diagnostics ("is this key configured?") that simply means
+        # "not available" -- degrade to "" instead of crashing the command.
+        logger.debug("Secret %s not available in strict mode: %s", name, exc)
+        return ""
     except (ImportError, OSError, ValueError) as exc:
         logger.debug("Secret fallback for %s unavailable: %s", name, exc)
         return ""
@@ -701,7 +708,9 @@ def _show_status() -> None:
     token_path = Path.home() / ".aragora" / "gmail_refresh_token"
     print(f"  Gmail refresh token:  {'yes' if token_path.exists() else 'NO'}")
 
-    has_openrouter = bool(os.environ.get("OPENROUTER_API_KEY"))
+    has_openrouter = bool(
+        os.environ.get("OPENROUTER_API_KEY") or _get_secret_fallback("OPENROUTER_API_KEY")
+    )
     print(f"  OpenRouter fallback:  {'yes' if has_openrouter else 'NO'}")
 
     providers = {
@@ -710,7 +719,7 @@ def _show_status() -> None:
         "Gemini": "GEMINI_API_KEY",
     }
     for name, var in providers.items():
-        status = "yes" if os.environ.get(var) else "no"
+        status = "yes" if _get_secret_fallback(var) else "no"
         print(f"  {name + ' key:':<22}{status}")
 
     _show_dogfood_metrics()

@@ -23,12 +23,18 @@ from dataclasses import dataclass
 from typing import Any
 
 from aragora.config import resolve_db_path
+from aragora.config.secrets import get_secret_presence
 
 logger = logging.getLogger(__name__)
 
 # Environment variable to enable minimal mode
 MINIMAL_MODE_ENV = "ARAGORA_MODE"
 MINIMAL_MODE_VALUE = "minimal"
+
+
+def _secret_available(*names: str) -> bool:
+    """Return true when any secret is usable without exposing values."""
+    return any(get_secret_presence(name).source in {"aws", "env"} for name in names)
 
 
 @dataclass
@@ -137,14 +143,12 @@ def check_minimal_requirements() -> dict[str, bool]:
 
     # Minimal mode should treat direct providers and funded fallback routes
     # consistently so local/dogfood validation matches runtime behavior.
-    requirements["anthropic_key"] = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    requirements["openai_key"] = bool(os.environ.get("OPENAI_API_KEY"))
-    requirements["openrouter_key"] = bool(os.environ.get("OPENROUTER_API_KEY"))
-    requirements["mistral_key"] = bool(os.environ.get("MISTRAL_API_KEY"))
-    requirements["gemini_key"] = bool(
-        os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    )
-    requirements["xai_key"] = bool(os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY"))
+    requirements["anthropic_key"] = _secret_available("ANTHROPIC_API_KEY")
+    requirements["openai_key"] = _secret_available("OPENAI_API_KEY")
+    requirements["openrouter_key"] = _secret_available("OPENROUTER_API_KEY")
+    requirements["mistral_key"] = _secret_available("MISTRAL_API_KEY")
+    requirements["gemini_key"] = _secret_available("GEMINI_API_KEY", "GOOGLE_API_KEY")
+    requirements["xai_key"] = _secret_available("XAI_API_KEY", "GROK_API_KEY")
     requirements["has_ai_provider"] = any(
         requirements[key]
         for key in (

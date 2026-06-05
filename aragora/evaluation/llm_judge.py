@@ -24,6 +24,8 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
+from aragora.config import get_api_key
+
 logger = logging.getLogger(__name__)
 
 
@@ -597,6 +599,9 @@ class LLMJudge:
 
         # Get evaluation from LLM
         try:
+            if not self._judge_provider_available():
+                result.summary = "Evaluation skipped: ANTHROPIC_API_KEY not configured"
+                return result
             evaluation_text = await self._call_judge(prompt)
             dimension_scores = self._parse_evaluation(evaluation_text)
             result.dimension_scores = dimension_scores
@@ -626,6 +631,17 @@ class LLMJudge:
             await self._add_secondary_evaluation(result, query, response, context, reference)
 
         return result
+
+    @staticmethod
+    def _judge_provider_available() -> bool:
+        """Return whether the optional Anthropic-backed judge can run."""
+        try:
+            from aragora.config import get_api_key
+
+            return bool(get_api_key("ANTHROPIC_API_KEY", required=False))
+        except Exception as exc:  # noqa: BLE001 - optional judge probe
+            logger.debug("LLMJudge provider probe failed: %s", exc)
+            return False
 
     async def compare(
         self,
@@ -664,6 +680,9 @@ class LLMJudge:
         )
 
         try:
+            if not self._judge_provider_available():
+                result.explanation = "Comparison skipped: ANTHROPIC_API_KEY not configured"
+                return result
             comparison_text = await self._call_judge(prompt)
             parsed = self._parse_comparison(comparison_text)
 
@@ -829,10 +848,9 @@ Provide your comparison:"""
 
         except ImportError:
             # Fallback to direct API call using HTTP pool
-            import os
             from aragora.server.http_client_pool import get_http_pool
 
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
+            api_key = get_api_key("ANTHROPIC_API_KEY", required=False)
             if not api_key:
                 raise ValueError("ANTHROPIC_API_KEY not set")
 

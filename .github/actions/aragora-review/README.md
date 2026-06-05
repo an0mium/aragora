@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Review Design
-        uses: an0mium/aragora/.github/actions/aragora-review@main
+        uses: synaptent/aragora/.github/actions/aragora-review@main
         with:
           api-key: ${{ secrets.ARAGORA_API_KEY }}
           file: docs/design.md
@@ -41,7 +41,7 @@ jobs:
 
 ```yaml
 - name: SOX Compliance Review
-  uses: an0mium/aragora/.github/actions/aragora-review@main
+  uses: synaptent/aragora/.github/actions/aragora-review@main
   with:
     api-key: ${{ secrets.ARAGORA_API_KEY }}
     file: docs/financial-system.md
@@ -53,7 +53,7 @@ jobs:
 
 ```yaml
 - name: HIPAA Compliance Review
-  uses: an0mium/aragora/.github/actions/aragora-review@main
+  uses: synaptent/aragora/.github/actions/aragora-review@main
   with:
     api-key: ${{ secrets.ARAGORA_API_KEY }}
     file: docs/patient-data-flow.md
@@ -65,7 +65,7 @@ jobs:
 
 ```yaml
 - name: PCI-DSS Review
-  uses: an0mium/aragora/.github/actions/aragora-review@main
+  uses: synaptent/aragora/.github/actions/aragora-review@main
   with:
     api-key: ${{ secrets.ARAGORA_API_KEY }}
     file: docs/payment-processing.md

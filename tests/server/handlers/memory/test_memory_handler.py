@@ -550,3 +550,104 @@ class TestCoordinatorEdgeCases:
 
         body = json.loads(result.body) if isinstance(result.body, (str, bytes)) else result.body
         assert body.get("configured") is False
+
+
+# ===========================================================================
+# Store / Promote POST endpoints (regression for CLI memory-lane defects)
+#
+# The CLI `aragora memory store` / `aragora memory promote` commands target
+# `POST /api/v1/memory/store` and `POST /api/v1/memory/{id}/promote`. These
+# functional tests exercise the server handler end-to-end against a real
+# ContinuumMemory backend so producer (CLI) and consumer (server) stay aligned.
+# ===========================================================================
+
+
+class _StoreMockHTTPHandler:
+    """Minimal HTTP handler shim exposing a JSON body for handle_post."""
+
+    def __init__(self, body: dict | None = None, client_ip: str = "127.0.0.1"):
+        self.command = "POST"
+        self.client_address = (client_ip, 12345)
+        self.headers: dict[str, str] = {"User-Agent": "test-agent"}
+        self.rfile = MagicMock()
+        body_bytes = json.dumps(body or {}).encode()
+        self.rfile.read.return_value = body_bytes
+        self.headers["Content-Length"] = str(len(body_bytes))
+
+
+@pytest.fixture
+def real_continuum(tmp_path):
+    """Construct a real ContinuumMemory backed by a temp SQLite DB."""
+    from aragora.memory.continuum import ContinuumMemory
+
+    return ContinuumMemory(db_path=str(tmp_path / "continuum_memory.db"))
+
+
+@pytest.fixture
+def store_handler(real_continuum):
+    from aragora.server.handlers.base import clear_cache
+    from aragora.server.handlers.memory.memory import MemoryHandler
+
+    clear_cache()
+    return MemoryHandler(server_context={"continuum_memory": real_continuum})
+
+
+def _body(result):
+    return json.loads(result.body) if isinstance(result.body, (str, bytes)) else result.body
+
+
+class TestMemoryStorePromote:
+    """Functional tests for POST store/promote."""
+
+    def test_store_claims_route(self, store_handler):
+        assert store_handler.can_handle("/api/v1/memory/store") is True
+
+    def test_promote_claims_route(self, store_handler):
+        assert store_handler.can_handle("/api/v1/memory/m1/promote") is True
+
+    def test_store_creates_entry(self, store_handler):
+        http = _StoreMockHTTPHandler({"content": "hello world", "tier": "fast"})
+        result = store_handler.handle_post("/api/v1/memory/store", {}, http)
+        assert result is not None
+        assert result.status_code == 200
+        body = _body(result)
+        assert body["tier"] == "fast"
+        assert body["id"]
+
+    def test_store_missing_content_is_400(self, store_handler):
+        http = _StoreMockHTTPHandler({"tier": "fast"})
+        result = store_handler.handle_post("/api/v1/memory/store", {}, http)
+        assert result.status_code == 400
+
+    def test_store_invalid_tier_is_400(self, store_handler):
+        http = _StoreMockHTTPHandler({"content": "x", "tier": "bogus"})
+        result = store_handler.handle_post("/api/v1/memory/store", {}, http)
+        assert result.status_code == 400
+
+    def test_store_then_promote_roundtrip(self, store_handler):
+        # Store in fast tier
+        store_http = _StoreMockHTTPHandler({"content": "promote me", "tier": "fast"})
+        store_result = store_handler.handle_post("/api/v1/memory/store", {}, store_http)
+        entry_id = _body(store_result)["id"]
+
+        # Promote to slow tier
+        promote_http = _StoreMockHTTPHandler({"target_tier": "slow"})
+        promote_result = store_handler.handle_post(
+            f"/api/v1/memory/{entry_id}/promote", {}, promote_http
+        )
+        assert promote_result.status_code == 200
+        body = _body(promote_result)
+        assert body["success"] is True
+        assert body["previous_tier"] == "fast"
+
+    def test_promote_missing_entry_returns_not_found(self, store_handler):
+        http = _StoreMockHTTPHandler({"target_tier": "slow"})
+        result = store_handler.handle_post("/api/v1/memory/does-not-exist/promote", {}, http)
+        assert result.status_code == 200
+        body = _body(result)
+        assert body["success"] is False
+
+    def test_promote_missing_target_tier_is_400(self, store_handler):
+        http = _StoreMockHTTPHandler({})
+        result = store_handler.handle_post("/api/v1/memory/m1/promote", {}, http)
+        assert result.status_code == 400

@@ -148,6 +148,51 @@ class TestInitProject:
         content = gitignore.read_text()
         assert content.count(".aragora/") == 1
 
+    def test_adds_secret_entries_when_gitignore_already_has_aragora(self, clean_dir):
+        """Adds .env entries even when .gitignore already contains '.aragora/'.
+
+        Regression: a single substring test on '.aragora/' caused the entire
+        augmentation block (including .env / .env.local secret ignores) to be
+        skipped, risking accidental credential commits.
+        """
+        gitignore = clean_dir / ".gitignore"
+        gitignore.write_text(".aragora/\nnode_modules/\n")
+
+        result = init_project(str(clean_dir))
+
+        content = gitignore.read_text()
+        # Secret-ignore entries must be present.
+        env_lines = [line.strip() for line in content.splitlines()]
+        assert ".env" in env_lines
+        assert ".env.local" in env_lines
+        # Pre-existing entry must not be duplicated.
+        assert content.count(".aragora/") == 1
+        assert any("gitignore" in f for f in result["files"])
+
+    def test_adds_secret_entries_when_aragora_only_in_comment(self, clean_dir):
+        """A comment mentioning '.aragora/' must not suppress real entries."""
+        gitignore = clean_dir / ".gitignore"
+        gitignore.write_text("# note: ignores .aragora/ data dir\n")
+
+        init_project(str(clean_dir))
+
+        env_lines = [line.strip() for line in gitignore.read_text().splitlines()]
+        assert ".env" in env_lines
+        assert ".aragora/" in env_lines
+
+    def test_gitignore_update_is_idempotent(self, clean_dir):
+        """Running init twice does not duplicate gitignore entries."""
+        gitignore = clean_dir / ".gitignore"
+        gitignore.write_text(".aragora/\n")
+
+        init_project(str(clean_dir))
+        init_project(str(clean_dir))
+
+        content = gitignore.read_text()
+        assert content.count("\n.env\n") <= 1
+        assert content.count(".env.local") == 1
+        assert content.count(".aragora/") == 1
+
     def test_no_gitignore_when_disabled(self, clean_dir):
         """Skip gitignore when with_git=False."""
         result = init_project(str(clean_dir), with_git=False)
@@ -174,6 +219,44 @@ class TestInitProject:
 
         content = config_file.read_text()
         assert "# Old config" in content
+
+    def test_review_preset_skipped_warns_when_config_exists(self, clean_dir):
+        """Re-running with --preset review on an existing config warns the user.
+
+        Regression: the preset was silently dropped (config writing is gated by
+        not-exists-or-force) while init still reported success.
+        """
+        # First run writes the default config.
+        init_project(str(clean_dir))
+
+        # Second run requests the review preset without --force.
+        result = init_project(str(clean_dir), preset="review")
+
+        config = (clean_dir / ".aragora.yaml").read_text()
+        # Preset NOT applied (no --force) ...
+        assert "Code Review Preset" not in config
+        # ... but the user is warned about it.
+        assert result.get("warnings")
+        assert any("review" in w and "--force" in w for w in result["warnings"])
+
+    def test_review_preset_applied_with_force(self, clean_dir):
+        """--force lets --preset review overwrite an existing config."""
+        init_project(str(clean_dir))
+
+        result = init_project(str(clean_dir), preset="review", force=True)
+
+        config = (clean_dir / ".aragora.yaml").read_text()
+        assert "Code Review Preset" in config
+        assert "fail_on_critical: true" in config
+        assert not result.get("warnings")
+
+    def test_review_preset_fresh_no_warning(self, clean_dir):
+        """Fresh init with --preset review applies it with no warning."""
+        result = init_project(str(clean_dir), preset="review")
+
+        config = (clean_dir / ".aragora.yaml").read_text()
+        assert "Code Review Preset" in config
+        assert not result.get("warnings")
 
     def test_uses_current_dir_by_default(self, clean_dir, monkeypatch):
         """Use current directory when none specified."""
@@ -285,6 +368,29 @@ class TestCmdInit:
         # Should succeed with default force=False
         captured = capsys.readouterr()
         assert "initialized" in captured.out
+
+    def test_prints_warning_when_preset_skipped(self, clean_dir, capsys):
+        """cmd_init surfaces the skipped-preset warning in its output."""
+        # First initialize with defaults.
+        first = MagicMock()
+        first.directory = str(clean_dir)
+        first.force = False
+        first.no_git = False
+        first.preset = None
+        cmd_init(first)
+        capsys.readouterr()
+
+        # Re-run requesting the review preset without --force.
+        second = MagicMock()
+        second.directory = str(clean_dir)
+        second.force = False
+        second.no_git = False
+        second.preset = "review"
+        cmd_init(second)
+
+        captured = capsys.readouterr()
+        assert "Warnings:" in captured.out
+        assert "--force" in captured.out
 
     def test_handles_no_git_flag(self, clean_dir, capsys):
         """Handle no_git flag."""

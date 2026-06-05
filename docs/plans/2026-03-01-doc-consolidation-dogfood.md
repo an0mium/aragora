@@ -56,7 +56,7 @@
 **Step 1:** Run self_develop.py with a goal from the canonical goals doc.
 
 ```bash
-cd /Users/armand/Development/aragora
+cd ~/aragora
 python scripts/self_develop.py \
   --goal "Wire the Nomic Loop end-to-end by replacing stub methods in the orchestration loop, achieving autonomous self-improvement cycles as described in docs/CANONICAL_GOALS.md Pillar 5" \
   --dry-run
@@ -71,7 +71,7 @@ python scripts/self_develop.py \
 **Step 1:** Run a staged debate.
 
 ```bash
-cd /Users/armand/Development/aragora
+cd ~/aragora
 python scripts/nomic_staged.py debate
 ```
 
@@ -84,7 +84,7 @@ python scripts/nomic_staged.py debate
 **Step 1:** Run a full debate with quality gate using canonical goals as context.
 
 ```bash
-cd /Users/armand/Development/aragora
+cd ~/aragora
 python -m aragora ask \
   "Using the canonical goals in docs/CANONICAL_GOALS.md as source of truth, identify the single highest-impact improvement that would advance Pillar 5 (Self-Repair and Self-Improvement). Produce a ranked task list with specific file paths, acceptance criteria, and rollback triggers." \
   --agents anthropic-api,openai-api \

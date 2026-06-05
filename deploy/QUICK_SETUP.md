@@ -60,7 +60,7 @@ aws lightsail create-instances \
 ssh -i your-key.pem ubuntu@<LIGHTSAIL_IP>
 
 # Run setup script
-git clone https://github.com/an0mium/aragora.git
+git clone https://github.com/synaptent/aragora.git
 cd aragora
 chmod +x deploy/lightsail-setup.sh
 sudo ./deploy/lightsail-setup.sh
@@ -111,7 +111,7 @@ aws ec2 run-instances \
 ssh -i your-key.pem ubuntu@<EC2_IP>
 
 # Run setup (same as Lightsail)
-git clone https://github.com/an0mium/aragora.git
+git clone https://github.com/synaptent/aragora.git
 cd aragora
 chmod +x deploy/lightsail-setup.sh
 sudo ./deploy/lightsail-setup.sh

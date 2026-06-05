@@ -24,7 +24,7 @@
     "blocked_sanitation_failed": 1
   },
   "generated_at": "2026-04-30T16:01:56Z",
-  "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
+  "metrics_file": "~/aragora/.aragora/overnight/boss_metrics.jsonl",
   "proxy_metrics": {
     "corpus": {
       "corpus_id": "tw-01-bounded-execution-v1",

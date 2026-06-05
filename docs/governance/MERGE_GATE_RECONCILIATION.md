@@ -103,10 +103,10 @@ that signal exists.
 PR=<number>
 HEAD_SHA=$(gh pr view "$PR" --repo synaptent/aragora --json headRefOid --jq .headRefOid)
 
-# 1. Write the local, head-bound settlement receipt.
+# 1. Write the local, head-bound human-risk settlement receipt.
 python -m aragora.cli.main review-queue record-settlement "$PR" \
   --head-sha "$HEAD_SHA" \
-  --action admin_squash_merge \
+  --action approve \
   --reason "Operator risk settlement: <one-line authorization>"
 
 # 2. Publish the GitHub-visible settlement signal on the exact head SHA.
@@ -124,6 +124,17 @@ RUN_ID=$(gh run list --repo synaptent/aragora \
 gh run rerun --repo synaptent/aragora "$RUN_ID"
 ```
 
+Do not write an `admin_squash_merge` settlement receipt before GitHub reports
+the PR as merged. After a successful exact-head admin squash merge, record the
+post-merge receipt:
+
+```bash
+python -m aragora.cli.main review-queue record-settlement "$PR" \
+  --head-sha "$HEAD_SHA" \
+  --action admin_squash_merge \
+  --reason "Exact-head admin squash completed after operator risk settlement"
+```
+
 If a new commit is pushed, the head SHA changes and the settlement signal no
 longer applies — re-record settlement against the new head. This is
 intentional: settlement is bound to the exact reviewed state.
@@ -132,8 +143,10 @@ The `aragora/human-settlement` status MUST be set by the operator, not by
 pipeline automation. It represents the operator's accountable acceptance of
 risk. Setting it from an automated agent re-creates exactly the
 symbolic-approval problem this reconciliation removes. The local settlement
-receipt (step 1) remains the stronger, `merge_arbiter`-enforced record; the
-commit status is only its GitHub-visible projection.
+receipt (step 1) remains the stronger, `merge_arbiter`-enforced human-risk
+record; the commit status is only its GitHub-visible projection. The
+`admin_squash_merge` receipt is a post-merge audit record, not the pre-merge
+human-risk signal.
 
 ## Rollout order
 
