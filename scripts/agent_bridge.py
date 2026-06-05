@@ -2223,7 +2223,11 @@ def _collect_b0_success_rate(repo_root: Path | None = None) -> float | None:
 
 
 def _mute_stdout_after_broken_pipe() -> None:
-    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close.
+
+    This is an end-of-process CLI guard; stdout is intentionally redirected
+    rather than restored because the downstream reader has already gone away.
+    """
     try:
         sys.stdout.close()
     except OSError:
@@ -2329,53 +2333,55 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     if args.json:
         return _emit_text(json.dumps(snapshot, indent=2))
 
-    print(f"Operator Snapshot @ {snapshot['timestamp']}")
-    print("=" * 80)
-    print(
-        f"Sessions: {summary['live_sessions']} live / {summary['historical_sessions']} historical / {summary['total_sessions']} total"
+    lines: list[str] = [
+        f"Operator Snapshot @ {snapshot['timestamp']}",
+        "=" * 80,
+        f"Sessions: {summary['live_sessions']} live / {summary['historical_sessions']} historical / {summary['total_sessions']} total",
+    ]
+    lines.append(f"Broker:   {summary['active_broker_runs']} active run(s)")
+    lines.append(
+        f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict"
     )
-    print(f"Broker:   {summary['active_broker_runs']} active run(s)")
-    print(f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict")
     active_process_roles = [str(role) for role in summary.get("active_process_roles", [])]
     process_roles = ", ".join(active_process_roles) or "-"
-    print(f"Processes:{summary['active_processes']} recognized ({process_roles})")
+    lines.append(f"Processes:{summary['active_processes']} recognized ({process_roles})")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
-    print(f"Health:   {health_status}")
+    lines.append(f"Health:   {health_status}")
 
     if sessions and not summary_only:
-        print(f"\n{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY")
-        print("-" * 110)
+        lines.extend(["", f"{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY"])
+        lines.append("-" * 110)
         for s in sessions:
             branch = s.branch[:26] if s.branch else "-"
             summary_text = (s.summary[:40] + "..." if len(s.summary) > 40 else s.summary) or "-"
-            print(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary_text}")
+            lines.append(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary_text}")
 
     if records and not summary_only:
-        print(f"\n{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION")
-        print("-" * 90)
+        lines.extend(["", f"{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION"])
+        lines.append("-" * 90)
         for r in records:
             next_action = (
                 r.next_action[:40] + "..." if len(r.next_action) > 40 else r.next_action
             ) or "-"
-            print(f"{r.lane_id:<22} {r.owner_session:<24} {r.status:<10} {next_action}")
+            lines.append(f"{r.lane_id:<22} {r.owner_session:<24} {r.status:<10} {next_action}")
 
     process_records = snapshot.get("process_census", {}).get("records", [])
     if process_records and not summary_only:
-        print(f"\n{'PID':>8} {'ELAPSED':>12} {'ROLE':<22} SUMMARY")
-        print("-" * 85)
+        lines.extend(["", f"{'PID':>8} {'ELAPSED':>12} {'ROLE':<22} SUMMARY"])
+        lines.append("-" * 85)
         for process in process_records:
-            print(
+            lines.append(
                 f"{int(process['pid']):>8} {str(process['elapsed']):>12} "
                 f"{str(process['role']):<22} {process['summary']}"
             )
 
     if issues:
-        print(f"\n{'TYPE':<22} {'SESSION':<26} DETAIL")
-        print("-" * 100)
+        lines.extend(["", f"{'TYPE':<22} {'SESSION':<26} DETAIL"])
+        lines.append("-" * 100)
         for issue in issues:
-            print(f"{issue['type']:<22} {issue['session']:<26} {issue['detail']}")
+            lines.append(f"{issue['type']:<22} {issue['session']:<26} {issue['detail']}")
 
-    return 0
+    return _emit_text("\n".join(lines))
 
 
 def cmd_tmux_map(args: argparse.Namespace) -> int:
