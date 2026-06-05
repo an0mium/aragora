@@ -13,9 +13,49 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import sys
 from pathlib import Path
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _extract_registered_agent_types_static() -> set[str]:
+    """Parse registered agent types without importing the aragora package."""
+    agents_root = _repo_root() / "aragora" / "agents"
+    registered: set[str] = set()
+
+    for path in agents_root.rglob("*.py"):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+
+        for node in ast.walk(tree):
+            decorators = getattr(node, "decorator_list", [])
+            for decorator in decorators:
+                if not isinstance(decorator, ast.Call) or not isinstance(
+                    decorator.func, ast.Attribute
+                ):
+                    continue
+                if decorator.func.attr != "register":
+                    continue
+                owner = decorator.func.value
+                if not isinstance(owner, ast.Name) or owner.id != "AgentRegistry":
+                    continue
+                if not decorator.args:
+                    continue
+                first_arg = decorator.args[0]
+                if isinstance(first_arg, ast.Constant) and isinstance(first_arg.value, str):
+                    registered.add(first_arg.value)
+
+    if not registered:
+        raise ValueError("Could not parse registered agent types from source")
+
+    return registered
 
 
 def get_runtime_agent_count() -> int:
@@ -23,8 +63,16 @@ def get_runtime_agent_count() -> int:
     try:
         from aragora.agents.base import list_available_agents
     except Exception as exc:  # pragma: no cover - import/runtime environment failures
-        print(f"ERROR: failed to load runtime registry: {exc}")
-        sys.exit(2)
+        print(
+            f"Runtime imports unavailable ({exc}); falling back to source parsing.",
+            file=sys.stderr,
+        )
+        try:
+            return len(_extract_registered_agent_types_static())
+        except Exception as fallback_exc:
+            print(f"ERROR: failed to load runtime registry: {exc}", file=sys.stderr)
+            print(f"ERROR: static fallback failed: {fallback_exc}", file=sys.stderr)
+            sys.exit(2)
 
     return len(list_available_agents())
 
