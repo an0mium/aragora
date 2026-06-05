@@ -1,12 +1,18 @@
 # B0 Corpus rev-6 Reconciliation — Decision Memo (founder-owned)
 
-> **Status: PREPARE-ONLY. Do not auto-merge.** This memo touches the
-> human-owned benchmark *denominator* (`docs/benchmarks/corpus.json` membership).
-> Per the standing guardrail — *never silently mutate the benchmark corpus
-> denominator* and *anchor B0 movement to real merged PRs, not bare issue-closes*
-> — the actual corpus edit is the founder's call. This memo gives the founder
-> everything needed to make it in one decision. It deliberately does **not**
-> edit `corpus.json`.
+> **Status: DECISION APPLIED (Option B1) — founder merges. Do not auto-merge.**
+> The founder selected **retire 4 + restock 4 fresh** on 2026-06-05. This PR now
+> carries the concrete rev-6 edit (corpus membership, retired-reasons, republished
+> truth/scorecard artifacts, cleared freshness map). It still touches the
+> human-owned benchmark *denominator*, so per the standing guardrail — *never
+> silently mutate the denominator* — **the merge remains the founder's**; the
+> change is staged in this PR for review, not auto-settled.
+>
+> **Selected restock members (criterion-valid):** #5182, #5183, #5184, #5186 —
+> all OPEN B0-cohort `missing_test_coverage` issues with recorded `boss_metrics`
+> dispatch history, same execution class as the graduated rev-5 verified cohort.
+> (The exception_narrowing candidates first considered had *no* dispatch history
+> and so failed the membership criterion — they were not used.)
 
 **Prepared:** 2026-06-05 · Closes the standing restock tracker **#5839** once the
 chosen option is applied. Supersedes the stale rev-4 freshness map entry.
