@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -143,21 +144,39 @@ def test_work_list_json_flag_emits_parseable_json(
 
 
 @pytest.mark.parametrize("as_json", [True, False])
-def test_work_emit_suppresses_broken_pipe(monkeypatch: pytest.MonkeyPatch, as_json: bool) -> None:
+@pytest.mark.parametrize("failure", ["write", "flush"])
+def test_work_emit_suppresses_broken_pipe(
+    monkeypatch: pytest.MonkeyPatch, as_json: bool, failure: str
+) -> None:
     """Closed downstream pipes should not produce CLI tracebacks."""
     muted_stdout = []
 
-    def broken_print(*_args, **_kwargs) -> None:
-        raise BrokenPipeError("downstream closed")
+    class ClosingStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
 
-    monkeypatch.setattr("builtins.print", broken_print)
+        def write(self, data: str) -> int:
+            if failure == "write":
+                raise BrokenPipeError("downstream closed")
+            self.writes.append(data)
+            return len(data)
+
+        def flush(self) -> None:
+            if failure == "flush":
+                raise BrokenPipeError("downstream closed")
+
+    original_stdout = sys.stdout
+    monkeypatch.setattr(sys, "stdout", ClosingStdout())
     monkeypatch.setattr(
         work_board_cmd,
         "_mute_stdout_after_broken_pipe",
         lambda: muted_stdout.append(True),
     )
 
-    assert work_board_cmd._emit({"schema_version": "aragora.work.v1"}, as_json=as_json) == 0
+    result = work_board_cmd._emit({"schema_version": "aragora.work.v1"}, as_json=as_json)
+    monkeypatch.setattr(sys, "stdout", original_stdout)
+
+    assert result == 0
     assert muted_stdout == [True]
 
 

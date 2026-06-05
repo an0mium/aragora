@@ -110,7 +110,9 @@ def _render_human(payload: dict[str, Any]) -> str:
 def _emit(payload: dict[str, Any], *, as_json: bool) -> int:
     output = json.dumps(payload, sort_keys=True, indent=2) if as_json else _render_human(payload)
     try:
-        print(output)
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
     except BrokenPipeError:
         _mute_stdout_after_broken_pipe()
     return 0
