@@ -1527,53 +1527,77 @@ def summary_only_payload(
     return compact
 
 
-def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> int:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+    return 0
+
+
+def _format_markdown(payload: dict[str, Any], *, examples: int) -> str:
     summary = payload["summary"]
-    print("# Codex Branch Backlog Audit\n")
-    print(f"- Repo: `{payload['repo']}`")
-    print(f"- Worktree HEAD: `{payload.get('worktree_head_sha')}`")
-    print(f"- Base: `{payload['base']}`")
-    print(f"- Base SHA: `{payload.get('base_sha')}`")
-    print(f"- Branches audited: `{payload['branch_count']}`")
-    print(f"- Safe cleanup candidates: `{summary['safe_cleanup_candidates']}`")
-    print(f"- Salvage candidates: `{summary['salvage_candidates']}`")
-    print(f"- Publishable branch backlog: `{summary['publishable_branch_backlog']}`")
-    print(f"- Diverged salvage candidates: `{summary['diverged_salvage_candidates']}`")
-    print(f"- Handoff-receipted branches: `{summary['handoff_receipted_branches']}`")
-    print(f"- Handoff-outbox branches: `{summary['handoff_outbox_branches']}`")
+    lines = [
+        "# Codex Branch Backlog Audit",
+        "",
+        f"- Repo: `{payload['repo']}`",
+        f"- Worktree HEAD: `{payload.get('worktree_head_sha')}`",
+        f"- Base: `{payload['base']}`",
+        f"- Base SHA: `{payload.get('base_sha')}`",
+        f"- Branches audited: `{payload['branch_count']}`",
+        f"- Safe cleanup candidates: `{summary['safe_cleanup_candidates']}`",
+        f"- Salvage candidates: `{summary['salvage_candidates']}`",
+        f"- Publishable branch backlog: `{summary['publishable_branch_backlog']}`",
+        f"- Diverged salvage candidates: `{summary['diverged_salvage_candidates']}`",
+        f"- Handoff-receipted branches: `{summary['handoff_receipted_branches']}`",
+        f"- Handoff-outbox branches: `{summary['handoff_outbox_branches']}`",
+    ]
     if "unresolved_handoff_outbox_branch_refs" in summary:
-        print(
+        lines.append(
             "- Unresolved handoff-outbox branch refs: "
             f"`{summary['unresolved_handoff_outbox_branch_refs']}`"
         )
-        print(f"- Direct handoff-outbox branches: `{summary['direct_handoff_outbox_branches']}`")
-        print(
+        lines.append(
+            f"- Direct handoff-outbox branches: `{summary['direct_handoff_outbox_branches']}`"
+        )
+        lines.append(
             "- Unresolved handoff-outbox refs outside audit: "
             f"`{summary['unresolved_handoff_outbox_refs_outside_audit']}`"
         )
-        print(
+        lines.append(
             "- Patch-equivalent handoff-outbox branches: "
             f"`{summary['patch_equivalent_handoff_outbox_branches']}`"
         )
-    print(
-        f"- Patch-equivalence budget exhausted: `{payload['patch_equivalence_budget_exhausted']}`"
+    lines.extend(
+        [
+            f"- Patch-equivalence budget exhausted: `{payload['patch_equivalence_budget_exhausted']}`",
+            f"- Patch-equivalence skipped branches: `{payload['patch_equivalence_skipped_branches']}`",
+        ]
     )
-    print(
-        f"- Patch-equivalence skipped branches: `{payload['patch_equivalence_skipped_branches']}`"
-    )
-    print(
+    lines.append(
         "- Writer should pause for branch backlog: "
         f"`{summary['writer_should_pause_for_branch_backlog']}`"
     )
-    print(f"- Protected branches: `{summary['protected']}`\n")
-    print("## Counts\n")
+    lines.extend([f"- Protected branches: `{summary['protected']}`", "", "## Counts", ""])
     for category, count in summary["by_category"].items():
-        print(f"- `{category}`: `{count}`")
+        lines.append(f"- `{category}`: `{count}`")
     skipped_counts = summary.get("patch_equivalence_skipped_by_category", {})
     if skipped_counts:
-        print("\n## Patch-Equivalence Skips\n")
+        lines.extend(["", "## Patch-Equivalence Skips", ""])
         for category, count in skipped_counts.items():
-            print(f"- `{category}`: `{count}`")
+            lines.append(f"- `{category}`: `{count}`")
 
     records = payload["records"]
     for category in (
@@ -1594,15 +1618,20 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
         matches = [record for record in records if record["category"] == category]
         if not matches:
             continue
-        print(f"\n## {category}\n")
+        lines.extend(["", f"## {category}", ""])
         for record in matches[:examples]:
-            print(
+            lines.append(
                 f"- `{record['name']}` "
                 f"ahead={record['ahead_count']} "
                 f"behind={record['behind_count']} "
                 f"sha={record['head_sha']} "
                 f"subject={record['subject']}"
             )
+    return "\n".join(lines)
+
+
+def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
+    _emit_output(_format_markdown(payload, examples=examples))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1758,7 +1787,7 @@ def main(argv: list[str] | None = None) -> int:
         print_markdown(payload, examples=10 if args.examples is None else args.examples)
     else:
         # JSON is the default to make automation consumption explicit.
-        print(json.dumps(payload, indent=2 if args.json else None))
+        _emit_output(json.dumps(payload, indent=2 if args.json else None))
     return 0
 
 

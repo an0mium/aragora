@@ -317,6 +317,35 @@ def test_main_summary_only_json_honors_examples_flag(
     assert compact["record_examples_limit"] == 0
 
 
+def test_main_json_suppresses_flush_time_broken_pipe(tmp_path: Path, monkeypatch: Any) -> None:
+    class BrokenFlushStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    payload = {"branch_count": 0, "summary": {}, "records": []}
+    stdout = BrokenFlushStdout()
+    muted_stdout: list[bool] = []
+    monkeypatch.setattr(mod, "repo_root", lambda _path: tmp_path)
+    monkeypatch.setattr(mod, "audit", lambda **_kwargs: payload)
+    monkeypatch.setattr(mod.sys, "stdout", stdout)
+    monkeypatch.setattr(
+        mod,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+    assert muted_stdout == [True]
+    assert stdout.writes[0].startswith("{")
+
+
 def test_print_markdown_includes_revision_metadata(tmp_path: Path, capsys: Any) -> None:
     payload = {
         "repo": str(tmp_path),
