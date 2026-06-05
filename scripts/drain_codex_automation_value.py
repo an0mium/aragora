@@ -60,7 +60,7 @@ ACTIVE_OWNER_STATUSES = {
 
 try:
     from aragora.swarm.github_app_auth import gh_subprocess_run, github_cli_env
-except Exception:  # pragma: no cover - fallback for partially bootstrapped contexts
+except ImportError:  # pragma: no cover - fallback for partially bootstrapped contexts
 
     def github_cli_env(
         base_env: Mapping[str, str] | None = None,
@@ -82,7 +82,15 @@ except Exception:  # pragma: no cover - fallback for partially bootstrapped cont
         max_backoff: float = 600.0,
         sleep: Callable[[float], None] | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        del prefer_app, write_op, max_retries, base_backoff, max_backoff, sleep
+        del prefer_app, max_retries, base_backoff, max_backoff, sleep
+        if write_op:
+            command = ["gh", *list(args)]
+            return subprocess.CompletedProcess(
+                command,
+                1,
+                "",
+                "GitHub app auth unavailable for write operation; refusing gh fallback",
+            )
         return subprocess.run(
             ["gh", *list(args)],
             capture_output=True,
@@ -138,12 +146,20 @@ def _gh_write_op(args: Sequence[str]) -> bool:
     }
 
 
+def _env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
 def _run(args: Sequence[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     command = list(args)
     if command and command[0] == "gh":
-        timeout = int(
-            os.environ.get("ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS", DEFAULT_GH_TIMEOUT_SECONDS)
-        )
+        timeout = _env_int("ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS", DEFAULT_GH_TIMEOUT_SECONDS)
         return gh_subprocess_run(
             command[1:],
             timeout=timeout,
@@ -152,10 +168,8 @@ def _run(args: Sequence[str], cwd: Path) -> subprocess.CompletedProcess[str]:
             env=github_cli_env(os.environ),
             max_retries=0,
         )
-    timeout = int(
-        os.environ.get(
-            "ARAGORA_AUTOMATION_VALUE_DRAIN_TIMEOUT_SECONDS", DEFAULT_COMMAND_TIMEOUT_SECONDS
-        )
+    timeout = _env_int(
+        "ARAGORA_AUTOMATION_VALUE_DRAIN_TIMEOUT_SECONDS", DEFAULT_COMMAND_TIMEOUT_SECONDS
     )
     try:
         return subprocess.run(
@@ -470,8 +484,14 @@ def settle_one_blockers(payload: Any) -> list[str]:
 
 def owner_blockers(payload: Any) -> list[str]:
     if not isinstance(payload, Mapping):
-        return []
+        return ["owner status unavailable"]
+    error = str(payload.get("error") or "").strip()
+    if payload.get("ok") is False and error and "no lane matched" not in error.lower():
+        return [f"owner status unavailable: {error}"]
     status = str(payload.get("status") or "").strip().lower()
+    if status == "unavailable":
+        detail = str(payload.get("error") or "owner lookup failed").strip()
+        return [f"owner status unavailable: {detail}"]
     owner_session = str(payload.get("owner_session") or "").strip()
     if status in ACTIVE_OWNER_STATUSES and owner_session:
         return [f"active owner: {owner_session} ({status})"]
@@ -583,6 +603,18 @@ def _inspect_merge_candidate(
     owner_cmd = [PYTHON, "scripts/identify_lane_owner.py", "--pr", str(pr_number), "--json"]
     owner, proc = _run_json(owner_cmd, config.repo_root, runner)
     phases.append(_phase_result(f"pr_{pr_number}_owner", owner_cmd, proc))
+    if proc.returncode != 0:
+        owner_error = ""
+        if isinstance(owner, Mapping):
+            owner_error = str(owner.get("error") or "").strip()
+        if "no lane matched" not in owner_error.lower():
+            owner = {
+                "status": "unavailable",
+                "error": owner_error
+                or _trim_output(proc.stderr or proc.stdout)
+                or "owner lookup failed",
+                "returncode": proc.returncode,
+            }
 
     checks_cmd = [
         "gh",

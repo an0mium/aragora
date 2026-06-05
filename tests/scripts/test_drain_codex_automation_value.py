@@ -132,6 +132,61 @@ def test_evaluate_merge_candidate_rejects_active_owner() -> None:
     assert evaluation.reason == "active owner: codex-live-owner (active)"
 
 
+def test_evaluate_merge_candidate_rejects_unavailable_owner_status() -> None:
+    evaluation = mod.evaluate_merge_candidate(
+        pr_view=_pr_view(),
+        required_checks=_checks(),
+        merge_packet=_packet(),
+        settle_one=_settle(),
+        owner=None,
+    )
+
+    assert evaluation.eligible is False
+    assert evaluation.reason == "owner status unavailable"
+
+
+def test_owner_blockers_allows_unowned_no_lane_match_payload() -> None:
+    assert mod.owner_blockers({"ok": False, "error": "no lane matched criteria {'pr': 7768}"}) == []
+
+
+def test_run_gh_invalid_timeout_env_falls_back(monkeypatch: Any, tmp_path: Path) -> None:
+    observed: dict[str, Any] = {}
+
+    def fake_gh_run(
+        args: Any,
+        *,
+        timeout: float,
+        prefer_app: bool,
+        write_op: bool,
+        env: Any,
+        max_retries: int,
+    ) -> subprocess.CompletedProcess[str]:
+        observed.update(
+            {
+                "args": list(args),
+                "timeout": timeout,
+                "prefer_app": prefer_app,
+                "write_op": write_op,
+                "env": env,
+                "max_retries": max_retries,
+            }
+        )
+        return subprocess.CompletedProcess(
+            args=["gh", *list(args)], returncode=0, stdout="[]", stderr=""
+        )
+
+    monkeypatch.setenv("ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS", "not-an-int")
+    monkeypatch.setattr(mod, "github_cli_env", lambda env: {"GH_TOKEN": "redacted"})
+    monkeypatch.setattr(mod, "gh_subprocess_run", fake_gh_run)
+
+    proc = mod._run(["gh", "pr", "list"], tmp_path)
+
+    assert proc.returncode == 0
+    assert observed["args"] == ["pr", "list"]
+    assert observed["timeout"] == mod.DEFAULT_GH_TIMEOUT_SECONDS
+    assert observed["write_op"] is False
+
+
 def test_issue_publish_blocker_respects_open_issue_cap() -> None:
     blocker = mod.issue_publish_blocker(
         {
@@ -270,3 +325,10 @@ def test_run_drain_skips_issue_publish_when_cap_reached(monkeypatch: Any, tmp_pa
         phase for phase in report["phases"] if phase["name"] == "publish_handoff_issues"
     ][0]
     assert issue_phase["skipped"] == [{"reason": "open issue cap reached"}]
+
+
+def test_publisher_wrapper_propagates_value_drain_failure() -> None:
+    wrapper = Path("scripts/run_codex_automation_publisher.sh").read_text(encoding="utf-8")
+
+    assert "authenticated value drain failed (exit ${rc})" in wrapper
+    assert 'exit "${rc}"' in wrapper

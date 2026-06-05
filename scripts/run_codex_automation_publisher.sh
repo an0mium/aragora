@@ -104,7 +104,9 @@ if [[ "${VALUE_DRAIN}" == "1" || "${VALUE_DRAIN}" == "true" || "${VALUE_DRAIN}" 
     --json; then
     echo "$(STAMP) [codex-automation-publisher] authenticated value drain complete"
   else
-    echo "$(STAMP) [codex-automation-publisher] authenticated value drain failed"
+    rc=$?
+    echo "$(STAMP) [codex-automation-publisher] authenticated value drain failed (exit ${rc})"
+    exit "${rc}"
   fi
   echo "$(STAMP) [codex-automation-publisher] publish pass complete"
   exit 0
