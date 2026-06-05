@@ -136,14 +136,23 @@ def _safe_repo_root(candidate: str | None) -> Path | None:
 
 
 def _tail_lines(path: Path, *, max_bytes: int = TAIL_BYTES) -> list[str]:
-    if not path.exists():
+    # Seek to the tail instead of slurping the whole file: Codex rollouts can be
+    # hundreds of MB, and only the trailing ``max_bytes`` are ever needed.
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            if size > max_bytes:
+                handle.seek(size - max_bytes)
+                data = handle.read()
+                newline = data.find(b"\n")
+                if newline >= 0:
+                    data = data[newline + 1 :]
+            else:
+                handle.seek(0)
+                data = handle.read()
+    except OSError:
         return []
-    data = path.read_bytes()
-    if len(data) > max_bytes:
-        data = data[-max_bytes:]
-        newline = data.find(b"\n")
-        if newline >= 0:
-            data = data[newline + 1 :]
     return data.decode("utf-8", errors="replace").splitlines()
 
 
@@ -641,8 +650,10 @@ def _extract_codex_summary(path: Path) -> str:
     """Best-effort last visible message text from a Codex rollout tail.
 
     Bounded to the trailing ``TAIL_BYTES`` so it stays cheap even on multi-hundred
-    megabyte rollouts. Tool-call/token-count noise lines are skipped.
+    megabyte rollouts. Prefers the most recent assistant message, falling back to
+    the most recent visible text; tool-call/token-count noise lines are skipped.
     """
+    fallback = ""
     for line in reversed(_tail_lines(path)):
         if not line.strip():
             continue
@@ -653,10 +664,16 @@ def _extract_codex_summary(path: Path) -> str:
         text = _codex_line_text(obj)
         if not text:
             continue
-        cleaned = _clean_display_line(text)
-        if cleaned:
-            return _collapse(cleaned)
-    return ""
+        cleaned = _collapse(_clean_display_line(text))
+        if not cleaned:
+            continue
+        payload = obj.get("payload") if isinstance(obj, dict) else None
+        role = str(payload.get("role") or "") if isinstance(payload, dict) else ""
+        if role == "assistant":
+            return cleaned
+        if not fallback:
+            fallback = cleaned
+    return fallback
 
 
 def load_codex_sessions(
@@ -669,23 +686,39 @@ def load_codex_sessions(
     sessions_dir = codex_home / "sessions"
     if not sessions_dir.exists():
         return []
+    limit = max(0, int(scan_limit))
+    if limit == 0:
+        return []
     try:
-        candidates = sorted(
-            (p for p in sessions_dir.rglob("*.jsonl") if p.is_file()),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )
+        all_paths = list(sessions_dir.rglob("*.jsonl"))
     except OSError:
         return []
+    # Codex writes rollouts under a date-partitioned tree with an ISO timestamp
+    # embedded in each filename, so lexical name order tracks creation order.
+    # Sort by name (no stat), bound to a window around scan_limit, then do the
+    # precise mtime ordering on just that window -- keeping stat() work O(limit)
+    # even when ~/.codex/sessions holds thousands of multi-hundred-MB rollouts.
+    all_paths.sort(key=lambda p: p.name, reverse=True)
+    window = all_paths[: limit * 4]
+
+    def _mtime(path: Path) -> float:
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return -1.0
+
+    window.sort(key=_mtime, reverse=True)
     records: list[SessionRecord] = []
-    for path in candidates[: max(0, int(scan_limit))]:
+    for path in window[:limit]:
         meta = _read_codex_session_meta(path)
         if not meta:
             continue
         cwd = meta.get("cwd")
         if not _repo_match(_safe_repo_root(cwd), repo_root):
             continue
-        is_desktop = (meta.get("originator") or "").strip().lower() == CODEX_DESKTOP_ORIGINATOR
+        # Match by containment so a versioned originator ("Codex Desktop 1.2")
+        # still classifies as desktop rather than silently falling back to cli.
+        is_desktop = CODEX_DESKTOP_ORIGINATOR in (meta.get("originator") or "").strip().lower()
         try:
             updated_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).isoformat()
         except OSError:

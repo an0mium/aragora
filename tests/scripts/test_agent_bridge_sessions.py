@@ -645,6 +645,32 @@ def test_collect_sessions_labels_codex_cli_when_not_desktop(tmp_path: Path) -> N
     assert sessions[0].agent == "codex"
 
 
+def test_collect_sessions_codex_desktop_versioned_originator(tmp_path: Path) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    codex_home = tmp_path / "codex"
+    _write_codex_rollout(
+        codex_home,
+        rel="2026/06/04/rollout-desktop-v2.jsonl",
+        cwd=str(repo_root),
+        originator="Codex Desktop 1.2.3",
+    )
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmp_path / "tmux",
+        claude_projects_root=tmp_path / "claude",
+        codex_home=codex_home,
+        source="codex",
+        resolve_repo=False,
+    )
+
+    assert len(sessions) == 1
+    assert sessions[0].source == "codex_desktop"
+
+
 def test_load_codex_sessions_filters_out_other_repos(tmp_path: Path) -> None:
     import agent_bridge_sessions as mod
 
