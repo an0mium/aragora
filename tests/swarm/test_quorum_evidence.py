@@ -296,6 +296,95 @@ def test_run_api_agent_closes_shared_connector_after_agent_close_failure(
     assert events == ["generate", "agent_close", "connector_close"]
 
 
+def test_run_api_agent_closes_shared_connector_without_agent_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def generate(self, prompt: str) -> str:
+            events.append("generate")
+            return "Verdict: PASS"
+
+    def fake_create_agent(family: str, *, name: str, role: str) -> FakeAgent:
+        return FakeAgent()
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close")
+
+    import aragora.agents
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    result = qe._run_api_agent("grok", "review prompt")
+
+    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    assert events == ["generate", "connector_close"]
+
+
+def test_run_api_agent_supports_sync_agent_close(monkeypatch: pytest.MonkeyPatch) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def generate(self, prompt: str) -> str:
+            events.append("generate")
+            return "Verdict: PASS"
+
+        def close(self) -> None:
+            events.append("agent_close")
+
+    def fake_create_agent(family: str, *, name: str, role: str) -> FakeAgent:
+        return FakeAgent()
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close")
+
+    import aragora.agents
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    result = qe._run_api_agent("grok", "review prompt")
+
+    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    assert events == ["generate", "agent_close", "connector_close"]
+
+
+def test_run_api_agent_keeps_result_when_shared_connector_close_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def generate(self, prompt: str) -> str:
+            events.append("generate")
+            return "Verdict: PASS"
+
+        async def close(self) -> None:
+            events.append("agent_close")
+
+    def fake_create_agent(family: str, *, name: str, role: str) -> FakeAgent:
+        return FakeAgent()
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close")
+        raise RuntimeError("connector failed")
+
+    import aragora.agents
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    result = qe._run_api_agent("grok", "review prompt")
+
+    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    assert events == ["generate", "agent_close", "connector_close"]
+
+
 # --- collect_evidence orchestration (fully offline via injected callables) ---
 
 
