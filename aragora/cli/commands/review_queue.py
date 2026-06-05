@@ -509,6 +509,24 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
             "commit as the exact guard. Default is dry-run/report only."
         ),
     )
+    record_p.add_argument(
+        "--post-github-status",
+        action="store_true",
+        help=(
+            "After the local receipt is durably written, atomically POST the "
+            "'aragora/human-settlement'=success commit status for the exact head "
+            "SHA. This is the ONLY GitHub mutation this command performs, and it "
+            "is the safe replacement for running 'gh api ... statuses' as a "
+            "separate command: the status can never be set unless the receipt "
+            "write succeeded first (receipt => status, never status => no "
+            "receipt). If the receipt write fails, the status is never posted."
+        ),
+    )
+    record_p.add_argument(
+        "--github-status-context",
+        default="aragora/human-settlement",
+        help="Commit-status context to post with --post-github-status.",
+    )
     record_p.add_argument("--json", action="store_true", help="Output local receipt as JSON")
 
     merge_packet_p = sub.add_parser(
@@ -1042,10 +1060,52 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+    # Atomic settlement signal: the receipt is now durably written. Only here do
+    # we publish the gate-trusted 'aragora/human-settlement' commit status, so a
+    # green status can never exist without its backing receipt. (Running
+    # 'gh api ... statuses' as a separate command decoupled the two and could set
+    # the status even when the receipt write crashed/failed.) A failure posting
+    # the status leaves a receipt with no status — the safe direction: the
+    # operator simply retries, and the merge gate stays closed until it lands.
+    github_status: dict[str, Any] | None = None
+    status_failed = False
+    if getattr(args, "post_github_status", False):
+        try:
+            github_status = _post_human_settlement_status(
+                repo_slug=_resolve_settlement_repo_slug(getattr(args, "repo", None)),
+                head_sha=head_sha,
+                context=str(
+                    getattr(args, "github_status_context", "") or "aragora/human-settlement"
+                ),
+                pr_ref=str(getattr(args, "pr")),
+                receipt_sha256=result.receipt_sha256,
+            )
+        except _GhError as exc:
+            status_failed = True
+            github_status = {"posted": False, "error": str(exc)}
+
     if json_output:
-        print(json.dumps(result.to_dict(), indent=2))
+        payload = result.to_dict()
+        if github_status is not None:
+            payload["github_status"] = github_status
+        print(json.dumps(payload, indent=2))
     else:
         _render_recorded_settlement_result(result)
+        if github_status is not None and not status_failed:
+            print(
+                f"  github-status: {github_status.get('context')}="
+                f"{github_status.get('state')} @ {head_sha[:12]}"
+            )
+
+    if status_failed:
+        print(
+            "error: receipt written but GitHub status POST failed "
+            f"({github_status.get('error') if github_status else 'unknown'}); "
+            "re-run record-settlement --post-github-status to retry.",
+            file=sys.stderr,
+        )
+        return 1
     return 1 if result.post_merge_lane_audit_failed else 0
 
 
@@ -1327,6 +1387,63 @@ def _gh_json(args: list[str]) -> Any:
         return json.loads(out)
     except json.JSONDecodeError as exc:
         raise _GhError(f"gh {' '.join(args)} returned malformed JSON: {exc}") from exc
+
+
+def _resolve_settlement_repo_slug(repo_override: str | None) -> str:
+    """Return ``owner/name``, preferring an explicit override then ``gh`` context."""
+    slug = str(repo_override or "").strip()
+    if slug:
+        return slug
+    data = _gh_json(["repo", "view", "--json", "nameWithOwner"])
+    if isinstance(data, dict):
+        slug = str(data.get("nameWithOwner", "") or "").strip()
+    if not slug:
+        raise _GhError("could not resolve repo slug; pass --repo owner/name")
+    return slug
+
+
+def _post_human_settlement_status(
+    *,
+    repo_slug: str,
+    head_sha: str,
+    context: str,
+    pr_ref: str,
+    receipt_sha256: str,
+) -> dict[str, Any]:
+    """POST the head-bound human-settlement commit status, citing the receipt.
+
+    Only called after the local receipt is durably written, so the status is
+    always backed by a receipt. The receipt sha is embedded in the status
+    description for an auditable status->receipt link.
+    """
+    pr_digits = "".join(ch for ch in str(pr_ref) if ch.isdigit()) or str(pr_ref)
+    description = (f"Settlement receipt {receipt_sha256} recorded for PR #{pr_digits}")[:140]
+    resp = _gh_json(
+        [
+            "api",
+            "--method",
+            "POST",
+            f"repos/{repo_slug}/statuses/{head_sha}",
+            "-f",
+            "state=success",
+            "-f",
+            f"context={context}",
+            "-f",
+            f"description={description}",
+        ]
+    )
+    state = ""
+    posted_context = context
+    if isinstance(resp, dict):
+        state = str(resp.get("state", "") or "")
+        posted_context = str(resp.get("context", context) or context)
+    return {
+        "posted": True,
+        "context": posted_context,
+        "state": state,
+        "head_sha": head_sha,
+        "receipt_sha256": receipt_sha256,
+    }
 
 
 def _build_queue(*, limit: int) -> list[QueueItem]:
