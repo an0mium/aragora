@@ -343,7 +343,7 @@ async def _close_api_agent_resources(agent: Any) -> None:
             result = close()
             if inspect.isawaitable(result):
                 await result
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - cleanup must not mask reviewer results.
             logger.debug("collect-evidence API agent close failed: %s", exc)
 
     try:
@@ -353,8 +353,11 @@ async def _close_api_agent_resources(agent: Any) -> None:
         return
 
     try:
+        # This collector calls API reviewers through a one-shot asyncio.run()
+        # loop, so the shared aiohttp connector must be released before that
+        # loop is torn down. The collector dispatches reviewers serially.
         await close_shared_connector()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - cleanup must not mask reviewer results.
         logger.debug("collect-evidence shared connector close failed: %s", exc)
 
 
