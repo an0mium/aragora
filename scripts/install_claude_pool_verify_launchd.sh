@@ -14,12 +14,18 @@ INTERVAL_SECONDS=3600  # hourly: matches the routing snapshot TTL (1h)
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_PATH="${HOME}/.aragora/claude-pool-verify.log"
 PYTHON_BIN="${ARAGORA_PYTHON:-python3}"
+# launchd runs with a minimal PATH (/usr/bin:/bin:...) that lacks ~/.local/bin
+# (where the `claude` CLI lives) and Homebrew (gh/git). Without these on PATH the
+# profile probe silently fails and every profile is misreported as expired, so
+# set an explicit PATH for the job. Override with --path if your tools differ.
+BIN_PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--interval-seconds <n>] [--python <path>]
+Usage: $(basename "$0") [--interval-seconds <n>] [--python <path>] [--path <PATH>]
   --interval-seconds <n>   launchd StartInterval (default: ${INTERVAL_SECONDS})
   --python <path>          Python interpreter (default: ${PYTHON_BIN})
+  --path <PATH>            PATH for the job (must include the claude CLI dir)
 EOF
 }
 
@@ -27,6 +33,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --interval-seconds) INTERVAL_SECONDS="$2"; shift 2 ;;
     --python) PYTHON_BIN="$2"; shift 2 ;;
+    --path) BIN_PATH="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage; exit 2 ;;
   esac
@@ -47,7 +54,7 @@ cat >"${PLIST_PATH}" <<EOF
   <array>
     <string>/bin/bash</string>
     <string>-lc</string>
-    <string>cd "${REPO_ROOT}" &amp;&amp; "${PYTHON_BIN}" scripts/claude_pool_verify.py</string>
+    <string>export PATH="${BIN_PATH}" &amp;&amp; cd "${REPO_ROOT}" &amp;&amp; "${PYTHON_BIN}" scripts/claude_pool_verify.py</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
