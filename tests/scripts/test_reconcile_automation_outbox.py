@@ -147,6 +147,45 @@ def test_json_output_reports_reconciliation_without_human_preamble(
     assert payload["actions"][0]["branch"] == "codex/json-output"
 
 
+def test_json_output_suppresses_flush_time_broken_pipe(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    class FlushBrokenPipeStdout:
+        def __init__(self) -> None:
+            self.closed = False
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+        def close(self) -> None:
+            self.closed = True
+
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-json-broken-pipe-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/json-broken-pipe", key=key)
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+    stdout = FlushBrokenPipeStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stdout)
+
+    rc = mod.main(["--repo", str(tmp_path), "--json"])
+
+    assert rc == 0
+    assert stdout.closed is True
+    assert any('"actions"' in write for write in stdout.writes)
+    assert mod.sys.stdout is not stdout
+
+
 def test_json_summary_only_omits_action_details(
     tmp_path: Path,
     capsys: Any,

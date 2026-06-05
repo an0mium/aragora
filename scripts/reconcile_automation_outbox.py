@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -46,6 +47,28 @@ UTC = timezone.utc
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_stdout(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
+def _emit_json(payload: Mapping[str, Any]) -> None:
+    _emit_stdout(json.dumps(payload, indent=2, sort_keys=True))
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -685,7 +708,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def emit(message: str = "") -> None:
         if not args.json:
-            print(message)
+            _emit_stdout(message)
 
     emit(f"state_root: {state_root}")
     emit(f"outbox_dir: {outbox_dir}")
@@ -747,7 +770,7 @@ def main(argv: list[str] | None = None) -> int:
                 "total_outbox_count": len(all_outbox_files),
             }
             if args.json:
-                print(json.dumps(payload, indent=2, sort_keys=True))
+                _emit_json(payload)
             else:
                 for key in missing_keys:
                     emit(f"ERROR: no outbox handoff found for idempotency key {key}")
@@ -1145,7 +1168,7 @@ def main(argv: list[str] | None = None) -> int:
             payload["action_count"] = len(actions)
             payload["actions_omitted"] = True
             payload.pop("actions", None)
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _emit_json(payload)
     return 0
 
 
