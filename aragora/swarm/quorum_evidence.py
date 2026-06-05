@@ -27,6 +27,7 @@ all network/process I/O is injected so the orchestrator
 from __future__ import annotations
 
 import asyncio
+import inspect
 import re
 import subprocess
 from collections.abc import Callable, Sequence
@@ -314,13 +315,43 @@ def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
         return ReviewerResult(family, "", False, f"create_agent import failed: {exc}")
     try:
         agent = create_agent(family, name=f"{family}_reviewer", role="critic")
-        text = asyncio.run(asyncio.wait_for(agent.generate(prompt), timeout=_REVIEWER_TIMEOUT))
+        text = asyncio.run(_generate_with_api_agent_cleanup(agent, prompt))
     except Exception as exc:
         return ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     text = (text or "").strip()
     if not text:
         return ReviewerResult(family, "", False, "empty reviewer output")
     return ReviewerResult(family, _cap_text(text), True)
+
+
+async def _generate_with_api_agent_cleanup(agent: Any, prompt: str) -> str:
+    """Generate with an API-backed agent and close one-shot network resources."""
+    try:
+        return await asyncio.wait_for(agent.generate(prompt), timeout=_REVIEWER_TIMEOUT)
+    finally:
+        await _close_api_agent_resources(agent)
+
+
+async def _close_api_agent_resources(agent: Any) -> None:
+    """Best-effort cleanup for collect-evidence one-shot API reviewer runs."""
+    close = getattr(agent, "close", None)
+    if callable(close):
+        try:
+            result = close()
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            pass
+
+    try:
+        from aragora.agents.api_agents.common import close_shared_connector
+    except Exception:
+        return
+
+    try:
+        await close_shared_connector()
+    except Exception:
+        pass
 
 
 def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:

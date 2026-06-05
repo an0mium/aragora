@@ -194,6 +194,76 @@ def test_compose_sanitizes_committed_timestamp() -> None:
     assert capped.endswith("[reviewer output truncated]")
 
 
+# --- default API reviewer cleanup ------------------------------------------
+
+
+def test_run_api_agent_closes_agent_and_shared_connector(monkeypatch: pytest.MonkeyPatch) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def generate(self, prompt: str) -> str:
+            events.append(f"generate:{prompt}")
+            return "Verdict: PASS"
+
+        async def close(self) -> None:
+            events.append("agent_close")
+
+    def fake_create_agent(family: str, *, name: str, role: str) -> FakeAgent:
+        events.append(f"create:{family}:{name}:{role}")
+        return FakeAgent()
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close")
+
+    import aragora.agents
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    result = qe._run_api_agent("grok", "review prompt")
+
+    assert result == ReviewerResult("grok", "Verdict: PASS", True)
+    assert events == [
+        "create:grok:grok_reviewer:critic",
+        "generate:review prompt",
+        "agent_close",
+        "connector_close",
+    ]
+
+
+def test_run_api_agent_closes_resources_after_generate_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def generate(self, prompt: str) -> str:
+            events.append("generate")
+            raise RuntimeError("model failed")
+
+        async def close(self) -> None:
+            events.append("agent_close")
+
+    def fake_create_agent(family: str, *, name: str, role: str) -> FakeAgent:
+        return FakeAgent()
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close")
+
+    import aragora.agents
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    result = qe._run_api_agent("grok", "review prompt")
+
+    assert result.ok is False
+    assert "RuntimeError: model failed" in result.error
+    assert events == ["generate", "agent_close", "connector_close"]
+
+
 # --- collect_evidence orchestration (fully offline via injected callables) ---
 
 
