@@ -130,6 +130,45 @@ def test_force_overrides_owner_mismatch(tmp_registry: Path) -> None:
     assert payload[0]["owner_session"] == "claude-B"
 
 
+def test_dry_run_returns_row_without_writing_registry(tmp_registry: Path) -> None:
+    result = claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="would-claim",
+        owner_session="codex-dry-run",
+        branch="codex/would-claim",
+        status="active",
+        dry_run=True,
+    )
+
+    assert result["lane_id"] == "would-claim"
+    assert result["owner_session"] == "codex-dry-run"
+    assert result["last_heartbeat_at"] == result["updated_at"]
+    assert result["last_steering_outcome"] == "unknown"
+    assert not tmp_registry.exists()
+
+
+def test_dry_run_checks_conflicts_without_changing_registry(tmp_registry: Path) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="existing",
+        owner_session="codex-A",
+        branch="codex/shared",
+    )
+    before = tmp_registry.read_text(encoding="utf-8")
+
+    with pytest.raises(claim_module.ClaimError) as excinfo:
+        claim_module.claim_lane(
+            registry_path=tmp_registry,
+            lane_id="new",
+            owner_session="codex-B",
+            branch="codex/shared",
+            dry_run=True,
+        )
+
+    assert "already claimed" in str(excinfo.value)
+    assert tmp_registry.read_text(encoding="utf-8") == before
+
+
 def test_different_lane_same_pr_is_rejected_by_default(tmp_registry: Path) -> None:
     claim_module.claim_lane(
         registry_path=tmp_registry,
@@ -563,6 +602,36 @@ def test_cli_writes_registry_via_subprocess(tmp_path: Path) -> None:
     assert file_payload[0]["session_title"] == "CLI lane claim"
     assert file_payload[0]["contact_method"] == "tmux:aragora:1"
     assert file_payload[0]["contact_payload"]["target"] == "aragora:1"
+
+
+def test_cli_dry_run_emits_preview_without_writing_registry(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--lane-id",
+            "phase-cli-dry-run",
+            "--owner-session",
+            "claude-cli",
+            "--branch",
+            "codex/phase-cli-dry-run",
+            "--registry-path",
+            str(registry),
+            "--dry-run",
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload_out = json.loads(result.stdout)
+    assert payload_out["lane_id"] == "phase-cli-dry-run"
+    assert payload_out["dry_run"] is True
+    assert payload_out["registry_path"] == str(registry)
+    assert not registry.exists()
 
 
 def test_cli_conflict_returns_exit_code_2(tmp_path: Path) -> None:

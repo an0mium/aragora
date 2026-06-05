@@ -382,8 +382,9 @@ def claim_lane(
     force: bool = False,
     allow_resource_conflicts: bool = False,
     updated_at: str | None = None,
+    dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Write or refresh a single lane claim, returning the persisted row."""
+    """Write or refresh a single lane claim, returning the resulting row."""
     if not lane_id:
         raise ValueError("lane_id must not be empty")
     if not owner_session:
@@ -391,41 +392,40 @@ def claim_lane(
     if status not in ALLOWED_STATUSES:
         raise ValueError(f"status {status!r} is not in {sorted(ALLOWED_STATUSES)}")
 
-    with _registry_write_lock(registry_path):
-        rows = _read_existing(registry_path)
-        timestamp = updated_at or _utc_now_iso()
-        if status in ACTIVE_STATUSES:
-            next_action = next_action or DEFAULT_ACTIVE_NEXT_ACTION
-            last_heartbeat_at = last_heartbeat_at or timestamp
-            last_steering_outcome = last_steering_outcome or DEFAULT_STEERING_OUTCOME
+    timestamp = updated_at or _utc_now_iso()
+    if status in ACTIVE_STATUSES:
+        next_action = next_action or DEFAULT_ACTIVE_NEXT_ACTION
+        last_heartbeat_at = last_heartbeat_at or timestamp
+        last_steering_outcome = last_steering_outcome or DEFAULT_STEERING_OUTCOME
 
-        new_row: dict[str, Any] = {
-            "lane_id": lane_id,
-            "owner_session": owner_session,
-            "goal": goal,
-            "source": source,
-            "status": status,
-            "next_action": next_action,
-            "updated_at": timestamp,
-            "branch": branch,
-            "worktree": worktree,
-            "pr_number": pr_number,
-            "conflict_session": conflict_session,
-            "conflict_reason": conflict_reason,
-            "desktop_label": desktop_label,
-            "codex_thread_id": codex_thread_id,
-            "codex_rollout_path": codex_rollout_path,
-            "session_title": session_title,
-            "contact_method": contact_method,
-            "contact_payload": contact_payload,
-            "last_mailbox_check_at": last_mailbox_check_at,
-            "last_delivery_at": last_delivery_at,
-            "last_ack_at": last_ack_at,
-            "last_heartbeat_at": last_heartbeat_at,
-            "last_steering_outcome": last_steering_outcome,
-        }
-        normalized = _normalize_row(new_row)
+    new_row: dict[str, Any] = {
+        "lane_id": lane_id,
+        "owner_session": owner_session,
+        "goal": goal,
+        "source": source,
+        "status": status,
+        "next_action": next_action,
+        "updated_at": timestamp,
+        "branch": branch,
+        "worktree": worktree,
+        "pr_number": pr_number,
+        "conflict_session": conflict_session,
+        "conflict_reason": conflict_reason,
+        "desktop_label": desktop_label,
+        "codex_thread_id": codex_thread_id,
+        "codex_rollout_path": codex_rollout_path,
+        "session_title": session_title,
+        "contact_method": contact_method,
+        "contact_payload": contact_payload,
+        "last_mailbox_check_at": last_mailbox_check_at,
+        "last_delivery_at": last_delivery_at,
+        "last_ack_at": last_ack_at,
+        "last_heartbeat_at": last_heartbeat_at,
+        "last_steering_outcome": last_steering_outcome,
+    }
+    normalized = _normalize_row(new_row)
 
+    def planned_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         identity_conflict = _active_identity_conflict(
             rows=rows,
             normalized=normalized,
@@ -458,7 +458,15 @@ def claim_lane(
             out_rows.append(normalized)
         if not replaced:
             out_rows.append(normalized)
+        return out_rows
 
+    if dry_run:
+        planned_rows(_read_existing(registry_path))
+        return normalized
+
+    with _registry_write_lock(registry_path):
+        rows = _read_existing(registry_path)
+        out_rows = planned_rows(rows)
         _atomic_write(registry_path, out_rows)
         return normalized
 
@@ -554,6 +562,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Release stale active claims for --owner-session instead of claiming a lane.",
     )
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate and emit the would-be lane claim without writing the registry.",
+    )
+    parser.add_argument(
         "--ttl-minutes",
         type=float,
         default=240.0,
@@ -602,6 +615,8 @@ def main(argv: list[str] | None = None) -> int:
             if not isinstance(parsed_payload, dict):
                 raise ValueError("--contact-payload must be a JSON object")
             contact_payload = parsed_payload
+        if args.release_stale and args.dry_run:
+            raise ValueError("--dry-run is only supported for lane claims")
         if args.release_stale:
             row = release_stale_claims(
                 registry_path=registry_path,
@@ -637,6 +652,7 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
                 allow_resource_conflicts=args.allow_resource_conflicts,
                 updated_at=args.updated_at,
+                dry_run=args.dry_run,
             )
     except ClaimError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -646,15 +662,20 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.json:
-        print(json.dumps(row, indent=2, sort_keys=True))
+        payload = dict(row)
+        if args.dry_run:
+            payload["dry_run"] = True
+            payload["registry_path"] = str(registry_path)
+        print(json.dumps(payload, indent=2, sort_keys=True))
     elif args.release_stale:
         print(
             f"released {row['released_count']} stale lane(s) for "
             f"owner={row['owner_session']} registry={registry_path}"
         )
     else:
+        verb = "would claim" if args.dry_run else "claimed"
         print(
-            f"claimed lane_id={row['lane_id']} owner={row['owner_session']} "
+            f"{verb} lane_id={row['lane_id']} owner={row['owner_session']} "
             f"status={row['status']} registry={registry_path}"
         )
     return 0
