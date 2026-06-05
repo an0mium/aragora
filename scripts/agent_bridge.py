@@ -1975,7 +1975,7 @@ def _collect_pending_steering_messages(
                 str(data.get("message_sha256") or ""),
             )
             read_keys.add(key)
-            if str(data.get("outcome") or "") in RESOLVED_STEERING_OUTCOMES:
+            if str(data.get("outcome") or "").strip().lower() in RESOLVED_STEERING_OUTCOMES:
                 resolved_keys.add(key)
 
         unread = 0

@@ -691,6 +691,47 @@ def test_collect_pending_steering_messages_completed_receipts_are_not_actionable
     assert mod._operator_queue_depth({"active_lanes": 2, "active_broker_runs": 0}, payload) == 2
 
 
+def test_collect_pending_steering_messages_normalizes_terminal_receipt_outcomes(
+    tmp_path: Path,
+) -> None:
+    import agent_bridge as mod
+
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "owner-session"
+    receipts = inbox / "_read_receipts"
+    receipts.mkdir(parents=True)
+    message = {
+        "subject": "Completed with padded outcome",
+        "sent_at_utc": "2026-06-05T12:01:00Z",
+        "priority": "blocking",
+        "lane_id_hint": "completed-lane",
+        "pr_hint": None,
+        "message_sha256": "sha-completed-padded",
+    }
+    (inbox / "2026-06-05T12-01-00Z-completed.json").write_text(
+        json.dumps(message),
+        encoding="utf-8",
+    )
+    receipt = {
+        "read_at_utc": "2026-06-05T12:02:00Z",
+        "read_by_session": "codex-worker",
+        "message_filename": "2026-06-05T12-01-00Z-completed.json",
+        "message_sha256": "sha-completed-padded",
+        "outcome": " Completed ",
+        "subject": message["subject"],
+    }
+    (receipts / "2026-06-05T12-02-00Z-completed-receipt.json").write_text(
+        json.dumps(receipt),
+        encoding="utf-8",
+    )
+
+    payload = mod._collect_pending_steering_messages("owner-session", steering_root)
+
+    assert payload["count"] == 1
+    assert payload["unresolved_count"] == 0
+    assert payload["latest_unresolved_three"] == []
+
+
 def test_collect_pending_steering_messages_read_receipts_remain_actionable(
     tmp_path: Path,
 ) -> None:
