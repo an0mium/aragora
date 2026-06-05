@@ -1485,10 +1485,67 @@ def cmd_status(args: argparse.Namespace) -> int:
         )
 
     payload = {"repo_root": str(repo_root), "managed_root": str(managed_root), "sessions": rows}
+    if getattr(args, "summary_only", False):
+        summary_limit = max(0, int(getattr(args, "summary_limit", 20)))
+        lifecycle_counts: dict[str, int] = {}
+        lock_reason_counts: dict[str, int] = {}
+        agent_counts: dict[str, int] = {}
+        lease_status_counts: dict[str, int] = {}
+        for row in rows:
+            lifecycle = str(row.get("lifecycle_state") or "unknown")
+            lifecycle_counts[lifecycle] = lifecycle_counts.get(lifecycle, 0) + 1
+            agent = str(row.get("agent") or "unknown")
+            agent_counts[agent] = agent_counts.get(agent, 0) + 1
+            lease_status = str(row.get("lease_status") or "none")
+            lease_status_counts[lease_status] = lease_status_counts.get(lease_status, 0) + 1
+            lock_reason = row.get("cleanup_lock_reason")
+            if lock_reason:
+                key = str(lock_reason)
+                lock_reason_counts[key] = lock_reason_counts.get(key, 0) + 1
+
+        top_sessions = [
+            {
+                "session_id": row.get("session_id"),
+                "agent": row.get("agent"),
+                "branch": row.get("branch"),
+                "path": row.get("path"),
+                "active": row.get("active"),
+                "lifecycle_state": row.get("lifecycle_state"),
+                "cleanup_lock": row.get("cleanup_lock"),
+                "cleanup_lock_reason": row.get("cleanup_lock_reason"),
+                "lease_status": row.get("lease_status"),
+                "last_heartbeat_at": row.get("last_heartbeat_at"),
+                "reconcile_status": row.get("reconcile_status"),
+            }
+            for row in rows[:summary_limit]
+        ]
+        payload = {
+            "repo_root": str(repo_root),
+            "managed_root": str(managed_root),
+            "count": len(rows),
+            "emitted_count": len(top_sessions),
+            "summary_limit": summary_limit,
+            "details_omitted": True,
+            "active_count": sum(1 for row in rows if row.get("active")),
+            "cleanup_locked_count": sum(1 for row in rows if row.get("cleanup_lock")),
+            "lifecycle_counts": dict(sorted(lifecycle_counts.items())),
+            "cleanup_lock_reason_counts": dict(sorted(lock_reason_counts.items())),
+            "agent_counts": dict(sorted(agent_counts.items())),
+            "lease_status_counts": dict(sorted(lease_status_counts.items())),
+            "top_sessions": top_sessions,
+        }
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
         print(f"managed root: {managed_root}")
+        if getattr(args, "summary_only", False):
+            print(
+                "sessions="
+                f"{payload['count']} active={payload['active_count']} "
+                f"cleanup_locked={payload['cleanup_locked_count']} "
+                f"shown={payload['emitted_count']}"
+            )
+            return 0
         if not rows:
             print("no managed sessions")
         for row in rows:
@@ -1661,6 +1718,17 @@ def _build_parser() -> argparse.ArgumentParser:
     status = sub.add_parser("status", help="Show managed session status")
     status.add_argument("--ttl-hours", type=int, default=DEFAULT_TTL_HOURS)
     status.add_argument("--json", action="store_true")
+    status.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact counts and bounded top sessions instead of full status rows",
+    )
+    status.add_argument(
+        "--summary-limit",
+        type=int,
+        default=20,
+        help="Maximum number of top sessions to include with --summary-only",
+    )
     status.set_defaults(func=cmd_status)
 
     return parser

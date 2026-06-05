@@ -192,6 +192,17 @@ def test_maintain_parser_defaults_to_ff_only_strategy():
     assert args.strategy == "ff-only"
 
 
+def test_status_parser_allows_summary_only():
+    import codex_worktree_autopilot as mod
+
+    parser = mod._build_parser()
+    args = parser.parse_args(["status", "--json", "--summary-only", "--summary-limit", "3"])
+
+    assert args.json is True
+    assert args.summary_only is True
+    assert args.summary_limit == 3
+
+
 def test_worktree_status_treats_status_failure_as_dirty(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2119,6 +2130,99 @@ def test_cmd_status_reports_lifecycle_and_lock_metadata(
     assert payload["sessions"][0]["lifecycle_state"] == "active"
     assert payload["sessions"][0]["cleanup_lock_reason"] == "active_session"
     assert payload["sessions"][1]["lifecycle_state"] == "safe-to-clean"
+
+
+def test_cmd_status_summary_only_omits_full_sessions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    active_path = tmp_path / "active"
+    safe_path = tmp_path / "safe"
+    active_path.mkdir()
+    safe_path.mkdir()
+    state = {
+        "sessions": [
+            {
+                "session_id": "s1",
+                "agent": "codex",
+                "branch": "codex/s1",
+                "path": str(active_path),
+                "created_at": "2026-02-01T00:00:00+00:00",
+            },
+            {
+                "session_id": "s2",
+                "agent": "claude",
+                "branch": "codex/s2",
+                "path": str(safe_path),
+                "created_at": "2026-02-01T00:00:00+00:00",
+            },
+        ]
+    }
+
+    metadata_rows = iter(
+        [
+            {
+                "lifecycle_state": "active",
+                "cleanup_lock": True,
+                "cleanup_lock_reason": "active_session",
+                "base_branch": "main",
+                "base_sha": "abc123",
+                "last_heartbeat_at": "2026-02-24T00:00:00+00:00",
+                "lease_status": "active",
+                "lease_expires_at": "2026-02-24T08:00:00+00:00",
+            },
+            {
+                "lifecycle_state": "safe-to-clean",
+                "cleanup_lock": False,
+                "cleanup_lock_reason": None,
+                "base_branch": "main",
+                "base_sha": "def456",
+                "last_heartbeat_at": None,
+                "lease_status": None,
+                "lease_expires_at": None,
+            },
+        ]
+    )
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=active_path, branch="codex/s1")],
+    )
+    monkeypatch.setattr(
+        mod,
+        "_annotate_session",
+        lambda *_args, **_kwargs: next(metadata_rows),
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        ttl_hours=24,
+        json=True,
+        summary_only=True,
+        summary_limit=1,
+    )
+    rc = mod.cmd_status(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "sessions" not in payload
+    assert payload["details_omitted"] is True
+    assert payload["count"] == 2
+    assert payload["emitted_count"] == 1
+    assert payload["active_count"] == 1
+    assert payload["cleanup_locked_count"] == 1
+    assert payload["lifecycle_counts"] == {"active": 1, "safe-to-clean": 1}
+    assert payload["cleanup_lock_reason_counts"] == {"active_session": 1}
+    assert payload["agent_counts"] == {"claude": 1, "codex": 1}
+    assert payload["lease_status_counts"] == {"active": 1, "none": 1}
+    assert payload["top_sessions"][0]["session_id"] == "s1"
 
 
 # --- squash-merge detection (real git repos) ---------------------------------
