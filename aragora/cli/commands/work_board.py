@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +64,15 @@ def _render_human(payload: dict[str, Any]) -> str:
         else:
             lines.append("items:")
             for item in items:
+                _fmt_item(item)
+
+    if "top_items" in payload:
+        top_items = payload.get("top_items") or []
+        if not top_items:
+            lines.append("top_items: (none)")
+        else:
+            lines.append("top_items:")
+            for item in top_items:
                 _fmt_item(item)
 
     if "recommendations" in payload:
@@ -125,10 +135,67 @@ def _mute_stdout_after_broken_pipe() -> None:
     sys.stdout = open(os.devnull, "w", encoding="utf-8")
 
 
+def _count_by(items: list[Any], attr: str) -> dict[str, int]:
+    def normalized_key(item: Any) -> str:
+        value = str(getattr(item, attr) or "unknown")
+        return value if len(value) <= 80 else "other"
+
+    counts = Counter(normalized_key(item) for item in items)
+    return dict(sorted(counts.items()))
+
+
+def _compact_text(value: Any, *, max_chars: int) -> str | None:
+    if value in (None, ""):
+        return None
+    text = str(value)
+    return text if len(text) <= max_chars else f"{text[: max_chars - 3]}..."
+
+
+def _compact_work_item(item: Any) -> dict[str, Any]:
+    payload = {
+        "id": item.id,
+        "source": item.source,
+        "item_type": item.item_type,
+        "title": _compact_text(item.title, max_chars=240),
+        "status": _compact_text(item.status, max_chars=80),
+        "scope": item.scope,
+        "url": item.url,
+        "owner": item.owner,
+        "branch": item.branch,
+        "updated_at": item.updated_at,
+        "dependencies": list(item.dependencies),
+        "evidence_refs": list(item.evidence_refs),
+        "tags": list(item.tags),
+    }
+    return {key: value for key, value in payload.items() if value not in (None, [], "")}
+
+
 def cmd_work_list(args: argparse.Namespace) -> int:
     items, health = collect_work_items(_repo_root(args), scope=args.scope)
     limit = getattr(args, "limit", None)
+    summary_only = bool(getattr(args, "summary_only", False))
+    summary_limit = limit if limit is not None else 20
     emitted_items = items[:limit] if limit is not None else items
+    if summary_only:
+        summary_items = items[:summary_limit]
+        return _emit(
+            {
+                "schema_version": SCHEMA_VERSION,
+                "scope": args.scope,
+                "count": len(items),
+                "emitted_count": len(summary_items),
+                "limit": limit,
+                "summary_limit": summary_limit,
+                "details_omitted": True,
+                "items_omitted": max(0, len(items) - len(summary_items)),
+                "source_counts": _count_by(items, "source"),
+                "item_type_counts": _count_by(items, "item_type"),
+                "status_counts": _count_by(items, "status"),
+                "top_items": [_compact_work_item(item) for item in summary_items],
+                "source_health": health,
+            },
+            as_json=getattr(args, "json", False),
+        )
     return _emit(
         {
             "schema_version": SCHEMA_VERSION,

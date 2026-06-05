@@ -17,6 +17,7 @@ from aragora.cli.commands.work_board import (
     cmd_work_robot,
     cmd_work_show,
 )
+from aragora.work.models import WorkItem
 
 
 def _args(tmp_path: Path, **kwargs) -> argparse.Namespace:
@@ -26,6 +27,7 @@ def _args(tmp_path: Path, **kwargs) -> argparse.Namespace:
         "scope": "current",
         "work_id": None,
         "limit": None,
+        "summary_only": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -79,6 +81,15 @@ def test_work_parser_registers_list_limit() -> None:
     assert args.command == "work"
     assert args.work_cmd == "list"
     assert args.limit == 3
+
+
+def test_work_parser_registers_list_summary_only() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["work", "list", "--json", "--summary-only"])
+
+    assert args.command == "work"
+    assert args.work_cmd == "list"
+    assert args.summary_only is True
 
 
 def test_work_parser_rejects_negative_list_limit() -> None:
@@ -233,6 +244,99 @@ def test_work_list_limit_bounds_emitted_items_but_preserves_total_count(
     assert payload["count"] == 3
     assert payload["emitted_count"] == 2
     assert len(payload["items"]) == 2
+
+
+def test_work_list_summary_only_omits_full_items_but_preserves_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    for name in ("one", "two", "three"):
+        (outbox / f"{name}.json").write_text(
+            json.dumps(
+                {
+                    "task": f"repair {name}",
+                    "branch": f"codex/{name}",
+                    "owner": "codex-worker",
+                    "objective": f"Repair queue {name}",
+                    "context": "Large validation context should stay out of summary output.",
+                    "acceptance_criteria": ["summary output remains compact"],
+                    "validation": "focused tests",
+                    "dependencies_declared": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    assert cmd_work_list(_args(tmp_path, summary_only=True, limit=2)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 3
+    assert payload["emitted_count"] == 2
+    assert payload["summary_limit"] == 2
+    assert payload["details_omitted"] is True
+    assert payload["items_omitted"] == 1
+    assert payload["source_counts"] == {"automation_outbox": 3}
+    assert payload["item_type_counts"] == {"handoff": 3}
+    assert payload["status_counts"] == {"pending": 3}
+    assert "items" not in payload
+    assert len(payload["top_items"]) == 2
+    assert payload["top_items"][0]["branch"].startswith("codex/")
+    assert payload["top_items"][0]["owner"] == "codex-worker"
+    assert "metadata" not in payload["top_items"][0]
+
+
+def test_work_list_summary_only_defaults_to_twenty_top_items(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    for index in range(25):
+        (outbox / f"handoff-{index:02d}.json").write_text(
+            json.dumps({"task": f"repair {index}", "branch": f"codex/{index}"}),
+            encoding="utf-8",
+        )
+
+    assert cmd_work_list(_args(tmp_path, summary_only=True)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 25
+    assert payload["emitted_count"] == 20
+    assert payload["summary_limit"] == 20
+    assert payload["items_omitted"] == 5
+    assert len(payload["top_items"]) == 20
+
+
+def test_work_list_summary_only_bounds_verbose_status_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    long_status = "verbose local receipt status " * 12
+
+    def fake_collect_work_items(_repo: Path, *, scope: str):
+        return (
+            [
+                WorkItem(
+                    id="automation-receipt:verbose",
+                    source="automation_receipt",
+                    item_type="receipt",
+                    title="verbose receipt",
+                    status=long_status,
+                    scope=scope,
+                )
+            ],
+            [],
+        )
+
+    monkeypatch.setattr(work_board_cmd, "collect_work_items", fake_collect_work_items)
+
+    assert cmd_work_list(_args(tmp_path, summary_only=True)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["status_counts"] == {"other": 1}
+    assert payload["top_items"][0]["status"].endswith("...")
+    assert len(payload["top_items"][0]["status"]) == 80
 
 
 def test_work_robot_marks_tier_four_pr_human_gated(

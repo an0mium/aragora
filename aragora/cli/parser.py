@@ -355,6 +355,11 @@ def _add_work_parser(subparsers) -> None:
         help="current excludes terminal/historical noise; all includes context records",
     )
     add_limit(list_cmd)
+    list_cmd.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit full work items and emit aggregate counts plus compact top rows",
+    )
     list_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_list"))
 
     show_cmd = work_sub.add_parser("show", help="Show one normalized work item")
