@@ -1119,6 +1119,7 @@ def _collect_agent_process_census(
 ) -> dict[str, Any]:
     """Return a read-only, redacted census of active local agent processes."""
     error = ""
+    unavailable_reason = ""
     if ps_lines is None:
         try:
             result = subprocess.run(
@@ -1131,12 +1132,14 @@ def _collect_agent_process_census(
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
             result = None
             error = str(exc)
+            unavailable_reason = _process_census_unavailable_reason(exc)
         if result is None:
             ps_lines = []
         elif result.returncode == 0:
             ps_lines = result.stdout.splitlines()
         else:
             error = (result.stderr or f"ps exited {result.returncode}").strip()
+            unavailable_reason = _process_census_unavailable_reason(error)
             ps_lines = []
 
     records = [
@@ -1151,11 +1154,14 @@ def _collect_agent_process_census(
         by_role[role] = by_role.get(role, 0) + 1
 
     payload: dict[str, Any] = {
-        "ok": not error,
+        "ok": not error or bool(unavailable_reason),
         "total": len(records),
         "by_role": dict(sorted(by_role.items())),
     }
-    if error:
+    if unavailable_reason:
+        payload["degraded"] = True
+        payload["unavailable_reason"] = unavailable_reason
+    elif error:
         payload["error"] = error
     if include_records:
         limited_records = records[:record_limit] if record_limit is not None else records
@@ -1163,6 +1169,20 @@ def _collect_agent_process_census(
         if len(limited_records) < len(records):
             payload["records_omitted"] = len(records) - len(limited_records)
     return payload
+
+
+def _process_census_unavailable_reason(error: object) -> str:
+    """Classify expected sandbox/process-inventory failures as degraded census."""
+    if isinstance(error, subprocess.TimeoutExpired):
+        return "ps_timeout"
+    if isinstance(error, FileNotFoundError):
+        return "ps_unavailable"
+    if isinstance(error, OSError) and getattr(error, "errno", None) == 1:
+        return "ps_permission_denied"
+    message = str(error)
+    if "Operation not permitted" in message:
+        return "ps_permission_denied"
+    return ""
 
 
 def _lane_conflict(

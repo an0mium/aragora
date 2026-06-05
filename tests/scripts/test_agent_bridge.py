@@ -1329,6 +1329,27 @@ def test_collect_agent_process_census_keeps_total_when_records_limited() -> None
     assert payload["records_omitted"] == 1
 
 
+def test_collect_agent_process_census_degrades_when_ps_permission_denied(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    def fake_run(*_args: object, **_kwargs: object) -> object:
+        raise OSError(1, "Operation not permitted", "ps")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    payload = mod._collect_agent_process_census(include_records=False)
+
+    assert payload == {
+        "ok": True,
+        "total": 0,
+        "by_role": {},
+        "degraded": True,
+        "unavailable_reason": "ps_permission_denied",
+    }
+
+
 def test_session_lifecycle_classifies_claude_transcripts_as_historical() -> None:
     import agent_bridge as mod
 
