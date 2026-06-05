@@ -48,6 +48,7 @@ import argparse
 import dataclasses
 import datetime
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -852,6 +853,24 @@ def fetch_open_prs(*, limit: int = 100) -> list[dict[str, Any]]:
         raise SystemExit(f"gh pr list returned non-JSON: {exc}") from exc
 
 
+def _emit_stdout(text: str) -> None:
+    if not text.endswith("\n"):
+        text += "\n"
+    try:
+        sys.stdout.write(text)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
 def _print_human(results: Sequence[ClassificationResult]) -> None:
     by_bucket: dict[str, list[ClassificationResult]] = {
         BUCKET_A: [],
@@ -862,24 +881,26 @@ def _print_human(results: Sequence[ClassificationResult]) -> None:
     for r in results:
         by_bucket.setdefault(r.bucket, []).append(r)
 
+    lines: list[str] = []
     for bucket in (BUCKET_A, BUCKET_B, BUCKET_C, BUCKET_D):
         entries = sorted(by_bucket[bucket], key=lambda r: r.pr_number)
-        print(_BUCKET_LABELS[bucket])
+        lines.append(_BUCKET_LABELS[bucket])
         if not entries:
-            print("  (none)")
+            lines.append("  (none)")
         else:
             for r in entries:
-                print(f"  #{r.pr_number} — {r.recommended_action} — {r.reason}")
-        print()
+                lines.append(f"  #{r.pr_number} — {r.recommended_action} — {r.reason}")
+        lines.append("")
 
     summary = "  ".join(
         f"{b}: {len(by_bucket[b])}" for b in (BUCKET_A, BUCKET_B, BUCKET_C, BUCKET_D)
     )
-    print(f"summary: {summary}    total: {len(results)}")
+    lines.append(f"summary: {summary}    total: {len(results)}")
+    _emit_stdout("\n".join(lines))
 
 
 def _print_json(results: Sequence[ClassificationResult]) -> None:
-    print(
+    _emit_stdout(
         json.dumps(
             {
                 "policy_doc": ("docs/governance/OPERATOR_DELEGATION_POLICY.md"),

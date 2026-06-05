@@ -861,6 +861,47 @@ class TestCliOutput:
         second = capsys.readouterr().out
         assert first == second
 
+    @pytest.mark.parametrize("as_json", [True, False])
+    def test_output_suppresses_flush_time_broken_pipe(
+        self, monkeypatch: pytest.MonkeyPatch, as_json: bool
+    ) -> None:
+        result = tri.ClassificationResult(
+            pr_number=9540,
+            bucket=tri.BUCKET_C,
+            reason="downstream pipe smoke",
+            title="pipe smoke",
+            recommended_action="DECIDE",
+        )
+        writes = []
+        muted = []
+
+        class FlushBrokenStdout:
+            broken = True
+
+            def write(self, text: str) -> int:
+                writes.append(text)
+                return len(text)
+
+            def flush(self) -> None:
+                if self.broken:
+                    self.broken = False
+                    raise BrokenPipeError("downstream closed")
+
+        monkeypatch.setattr(tri.sys, "stdout", FlushBrokenStdout())
+        monkeypatch.setattr(
+            tri,
+            "_mute_stdout_after_broken_pipe",
+            lambda: muted.append(True),
+        )
+
+        if as_json:
+            tri._print_json([result])
+        else:
+            tri._print_human([result])
+
+        assert writes
+        assert muted == [True]
+
 
 # ---------------------------------------------------------------------------
 # Edge cases
