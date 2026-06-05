@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import logging
 import re
 import subprocess
 from collections.abc import Callable, Sequence
@@ -35,6 +36,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from aragora.swarm import merge_quorum_io
+
+logger = logging.getLogger(__name__)
 
 # Direct model families whose name appears in the evidence heading and is
 # recognized by the quorum identity resolver as a countable model reviewer.
@@ -340,18 +343,19 @@ async def _close_api_agent_resources(agent: Any) -> None:
             result = close()
             if inspect.isawaitable(result):
                 await result
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("collect-evidence API agent close failed: %s", exc)
 
     try:
         from aragora.agents.api_agents.common import close_shared_connector
-    except Exception:
+    except ImportError as exc:
+        logger.debug("collect-evidence shared connector cleanup unavailable: %s", exc)
         return
 
     try:
         await close_shared_connector()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("collect-evidence shared connector close failed: %s", exc)
 
 
 def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
