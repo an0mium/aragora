@@ -272,6 +272,43 @@ def test_main_summary_only_json_omits_paths(
     assert "cache_age_seconds" not in parsed
 
 
+def test_main_summary_only_accepts_direct_dot_aragora_state_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    shared_checkout = tmp_path / "shared-root"
+    state_root = shared_checkout / ".aragora"
+    (state_root / "automation-github-status").mkdir(parents=True)
+    (state_root / "automation-outbox").mkdir(parents=True)
+    cache = _write_cache(shared_checkout, outbox_count=2)
+    _write_outbox_files(shared_checkout, 2)
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+    monkeypatch.setattr(mod.time, "time", lambda: cache.stat().st_mtime + 60)
+
+    rc = mod.main(
+        [
+            "--repo",
+            str(repo_root),
+            "--state-root",
+            str(state_root),
+            "--json",
+            "--summary-only",
+        ]
+    )
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["verdict"] == "ready"
+    assert parsed["outbox_real_count"] == 2
+    assert parsed["outbox_cache_count"] == 2
+    assert parsed["details_omitted"] is True
+    assert parsed["paths_omitted"] is True
+    assert "cache_path" not in parsed
+    assert "outbox_dir" not in parsed
+
+
 def test_check_publisher_freshness_wrapper_executes_primary_script(stub_repo: Path) -> None:
     result = subprocess.run(
         [sys.executable, str(WRAPPER_SCRIPT_PATH), "--repo", str(stub_repo), "--json"],
