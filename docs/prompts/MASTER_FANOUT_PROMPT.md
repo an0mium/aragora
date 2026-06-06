@@ -59,8 +59,8 @@ cat docs/status/AGENT_FANOUT_JOURNAL.md | tail -120
 
 # 3. Canonical observability stack
 python3 scripts/list_active_agent_sessions.py --json --max-pr-fetch 50
-python3 scripts/agent_bridge.py --json operator-snapshot --summary-only
-python3 scripts/agent_bridge.py --json health
+python3 scripts/agent_bridge.py operator-snapshot --json --summary-only
+python3 scripts/agent_bridge.py health --json
 python3 scripts/check_canonical_metrics.py --all --write-receipt
 python3 scripts/triage_open_prs.py --json   # NOTE: no --pr flag exists; parse output
 
@@ -140,7 +140,7 @@ python3 scripts/claim_active_agent_lane.py \
   --json
 
 # Verify the claim was recorded (raw file, not CLI surfacing)
-python3 scripts/agent_bridge.py --json health
+python3 scripts/agent_bridge.py health --json
 ```
 
 If health reports a collision or token-overlap, change your status to
@@ -278,7 +278,7 @@ Corrections applied after auditing scripts and journal:
 |-----|--------|
 | Hold list completed: `#7240, #7243, #7252, BC-12 soak, #7209 lane` added | Per `docs/governance/OPERATOR_DELEGATION_POLICY.md` |
 | `triage_open_prs.py --pr` replaced with JSON-parse pattern | Flag doesn't exist |
-| `agent_bridge.py operator-snapshot --json --summary-only` order kept; `--json` is global, must precede subcommand | Live `--help` output |
+| `agent_bridge.py` JSON flags use the subcommand-local order in Phase 0 | Matches live subcommand `--help`; top-level `--json` remains accepted |
 | `sweep_stale_lane_claims.py` (P63) added to Phase 0 | Detects stuck-active lanes |
 | `observer_truth_probe.py` (Q09) referenced as dirty-observer guard | Per NEXT_STEPS_CANONICAL Observer rule |
 | `preflight_mypy.sh` (P71) added to commit preflight | Production mypy gate |

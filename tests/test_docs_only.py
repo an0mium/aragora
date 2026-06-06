@@ -76,3 +76,14 @@ def test_infer_docs_safe_hints_ignores_non_docs_tokens():
     text = "src/app.py README.md docs-site-assets/logo.svg"
 
     assert infer_docs_safe_hints(text) == []
+
+
+def test_master_fanout_prompt_uses_live_agent_bridge_json_order():
+    repo_root = Path(__file__).resolve().parents[1]
+    prompt = (repo_root / "docs/prompts/MASTER_FANOUT_PROMPT.md").read_text(encoding="utf-8")
+
+    assert "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only" in prompt
+    assert "python3 scripts/agent_bridge.py health --json" in prompt
+    assert "python3 scripts/agent_bridge.py --json operator-snapshot --summary-only" not in prompt
+    assert "python3 scripts/agent_bridge.py --json health" not in prompt
+    assert "must precede subcommand" not in prompt
