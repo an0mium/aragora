@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-05-28
+Last updated: 2026-06-05
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
@@ -12,11 +12,11 @@ This is the single source of truth for short-horizon execution priorities.
 
 The immediate gate is operating the proof loop that already exists: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop, not adding new roadmap scope.
 
-Current May 28 proof-loop state:
+Current proof-loop state for `CS-01..03` reconciliation:
 
 - `docs/THESIS.md` is v4 canonical.
 - H1-01 rev-4 was promoted into the canonical corpus and rev-5 now graduates the first five strict linked successes.
-- Fresh B0 publication remains complete for the canonical corpus and reports 100.0% `truth_success_rate_verified` over five verified entries; full-corpus truth remains 38.5%, with eight entries still in progress.
+- `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md` are the live measured proof surfaces. Do not copy volatile percentages into this file; require those surfaces to be fresh, complete for their current corpus/ledger window, and no broader than current proof before expanding `CS-01..03` or the `B2` guard.
 - The remaining Sprint 2 outreach proof gate now has product-scope frontier evidence: Claude reviewed SDK websocket PR [#7513](https://github.com/synaptent/aragora/pull/7513) at exact head `6531ebad2968ae9e2888f08ba237473c41eb0e21`, preserved unmodified in [the PR comment](https://github.com/synaptent/aragora/pull/7513#issuecomment-4567004963), and approved with non-blocking follow-ups. This satisfies the frontier/adversarial-review evidence gate; actual outreach remains an operator decision.
 - The first settlement receipt exists for `#7060`, and `review-queue observe-outcomes --window-days 14 --max-receipts 5 --json` dry-runs over it successfully with all five v2 outcome signals false and no receipt JSON writes.
 - The first `observe-outcomes --write` remains a separate Tier-4 operator decision over a bounded manually verifiable receipt slice.
