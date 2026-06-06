@@ -1703,7 +1703,7 @@ def test_main_preview_does_not_write_outbox_receipt(
     monkeypatch.setattr(
         mod,
         "_load_outbox_handoffs_with_skip_reasons",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter()),
+        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter(), []),
     )
     monkeypatch.setattr(
         mod,
@@ -1774,7 +1774,7 @@ def test_main_accepts_explicit_dry_run_alias(monkeypatch: Any, tmp_path: Path, c
     monkeypatch.setattr(
         mod,
         "_load_outbox_handoffs_with_skip_reasons",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter()),
+        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter(), []),
     )
     monkeypatch.setattr(
         mod,
@@ -1839,11 +1839,11 @@ def test_main_derives_outbox_dirs_from_explicit_aragora_state_root(
         repo_root: Path,
         outbox_dir: Path | None = None,
         receipt_dir: Path | None = None,
-    ) -> tuple[list[Handoff], Counter[str]]:
+    ) -> tuple[list[Handoff], Counter[str], list[dict[str, str]]]:
         captured["repo_root"] = repo_root
         captured["outbox_dir"] = outbox_dir
         captured["receipt_dir"] = receipt_dir
-        return [], Counter()
+        return [], Counter(), []
 
     monkeypatch.setattr(
         mod,
@@ -1971,7 +1971,7 @@ def test_main_reports_handoff_context_when_github_unavailable(
     monkeypatch.setattr(
         mod,
         "_load_outbox_handoffs_with_skip_reasons",
-        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter()),
+        lambda repo_root, outbox_dir=None, receipt_dir=None: ([handoff], Counter(), []),
     )
     monkeypatch.setattr(
         mod,
@@ -2138,7 +2138,94 @@ def test_main_summary_only_reports_outbox_files_skipped_before_publish(
         "expired": 1,
         "missing_required_contract": 1,
     }
+    assert "outbox_skipped_examples" not in payload
+    assert payload["outbox_skipped_examples_omitted"] is True
     assert payload["handoff_count"] == 1
+
+
+def test_main_full_json_reports_outbox_skipped_examples_before_publish(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "active.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                idempotency_key="open-pr-active",
+                expires_at=None,
+            )
+        ),
+        encoding="utf-8",
+    )
+    (outbox / "expired.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                idempotency_key="open-pr-expired",
+                expires_at="2026-04-24T15:00:00+00:00",
+            )
+        ),
+        encoding="utf-8",
+    )
+    incomplete = _outbox_payload(
+        idempotency_key="open-pr-incomplete",
+        local_evidence={"branch": "codex/incomplete"},
+    )
+    del incomplete["validation"]
+    (outbox / "incomplete.json").write_text(
+        json.dumps(incomplete),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=True,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path),
+            "--outbox-dir",
+            str(outbox),
+            "--receipt-dir",
+            str(receipts),
+            "--json",
+        ]
+    )
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["outbox_skipped_reason_counts"] == {
+        "expired": 1,
+        "missing_required_contract": 1,
+    }
+    assert payload["outbox_skipped_examples"]["missing_required_contract"] == [
+        {
+            "reason": "missing_required_contract",
+            "source_file": str(outbox / "incomplete.json"),
+            "task": "Publish validated repair branch",
+            "idempotency_key": "open-pr-incomplete",
+            "requested_action": "open_pr",
+            "branch": "codex/incomplete",
+        }
+    ]
+    assert payload["outbox_skipped_examples"]["expired"][0]["source_file"] == str(
+        outbox / "expired.json"
+    )
+    assert payload["outbox_skipped_omitted_reason_counts"] == {}
+    assert payload["outbox_skipped_example_limit_per_reason"] == 5
 
 
 def test_main_reports_stale_outbox_head_when_github_unavailable(

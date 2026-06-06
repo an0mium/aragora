@@ -40,6 +40,7 @@ MAX_ISSUE_BODY_CHARS = 60_000
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_BASE_REF = "origin/main"
+OUTBOX_SKIPPED_EXAMPLE_LIMIT_PER_REASON = 5
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 PR_OPEN_REQUEST_CANONICAL_ACTION = "open_pr"
 PR_OPEN_REQUEST_ACTIONS = {
@@ -203,6 +204,11 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Return compact publisher status for recurring automation logs."""
 
     compact = dict(payload)
+    if "outbox_skipped_examples" in compact:
+        compact.pop("outbox_skipped_examples", None)
+        compact.pop("outbox_skipped_omitted_reason_counts", None)
+        compact.pop("outbox_skipped_example_limit_per_reason", None)
+        compact["outbox_skipped_examples_omitted"] = True
     decisions = compact.pop("decisions", None)
     if isinstance(decisions, Sequence) and not isinstance(decisions, (str, bytes, bytearray)):
         decision_count = len(decisions)
@@ -651,6 +657,55 @@ def _outbox_desired_head(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _outbox_skip_detail(
+    source_file: str | Path,
+    reason: str,
+    payload: Mapping[str, Any] | None = None,
+) -> dict[str, str]:
+    detail = {
+        "reason": reason,
+        "source_file": str(source_file),
+    }
+    if payload is None:
+        return detail
+
+    payload_dict = dict(payload)
+    task = str(payload_dict.get("task") or payload_dict.get("title") or "").strip()
+    if task:
+        detail["task"] = task
+    idempotency_key = str(payload_dict.get("idempotency_key") or "").strip()
+    if idempotency_key:
+        detail["idempotency_key"] = idempotency_key
+    requested_action = _normalized_requested_action(payload_dict.get("requested_action"))
+    if requested_action:
+        detail["requested_action"] = requested_action
+    branch = _outbox_evidence_value(payload_dict, "branch")
+    if branch:
+        detail["branch"] = branch
+    desired_head = _outbox_desired_head(payload_dict)
+    if desired_head:
+        detail["desired_head_sha"] = desired_head
+    return detail
+
+
+def _outbox_skipped_examples_by_reason(
+    skipped_details: Sequence[Mapping[str, str]],
+) -> tuple[dict[str, list[dict[str, str]]], dict[str, int]]:
+    grouped: dict[str, list[dict[str, str]]] = {}
+    omitted: Counter[str] = Counter()
+    for detail in skipped_details:
+        reason = str(detail.get("reason") or "unknown")
+        examples = grouped.setdefault(reason, [])
+        if len(examples) < OUTBOX_SKIPPED_EXAMPLE_LIMIT_PER_REASON:
+            examples.append(dict(detail))
+        else:
+            omitted[reason] += 1
+    return (
+        {reason: grouped[reason] for reason in sorted(grouped)},
+        dict(sorted(omitted.items())),
+    )
+
+
 def _git_is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
     proc = _run(["git", "merge-base", "--is-ancestor", ancestor, descendant], cwd=repo_root)
     return proc.returncode == 0
@@ -864,7 +919,7 @@ def load_outbox_handoffs(
     receipt_dir: Path | None = None,
     now: datetime | None = None,
 ) -> list[Handoff]:
-    handoffs, _skip_reasons = _load_outbox_handoffs_with_skip_reasons(
+    handoffs, _skip_reasons, _skip_details = _load_outbox_handoffs_with_skip_reasons(
         repo_root,
         outbox_dir=outbox_dir,
         receipt_dir=receipt_dir,
@@ -879,7 +934,7 @@ def _load_outbox_handoffs_with_skip_reasons(
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
     now: datetime | None = None,
-) -> tuple[list[Handoff], Counter[str]]:
+) -> tuple[list[Handoff], Counter[str], list[dict[str, str]]]:
     outbox_root = _automation_state_path(repo_root, outbox_dir, DEFAULT_OUTBOX_DIR).resolve()
     receipt_root = _automation_state_path(repo_root, receipt_dir, DEFAULT_RECEIPT_DIR).resolve()
     current_time = now or datetime.now(UTC)
@@ -891,17 +946,23 @@ def _load_outbox_handoffs_with_skip_reasons(
     )
     handoffs_by_identity: dict[tuple[str, str], Handoff] = {}
     skipped_reasons: Counter[str] = Counter()
+    skipped_details: list[dict[str, str]] = []
     for source_file in _outbox_files(outbox_root):
         try:
             payload = json.loads(source_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             skipped_reasons["invalid_json"] += 1
+            skipped_details.append(_outbox_skip_detail(source_file, "invalid_json"))
             continue
         if not isinstance(payload, dict):
             skipped_reasons["invalid_payload"] += 1
+            skipped_details.append(_outbox_skip_detail(source_file, "invalid_payload"))
             continue
         if not _has_required_outbox_contract(payload):
             skipped_reasons["missing_required_contract"] += 1
+            skipped_details.append(
+                _outbox_skip_detail(source_file, "missing_required_contract", payload)
+            )
             continue
         task_title = str(payload.get("task") or payload.get("title") or "").strip()
         requested_action = _normalized_requested_action(payload.get("requested_action"))
@@ -911,13 +972,18 @@ def _load_outbox_handoffs_with_skip_reasons(
             requires_github = requires_github.strip().lower() not in {"0", "false", "no"}
         if requires_github is False:
             skipped_reasons["requires_github_false"] += 1
+            skipped_details.append(
+                _outbox_skip_detail(source_file, "requires_github_false", payload)
+            )
             continue
         if not task_title or not requested_action or not idempotency_key:
             skipped_reasons["missing_identity"] += 1
+            skipped_details.append(_outbox_skip_detail(source_file, "missing_identity", payload))
             continue
         expires_at = str(payload.get("expires_at") or "").strip() or None
         if _is_expired(expires_at, now=current_time):
             skipped_reasons["expired"] += 1
+            skipped_details.append(_outbox_skip_detail(source_file, "expired", payload))
             continue
         branch_fingerprint = _outbox_branch_fingerprint(payload)
         receipt_payloads = terminal_receipts.get(idempotency_key, [])
@@ -926,15 +992,21 @@ def _load_outbox_handoffs_with_skip_reasons(
             for receipt_payload in receipt_payloads
         ):
             skipped_reasons["terminal_receipt"] += 1
+            skipped_details.append(_outbox_skip_detail(source_file, "terminal_receipt", payload))
             continue
         if branch_fingerprint and branch_fingerprint in terminal_fingerprints:
             skipped_reasons["terminal_branch_receipt"] += 1
+            skipped_details.append(
+                _outbox_skip_detail(source_file, "terminal_branch_receipt", payload)
+            )
             continue
         if _outbox_branch_already_merged(repo_root, payload):
             skipped_reasons["already_merged"] += 1
+            skipped_details.append(_outbox_skip_detail(source_file, "already_merged", payload))
             continue
         if _outbox_branch_patch_equivalent(repo_root, payload):
             skipped_reasons["patch_equivalent"] += 1
+            skipped_details.append(_outbox_skip_detail(source_file, "patch_equivalent", payload))
             continue
         handoff = Handoff(
             source_file=str(source_file),
@@ -963,15 +1035,19 @@ def _load_outbox_handoffs_with_skip_reasons(
         ):
             if existing is not None:
                 skipped_reasons["duplicate_identity"] += 1
+                skipped_details.append(
+                    _outbox_skip_detail(existing.source_file, "duplicate_identity")
+                )
             handoffs_by_identity[identity] = handoff
         else:
             skipped_reasons["duplicate_identity"] += 1
+            skipped_details.append(_outbox_skip_detail(source_file, "duplicate_identity", payload))
     handoffs = sorted(
         handoffs_by_identity.values(),
         key=lambda item: (_source_mtime(item.source_file), item.priority),
         reverse=True,
     )
-    return handoffs, skipped_reasons
+    return handoffs, skipped_reasons, skipped_details
 
 
 def _ensure_gh_auth(repo_root: Path) -> None:
@@ -1515,8 +1591,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_outbox:
         outbox_handoffs = []
         outbox_skipped_reason_counts: Counter[str] = Counter()
+        outbox_skipped_details: list[dict[str, str]] = []
     else:
-        outbox_handoffs, outbox_skipped_reason_counts = _load_outbox_handoffs_with_skip_reasons(
+        (
+            outbox_handoffs,
+            outbox_skipped_reason_counts,
+            outbox_skipped_details,
+        ) = _load_outbox_handoffs_with_skip_reasons(
             repo_root,
             outbox_dir=outbox_dir,
             receipt_dir=receipt_dir,
@@ -1526,6 +1607,10 @@ def main(argv: list[str] | None = None) -> int:
     if outbox_skipped_count == 0:
         outbox_skipped_count = max(outbox_file_count - len(outbox_handoffs), 0)
     outbox_skipped_reason_counts_payload = dict(sorted(outbox_skipped_reason_counts.items()))
+    (
+        outbox_skipped_examples,
+        outbox_skipped_omitted_reason_counts,
+    ) = _outbox_skipped_examples_by_reason(outbox_skipped_details)
     handoffs = sorted(
         memory_handoffs + outbox_handoffs,
         key=lambda item: (_source_mtime(item.source_file), item.priority),
@@ -1556,6 +1641,9 @@ def main(argv: list[str] | None = None) -> int:
             "outbox_handoff_count": len(outbox_handoffs),
             "outbox_skipped_count": outbox_skipped_count,
             "outbox_skipped_reason_counts": outbox_skipped_reason_counts_payload,
+            "outbox_skipped_examples": outbox_skipped_examples,
+            "outbox_skipped_omitted_reason_counts": outbox_skipped_omitted_reason_counts,
+            "outbox_skipped_example_limit_per_reason": OUTBOX_SKIPPED_EXAMPLE_LIMIT_PER_REASON,
             "handoff_count": len(handoffs),
             "github_health": github_health.to_dict(),
             "decisions": [asdict(item) for item in decisions],
@@ -1611,6 +1699,9 @@ def main(argv: list[str] | None = None) -> int:
         "outbox_handoff_count": len(outbox_handoffs),
         "outbox_skipped_count": outbox_skipped_count,
         "outbox_skipped_reason_counts": outbox_skipped_reason_counts_payload,
+        "outbox_skipped_examples": outbox_skipped_examples,
+        "outbox_skipped_omitted_reason_counts": outbox_skipped_omitted_reason_counts,
+        "outbox_skipped_example_limit_per_reason": OUTBOX_SKIPPED_EXAMPLE_LIMIT_PER_REASON,
         "handoff_count": len(handoffs),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(item) for item in results],
