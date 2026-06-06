@@ -33,6 +33,7 @@ VERSION = "settle_one_steward.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
 BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
+PYTHON_EXECUTABLE = sys.executable or "python3"
 
 
 def _env_timeout_seconds(name: str, default: int) -> int:
@@ -1025,7 +1026,7 @@ def _has_policy_file_scope(metadata: dict[str, Any]) -> bool:
 
 def load_active_owned_prs(cwd: Path) -> tuple[set[int], dict[str, Any]]:
     payload, command = _run_json(
-        ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json"],
+        [PYTHON_EXECUTABLE, "scripts/agent_bridge.py", "operator-snapshot", "--json"],
         cwd=cwd,
         timeout=OPERATOR_SNAPSHOT_TIMEOUT_SECONDS,
     )
@@ -1367,7 +1368,7 @@ def build_report(
         steering_root = state_root / ".aragora" / "operator-steering"
         owner_payload, owner_cmd = _run_json(
             [
-                "python3",
+                PYTHON_EXECUTABLE,
                 "scripts/identify_lane_owner.py",
                 "--pr",
                 str(pr_number),
@@ -1384,7 +1385,7 @@ def build_report(
 
         steering_payload, steering_cmd = _run_json(
             [
-                "python3",
+                PYTHON_EXECUTABLE,
                 "scripts/read_operator_steering.py",
                 "--pr",
                 str(pr_number),
@@ -1512,7 +1513,7 @@ def build_report(
 
 def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str, Any]:
     command = [
-        "python3",
+        PYTHON_EXECUTABLE,
         "-m",
         "aragora.cli.main",
         "review-queue",
@@ -1533,7 +1534,7 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
 
 def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[str, Any]:
     command = [
-        "python3",
+        PYTHON_EXECUTABLE,
         "-m",
         "aragora.cli.main",
         "review-queue",
