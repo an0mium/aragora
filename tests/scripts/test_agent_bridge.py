@@ -2414,6 +2414,105 @@ def test_health_ignores_dead_session_with_removed_worktree(
     assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": []}
 
 
+def test_cmd_health_summary_only_json_counts_issue_types(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    root = tmp_path / "repo"
+    missing_worktree = tmp_path / "missing-worktree"
+    root.mkdir()
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", root)
+    monkeypatch.setattr(
+        mod,
+        "discover",
+        lambda: [
+            mod.Session(
+                name="codex-active",
+                agent="codex",
+                status="alive",
+                worktree=str(missing_worktree),
+            )
+        ],
+    )
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(
+        mod,
+        "_load_lane_registry",
+        lambda: [
+            mod.LaneRecord(
+                lane_id="Q390-health",
+                owner_session="codex-active",
+                status="active",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *args, **kwargs: argparse.Namespace(returncode=1, stdout="", stderr=""),
+    )
+
+    rc = mod.cmd_health(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "ok": False,
+        "issue_count": 4,
+        "issue_type_counts": {
+            "lane_missing_heartbeat": 1,
+            "lane_missing_next_action": 1,
+            "lane_missing_steering_outcome": 1,
+            "stale_worktree": 1,
+        },
+        "issue_examples": payload["issue_examples"],
+        "issues_omitted": 1,
+        "details_omitted": True,
+    }
+    assert len(payload["issue_examples"]) == 3
+    assert "issues" not in payload
+
+
+def test_main_accepts_health_summary_only_after_subcommand(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    root = tmp_path / "repo"
+    root.mkdir()
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", root)
+    monkeypatch.setattr(mod, "discover", lambda: [])
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *args, **kwargs: argparse.Namespace(returncode=1, stdout="", stderr=""),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["agent_bridge.py", "health", "--json", "--summary-only"],
+    )
+
+    assert mod.main() == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "ok": True,
+        "issue_count": 0,
+        "issue_type_counts": {},
+        "issue_examples": [],
+        "issues_omitted": 0,
+        "details_omitted": True,
+    }
+
+
 def test_health_ignores_orphan_claude_transcript_missing_worktree(tmp_path: Path) -> None:
     import agent_bridge as mod
 
