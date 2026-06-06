@@ -632,6 +632,14 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
     assert payload["queue_depth"] == 3
     assert payload["success_rate"] == 0.625
     assert payload["boss_loop_alive"] is True
+    assert payload["boss_loop_status"] == {
+        "alive": True,
+        "reason": "active_broker_runs",
+        "active_broker_runs": 1,
+        "fresh_agent_heartbeats": 1,
+        "has_boss_cycle_process": True,
+        "active_process_roles": ["boss_cycle"],
+    }
     assert payload["recent_blockers"] == [
         {
             "type": "pending_steering",
@@ -642,6 +650,52 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
             "pr_hint": 5426,
         }
     ]
+
+
+def test_operator_boss_loop_status_reports_idle_without_live_signal() -> None:
+    import agent_bridge as mod
+
+    status = mod._operator_boss_loop_status(
+        {
+            "active_broker_runs": 0,
+            "fresh_agent_heartbeats": 0,
+            "active_process_roles": ["publisher", "review_queue"],
+        }
+    )
+
+    assert status == {
+        "alive": False,
+        "reason": "idle_no_live_boss_loop_signal",
+        "active_broker_runs": 0,
+        "fresh_agent_heartbeats": 0,
+        "has_boss_cycle_process": False,
+        "active_process_roles": ["publisher", "review_queue"],
+    }
+
+
+def test_operator_boss_loop_alive_preserves_legacy_boolean() -> None:
+    import agent_bridge as mod
+
+    assert (
+        mod._operator_boss_loop_alive(
+            {
+                "active_broker_runs": 0,
+                "fresh_agent_heartbeats": 1,
+                "active_process_roles": [],
+            }
+        )
+        is True
+    )
+    assert (
+        mod._operator_boss_loop_alive(
+            {
+                "active_broker_runs": 0,
+                "fresh_agent_heartbeats": 0,
+                "active_process_roles": ["publisher", "review_queue"],
+            }
+        )
+        is False
+    )
 
 
 def test_collect_pending_steering_messages_completed_receipts_are_not_actionable(
