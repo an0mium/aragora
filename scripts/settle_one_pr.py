@@ -34,6 +34,12 @@ MERGE_QUORUM = "aragora-merge-quorum"
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
 BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
 PYTHON_EXECUTABLE = sys.executable or "python3"
+OPERATOR_SNAPSHOT_COMMAND = [
+    PYTHON_EXECUTABLE,
+    "scripts/agent_bridge.py",
+    "operator-snapshot",
+    "--json",
+]
 
 
 def _env_timeout_seconds(name: str, default: int) -> int:
@@ -1035,7 +1041,7 @@ def _has_policy_file_scope(metadata: dict[str, Any]) -> bool:
 
 def load_active_owned_prs(cwd: Path) -> tuple[set[int], dict[str, Any]]:
     payload, command = _run_json(
-        [PYTHON_EXECUTABLE, "scripts/agent_bridge.py", "operator-snapshot", "--json"],
+        OPERATOR_SNAPSHOT_COMMAND,
         cwd=cwd,
         timeout=OPERATOR_SNAPSHOT_TIMEOUT_SECONDS,
     )
@@ -1278,7 +1284,7 @@ def build_report(
                 preselection_blockers.append(snapshot_blocker)
         elif snapshot_preblocked:
             active_owned_command = {
-                "command": "python3 scripts/agent_bridge.py operator-snapshot --json",
+                "command": " ".join(OPERATOR_SNAPSHOT_COMMAND),
                 "returncode": None,
                 "skipped": True,
                 "reason": "operator-snapshot failure already carried by packet load_blockers",
