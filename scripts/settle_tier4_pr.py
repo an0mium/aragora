@@ -784,6 +784,7 @@ def _required_checks_from_direct_check_runs(
     base_ref: str,
     head: str,
     cwd: Path,
+    existing_required_checks: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     if not (repo and base_ref and head):
         return []
@@ -795,10 +796,32 @@ def _required_checks_from_direct_check_runs(
         ],
         cwd=cwd,
     )
-    if bool(protection.get("strict")):
-        return []
     required_specs = _required_status_check_specs(protection)
     if not required_specs:
+        return []
+    existing = list(existing_required_checks or [])
+    existing_names = {_required_check_name(check) for check in existing}
+    missing_specs = [
+        required
+        for required in required_specs
+        if str(required.get("context") or "") not in existing_names
+    ]
+    if not missing_specs:
+        return existing
+    if bool(protection.get("strict")):
+        if existing:
+            return [
+                *existing,
+                *[
+                    {
+                        "name": str(required.get("context") or ""),
+                        "state": "MISSING",
+                        "workflow": "branch protection required check",
+                        "source": "branch_protection_required_check",
+                    }
+                    for required in missing_specs
+                ],
+            ]
         return []
     check_runs = _direct_check_runs(
         _run_json_any(
@@ -811,15 +834,18 @@ def _required_checks_from_direct_check_runs(
         )
     )
     return [
-        {
-            "name": str(required.get("context") or ""),
-            "state": _direct_check_run_state(
-                _latest_direct_check_run_for_required(check_runs, required)
-            ),
-            "workflow": "direct required check-run fallback",
-            "source": "direct_commit_check_run",
-        }
-        for required in required_specs
+        *existing,
+        *[
+            {
+                "name": str(required.get("context") or ""),
+                "state": _direct_check_run_state(
+                    _latest_direct_check_run_for_required(check_runs, required)
+                ),
+                "workflow": "direct required check-run fallback",
+                "source": "direct_commit_check_run",
+            }
+            for required in missing_specs
+        ],
     ]
 
 
@@ -868,12 +894,15 @@ def _load_live_inputs(
         if isinstance(checks_raw, list)
         else []
     )
-    if not required_checks:
+    if not required_checks or not any(
+        _required_check_name(check) == MERGE_QUORUM_CONTEXT for check in required_checks
+    ):
         required_checks = _required_checks_from_direct_check_runs(
             repo=repo,
             base_ref=str(pr_view.get("baseRefName") or "main"),
             head=str(pr_view.get("headRefOid") or ""),
             cwd=cwd,
+            existing_required_checks=required_checks,
         )
     return pr_view, merge_packet, required_checks
 

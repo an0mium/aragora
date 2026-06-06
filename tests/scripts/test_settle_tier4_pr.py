@@ -229,6 +229,133 @@ def test_direct_required_check_fallback_respects_strict_branch_protection(
     )
 
 
+def test_load_live_inputs_fills_missing_required_check_rows_from_direct_runs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        if command[:3] == ["gh", "pr", "view"]:
+            return {
+                "headRefOid": head,
+                "state": "OPEN",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "baseRefName": "main",
+                "comments": [],
+                "reviews": [],
+                "commits": [],
+                "statusCheckRollup": [],
+                "url": "https://github.example/pr/7423",
+            }
+        if command[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            return _tier4_packet()
+        if command[:2] == ["gh", "api"] and command[2] == (
+            "repos/example/project/branches/main/protection/required_status_checks"
+        ):
+            return {
+                "strict": False,
+                "contexts": [],
+                "checks": [
+                    {"context": "lint", "app_id": 15368},
+                    {"context": "aragora-merge-quorum", "app_id": 15368},
+                ],
+            }
+        raise AssertionError(f"unexpected _run_json command: {command}")
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        if command[:5] == ["gh", "pr", "checks", "7423", "--required"]:
+            return [{"name": "lint", "state": "FAILURE"}]
+        if command[:2] == ["gh", "api"] and command[2] == (
+            f"repos/example/project/commits/{head}/check-runs?per_page=100"
+        ):
+            return {
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "app": {"id": 15368},
+                    },
+                    {
+                        "name": "aragora-merge-quorum",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "app": {"id": 15368},
+                    },
+                ]
+            }
+        raise AssertionError(f"unexpected _run_json_any command: {command}")
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    _, _, required_checks = settler._load_live_inputs(7423, cwd=tmp_path, repo="example/project")
+
+    assert required_checks == [
+        {"name": "lint", "state": "FAILURE"},
+        {
+            "name": "aragora-merge-quorum",
+            "state": "SUCCESS",
+            "workflow": "direct required check-run fallback",
+            "source": "direct_commit_check_run",
+        },
+    ]
+
+
+def test_missing_required_check_row_stays_blocking_when_branch_protection_is_strict(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        if command[:3] == ["gh", "pr", "view"]:
+            return {
+                "headRefOid": head,
+                "state": "OPEN",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "baseRefName": "main",
+                "comments": [],
+                "reviews": [],
+                "commits": [],
+                "statusCheckRollup": [],
+                "url": "https://github.example/pr/7423",
+            }
+        if command[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            return _tier4_packet()
+        if command[:2] == ["gh", "api"]:
+            return {
+                "strict": True,
+                "contexts": [],
+                "checks": [
+                    {"context": "lint", "app_id": 15368},
+                    {"context": "aragora-merge-quorum", "app_id": 15368},
+                ],
+            }
+        raise AssertionError(f"unexpected _run_json command: {command}")
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        if command[:5] == ["gh", "pr", "checks", "7423", "--required"]:
+            return [{"name": "lint", "state": "SUCCESS"}]
+        raise AssertionError("strict branch protection must not use direct check-run fallback")
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    _, _, required_checks = settler._load_live_inputs(7423, cwd=tmp_path, repo="example/project")
+
+    assert required_checks == [
+        {"name": "lint", "state": "SUCCESS"},
+        {
+            "name": "aragora-merge-quorum",
+            "state": "MISSING",
+            "workflow": "branch protection required check",
+            "source": "branch_protection_required_check",
+        },
+    ]
+
+
 def test_missing_operator_comment_blocks_settlement() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
