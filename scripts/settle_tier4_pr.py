@@ -669,7 +669,13 @@ def evaluate_tier4_settlement_preconditions(
 
 
 def _run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
-    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+    try:
+        result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired as exc:
+        timeout = int(exc.timeout or 120)
+        raise RuntimeError(f"{' '.join(command)} timed out after {timeout}s") from exc
+    except OSError as exc:
+        raise RuntimeError(f"{' '.join(command)} failed to start: {exc}") from exc
     if result.returncode != 0:
         raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
     try:
@@ -682,7 +688,13 @@ def _run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
 
 
 def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
-    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+    try:
+        result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired as exc:
+        timeout = int(exc.timeout or 120)
+        raise RuntimeError(f"{' '.join(command)} timed out after {timeout}s") from exc
+    except OSError as exc:
+        raise RuntimeError(f"{' '.join(command)} failed to start: {exc}") from exc
     if result.returncode != 0:
         raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
     try:
