@@ -33,6 +33,7 @@ import re
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any
 
 from aragora.swarm import merge_quorum_io
@@ -126,6 +127,7 @@ class CollectOutcome:
     failures: list[ReviewerResult] = field(default_factory=list)
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
+    quorum_rerun: dict[str, Any] | None = None
 
     @property
     def counting_families(self) -> list[str]:
@@ -144,6 +146,7 @@ class CollectOutcome:
             "counting_families": self.counting_families,
             "posted_families": list(self.posted),
             "post_errors": list(self.post_errors),
+            "quorum_rerun": self.quorum_rerun,
             "items": [
                 {
                     "family": item.family,
@@ -461,6 +464,43 @@ def resolve_author(default: str = "local") -> str:
     return login or default
 
 
+def default_quorum_reconciler(repo: str, pr: int) -> dict[str, Any]:
+    """Run the A1 stale-quorum reconciler for one PR after evidence posting."""
+    from scripts import reconcile_merge_quorum
+
+    state = reconcile_merge_quorum._load_state(reconcile_merge_quorum.DEFAULT_STATE_FILE)
+    decision, quorum_run = reconcile_merge_quorum.evaluate_pr(
+        repo,
+        pr,
+        now=datetime.now(timezone.utc),
+        state=state,
+        cooldown_seconds=10 * 60,
+        max_reruns=3,
+    )
+    record: dict[str, Any] = {
+        "should_rerun": decision.should_rerun,
+        "reason": decision.reason,
+        "run_id": decision.run_id,
+        "applied": False,
+    }
+    if decision.next_prompt:
+        record["next_prompt"] = decision.next_prompt
+    if decision.should_rerun and quorum_run is not None:
+        record["applied"] = reconcile_merge_quorum.execute_rerun(repo, quorum_run.run_id)
+        if record["applied"]:
+            head_state = state.setdefault(
+                quorum_run.head_sha,
+                {"count": 0, "last_rerun_at": None},
+            )
+            head_state["count"] = int(head_state.get("count", 0)) + 1
+            head_state["last_rerun_at"] = datetime.now(timezone.utc).isoformat()
+            reconcile_merge_quorum._save_state(
+                reconcile_merge_quorum.DEFAULT_STATE_FILE,
+                state,
+            )
+    return record
+
+
 # --- Orchestrator ----------------------------------------------------------
 
 
@@ -477,6 +517,7 @@ def collect_evidence(
     reviewer_runner: Callable[[str, str], ReviewerResult] = default_reviewer_runner,
     linter: Callable[..., dict[str, Any]] = default_linter,
     poster: Callable[[str, int, str], None] = default_poster,
+    quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
     env: dict[str, str] | None = None,
 ) -> CollectOutcome:
     """Run reviewers, validate evidence, and post only when tier-gating allows."""
@@ -569,6 +610,11 @@ def collect_evidence(
                     outcome.post_errors.append(f"{item.family}: {str(exc)[:200]}")
                     continue
                 outcome.posted.append(item.family)
+        if outcome.posted and quorum_reconciler is not None:
+            try:
+                outcome.quorum_rerun = quorum_reconciler(repo, pr)
+            except Exception as exc:  # noqa: BLE001 - evidence posts should remain reported.
+                outcome.quorum_rerun = {"applied": False, "error": str(exc)[:200]}
 
     return outcome
 
@@ -584,6 +630,11 @@ def _render_outcome(outcome: CollectOutcome) -> str:
         lines.append(f"  posted: {', '.join(outcome.posted)}")
     if outcome.post_errors:
         lines.append(f"  post errors: {'; '.join(outcome.post_errors)}")
+    if outcome.quorum_rerun:
+        rerun = outcome.quorum_rerun
+        action = "applied" if rerun.get("applied") else "not applied"
+        reason = rerun.get("reason") or rerun.get("error") or "unknown"
+        lines.append(f"  quorum rerun: {action} ({reason})")
     for item in outcome.items:
         flag = "counts" if item.would_count else f"DOES NOT count ({', '.join(item.problems)})"
         lines.append(f"  - {item.family}: {flag}")
@@ -627,6 +678,7 @@ def run_collect_cli(
             author=resolved_author,
             apply=apply,
             env=merge_quorum_io.aragora_env(),
+            quorum_reconciler=default_quorum_reconciler if apply else None,
         )
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         if json_output:
