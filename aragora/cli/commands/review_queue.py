@@ -580,6 +580,45 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     merge_packet_p.add_argument("--json", action="store_true", help="Output as JSON")
 
+    conductor_p = sub.add_parser(
+        "conductor",
+        help="Build an owner-aware queue conductor packet and next prompt",
+        description=(
+            "Read-only queue conductor that combines open PR metadata, required checks, "
+            "branch owner lookup, operator steering, merge-packet status, head-change "
+            "detection, and supersession hints into one JSON packet plus one next prompt."
+        ),
+    )
+    conductor_p.add_argument(
+        "--limit",
+        type=int,
+        default=30,
+        help="Max open PRs to inspect when --pr is not supplied (default: 30)",
+    )
+    conductor_p.add_argument(
+        "--pr",
+        action="append",
+        default=[],
+        help="Specific PR number/ref to include. Repeatable. Defaults to open queue.",
+    )
+    conductor_p.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    conductor_p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root used for settlement receipt lookups.",
+    )
+    conductor_p.add_argument(
+        "--owner-timeout-seconds",
+        type=float,
+        default=8.0,
+        help="Timeout for owner and steering helper lookup. Timeout means preserve/no-mutate.",
+    )
+    conductor_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     evidence_lint_p = sub.add_parser(
         "evidence-lint",
         help="Dry-run whether a proposed evidence comment will count for model quorum",
@@ -834,6 +873,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_act(args)
     if command == "record-settlement":
         return _cmd_record_settlement(args)
+    if command == "conductor":
+        return _cmd_conductor(args)
     if command == "merge-packet":
         return _cmd_merge_packet(args)
     if command in {"evidence-lint", "lint-comment"}:
@@ -852,7 +893,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_health_alert(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,lint-comment,"
+        "{build,packet,run,act,record-settlement,conductor,merge-packet,evidence-lint,"
+        "lint-comment,"
         "collect-evidence,"
         "baseline,"
         "observe-outcomes,"
@@ -900,6 +942,31 @@ def _cmd_packet(args: argparse.Namespace) -> int:
         print(json.dumps(packet.to_dict(), indent=2))
     else:
         _render_packet(packet)
+    return 0
+
+
+def _cmd_conductor(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
+    try:
+        from aragora.cli.commands.review_queue_conductor import (
+            build_queue_conductor_packet,
+            render_queue_conductor_packet,
+        )
+
+        packet = build_queue_conductor_packet(
+            pr_refs=list(getattr(args, "pr", []) or []),
+            limit=int(getattr(args, "limit", 30)),
+            repo_override=getattr(args, "repo", None),
+            review_queue_root=getattr(args, "review_queue_root", None),
+            owner_timeout_seconds=float(getattr(args, "owner_timeout_seconds", 8.0)),
+        )
+    except _GhError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if json_output:
+        print(json.dumps(packet, indent=2, sort_keys=True))
+    else:
+        print(render_queue_conductor_packet(packet))
     return 0
 
 
