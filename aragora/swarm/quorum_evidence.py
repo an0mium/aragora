@@ -89,6 +89,8 @@ QUORUM_RERUN_COOLDOWN_SECONDS = 10 * 60
 QUORUM_RERUN_MAX_PER_HEAD = 3
 QUORUM_STATE_LOCK_TIMEOUT_SECONDS = 60.0
 QUORUM_STATE_LOCK_POLL_SECONDS = 0.2
+QUORUM_STATE_LOCK_STALE_SECONDS = 15 * 60
+_REVIEWER_RESULT_QUEUE_TIMEOUT = 1.0
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
@@ -368,15 +370,9 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
 
 
 def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
-    ctx: Any = multiprocessing.get_context(
-        "fork" if "fork" in multiprocessing.get_all_start_methods() else "spawn"
-    )
+    ctx = _api_agent_process_context()
     result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
-    process = ctx.Process(
-        target=_api_agent_worker,
-        args=(family, prompt, result_queue),
-        daemon=True,
-    )
+    process = _start_api_agent_worker_process(ctx, family, prompt, result_queue)
     process.start()
     process.join(_REVIEWER_TIMEOUT + _REVIEWER_CLEANUP_TIMEOUT)
     if process.is_alive():
@@ -389,7 +385,7 @@ def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
             family, "", False, f"{family} reviewer timed out after {_REVIEWER_TIMEOUT}s"
         )
     try:
-        payload = result_queue.get_nowait()
+        payload = result_queue.get(timeout=_REVIEWER_RESULT_QUEUE_TIMEOUT)
     except queue.Empty:
         return ReviewerResult(
             family,
@@ -407,6 +403,24 @@ def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
             str(payload.get("error") or ""),
         )
     return ReviewerResult(family, "", False, f"{family} reviewer returned invalid result")
+
+
+def _api_agent_process_context() -> Any:
+    """Use spawn so API reviewer children do not inherit parent connector state."""
+    return multiprocessing.get_context("spawn")
+
+
+def _start_api_agent_worker_process(
+    ctx: Any,
+    family: str,
+    prompt: str,
+    result_queue: multiprocessing.Queue,
+) -> multiprocessing.Process:
+    return ctx.Process(
+        target=_api_agent_worker,
+        args=(family, prompt, result_queue),
+        daemon=True,
+    )
 
 
 def _api_agent_worker(
@@ -580,12 +594,21 @@ def _locked_quorum_reconcile_state(path: Path) -> Iterator[None]:
     fd: int | None = None
     while fd is None:
         try:
-            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+            flags |= getattr(os, "O_CLOEXEC", 0)
+            flags |= getattr(os, "O_NOFOLLOW", 0)
+            fd = os.open(lock_path, flags)
             os.write(
                 fd,
                 f"pid={os.getpid()} acquired_at={datetime.now(timezone.utc).isoformat()}\n".encode(),
             )
         except FileExistsError:
+            if _quorum_state_lock_is_stale(lock_path):
+                try:
+                    lock_path.unlink()
+                except FileNotFoundError:
+                    pass
+                continue
             if time.monotonic() >= deadline:
                 raise RuntimeError(f"timed out waiting for merge-quorum state lock: {lock_path}")
             time.sleep(QUORUM_STATE_LOCK_POLL_SECONDS)
@@ -597,6 +620,35 @@ def _locked_quorum_reconcile_state(path: Path) -> Iterator[None]:
             lock_path.unlink()
         except OSError:
             pass
+
+
+def _quorum_state_lock_is_stale(lock_path: Path) -> bool:
+    try:
+        stat = lock_path.lstat()
+    except OSError:
+        return False
+    if lock_path.is_symlink():
+        raise RuntimeError(f"refusing symlink merge-quorum state lock: {lock_path}")
+    age_seconds = max(0.0, time.time() - stat.st_mtime)
+    if age_seconds < QUORUM_STATE_LOCK_STALE_SECONDS:
+        return False
+    try:
+        text = lock_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    match = re.search(r"\bpid=(\d+)\b", text)
+    if not match:
+        return True
+    pid = int(match.group(1))
+    if pid <= 0 or pid == os.getpid():
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+    return False
 
 
 def default_quorum_reconciler(repo: str, pr: int) -> dict[str, Any]:
@@ -723,6 +775,13 @@ def collect_evidence(
             outcome.action_reason = (
                 "reviewer dissent present "
                 f"({', '.join(outcome.dissenting_families)}); prepared evidence only"
+            )
+            return outcome
+        if not outcome.has_supportive_quorum:
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                "supportive quorum incomplete "
+                f"({len(outcome.supportive_families)}/2); prepared evidence only"
             )
             return outcome
         # Reviewers can take minutes; re-verify the head and tier immediately

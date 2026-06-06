@@ -12,6 +12,7 @@ The compose helper is checked against the *real* evidence parser
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -274,17 +275,46 @@ def test_run_api_agent_timeout_terminates_blocked_worker(
 ) -> None:
     monkeypatch.setattr(qe, "_REVIEWER_TIMEOUT", 0.05)
     monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 0.01)
+    events: list[str] = []
 
-    def blocked_worker(family: str, prompt: str) -> ReviewerResult:
-        time.sleep(1)
-        return ReviewerResult(family, "Verdict: PASS", True)
+    class FakeQueue:
+        def get(self, timeout: float):
+            raise AssertionError("timed-out worker result must not be read")
 
-    monkeypatch.setattr(qe, "_run_api_agent_in_current_process", blocked_worker, raising=False)
+    class FakeContext:
+        def Queue(self, maxsize: int) -> FakeQueue:
+            assert maxsize == 1
+            return FakeQueue()
+
+    class FakeProcess:
+        def start(self) -> None:
+            events.append("start")
+
+        def join(self, timeout: float) -> None:
+            events.append(f"join:{timeout:.2f}")
+
+        def is_alive(self) -> bool:
+            return True
+
+        def terminate(self) -> None:
+            events.append("terminate")
+
+        def kill(self) -> None:
+            events.append("kill")
+
+    monkeypatch.setattr(qe, "_api_agent_process_context", lambda: FakeContext(), raising=False)
+    monkeypatch.setattr(
+        qe,
+        "_start_api_agent_worker_process",
+        lambda ctx, family, prompt, result_queue: FakeProcess(),
+        raising=False,
+    )
 
     result = qe._run_api_agent("grok", "review prompt")
 
     assert result.ok is False
     assert "timed out" in result.error
+    assert events == ["start", "join:0.06", "terminate", "join:5.00", "kill", "join:5.00"]
 
 
 def test_api_agent_cleanup_does_not_hang_on_stuck_agent_close(
@@ -599,6 +629,38 @@ def test_collect_low_tier_apply_prepares_only_when_reviewer_dissents() -> None:
     assert outcome.quorum_rerun is None
 
 
+def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> None:
+    fakes, posted = _fakes(tier=1)
+    calls: list[tuple[str, int]] = []
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult("grok", "Verdict: inconclusive\n- unsure", True)
+        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        calls.append((repo, pr))
+        return {"applied": True}
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete" in outcome.action_reason
+    assert outcome.supportive_families == ["claude"]
+    assert posted == []
+    assert calls == []
+    assert outcome.quorum_rerun is None
+
+
 def test_collect_success_requires_two_supportive_reviewers() -> None:
     fakes, _posted = _fakes(tier=1)
 
@@ -621,6 +683,24 @@ def test_collect_success_requires_two_supportive_reviewers() -> None:
     assert outcome.supportive_families == ["claude"]
     assert outcome.dissenting_families == ["grok"]
     assert outcome.has_supportive_quorum is False
+
+
+def test_locked_quorum_state_recovers_stale_pid_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    state_file = tmp_path / "state.json"
+    lock_file = tmp_path / "state.json.lock"
+    lock_file.write_text("pid=999999 acquired_at=2026-06-06T00:00:00+00:00\n", encoding="utf-8")
+    old = time.time() - 3600
+    os.utime(lock_file, (old, old))
+    monkeypatch.setattr(qe, "QUORUM_STATE_LOCK_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr(qe, "QUORUM_STATE_LOCK_POLL_SECONDS", 0.01)
+
+    with qe._locked_quorum_reconcile_state(state_file):
+        assert lock_file.exists()
+
+    assert not lock_file.exists()
 
 
 def test_collect_records_quorum_reconciler_error_after_successful_posts() -> None:
@@ -809,8 +889,10 @@ def test_collect_never_fabricates_on_reviewer_failure() -> None:
         repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
     )
     assert [f.family for f in outcome.failures] == ["grok"]
-    assert outcome.posted == ["claude"]
-    assert len(posted) == 1
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete" in outcome.action_reason
+    assert outcome.posted == []
+    assert posted == []
 
 
 def test_collect_does_not_post_uncountable_evidence() -> None:
@@ -818,7 +900,8 @@ def test_collect_does_not_post_uncountable_evidence() -> None:
     outcome = collect_evidence(
         repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
     )
-    assert outcome.action == "post"
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete" in outcome.action_reason
     assert outcome.posted == []
     assert posted == []
     assert all(not item.would_count for item in outcome.items)
@@ -830,7 +913,10 @@ def test_collect_rejects_unsupported_family() -> None:
         repo="o/r", pr=1, families=["claude", "bogus"], author="me", apply=True, **fakes
     )
     assert "bogus" in [f.family for f in outcome.failures]
-    assert "claude" in outcome.posted
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete" in outcome.action_reason
+    assert outcome.posted == []
+    assert posted == []
     assert "bogus" not in outcome.counting_families
 
 
