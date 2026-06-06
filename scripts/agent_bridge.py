@@ -1008,7 +1008,8 @@ def _collect_health_issues(
                     "detail": f"active lane '{r.lane_id}' has no actionable next_action",
                 }
             )
-        if not r.last_steering_outcome or r.last_steering_outcome == DEFAULT_STEERING_OUTCOME:
+        steering_outcome = _effective_lane_steering_outcome(r)
+        if not steering_outcome or steering_outcome == DEFAULT_STEERING_OUTCOME:
             issues.append(
                 {
                     "type": "lane_missing_steering_outcome",
@@ -1046,6 +1047,15 @@ def _collect_health_issues(
         )
 
     return issues
+
+
+def _effective_lane_steering_outcome(record: LaneRecord) -> str:
+    outcome = record.last_steering_outcome.strip()
+    if outcome and outcome != DEFAULT_STEERING_OUTCOME:
+        return outcome
+    if record.status == "blocked":
+        return "blocked"
+    return outcome
 
 
 def _classify_agent_process(command: str) -> str | None:

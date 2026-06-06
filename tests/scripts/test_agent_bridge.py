@@ -2378,6 +2378,52 @@ def test_health_reports_claimed_claude_transcript_missing_worktree(tmp_path: Pat
     ]
 
 
+def test_health_accepts_legacy_blocked_lane_unknown_steering_outcome() -> None:
+    import agent_bridge as mod
+
+    issues = mod._collect_health_issues(
+        [],
+        [
+            mod.LaneRecord(
+                lane_id="publication",
+                owner_session="blocked-owner",
+                status="blocked",
+                next_action="networked publisher should open draft PR",
+                last_steering_outcome="unknown",
+                last_heartbeat_at="2026-06-06T14:00:00Z",
+            )
+        ],
+    )
+
+    assert issues == []
+
+
+def test_health_still_reports_active_lane_unknown_steering_outcome() -> None:
+    import agent_bridge as mod
+
+    issues = mod._collect_health_issues(
+        [],
+        [
+            mod.LaneRecord(
+                lane_id="implementation",
+                owner_session="active-owner",
+                status="active",
+                next_action="finish implementation",
+                last_steering_outcome="unknown",
+                last_heartbeat_at="2026-06-06T14:00:00Z",
+            )
+        ],
+    )
+
+    assert issues == [
+        {
+            "type": "lane_missing_steering_outcome",
+            "session": "active-owner",
+            "detail": "active lane 'implementation' has no explicit steering outcome",
+        }
+    ]
+
+
 def test_gc_dry_run_archives_only_bridge_owned_tmux_candidates(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
