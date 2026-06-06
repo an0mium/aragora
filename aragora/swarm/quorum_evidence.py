@@ -29,8 +29,10 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import os
 import re
 import subprocess
+import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -83,6 +85,8 @@ SETTLEMENT_TIER_FLOOR = 3
 
 QUORUM_RERUN_COOLDOWN_SECONDS = 10 * 60
 QUORUM_RERUN_MAX_PER_HEAD = 3
+QUORUM_STATE_LOCK_TIMEOUT_SECONDS = 60.0
+QUORUM_STATE_LOCK_POLL_SECONDS = 0.2
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
@@ -472,16 +476,29 @@ def resolve_author(default: str = "local") -> str:
 @contextmanager
 def _locked_quorum_reconcile_state(path: Path) -> Iterator[None]:
     """Serialize load/evaluate/rerun/save for the shared merge-quorum state file."""
-    import fcntl
-
-    lock_path = path.with_suffix(path.suffix + ".lock")
+    lock_path = Path(f"{path}.lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with lock_path.open("a+", encoding="utf-8") as lock_fh:
-        fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX)
+    deadline = time.monotonic() + QUORUM_STATE_LOCK_TIMEOUT_SECONDS
+    fd: int | None = None
+    while fd is None:
         try:
-            yield
-        finally:
-            fcntl.flock(lock_fh.fileno(), fcntl.LOCK_UN)
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(
+                fd,
+                f"pid={os.getpid()} acquired_at={datetime.now(timezone.utc).isoformat()}\n".encode(),
+            )
+        except FileExistsError:
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"timed out waiting for merge-quorum state lock: {lock_path}")
+            time.sleep(QUORUM_STATE_LOCK_POLL_SECONDS)
+    try:
+        yield
+    finally:
+        os.close(fd)
+        try:
+            lock_path.unlink()
+        except OSError:
+            pass
 
 
 def default_quorum_reconciler(repo: str, pr: int) -> dict[str, Any]:
@@ -508,12 +525,16 @@ def default_quorum_reconciler(repo: str, pr: int) -> dict[str, Any]:
         if decision.next_prompt:
             record["next_prompt"] = decision.next_prompt
         if decision.should_rerun and quorum_run is not None:
+            head_state = state.setdefault(
+                quorum_run.head_sha,
+                {"count": 0, "last_rerun_at": None},
+            )
+            if int(head_state.get("count", 0)) >= QUORUM_RERUN_MAX_PER_HEAD:
+                record["should_rerun"] = False
+                record["reason"] = "max_reruns_reached_in_locked_state"
+                return record
             record["applied"] = reconcile_merge_quorum.execute_rerun(repo, quorum_run.run_id)
             if record["applied"]:
-                head_state = state.setdefault(
-                    quorum_run.head_sha,
-                    {"count": 0, "last_rerun_at": None},
-                )
                 head_state["count"] = int(head_state.get("count", 0)) + 1
                 head_state["last_rerun_at"] = datetime.now(timezone.utc).isoformat()
                 reconcile_merge_quorum._save_state(state_file, state)

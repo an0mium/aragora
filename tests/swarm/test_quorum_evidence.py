@@ -606,6 +606,52 @@ def test_default_quorum_reconciler_holds_lock_through_state_update(
     assert events == ["lock-enter", "load", "evaluate", "execute", "save", "lock-exit"]
 
 
+def test_default_quorum_reconciler_rechecks_rerun_cap_under_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    from scripts import reconcile_merge_quorum
+
+    state = {
+        "abc123": {
+            "count": qe.QUORUM_RERUN_MAX_PER_HEAD,
+            "last_rerun_at": None,
+        }
+    }
+
+    @contextmanager
+    def fake_lock(path):
+        yield
+
+    def evaluate_pr(repo, pr, *, now, state, cooldown_seconds, max_reruns):
+        decision = SimpleNamespace(
+            should_rerun=True,
+            reason="stale-success-after-new-evidence",
+            run_id=123,
+            next_prompt=None,
+        )
+        quorum_run = SimpleNamespace(run_id=123, head_sha="abc123")
+        return decision, quorum_run
+
+    def execute_rerun(repo, run_id):
+        raise AssertionError("rerun must not execute after locked count reaches the cap")
+
+    monkeypatch.setattr(qe, "_locked_quorum_reconcile_state", fake_lock)
+    monkeypatch.setattr(reconcile_merge_quorum, "DEFAULT_STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(reconcile_merge_quorum, "_load_state", lambda path: state)
+    monkeypatch.setattr(reconcile_merge_quorum, "evaluate_pr", evaluate_pr)
+    monkeypatch.setattr(reconcile_merge_quorum, "execute_rerun", execute_rerun)
+
+    record = qe.default_quorum_reconciler("o/r", 1)
+
+    assert record == {
+        "should_rerun": False,
+        "reason": "max_reruns_reached_in_locked_state",
+        "run_id": 123,
+        "applied": False,
+    }
+
+
 def test_collect_high_tier_apply_never_posts() -> None:
     fakes, posted = _fakes(tier=4)
     outcome = collect_evidence(
