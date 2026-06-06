@@ -87,3 +87,18 @@ def test_master_fanout_prompt_uses_live_agent_bridge_json_order():
     assert "python3 scripts/agent_bridge.py --json operator-snapshot --summary-only" not in prompt
     assert "python3 scripts/agent_bridge.py --json health" not in prompt
     assert "must precede subcommand" not in prompt
+
+
+def test_codex_desktop_autonomy_uses_backlog_audit_state_root_defaults():
+    repo_root = Path(__file__).resolve().parents[1]
+    brief = (repo_root / "docs/briefs/codex-desktop-automation-autonomy.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert (
+        "python3 scripts/audit_codex_branch_backlog.py --max-branches 200 --json --summary-only"
+        in brief
+    )
+    assert "--state-root <repo-root-or-.aragora>" in brief
+    assert "--outbox-dir ~/aragora/.aragora/automation-outbox" not in brief
+    assert "--receipt-dir ~/aragora/.aragora/automation-receipts" not in brief
