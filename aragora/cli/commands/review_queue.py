@@ -3526,6 +3526,14 @@ def _proposed_evidence_pr_grounding(body: str, pr: str) -> tuple[bool, str]:
             flags=re.IGNORECASE,
         )
     }
+    cited.update(
+        match.group(1)
+        for match in re.finditer(
+            r"\bgithub\.com/[^\s)<>]+/pull/(\d+)\b",
+            str(body or ""),
+            flags=re.IGNORECASE,
+        )
+    )
     if not cited:
         return True, "no_pr_citation"
     if normalized_pr in cited:
