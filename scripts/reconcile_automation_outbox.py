@@ -218,9 +218,15 @@ def _requested_action_type(payload: Mapping[str, Any]) -> str:
     requested_action = payload.get("requested_action")
     requested_action_mapping = _mapping_from_action(requested_action)
     if requested_action_mapping is not None:
-        return str(requested_action_mapping.get("type") or "").strip().lower()
+        action = (
+            requested_action_mapping.get("type")
+            or requested_action_mapping.get("action")
+            or requested_action_mapping.get("requested_action")
+            or ""
+        )
+        return str(action).strip().lower().replace("-", "_")
     if isinstance(requested_action, str):
-        return requested_action.strip().lower()
+        return requested_action.strip().lower().replace("-", "_")
     return ""
 
 

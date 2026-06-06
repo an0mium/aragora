@@ -693,6 +693,52 @@ def test_reconcile_keeps_pr_handoff_with_issue_only_receipt(
     assert handoff.exists()
 
 
+def test_reconcile_keeps_action_key_pr_handoff_with_issue_only_receipt(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-action-key-issue-only-abc123"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/action-key-issue-only",
+        key=key,
+    )
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload["requested_action"] = {
+        "action": "open_pr",
+        "base": "main",
+        "branch": "codex/action-key-issue-only",
+        "head_sha": "abcdef1234567890abcdef1234567890abcdef12",
+    }
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "already_satisfied",
+                "reason": "existing_issue",
+                "existing_issue_url": "https://github.com/synaptent/aragora/issues/7786",
+                "existing_pr_url": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["blocked_receipt_issue_only"] == 1
+    assert result["counts"]["satisfied_by_existing_receipt"] == 0
+    assert result["counts"]["still_protecting_active_work"] == 1
+    assert result["actions"][0]["decision"] == "keep"
+    assert result["actions"][0]["branch"] == "codex/action-key-issue-only"
+    assert "issue-only receipt" in result["actions"][0]["reason"]
+    assert handoff.exists()
+
+
 def test_reconcile_keeps_target_pr_receipt_when_desired_head_not_published(
     tmp_path: Path,
     monkeypatch: Any,
