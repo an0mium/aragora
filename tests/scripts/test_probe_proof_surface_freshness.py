@@ -125,6 +125,29 @@ def test_probe_surface_marks_stale_beyond_window(mock_repo: Path) -> None:
     assert result.age_days > 7
 
 
+def test_probe_surface_tolerates_small_future_clock_skew(mock_repo: Path) -> None:
+    _write_surface(
+        mock_repo,
+        "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+        "Last updated: 2026-05-18T00:04:00Z",
+    )
+    now = dt.datetime(2026, 5, 18, 0, 0, 0, tzinfo=dt.timezone.utc)
+    result = probe_mod.probe_surface("b0", repo_root=mock_repo, max_age_days=7, now=now)
+    assert result.fresh is True
+    assert result.age_days == 0.0
+
+
+def test_probe_surface_rejects_material_future_timestamp(mock_repo: Path) -> None:
+    _write_surface(
+        mock_repo,
+        "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+        "Last updated: 2026-05-20T00:00:00Z",
+    )
+    now = dt.datetime(2026, 5, 18, 0, 0, 0, tzinfo=dt.timezone.utc)
+    with pytest.raises(probe_mod.FreshnessProbeError, match="future"):
+        probe_mod.probe_surface("b0", repo_root=mock_repo, max_age_days=7, now=now)
+
+
 # ---------------------------------------------------------------------------
 # CLI / acceptance tests required by the lane brief.
 # ---------------------------------------------------------------------------
@@ -234,6 +257,29 @@ def test_cli_malformed_last_updated_raises_clear_error(
     assert "malformed" in proc.stderr.lower()
     assert "garbage-not-a-date" in proc.stderr
     assert "b0" in proc.stderr
+
+
+def test_cli_future_last_updated_raises_clear_error(mock_repo: Path) -> None:
+    future = (dt.datetime.now(tz=dt.timezone.utc) + dt.timedelta(days=2)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    _write_surface(
+        mock_repo,
+        "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+        f"Last updated: {future}",
+    )
+    _write_surface(
+        mock_repo,
+        "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md",
+        f"Last updated: {_today_iso()}",
+    )
+
+    proc = _run_cli(mock_repo, "--surfaces", "b0,tw03")
+
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert "future" in proc.stderr.lower()
+    assert "b0" in proc.stderr
+    assert future in proc.stderr
 
 
 def test_cli_surfaces_flag_scopes_probe(mock_repo: Path) -> None:
