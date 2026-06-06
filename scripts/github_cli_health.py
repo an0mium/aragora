@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded GitHub CLI health probe for automation publisher flows."""
+"""Bounded GitHub CLI health probe for automation draft PR publisher flows."""
 
 from __future__ import annotations
 
@@ -181,7 +181,9 @@ def ensure_github_cli_ready(
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Check whether gh can reach GitHub from here.")
+    parser = argparse.ArgumentParser(
+        description="Check whether gh can reach GitHub before draft PR publishing."
+    )
     parser.add_argument("--repo", default=".", help="Path inside the target repository")
     parser.add_argument(
         "--timeout-seconds",
