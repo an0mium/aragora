@@ -226,6 +226,41 @@ def test_branch_publish_command_opens_draft_prs() -> None:
     assert "--apply" in command
 
 
+def test_config_from_args_uses_automation_state_root_env(monkeypatch: Any, tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    state_root = tmp_path / "shared"
+    repo.mkdir()
+    (state_root / ".aragora" / "automation-outbox").mkdir(parents=True)
+
+    monkeypatch.setenv(mod.AUTOMATION_STATE_ROOT_ENV, str(state_root))
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo)
+
+    args = mod._build_parser().parse_args(["--repo", str(repo), "--json"])
+    config = mod._config_from_args(args)
+
+    assert config.state_root == state_root.resolve()
+    assert config.outbox_dir == (state_root / ".aragora" / "automation-outbox").resolve()
+    assert config.receipt_dir == (state_root / ".aragora" / "automation-receipts").resolve()
+
+
+def test_config_from_args_state_root_flag_overrides_env(monkeypatch: Any, tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    env_root = tmp_path / "env-state"
+    cli_root = tmp_path / "cli-state"
+    repo.mkdir()
+
+    monkeypatch.setenv(mod.AUTOMATION_STATE_ROOT_ENV, str(env_root))
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo)
+
+    args = mod._build_parser().parse_args(
+        ["--repo", str(repo), "--state-root", str(cli_root), "--json"]
+    )
+    config = mod._config_from_args(args)
+
+    assert config.state_root == cli_root.resolve()
+    assert config.outbox_dir == (cli_root / ".aragora" / "automation-outbox").resolve()
+
+
 def test_run_drain_stops_when_github_unavailable(monkeypatch: Any, tmp_path: Path) -> None:
     calls: list[list[str]] = []
 

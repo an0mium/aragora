@@ -35,6 +35,7 @@ DEFAULT_BRANCH_SCAN_LIMIT = 40
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 120
 DEFAULT_GH_TIMEOUT_SECONDS = 45
 DEFAULT_BASE = "origin/main"
+AUTOMATION_STATE_ROOT_ENV = "ARAGORA_AUTOMATION_STATE_ROOT"
 PYTHON = sys.executable or "python3"
 PASS_CHECK_STATES = {"SUCCESS", "NEUTRAL", "SKIPPED", "PASS", "PASSED"}
 PENDING_CHECK_STATES = {
@@ -197,6 +198,10 @@ def _repo_root(path: Path) -> Path:
 def _state_root(repo_root: Path, value: Path | None) -> Path:
     if value is not None:
         expanded = value.expanduser()
+        return expanded.resolve() if expanded.is_absolute() else (repo_root / expanded).resolve()
+    configured = os.environ.get(AUTOMATION_STATE_ROOT_ENV)
+    if configured and configured.strip():
+        expanded = Path(configured).expanduser()
         return expanded.resolve() if expanded.is_absolute() else (repo_root / expanded).resolve()
     return repo_root
 
@@ -847,7 +852,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--repo", default=".", help="Path inside the target repository")
     parser.add_argument("--github-repo", default=DEFAULT_GITHUB_REPO)
-    parser.add_argument("--state-root", type=Path, default=None)
+    parser.add_argument(
+        "--state-root",
+        type=Path,
+        default=None,
+        help=(
+            "Checkout or .aragora directory that owns shared automation state. "
+            f"Defaults to {AUTOMATION_STATE_ROOT_ENV}, then --repo."
+        ),
+    )
     parser.add_argument("--outbox-dir", type=Path, default=None)
     parser.add_argument("--receipt-dir", type=Path, default=None)
     parser.add_argument("--cache-output", type=Path, default=None)
