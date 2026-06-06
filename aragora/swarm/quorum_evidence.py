@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import math
 import os
 import re
 import subprocess
@@ -103,7 +104,7 @@ def _timeout_seconds(env_name: str, default: int) -> float:
         value = float(raw)
     except ValueError:
         return float(default)
-    if value <= 0:
+    if not math.isfinite(value) or value <= 0:
         return float(default)
     return value
 

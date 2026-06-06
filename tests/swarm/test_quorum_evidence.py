@@ -206,6 +206,9 @@ def test_compose_sanitizes_committed_timestamp() -> None:
         ("not-a-number", 300.0),
         ("0", 300.0),
         ("-5", 300.0),
+        ("nan", 300.0),
+        ("inf", 300.0),
+        ("-inf", 300.0),
         ("12.5", 12.5),
     ],
 )
