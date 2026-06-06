@@ -11,6 +11,7 @@ The compose helper is checked against the *real* evidence parser
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import contextmanager
 from types import SimpleNamespace
 
@@ -265,6 +266,52 @@ def test_run_api_agent_closes_resources_after_generate_failure(
     assert result.ok is False
     assert "RuntimeError: model failed" in result.error
     assert events == ["generate", "agent_close", "connector_close"]
+
+
+def test_api_agent_cleanup_does_not_hang_on_stuck_agent_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def close(self) -> None:
+            events.append("agent_close_start")
+            await asyncio.sleep(3600)
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close")
+
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 0.01, raising=False)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    asyncio.run(asyncio.wait_for(qe._close_api_agent_resources(FakeAgent()), timeout=0.05))
+
+    assert events == ["agent_close_start", "connector_close"]
+
+
+def test_api_agent_cleanup_does_not_hang_on_stuck_shared_connector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def close(self) -> None:
+            events.append("agent_close")
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close_start")
+        await asyncio.sleep(3600)
+
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 0.01, raising=False)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    asyncio.run(asyncio.wait_for(qe._close_api_agent_resources(FakeAgent()), timeout=0.05))
+
+    assert events == ["agent_close", "connector_close_start"]
 
 
 def test_run_api_agent_closes_shared_connector_after_agent_close_failure(
