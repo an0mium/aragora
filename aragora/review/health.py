@@ -161,6 +161,8 @@ def _check_directory_freshness(
     crit_h: float,
     expect_nonempty: bool = True,
     glob: str = "*",
+    max_status: str | None = None,
+    informational: bool = False,
 ) -> SurfaceCheck:
     """Build a SurfaceCheck for a directory containing dated artifacts."""
     if not directory.exists():
@@ -183,6 +185,11 @@ def _check_directory_freshness(
     now = _now()
     age = _age_hours(newest_mtime, now) if newest_mtime is not None else None
     status = _classify_age(age, warn_h, crit_h) if age is not None else STATUS_AGING
+    if max_status is not None and _SEVERITY_RANK[status] > _SEVERITY_RANK[max_status]:
+        status = max_status
+    extra: dict[str, object] = {}
+    if informational:
+        extra["informational"] = True
     return SurfaceCheck(
         name=name,
         status=status,
@@ -191,6 +198,7 @@ def _check_directory_freshness(
         age_hours=age,
         path=str(directory),
         detail=f"newest: {newest_path.name}" if newest_path is not None else None,
+        extra=extra,
     )
 
 
@@ -639,6 +647,8 @@ def gather_health(
             crit_h=warn_hours_briefs * crit_multiplier,
             expect_nonempty=False,
             glob="pr-*.json",
+            max_status=STATUS_AGING,
+            informational=True,
         )
     )
 
