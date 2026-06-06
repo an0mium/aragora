@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import subprocess
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,7 @@ from aragora.cli.commands.review_queue import (
     _effective_required_pr_check_count,
     _filter_lanes,
     _GhError,
+    _gh_json,
     _is_high_risk_path,
     _is_merge_quorum_check,
     _parse_pr_number,
@@ -2361,6 +2363,23 @@ class TestValidationExtraction:
             "`python3 -m pytest tests/cli/commands/test_review_queue.py -q`",
             "`bash scripts/automation_pr_preflight.sh origin/main HEAD`",
         ]
+
+
+class TestGhTimeouts:
+    def test_gh_json_fails_closed_on_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, Any] = {}
+
+        def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+            raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+
+        with pytest.raises(_GhError, match=r"gh pr view 7811 timed out after \d+s"):
+            _gh_json(["pr", "view", "7811"])
+
+        assert captured["kwargs"]["timeout"] > 0
 
 
 # --- _build_queue + _build_packet (with mocked gh) -------------------------

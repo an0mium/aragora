@@ -204,6 +204,8 @@ MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
 MERGE_QUORUM_JOB_ID = "merge-quorum"
 CHECK_SURFACE_DIAGNOSTIC_LIMIT = 12
 OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS = 60 * 60
+GH_COMMAND_TIMEOUT_SECONDS = 30
+GIT_STATUS_TIMEOUT_SECONDS = 10
 
 LANE_ORDER: dict[str, int] = {
     "ready_now": 0,
@@ -1399,14 +1401,25 @@ class _GhError(RuntimeError):
     """Raised when a 'gh' invocation fails or returns malformed JSON."""
 
 
+def _command_timeout_message(cmd: list[str], timeout_seconds: int) -> str:
+    return f"{' '.join(cmd)} timed out after {timeout_seconds}s"
+
+
 def _gh_text(args: list[str]) -> str:
     """Run a 'gh' command and return plain stdout."""
-    proc = subprocess.run(
-        ["gh", *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    cmd = ["gh", *args]
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GH_COMMAND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise _GhError(
+            _command_timeout_message(cmd, int(exc.timeout or GH_COMMAND_TIMEOUT_SECONDS))
+        ) from exc
     if proc.returncode != 0:
         stderr = proc.stderr.strip() or "no stderr"
         raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
@@ -1415,12 +1428,19 @@ def _gh_text(args: list[str]) -> str:
 
 def _gh_json(args: list[str]) -> Any:
     """Run a 'gh' command and parse JSON output. Returns None for empty stdout."""
-    proc = subprocess.run(
-        ["gh", *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    cmd = ["gh", *args]
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GH_COMMAND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise _GhError(
+            _command_timeout_message(cmd, int(exc.timeout or GH_COMMAND_TIMEOUT_SECONDS))
+        ) from exc
     if proc.returncode != 0:
         stderr = proc.stderr.strip() or "no stderr"
         raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
@@ -4256,13 +4276,21 @@ def _write_json(path: Path, payload: Any) -> None:
 
 
 def _require_clean_worktree(repo_root: Path) -> None:
-    proc = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    cmd = ["git", "status", "--porcelain"]
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GIT_STATUS_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise _GhError(
+            f"git status timed out after {int(exc.timeout or GIT_STATUS_TIMEOUT_SECONDS)}s "
+            f"in {repo_root}"
+        ) from exc
     if proc.returncode != 0:
         stderr = proc.stderr.strip() or "no stderr"
         raise _GhError(f"git status failed in {repo_root}: {stderr}")
