@@ -973,6 +973,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mode.add_argument(
         "--merge-apply",
+        "--apply",
+        dest="merge_apply",
         action="store_true",
         help="Apply the already-settled Tier 4 merge/protection action.",
     )

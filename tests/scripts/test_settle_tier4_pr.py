@@ -1046,19 +1046,51 @@ def test_settle_only_rejects_unrelated_required_failure(monkeypatch: Any, tmp_pa
     assert commands == []
 
 
-def test_ambiguous_apply_mode_is_rejected() -> None:
-    with pytest.raises(SystemExit) as exc:
-        settler.main(
-            [
-                "--apply",
-                "--pr",
-                "7423",
-                "--head",
-                "57c740022e3c432718462efa12ca79f1df4f674d",
-            ]
-        )
+def test_apply_alias_uses_valid_merge_apply_command_sequence(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
 
-    assert exc.value.code == 2
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_required_status_check_patch",
+        lambda repo, cwd: None,
+    )
+    monkeypatch.setattr(
+        settler,
+        "_branch_protection_snapshot",
+        lambda repo, cwd: {},
+    )
+
+    rc = settler.main(["--apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
+
+    assert rc == 0
+    assert commands[0][0] == [
+        "gh",
+        "pr",
+        "merge",
+        "7423",
+        "--squash",
+        "--admin",
+        "--match-head-commit",
+        head,
+    ]
+    assert not any("required_status_checks" in " ".join(command) for command, _ in commands)
 
 
 def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> None:
