@@ -130,6 +130,48 @@ def test_scan_boss_metrics_uses_latest_issue_outcome(
     assert metrics["per_issue_success_rate"] == expected_rate
 
 
+@pytest.mark.parametrize("issue_number", ["1", True, -1])
+def test_scan_boss_metrics_rejects_invalid_issue_numbers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    issue_number: object,
+) -> None:
+    _write_boss_metrics(
+        tmp_path,
+        [{"issue_number": issue_number, "prompt_chars": 100, "worker_status": "completed"}],
+    )
+    monkeypatch.setattr(report_code_quality, "REPO_ROOT", tmp_path)
+
+    metrics = report_code_quality.scan_boss_metrics()
+
+    assert metrics == {
+        "available": False,
+        "reason": "invalid issue_number in v2 prompt data",
+    }
+
+
+def test_scan_boss_metrics_skips_missing_issue_numbers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_boss_metrics(
+        tmp_path,
+        [
+            {"prompt_chars": 100, "worker_status": "completed"},
+            {"issue_number": 0, "prompt_chars": 100, "worker_status": "completed"},
+        ],
+    )
+    monkeypatch.setattr(report_code_quality, "REPO_ROOT", tmp_path)
+
+    metrics = report_code_quality.scan_boss_metrics()
+
+    assert metrics["available"] is True
+    assert metrics["total_iterations"] == 2
+    assert metrics["unique_issues"] == 0
+    assert metrics["issues_completed"] == 0
+    assert metrics["per_issue_success_rate"] == 0.0
+
+
 def test_main_json_compare_includes_baseline_comparison(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

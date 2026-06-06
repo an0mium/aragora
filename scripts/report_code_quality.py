@@ -60,6 +60,8 @@ _SUPPRESSION_PATTERNS = {
     "fixme": re.compile(r"#\s*FIXME\b", re.IGNORECASE),
 }
 
+_INVALID_BOSS_ISSUE_REASON = "invalid issue_number in v2 prompt data"
+
 
 def count_lines(path: Path) -> int:
     try:
@@ -136,6 +138,10 @@ def scan_all_aragora() -> dict[str, int]:
     return totals
 
 
+def _is_positive_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
 def scan_boss_metrics() -> dict:
     """Analyze latest boss metrics for success rate."""
     metrics_path = REPO_ROOT / ".aragora" / "overnight" / "boss_metrics.jsonl"
@@ -163,6 +169,8 @@ def scan_boss_metrics() -> dict:
         num = r.get("issue_number")
         if not num:
             continue
+        if not _is_positive_int(num):
+            return {"available": False, "reason": _INVALID_BOSS_ISSUE_REASON}
         by_issue[num] = str(r.get("worker_status") or "")
 
     total = len(by_issue)
