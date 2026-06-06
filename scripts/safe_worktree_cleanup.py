@@ -40,6 +40,126 @@ class WorktreeInspection:
     blockers: list[str]
 
 
+_BLOCKER_DETAILS: dict[str, tuple[str, str, str]] = {
+    "missing_path": (
+        "absent",
+        "Path no longer exists; there is nothing for this helper to remove.",
+        "verify registry state separately before pruning metadata",
+    ),
+    "active_session": (
+        "owned",
+        "An active session marker was detected for this worktree.",
+        "preserve and route cleanup through the live owner",
+    ),
+    "dirty_worktree": (
+        "unsafe_to_delete",
+        "The worktree has uncommitted changes or git status could not prove cleanliness.",
+        "preserve until dirty state is harvested, discarded by owner, or independently proven safe",
+    ),
+    "branch_ahead_of_origin_main": (
+        "unsafe_to_delete",
+        "The branch has commits not proven present or patch-equivalent on origin/main.",
+        "harvest or reconcile branch value before cleanup",
+    ),
+    "patch_equivalence_lookup_failed": (
+        "unknown",
+        "Patch-equivalence lookup failed, so duplicate/harvested status is unproven.",
+        "rerun inspection when patch-equivalence helper is healthy",
+    ),
+    "branch_lookup_failed": (
+        "unknown",
+        "Branch lookup timed out or failed, so ownership and value checks are incomplete.",
+        "preserve until branch identity can be recovered",
+    ),
+    "open_pr": (
+        "referenced",
+        "A live open PR references this branch.",
+        "preserve until the PR is merged, closed, or explicitly superseded",
+    ),
+    "ahead_lookup_failed": (
+        "unknown",
+        "Ahead/behind lookup failed, so unique-commit status is unproven.",
+        "preserve until git history lookup succeeds",
+    ),
+    "pr_lookup_failed": (
+        "unknown",
+        "Open-PR lookup failed while the branch may still contain unique work.",
+        "preserve until GitHub lookup succeeds or local proof is sufficient",
+    ),
+}
+
+
+def cleanup_safety(inspection: WorktreeInspection) -> dict[str, Any]:
+    """Return structured deletion-safety diagnostics for cleanup agents.
+
+    ``blockers`` remains the stable fail-closed contract.  This derived
+    payload explains *why* each blocker matters and classifies clear cases
+    such as owned, harvested, stale, referenced, and unsafe-to-delete.
+    """
+
+    blocker_details = [
+        {
+            "blocker": blocker,
+            "category": _BLOCKER_DETAILS.get(blocker, ("unknown", "", ""))[0],
+            "reason": _BLOCKER_DETAILS.get(blocker, ("unknown", "Unclassified blocker.", ""))[1],
+            "next_action": _BLOCKER_DETAILS.get(
+                blocker, ("unknown", "", "preserve until manually reviewed")
+            )[2],
+        }
+        for blocker in inspection.blockers
+    ]
+    categories = {detail["category"] for detail in blocker_details}
+
+    if "owned" in categories:
+        classification = "owned"
+        decision = "preserve"
+    elif "unsafe_to_delete" in categories:
+        classification = "unsafe_to_delete"
+        decision = "preserve"
+    elif "unknown" in categories:
+        classification = "unknown_preserve"
+        decision = "preserve"
+    elif "referenced" in categories:
+        classification = "referenced_preserve"
+        decision = "preserve"
+    elif "absent" in categories:
+        classification = "absent_noop"
+        decision = "noop"
+    elif inspection.patch_equivalent_to_origin_main:
+        classification = "harvested_or_duplicate"
+        decision = "cleanup_candidate"
+    elif inspection.branch and inspection.unique_commits_ahead == 0:
+        classification = "stale_or_merged"
+        decision = "cleanup_candidate"
+    elif inspection.exists and not inspection.tracked_worktree:
+        classification = "untracked_residue"
+        decision = "cleanup_candidate"
+    else:
+        classification = "cleanup_candidate"
+        decision = "cleanup_candidate"
+
+    return {
+        "removable": not inspection.blockers,
+        "classification": classification,
+        "decision": decision,
+        "blocker_details": blocker_details,
+        "signals": {
+            "exists": inspection.exists,
+            "tracked_worktree": inspection.tracked_worktree,
+            "branch": inspection.branch,
+            "active_session": inspection.active_session,
+            "lock_files": inspection.lock_files,
+            "dirty": inspection.dirty,
+            "unique_commits_ahead": inspection.unique_commits_ahead,
+            "ahead_lookup_failed": inspection.ahead_lookup_failed,
+            "patch_equivalent_to_origin_main": inspection.patch_equivalent_to_origin_main,
+            "patch_equivalence_lookup_failed": inspection.patch_equivalence_lookup_failed,
+            "open_pr_count": len(inspection.open_prs),
+            "pr_lookup_failed": inspection.pr_lookup_failed,
+        },
+    }
+
+
 def _active_lock_files(path: Path) -> list[str]:
     return [
         name
@@ -310,6 +430,7 @@ def inspect_worktree(
 def _print_inspection(inspection: WorktreeInspection, *, as_json: bool) -> None:
     payload = asdict(inspection)
     payload["removable"] = not inspection.blockers
+    payload["cleanup_safety"] = cleanup_safety(inspection)
     if as_json:
         print(json.dumps(payload, indent=2))
         return
@@ -332,10 +453,13 @@ def _print_inspection(inspection: WorktreeInspection, *, as_json: bool) -> None:
         for pr in inspection.open_prs:
             print(f"  - #{pr.get('number')} {pr.get('title')} :: {pr.get('url')}")
     print(f"removable: {not inspection.blockers}")
+    safety = cleanup_safety(inspection)
+    print(f"cleanup_classification: {safety['classification']}")
+    print(f"cleanup_decision: {safety['decision']}")
     if inspection.blockers:
         print("blockers:")
-        for blocker in inspection.blockers:
-            print(f"  - {blocker}")
+        for detail in safety["blocker_details"]:
+            print(f"  - {detail['blocker']} [{detail['category']}]: {detail['next_action']}")
 
 
 def _delete_branch(repo_root: Path, branch: str) -> bool:
@@ -370,6 +494,7 @@ def remove_worktree(
         "branch_deleted": False,
         "path_purged": False,
         "blockers": list(inspection.blockers),
+        "cleanup_safety": cleanup_safety(inspection),
     }
     path = Path(inspection.path)
     if inspection.blockers and not force:

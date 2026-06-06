@@ -939,8 +939,8 @@ def _active_lane_identity_conflicts(records: list["LaneRecord"]) -> list[dict[st
 
 def _collect_health_issues(
     sessions: list[Session], records: list[LaneRecord]
-) -> list[dict[str, str]]:
-    issues: list[dict[str, str]] = []
+) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
     active_lane_owners = {
         record.owner_session for record in records if record.status in ACTIVE_LANE_STATUSES
     }
@@ -968,6 +968,14 @@ def _collect_health_issues(
                         "type": "stale_worktree",
                         "session": s.name,
                         "detail": f"dead session with lingering worktree: {s.worktree}",
+                        "owner_state": "stale_session",
+                        "lifecycle": lifecycle,
+                        "worktree": s.worktree,
+                        "worktree_exists": True,
+                        "cleanup_state": "stale_lingering_worktree",
+                        "recommended_operator_action": (
+                            "inspect with safe_worktree_cleanup.py before any removal"
+                        ),
                     }
                 )
             continue
@@ -979,6 +987,14 @@ def _collect_health_issues(
                     "type": "stale_worktree",
                     "session": s.name,
                     "detail": f"worktree path missing: {s.worktree}",
+                    "owner_state": "active_or_current_session",
+                    "lifecycle": lifecycle,
+                    "worktree": s.worktree,
+                    "worktree_exists": False,
+                    "cleanup_state": "missing_path_metadata",
+                    "recommended_operator_action": (
+                        "verify lane ownership before pruning metadata"
+                    ),
                 }
             )
 
@@ -994,6 +1010,12 @@ def _collect_health_issues(
                     "type": "ambiguous_lane",
                     "session": ", ".join(owners),
                     "detail": f"lane '{lane_id}' claimed by multiple active sessions",
+                    "owner_state": "duplicate_active_owner",
+                    "lane_id": lane_id,
+                    "owner_sessions": owners,
+                    "recommended_operator_action": (
+                        "resolve duplicate active owners before mutation or cleanup"
+                    ),
                 }
             )
 
@@ -1006,6 +1028,13 @@ def _collect_health_issues(
                     "type": "lane_missing_next_action",
                     "session": r.owner_session,
                     "detail": f"active lane '{r.lane_id}' has no actionable next_action",
+                    "owner_state": "active_lane_incomplete_metadata",
+                    "lane_id": r.lane_id,
+                    "status": r.status,
+                    "worktree": r.worktree or None,
+                    "recommended_operator_action": (
+                        "refresh the lane with a concrete next_action before routing"
+                    ),
                 }
             )
         if not r.last_steering_outcome or r.last_steering_outcome == DEFAULT_STEERING_OUTCOME:
@@ -1014,6 +1043,13 @@ def _collect_health_issues(
                     "type": "lane_missing_steering_outcome",
                     "session": r.owner_session,
                     "detail": f"active lane '{r.lane_id}' has no explicit steering outcome",
+                    "owner_state": "active_lane_incomplete_metadata",
+                    "lane_id": r.lane_id,
+                    "status": r.status,
+                    "worktree": r.worktree or None,
+                    "recommended_operator_action": (
+                        "record last_steering_outcome before claiming clean routing"
+                    ),
                 }
             )
         if not r.last_heartbeat_at:
@@ -1022,6 +1058,14 @@ def _collect_health_issues(
                     "type": "lane_missing_heartbeat",
                     "session": r.owner_session,
                     "detail": f"active lane '{r.lane_id}' has no heartbeat timestamp",
+                    "owner_state": "active_lane_missing_liveness",
+                    "lane_id": r.lane_id,
+                    "status": r.status,
+                    "worktree": r.worktree or None,
+                    "heartbeat_state": "missing",
+                    "recommended_operator_action": (
+                        "start or refresh agent_heartbeat.py before treating owner as live"
+                    ),
                 }
             )
 
@@ -1033,6 +1077,15 @@ def _collect_health_issues(
                     "type": "lane_conflict",
                     "session": r.owner_session,
                     "detail": f"lane '{r.lane_id}' in conflict with {r.conflict_session}: {r.conflict_reason}",
+                    "owner_state": "lane_conflict",
+                    "lane_id": r.lane_id,
+                    "status": r.status,
+                    "worktree": r.worktree or None,
+                    "conflict_session": r.conflict_session,
+                    "conflict_reason": r.conflict_reason,
+                    "recommended_operator_action": (
+                        "resolve_lane_conflicts.py dry-run before mutation or cleanup"
+                    ),
                 }
             )
 
@@ -1042,6 +1095,14 @@ def _collect_health_issues(
                 "type": str(conflict["type"]),
                 "session": ", ".join(conflict["owner_sessions"]),
                 "detail": str(conflict["detail"]),
+                "owner_state": "duplicate_active_owner",
+                "key_kind": conflict["key_kind"],
+                "key_value": conflict["key_value"],
+                "lane_ids": conflict["lane_ids"],
+                "owner_sessions": conflict["owner_sessions"],
+                "recommended_operator_action": (
+                    "resolve duplicate active owners before mutation or cleanup"
+                ),
             }
         )
 
