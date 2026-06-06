@@ -474,6 +474,112 @@ def test_operator_snapshot_json_suppresses_broken_pipe(
     assert muted_stdout == [True]
 
 
+def test_cmd_sessions_json_suppresses_broken_pipe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    muted_stdout: list[bool] = []
+    session = mod.Session(
+        name="codex-main",
+        agent="codex",
+        status="alive",
+        branch="codex/example",
+        worktree=str(tmp_path),
+    )
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr(mod, "_discover_with_broker_state", lambda: ([session], [], set()))
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(
+        mod,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    rc = mod.cmd_sessions(argparse.Namespace(json=True))
+
+    assert rc == 0
+    assert muted_stdout == [True]
+
+
+def test_cmd_sessions_text_suppresses_broken_pipe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    muted_stdout: list[bool] = []
+    session = mod.Session(
+        name="codex-main",
+        agent="codex",
+        status="alive",
+        branch="codex/example",
+        worktree=str(tmp_path),
+    )
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr(mod, "_discover_with_broker_state", lambda: ([session], [], set()))
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(
+        mod,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    rc = mod.cmd_sessions(argparse.Namespace(json=False))
+
+    assert rc == 0
+    assert muted_stdout == [True]
+
+
+def test_cmd_sessions_json_suppresses_flush_time_broken_pipe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    muted_stdout: list[bool] = []
+    session = mod.Session(
+        name="codex-main",
+        agent="codex",
+        status="alive",
+        branch="codex/example",
+        worktree=str(tmp_path),
+    )
+
+    class FlushBrokenStdout:
+        def write(self, _text: str) -> int:
+            return len(_text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr(mod, "_discover_with_broker_state", lambda: ([session], [], set()))
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr(sys, "stdout", FlushBrokenStdout())
+    monkeypatch.setattr(
+        mod,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    rc = mod.cmd_sessions(argparse.Namespace(json=True))
+
+    assert rc == 0
+    assert muted_stdout == [True]
+
+
 def test_operator_snapshot_text_suppresses_broken_pipe(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

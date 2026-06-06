@@ -1361,18 +1361,18 @@ def cmd_sessions(args: argparse.Namespace) -> int:
     sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state()
     _write_session_snapshot(sessions)
     if args.json:
-        print(json.dumps([s.to_dict() for s in sessions], indent=2))
-        return 0
+        return _emit_text(json.dumps([s.to_dict() for s in sessions], indent=2))
     if not sessions:
-        print("No active sessions.")
-        return 0
-    print(f"{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY")
-    print("-" * 110)
+        return _emit_text("No active sessions.")
+    lines = [
+        f"{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY",
+        "-" * 110,
+    ]
     for s in sessions:
         branch = s.branch[:26] if s.branch else "-"
         summary = (s.summary[:40] + "..." if len(s.summary) > 40 else s.summary) or "-"
-        print(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary}")
-    return 0
+        lines.append(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary}")
+    return _emit_text("\n".join(lines))
 
 
 def cmd_launch(args: argparse.Namespace) -> int:
@@ -2305,6 +2305,7 @@ def _mute_stdout_after_broken_pipe() -> None:
 def _emit_text(output: str) -> int:
     try:
         print(output)
+        sys.stdout.flush()
     except BrokenPipeError:
         _mute_stdout_after_broken_pipe()
     return 0
