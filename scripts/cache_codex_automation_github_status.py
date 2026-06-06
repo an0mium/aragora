@@ -65,6 +65,7 @@ TRANSIENT_OPEN_PR_QUERY_ERROR_MARKERS = (
     "504",
     "gateway timeout",
     "couldn't respond to your request in time",
+    "unexpected end of json input",
     "timed out",
     "timeout",
 )

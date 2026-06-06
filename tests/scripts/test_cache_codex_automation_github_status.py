@@ -119,6 +119,67 @@ def test_build_status_uses_lightweight_fallback_when_remote_query_times_out(
     assert payload["local_queue"]["unreceipted_outbox_count"] == 1
 
 
+def test_build_status_uses_lightweight_fallback_when_remote_query_json_truncated(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "open-pr-example.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(repo_root),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("unexpected end of JSON input")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_lightweight",
+        lambda repo_root, repo: [
+            {
+                "number": 456,
+                "title": "repair truncated json fallback",
+                "headRefName": "codex/cache-json-fallback",
+                "isDraft": False,
+                "mergeStateStatus": "CLEAN",
+                "reviewDecision": "APPROVED",
+            }
+        ],
+    )
+    monkeypatch.setattr(mod, "_open_boss_ready_count", lambda repo_root, repo, labels: 4)
+
+    payload = mod.build_status(
+        repo_root=tmp_path,
+        github_repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_prs=12,
+        max_open_issues=16,
+    )
+
+    queue = payload["github_queue"]
+    assert queue["available"] is True
+    assert queue["degraded"] is True
+    assert queue["degraded_reason"] == "heavy_open_pr_query_failed:unexpected end of JSON input"
+    assert queue["open_codex_pr_count"] == 1
+    assert queue["merge_state_counts"] == {"CLEAN": 1}
+    assert queue["open_issue_count"] == 4
+    assert queue["open_pr_heads"] == ["codex/cache-json-fallback"]
+
+
 def test_build_status_still_fails_closed_for_non_timeout_remote_query_errors(
     monkeypatch: Any,
     tmp_path: Path,
