@@ -172,6 +172,7 @@ class Handoff:
     body: str
     labels: dict[str, str]
     expires_at: str | None
+    issue_labels: tuple[str, ...] = ()
     idempotency_key: str | None = None
     source_kind: str = "memory"
     branch: str | None = None
@@ -598,6 +599,49 @@ def _local_evidence_mappings(value: Any) -> list[Mapping[str, Any]]:
     return []
 
 
+def _coerce_issue_labels(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return []
+        if text.startswith(("[", "{")):
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = None
+            if parsed is not None:
+                return _coerce_issue_labels(parsed)
+        return [label.strip() for label in re.split(r"[,;\n]+", text) if label.strip()]
+    if isinstance(value, Mapping):
+        labels: list[str] = []
+        for key in ("issue_labels", "labels"):
+            labels.extend(_coerce_issue_labels(value.get(key)))
+        return labels
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        labels: list[str] = []
+        for item in value:
+            labels.extend(_coerce_issue_labels(item))
+        return labels
+    return []
+
+
+def _outbox_issue_labels(payload: dict[str, Any]) -> tuple[str, ...]:
+    labels: list[str] = []
+    labels.extend(_coerce_issue_labels(payload.get("issue_labels")))
+    labels.extend(_coerce_issue_labels(payload.get("labels")))
+
+    requested_action = _structured_action(payload.get("requested_action"))
+    if requested_action is not None:
+        labels.extend(_coerce_issue_labels(requested_action))
+
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        labels.extend(_coerce_issue_labels(local_evidence))
+
+    return tuple(dict.fromkeys(label for label in labels if label))
+
+
 def _outbox_evidence_value(payload: dict[str, Any], key: str) -> str:
     for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
         value = str(local_evidence.get(key) or "").strip()
@@ -981,6 +1025,7 @@ def _load_outbox_handoffs_with_skip_reasons(
             body=_format_outbox_body(payload, source_file),
             labels={key: _format_json_block(value) for key, value in payload.items()},
             expires_at=expires_at,
+            issue_labels=_outbox_issue_labels(payload),
             idempotency_key=idempotency_key,
             source_kind="outbox",
             branch=_outbox_evidence_value(payload, "branch") or None,
@@ -1253,6 +1298,7 @@ def _create_issue(
     *,
     labels: list[str],
 ) -> str:
+    issue_labels = list(dict.fromkeys([*labels, *handoff.issue_labels]))
     args = [
         "gh",
         "issue",
@@ -1264,13 +1310,13 @@ def _create_issue(
         "--body",
         _fit_issue_body(handoff.body),
     ]
-    for label in labels:
+    for label in issue_labels:
         args.extend(["--label", label])
     proc = _run(args, cwd=repo_root)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh issue create failed")
     url = str(proc.stdout or "").strip().splitlines()[-1].strip()
-    _add_issue_labels(repo_root, repo, url, labels)
+    _add_issue_labels(repo_root, repo, url, issue_labels)
     return url
 
 

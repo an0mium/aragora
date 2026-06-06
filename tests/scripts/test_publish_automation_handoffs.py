@@ -1590,6 +1590,7 @@ def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: 
         body="body",
         labels={},
         expires_at=None,
+        issue_labels=("handoff-requested", "autonomous"),
     )
     created: list[list[str]] = []
 
@@ -1621,7 +1622,7 @@ def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: 
     assert published[0].reason == "published"
     assert published[0].created_issue_url == "https://github.com/synaptent/aragora/issues/5890"
     assert created[0][:3] == ["gh", "issue", "create"]
-    assert created[0].count("--label") == 2
+    assert created[0].count("--label") == 3
     assert created[1] == [
         "gh",
         "issue",
@@ -1630,7 +1631,7 @@ def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: 
         "--repo",
         "synaptent/aragora",
         "--add-label",
-        "boss-ready,autonomous",
+        "boss-ready,autonomous,handoff-requested",
     ]
 
 
@@ -2189,6 +2190,44 @@ def test_load_outbox_handoffs_can_stop_after_preview_limit(
     assert len(handoffs) == 1
     assert skipped == Counter({"preview_limit": 2})
     assert expensive_checks == 1
+
+
+def test_load_outbox_handoffs_preserves_requested_issue_labels(tmp_path: Path) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                issue_labels=["from-top", "shared"],
+                requested_action={
+                    "type": "open_pr",
+                    "branch": "codex/example",
+                    "issue_labels": ["from-action", "shared"],
+                },
+                local_evidence={
+                    "branch": "codex/example",
+                    "issue_labels": ["from-evidence"],
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    handoffs = mod.load_outbox_handoffs(
+        tmp_path,
+        outbox_dir=outbox,
+        receipt_dir=receipts,
+    )
+
+    assert len(handoffs) == 1
+    assert handoffs[0].issue_labels == (
+        "from-top",
+        "shared",
+        "from-action",
+        "from-evidence",
+    )
 
 
 def test_main_summary_only_limits_outbox_loading(monkeypatch: Any, tmp_path: Path, capsys) -> None:
