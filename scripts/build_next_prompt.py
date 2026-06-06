@@ -838,6 +838,10 @@ def _packet_authorizes(merge_packet: Any, *, pr: int | None) -> bool:
     return not not_ready or (pr is not None and pr not in not_ready)
 
 
+def _prompt_one_line(value: Any) -> str:
+    return " ".join(str(value or "").split())
+
+
 def _packet_admin_squash_order(merge_packet: Any) -> list[int]:
     if not isinstance(merge_packet, dict):
         return []
@@ -1168,7 +1172,7 @@ def build_merge_ready_prompt(
 
     pr_number = int(entry["pr_number"])
     head = str(entry.get("head_sha") or entry.get("headRefOid") or "")
-    title = str(entry.get("title") or "")
+    title = _prompt_one_line(entry.get("title"))
     tier = entry.get("tier")
     checks_summary = str(entry.get("checks_summary") or "unknown")
     return "\n".join(
@@ -1178,7 +1182,7 @@ def build_merge_ready_prompt(
             f"Goal: merge exactly one queue-head PR if live gates still match: PR #{pr_number} at exact head {head}.",
             f"I authorize normal protected squash merge for PR #{pr_number} at exact head {head}.",
             "",
-            f"Packet fact to verify, not trust: title={title!r}, tier={tier}, checks={checks_summary}, verdict={entry.get('verdict') or 'unknown'}.",
+            f"Packet fact to verify, not trust: title={title or 'unknown'}, tier={tier}, checks={checks_summary}, verdict={entry.get('verdict') or 'unknown'}.",
             "",
             "First re-check:",
             "git status --short --branch --untracked-files=all",

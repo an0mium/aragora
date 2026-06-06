@@ -832,6 +832,20 @@ def test_merge_ready_prompt_fails_closed_for_string_not_ready_entry(tmp_path: Pa
     assert "I authorize normal protected squash merge" not in prompt
 
 
+def test_packet_authorizes_blocks_string_not_ready_pr() -> None:
+    packet = {
+        "entries": [
+            {
+                "pr_number": 7828,
+                "admin_squash_allowed": True,
+            }
+        ],
+        "not_ready": ["7828"],
+    }
+
+    assert prompt_builder._packet_authorizes(packet, pr=7828) is False
+
+
 def test_merge_ready_cli_json_emits_prompt_and_packet(monkeypatch: Any, capsys: Any) -> None:
     packet = _merge_ready_packet()
     calls: list[dict[str, Any]] = []
