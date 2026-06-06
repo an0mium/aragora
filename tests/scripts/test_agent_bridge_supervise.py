@@ -285,6 +285,68 @@ def test_main_once_json_renders_snapshot(
     assert payload["warnings"] == ["gh unavailable"]
 
 
+def test_main_summary_only_json_omits_full_lane_records(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import agent_bridge_supervise as mod
+
+    snapshot = mod.SupervisorSnapshot(
+        generated_at="2026-04-13T22:30:00+00:00",
+        decisions=[
+            mod.LaneDecision(
+                lane_id="bridge-hardening",
+                owner_session="codex-bridge",
+                status="active",
+                next_action="send_followup",
+                reason="Need one bounded follow-up prompt",
+                evidence=["large transcript detail"],
+            ),
+            mod.LaneDecision(
+                lane_id="bridge-review",
+                owner_session="codex-review",
+                status="blocked",
+                next_action="ready_for_review",
+                reason="Checks passed",
+            ),
+        ],
+        warnings=["gh unavailable"],
+    )
+    monkeypatch.setattr(mod, "collect_supervisor_snapshot", lambda: snapshot)
+
+    rc = mod.main(["--once", "--summary-only"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["details_omitted"] is True
+    assert payload["lane_count"] == 2
+    assert payload["action_counts"] == {"ready_for_review": 1, "send_followup": 1}
+    assert "lanes" not in payload
+    assert "evidence" not in payload["top_lanes"][0]
+
+
+def test_emit_text_mutes_stdout_after_broken_pipe(monkeypatch: pytest.MonkeyPatch) -> None:
+    import agent_bridge_supervise as mod
+
+    muted = False
+
+    class BrokenStdout:
+        def write(self, _output: str) -> int:
+            raise BrokenPipeError
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not be reached after a broken write")
+
+    def fake_mute() -> None:
+        nonlocal muted
+        muted = True
+
+    monkeypatch.setattr(mod.sys, "stdout", BrokenStdout())
+    monkeypatch.setattr(mod, "_mute_stdout_after_broken_pipe", fake_mute)
+
+    assert mod._emit_text("payload") == 0
+    assert muted is True
+
+
 def test_collect_supervisor_snapshot_caps_records_and_warns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
