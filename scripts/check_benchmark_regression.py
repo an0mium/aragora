@@ -62,6 +62,16 @@ def extract_means(data: dict) -> dict[str, float]:
     return results
 
 
+def _format_name_sample(names: set[str]) -> str:
+    ordered = sorted(names)
+    if not ordered:
+        return "none"
+    sample = ", ".join(ordered[:10])
+    if len(ordered) > 10:
+        sample += f", ... (+{len(ordered) - 10} more)"
+    return sample
+
+
 def compare_benchmarks(
     current_path: Path,
     baseline_path: Path,
@@ -81,14 +91,14 @@ def compare_benchmarks(
         print("WARNING: Baseline has no benchmarks to compare against.")
         return 0
 
+    matched_names = sorted(set(current_means) & set(baseline_means))
+
     regressions: list[str] = []
     improvements: list[str] = []
     unchanged: list[str] = []
 
-    for name, current_mean in sorted(current_means.items()):
-        if name not in baseline_means:
-            continue
-
+    for name in matched_names:
+        current_mean = current_means[name]
         baseline_mean = baseline_means[name]
         if baseline_mean == 0:
             continue
@@ -149,7 +159,13 @@ def compare_benchmarks(
         print(f"FAILED: {len(regressions)} benchmark(s) regressed by more than {threshold_pct}%.")
         return 1
 
-    matched = len([n for n in current_means if n in baseline_means])
+    matched = len(matched_names)
+    if matched == 0:
+        print("FAILED: No shared benchmark names between current and baseline results.")
+        print(f"  Current-only:  {_format_name_sample(set(current_means) - set(baseline_means))}")
+        print(f"  Baseline-only: {_format_name_sample(set(baseline_means) - set(current_means))}")
+        return 1
+
     print(f"PASSED: {matched} benchmark(s) within {threshold_pct}% threshold.")
     return 0
 
