@@ -1052,6 +1052,9 @@ def test_build_report_does_not_reload_snapshot_when_packet_already_failed_closed
 
     assert snapshot_called is False
     assert report["blockers"].count(blocker) == 1
+    assert report["policy_context"]["operator_snapshot_command"]["command"] == (
+        f"{settle_one_pr.PYTHON_EXECUTABLE} scripts/agent_bridge.py operator-snapshot --json"
+    )
 
 
 def test_build_report_blocks_repo_mismatch_when_repo_override_supplied(monkeypatch) -> None:
