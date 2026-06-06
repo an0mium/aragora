@@ -691,6 +691,138 @@ def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
         raise RuntimeError(f"{' '.join(command)} did not emit JSON") from exc
 
 
+def _required_status_check_specs(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    specs_by_context: dict[str, dict[str, Any]] = {}
+    for context in payload.get("contexts") or []:
+        context_text = str(context or "").strip()
+        if context_text:
+            specs_by_context.setdefault(context_text, {"context": context_text, "app_id": None})
+    for item in payload.get("checks") or []:
+        if not isinstance(item, dict):
+            continue
+        context = str(item.get("context") or "").strip()
+        if not context:
+            continue
+        specs_by_context[context] = {
+            "context": context,
+            "app_id": item.get("app_id"),
+        }
+    return list(specs_by_context.values())
+
+
+def _direct_check_runs(payload: Any) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return []
+    runs = payload.get("check_runs") or []
+    return [run for run in runs if isinstance(run, dict)]
+
+
+def _direct_check_run_name(run: dict[str, Any]) -> str:
+    return str(run.get("name") or run.get("context") or "").strip()
+
+
+def _direct_check_run_app_id(run: dict[str, Any]) -> Any:
+    app = run.get("app")
+    if isinstance(app, dict):
+        return app.get("id")
+    return run.get("app_id") or run.get("appId") or run.get("appDatabaseId")
+
+
+def _direct_check_run_matches_required(
+    run: dict[str, Any],
+    required: dict[str, Any],
+) -> bool:
+    if _direct_check_run_name(run) != required.get("context"):
+        return False
+    app_id = required.get("app_id")
+    if app_id in (None, -1):
+        return True
+    return str(_direct_check_run_app_id(run) or "") == str(app_id)
+
+
+def _direct_check_run_state(run: dict[str, Any] | None) -> str:
+    if run is None:
+        return "MISSING"
+    conclusion = str(run.get("conclusion") or "").strip().upper()
+    if conclusion:
+        return conclusion
+    status = str(run.get("status") or "").strip().upper()
+    if status in {"COMPLETED", "SUCCESS"}:
+        return "SUCCESS"
+    return status or "MISSING"
+
+
+def _latest_direct_check_run_for_required(
+    runs: list[dict[str, Any]],
+    required: dict[str, Any],
+) -> dict[str, Any] | None:
+    latest: tuple[str, int, dict[str, Any]] | None = None
+    for index, run in enumerate(runs):
+        if not _direct_check_run_matches_required(run, required):
+            continue
+        timestamp = str(
+            run.get("completed_at")
+            or run.get("started_at")
+            or run.get("created_at")
+            or run.get("completedAt")
+            or run.get("startedAt")
+            or run.get("createdAt")
+            or ""
+        )
+        if (
+            latest is None
+            or timestamp > latest[0]
+            or (timestamp == latest[0] and index < latest[1])
+        ):
+            latest = (timestamp, index, run)
+    return latest[2] if latest else None
+
+
+def _required_checks_from_direct_check_runs(
+    *,
+    repo: str,
+    base_ref: str,
+    head: str,
+    cwd: Path,
+) -> list[dict[str, Any]]:
+    if not (repo and base_ref and head):
+        return []
+    protection = _run_json(
+        [
+            "gh",
+            "api",
+            f"repos/{repo}/branches/{quote(base_ref, safe='')}/protection/required_status_checks",
+        ],
+        cwd=cwd,
+    )
+    if bool(protection.get("strict")):
+        return []
+    required_specs = _required_status_check_specs(protection)
+    if not required_specs:
+        return []
+    check_runs = _direct_check_runs(
+        _run_json_any(
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/commits/{head}/check-runs?per_page=100",
+            ],
+            cwd=cwd,
+        )
+    )
+    return [
+        {
+            "name": str(required.get("context") or ""),
+            "state": _direct_check_run_state(
+                _latest_direct_check_run_for_required(check_runs, required)
+            ),
+            "workflow": "direct required check-run fallback",
+            "source": "direct_commit_check_run",
+        }
+        for required in required_specs
+    ]
+
+
 def _load_live_inputs(
     pr: int, *, cwd: Path
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
@@ -701,7 +833,7 @@ def _load_live_inputs(
             "view",
             str(pr),
             "--json",
-            "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,statusCheckRollup,url",
+            "headRefOid,state,isDraft,mergeStateStatus,baseRefName,comments,reviews,commits,statusCheckRollup,url",
         ],
         cwd=cwd,
     )
@@ -736,6 +868,13 @@ def _load_live_inputs(
         if isinstance(checks_raw, list)
         else []
     )
+    if not required_checks:
+        required_checks = _required_checks_from_direct_check_runs(
+            repo=DEFAULT_REPO,
+            base_ref=str(pr_view.get("baseRefName") or "main"),
+            head=str(pr_view.get("headRefOid") or ""),
+            cwd=cwd,
+        )
     return pr_view, merge_packet, required_checks
 
 
