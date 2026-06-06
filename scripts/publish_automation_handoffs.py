@@ -1602,8 +1602,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         return 1 if handoffs else 0
 
+    decision_handoffs = (
+        handoffs[: max(args.limit, 0)] if args.summary_only and not args.apply else handoffs
+    )
     decisions = decide_handoffs(
-        handoffs,
+        decision_handoffs,
         repo_root=repo_root,
         repo=args.github_repo,
         labels=labels,

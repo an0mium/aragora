@@ -2069,6 +2069,88 @@ def test_main_summary_only_omits_decisions_when_github_unavailable(
     }
 
 
+def test_main_summary_only_limits_github_ready_decision_preview(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    handoffs = [
+        Handoff(
+            source_file=str(tmp_path / f"handoff-{index}.md"),
+            task_title=f"Ready handoff {index}",
+            priority="MEDIUM",
+            body="body",
+            labels={},
+            expires_at=None,
+        )
+        for index in range(3)
+    ]
+    captured: dict[str, int] = {}
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: handoffs)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+
+    def fake_decide_handoffs(
+        preview_handoffs: list[Handoff],
+        *,
+        repo_root: Path,
+        repo: str,
+        labels: list[str],
+        max_open_issues: int,
+    ) -> list[PublishDecision]:
+        captured["count"] = len(preview_handoffs)
+        return [
+            PublishDecision(
+                task_title=handoff.task_title,
+                source_file=handoff.source_file,
+                eligible=True,
+                reason="eligible",
+            )
+            for handoff in preview_handoffs
+        ]
+
+    monkeypatch.setattr(mod, "decide_handoffs", fake_decide_handoffs)
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path),
+            "--json",
+            "--summary-only",
+            "--limit",
+            "1",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["count"] == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert "decisions" not in payload
+    assert payload["handoff_count"] == 3
+    assert payload["decision_count"] == 1
+    assert payload["decision_omitted_count"] == 2
+    assert payload["decisions_truncated"] is True
+    assert payload["decision_summary"] == {
+        "total": 1,
+        "eligible_count": 1,
+        "ineligible_count": 0,
+        "reason_counts": {
+            "eligible": 1,
+        },
+    }
+
+
 def test_main_summary_only_reports_outbox_files_skipped_before_publish(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
