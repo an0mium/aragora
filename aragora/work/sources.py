@@ -22,6 +22,26 @@ _OUTBOX_READY_METADATA_KEYS = (
     "validation",
     "dependencies_declared",
 )
+_OUTBOX_PUBLICATION_METADATA_KEYS = (
+    "base",
+    "base_sha",
+    "desired_head_sha",
+    "head_sha",
+    "labels",
+    "local_evidence",
+    "metadata",
+    "next_action",
+    "priority",
+    "publication_attempts",
+    "publication_blocker",
+    "repo",
+    "requested_action",
+    "requires_github",
+    "validation_summary",
+)
+_OUTBOX_METADATA_KEYS = tuple(
+    dict.fromkeys((*_OUTBOX_READY_METADATA_KEYS, *_OUTBOX_PUBLICATION_METADATA_KEYS))
+)
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -70,6 +90,30 @@ def _state_evidence_ref(root: Path, path: Path) -> str:
         return str(path.relative_to(base))
     except ValueError:
         return str(path)
+
+
+def _string_list(value: Any) -> list[str]:
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    if isinstance(value, (list, tuple, set)):
+        values: list[str] = []
+        for entry in value:
+            text = str(entry).strip()
+            if text and text not in values:
+                values.append(text)
+        return values
+    return []
+
+
+def _outbox_labels(data: dict[str, Any]) -> list[str]:
+    labels = _string_list(data.get("labels"))
+    requested_action = data.get("requested_action")
+    if isinstance(requested_action, dict):
+        for label in _string_list(requested_action.get("labels")):
+            if label not in labels:
+                labels.append(label)
+    return labels
 
 
 def _has_work_state_dirs(root: Path) -> bool:
@@ -379,11 +423,12 @@ def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str
             "path": str(path),
             "idempotency_key": data.get("idempotency_key"),
         }
-        for key in _OUTBOX_READY_METADATA_KEYS:
+        for key in _OUTBOX_METADATA_KEYS:
             if key in data:
                 metadata[key] = data[key]
         owner = data.get("owner") or data.get("claimed_by") or data.get("assignee")
         dependencies = data.get("dependencies")
+        labels = _outbox_labels(data)
         items.append(
             WorkItem(
                 id=f"automation-outbox:{path.stem}",
@@ -399,6 +444,7 @@ def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str
                 if isinstance(dependencies, list)
                 else [],
                 evidence_refs=[_state_evidence_ref(repo_root, path)],
+                tags=labels,
                 metadata=metadata,
             )
         )
