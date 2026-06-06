@@ -327,37 +327,47 @@ def _print_json(results: BenchmarkResults) -> None:
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
+def _positive_int(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return value
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Benchmark the aragora-debate engine (no API keys required).",
     )
     parser.add_argument(
         "--agents",
-        type=int,
+        type=_positive_int,
         default=3,
         help="Number of agents per debate (default: 3)",
     )
     parser.add_argument(
         "--rounds",
-        type=int,
+        type=_positive_int,
         default=2,
         help="Number of debate rounds (default: 2)",
     )
     parser.add_argument(
         "--concurrent",
-        type=int,
+        type=_positive_int,
         default=None,
         help="Run a single concurrency level instead of the default [5,10,25,50]",
     )
     parser.add_argument(
         "--large-panel-agents",
-        type=int,
+        type=_positive_int,
         default=10,
         help="Number of agents in the large panel scenario (default: 10)",
     )
     parser.add_argument(
         "--large-panel-rounds",
-        type=int,
+        type=_positive_int,
         default=3,
         help="Number of rounds in the large panel scenario (default: 3)",
     )
@@ -367,7 +377,11 @@ def main() -> None:
         help="Output results as JSON",
     )
 
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
 
     if args.concurrent is not None:
         concurrent_levels = [args.concurrent]
