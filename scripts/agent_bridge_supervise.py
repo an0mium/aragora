@@ -108,6 +108,37 @@ class SupervisorSnapshot:
             "lanes": [decision.to_dict() for decision in self.decisions],
         }
 
+    def to_summary_dict(self, *, top_lanes_limit: int = 5) -> dict[str, Any]:
+        action_counts: dict[str, int] = {}
+        status_counts: dict[str, int] = {}
+        for decision in self.decisions:
+            action_counts[decision.next_action] = action_counts.get(decision.next_action, 0) + 1
+            status_counts[decision.status] = status_counts.get(decision.status, 0) + 1
+        return {
+            "generated_at": self.generated_at,
+            "warning_count": len(self.warnings),
+            "warnings": list(self.warnings),
+            "lane_count": len(self.decisions),
+            "action_counts": dict(sorted(action_counts.items())),
+            "status_counts": dict(sorted(status_counts.items())),
+            "top_lanes": [
+                {
+                    key: value
+                    for key, value in {
+                        "lane_id": decision.lane_id,
+                        "owner_session": decision.owner_session,
+                        "status": decision.status,
+                        "next_action": decision.next_action,
+                        "branch": decision.branch,
+                        "pr_number": decision.pr_number,
+                    }.items()
+                    if value not in ("", None)
+                }
+                for decision in self.decisions[:top_lanes_limit]
+            ],
+            "details_omitted": True,
+        }
+
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
@@ -703,6 +734,25 @@ def _render_text(snapshot: SupervisorSnapshot) -> str:
     return "\n".join(lines)
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_text(output: str) -> int:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+    return 0
+
+
 _SAFE_AUTO_ACTIONS = frozenset(
     {
         "approve_prompt",
@@ -824,6 +874,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true", help="Render machine-readable JSON.")
     parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With JSON output, omit full lane records and render compact counts.",
+    )
+    parser.add_argument(
         "--execute",
         action="store_true",
         help="Execute safe bounded actions (approve prompts, send followups). Without this flag, only reports.",
@@ -854,27 +909,27 @@ def main(argv: list[str] | None = None) -> int:
                     result = _execute_decision(decision, dry_run=args.dry_run)
                     actions_taken.append(result)
 
-            if args.json:
-                print(
-                    json.dumps(
-                        {
-                            **snapshot.to_dict(),
-                            "actions_taken": actions_taken,
-                        },
-                        indent=2,
-                    )
-                )
+            if args.json or args.summary_only:
+                payload = snapshot.to_summary_dict() if args.summary_only else snapshot.to_dict()
+                _emit_text(json.dumps({**payload, "actions_taken": actions_taken}, indent=2))
             else:
-                print(_render_text(snapshot))
+                output = _render_text(snapshot)
                 if actions_taken:
-                    print("\n--- Actions ---")
-                    for action in actions_taken:
-                        print(f"  {action}")
+                    output = "\n".join(
+                        [
+                            output,
+                            "",
+                            "--- Actions ---",
+                            *[f"  {action}" for action in actions_taken],
+                        ]
+                    )
+                _emit_text(output)
         else:
-            if args.json:
-                print(json.dumps(snapshot.to_dict(), indent=2))
+            if args.json or args.summary_only:
+                payload = snapshot.to_summary_dict() if args.summary_only else snapshot.to_dict()
+                _emit_text(json.dumps(payload, indent=2))
             else:
-                print(_render_text(snapshot))
+                _emit_text(_render_text(snapshot))
 
         if run_once:
             return 0

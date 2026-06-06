@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import math
 import multiprocessing
 import os
 import queue
@@ -97,6 +98,8 @@ _MAX_DIFF_CHARS = 60_000
 _MAX_REVIEWER_CHARS = 32_000
 _CLAUDE_TIMEOUT = 300
 _REVIEWER_TIMEOUT = 300
+_CLAUDE_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS"
+_REVIEWER_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS"
 _REVIEWER_CLEANUP_TIMEOUT = 10
 
 
@@ -105,6 +108,23 @@ def _cap_text(text: str) -> str:
     if len(text) > _MAX_REVIEWER_CHARS:
         return text[:_MAX_REVIEWER_CHARS].rstrip() + "\n\n[reviewer output truncated]"
     return text
+
+
+def _timeout_seconds(env_name: str, default: int) -> float:
+    raw = os.environ.get(env_name, "").strip()
+    if not raw:
+        return float(default)
+    try:
+        value = float(raw)
+    except ValueError:
+        return float(default)
+    if not math.isfinite(value) or value <= 0:
+        return float(default)
+    return value
+
+
+def _format_seconds(seconds: float) -> str:
+    return f"{seconds:g}"
 
 
 @dataclass
@@ -341,19 +361,22 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
 
 
 def _run_claude_cli(prompt: str) -> ReviewerResult:
+    timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
     try:
         proc = subprocess.run(
             ["claude", "-p"],
             input=prompt,
             capture_output=True,
             text=True,
-            timeout=_CLAUDE_TIMEOUT,
+            timeout=timeout,
             check=False,
         )
     except FileNotFoundError:
         return ReviewerResult("claude", "", False, "claude CLI not found on PATH")
     except subprocess.TimeoutExpired:
-        return ReviewerResult("claude", "", False, f"claude CLI timed out after {_CLAUDE_TIMEOUT}s")
+        return ReviewerResult(
+            "claude", "", False, f"claude CLI timed out after {_format_seconds(timeout)}s"
+        )
     except (OSError, subprocess.SubprocessError) as exc:
         # Convert any other subprocess error (e.g. broken pipe writing stdin)
         # into a recorded failure so one bad reviewer never aborts the run.
@@ -449,8 +472,9 @@ def _run_api_agent_in_current_process(family: str, prompt: str) -> ReviewerResul
 
 async def _generate_with_api_agent_cleanup(agent: Any, prompt: str) -> str:
     """Generate with an API-backed agent and close one-shot network resources."""
+    timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
     try:
-        return await asyncio.wait_for(agent.generate(prompt), timeout=_REVIEWER_TIMEOUT)
+        return await asyncio.wait_for(agent.generate(prompt), timeout=timeout)
     finally:
         await _close_api_agent_resources(agent)
 

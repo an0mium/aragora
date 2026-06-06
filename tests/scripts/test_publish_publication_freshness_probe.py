@@ -294,6 +294,145 @@ def test_main_dry_run_writes_nothing(tmp_path: Path, capsys: Any) -> None:
     assert not status_md.exists()
 
 
+def test_main_json_suppresses_flush_time_broken_pipe(tmp_path: Path, monkeypatch: Any) -> None:
+    class FlushClosedStdout:
+        def __init__(self) -> None:
+            self.closed = False
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_stdout = FlushClosedStdout()
+    monkeypatch.setattr(publisher.sys, "stdout", fake_stdout)
+    monkeypatch.setattr(
+        publisher,
+        "build_published_report",
+        lambda **_kwargs: {"schema_version": 1, "verdict": "fresh"},
+    )
+
+    rc = publisher.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--truth-root",
+            str(tmp_path / "absent"),
+            "--json",
+            "--dry-run",
+        ]
+    )
+
+    assert rc == 0
+    assert fake_stdout.closed is True
+    assert fake_stdout.writes
+
+
+def test_main_default_suppresses_write_time_broken_pipe_after_publish(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    class WriteClosedStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError
+
+        def flush(self) -> None:
+            return None
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_stdout = WriteClosedStdout()
+    monkeypatch.setattr(publisher.sys, "stdout", fake_stdout)
+    monkeypatch.setattr(
+        publisher,
+        "build_published_report",
+        lambda **_kwargs: {"schema_version": 1, "verdict": "fresh", "total_drift": 0},
+    )
+
+    def fake_publish_report_bundle(report: dict[str, Any], *, out_root: Path) -> dict[str, Path]:
+        out_root.mkdir(parents=True, exist_ok=True)
+        latest = out_root / "latest.json"
+        snapshot = out_root / "probe-test.json"
+        latest.write_text(json.dumps(report) + "\n", encoding="utf-8")
+        snapshot.write_text(json.dumps(report) + "\n", encoding="utf-8")
+        return {"latest": latest, "snapshot": snapshot}
+
+    monkeypatch.setattr(publisher, "publish_report_bundle", fake_publish_report_bundle)
+
+    out_root = tmp_path / "out"
+    rc = publisher.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--out-root",
+            str(out_root),
+            "--truth-root",
+            str(tmp_path / "absent"),
+        ]
+    )
+
+    assert rc == 0
+    assert fake_stdout.closed is True
+    assert (out_root / "latest.json").exists()
+
+
+def test_write_stdout_broken_pipe_uses_fd_free_sink(monkeypatch: Any) -> None:
+    class WriteClosedStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError
+
+        def flush(self) -> None:
+            return None
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_stdout = WriteClosedStdout()
+    monkeypatch.setattr(publisher.sys, "stdout", fake_stdout)
+
+    def forbidden_open(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("broken-pipe fallback must not open a file descriptor")
+
+    monkeypatch.setattr(publisher, "open", forbidden_open, raising=False)
+
+    assert publisher._write_stdout("payload") is False
+    assert fake_stdout.closed is True
+    assert publisher._write_stdout("discarded") is True
+
+
+def test_write_stdout_propagates_unexpected_close_errors(monkeypatch: Any) -> None:
+    class RuntimeCloseStdout:
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError
+
+        def flush(self) -> None:
+            return None
+
+        def close(self) -> None:
+            raise RuntimeError("unexpected close failure")
+
+    monkeypatch.setattr(publisher.sys, "stdout", RuntimeCloseStdout())
+
+    try:
+        publisher._write_stdout("payload")
+    except RuntimeError as exc:
+        assert str(exc) == "unexpected close failure"
+    else:
+        raise AssertionError("unexpected stdout close failures must not be swallowed")
+
+
 def test_main_default_publishes_to_out_root(tmp_path: Path) -> None:
     out_root = tmp_path / "out"
     status_md = tmp_path / "status.md"

@@ -820,12 +820,76 @@ def _packet_not_ready(merge_packet: Any) -> list[Any]:
     return not_ready if isinstance(not_ready, list) else []
 
 
+def _packet_not_ready_prs(merge_packet: Any) -> set[int]:
+    prs: set[int] = set()
+    for raw in _packet_not_ready(merge_packet):
+        try:
+            prs.add(int(raw))
+        except (TypeError, ValueError):
+            continue
+    return prs
+
+
 def _packet_authorizes(merge_packet: Any, *, pr: int | None) -> bool:
     entry = _merge_packet_entry(merge_packet, pr)
     if not entry.get("admin_squash_allowed"):
         return False
-    not_ready = _packet_not_ready(merge_packet)
+    not_ready = _packet_not_ready_prs(merge_packet)
     return not not_ready or (pr is not None and pr not in not_ready)
+
+
+def _prompt_one_line(value: Any) -> str:
+    return " ".join(str(value or "").split())
+
+
+def _packet_admin_squash_order(merge_packet: Any) -> list[int]:
+    if not isinstance(merge_packet, dict):
+        return []
+    order: list[int] = []
+    for raw in merge_packet.get("admin_squash_order") or []:
+        try:
+            order.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    return order
+
+
+def _select_merge_ready_entry(merge_packet: Any, *, pr: int | None = None) -> dict[str, Any]:
+    if not isinstance(merge_packet, dict):
+        return {}
+    target_pr = pr
+    if target_pr is None:
+        order = _packet_admin_squash_order(merge_packet)
+        target_pr = order[0] if order else None
+    return _merge_packet_entry(merge_packet, target_pr)
+
+
+def _merge_ready_prompt_blocker(merge_packet: Any, *, pr: int | None = None) -> str:
+    if not isinstance(merge_packet, dict) or not merge_packet:
+        return "merge-packet is missing or malformed"
+    entry = _select_merge_ready_entry(merge_packet, pr=pr)
+    if not entry:
+        target = f"PR #{pr}" if pr is not None else "admin_squash_order"
+        return f"merge-packet has no ready entry for {target}"
+    try:
+        pr_number = int(entry.get("pr_number"))
+    except (TypeError, ValueError):
+        return "merge-packet ready entry is missing a parseable pr_number"
+    if pr_number in _packet_not_ready_prs(merge_packet):
+        return f"merge-packet still lists PR #{pr_number} as not_ready"
+    if not str(entry.get("head_sha") or entry.get("headRefOid") or ""):
+        return f"merge-packet ready entry for PR #{pr_number} is missing an exact head"
+    if not entry.get("admin_squash_allowed"):
+        return f"merge-packet does not allow admin squash for PR #{pr_number}"
+    if entry.get("requires_human_risk_settlement") or entry.get("requires_human_preapproval"):
+        return f"PR #{pr_number} still requires human risk/preapproval settlement"
+    try:
+        tier = int(entry.get("tier"))
+    except (TypeError, ValueError):
+        return f"merge-packet ready entry for PR #{pr_number} is missing a parseable tier"
+    if tier >= 3:
+        return f"PR #{pr_number} is Tier {tier}, not an autonomous merge-ready prompt target"
+    return ""
 
 
 def _packet_authorization_reason(merge_packet: Any, *, pr: int | None) -> str | None:
@@ -1051,6 +1115,93 @@ def build_post_merge_fast_packet(
         packet["blockers"].append("merged PR still has active target lane")
         packet["selected_action"] = "post_merge_lane_retirement_coordination"
     return packet
+
+
+def build_merge_ready_packet(
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    pr: int | None = None,
+    limit: int = 30,
+    command_runner: CommandRunner | None = None,
+) -> dict[str, Any]:
+    """Read a live merge-packet for exact-head merge prompt generation."""
+
+    runner = command_runner or _repo_runner(repo_root)
+    command = [
+        "python3",
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "merge-packet",
+    ]
+    if pr is not None:
+        command.extend(["--pr", str(pr)])
+    else:
+        command.extend(["--limit", str(limit)])
+    command.append("--json")
+    packet = _run_json(command, runner)
+    return (
+        packet if isinstance(packet, dict) else {"error": "merge-packet did not return an object"}
+    )
+
+
+def build_merge_ready_prompt(
+    merge_packet: dict[str, Any],
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    pr: int | None = None,
+) -> str:
+    """Build a human-copyable exact-head prompt for one ready Tier 0-2 PR."""
+
+    blocker = _merge_ready_prompt_blocker(merge_packet, pr=pr)
+    entry = _select_merge_ready_entry(merge_packet, pr=pr)
+    if blocker:
+        return "\n".join(
+            [
+                f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+                "",
+                "Goal: stop because no safe merge-ready authorization prompt can be generated from the live merge-packet.",
+                f"Blocker: {blocker}.",
+                "",
+                "Re-check root status, open PR list, and review-queue merge-packet. Do not merge, mark-ready, set statuses, rerun checks, or broaden queue scope from this prompt.",
+                "Final report: exact blocker, packet summary, and the next single bounded target.",
+                CONVERGENCE_SENTENCE,
+                "",
+            ]
+        )
+
+    pr_number = int(entry["pr_number"])
+    head = str(entry.get("head_sha") or entry.get("headRefOid") or "")
+    title = _prompt_one_line(entry.get("title"))
+    tier = entry.get("tier")
+    checks_summary = str(entry.get("checks_summary") or "unknown")
+    return "\n".join(
+        [
+            f"Start from live repo truth in {repo_root}. Do not trust transcript state. Do not touch shared-root dirt.",
+            "",
+            f"Goal: merge exactly one queue-head PR if live gates still match: PR #{pr_number} at exact head {head}.",
+            f"I authorize normal protected squash merge for PR #{pr_number} at exact head {head}.",
+            "",
+            f"Packet fact to verify, not trust: title={title or 'unknown'}, tier={tier}, checks={checks_summary}, verdict={entry.get('verdict') or 'unknown'}.",
+            "",
+            "First re-check:",
+            "git status --short --branch --untracked-files=all",
+            f"python3 scripts/read_operator_steering.py --pr {pr_number} --json --no-receipt || true",
+            f"python3 scripts/identify_lane_owner.py --pr {pr_number} --json || true",
+            f"gh pr view {pr_number} --json number,title,state,isDraft,headRefOid,mergeable,mergeStateStatus,url",
+            f"gh pr checks {pr_number} --required",
+            f"python3 -m aragora.cli.main review-queue merge-packet --pr {pr_number} --json",
+            f"python3 scripts/settle_one_pr.py --pr {pr_number} --json",
+            "",
+            f"Proceed only if PR #{pr_number} remains open, non-draft, exact head {head}, MERGEABLE, required checks green, no active conflicting owner, merge-packet is satisfied/admin_squash_allowed, no Tier 3/Tier 4 settlement required, and settle_one has no blockers.",
+            "",
+            f"If safe, merge PR #{pr_number} by normal protected squash with --match-head-commit only. No admin merge, no bypass, no branch protection, no broad-drain, and do not touch unrelated PRs or shared-root dirt.",
+            "",
+            "After merge, verify state, mergedAt, mergeCommit, then re-run review-queue merge-packet --limit 30 --json and report the next single bounded target.",
+            CONVERGENCE_SENTENCE,
+            "",
+        ]
+    )
 
 
 def build_settlement_guard(
@@ -1455,6 +1606,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit a fail-closed settlement guard prompt populated from live truth.",
     )
+    parser.add_argument(
+        "--merge-ready-prompt",
+        action="store_true",
+        help="Emit a human-copyable exact-head prompt for one live merge-packet ready PR.",
+    )
+    parser.add_argument(
+        "--merge-ready-limit",
+        type=int,
+        default=30,
+        help="Open queue limit used with --merge-ready-prompt when --pr is omitted.",
+    )
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -1464,6 +1626,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     prompt: str | None = None
     packet: dict[str, Any] | None = None
     guard_prompt: str | None = None
+    if args.merge_ready_prompt:
+        merge_packet = build_merge_ready_packet(
+            repo_root=args.repo_root,
+            pr=args.pr,
+            limit=args.merge_ready_limit,
+        )
+        prompt = build_merge_ready_prompt(merge_packet, repo_root=args.repo_root, pr=args.pr)
+        prompt = _operator_choice_placeholder_guard_prompt(prompt, repo_root=args.repo_root)
+        if args.json:
+            _emit_stdout(
+                json.dumps(
+                    {
+                        "prompt": prompt,
+                        "merge_packet": merge_packet,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+        else:
+            _emit_stdout(prompt)
+        return 0
     if args.pr is not None:
         fast_packet = build_post_merge_fast_packet(
             registry_path=args.registry_path,

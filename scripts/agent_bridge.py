@@ -2187,13 +2187,49 @@ def _operator_queue_depth(summary: dict[str, Any], pending_steering: dict[str, A
     )
 
 
+def _operator_summary_int(summary: dict[str, Any], key: str) -> int:
+    try:
+        return max(0, int(summary.get(key, 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _operator_boss_loop_status(summary: dict[str, Any]) -> dict[str, Any]:
+    """Explain the legacy boss-loop liveness boolean in operator snapshots."""
+
+    raw_roles = summary.get("active_process_roles") or []
+    if isinstance(raw_roles, str):
+        raw_roles = [raw_roles]
+    try:
+        active_roles = sorted(str(role) for role in raw_roles)
+    except TypeError:
+        active_roles = []
+    active_role_set = set(active_roles)
+    active_broker_runs = _operator_summary_int(summary, "active_broker_runs")
+    fresh_agent_heartbeats = _operator_summary_int(summary, "fresh_agent_heartbeats")
+    has_boss_cycle_process = "boss_cycle" in active_role_set
+
+    if active_broker_runs:
+        reason = "active_broker_runs"
+    elif fresh_agent_heartbeats:
+        reason = "fresh_agent_heartbeats"
+    elif has_boss_cycle_process:
+        reason = "boss_cycle_process"
+    else:
+        reason = "idle_no_live_boss_loop_signal"
+
+    return {
+        "alive": bool(active_broker_runs or fresh_agent_heartbeats or has_boss_cycle_process),
+        "reason": reason,
+        "active_broker_runs": active_broker_runs,
+        "fresh_agent_heartbeats": fresh_agent_heartbeats,
+        "has_boss_cycle_process": has_boss_cycle_process,
+        "active_process_roles": active_roles,
+    }
+
+
 def _operator_boss_loop_alive(summary: dict[str, Any]) -> bool:
-    active_roles = set(summary.get("active_process_roles", []))
-    return bool(
-        int(summary.get("active_broker_runs", 0))
-        or int(summary.get("fresh_agent_heartbeats", 0))
-        or "boss_cycle" in active_roles
-    )
+    return bool(_operator_boss_loop_status(summary)["alive"])
 
 
 def _operator_recent_blockers(
@@ -2375,6 +2411,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "fresh_agent_heartbeats": int(agent_heartbeats.get("fresh_count", 0)),
     }
 
+    boss_loop_status = _operator_boss_loop_status(summary)
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
         "sessions": [s.to_dict() for s in sessions],
@@ -2388,13 +2425,19 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "queue_depth": _operator_queue_depth(summary, pending_steering),
         "success_rate": _collect_b0_success_rate(),
         "recent_blockers": _operator_recent_blockers(issues, pending_steering),
-        "boss_loop_alive": _operator_boss_loop_alive(summary),
+        "boss_loop_alive": bool(boss_loop_status["alive"]),
+        "boss_loop_status": boss_loop_status,
         "summary": summary,
     }
     if summary_only:
         snapshot.pop("sessions")
         snapshot.pop("lanes")
         snapshot.pop("broker_runs")
+        snapshot["agent_heartbeats"] = {
+            "count": int(agent_heartbeats.get("count", 0)),
+            "fresh_count": int(agent_heartbeats.get("fresh_count", 0)),
+            "stale_count": int(agent_heartbeats.get("stale_count", 0)),
+        }
         snapshot["records_omitted"] = True
 
     if args.json:
@@ -2412,6 +2455,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     active_process_roles = [str(role) for role in summary.get("active_process_roles", [])]
     process_roles = ", ".join(active_process_roles) or "-"
     lines.append(f"Processes:{summary['active_processes']} recognized ({process_roles})")
+    boss_loop_label = "alive" if boss_loop_status["alive"] else "idle"
+    lines.append(f"BossLoop: {boss_loop_label} ({boss_loop_status['reason']})")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
     lines.append(f"Health:   {health_status}")
 

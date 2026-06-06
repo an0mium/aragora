@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import tomllib
@@ -264,6 +265,25 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return compact
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -284,18 +304,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.summary_only:
         payload = summary_only_payload(payload)
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _emit_output(json.dumps(payload, indent=2, sort_keys=True))
     else:
         summary = payload["summary"]
-        print(
+        lines = [
             f"{payload['automation_count']} automations; "
             f"{summary['error_count']} error(s), {summary['warning_count']} warning(s)"
-        )
+        ]
         for issue in payload["issues"]:
-            print(
+            lines.append(
                 f"{issue['severity'].upper():<7} {issue['automation_id']:<30} "
                 f"{issue['code']}: {issue['message']}"
             )
+        _emit_output("\n".join(lines))
     return 1 if payload["summary"]["error_count"] else 0
 
 

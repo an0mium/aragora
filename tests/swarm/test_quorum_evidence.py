@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import subprocess
 import time
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -198,6 +199,54 @@ def test_compose_sanitizes_committed_timestamp() -> None:
     capped = qe._cap_text("x" * (qe._MAX_REVIEWER_CHARS + 5000))
     assert len(capped) <= qe._MAX_REVIEWER_CHARS + 64
     assert capped.endswith("[reviewer output truncated]")
+
+
+# --- reviewer timeout configuration ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("", 300.0),
+        ("not-a-number", 300.0),
+        ("0", 300.0),
+        ("-5", 300.0),
+        ("nan", 300.0),
+        ("inf", 300.0),
+        ("-inf", 300.0),
+        ("12.5", 12.5),
+    ],
+)
+def test_timeout_seconds_fails_closed_to_default(
+    monkeypatch: pytest.MonkeyPatch,
+    raw: str,
+    expected: float,
+) -> None:
+    monkeypatch.setenv("ARAGORA_TEST_TIMEOUT_SECONDS", raw)
+    assert qe._timeout_seconds("ARAGORA_TEST_TIMEOUT_SECONDS", 300) == expected
+
+
+def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(*args, timeout, **kwargs):
+        seen["args"] = args
+        seen["timeout"] = timeout
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=timeout)
+
+    monkeypatch.setenv(qe._CLAUDE_TIMEOUT_ENV, "7")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_claude_cli("review prompt")
+
+    assert seen["args"] == (["claude", "-p"],)
+    assert seen["timeout"] == 7.0
+    assert result == ReviewerResult(
+        "claude",
+        "",
+        False,
+        "claude CLI timed out after 7s",
+    )
 
 
 # --- default API reviewer cleanup ------------------------------------------

@@ -24,6 +24,19 @@ def _write_json(path: Path, payload: dict[str, object]) -> Path:
     return path
 
 
+def test_repo_stable_path_relativizes_git_common_root(tmp_path: Path, monkeypatch) -> None:
+    worktree_root = tmp_path / "worktree"
+    shared_root = tmp_path / "shared"
+    metrics_path = shared_root / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    metrics_path.parent.mkdir(parents=True)
+    metrics_path.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(mod, "REPO_ROOT", worktree_root)
+    monkeypatch.setattr(mod, "git_common_repo_root", lambda _repo_root: shared_root)
+
+    assert mod._repo_stable_path(metrics_path) == ".aragora/overnight/boss_metrics.jsonl"
+
+
 def test_main_ci_passes_at_threshold(tmp_path: Path, capsys) -> None:
     metrics_path = _write_metrics(
         tmp_path / "boss_metrics.jsonl",

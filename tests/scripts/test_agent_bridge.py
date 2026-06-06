@@ -403,6 +403,23 @@ def test_operator_snapshot_summary_only_json_omits_records(
             "by_role": {},
         },
     )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {
+            "count": 2,
+            "fresh_count": 1,
+            "stale_count": 1,
+            "latest_by_owner": {
+                "codex-owner": {
+                    "owner_session": "codex-owner",
+                    "cwd": "/tmp/large-detail",
+                    "worktree": "/tmp/large-detail",
+                    "last_seen_at": "2026-06-06T00:00:00Z",
+                }
+            },
+        },
+    )
 
     rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
 
@@ -418,6 +435,7 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert payload["summary"]["active_processes"] == 0
     assert payload["summary"]["active_process_roles"] == []
     assert payload["process_census"] == {"ok": True, "total": 0, "by_role": {}}
+    assert payload["agent_heartbeats"] == {"count": 2, "fresh_count": 1, "stale_count": 1}
     assert payload["health"] == {"ok": True, "issues": []}
     assert discover_include_summaries == [False]
 
@@ -632,6 +650,14 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
     assert payload["queue_depth"] == 3
     assert payload["success_rate"] == 0.625
     assert payload["boss_loop_alive"] is True
+    assert payload["boss_loop_status"] == {
+        "alive": True,
+        "reason": "active_broker_runs",
+        "active_broker_runs": 1,
+        "fresh_agent_heartbeats": 1,
+        "has_boss_cycle_process": True,
+        "active_process_roles": ["boss_cycle"],
+    }
     assert payload["recent_blockers"] == [
         {
             "type": "pending_steering",
@@ -642,6 +668,73 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
             "pr_hint": 5426,
         }
     ]
+
+
+def test_operator_boss_loop_status_reports_idle_without_live_signal() -> None:
+    import agent_bridge as mod
+
+    status = mod._operator_boss_loop_status(
+        {
+            "active_broker_runs": 0,
+            "fresh_agent_heartbeats": 0,
+            "active_process_roles": ["publisher", "review_queue"],
+        }
+    )
+
+    assert status == {
+        "alive": False,
+        "reason": "idle_no_live_boss_loop_signal",
+        "active_broker_runs": 0,
+        "fresh_agent_heartbeats": 0,
+        "has_boss_cycle_process": False,
+        "active_process_roles": ["publisher", "review_queue"],
+    }
+
+
+def test_operator_boss_loop_status_tolerates_malformed_roles() -> None:
+    import agent_bridge as mod
+
+    assert mod._operator_boss_loop_status({"active_process_roles": None}) == {
+        "alive": False,
+        "reason": "idle_no_live_boss_loop_signal",
+        "active_broker_runs": 0,
+        "fresh_agent_heartbeats": 0,
+        "has_boss_cycle_process": False,
+        "active_process_roles": [],
+    }
+    assert mod._operator_boss_loop_status({"active_process_roles": object()}) == {
+        "alive": False,
+        "reason": "idle_no_live_boss_loop_signal",
+        "active_broker_runs": 0,
+        "fresh_agent_heartbeats": 0,
+        "has_boss_cycle_process": False,
+        "active_process_roles": [],
+    }
+
+
+def test_operator_boss_loop_alive_preserves_legacy_boolean() -> None:
+    import agent_bridge as mod
+
+    assert (
+        mod._operator_boss_loop_alive(
+            {
+                "active_broker_runs": 0,
+                "fresh_agent_heartbeats": 1,
+                "active_process_roles": [],
+            }
+        )
+        is True
+    )
+    assert (
+        mod._operator_boss_loop_alive(
+            {
+                "active_broker_runs": 0,
+                "fresh_agent_heartbeats": 0,
+                "active_process_roles": ["publisher", "review_queue"],
+            }
+        )
+        is False
+    )
 
 
 def test_collect_pending_steering_messages_completed_receipts_are_not_actionable(

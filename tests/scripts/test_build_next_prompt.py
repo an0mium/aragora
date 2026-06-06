@@ -750,6 +750,132 @@ def test_settlement_guard_prompt_uses_pr_mailbox_when_only_completed_lane_matche
     assert "--lane-id completed-lane" not in prompt
 
 
+def _merge_ready_packet() -> dict[str, Any]:
+    return {
+        "admin_squash_order": [7828, 7827],
+        "not_ready": [],
+        "entries": [
+            {
+                "pr_number": 7828,
+                "title": "fix(review): clear recovered boss-loop failure detail",
+                "head_sha": "9b80ed8dc28d132ce2b2712db4d8ad2492025649",
+                "checks_summary": "63/63 green",
+                "tier": 1,
+                "verdict": "admin_squash_allowed",
+                "status": "satisfied",
+                "admin_squash_allowed": True,
+                "requires_human_risk_settlement": False,
+                "requires_human_preapproval": False,
+            },
+            {
+                "pr_number": 7827,
+                "title": "fix(automation): suppress handoff publisher broken pipes",
+                "head_sha": "d5d91763c26bbe31e5938bd30fa837ec586e0f94",
+                "checks_summary": "60/60 green",
+                "tier": 2,
+                "verdict": "admin_squash_allowed",
+                "status": "satisfied",
+                "admin_squash_allowed": True,
+                "requires_human_risk_settlement": False,
+                "requires_human_preapproval": False,
+            },
+        ],
+    }
+
+
+def test_merge_ready_prompt_selects_first_admin_squash_order(tmp_path: Path) -> None:
+    prompt = prompt_builder.build_merge_ready_prompt(
+        _merge_ready_packet(),
+        repo_root=tmp_path,
+    )
+
+    assert "PR #7828 at exact head 9b80ed8dc28d132ce2b2712db4d8ad2492025649" in prompt
+    assert (
+        "I authorize normal protected squash merge for PR #7828 at exact head "
+        "9b80ed8dc28d132ce2b2712db4d8ad2492025649"
+    ) in prompt
+    assert "python3 scripts/read_operator_steering.py --pr 7828 --json --no-receipt" in prompt
+    assert "gh pr checks 7828 --required" in prompt
+    assert "--match-head-commit only" in prompt
+    assert "No admin merge, no bypass, no branch protection" in prompt
+
+
+def test_merge_ready_prompt_respects_explicit_pr(tmp_path: Path) -> None:
+    prompt = prompt_builder.build_merge_ready_prompt(
+        _merge_ready_packet(),
+        repo_root=tmp_path,
+        pr=7827,
+    )
+
+    assert "PR #7827 at exact head d5d91763c26bbe31e5938bd30fa837ec586e0f94" in prompt
+    assert "PR #7828 at exact head" not in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_human_settlement(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["entries"][0]["requires_human_risk_settlement"] = True
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "no safe merge-ready authorization prompt can be generated" in prompt
+    assert "requires human risk/preapproval settlement" in prompt
+    assert "Do not merge, mark-ready, set statuses, rerun checks, or broaden queue scope" in prompt
+
+
+def test_merge_ready_prompt_fails_closed_for_string_not_ready_entry(tmp_path: Path) -> None:
+    packet = _merge_ready_packet()
+    packet["not_ready"] = ["7828"]
+
+    prompt = prompt_builder.build_merge_ready_prompt(packet, repo_root=tmp_path)
+
+    assert "merge-packet still lists PR #7828 as not_ready" in prompt
+    assert "I authorize normal protected squash merge" not in prompt
+
+
+def test_packet_authorizes_blocks_string_not_ready_pr() -> None:
+    packet = {
+        "entries": [
+            {
+                "pr_number": 7828,
+                "admin_squash_allowed": True,
+            }
+        ],
+        "not_ready": ["7828"],
+    }
+
+    assert prompt_builder._packet_authorizes(packet, pr=7828) is False
+
+
+def test_merge_ready_cli_json_emits_prompt_and_packet(monkeypatch: Any, capsys: Any) -> None:
+    packet = _merge_ready_packet()
+    calls: list[dict[str, Any]] = []
+
+    def fake_build_merge_ready_packet(**kwargs: Any) -> dict[str, Any]:
+        calls.append(kwargs)
+        return packet
+
+    monkeypatch.setattr(
+        prompt_builder,
+        "build_merge_ready_packet",
+        fake_build_merge_ready_packet,
+    )
+
+    result = prompt_builder.main(
+        [
+            "--merge-ready-prompt",
+            "--pr",
+            "7827",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert calls[0]["pr"] == 7827
+    assert payload["merge_packet"]["admin_squash_order"] == [7828, 7827]
+    assert "PR #7827 at exact head d5d91763c26bbe31e5938bd30fa837ec586e0f94" in payload["prompt"]
+
+
 def test_decision_packet_detects_merged_pr_with_active_tmux_evidence_lane(
     tmp_path: Path,
 ) -> None:

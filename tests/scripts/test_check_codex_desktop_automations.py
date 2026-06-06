@@ -273,6 +273,63 @@ def test_main_summary_only_json_omits_prompts(
     assert all("prompt" not in record for record in payload["core_writers"].values())
 
 
+@pytest.mark.parametrize("argv", (["--json"], []))
+def test_main_suppresses_flush_time_broken_pipe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, argv: list[str]
+) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+        )
+
+    class FlushBrokenStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    stream = FlushBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    assert mod.main(["--root", str(tmp_path), *argv]) == 0
+    assert stream.writes
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
+def test_emit_output_suppresses_write_time_broken_pipe_without_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import check_codex_desktop_automations as mod
+
+    class WriteBrokenStdout:
+        def write(self, text: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not run after write failure")
+
+    stream = WriteBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    mod._emit_output("payload")
+
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
 def test_audit_warns_duplicate_writer_minutes(tmp_path: Path) -> None:
     import check_codex_desktop_automations as mod
 

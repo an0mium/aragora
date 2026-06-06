@@ -495,6 +495,26 @@ class TestBossLoopLogCounter:
         )
         assert "failure_signature=AttributeError" in str(bl.detail)
 
+    def test_bare_crash_line_marks_boss_loop_stale(self, tmp_path: Path) -> None:
+        layout = _setup_proof_loop(tmp_path)
+        log = layout["overnight"] / "boss-loop-launchd.log"
+        log.write_text("AttributeError: 'NoneType' object has no attribute 'ndarray'\n")
+        os.utime(log, (time.time() - 600, time.time() - 600))
+        report = gather_health(
+            repo_root=layout["repo"],
+            review_queue_root=layout["review_queue_root"],
+            overnight_root=layout["overnight"],
+            automation_receipts_root=layout["auto"],
+        )
+        bl = {s.name: s for s in report.surfaces}["boss_loop_log"]
+        assert bl.status == STATUS_STALE
+        assert bl.extra["last_terminal_event"] == "crash"
+        assert (
+            bl.extra["latest_failure_signature"]
+            == "AttributeError: 'NoneType' object has no attribute 'ndarray'"
+        )
+        assert "latest_failure=AttributeError" in str(bl.detail)
+
     def test_failed_exit_reports_stale_runtime_checkout(self, tmp_path: Path) -> None:
         layout = _setup_proof_loop(tmp_path)
         repo = layout["repo"]
@@ -577,6 +597,10 @@ class TestBossLoopLogCounter:
         assert bl.extra["exits_ok_total"] == 1
         assert bl.extra["exits_fail_total"] == 1
         assert bl.extra["last_terminal_event"] == "exit_ok"
+        assert "latest_failure" not in bl.extra
+        assert "latest_failure_signature" not in bl.extra
+        assert "latest_failure=" not in str(bl.detail)
+        assert "failure_signature=" not in str(bl.detail)
 
 
 class TestBossMetricsJsonlCounter:
