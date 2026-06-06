@@ -888,12 +888,14 @@ def load_outbox_handoffs(
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
     now: datetime | None = None,
+    max_handoffs: int | None = None,
 ) -> list[Handoff]:
     handoffs, _skip_reasons = _load_outbox_handoffs_with_skip_reasons(
         repo_root,
         outbox_dir=outbox_dir,
         receipt_dir=receipt_dir,
         now=now,
+        max_handoffs=max_handoffs,
     )
     return handoffs
 
@@ -904,19 +906,30 @@ def _load_outbox_handoffs_with_skip_reasons(
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
     now: datetime | None = None,
+    max_handoffs: int | None = None,
 ) -> tuple[list[Handoff], Counter[str]]:
     outbox_root = _automation_state_path(repo_root, outbox_dir, DEFAULT_OUTBOX_DIR).resolve()
     receipt_root = _automation_state_path(repo_root, receipt_dir, DEFAULT_RECEIPT_DIR).resolve()
     current_time = now or datetime.now(UTC)
     terminal_receipts = _terminal_receipts_by_key(receipt_root)
-    terminal_fingerprints = _terminal_outbox_fingerprints(
-        repo_root,
-        outbox_root,
-        terminal_receipts,
+    terminal_fingerprints = (
+        set()
+        if max_handoffs is not None
+        else _terminal_outbox_fingerprints(
+            repo_root,
+            outbox_root,
+            terminal_receipts,
+        )
     )
     handoffs_by_identity: dict[tuple[str, str], Handoff] = {}
     skipped_reasons: Counter[str] = Counter()
-    for source_file in _outbox_files(outbox_root):
+    source_files = _outbox_files(outbox_root)
+    if max_handoffs is not None:
+        source_files = sorted(source_files, key=_source_mtime, reverse=True)
+    for index, source_file in enumerate(source_files):
+        if max_handoffs is not None and len(handoffs_by_identity) >= max_handoffs:
+            skipped_reasons["preview_limit"] += len(source_files) - index
+            break
         try:
             payload = json.loads(source_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -1541,11 +1554,20 @@ def main(argv: list[str] | None = None) -> int:
         outbox_handoffs = []
         outbox_skipped_reason_counts: Counter[str] = Counter()
     else:
-        outbox_handoffs, outbox_skipped_reason_counts = _load_outbox_handoffs_with_skip_reasons(
-            repo_root,
-            outbox_dir=outbox_dir,
-            receipt_dir=receipt_dir,
-        )
+        outbox_preview_limit = max(args.limit, 0) if args.summary_only and not args.apply else None
+        if outbox_preview_limit is None:
+            outbox_handoffs, outbox_skipped_reason_counts = _load_outbox_handoffs_with_skip_reasons(
+                repo_root,
+                outbox_dir=outbox_dir,
+                receipt_dir=receipt_dir,
+            )
+        else:
+            outbox_handoffs, outbox_skipped_reason_counts = _load_outbox_handoffs_with_skip_reasons(
+                repo_root,
+                outbox_dir=outbox_dir,
+                receipt_dir=receipt_dir,
+                max_handoffs=outbox_preview_limit,
+            )
     outbox_file_count = 0 if args.no_outbox else len(_outbox_files(outbox_dir))
     outbox_skipped_count = sum(outbox_skipped_reason_counts.values())
     if outbox_skipped_count == 0:

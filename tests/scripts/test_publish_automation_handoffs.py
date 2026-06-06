@@ -2151,6 +2151,114 @@ def test_main_summary_only_limits_github_ready_decision_preview(
     }
 
 
+def test_load_outbox_handoffs_can_stop_after_preview_limit(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    for index in range(3):
+        (outbox / f"active-{index}.json").write_text(
+            json.dumps(
+                _outbox_payload(
+                    task=f"Publish validated repair branch {index}",
+                    idempotency_key=f"open-pr-active-{index}",
+                    branch=f"codex/example-{index}",
+                )
+            ),
+            encoding="utf-8",
+        )
+    expensive_checks = 0
+
+    def fake_already_merged(repo_root: Path, payload: dict[str, Any]) -> bool:
+        nonlocal expensive_checks
+        expensive_checks += 1
+        return False
+
+    monkeypatch.setattr(mod, "_outbox_branch_already_merged", fake_already_merged)
+    monkeypatch.setattr(mod, "_outbox_branch_patch_equivalent", lambda repo_root, payload: False)
+
+    handoffs, skipped = mod._load_outbox_handoffs_with_skip_reasons(
+        tmp_path,
+        max_handoffs=1,
+    )
+
+    assert len(handoffs) == 1
+    assert skipped == Counter({"preview_limit": 2})
+    assert expensive_checks == 1
+
+
+def test_main_summary_only_limits_outbox_loading(monkeypatch: Any, tmp_path: Path, capsys) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / ".aragora" / "automation-outbox" / "example.json"),
+        task_title="Publish validated repair branch",
+        priority="MEDIUM",
+        body="body",
+        labels={},
+        expires_at=None,
+        idempotency_key="open-pr-codex-example-abc123",
+        source_kind="outbox",
+    )
+    captured: dict[str, int | None] = {}
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
+
+    def fake_load_outbox_handoffs(
+        repo_root: Path,
+        *,
+        outbox_dir: Path | None = None,
+        receipt_dir: Path | None = None,
+        max_handoffs: int | None = None,
+    ) -> tuple[list[Handoff], Counter[str]]:
+        captured["max_handoffs"] = max_handoffs
+        return [handoff], Counter()
+
+    monkeypatch.setattr(mod, "_load_outbox_handoffs_with_skip_reasons", fake_load_outbox_handoffs)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "decide_handoffs",
+        lambda *args, **kwargs: [
+            PublishDecision(
+                task_title=handoff.task_title,
+                source_file=handoff.source_file,
+                eligible=True,
+                reason="eligible",
+            )
+        ],
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path),
+            "--json",
+            "--summary-only",
+            "--limit",
+            "1",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["max_handoffs"] == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["decision_count"] == 1
+
+
 def test_main_summary_only_reports_outbox_files_skipped_before_publish(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
