@@ -505,7 +505,8 @@ def _check_boss_loop_log(
     except OSError:
         pass
 
-    if last_terminal_event in {"traceback", "exit_fail"}:
+    active_failure = last_terminal_event in {"traceback", "exit_fail"}
+    if active_failure:
         status = STATUS_STALE
 
     extra: dict[str, object] = {
@@ -515,9 +516,9 @@ def _check_boss_loop_log(
         "exits_fail_total": exits_fail_total,
         "last_terminal_event": last_terminal_event or None,
     }
-    if latest_failure:
+    if active_failure and latest_failure:
         extra["latest_failure"] = latest_failure[-240:]
-    if latest_failure_signature:
+    if active_failure and latest_failure_signature:
         extra["latest_failure_signature"] = latest_failure_signature[-240:]
     if latest_python_warning:
         extra["latest_python_warning"] = latest_python_warning[-240:]
@@ -529,9 +530,9 @@ def _check_boss_loop_log(
         f"tracebacks={tracebacks_total} crashes={crashes_total} "
         f"ok={exits_ok_total} fail={exits_fail_total}"
     )
-    if latest_failure:
+    if active_failure and latest_failure:
         detail = f"{detail}; latest_failure={latest_failure[-120:]}"
-    if latest_failure_signature and latest_failure_signature != latest_failure:
+    if active_failure and latest_failure_signature and latest_failure_signature != latest_failure:
         detail = f"{detail}; failure_signature={latest_failure_signature[-120:]}"
     checkout_status = extra.get("runtime_checkout_status")
     if checkout_status and checkout_status != "current":
