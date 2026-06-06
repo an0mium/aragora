@@ -1687,8 +1687,7 @@ def cmd_lanes(args: argparse.Namespace) -> int:
     if records:
         _write_lane_registry(records)
         if args.json:
-            print(json.dumps([record.to_dict() for record in records], indent=2))
-            return 0
+            return _emit_text(json.dumps([record.to_dict() for record in records], indent=2))
         print(f"{'LANE':<22} {'OWNER':<24} {'STATUS':<10} {'BRANCH':<26} {'PR':>5} NEXT ACTION")
         print("-" * 120)
         for record in records:
@@ -1705,8 +1704,7 @@ def cmd_lanes(args: argparse.Namespace) -> int:
             )
         return 0
     if args.json:
-        print(json.dumps([s.to_dict() for s in sessions], indent=2))
-        return 0
+        return _emit_text(json.dumps([s.to_dict() for s in sessions], indent=2))
     print(f"{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<26} {'PR':>5} SUMMARY")
     print("-" * 110)
     for s in sessions:

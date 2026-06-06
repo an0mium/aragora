@@ -337,6 +337,48 @@ def test_cmd_lanes_json_prefers_registry_and_syncs_live_session(
     ]
 
 
+def test_cmd_lanes_json_suppresses_broken_pipe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "bridge-hardening",
+                    "owner_session": "codex-strategic",
+                    "status": "active",
+                    "updated_at": "2026-04-13T21:20:00+00:00",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    muted_stdout: list[bool] = []
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr(mod, "discover", lambda: [])
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(
+        mod,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    rc = mod.cmd_lanes(argparse.Namespace(json=True))
+
+    assert rc == 0
+    assert muted_stdout == [True]
+
+
 def test_main_accepts_json_after_subcommand(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
