@@ -577,6 +577,10 @@ class TestBossLoopLogCounter:
         assert bl.extra["exits_ok_total"] == 1
         assert bl.extra["exits_fail_total"] == 1
         assert bl.extra["last_terminal_event"] == "exit_ok"
+        assert "latest_failure" not in bl.extra
+        assert "latest_failure_signature" not in bl.extra
+        assert "latest_failure=" not in str(bl.detail)
+        assert "failure_signature=" not in str(bl.detail)
 
 
 class TestBossMetricsJsonlCounter:

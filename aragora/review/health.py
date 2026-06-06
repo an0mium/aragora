@@ -490,6 +490,8 @@ def _check_boss_loop_log(
                 elif _EXIT_OK_PATTERN.search(line):
                     exits_ok_total += 1
                     last_terminal_event = "exit_ok"
+                    latest_failure = ""
+                    latest_failure_signature = ""
                 elif _EXIT_FAIL_PATTERN.search(line):
                     exits_fail_total += 1
                     last_terminal_event = "exit_fail"
