@@ -97,7 +97,14 @@ DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
     "minimax": ("minimax",),
     "hermes": ("hermes", "nous hermes"),
 }
-ROUTER_SURFACE_REVIEWERS: frozenset[str] = frozenset(("factory", "codex", "tesla", "harvey"))
+# Harness/product surfaces that route to an underlying model rather than being a
+# model family themselves. They never count as a family on their own; they count
+# only via a disclosed ``**Model family:**`` line (see _resolve_model_review_identity).
+# ``factory`` and ``droid`` are the same Factory harness (DroidTransport is
+# registered under both names), so they are treated identically.
+ROUTER_SURFACE_REVIEWERS: frozenset[str] = frozenset(
+    ("factory", "droid", "codex", "tesla", "harvey")
+)
 IDENTITY_COUNT_BLOCKERS: frozenset[str] = frozenset(
     (
         "missing_model_family_disclosure",
@@ -3657,7 +3664,7 @@ def _first_heading_candidate(text: str) -> tuple[str, int | None]:
 
 def _infer_surface_reviewer_from_candidate(candidate: str) -> str:
     lower = str(candidate or "").lower()
-    for name in ("claude", "codex", "tesla", "harvey", "factory", "grok", "gemini"):
+    for name in ("claude", "codex", "tesla", "harvey", "factory", "droid", "grok", "gemini"):
         if name in lower:
             return name
     for family, markers in DIRECT_MODEL_FAMILY_MARKERS.items():

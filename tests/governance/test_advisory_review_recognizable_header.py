@@ -85,6 +85,40 @@ def test_codex_without_model_family_is_advisory_only() -> None:
     assert "missing_model_family_disclosure" in signal["identity_problems"]
 
 
+def test_droid_without_model_family_is_advisory_only() -> None:
+    """Droid is the same Factory harness and must disclose model lineage."""
+    body = _review_body("Droid")
+
+    assert _infer_model_reviewer_from_text(body) == "droid"
+    assert _counted_from_bodies(body) == []
+    signal = _signals_from_bodies(body)[0]
+    assert signal["surface_reviewer_id"] == "droid"
+    assert "missing_model_family_disclosure" in signal["identity_problems"]
+
+
+def test_droid_openai_disclosure_counts_by_model_family() -> None:
+    """A Droid review counts via its disclosed underlying family, not 'droid'."""
+    body = _review_body("Droid", model_family="openai", model_id="gpt-5.5")
+
+    assert _counted_from_bodies(body) == ["openai"]
+
+
+def test_droid_and_factory_openai_count_as_one_model_family() -> None:
+    """Two names for the same Factory harness disclosing one family count once."""
+    droid = _review_body("Droid", model_family="openai", model_id="gpt-5.5")
+    factory = _review_body("Factory", model_family="openai", model_id="gpt-5.5")
+
+    assert _counted_from_bodies(droid, factory) == ["openai"]
+
+
+def test_droid_openai_and_claude_count_as_two_model_families() -> None:
+    """Droid pinning a distinct lineage adds heterogeneity by family."""
+    droid = _review_body("Droid", model_family="openai", model_id="gpt-5.5")
+    claude = _review_body("Claude", model_family="claude", model_id="claude-opus-4-7")
+
+    assert _counted_from_bodies(droid, claude) == ["claude", "openai"]
+
+
 def test_factory_and_codex_openai_disclosures_count_as_one_model_family() -> None:
     """Two router comments disclosing the same family count once."""
     factory = _review_body("Factory", model_family="openai", model_id="gpt-5.5")

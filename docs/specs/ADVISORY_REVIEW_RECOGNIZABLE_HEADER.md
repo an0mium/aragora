@@ -12,11 +12,11 @@ pre-approval artifact required by
 `aragora/cli/commands/review_queue.py`. Today the comment recognizer
 infers a reviewer from the first markdown heading and counts the
 surface marker it finds: `claude`, `codex`, `tesla`, `harvey`,
-`factory`, `grok`, or `gemini`.
+`factory`, `droid`, `grok`, or `gemini`.
 
-That is not enough for router-style tools. `Factory`, `Codex`, `Tesla`,
-and `Harvey` are harness/product identities, not necessarily underlying
-model lineages. A comment headed `## Factory independent semantic
+That is not enough for router-style tools. `Factory`/`Droid`, `Codex`,
+`Tesla`, and `Harvey` are harness/product identities, not necessarily
+underlying model lineages. A comment headed `## Factory independent semantic
 review...` may disclose `Factory Droid (GPT-5.5)` in the body, but the
 merge packet only records `factory`. A second comment headed
 `## Codex independent semantic review...` then counts as `codex`, even
@@ -54,10 +54,12 @@ The canonical counted `model_family` IDs are:
 
 Rules:
 
-1. Router/product surface markers (`factory`, `codex`, `tesla`,
+1. Router/product surface markers (`factory`, `droid`, `codex`, `tesla`,
    `harvey`) are not counted families by themselves. They count only
    when the structured `**Model family:** ...` line resolves to a
-   canonical model family.
+   canonical model family. `factory` and `droid` are the same Factory
+   harness (`DroidTransport` is registered under both names) and are
+   treated identically.
 2. Direct family headings (`## Claude ...`, `## Gemini ...`,
    `## Grok ...`, `## OpenAI ...`) may self-map to their model family
    when no explicit `Model family` line is present.
@@ -163,3 +165,41 @@ lineage-bound implementation PR described above. It does not authorize
 merge of the implementation PR. That future PR remains Tier 4 and
 requires exact-head model evidence plus explicit operator settlement
 before merge.
+
+## Addendum: `droid` router-surface parity
+
+**Status:** Tier 4 merge-authority change. The lineage-bound counting
+contract above is now implemented on `main`
+(`ROUTER_SURFACE_REVIEWERS`, `_resolve_model_review_identity`,
+`counted_model_families`). This addendum extends that landed design with
+a single missing alias and is prepared for exact-head operator
+settlement — it is **not** self-merged.
+
+**Gap:** `factory` is a recognized router surface, but its own CLI name
+`droid` was not. `DroidTransport` is registered under both `droid` and
+`factory` (`aragora/swarm/agent_bridge/harnesses/__init__.py`), so they
+are the same Factory harness. Yet a review headed
+`## Droid independent semantic review on head <sha>` resolved to
+`unknown_model_reviewer` and was fail-closed out of the quorum even when
+it disclosed a valid `**Model family:**` — while the identical comment
+headed `## Factory ...` counted. That is an inconsistency, not a policy.
+
+**Change:** add `droid` to the heading recognizer
+(`_infer_surface_reviewer_from_candidate`) and to
+`ROUTER_SURFACE_REVIEWERS`, so `droid` is treated exactly like
+`factory`:
+
+- `droid` is **never** a counted family by itself, and is **not** mapped
+  to any fixed model family (Factory/Droid can pin GPT, Claude, Gemini,
+  Kimi, etc.).
+- A `droid` review counts **only** via a disclosed canonical
+  `**Model family:**` line; missing/unknown disclosure stays advisory
+  (`missing_model_family_disclosure` / `unknown_model_family`).
+- Anti-laundering is preserved: `Droid(openai)` + `Factory(openai)`
+  dedupe to a single `openai` family; `Droid(openai)` + `Claude` count
+  as two (`openai`, `claude`).
+
+No new model family is added; `CANONICAL_MODEL_FAMILIES` is unchanged.
+This addendum + `tests/governance/test_model_lineage_disclosure_recognizer.py`
+are the pre-approval/characterization artifact. Merge still requires
+exact-head model evidence and explicit operator settlement.
