@@ -943,7 +943,9 @@ def test_publish_decisions_uses_remaining_open_pr_capacity(
     )
     monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
     monkeypatch.setattr(
-        mod, "_create_pr", lambda repo_root, repo, branch, base: next(created_numbers)
+        mod,
+        "_create_pr",
+        lambda repo_root, repo, branch, base, draft=False: next(created_numbers),
     )
     monkeypatch.setattr(
         mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
@@ -1000,7 +1002,11 @@ def test_publish_decisions_records_publish_failures_and_continues(
     monkeypatch.setattr(mod, "_ensure_gh_auth", lambda repo_root: None)
     monkeypatch.setattr(mod, "_push_branch", fake_push)
     monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
-    monkeypatch.setattr(mod, "_create_pr", lambda repo_root, repo, branch, base: 2001)
+    monkeypatch.setattr(
+        mod,
+        "_create_pr",
+        lambda repo_root, repo, branch, base, draft=False: 2001,
+    )
     monkeypatch.setattr(
         mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
     )
@@ -1331,6 +1337,88 @@ def test_main_falls_back_to_cached_open_pr_heads_when_live_listing_504s(
     out = capsys.readouterr().out
     assert '"source": "cache"' in out
     assert '"fallback_error": "HTTP 504"' in out
+    assert '"open_pr_exists"' in out
+    assert '"open_pr_count": 1' in out
+
+
+def test_main_falls_back_to_preserved_cached_open_pr_heads_when_live_listing_fails(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    branch = BranchSnapshot(
+        branch="codex/already-open-preserved",
+        upstream=None,
+        head_sha="abc1234",
+        committed_at=datetime.now(UTC),
+        subject="preserved cached open branch",
+        unique_commit_count=1,
+    )
+    cache_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        json.dumps(
+            {
+                "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                "github_repo": "synaptent/aragora",
+                "github_queue": {
+                    "available": False,
+                    "reason": "connectivity_failed",
+                    "open_codex_pr_count": 1,
+                    "unhealthy_open_pr_count": 0,
+                    "all_open_prs_unhealthy": False,
+                    "merge_state_counts": {"UNSTABLE": 1},
+                    "open_pr_heads": ["codex/already-open-preserved"],
+                    "open_pr_heads_preserved_from_cache": True,
+                    "open_pr_heads_cached_at": "2026-06-06T11:56:45Z",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+    monkeypatch.setattr(mod, "_branches_with_pr_history", lambda repo_root, repo, branches: set())
+    monkeypatch.setattr(
+        mod,
+        "_branches_with_resolved_related_work",
+        lambda repo_root, repo, branches: set(),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(
+            RuntimeError("stream error: stream ID 1; CANCEL; received from peer")
+        ),
+    )
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--json"])
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert '"source": "cache"' in out
+    assert '"fallback_error": "stream error: stream ID 1; CANCEL; received from peer"' in out
+    assert '"cache_reason": "usable_preserved_heads"' in out
     assert '"open_pr_exists"' in out
     assert '"open_pr_count": 1' in out
 

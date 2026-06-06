@@ -817,10 +817,14 @@ def _open_codex_prs_from_status_cache(
     if not isinstance(github_queue, Mapping):
         meta["cache_reason"] = "cache_missing_github_queue"
         return None, meta
+    used_preserved_heads = False
     if github_queue.get("available") is not True:
         reason = str(github_queue.get("reason") or "unknown")
-        meta["cache_reason"] = f"github_queue_unavailable:{reason}"
-        return None, meta
+        if github_queue.get("open_pr_heads_preserved_from_cache") is not True:
+            meta["cache_reason"] = f"github_queue_unavailable:{reason}"
+            return None, meta
+        used_preserved_heads = True
+        meta["cache_unavailable_reason"] = reason
 
     raw_prs = github_queue.get("open_prs")
     prs: list[dict[str, Any]] = []
@@ -848,7 +852,7 @@ def _open_codex_prs_from_status_cache(
         return None, meta
 
     meta["cache_usable"] = True
-    meta["cache_reason"] = "usable"
+    meta["cache_reason"] = "usable_preserved_heads" if used_preserved_heads else "usable"
     meta["cache_queue_health"] = {
         "open_codex_pr_count": github_queue.get("open_codex_pr_count"),
         "unhealthy_open_pr_count": github_queue.get("unhealthy_open_pr_count"),
