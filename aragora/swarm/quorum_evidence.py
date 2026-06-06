@@ -93,6 +93,7 @@ _MAX_DIFF_CHARS = 60_000
 _MAX_REVIEWER_CHARS = 32_000
 _CLAUDE_TIMEOUT = 300
 _REVIEWER_TIMEOUT = 300
+_REVIEWER_CLEANUP_TIMEOUT = 10
 
 
 def _cap_text(text: str) -> str:
@@ -395,7 +396,9 @@ async def _close_api_agent_resources(agent: Any) -> None:
         try:
             result = close()
             if inspect.isawaitable(result):
-                await result
+                await asyncio.wait_for(result, timeout=_REVIEWER_CLEANUP_TIMEOUT)
+        except TimeoutError:
+            logger.debug("collect-evidence API agent close timed out")
         except Exception as exc:  # noqa: BLE001 - cleanup must not mask reviewer results.
             logger.debug("collect-evidence API agent close failed: %s", exc)
 
@@ -410,7 +413,9 @@ async def _close_api_agent_resources(agent: Any) -> None:
         # loop, so the shared aiohttp connector must be released before that
         # loop is torn down. The collector dispatches reviewers serially; if it
         # ever fans reviewers out, cleanup must move outside the per-reviewer path.
-        await close_shared_connector()
+        await asyncio.wait_for(close_shared_connector(), timeout=_REVIEWER_CLEANUP_TIMEOUT)
+    except TimeoutError:
+        logger.debug("collect-evidence shared connector close timed out")
     except Exception as exc:  # noqa: BLE001 - cleanup must not mask reviewer results.
         logger.debug("collect-evidence shared connector close failed: %s", exc)
 
