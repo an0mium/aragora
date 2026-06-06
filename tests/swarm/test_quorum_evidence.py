@@ -12,6 +12,7 @@ The compose helper is checked against the *real* evidence parser
 from __future__ import annotations
 
 import asyncio
+import time
 from contextlib import contextmanager
 from types import SimpleNamespace
 
@@ -266,6 +267,41 @@ def test_run_api_agent_closes_resources_after_generate_failure(
     assert result.ok is False
     assert "RuntimeError: model failed" in result.error
     assert events == ["generate", "agent_close", "connector_close"]
+
+
+def test_run_api_agent_wall_clock_timeout_interrupts_blocked_generate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def generate(self, prompt: str) -> str:
+            events.append("generate_start")
+            time.sleep(1)
+            return "Verdict: PASS"
+
+        async def close(self) -> None:
+            events.append("agent_close")
+
+    def fake_create_agent(family: str, *, name: str, role: str) -> FakeAgent:
+        return FakeAgent()
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close")
+
+    import aragora.agents
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(qe, "_REVIEWER_TIMEOUT", 0.05)
+    monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 0.01)
+    monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    result = qe._run_api_agent("grok", "review prompt")
+
+    assert result.ok is False
+    assert "timed out" in result.error
+    assert events == ["generate_start", "agent_close", "connector_close"]
 
 
 def test_api_agent_cleanup_does_not_hang_on_stuck_agent_close(

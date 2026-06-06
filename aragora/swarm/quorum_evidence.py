@@ -31,7 +31,9 @@ import inspect
 import logging
 import os
 import re
+import signal
 import subprocess
+import threading
 import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
@@ -371,14 +373,42 @@ def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
     except Exception as exc:  # pragma: no cover - import guard
         return ReviewerResult(family, "", False, f"create_agent import failed: {exc}")
     try:
-        agent = create_agent(family, name=f"{family}_reviewer", role="critic")
-        text = asyncio.run(_generate_with_api_agent_cleanup(agent, prompt))
+        with _api_reviewer_wall_clock_timeout(family):
+            agent = create_agent(family, name=f"{family}_reviewer", role="critic")
+            text = asyncio.run(_generate_with_api_agent_cleanup(agent, prompt))
+    except TimeoutError:
+        return ReviewerResult(
+            family, "", False, f"{family} reviewer timed out after {_REVIEWER_TIMEOUT}s"
+        )
     except Exception as exc:
         return ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     text = (text or "").strip()
     if not text:
         return ReviewerResult(family, "", False, "empty reviewer output")
     return ReviewerResult(family, _cap_text(text), True)
+
+
+@contextmanager
+def _api_reviewer_wall_clock_timeout(family: str) -> Iterator[None]:
+    """Interrupt API reviewers that block the event loop despite ``wait_for``."""
+    if threading.current_thread() is not threading.main_thread() or not hasattr(
+        signal, "setitimer"
+    ):
+        yield
+        return
+
+    def _raise_timeout(signum: int, frame: Any) -> None:
+        raise TimeoutError(f"{family} reviewer timed out after {_REVIEWER_TIMEOUT}s")
+
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    previous_timer = signal.getitimer(signal.ITIMER_REAL)
+    signal.signal(signal.SIGALRM, _raise_timeout)
+    signal.setitimer(signal.ITIMER_REAL, _REVIEWER_TIMEOUT)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, previous_timer[0], previous_timer[1])
+        signal.signal(signal.SIGALRM, previous_handler)
 
 
 async def _generate_with_api_agent_cleanup(agent: Any, prompt: str) -> str:
