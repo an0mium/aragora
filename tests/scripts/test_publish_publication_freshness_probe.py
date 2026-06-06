@@ -385,6 +385,54 @@ def test_main_default_suppresses_write_time_broken_pipe_after_publish(
     assert (out_root / "latest.json").exists()
 
 
+def test_write_stdout_broken_pipe_uses_fd_free_sink(monkeypatch: Any) -> None:
+    class WriteClosedStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError
+
+        def flush(self) -> None:
+            return None
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_stdout = WriteClosedStdout()
+    monkeypatch.setattr(publisher.sys, "stdout", fake_stdout)
+
+    def forbidden_open(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("broken-pipe fallback must not open a file descriptor")
+
+    monkeypatch.setattr(publisher, "open", forbidden_open, raising=False)
+
+    assert publisher._write_stdout("payload") is False
+    assert fake_stdout.closed is True
+    assert publisher._write_stdout("discarded") is True
+
+
+def test_write_stdout_propagates_unexpected_close_errors(monkeypatch: Any) -> None:
+    class RuntimeCloseStdout:
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError
+
+        def flush(self) -> None:
+            return None
+
+        def close(self) -> None:
+            raise RuntimeError("unexpected close failure")
+
+    monkeypatch.setattr(publisher.sys, "stdout", RuntimeCloseStdout())
+
+    try:
+        publisher._write_stdout("payload")
+    except RuntimeError as exc:
+        assert str(exc) == "unexpected close failure"
+    else:
+        raise AssertionError("unexpected stdout close failures must not be swallowed")
+
+
 def test_main_default_publishes_to_out_root(tmp_path: Path) -> None:
     out_root = tmp_path / "out"
     status_md = tmp_path / "status.md"
