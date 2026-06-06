@@ -20,6 +20,9 @@ from typing import Any
 GREEN_STATES = {"PASS", "SUCCESS", "SKIPPED"}
 PENDING_STATES = {"EXPECTED", "PENDING", "QUEUED", "REQUESTED", "STARTUP_FAILURE", "WAITING"}
 FAIL_STATES = {"ACTION_REQUIRED", "CANCELLED", "ERROR", "FAILURE", "FAILED", "STALE", "TIMED_OUT"}
+# UNSTABLE often means optional rollup noise. It is eligible only for prompt
+# selection because gather_state filters required checks and every emitted merge
+# prompt still requires merge-packet and settle_one rechecks before action.
 MERGE_PROMPT_STATES = {"CLEAN", "UNSTABLE"}
 
 MAC_RUNNER = "mac-studio-m3ultra"
@@ -324,7 +327,7 @@ def select_action(state: dict[str, Any]) -> dict[str, Any]:
         if _pr_is_clean(pr) and not pr.get("isDraft") and summary.get("green"):
             return {
                 "kind": "merge_ready_prompt",
-                "reason": "highest mergeable non-draft PR has green required checks",
+                "reason": "first mergeable non-draft PR has green required checks",
                 "target": _pr_identity(pr),
                 "prompt": _merge_ready_prompt(pr),
             }
@@ -334,7 +337,7 @@ def select_action(state: dict[str, Any]) -> dict[str, Any]:
         if _pr_is_clean(pr) and pr.get("isDraft") and summary.get("green"):
             return {
                 "kind": "draft_gate_preparation",
-                "reason": "highest mergeable draft PR has green required checks",
+                "reason": "first mergeable draft PR has green required checks",
                 "target": _pr_identity(pr),
                 "prompt": _draft_gate_prompt(pr),
             }
@@ -345,7 +348,7 @@ def select_action(state: dict[str, Any]) -> dict[str, Any]:
         if _pr_is_clean(pr) and failures:
             return {
                 "kind": "failing_check_repair_prompt",
-                "reason": "highest mergeable PR has a real required-check failure",
+                "reason": "first mergeable PR has a real required-check failure",
                 "target": _pr_identity(pr),
                 "failure": failures[0],
                 "prompt": _failing_check_prompt(pr, failures[0]),
@@ -488,6 +491,10 @@ def append_ledger(path: Path, packet: dict[str, Any]) -> None:
 
 def build_packet(state: dict[str, Any]) -> dict[str, Any]:
     action = select_action(state)
+    operator_snapshot = state.get("operator_snapshot", {}).get("data") or {}
+    operator_health = operator_snapshot.get("health") if isinstance(operator_snapshot, dict) else {}
+    if not isinstance(operator_health, dict):
+        operator_health = {}
     return {
         "version": 1,
         "generated_at": state["generated_at"],
@@ -498,9 +505,7 @@ def build_packet(state: dict[str, Any]) -> dict[str, Any]:
         "summary": {
             "runner_blockers": runner_blockers(state.get("runners", {}).get("data")),
             "open_pr_count": len(state.get("open_prs", {}).get("data") or []),
-            "operator_health_ok": (
-                state.get("operator_snapshot", {}).get("data", {}).get("health", {}).get("ok")
-            ),
+            "operator_health_ok": operator_health.get("ok"),
         },
     }
 

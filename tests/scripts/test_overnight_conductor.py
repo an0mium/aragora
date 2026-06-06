@@ -109,6 +109,7 @@ def test_selects_merge_ready_prompt_before_draft_gate() -> None:
     action = conductor.select_action(state)
 
     assert action["kind"] == "merge_ready_prompt"
+    assert action["reason"] == "first mergeable non-draft PR has green required checks"
     assert action["target"]["pr"] == 7780
     assert "output the exact merge authorization prompt" in action["prompt"]
     assert "Do not merge without separate explicit operator authorization" in action["prompt"]
@@ -206,6 +207,15 @@ def test_build_packet_preserves_forbidden_actions() -> None:
     assert "merge" in packet["forbidden_actions"]
     assert "mark_ready" in packet["forbidden_actions"]
     assert "record_tier4_settlement" in packet["forbidden_actions"]
+
+
+def test_build_packet_tolerates_failed_operator_snapshot_probe() -> None:
+    state = _state(prs=[_pr(7771, draft=True)])
+    state["operator_snapshot"]["data"] = None
+
+    packet = conductor.build_packet(state)
+
+    assert packet["summary"]["operator_health_ok"] is None
 
 
 def test_append_ledger_writes_jsonl(tmp_path: Path) -> None:
