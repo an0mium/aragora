@@ -14,7 +14,7 @@ Historical note: this runbook captures the bounded execution contract used for t
 Run a single bounded live tick:
 
 ```bash
-ARAGORA_USER_ID=an0mium python -m aragora.cli.main swarm boss-loop \
+ARAGORA_USER_ID=an0mium ARAGORA_POST_LOOP_ISSUE_REFILL=0 ./scripts/run_boss_cycle.sh \
   --boss-label-filter boss-loop-test \
   --boss-issue-number <ISSUE_NUMBER> \
   --max-ticks 1 \
