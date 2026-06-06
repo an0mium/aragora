@@ -121,6 +121,15 @@ class EvidenceItem:
     would_count: bool
     counted_reviewer_ids: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
+    verdict: str = "unknown"
+
+    @property
+    def supportive(self) -> bool:
+        return self.would_count and self.verdict == "pass"
+
+    @property
+    def dissenting(self) -> bool:
+        return self.verdict == "changes_requested"
 
 
 @dataclass
@@ -142,6 +151,18 @@ class CollectOutcome:
     def counting_families(self) -> list[str]:
         return [item.family for item in self.items if item.would_count]
 
+    @property
+    def supportive_families(self) -> list[str]:
+        return [item.family for item in self.items if item.supportive]
+
+    @property
+    def dissenting_families(self) -> list[str]:
+        return [item.family for item in self.items if item.dissenting]
+
+    @property
+    def has_supportive_quorum(self) -> bool:
+        return len(self.supportive_families) >= 2
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "mode": "collect_evidence",
@@ -153,6 +174,9 @@ class CollectOutcome:
             "action": self.action,
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,
+            "supportive_families": self.supportive_families,
+            "dissenting_families": self.dissenting_families,
+            "has_supportive_quorum": self.has_supportive_quorum,
             "posted_families": list(self.posted),
             "post_errors": list(self.post_errors),
             "quorum_rerun": self.quorum_rerun,
@@ -160,6 +184,7 @@ class CollectOutcome:
                 {
                     "family": item.family,
                     "would_count": item.would_count,
+                    "verdict": item.verdict,
                     "counted_reviewer_ids": item.counted_reviewer_ids,
                     "problems": item.problems,
                     "body": item.body,
@@ -223,6 +248,22 @@ def _neutralize_reviewer_text(text: str) -> str:
         else:
             out.append(line)
     return "\n".join(out)
+
+
+def _reviewer_verdict(text: str) -> str:
+    """Parse the first reviewer verdict line without inventing support."""
+    for line in text.splitlines():
+        stripped = line.strip().lower()
+        if not stripped:
+            continue
+        if stripped.startswith("verdict:"):
+            verdict = stripped.split(":", 1)[1].strip()
+            if verdict.startswith("pass"):
+                return "pass"
+            if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
+                return "changes_requested"
+            return "unknown"
+    return "unknown"
 
 
 def compose_evidence_comment(
@@ -613,12 +654,20 @@ def collect_evidence(
                 family=family,
                 body=body,
                 would_count=bool(lint.get("would_count")),
+                verdict=_reviewer_verdict(result.text),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
             )
         )
 
     if action == "post":
+        if outcome.dissenting_families:
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                "reviewer dissent present "
+                f"({', '.join(outcome.dissenting_families)}); prepared evidence only"
+            )
+            return outcome
         # Reviewers can take minutes; re-verify the head and tier immediately
         # before posting so a head that moved or a PR promoted to a settlement
         # tier in the meantime is never posted against.
@@ -641,7 +690,7 @@ def collect_evidence(
             )
         else:
             for item in outcome.items:
-                if not item.would_count:
+                if not item.supportive:
                     continue
                 try:
                     poster(repo, pr, item.body)
@@ -650,7 +699,7 @@ def collect_evidence(
                     outcome.post_errors.append(f"{item.family}: {str(exc)[:200]}")
                     continue
                 outcome.posted.append(item.family)
-        if outcome.posted and quorum_reconciler is not None:
+        if outcome.posted and outcome.has_supportive_quorum and quorum_reconciler is not None:
             try:
                 outcome.quorum_rerun = quorum_reconciler(repo, pr)
             except Exception as exc:  # noqa: BLE001 - evidence posts should remain reported.
@@ -665,6 +714,8 @@ def _render_outcome(outcome: CollectOutcome) -> str:
         f"  head: {outcome.head_sha[:10]}  tier: {outcome.tier}",
         f"  action: {outcome.action} ({outcome.action_reason})",
         f"  counting families: {', '.join(outcome.counting_families) or 'none'}",
+        f"  supportive families: {', '.join(outcome.supportive_families) or 'none'}",
+        f"  dissenting families: {', '.join(outcome.dissenting_families) or 'none'}",
     ]
     if outcome.posted:
         lines.append(f"  posted: {', '.join(outcome.posted)}")
@@ -677,7 +728,7 @@ def _render_outcome(outcome: CollectOutcome) -> str:
         lines.append(f"  quorum rerun: {action} ({reason})")
     for item in outcome.items:
         flag = "counts" if item.would_count else f"DOES NOT count ({', '.join(item.problems)})"
-        lines.append(f"  - {item.family}: {flag}")
+        lines.append(f"  - {item.family}: {flag}; verdict={item.verdict}")
     for failure in outcome.failures:
         lines.append(f"  - {failure.family}: reviewer failed ({failure.error})")
     if outcome.action == "prepare":
@@ -735,4 +786,4 @@ def run_collect_cli(
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
-    return 0 if len(outcome.counting_families) >= 2 else 1
+    return 0 if outcome.has_supportive_quorum else 1
