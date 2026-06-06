@@ -368,7 +368,7 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
 
 
 def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
-    ctx = multiprocessing.get_context(
+    ctx: Any = multiprocessing.get_context(
         "fork" if "fork" in multiprocessing.get_all_start_methods() else "spawn"
     )
     result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
