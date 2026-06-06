@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from aragora.swarm.terminal_truth import TerminalClass  # noqa: E402
+from aragora.utils.git_paths import git_common_repo_root  # noqa: E402
 from scripts.reconcile_b0_pr_truth import (  # noqa: E402
     DEFAULT_METRICS_PATH,
     GitHubTruthClient,
@@ -842,8 +843,17 @@ def detect_post_generation_issue_state_drift(
 
 def _repo_stable_path(path: Path) -> str:
     resolved = path.resolve()
+    candidate_roots = [REPO_ROOT.resolve()]
+    common_root = git_common_repo_root(REPO_ROOT)
+    if common_root is not None:
+        candidate_roots.append(common_root.resolve())
+    for root in candidate_roots:
+        try:
+            return resolved.relative_to(root).as_posix()
+        except ValueError:
+            continue
     try:
-        return resolved.relative_to(REPO_ROOT).as_posix()
+        return "~/" + resolved.relative_to(Path.home().resolve()).as_posix()
     except ValueError:
         return str(resolved)
 
