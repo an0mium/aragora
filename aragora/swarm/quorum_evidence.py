@@ -31,9 +31,11 @@ import inspect
 import logging
 import re
 import subprocess
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from aragora.swarm import merge_quorum_io
@@ -78,6 +80,9 @@ DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "grok")
 
 # Tiers at or above this require exact-head operator settlement; never auto-post.
 SETTLEMENT_TIER_FLOOR = 3
+
+QUORUM_RERUN_COOLDOWN_SECONDS = 10 * 60
+QUORUM_RERUN_MAX_PER_HEAD = 3
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
@@ -464,41 +469,55 @@ def resolve_author(default: str = "local") -> str:
     return login or default
 
 
+@contextmanager
+def _locked_quorum_reconcile_state(path: Path) -> Iterator[None]:
+    """Serialize load/evaluate/rerun/save for the shared merge-quorum state file."""
+    import fcntl
+
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as lock_fh:
+        fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_fh.fileno(), fcntl.LOCK_UN)
+
+
 def default_quorum_reconciler(repo: str, pr: int) -> dict[str, Any]:
     """Run the A1 stale-quorum reconciler for one PR after evidence posting."""
     from scripts import reconcile_merge_quorum
 
-    state = reconcile_merge_quorum._load_state(reconcile_merge_quorum.DEFAULT_STATE_FILE)
-    decision, quorum_run = reconcile_merge_quorum.evaluate_pr(
-        repo,
-        pr,
-        now=datetime.now(timezone.utc),
-        state=state,
-        cooldown_seconds=10 * 60,
-        max_reruns=3,
-    )
-    record: dict[str, Any] = {
-        "should_rerun": decision.should_rerun,
-        "reason": decision.reason,
-        "run_id": decision.run_id,
-        "applied": False,
-    }
-    if decision.next_prompt:
-        record["next_prompt"] = decision.next_prompt
-    if decision.should_rerun and quorum_run is not None:
-        record["applied"] = reconcile_merge_quorum.execute_rerun(repo, quorum_run.run_id)
-        if record["applied"]:
-            head_state = state.setdefault(
-                quorum_run.head_sha,
-                {"count": 0, "last_rerun_at": None},
-            )
-            head_state["count"] = int(head_state.get("count", 0)) + 1
-            head_state["last_rerun_at"] = datetime.now(timezone.utc).isoformat()
-            reconcile_merge_quorum._save_state(
-                reconcile_merge_quorum.DEFAULT_STATE_FILE,
-                state,
-            )
-    return record
+    state_file = reconcile_merge_quorum.DEFAULT_STATE_FILE
+    with _locked_quorum_reconcile_state(state_file):
+        state = reconcile_merge_quorum._load_state(state_file)
+        decision, quorum_run = reconcile_merge_quorum.evaluate_pr(
+            repo,
+            pr,
+            now=datetime.now(timezone.utc),
+            state=state,
+            cooldown_seconds=QUORUM_RERUN_COOLDOWN_SECONDS,
+            max_reruns=QUORUM_RERUN_MAX_PER_HEAD,
+        )
+        record: dict[str, Any] = {
+            "should_rerun": decision.should_rerun,
+            "reason": decision.reason,
+            "run_id": decision.run_id,
+            "applied": False,
+        }
+        if decision.next_prompt:
+            record["next_prompt"] = decision.next_prompt
+        if decision.should_rerun and quorum_run is not None:
+            record["applied"] = reconcile_merge_quorum.execute_rerun(repo, quorum_run.run_id)
+            if record["applied"]:
+                head_state = state.setdefault(
+                    quorum_run.head_sha,
+                    {"count": 0, "last_rerun_at": None},
+                )
+                head_state["count"] = int(head_state.get("count", 0)) + 1
+                head_state["last_rerun_at"] = datetime.now(timezone.utc).isoformat()
+                reconcile_merge_quorum._save_state(state_file, state)
+        return record
 
 
 # --- Orchestrator ----------------------------------------------------------
