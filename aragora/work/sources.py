@@ -74,15 +74,14 @@ def _state_evidence_ref(root: Path, path: Path) -> str:
 
 def _has_work_state_dirs(root: Path) -> bool:
     state_dir = _state_dir(root)
-    return any(
-        (state_dir / dirname).is_dir()
-        for dirname in (
-            "automation-outbox",
-            "automation-receipts",
-            "agent-bridge",
-            "agent_bridge",
-        )
-    )
+    for dirname in ("automation-outbox", "automation-receipts"):
+        queue_dir = state_dir / dirname
+        if queue_dir.is_dir() and any(queue_dir.glob("*.json")):
+            return True
+    if (state_dir / "agent-bridge" / "lanes.json").is_file():
+        return True
+    runs_dir = state_dir / "agent_bridge" / "runs"
+    return runs_dir.is_dir() and any(runs_dir.glob("*/run.json"))
 
 
 def _git_root_for_origin(root: Path) -> Path:

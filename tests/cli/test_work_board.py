@@ -527,6 +527,34 @@ def test_work_robot_defaults_to_shared_state_root(
     )
 
 
+def test_work_robot_ignores_empty_local_state_scaffold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    worktree_root = tmp_path / "linked-worktree"
+    shared_root = tmp_path / "shared-checkout"
+    (worktree_root / ".aragora" / "agent_bridge" / "runs").mkdir(parents=True)
+    outbox = shared_root / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps({"task": "Open PR for shared queue", "branch": "codex/shared"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_root))
+
+    assert cmd_work_robot(_args(worktree_root)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 1
+    assert payload["recommendations"][0]["item"]["branch"] == "codex/shared"
+    assert any(
+        health["source"] == "work_state_root"
+        and health["status"] == "ok"
+        and health["state_root"] == str(shared_root.resolve())
+        for health in payload["source_health"]
+    )
+
+
 def test_work_show_finds_historical_receipt_in_all_scope(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
