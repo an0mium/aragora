@@ -54,7 +54,17 @@ SCHEMA_VERSION = "aragora-operator-steering/1.0"
 SUBJECT_MAX_CHARS = 80
 PRIORITY_CHOICES = ("low", "normal", "high", "blocking")
 SHORT_UUID_BYTES = 4  # 8 hex chars; collision risk negligible per-second
-ACTIVE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
+ACTIVE_STATUSES = {
+    "active",
+    "running",
+    "pending",
+    "queued",
+    "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
+}
 FAMILY_SESSION_MARKERS = (
     "aider",
     "claude",

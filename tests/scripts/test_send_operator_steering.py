@@ -764,6 +764,85 @@ class TestActiveOwnerRouting:
         assert diagnostic["historical_related_sessions"] == []
         assert list((tmp_path / "inbox").rglob("*.json")) == []
 
+    def test_diagnose_target_treats_blocked_owner_as_active(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry = self._write_lanes(
+            tmp_path,
+            [
+                {
+                    "lane_id": "q388-publication",
+                    "owner_session": "codex-q388",
+                    "status": "blocked",
+                    "branch": "codex/q388",
+                    "updated_at": "2026-06-06T16:17:35Z",
+                }
+            ],
+        )
+
+        rc = sos.main(
+            [
+                "--to-owner-branch",
+                "codex/q388",
+                "--diagnose-target",
+                "--json",
+                "--lane-registry-path",
+                str(registry),
+                "--steering-inbox-root",
+                str(tmp_path / "inbox"),
+            ]
+        )
+
+        assert rc == 0
+        parsed = json.loads(capsys.readouterr().out)
+        diagnostic = parsed["_target_diagnostic"]
+        assert diagnostic["active_owner_found"] is True
+        assert diagnostic["safe_to_send"] is True
+        assert diagnostic["reason"] == "active_owner_found"
+        assert diagnostic["active_owner"]["owner_session"] == "codex-q388"
+        assert diagnostic["historical_related_sessions"] == []
+        assert list((tmp_path / "inbox").rglob("*.json")) == []
+
+    def test_dry_run_to_owner_branch_treats_blocked_owner_as_active(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry = self._write_lanes(
+            tmp_path,
+            [
+                {
+                    "lane_id": "q388-publication",
+                    "owner_session": "codex-q388",
+                    "status": "blocked",
+                    "branch": "codex/q388",
+                    "updated_at": "2026-06-06T16:17:35Z",
+                }
+            ],
+        )
+
+        rc = sos.main(
+            [
+                "--to-owner-branch",
+                "codex/q388",
+                "--body",
+                "finish publication or release",
+                "--dry-run",
+                "--json",
+                "--lane-registry-path",
+                str(registry),
+                "--steering-inbox-root",
+                str(tmp_path / "inbox"),
+            ]
+        )
+
+        assert rc == 0
+        parsed = json.loads(capsys.readouterr().out)
+        assert parsed["_dry_run"] is True
+        assert parsed["_would_write"] is True
+        assert parsed["_written_path"] is None
+        assert parsed["_route"]["owner_session"] == "codex-q388"
+        assert parsed["_route"]["status"] == "blocked"
+        assert list((tmp_path / "inbox").rglob("*.json")) == []
+
     def test_diagnose_target_without_selector_returns_parse_error(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
