@@ -226,7 +226,7 @@ def test_run_api_agent_closes_agent_and_shared_connector(monkeypatch: pytest.Mon
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result == ReviewerResult("grok", "Verdict: PASS", True)
     assert events == [
@@ -262,46 +262,29 @@ def test_run_api_agent_closes_resources_after_generate_failure(
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result.ok is False
     assert "RuntimeError: model failed" in result.error
     assert events == ["generate", "agent_close", "connector_close"]
 
 
-def test_run_api_agent_wall_clock_timeout_interrupts_blocked_generate(
+def test_run_api_agent_timeout_terminates_blocked_worker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    events: list[str] = []
-
-    class FakeAgent:
-        async def generate(self, prompt: str) -> str:
-            events.append("generate_start")
-            time.sleep(1)
-            return "Verdict: PASS"
-
-        async def close(self) -> None:
-            events.append("agent_close")
-
-    def fake_create_agent(family: str, *, name: str, role: str) -> FakeAgent:
-        return FakeAgent()
-
-    async def fake_close_shared_connector() -> None:
-        events.append("connector_close")
-
-    import aragora.agents
-    from aragora.agents.api_agents import common
-
     monkeypatch.setattr(qe, "_REVIEWER_TIMEOUT", 0.05)
     monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 0.01)
-    monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
-    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    def blocked_worker(family: str, prompt: str) -> ReviewerResult:
+        time.sleep(1)
+        return ReviewerResult(family, "Verdict: PASS", True)
+
+    monkeypatch.setattr(qe, "_run_api_agent_in_current_process", blocked_worker, raising=False)
 
     result = qe._run_api_agent("grok", "review prompt")
 
     assert result.ok is False
     assert "timed out" in result.error
-    assert events == ["generate_start", "agent_close", "connector_close"]
 
 
 def test_api_agent_cleanup_does_not_hang_on_stuck_agent_close(
@@ -376,7 +359,7 @@ def test_run_api_agent_closes_shared_connector_after_agent_close_failure(
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result == ReviewerResult("grok", "Verdict: PASS", True)
     assert events == ["generate", "agent_close", "connector_close"]
@@ -404,7 +387,7 @@ def test_run_api_agent_closes_shared_connector_without_agent_close(
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result == ReviewerResult("grok", "Verdict: PASS", True)
     assert events == ["generate", "connector_close"]
@@ -433,7 +416,7 @@ def test_run_api_agent_supports_sync_agent_close(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result == ReviewerResult("grok", "Verdict: PASS", True)
     assert events == ["generate", "agent_close", "connector_close"]
@@ -465,7 +448,7 @@ def test_run_api_agent_keeps_result_when_shared_connector_close_fails(
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result == ReviewerResult("grok", "Verdict: PASS", True)
     assert events == ["generate", "agent_close", "connector_close"]
@@ -497,8 +480,8 @@ def test_run_api_agent_allows_consecutive_one_shot_calls(
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    first = qe._run_api_agent("grok", "one")
-    second = qe._run_api_agent("grok", "two")
+    first = qe._run_api_agent_in_current_process("grok", "one")
+    second = qe._run_api_agent_in_current_process("grok", "two")
 
     assert first == ReviewerResult("grok", "Verdict: PASS one", True)
     assert second == ReviewerResult("grok", "Verdict: PASS two", True)
