@@ -79,6 +79,15 @@ def fetch_issue_metadata(
             ],
             runner=runner,
         )
+        payload_number = payload.get("number")
+        if (
+            not isinstance(payload_number, int)
+            or isinstance(payload_number, bool)
+            or payload_number != issue_number
+        ):
+            raise RuntimeError(
+                f"issue metadata number mismatch: requested {issue_number}, got {payload_number!r}"
+            )
         labels: list[str] = []
         for label in list(payload.get("labels") or []):
             if isinstance(label, dict):
@@ -88,7 +97,7 @@ def fetch_issue_metadata(
             if label_name:
                 labels.append(label_name)
         metadata[issue_number] = {
-            "number": int(payload.get("number") or issue_number),
+            "number": payload_number,
             "state": str(payload.get("state") or "").strip().upper(),
             "labels": labels,
             "title": str(payload.get("title") or "").strip(),

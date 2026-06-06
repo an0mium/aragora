@@ -50,6 +50,29 @@ def test_filter_open_issue_numbers_only_keeps_open_issues() -> None:
     ) == [1001, 1003]
 
 
+def test_fetch_issue_metadata_rejects_wrong_issue_number() -> None:
+    def runner(
+        cmd: list[str],
+        *,
+        capture_output: bool,
+        text: bool,
+        check: bool,
+        cwd: str | None = None,
+    ) -> SimpleNamespace:
+        del cmd, capture_output, text, check, cwd
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({"number": 9999, "state": "OPEN"}),
+            stderr="",
+        )
+
+    with pytest.raises(
+        RuntimeError,
+        match="issue metadata number mismatch: requested 1001, got 9999",
+    ):
+        mod.fetch_issue_metadata("synaptent/aragora", [1001], runner=runner)
+
+
 def test_build_boss_loop_command_uses_explicit_issue_list_contract() -> None:
     command = mod.build_boss_loop_command(
         repo="synaptent/aragora",
