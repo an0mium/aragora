@@ -1794,8 +1794,27 @@ def cmd_processes(args: argparse.Namespace) -> int:
     return 0
 
 
+def _health_summary_payload(
+    issues: list[dict[str, str]], *, example_limit: int = 3
+) -> dict[str, Any]:
+    issue_type_counts: dict[str, int] = {}
+    for issue in issues:
+        issue_type = str(issue.get("type") or "unknown")
+        issue_type_counts[issue_type] = issue_type_counts.get(issue_type, 0) + 1
+    examples = issues[: max(0, example_limit)]
+    return {
+        "ok": len(issues) == 0,
+        "issue_count": len(issues),
+        "issue_type_counts": dict(sorted(issue_type_counts.items())),
+        "issue_examples": examples,
+        "issues_omitted": max(0, len(issues) - len(examples)),
+        "details_omitted": True,
+    }
+
+
 def cmd_health(args: argparse.Namespace) -> int:
     """Report stale worktrees, ambiguous lane ownership, and dead sessions."""
+    summary_only = bool(getattr(args, "summary_only", False))
     sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state()
     _enrich_prs(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
@@ -1828,8 +1847,22 @@ def cmd_health(args: argparse.Namespace) -> int:
         pass
 
     if args.json:
+        if summary_only:
+            print(json.dumps(_health_summary_payload(issues), indent=2))
+            return 0 if not issues else 1
         print(json.dumps({"ok": len(issues) == 0, "issues": issues}, indent=2))
         return 0 if not issues else 1
+
+    if summary_only:
+        payload = _health_summary_payload(issues)
+        if not issues:
+            print("Health OK: 0 issue(s).")
+            return 0
+        issue_counts = ", ".join(
+            f"{issue_type}={count}" for issue_type, count in payload["issue_type_counts"].items()
+        )
+        print(f"Health has {payload['issue_count']} issue(s): {issue_counts}")
+        return 1
 
     if not issues:
         print("Health OK: no stale worktrees, no lane conflicts.")
@@ -2733,6 +2766,10 @@ def main() -> int:
     sub.add_parser("tmux-map", parents=[json_parent], help="Show tmux panes")
     sub.add_parser(
         "health", parents=[json_parent], help="Check for stale worktrees and lane conflicts"
+    ).add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact health counts and bounded examples for automation probes.",
     )
     gc_p = sub.add_parser(
         "gc",
