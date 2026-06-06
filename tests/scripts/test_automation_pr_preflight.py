@@ -65,6 +65,63 @@ def test_automation_pr_preflight_json_accepts_docs_diff(tmp_path: Path) -> None:
     assert payload["suggested_validation_commands"] == []
 
 
+def test_automation_pr_preflight_rejects_stale_next_steps_proof_copy(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/stale-next-steps-proof"], cwd=repo)
+    next_steps = repo / "docs" / "status" / "NEXT_STEPS_CANONICAL.md"
+    next_steps.parent.mkdir(parents=True)
+    next_steps.write_text(
+        "\n".join(
+            [
+                "# Next Steps",
+                "",
+                "Current May 28 proof-loop state",
+                "truth_success_rate_verified over five verified entries",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    _run(["git", "add", "docs/status/NEXT_STEPS_CANONICAL.md"], cwd=repo)
+    _run(["git", "commit", "-m", "docs: refresh next steps"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 1
+    assert "stale proof-loop percentages" in proc.stderr
+
+
+def test_automation_pr_preflight_accepts_live_next_steps_proof_refs(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/live-next-steps-proof"], cwd=repo)
+    next_steps = repo / "docs" / "status" / "NEXT_STEPS_CANONICAL.md"
+    next_steps.parent.mkdir(parents=True)
+    next_steps.write_text(
+        "\n".join(
+            [
+                "# Next Steps",
+                "",
+                "Current proof-loop state is delegated to live proof surfaces.",
+                "- docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+                "- docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    _run(["git", "add", "docs/status/NEXT_STEPS_CANONICAL.md"], cwd=repo)
+    _run(["git", "commit", "-m", "docs: refresh next steps"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    assert "preflight: ok" in proc.stdout
+
+
 def test_automation_pr_preflight_rejects_worker_artifacts(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     _run(["git", "switch", "-c", "codex/bad-artifact"], cwd=repo)
