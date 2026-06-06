@@ -166,12 +166,19 @@ def _check_directory_freshness(
 ) -> SurfaceCheck:
     """Build a SurfaceCheck for a directory containing dated artifacts."""
     if not directory.exists():
+        status = STATUS_MISSING
+        missing_extra: dict[str, object] = {}
+        if informational and directory.parent.exists():
+            if max_status is not None and _SEVERITY_RANK[status] > _SEVERITY_RANK[max_status]:
+                status = max_status
+            missing_extra["informational"] = True
         return SurfaceCheck(
             name=name,
-            status=STATUS_MISSING,
+            status=status,
             count=0,
             path=str(directory),
             detail=f"directory does not exist: {directory}",
+            extra=missing_extra,
         )
     newest_path, newest_mtime, count = _newest_in_dir(directory, glob=glob)
     if count == 0:
