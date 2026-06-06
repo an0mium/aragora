@@ -476,6 +476,28 @@ def test_collect_low_tier_apply_posts_both() -> None:
     assert len(posted) == 2
 
 
+def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
+    fakes, posted = _fakes(tier=1)
+    calls: list[tuple[str, int, int]] = []
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        calls.append((repo, pr, len(posted)))
+        return {"should_rerun": True, "run_id": 123, "applied": True}
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert calls == [("o/r", 1, 2)]
+    assert outcome.quorum_rerun == {"should_rerun": True, "run_id": 123, "applied": True}
+
+
 def test_collect_high_tier_apply_never_posts() -> None:
     fakes, posted = _fakes(tier=4)
     outcome = collect_evidence(
