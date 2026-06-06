@@ -139,6 +139,9 @@ def score_fixtures(fixtures_dir: Path) -> tuple[bool, str]:
         for err in file_errors:
             lines.append(err)
 
+    if total_examples == 0:
+        return False, f"ERROR: no benchmark examples found in {fixtures_dir}"
+
     # Aggregate summary
     all_passed = total_fail == 0
     summary_status = "PASS" if all_passed else "FAIL"
