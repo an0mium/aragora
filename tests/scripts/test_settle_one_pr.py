@@ -127,6 +127,23 @@ def test_run_reports_timeout_and_terminates_process_group(monkeypatch) -> None:
     assert killed == [(4242, settle_one_pr.signal.SIGKILL)]
 
 
+def test_run_reports_process_start_failure(monkeypatch) -> None:
+    def fake_popen(*args, **kwargs):
+        assert args[0] == ["missing-helper"]
+        assert kwargs["start_new_session"] is True
+        raise FileNotFoundError("missing-helper")
+
+    monkeypatch.setattr(settle_one_pr.subprocess, "Popen", fake_popen)
+
+    result = settle_one_pr._run(["missing-helper"], cwd=Path.cwd(), timeout=7)
+
+    assert result["returncode"] == 127
+    assert result["start_failed"] is True
+    assert result["stdout"] == ""
+    assert "command failed to start" in result["stderr"]
+    assert "missing-helper" in result["stderr"]
+
+
 def test_select_candidate_prefers_admin_order() -> None:
     unauthorized = _entry(1001)
     authorized = _entry(
