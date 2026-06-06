@@ -19,8 +19,11 @@ from aragora.swarm.merge_quorum_io import (
 )
 from aragora.swarm.merge_quorum_reconcile import (
     EvidenceComment,
+    PacketClassification,
     QuorumRun,
     counted_reviewer_ids,
+    guard_rerun_classification_divergence,
+    parse_ci_packet_classification,
     parse_iso8601,
     plan_rerun,
     summarize_settlement,
@@ -152,6 +155,88 @@ class TestPlanRerun:
         )
         assert decision.should_rerun is False
         assert "unparseable" in decision.reason
+
+    def test_classification_divergence_blocks_wasted_rerun(self) -> None:
+        decision = self._call()
+        ci_packet = PacketClassification(
+            source="ci",
+            pr_number=7754,
+            head_sha="abc123",
+            tier=4,
+            status="human_preapproval_required",
+            verdict="tier_4_human_preapproval_required",
+            requires_human_risk_settlement=True,
+        )
+        local_packet = PacketClassification(
+            source="local",
+            pr_number=7754,
+            head_sha="abc123",
+            tier=2,
+            status="repair_or_wait",
+            verdict="not_ready_for_settlement",
+            requires_human_risk_settlement=False,
+        )
+
+        guarded = guard_rerun_classification_divergence(
+            decision,
+            ci_packet=ci_packet,
+            local_packet=local_packet,
+            head_sha="abc123",
+        )
+
+        assert guarded.should_rerun is False
+        assert "classification_divergence" in guarded.reason
+        assert "CI packet: ci: head=abc123 tier=4" in guarded.next_prompt
+        assert "Local packet: local: head=abc123 tier=2" in guarded.next_prompt
+
+    def test_status_only_packet_difference_keeps_rerun_allowed(self) -> None:
+        decision = self._call()
+        ci_packet = PacketClassification(
+            source="ci",
+            pr_number=7754,
+            head_sha="abc123",
+            tier=2,
+            status="needs_model_review_quorum",
+            verdict="collect_model_quorum_before_merge",
+            requires_human_risk_settlement=False,
+        )
+        local_packet = PacketClassification(
+            source="local",
+            pr_number=7754,
+            head_sha="abc123",
+            tier=2,
+            status="repair_or_wait",
+            verdict="not_ready_for_settlement",
+            requires_human_risk_settlement=False,
+        )
+
+        guarded = guard_rerun_classification_divergence(
+            decision,
+            ci_packet=ci_packet,
+            local_packet=local_packet,
+            head_sha="abc123",
+        )
+
+        assert guarded.should_rerun is True
+        assert guarded.reason == decision.reason
+
+
+def test_parse_ci_packet_classification_from_quorum_log() -> None:
+    packet = parse_ci_packet_classification(
+        "\n".join(
+            [
+                "noise",
+                "aragora-merge-quorum\tEvaluate merge quorum\tPR #7754 | Tier 4 | status=human_preapproval_required | verdict=tier_4_human_preapproval_required",
+            ]
+        ),
+        pr_number=7754,
+        head_sha="abc123",
+    )
+
+    assert packet is not None
+    assert packet.pr_number == 7754
+    assert packet.tier == 4
+    assert packet.requires_human_risk_settlement is True
 
 
 class TestSummarizeSettlement:

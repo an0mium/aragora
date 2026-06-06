@@ -60,7 +60,7 @@ connectors = [
     "aio-pika>=9.6.2,<10.0",
 ]
 experimental = [
-    "playwright>=1.59.0,<2.0",
+    "playwright>=1.60.0,<2.0",
 ]
 dev = [
     "mypy>=2.1.0,<3.0",
@@ -79,7 +79,7 @@ all = [
     "supabase>=2.30.0,<3.0",
     "aiokafka>=0.14.0,<1.0",
     "aio-pika>=9.6.2,<10.0",
-    "playwright>=1.59.0,<2.0",
+    "playwright>=1.60.0,<2.0",
 ]
 
 [project.urls]

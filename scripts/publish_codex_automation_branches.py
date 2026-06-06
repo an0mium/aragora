@@ -1287,23 +1287,23 @@ def _existing_pr_number(repo_root: Path, repo: str, branch: str, base: str) -> i
     return int(number) if isinstance(number, int) else None
 
 
-def _create_pr(repo_root: Path, repo: str, branch: str, base: str) -> int:
+def _create_pr(repo_root: Path, repo: str, branch: str, base: str, *, draft: bool = False) -> int:
     github_base = _github_base_ref(base)
-    proc = _run(
-        [
-            "gh",
-            "pr",
-            "create",
-            "--repo",
-            repo,
-            "--base",
-            github_base,
-            "--head",
-            branch,
-            "--fill",
-        ],
-        cwd=repo_root,
-    )
+    command = [
+        "gh",
+        "pr",
+        "create",
+        "--repo",
+        repo,
+        "--base",
+        github_base,
+        "--head",
+        branch,
+        "--fill",
+    ]
+    if draft:
+        command.append("--draft")
+    proc = _run(command, cwd=repo_root)
     if proc.returncode != 0:
         raise RuntimeError(
             proc.stderr.strip() or proc.stdout.strip() or f"failed to create PR for {branch}"
@@ -1354,6 +1354,7 @@ def _publish_decisions(
     max_open_prs: int,
     labels: list[str],
     preflight_script: str | None = None,
+    draft: bool = False,
 ) -> list[dict[str, Any]]:
     _ensure_gh_auth(repo_root)
     results: list[dict[str, Any]] = []
@@ -1390,7 +1391,7 @@ def _publish_decisions(
             _push_branch(repo_root, decision.branch, decision.upstream)
             number = _existing_pr_number(repo_root, repo, decision.branch, base)
             if number is None:
-                number = _create_pr(repo_root, repo, decision.branch, base)
+                number = _create_pr(repo_root, repo, decision.branch, base, draft=draft)
             _add_labels(repo_root, repo, number, labels)
         except RuntimeError as exc:
             results.append(
@@ -1510,6 +1511,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--summary-only",
         action="store_true",
         help="With --json, omit verbose decision and open-PR detail lists.",
+    )
+    parser.add_argument(
+        "--draft",
+        action="store_true",
+        help="Create newly opened PRs as drafts.",
     )
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument(
@@ -1814,6 +1820,7 @@ def main(argv: list[str] | None = None) -> int:
                 max_open_prs=args.max_open_prs,
                 labels=list(dict.fromkeys(args.labels)),
                 preflight_script=None if args.skip_preflight else str(args.preflight_script),
+                draft=args.draft,
             )
             payload["published"] = published
 

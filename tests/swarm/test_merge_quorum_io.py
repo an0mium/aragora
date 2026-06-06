@@ -25,6 +25,48 @@ def test_fetch_pr_tier_reads_nested_entries(monkeypatch) -> None:
     assert m.fetch_pr_tier("o/r", 7742) == 4
 
 
+def test_fetch_merge_packet_classification_reads_semantic_fields(monkeypatch) -> None:
+    payload = {
+        "version": "merge_authorization_packet.v1",
+        "entries": [
+            {
+                "pr_number": 7754,
+                "head_sha": "abc123",
+                "tier": 2,
+                "status": "repair_or_wait",
+                "verdict": "not_ready_for_settlement",
+                "requires_human_risk_settlement": False,
+            }
+        ],
+    }
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(json.dumps(payload)))
+
+    packet = m.fetch_merge_packet_classification("o/r", 7754)
+
+    assert packet is not None
+    assert packet.pr_number == 7754
+    assert packet.head_sha == "abc123"
+    assert packet.tier == 2
+    assert packet.status == "repair_or_wait"
+    assert packet.verdict == "not_ready_for_settlement"
+    assert packet.requires_human_risk_settlement is False
+
+
+def test_fetch_quorum_run_packet_classification_parses_log(monkeypatch) -> None:
+    log = (
+        "PR #7754 | Tier 4 | status=human_preapproval_required | "
+        "verdict=tier_4_human_preapproval_required\n"
+    )
+    monkeypatch.setattr(m, "run", lambda *a, **k: _proc(log))
+
+    packet = m.fetch_quorum_run_packet_classification("o/r", run_id=123, pr=7754, head_sha="abc123")
+
+    assert packet is not None
+    assert packet.source == "ci"
+    assert packet.tier == 4
+    assert packet.requires_human_risk_settlement is True
+
+
 def test_fetch_pr_tier_filters_by_pr_number(monkeypatch) -> None:
     # A multi-PR envelope must resolve the requested PR, never the first row.
     payload = {"entries": [{"pr_number": 111, "tier": 1}, {"pr_number": 7742, "tier": 4}]}

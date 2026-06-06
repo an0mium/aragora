@@ -155,6 +155,30 @@ def _run_text(command: list[str], command_runner: CommandRunner) -> dict[str, An
     }
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull_fd, sys.stdout.fileno())
+        finally:
+            os.close(devnull_fd)
+    except Exception:
+        try:
+            sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        except OSError:
+            pass
+
+
+def _emit_stdout(text: str) -> bool:
+    try:
+        sys.stdout.write(text)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+        return False
+    return True
+
+
 def _has_unresolved_operator_choice_placeholder(prompt: str) -> bool:
     normalized = prompt.lower()
     return any(marker.lower() in normalized for marker in UNRESOLVED_OPERATOR_CHOICE_MARKERS)
@@ -1513,7 +1537,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             branch=args.branch,
         )
     if args.json:
-        print(
+        _emit_stdout(
             json.dumps(
                 {
                     "prompt": prompt,
@@ -1523,11 +1547,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 indent=2,
                 sort_keys=True,
             )
+            + "\n"
         )
     elif args.settlement_guard:
-        print(guard_prompt or "", end="")
+        _emit_stdout(guard_prompt or "")
     else:
-        print(prompt, end="")
+        _emit_stdout(prompt)
     return 0
 
 

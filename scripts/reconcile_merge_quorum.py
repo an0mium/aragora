@@ -39,13 +39,16 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.swarm.merge_quorum_io import (  # noqa: E402
     fetch_evidence_comments,
     fetch_latest_quorum_run,
+    fetch_merge_packet_classification,
     fetch_pr_context,
+    fetch_quorum_run_packet_classification,
     list_open_prs,
     run,
 )
 from aragora.swarm.merge_quorum_reconcile import (  # noqa: E402
     QuorumRun,
     RerunDecision,
+    guard_rerun_classification_divergence,
     parse_iso8601,
     plan_rerun,
 )
@@ -131,6 +134,17 @@ def evaluate_pr(
         max_reruns_per_head=max_reruns,
         has_real_required_failure=ctx["has_real_required_failure"],
     )
+    if decision.should_rerun and quorum_run is not None:
+        ci_packet = fetch_quorum_run_packet_classification(
+            repo, run_id=quorum_run.run_id, pr=pr, head_sha=head_sha
+        )
+        local_packet = fetch_merge_packet_classification(repo, pr)
+        decision = guard_rerun_classification_divergence(
+            decision,
+            ci_packet=ci_packet,
+            local_packet=local_packet,
+            head_sha=head_sha,
+        )
     return decision, quorum_run
 
 
@@ -187,6 +201,8 @@ def main(argv: list[str] | None = None) -> int:
             "run_id": decision.run_id,
             "applied": False,
         }
+        if decision.next_prompt:
+            record["next_prompt"] = decision.next_prompt
         if decision.should_rerun and args.apply and quorum_run is not None:
             if execute_rerun(args.repo, quorum_run.run_id):
                 record["applied"] = True

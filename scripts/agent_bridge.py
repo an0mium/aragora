@@ -90,6 +90,12 @@ DEFAULT_STALE_TTL_HOURS = 24
 HEARTBEAT_FRESH_SECONDS = 15 * 60
 DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"
+RESOLVED_STEERING_OUTCOMES = {
+    "obeyed",
+    "stale",
+    "superseded",
+    "completed",
+}
 DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS = 5.0
 
 
@@ -1860,9 +1866,12 @@ def _collect_pending_steering_messages(
 
         scoped:
           {count: int, latest_three: [{subject, sent_at_utc, priority,
-                                        lane_id_hint, pr_hint}]}
+                                        lane_id_hint, pr_hint}],
+           unresolved_count: int, latest_unresolved_three: [...]}
         roll-up:
-          {count: int, by_recipient: {<session>: int}, latest_three: [...]}
+          {count: int, by_recipient: {<session>: int}, latest_three: [...],
+           unresolved_count: int, unresolved_by_recipient: {<session>: int},
+           latest_unresolved_three: [...]}
 
     Acknowledged messages live in the per-recipient ``_acked/`` subdir
     (Phase D convention; the directory name starts with ``_`` so this
@@ -1874,8 +1883,29 @@ def _collect_pending_steering_messages(
         steering_root = REPO_ROOT / ".aragora" / "operator-steering"
     if not steering_root.is_dir():
         if session_name:
-            return {"count": 0, "latest_three": []}
-        return {"count": 0, "by_recipient": {}, "latest_three": []}
+            return {
+                "count": 0,
+                "latest_three": [],
+                "unresolved_count": 0,
+                "latest_unresolved_three": [],
+            }
+        return {
+            "count": 0,
+            "by_recipient": {},
+            "latest_three": [],
+            "unresolved_count": 0,
+            "unresolved_by_recipient": {},
+            "latest_unresolved_three": [],
+        }
+
+    def _message_key(path: Path) -> tuple[str, str]:
+        try:
+            message = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            message = {}
+        if not isinstance(message, dict):
+            message = {}
+        return (path.name, str(message.get("message_sha256") or ""))
 
     def _summary_from(path: Path) -> dict[str, Any]:
         try:
@@ -1911,17 +1941,24 @@ def _collect_pending_steering_messages(
         # consumed messages per the Phase D convention.
         return [p for p in dir_path.glob("*.json") if p.is_file()]
 
-    def _read_receipt_summary(dir_path: Path, files: list[Path]) -> dict[str, Any]:
+    def _read_receipt_summary(
+        dir_path: Path,
+        files: list[Path],
+    ) -> tuple[dict[str, Any], set[tuple[str, str]]]:
         receipt_dir = dir_path / "_read_receipts"
         if not receipt_dir.is_dir():
-            return {
-                "read_receipt_count": 0,
-                "unread_message_count": len(files),
-                "latest_read_receipt": None,
-            }
+            return (
+                {
+                    "read_receipt_count": 0,
+                    "unread_message_count": len(files),
+                    "latest_read_receipt": None,
+                },
+                set(),
+            )
 
         receipts: list[dict[str, Any]] = []
         read_keys: set[tuple[str, str]] = set()
+        resolved_keys: set[tuple[str, str]] = set()
         for receipt_path in receipt_dir.glob("*.json"):
             if not receipt_path.is_file():
                 continue
@@ -1933,22 +1970,17 @@ def _collect_pending_steering_messages(
                 continue
             data["_receipt_filename"] = receipt_path.name
             receipts.append(data)
-            read_keys.add(
-                (
-                    str(data.get("message_filename") or ""),
-                    str(data.get("message_sha256") or ""),
-                )
+            key = (
+                str(data.get("message_filename") or ""),
+                str(data.get("message_sha256") or ""),
             )
+            read_keys.add(key)
+            if str(data.get("outcome") or "").strip().lower() in RESOLVED_STEERING_OUTCOMES:
+                resolved_keys.add(key)
 
         unread = 0
         for message_path in files:
-            try:
-                message = json.loads(message_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                message = {}
-            if not isinstance(message, dict):
-                message = {}
-            key = (message_path.name, str(message.get("message_sha256") or ""))
+            key = _message_key(message_path)
             if key not in read_keys:
                 unread += 1
 
@@ -1965,54 +1997,85 @@ def _collect_pending_steering_messages(
                 "outcome": raw.get("outcome"),
                 "subject": raw.get("subject"),
             }
-        return {
-            "read_receipt_count": len(receipts),
-            "unread_message_count": unread,
-            "latest_read_receipt": latest,
-        }
+        return (
+            {
+                "read_receipt_count": len(receipts),
+                "unread_message_count": unread,
+                "latest_read_receipt": latest,
+            },
+            resolved_keys,
+        )
+
+    def _unresolved_files(files: list[Path], resolved_keys: set[tuple[str, str]]) -> list[Path]:
+        return [
+            message_path
+            for message_path in files
+            if _message_key(message_path) not in resolved_keys
+        ]
 
     if session_name:
         inbox_dir = steering_root / session_name
         files = _inbox_files(inbox_dir)
+        receipt_summary, resolved_keys = _read_receipt_summary(inbox_dir, files)
+        unresolved_files = _unresolved_files(files, resolved_keys)
         summaries = sorted(
             (_summary_from(p) for p in files),
+            key=lambda s: s["sent_at_utc"],
+            reverse=True,
+        )
+        unresolved_summaries = sorted(
+            (_summary_from(p) for p in unresolved_files),
             key=lambda s: s["sent_at_utc"],
             reverse=True,
         )
         return {
             "count": len(files),
             "latest_three": summaries[:3],
-            **_read_receipt_summary(inbox_dir, files),
+            "unresolved_count": len(unresolved_files),
+            "latest_unresolved_three": unresolved_summaries[:3],
+            **receipt_summary,
         }
 
     # Roll-up across all recipient dirs.
     by_recipient: dict[str, int] = {}
+    unresolved_by_recipient: dict[str, int] = {}
     read_receipts_by_recipient: dict[str, int] = {}
     all_summaries: list[dict[str, Any]] = []
+    all_unresolved_summaries: list[dict[str, Any]] = []
     total_read_receipts = 0
     total_unread = 0
+    total_unresolved = 0
     latest_receipts: list[dict[str, Any]] = []
     for child in sorted(steering_root.iterdir()):
         if not child.is_dir() or child.name.startswith("."):
             continue
         files = _inbox_files(child)
+        receipt_summary, resolved_keys = _read_receipt_summary(child, files)
+        unresolved_files = _unresolved_files(files, resolved_keys)
         if files:
             by_recipient[child.name] = len(files)
             all_summaries.extend(_summary_from(p) for p in files)
-        receipt_summary = _read_receipt_summary(child, files)
+        if unresolved_files:
+            unresolved_by_recipient[child.name] = len(unresolved_files)
+            all_unresolved_summaries.extend(_summary_from(p) for p in unresolved_files)
         total_read_receipts += int(receipt_summary["read_receipt_count"])
         total_unread += int(receipt_summary["unread_message_count"])
+        total_unresolved += len(unresolved_files)
         if receipt_summary["read_receipt_count"]:
             read_receipts_by_recipient[child.name] = int(receipt_summary["read_receipt_count"])
         latest = receipt_summary["latest_read_receipt"]
         if isinstance(latest, dict):
             latest_receipts.append(latest)
     all_summaries.sort(key=lambda s: s["sent_at_utc"], reverse=True)
+    all_unresolved_summaries.sort(key=lambda s: s["sent_at_utc"], reverse=True)
     latest_receipts.sort(key=lambda r: str(r.get("read_at_utc") or ""), reverse=True)
     return {
         "count": sum(by_recipient.values()),
         "by_recipient": by_recipient,
         "latest_three": all_summaries[:3],
+        "unresolved_count": total_unresolved,
+        "unresolved_by_recipient": unresolved_by_recipient,
+        "latest_unresolved_three": all_unresolved_summaries[:3],
         "read_receipt_count": total_read_receipts,
         "unread_message_count": total_unread,
         "read_receipts_by_recipient": read_receipts_by_recipient,
@@ -2107,8 +2170,9 @@ def _collect_agent_heartbeats(
 
 
 def _operator_pending_steering_count(pending_steering: dict[str, Any]) -> int:
+    key = "unresolved_count" if "unresolved_count" in pending_steering else "count"
     try:
-        return max(0, int(pending_steering.get("count", 0)))
+        return max(0, int(pending_steering.get(key, 0)))
     except (TypeError, ValueError):
         return 0
 
@@ -2140,7 +2204,10 @@ def _operator_recent_blockers(
 ) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     if _operator_pending_steering_count(pending_steering):
-        for message in pending_steering.get("latest_three", []):
+        messages = pending_steering.get("latest_unresolved_three")
+        if messages is None:
+            messages = pending_steering.get("latest_three", [])
+        for message in messages:
             if not isinstance(message, dict):
                 continue
             blockers.append(

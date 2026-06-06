@@ -5,12 +5,17 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK_DIR="${TMPDIR:-/tmp}/com.aragora.codex-automation-publisher.lock"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export CODEX_HOME="${CODEX_HOME:-${HOME}/.codex}"
+PYTHON_BIN="${ARAGORA_AUTOMATION_PYTHON:-python3}"
 HANDOFF_LIMIT="${ARAGORA_AUTOMATION_HANDOFF_LIMIT:-2}"
 MAX_OPEN_ISSUES="${ARAGORA_AUTOMATION_MAX_OPEN_ISSUES:-16}"
 BRANCH_LIMIT="${ARAGORA_AUTOMATION_BRANCH_PUBLISH_LIMIT:-2}"
 MAX_OPEN_PRS="${ARAGORA_AUTOMATION_MAX_OPEN_PRS:-12}"
 BRANCH_SCAN_LIMIT="${ARAGORA_AUTOMATION_BRANCH_SCAN_LIMIT:-40}"
 ALLOW_UNHEALTHY_QUEUE_PUBLISH="${ARAGORA_AUTOMATION_ALLOW_UNHEALTHY_QUEUE_PUBLISH:-false}"
+VALUE_DRAIN="${ARAGORA_AUTOMATION_VALUE_DRAIN:-0}"
+VALUE_DRAIN_BRANCH_LIMIT="${ARAGORA_AUTOMATION_VALUE_BRANCH_LIMIT:-2}"
+VALUE_DRAIN_ISSUE_LIMIT="${ARAGORA_AUTOMATION_VALUE_ISSUE_LIMIT:-4}"
+VALUE_DRAIN_MERGE_LIMIT="${ARAGORA_AUTOMATION_VALUE_MERGE_LIMIT:-1}"
 export ARAGORA_AUTOMATION_MIN_FREE_GIB="${ARAGORA_AUTOMATION_MIN_FREE_GIB:-50}"
 export ARAGORA_AUTOMATION_CODEX_RSS_MAX_GIB="${ARAGORA_AUTOMATION_CODEX_RSS_MAX_GIB:-25}"
 export ARAGORA_AUTOMATION_SPEND_DAILY_CAP_USD="${ARAGORA_AUTOMATION_SPEND_DAILY_CAP_USD:-200}"
@@ -75,6 +80,36 @@ fi
 
 if ! git fetch --no-write-fetch-head --prune origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1; then
   echo "$(STAMP) [codex-automation-publisher] origin refresh failed; continuing with cached refs"
+fi
+
+if [[ "${VALUE_DRAIN}" == "1" || "${VALUE_DRAIN}" == "true" || "${VALUE_DRAIN}" == "yes" ]]; then
+  echo "$(STAMP) [codex-automation-publisher] starting authenticated value drain"
+  if ! repo_root_available; then
+    echo "$(STAMP) [codex-automation-publisher] repo root unavailable; skipping authenticated value drain"
+    echo "$(STAMP) [codex-automation-publisher] publish pass complete"
+    exit 0
+  fi
+  if "${PYTHON_BIN}" scripts/drain_codex_automation_value.py \
+    --repo "${REPO_ROOT}" \
+    --state-root "${AUTOMATION_STATE_ROOT}" \
+    --outbox-dir "${HANDOFF_OUTBOX_DIR}" \
+    --receipt-dir "${HANDOFF_RECEIPT_DIR}" \
+    --apply \
+    --branch-limit "${VALUE_DRAIN_BRANCH_LIMIT}" \
+    --issue-limit "${VALUE_DRAIN_ISSUE_LIMIT}" \
+    --merge-limit "${VALUE_DRAIN_MERGE_LIMIT}" \
+    --max-open-prs "${MAX_OPEN_PRS}" \
+    --max-open-issues "${MAX_OPEN_ISSUES}" \
+    --branch-scan-limit "${BRANCH_SCAN_LIMIT}" \
+    --json; then
+    echo "$(STAMP) [codex-automation-publisher] authenticated value drain complete"
+  else
+    rc=$?
+    echo "$(STAMP) [codex-automation-publisher] authenticated value drain failed (exit ${rc})"
+    exit "${rc}"
+  fi
+  echo "$(STAMP) [codex-automation-publisher] publish pass complete"
+  exit 0
 fi
 
 echo "$(STAMP) [codex-automation-publisher] starting branch publish pass"
