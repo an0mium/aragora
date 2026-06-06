@@ -2141,6 +2141,8 @@ def test_main_summary_only_limits_github_ready_decision_preview(
     assert payload["decision_count"] == 1
     assert payload["decision_omitted_count"] == 2
     assert payload["decisions_truncated"] is True
+    assert payload["outbox_preview_limited"] is True
+    assert payload["outbox_preview_limit"] == 1
     assert payload["decision_summary"] == {
         "total": 1,
         "eligible_count": 1,
@@ -2257,6 +2259,8 @@ def test_main_summary_only_limits_outbox_loading(monkeypatch: Any, tmp_path: Pat
     assert captured["max_handoffs"] == 1
     payload = json.loads(capsys.readouterr().out)
     assert payload["decision_count"] == 1
+    assert payload["outbox_preview_limited"] is True
+    assert payload["outbox_preview_limit"] == 1
 
 
 def test_main_summary_only_reports_outbox_files_skipped_before_publish(

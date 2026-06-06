@@ -147,7 +147,7 @@ def _mute_stdout_after_broken_pipe() -> None:
             os.dup2(devnull_fd, sys.stdout.fileno())
         finally:
             os.close(devnull_fd)
-    except Exception:
+    except (AttributeError, OSError, ValueError):
         try:
             sys.stdout = open(os.devnull, "w", encoding="utf-8")
         except OSError:
@@ -1550,6 +1550,7 @@ def main(argv: list[str] | None = None) -> int:
     labels = list(dict.fromkeys(args.labels))
     automation_ids = set(args.automation_ids or DEFAULT_AUTOMATION_IDS)
     memory_handoffs = load_handoffs(codex_home, automation_ids=automation_ids)
+    outbox_preview_limit = None
     if args.no_outbox:
         outbox_handoffs = []
         outbox_skipped_reason_counts: Counter[str] = Counter()
@@ -1603,6 +1604,8 @@ def main(argv: list[str] | None = None) -> int:
             "outbox_handoff_count": len(outbox_handoffs),
             "outbox_skipped_count": outbox_skipped_count,
             "outbox_skipped_reason_counts": outbox_skipped_reason_counts_payload,
+            "outbox_preview_limited": outbox_preview_limit is not None,
+            "outbox_preview_limit": outbox_preview_limit,
             "handoff_count": len(handoffs),
             "github_health": github_health.to_dict(),
             "decisions": [asdict(item) for item in decisions],
@@ -1667,6 +1670,8 @@ def main(argv: list[str] | None = None) -> int:
         "outbox_handoff_count": len(outbox_handoffs),
         "outbox_skipped_count": outbox_skipped_count,
         "outbox_skipped_reason_counts": outbox_skipped_reason_counts_payload,
+        "outbox_preview_limited": outbox_preview_limit is not None,
+        "outbox_preview_limit": outbox_preview_limit,
         "handoff_count": len(handoffs),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(item) for item in results],
