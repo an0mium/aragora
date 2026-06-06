@@ -28,6 +28,7 @@ PermissionChecker = Callable[[str], bool]
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
 HUMAN_SETTLEMENT_STATUS_BLOCKER = f"missing or unsuccessful {HUMAN_SETTLEMENT_CONTEXT} status"
 MERGE_QUORUM_CONTEXT = "aragora-merge-quorum"
+MERGE_QUORUM_SETTLE_ONLY_RED_STATES = {"ERROR", "FAIL", "FAILED", "FAILURE"}
 OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comment"
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER = "trusted operator allowlist is required for --settle-only"
@@ -503,6 +504,69 @@ def _required_check_state(check: dict[str, Any]) -> str:
     return str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
 
 
+def _repo_visible_settlement_comment_is_present(
+    pr_view: dict[str, Any],
+    *,
+    pr: int,
+    head: str,
+    trusted_operator_logins: Sequence[str] | None = None,
+) -> bool:
+    report = authorization_diagnostics(
+        pr_view,
+        pr=pr,
+        head=head,
+        trusted_operator_logins=trusted_operator_logins,
+        permission_checker=lambda login: False,
+        evaluate_member_permissions=False,
+    )
+    return any(
+        isinstance(diagnostic, dict) and bool(diagnostic.get("accepted"))
+        for diagnostic in report.get("authorization_diagnostics", [])
+    )
+
+
+def _settlement_signal_is_missing_for_settle_only(
+    pr_view: dict[str, Any],
+    *,
+    pr: int,
+    head: str,
+    trusted_operator_logins: Sequence[str] | None = None,
+) -> bool:
+    return not _human_settlement_status_is_success(
+        pr_view
+    ) or not _repo_visible_settlement_comment_is_present(
+        pr_view,
+        pr=pr,
+        head=head,
+        trusted_operator_logins=trusted_operator_logins,
+    )
+
+
+def _failed_merge_quorum_is_allowed_for_settle_only(
+    check: dict[str, Any],
+    *,
+    pr: int,
+    expected_head: str,
+    pr_view: dict[str, Any],
+    merge_packet: dict[str, Any],
+    trusted_operator_logins: Sequence[str] | None = None,
+) -> bool:
+    if _required_check_name(check) != MERGE_QUORUM_CONTEXT:
+        return False
+    if _required_check_state(check) not in MERGE_QUORUM_SETTLE_ONLY_RED_STATES:
+        return False
+    if not _packet_marks_tier4_settlement_surface(merge_packet, pr=pr):
+        return False
+    if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
+        return False
+    return _settlement_signal_is_missing_for_settle_only(
+        pr_view,
+        pr=pr,
+        head=expected_head,
+        trusted_operator_logins=trusted_operator_logins,
+    )
+
+
 def evaluate_tier4_gate(
     *,
     pr: int,
@@ -629,7 +693,14 @@ def evaluate_tier4_settlement_preconditions(
         for check in required_checks:
             name = _required_check_name(check)
             state = _required_check_state(check)
-            if _state_is_success(state) or name == "aragora-merge-quorum":
+            if _state_is_success(state) or _failed_merge_quorum_is_allowed_for_settle_only(
+                check,
+                pr=pr,
+                expected_head=expected_head,
+                pr_view=pr_view,
+                merge_packet=merge_packet,
+                trusted_operator_logins=trusted_operator_logins,
+            ):
                 continue
             blockers.append(f"required check {name} is {state}")
 

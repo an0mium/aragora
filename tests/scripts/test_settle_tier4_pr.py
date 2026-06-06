@@ -878,6 +878,40 @@ def test_settle_only_posts_comment_and_status_without_merge(
     ]
 
 
+def test_settlement_preconditions_reject_failed_quorum_after_settlement_signal() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is False
+    assert "required check aragora-merge-quorum is FAILURE" in result["blockers"]
+
+
+def test_settlement_preconditions_allow_failed_quorum_when_comment_missing() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[]),
+        merge_packet=_tier4_packet(),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
 def test_settle_only_rejects_untrusted_invoking_login(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
