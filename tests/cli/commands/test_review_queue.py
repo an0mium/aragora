@@ -4754,6 +4754,38 @@ class TestCommandDispatch:
         assert "wrong_pr_reference" in payload["problems"]
         assert "no_counted_model_reviewer" in payload["problems"]
 
+    def test_evidence_lint_rejects_wrong_pr_url_reference(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "Evidence comment: https://github.com/synaptent/aragora/pull/9999"
+                    "#issuecomment-123\n"
+                    "Exact head reviewed: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Focused adversarial dogfood found no blockers."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_head_grounding_method"] == "head_sha_citation"
+        assert payload["current_pr_grounding_method"] == "wrong_pr_citation"
+        assert payload["dogfood_evidence"] == []
+        assert "wrong_pr_reference" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
     def test_evidence_lint_requires_head_sha_when_timestamp_omitted(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="evidence-lint",
