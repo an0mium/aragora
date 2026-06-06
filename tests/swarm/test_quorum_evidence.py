@@ -11,6 +11,9 @@ The compose helper is checked against the *real* evidence parser
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from types import SimpleNamespace
+
 import pytest
 
 from aragora.swarm import quorum_evidence as qe
@@ -496,6 +499,111 @@ def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts()
 
     assert calls == [("o/r", 1, 2)]
     assert outcome.quorum_rerun == {"should_rerun": True, "run_id": 123, "applied": True}
+
+
+def test_collect_records_quorum_reconciler_error_after_successful_posts() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        raise RuntimeError("rerun surface unavailable")
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert len(posted) == 2
+    assert sorted(outcome.posted) == ["claude", "grok"]
+    assert outcome.quorum_rerun == {"applied": False, "error": "rerun surface unavailable"}
+
+
+def test_collect_does_not_reconcile_when_no_evidence_was_posted() -> None:
+    fakes, posted = _fakes(tier=1, would_count=False)
+    calls: list[tuple[str, int]] = []
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        calls.append((repo, pr))
+        return {"applied": True}
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert posted == []
+    assert calls == []
+    assert outcome.quorum_rerun is None
+
+
+def test_default_quorum_reconciler_holds_lock_through_state_update(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    from scripts import reconcile_merge_quorum
+
+    events: list[str] = []
+    state: dict = {}
+
+    @contextmanager
+    def fake_lock(path):
+        events.append("lock-enter")
+        yield
+        events.append("lock-exit")
+
+    def load_state(path):
+        events.append("load")
+        return state
+
+    def evaluate_pr(repo, pr, *, now, state, cooldown_seconds, max_reruns):
+        events.append("evaluate")
+        assert repo == "o/r"
+        assert pr == 1
+        assert cooldown_seconds == qe.QUORUM_RERUN_COOLDOWN_SECONDS
+        assert max_reruns == qe.QUORUM_RERUN_MAX_PER_HEAD
+        decision = SimpleNamespace(
+            should_rerun=True,
+            reason="stale-success-after-new-evidence",
+            run_id=123,
+            next_prompt=None,
+        )
+        quorum_run = SimpleNamespace(run_id=123, head_sha="abc123")
+        return decision, quorum_run
+
+    def execute_rerun(repo, run_id):
+        events.append("execute")
+        assert (repo, run_id) == ("o/r", 123)
+        return True
+
+    def save_state(path, next_state):
+        events.append("save")
+        assert next_state["abc123"]["count"] == 1
+
+    monkeypatch.setattr(qe, "_locked_quorum_reconcile_state", fake_lock)
+    monkeypatch.setattr(reconcile_merge_quorum, "DEFAULT_STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(reconcile_merge_quorum, "_load_state", load_state)
+    monkeypatch.setattr(reconcile_merge_quorum, "evaluate_pr", evaluate_pr)
+    monkeypatch.setattr(reconcile_merge_quorum, "execute_rerun", execute_rerun)
+    monkeypatch.setattr(reconcile_merge_quorum, "_save_state", save_state)
+
+    record = qe.default_quorum_reconciler("o/r", 1)
+
+    assert record == {
+        "should_rerun": True,
+        "reason": "stale-success-after-new-evidence",
+        "run_id": 123,
+        "applied": True,
+    }
+    assert events == ["lock-enter", "load", "evaluate", "execute", "save", "lock-exit"]
 
 
 def test_collect_high_tier_apply_never_posts() -> None:
