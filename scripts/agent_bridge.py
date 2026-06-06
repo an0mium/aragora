@@ -2433,6 +2433,11 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         snapshot.pop("sessions")
         snapshot.pop("lanes")
         snapshot.pop("broker_runs")
+        snapshot["agent_heartbeats"] = {
+            "count": int(agent_heartbeats.get("count", 0)),
+            "fresh_count": int(agent_heartbeats.get("fresh_count", 0)),
+            "stale_count": int(agent_heartbeats.get("stale_count", 0)),
+        }
         snapshot["records_omitted"] = True
 
     if args.json:

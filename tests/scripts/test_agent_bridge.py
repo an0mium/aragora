@@ -403,6 +403,23 @@ def test_operator_snapshot_summary_only_json_omits_records(
             "by_role": {},
         },
     )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {
+            "count": 2,
+            "fresh_count": 1,
+            "stale_count": 1,
+            "latest_by_owner": {
+                "codex-owner": {
+                    "owner_session": "codex-owner",
+                    "cwd": "/tmp/large-detail",
+                    "worktree": "/tmp/large-detail",
+                    "last_seen_at": "2026-06-06T00:00:00Z",
+                }
+            },
+        },
+    )
 
     rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
 
@@ -418,6 +435,7 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert payload["summary"]["active_processes"] == 0
     assert payload["summary"]["active_process_roles"] == []
     assert payload["process_census"] == {"ok": True, "total": 0, "by_role": {}}
+    assert payload["agent_heartbeats"] == {"count": 2, "fresh_count": 1, "stale_count": 1}
     assert payload["health"] == {"ok": True, "issues": []}
     assert discover_include_summaries == [False]
 
