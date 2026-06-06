@@ -721,6 +721,102 @@ def test_main_rejects_stale_corpus_latest_payload_revision(tmp_path: Path) -> No
     assert not output_path.exists()
 
 
+def test_main_rejects_truth_latest_pointer_payload_divergence(tmp_path: Path) -> None:
+    corpus_path = _write_json(
+        tmp_path / "docs" / "benchmarks" / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 2,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+    truth_root = tmp_path / "docs" / "status" / "generated" / "benchmark_truth_artifacts"
+    scorecard_root = tmp_path / "docs" / "status" / "generated" / "benchmark_scorecards"
+    _write_json(
+        truth_root / "tw-01-bounded-execution-v1" / "latest.json",
+        _truth_payload(revision=2, generated_at="2026-04-14T20:00:00Z"),
+    )
+    _write_json(
+        truth_root / "tw-01-bounded-execution-v1" / "rev-2" / "latest.json",
+        _truth_payload(revision=2, generated_at="2026-04-14T20:30:00Z"),
+    )
+    _write_json(
+        scorecard_root / "tw-01-bounded-execution-v1" / "latest.json",
+        _scorecard_payload(revision=2),
+    )
+    _write_json(
+        scorecard_root / "tw-01-bounded-execution-v1" / "rev-2" / "latest.json",
+        _scorecard_payload(revision=2),
+    )
+    output_path = tmp_path / "docs" / "status" / "B0_BENCHMARK_TRUTH_STATUS.md"
+
+    with pytest.raises(SystemExit, match="truth artifact latest pointer mismatch"):
+        mod.main(
+            [
+                "--corpus",
+                str(corpus_path),
+                "--truth-root",
+                str(truth_root),
+                "--scorecard-root",
+                str(scorecard_root),
+                "--output",
+                str(output_path),
+            ]
+        )
+
+    assert not output_path.exists()
+
+
+def test_main_rejects_scorecard_latest_pointer_payload_divergence(tmp_path: Path) -> None:
+    corpus_path = _write_json(
+        tmp_path / "docs" / "benchmarks" / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 2,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+    truth_root = tmp_path / "docs" / "status" / "generated" / "benchmark_truth_artifacts"
+    scorecard_root = tmp_path / "docs" / "status" / "generated" / "benchmark_scorecards"
+    _write_json(
+        truth_root / "tw-01-bounded-execution-v1" / "latest.json",
+        _truth_payload(revision=2),
+    )
+    _write_json(
+        truth_root / "tw-01-bounded-execution-v1" / "rev-2" / "latest.json",
+        _truth_payload(revision=2),
+    )
+    _write_json(
+        scorecard_root / "tw-01-bounded-execution-v1" / "latest.json",
+        _scorecard_payload(revision=2, generated_at="2026-04-14T20:05:00Z"),
+    )
+    _write_json(
+        scorecard_root / "tw-01-bounded-execution-v1" / "rev-2" / "latest.json",
+        _scorecard_payload(revision=2, generated_at="2026-04-14T20:35:00Z"),
+    )
+    output_path = tmp_path / "docs" / "status" / "B0_BENCHMARK_TRUTH_STATUS.md"
+
+    with pytest.raises(SystemExit, match="scorecard latest pointer mismatch"):
+        mod.main(
+            [
+                "--corpus",
+                str(corpus_path),
+                "--truth-root",
+                str(truth_root),
+                "--scorecard-root",
+                str(scorecard_root),
+                "--output",
+                str(output_path),
+            ]
+        )
+
+    assert not output_path.exists()
+
+
 def test_repo_checked_in_benchmark_truth_surfaces_match_current_corpus(tmp_path: Path) -> None:
     corpus_path = mod.DEFAULT_CORPUS_PATH
     latest_paths = mod.resolve_latest_paths(
