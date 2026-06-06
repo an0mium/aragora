@@ -5,7 +5,7 @@ Provides send, approve, read, and lanes commands on top of the session
 inventory from agent_bridge_sessions.py (PR #5306).
 
 Usage:
-  python3 scripts/agent_bridge.py sessions [--json]
+  python3 scripts/agent_bridge.py sessions [--json] [--summary-only]
   python3 scripts/agent_bridge.py launch --name codex-review --agent codex --cwd .worktrees/review --file /tmp/prompt.md
   python3 scripts/agent_bridge.py exec --agent droid --auto high --cwd . --file /tmp/prompt.md
   python3 scripts/agent_bridge.py send <name> "Fix the LOC ratchet"
@@ -1357,9 +1357,95 @@ def _read_tmux_log(name: str, lines: int) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+def _count_by(values: list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        key = value or "unknown"
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _session_summary_payload(sessions: list[Session], *, limit: int) -> dict[str, Any]:
+    limited_sessions = sessions[: max(0, limit)]
+    summary = {
+        "total_sessions": len(sessions),
+        "current_sessions": sum(1 for session in sessions if _is_current_session(session)),
+        "live_sessions": sum(
+            1
+            for session in sessions
+            if (session.lifecycle or session.status) == "live" or session.status == "alive"
+        ),
+        "historical_sessions": sum(
+            1
+            for session in sessions
+            if (session.lifecycle or session.status) in HISTORICAL_SESSION_LIFECYCLES
+        ),
+        "by_agent": _count_by([session.agent for session in sessions]),
+        "by_status": _count_by([session.status for session in sessions]),
+        "by_lifecycle": _count_by([session.lifecycle for session in sessions]),
+        "by_source": _count_by([session.source for session in sessions]),
+    }
+    return {
+        "summary": summary,
+        "summary_limit": max(0, limit),
+        "top_sessions": [
+            {
+                key: value
+                for key, value in {
+                    "name": session.name,
+                    "agent": session.agent,
+                    "status": session.status,
+                    "lifecycle": session.lifecycle,
+                    "source": session.source,
+                    "branch": session.branch,
+                    "worktree": session.worktree,
+                    "pr_number": session.pr_number,
+                    "updated_at": session.updated_at,
+                }.items()
+                if value not in ("", None)
+            }
+            for session in limited_sessions
+        ],
+        "sessions_omitted": max(0, len(sessions) - len(limited_sessions)),
+    }
+
+
 def cmd_sessions(args: argparse.Namespace) -> int:
-    sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state()
+    summary_only = bool(getattr(args, "summary_only", False))
+    sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state(
+        include_summaries=not summary_only,
+    )
     _write_session_snapshot(sessions)
+    if summary_only:
+        payload = _session_summary_payload(
+            sessions,
+            limit=int(getattr(args, "summary_limit", 20)),
+        )
+        if args.json:
+            return _emit_text(json.dumps(payload, indent=2))
+        summary = payload["summary"]
+        print(
+            "Sessions: "
+            f"{summary['current_sessions']} current / "
+            f"{summary['historical_sessions']} historical / "
+            f"{summary['total_sessions']} total"
+        )
+        top_sessions = payload["top_sessions"]
+        if top_sessions:
+            print(f"{'NAME':<24} {'AGENT':<8} {'STATUS':<10} {'SOURCE':<16} BRANCH")
+            print("-" * 90)
+            for session in top_sessions:
+                branch = str(session.get("branch") or "-")[:32]
+                print(
+                    f"{str(session.get('name', '-')):<24} "
+                    f"{str(session.get('agent', '-')):<8} "
+                    f"{str(session.get('status', '-')):<10} "
+                    f"{str(session.get('source', '-')):<16} {branch}"
+                )
+        omitted = payload["sessions_omitted"]
+        if omitted:
+            print(f"... {omitted} additional session record(s) omitted.")
+        return 0
     if args.json:
         print(json.dumps([s.to_dict() for s in sessions], indent=2))
         return 0
@@ -2591,7 +2677,18 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command")
     json_parent = _json_parent()
 
-    sub.add_parser("sessions", parents=[json_parent], help="List sessions")
+    sessions_p = sub.add_parser("sessions", parents=[json_parent], help="List sessions")
+    sessions_p.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Show compact session counts and bounded top rows without full records.",
+    )
+    sessions_p.add_argument(
+        "--summary-limit",
+        type=int,
+        default=20,
+        help="Maximum top session rows to include with --summary-only.",
+    )
 
     launch_p = sub.add_parser(
         "launch",

@@ -353,6 +353,85 @@ def test_main_accepts_json_after_subcommand(
     assert json.loads(capsys.readouterr().out) == []
 
 
+def test_cmd_sessions_summary_only_json_omits_full_records(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    calls: list[bool] = []
+    sessions = [
+        mod.Session(
+            name="codex-live",
+            agent="codex",
+            status="live",
+            lifecycle="live",
+            source="codex_desktop",
+            branch="codex/live",
+            summary="large transcript summary should not be copied",
+        ),
+        mod.Session(
+            name="claude-history",
+            agent="claude",
+            status="historical",
+            lifecycle="historical",
+            source="claude_jsonl",
+            summary="historical summary should not be copied",
+        ),
+    ]
+
+    def fake_discover_with_broker_state(**kwargs):
+        calls.append(kwargs.get("include_summaries", True))
+        return sessions, [], set()
+
+    monkeypatch.setattr(mod, "_discover_with_broker_state", fake_discover_with_broker_state)
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+
+    rc = mod.cmd_sessions(argparse.Namespace(json=True, summary_only=True, summary_limit=1))
+
+    assert rc == 0
+    assert calls == [False]
+    payload = json.loads(capsys.readouterr().out)
+    assert "sessions" not in payload
+    assert payload["summary"]["total_sessions"] == 2
+    assert payload["summary"]["current_sessions"] == 1
+    assert payload["summary"]["historical_sessions"] == 1
+    assert payload["summary"]["by_agent"] == {"claude": 1, "codex": 1}
+    assert payload["summary_limit"] == 1
+    assert payload["sessions_omitted"] == 1
+    assert payload["top_sessions"] == [
+        {
+            "name": "codex-live",
+            "agent": "codex",
+            "status": "live",
+            "lifecycle": "live",
+            "source": "codex_desktop",
+            "branch": "codex/live",
+        }
+    ]
+
+
+def test_main_accepts_sessions_summary_only_after_subcommand(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    monkeypatch.setattr(mod, "_discover_with_broker_state", lambda **_kwargs: ([], [], set()))
+    monkeypatch.setattr(mod, "_write_session_snapshot", lambda _sessions: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["agent_bridge.py", "sessions", "--json", "--summary-only", "--summary-limit", "3"],
+    )
+
+    assert mod.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["total_sessions"] == 0
+    assert payload["summary_limit"] == 3
+    assert payload["top_sessions"] == []
+
+
 def test_operator_snapshot_summary_only_json_omits_records(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
