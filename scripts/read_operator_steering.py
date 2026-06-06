@@ -34,6 +34,7 @@ except ModuleNotFoundError:  # pragma: no cover - compatibility for stale script
 REPO_ROOT = Path(__file__).resolve().parents[1]
 READ_RECEIPT_SCHEMA_VERSION = "aragora-operator-steering-read-receipt/1.0"
 OUTCOME_CHOICES = ("read", "obeyed", "held", "stale", "superseded", "blocked", "completed")
+SUMMARY_MESSAGE_LIMIT = 3
 
 
 def _default_state_dir() -> Path:
@@ -230,6 +231,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-receipt", action="store_true", help="Read/list without writing.")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable output.")
     parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Omit full message and receipt-path lists from output.",
+    )
+    parser.add_argument(
         "--quiet-empty",
         action="store_true",
         help="Print nothing and exit 0 when the selected mailbox has no messages.",
@@ -274,10 +280,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "registry_path": str(args.registry_path),
                 "message_count": 0,
                 "receipt_count": 0,
-                "messages": [],
-                "read_receipt_paths": [],
                 "no_receipt": bool(args.no_receipt),
             }
+            if args.summary_only:
+                out.update(
+                    {
+                        "messages_omitted": False,
+                        "message_examples": [],
+                        "message_omitted_count": 0,
+                        "read_receipt_paths_omitted": False,
+                    }
+                )
+            else:
+                out.update({"messages": [], "read_receipt_paths": []})
             print(json.dumps(out, indent=2, sort_keys=True))
             return 2
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -299,6 +314,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 write_read_receipt(receipt, steering_inbox_root=args.steering_inbox_root)
             )
 
+    message_summaries = [_message_summary(path) for path in files]
     out = {
         "owner_session": owner_session,
         "resolved_via": resolved_via,
@@ -309,10 +325,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         "message_count": len(files),
         "receipt_count": len(receipt_paths),
         "read_by_session": read_by,
-        "messages": [_message_summary(path) for path in files],
-        "read_receipt_paths": [str(path) for path in receipt_paths],
         "no_receipt": bool(args.no_receipt),
     }
+    if args.summary_only:
+        out.update(
+            {
+                "messages_omitted": bool(message_summaries),
+                "message_examples": message_summaries[:SUMMARY_MESSAGE_LIMIT],
+                "message_omitted_count": max(0, len(message_summaries) - SUMMARY_MESSAGE_LIMIT),
+                "read_receipt_paths_omitted": bool(receipt_paths),
+            }
+        )
+    else:
+        out.update(
+            {
+                "messages": message_summaries,
+                "read_receipt_paths": [str(path) for path in receipt_paths],
+            }
+        )
     if args.quiet_empty and not files:
         return 0
     if args.json:
@@ -322,7 +352,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"steering_inbox_path: {out['steering_inbox_path']}")
         print(f"message_count: {len(files)}")
         print(f"receipt_count: {len(receipt_paths)}")
-        for msg in out["messages"]:
+        if args.summary_only:
+            print(f"messages_omitted: {out['messages_omitted']}")
+            print(f"message_omitted_count: {out['message_omitted_count']}")
+        display_messages = out["message_examples"] if args.summary_only else message_summaries
+        for msg in display_messages:
             print(
                 f"- {msg['filename']} priority={msg['priority']} "
                 f"sent_at_utc={msg['sent_at_utc']} sha256_valid={msg['sha256_valid']} "

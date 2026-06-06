@@ -122,6 +122,40 @@ def test_no_receipt_lists_messages_without_writing(tmp_path: Path, capsys: Any) 
     assert msg.exists()
 
 
+def test_summary_only_omits_full_message_and_receipt_lists(tmp_path: Path, capsys: Any) -> None:
+    steering_root = tmp_path / "steering"
+    _write_message(steering_root, "codex-summary", "summary one")
+    _write_message(steering_root, "codex-summary", "summary two")
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-summary",
+            "--read-by-session",
+            "reader-session",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+            "--summary-only",
+        ]
+    )
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["message_count"] == 2
+    assert out["receipt_count"] == 2
+    assert "messages" not in out
+    assert "read_receipt_paths" not in out
+    assert out["messages_omitted"] is True
+    assert out["read_receipt_paths_omitted"] is True
+    assert out["message_omitted_count"] == 0
+    assert sorted(msg["subject"] for msg in out["message_examples"]) == [
+        "summary one",
+        "summary two",
+    ]
+    assert len(_receipt_files(steering_root, "codex-summary")) == 2
+
+
 def test_completed_outcome_receipt(tmp_path: Path, capsys: Any) -> None:
     steering_root = tmp_path / "steering"
     _write_message(steering_root, "codex-completed", "complete lane")
@@ -229,6 +263,35 @@ def test_json_lane_selector_miss_is_machine_readable(tmp_path: Path, capsys: Any
     assert out["message_count"] == 0
     assert out["receipt_count"] == 0
     assert out["messages"] == []
+
+
+def test_summary_only_lane_selector_miss_is_compact(tmp_path: Path, capsys: Any) -> None:
+    steering_root = tmp_path / "steering"
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]", encoding="utf-8")
+
+    rc = ros.main(
+        [
+            "--lane-id",
+            "engineering-autopilot-3-2",
+            "--registry-path",
+            str(registry),
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+            "--summary-only",
+        ]
+    )
+
+    assert rc == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is False
+    assert out["message_count"] == 0
+    assert "messages" not in out
+    assert "read_receipt_paths" not in out
+    assert out["messages_omitted"] is False
+    assert out["message_examples"] == []
+    assert out["read_receipt_paths_omitted"] is False
 
 
 def test_default_paths_use_canonical_shared_state_from_linked_worktree(
