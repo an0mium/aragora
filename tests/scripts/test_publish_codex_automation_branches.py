@@ -147,6 +147,12 @@ def test_parser_defaults_match_publisher_budget_constants() -> None:
     assert args.draft is False
 
 
+def test_parser_accepts_max_decisions_alias_for_limit() -> None:
+    args = _build_parser().parse_args(["--max-decisions", "3"])
+
+    assert args.limit == 3
+
+
 def test_create_pr_adds_draft_flag_when_requested(monkeypatch: Any, tmp_path: Path) -> None:
     commands: list[list[str]] = []
 
@@ -943,7 +949,9 @@ def test_publish_decisions_uses_remaining_open_pr_capacity(
     )
     monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
     monkeypatch.setattr(
-        mod, "_create_pr", lambda repo_root, repo, branch, base: next(created_numbers)
+        mod,
+        "_create_pr",
+        lambda repo_root, repo, branch, base, draft=False: next(created_numbers),
     )
     monkeypatch.setattr(
         mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
@@ -1000,7 +1008,11 @@ def test_publish_decisions_records_publish_failures_and_continues(
     monkeypatch.setattr(mod, "_ensure_gh_auth", lambda repo_root: None)
     monkeypatch.setattr(mod, "_push_branch", fake_push)
     monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
-    monkeypatch.setattr(mod, "_create_pr", lambda repo_root, repo, branch, base: 2001)
+    monkeypatch.setattr(
+        mod,
+        "_create_pr",
+        lambda repo_root, repo, branch, base, draft=False: 2001,
+    )
     monkeypatch.setattr(
         mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
     )

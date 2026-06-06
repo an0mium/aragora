@@ -1472,9 +1472,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--limit",
+        "--max-decisions",
+        dest="limit",
         type=int,
         default=DEFAULT_PUBLISH_LIMIT,
-        help="Maximum number of eligible branches to publish in one apply run",
+        help=(
+            "Maximum number of eligible branches to publish in one apply run; "
+            "--max-decisions is accepted as a compatibility alias."
+        ),
     )
     parser.add_argument(
         "--max-open-prs",
