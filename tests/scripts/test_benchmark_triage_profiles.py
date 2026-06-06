@@ -177,3 +177,88 @@ def test_main_rejects_empty_comparison_before_writing_report(monkeypatch, tmp_pa
     assert exit_code == 2
     assert "comparison.message_count must be a positive integer" in captured.err
     assert not output_path.exists()
+
+
+def test_main_rejects_missing_acceptance_field_before_writing_report(
+    monkeypatch,
+    tmp_path,
+    capsys,
+) -> None:
+    report = {
+        "fixture_path": "/tmp/fixtures.json",
+        "generated_at": "2026-03-25T00:00:00Z",
+        "profiles": {
+            "baseline": {"message_count": 2},
+            "staged_v1": {"message_count": 2},
+        },
+        "comparison": {
+            "message_count": 2,
+            "acceptance": {
+                "decision_agreement": True,
+                "latency_improvement": True,
+                "blocked_rate_delta": True,
+            },
+            "passes_all_thresholds": True,
+        },
+    }
+
+    async def _fake_run(*args, **kwargs):
+        del args, kwargs
+        return report
+
+    fixture_path = tmp_path / "fixtures.json"
+    fixture_path.write_text("[]", encoding="utf-8")
+    output_path = tmp_path / "report.json"
+    monkeypatch.setattr(benchmark_triage_profiles, "run_fixture_benchmark", _fake_run)
+
+    exit_code = benchmark_triage_profiles.main(
+        ["--fixtures", str(fixture_path), "--output", str(output_path)]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "comparison.acceptance.unsafe_auto_approval must be a boolean" in captured.err
+    assert not output_path.exists()
+
+
+def test_main_rejects_inconsistent_acceptance_summary_before_writing_report(
+    monkeypatch,
+    tmp_path,
+    capsys,
+) -> None:
+    report = {
+        "fixture_path": "/tmp/fixtures.json",
+        "generated_at": "2026-03-25T00:00:00Z",
+        "profiles": {
+            "baseline": {"message_count": 2},
+            "staged_v1": {"message_count": 2},
+        },
+        "comparison": {
+            "message_count": 2,
+            "acceptance": {
+                "decision_agreement": True,
+                "latency_improvement": False,
+                "blocked_rate_delta": True,
+                "unsafe_auto_approval": True,
+            },
+            "passes_all_thresholds": True,
+        },
+    }
+
+    async def _fake_run(*args, **kwargs):
+        del args, kwargs
+        return report
+
+    fixture_path = tmp_path / "fixtures.json"
+    fixture_path.write_text("[]", encoding="utf-8")
+    output_path = tmp_path / "report.json"
+    monkeypatch.setattr(benchmark_triage_profiles, "run_fixture_benchmark", _fake_run)
+
+    exit_code = benchmark_triage_profiles.main(
+        ["--fixtures", str(fixture_path), "--output", str(output_path)]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "comparison.passes_all_thresholds must match" in captured.err
+    assert not output_path.exists()
