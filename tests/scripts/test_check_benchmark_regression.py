@@ -40,6 +40,11 @@ def _write_benchmarks(path: Path, means: dict[str, float]) -> Path:
     return path
 
 
+def _write_benchmark_entries(path: Path, benchmarks: list[dict[str, object]]) -> Path:
+    path.write_text(json.dumps({"benchmarks": benchmarks}), encoding="utf-8")
+    return path
+
+
 def test_compare_fails_when_current_and_baseline_share_no_benchmark_names(
     tmp_path: Path,
     capsys,
@@ -78,3 +83,24 @@ def test_compare_allows_partial_overlap_without_regression(tmp_path: Path, capsy
     assert rc == 0
     assert "PASSED: 1 benchmark(s)" in captured.out
     assert "No shared benchmark names" not in captured.out
+
+
+def test_validate_rejects_invalid_numeric_stats(tmp_path: Path, capsys) -> None:
+    results = _write_benchmark_entries(
+        tmp_path / "results.json",
+        [
+            {"name": "bench_bool_mean", "stats": {"mean": True, "stddev": 0.0}},
+            {"name": "bench_negative_stddev", "stats": {"mean": 0.1, "stddev": -0.1}},
+            {"name": "bench_bad_stats", "stats": "not-an-object"},
+            {"name": "bench_valid", "stats": {"mean": 0.1, "stddev": 0.01}},
+        ],
+    )
+
+    rc = bench_mod.validate_results(results)
+
+    captured = capsys.readouterr()
+    assert rc == 1
+    assert "bench_bool_mean has invalid mean stat" in captured.out
+    assert "bench_negative_stddev has invalid stddev stat" in captured.out
+    assert "bench_bad_stats has invalid stats payload" in captured.out
+    assert "FAILED: 3 benchmark(s) with invalid numeric stats." in captured.out
