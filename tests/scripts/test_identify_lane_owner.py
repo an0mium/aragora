@@ -268,6 +268,12 @@ class TestHeartbeatSummary:
             == "droid/P16-stage2-auto-merge-bucket-a-20260518-002325"
         )
         assert info.latest_heartbeat["pr_number"] == 7292
+        assert info.owner_state == "owned"
+        assert info.liveness_state == "fresh_heartbeat"
+        assert info.cleanup_state == "preserve_live_owner"
+        assert info.recommended_operator_action == (
+            "route work through owner_session; do not cleanup without owner release"
+        )
 
     def test_build_owner_info_marks_stale_heartbeat(self, tmp_path: Path) -> None:
         heartbeat_path = tmp_path / "heartbeats.json"
@@ -298,6 +304,12 @@ class TestHeartbeatSummary:
         assert info.latest_heartbeat is not None
         assert info.latest_heartbeat["fresh"] is False
         assert info.latest_heartbeat["age_seconds"] == 1200
+        assert info.owner_state == "owned"
+        assert info.liveness_state == "stale_heartbeat"
+        assert info.cleanup_state == "preserve_stale_owner"
+        assert info.recommended_operator_action == (
+            "preserve; refresh heartbeat or contact owner before mutation or cleanup"
+        )
 
     def test_build_owner_info_prefers_claimed_owner_heartbeat(self, tmp_path: Path) -> None:
         heartbeat_path = tmp_path / "heartbeats.json"
@@ -900,6 +912,10 @@ class TestBuildOwnerInfo:
         assert info.live_process["found"] is False
         assert info.claude_session["found"] is False
         assert info.factory_droid["found"] is False
+        assert info.owner_state == "owned"
+        assert info.liveness_state == "missing_heartbeat"
+        assert info.cleanup_state == "preserve_unverified_owner"
+        assert info.owner_state_reason == "active lane has no heartbeat evidence"
 
     def test_contact_metadata_surfaces_and_controls_dispatch_split(self, tmp_path: Path) -> None:
         bg = tmp_path / "factory_bg.json"
@@ -931,6 +947,61 @@ class TestBuildOwnerInfo:
         assert info.last_ack_at == "2026-05-20T01:02:00Z"
         assert info.mailbox_dispatchable is True
         assert info.live_prompt_dispatchable is True
+
+    def test_owner_state_marks_conflict_as_duplicate_preserve(self, tmp_path: Path) -> None:
+        bg = tmp_path / "factory_bg.json"
+        bg.write_text("[]", encoding="utf-8")
+        lane = {
+            "lane_id": "duplicate-lane",
+            "owner_session": "codex-conflict",
+            "status": "conflict",
+            "worktree": "/tmp/duplicate-worktree",
+        }
+
+        info = ilo.build_owner_info(
+            lane,
+            snapshot_provider=lambda: fake_snapshot_records([]),
+            sessions_root=tmp_path / "codex_sessions",
+            projects_root=tmp_path / "claude_projects",
+            bg_path=bg,
+            steering_inbox_root=tmp_path / "steering",
+        )
+
+        assert info.owner_state == "duplicate"
+        assert info.liveness_state == "missing_heartbeat"
+        assert info.cleanup_state == "preserve_duplicate_owner"
+        assert info.dispatchable is False
+        assert info.recommended_operator_action == (
+            "resolve the lane conflict before mutation or cleanup"
+        )
+
+    def test_owner_state_marks_completed_lane_as_stale_historical(self, tmp_path: Path) -> None:
+        bg = tmp_path / "factory_bg.json"
+        bg.write_text("[]", encoding="utf-8")
+        lane = {
+            "lane_id": "completed-lane",
+            "owner_session": "codex-finished",
+            "status": "completed",
+            "worktree": "/tmp/completed-worktree",
+        }
+
+        info = ilo.build_owner_info(
+            lane,
+            snapshot_provider=lambda: fake_snapshot_records([]),
+            sessions_root=tmp_path / "codex_sessions",
+            projects_root=tmp_path / "claude_projects",
+            bg_path=bg,
+            steering_inbox_root=tmp_path / "steering",
+        )
+
+        assert info.owner_state == "stale"
+        assert info.liveness_state == "missing_heartbeat"
+        assert info.cleanup_state == "historical_requires_cleanup_inspect"
+        assert info.dispatchable is False
+        assert info.owner_state_reason == "lane status is completed"
+        assert info.recommended_operator_action == (
+            "treat as historical; run fresh cleanup inspection before any deletion"
+        )
 
 
 # ---------------------------------------------------------------------------

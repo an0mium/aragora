@@ -80,6 +80,15 @@ PROTECTED_CLASSES = {
     "receipt_protected",
     "lookup_failed",
 }
+SAFETY_CLASSES = (
+    "owned",
+    "unsafe_to_delete",
+    "unknown_preserve",
+    "referenced_preserve",
+    "harvested_or_duplicate",
+    "stale_or_merged",
+    "stale_residue",
+)
 
 
 @dataclass(frozen=True)
@@ -105,6 +114,17 @@ class GitInfo:
 
 
 @dataclass
+class CleanupSafety:
+    safety_class: str
+    preserve: bool
+    safe_to_delete: bool
+    requires_live_cleanup_inspect: bool
+    reason: str
+    next_action: str
+    signals: list[str] = field(default_factory=list)
+
+
+@dataclass
 class WorktreeCandidate:
     candidate_id: str
     path: str
@@ -115,6 +135,7 @@ class WorktreeCandidate:
     classification: str
     decision: str
     cleanup_candidate: bool
+    cleanup_safety: CleanupSafety
     proof: list[str]
     active_session: bool
     lock_files: list[str]
@@ -819,6 +840,15 @@ def build_candidate(
     else:
         decision = "preserve"
         next_action = "review classification before cleanup"
+    cleanup_safety = cleanup_safety_for_candidate(
+        classification=classification,
+        decision=decision,
+        cleanup_candidate=cleanup_candidate,
+        active_session=active_session,
+        lock_files=lock_files,
+        git=git,
+        links=links,
+    )
     return WorktreeCandidate(
         candidate_id=candidate_id(candidate_root, repo_path),
         path=str(candidate_root),
@@ -829,12 +859,113 @@ def build_candidate(
         classification=classification,
         decision=decision,
         cleanup_candidate=cleanup_candidate,
+        cleanup_safety=cleanup_safety,
         proof=proof,
         active_session=active_session,
         lock_files=lock_files,
         git=git,
         links=links,
         next_action=next_action,
+    )
+
+
+def cleanup_safety_for_candidate(
+    *,
+    classification: str,
+    decision: str,
+    cleanup_candidate: bool,
+    active_session: bool,
+    lock_files: list[str],
+    git: GitInfo,
+    links: dict[str, Any],
+) -> CleanupSafety:
+    if active_session or lock_files:
+        return CleanupSafety(
+            safety_class="owned",
+            preserve=True,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=False,
+            reason="active session or owner lock marker is present",
+            next_action="route to the active owner or wait for explicit release",
+            signals=["owned"],
+        )
+    if git.dirty or decision == "harvest_candidate":
+        reason = (
+            "branch has unique unharvested work"
+            if decision == "harvest_candidate"
+            else "git status is dirty or unavailable"
+        )
+        return CleanupSafety(
+            safety_class="unsafe_to_delete",
+            preserve=True,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=False,
+            reason=reason,
+            next_action="preserve and harvest or resolve dirty state before any cleanup",
+            signals=["unsafe_to_delete"],
+        )
+    if git.lookup_failed or classification == "lookup_failed":
+        return CleanupSafety(
+            safety_class="unknown_preserve",
+            preserve=True,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=False,
+            reason="one or more identity, git, GitHub, or patch-equivalence lookups failed",
+            next_action="preserve until lookup succeeds and a fresh cleanup inspect agrees",
+            signals=["unknown", "unsafe_to_delete"],
+        )
+    if classification == "open_pr_or_outbox":
+        signals = ["referenced"]
+        if links.get("open_prs"):
+            signals.append("duplicate")
+        return CleanupSafety(
+            safety_class="referenced_preserve",
+            preserve=True,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=False,
+            reason="open PR or unresolved outbox still references the branch",
+            next_action="preserve or route to the owning publication/handoff lane",
+            signals=signals,
+        )
+    if classification == "receipt_protected":
+        return CleanupSafety(
+            safety_class="referenced_preserve",
+            preserve=True,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=False,
+            reason="terminal receipt references this branch or head",
+            next_action="preserve unless a bounded cleanup lane verifies supersedence",
+            signals=["referenced", "harvested"],
+        )
+    if classification == "patch_equivalent_or_merged":
+        safety_class = "stale_or_merged" if git.registered_worktree else "harvested_or_duplicate"
+        return CleanupSafety(
+            safety_class=safety_class,
+            preserve=False,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=True,
+            reason="branch has no unique diff against base or matches a merged patch",
+            next_action="run fresh safe_worktree_cleanup.py inspect before any removal",
+            signals=["stale", "harvested", "duplicate"],
+        )
+    if cleanup_candidate and classification in {"unregistered_git_residue", "no_git_cache_residue"}:
+        return CleanupSafety(
+            safety_class="stale_residue",
+            preserve=False,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=True,
+            reason="local residue has no active owner or unique confirmed work in inventory",
+            next_action="run fresh safe_worktree_cleanup.py inspect before any removal",
+            signals=["stale"],
+        )
+    return CleanupSafety(
+        safety_class="unknown_preserve",
+        preserve=True,
+        safe_to_delete=False,
+        requires_live_cleanup_inspect=False,
+        reason=f"inventory classification is not cleanup-authoritative: {classification}",
+        next_action="preserve until a narrower helper provides cleanup authority",
+        signals=["unknown"],
     )
 
 
@@ -934,6 +1065,7 @@ def candidate_roots_from(roots: list[Path], limit: int | None = None) -> list[Pa
 
 def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
     counts = Counter(candidate.classification for candidate in candidates)
+    safety_counts = Counter(candidate.cleanup_safety.safety_class for candidate in candidates)
     bytes_by_class: dict[str, int] = dict.fromkeys(VALUE_CLASSES, 0)
     known_bytes = 0
     size_lookup_failures = 0
@@ -953,10 +1085,12 @@ def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
             {
                 "path": candidate.path,
                 "classification": candidate.classification,
+                "safety_class": candidate.cleanup_safety.safety_class,
                 "size_bytes": candidate.size_bytes,
                 "branch": candidate.git.branch,
                 "head": candidate.git.head,
                 "decision": candidate.decision,
+                "cleanup_safety": asdict(candidate.cleanup_safety),
                 "proof": candidate.proof,
             }
             for candidate in selected[:20]
@@ -967,6 +1101,7 @@ def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
         "classified_candidates": sum(counts.values()),
         "unknown_candidates": counts.get("lookup_failed", 0),
         "count_by_class": {name: counts.get(name, 0) for name in VALUE_CLASSES},
+        "count_by_safety_class": {name: safety_counts.get(name, 0) for name in SAFETY_CLASSES},
         "bytes_by_class": bytes_by_class,
         "known_size_bytes": known_bytes,
         "size_lookup_failures": size_lookup_failures,
@@ -1217,6 +1352,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"harvest_candidates: {summary['harvest_candidate_count']}")
         print("classes:")
         for name, count in summary["count_by_class"].items():
+            print(f"  {name}: {count}")
+        print("safety_classes:")
+        for name, count in summary["count_by_safety_class"].items():
             print(f"  {name}: {count}")
     return 0
 

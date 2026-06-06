@@ -163,6 +163,9 @@ def test_no_git_cache_residue_is_cleanup_candidate(tmp_path: Path) -> None:
     assert candidate.classification == "no_git_cache_residue"
     assert candidate.cleanup_candidate is True
     assert candidate.decision == "cleanup_candidate"
+    assert candidate.cleanup_safety.safety_class == "stale_residue"
+    assert candidate.cleanup_safety.requires_live_cleanup_inspect is True
+    assert candidate.cleanup_safety.safe_to_delete is False
 
 
 def test_no_git_active_marker_is_preserved(tmp_path: Path) -> None:
@@ -181,6 +184,9 @@ def test_no_git_active_marker_is_preserved(tmp_path: Path) -> None:
     assert candidate.classification == "active_or_dirty"
     assert candidate.cleanup_candidate is False
     assert candidate.decision == "preserve"
+    assert candidate.cleanup_safety.safety_class == "owned"
+    assert candidate.cleanup_safety.preserve is True
+    assert candidate.cleanup_safety.signals == ["owned"]
 
 
 def test_anchor_only_wrapper_is_not_active(tmp_path: Path) -> None:
@@ -284,6 +290,8 @@ def test_dirty_repo_takes_priority_over_unique_work(
 
     assert candidate.classification == "active_or_dirty"
     assert "git status is dirty or unavailable" in candidate.proof
+    assert candidate.cleanup_safety.safety_class == "unsafe_to_delete"
+    assert "unsafe_to_delete" in candidate.cleanup_safety.signals
 
 
 def test_open_pr_classification_blocks_cleanup(
@@ -307,6 +315,8 @@ def test_open_pr_classification_blocks_cleanup(
 
     assert candidate.classification == "open_pr_or_outbox"
     assert candidate.cleanup_candidate is False
+    assert candidate.cleanup_safety.safety_class == "referenced_preserve"
+    assert "duplicate" in candidate.cleanup_safety.signals
 
 
 def test_unresolved_outbox_classification_blocks_cleanup(
@@ -345,6 +355,8 @@ def test_terminal_receipt_classification_blocks_cleanup(
 
     assert candidate.classification == "receipt_protected"
     assert candidate.cleanup_candidate is False
+    assert candidate.cleanup_safety.safety_class == "referenced_preserve"
+    assert "harvested" in candidate.cleanup_safety.signals
 
 
 def test_unique_unharvested_when_ahead_and_not_patch_equivalent(
@@ -365,6 +377,8 @@ def test_unique_unharvested_when_ahead_and_not_patch_equivalent(
     assert candidate.classification == "unique_unharvested"
     assert candidate.decision == "harvest_candidate"
     assert candidate.cleanup_candidate is False
+    assert candidate.cleanup_safety.safety_class == "unsafe_to_delete"
+    assert candidate.cleanup_safety.preserve is True
 
 
 def test_patch_equivalent_ahead_work_is_cleanup_candidate(
@@ -384,6 +398,34 @@ def test_patch_equivalent_ahead_work_is_cleanup_candidate(
 
     assert candidate.classification == "patch_equivalent_or_merged"
     assert candidate.cleanup_candidate is True
+    assert candidate.cleanup_safety.safety_class == "harvested_or_duplicate"
+    assert {"harvested", "duplicate"} <= set(candidate.cleanup_safety.signals)
+
+
+def test_registered_no_unique_commits_is_stale_or_merged_safety(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    _stub_clean_git(monkeypatch, ahead=0)
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            worktrees_by_path={
+                str(repo_path.resolve()): mod.WorktreeEntry(path=repo_path, branch="codex/test")
+            },
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "patch_equivalent_or_merged"
+    assert candidate.cleanup_safety.safety_class == "stale_or_merged"
+    assert candidate.cleanup_safety.requires_live_cleanup_inspect is True
 
 
 def test_smart_merge_detection_default_off_preserves_unique_harvest(
@@ -550,6 +592,8 @@ def test_lookup_failure_preserves_candidate(
     assert candidate.classification == "lookup_failed"
     assert candidate.cleanup_candidate is False
     assert "open PR lookup failed" in candidate.git.lookup_errors
+    assert candidate.cleanup_safety.safety_class == "unknown_preserve"
+    assert "unsafe_to_delete" in candidate.cleanup_safety.signals
 
 
 def test_summary_reports_top_cleanup_and_harvest_candidates(
@@ -578,8 +622,13 @@ def test_summary_reports_top_cleanup_and_harvest_candidates(
 
     assert summary["cleanup_candidate_count"] == 1
     assert summary["harvest_candidate_count"] == 1
+    assert summary["count_by_safety_class"]["stale_residue"] == 1
+    assert summary["count_by_safety_class"]["unsafe_to_delete"] == 1
     assert summary["top_cleanup_candidates"][0]["path"] == str(cleanup_root)
+    assert summary["top_cleanup_candidates"][0]["safety_class"] == "stale_residue"
+    assert summary["top_cleanup_candidates"][0]["cleanup_safety"]["safe_to_delete"] is False
     assert summary["top_unique_unharvested"][0]["path"] == str(unique_root)
+    assert summary["top_unique_unharvested"][0]["safety_class"] == "unsafe_to_delete"
 
 
 def test_write_ledger_creates_snapshot_latest_and_jsonl(tmp_path: Path) -> None:
