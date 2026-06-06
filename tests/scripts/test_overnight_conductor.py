@@ -34,6 +34,7 @@ def _pr(
     draft: bool,
     head: str = "abc123",
     branch: str | None = None,
+    merge_state: str = "CLEAN",
 ) -> dict[str, Any]:
     return {
         "number": number,
@@ -42,7 +43,7 @@ def _pr(
         "headRefName": branch or f"codex/pr-{number}",
         "headRefOid": head,
         "mergeable": "MERGEABLE",
-        "mergeStateStatus": "CLEAN",
+        "mergeStateStatus": merge_state,
         "url": f"https://github.com/synaptent/aragora/pull/{number}",
     }
 
@@ -111,6 +112,42 @@ def test_selects_merge_ready_prompt_before_draft_gate() -> None:
     assert action["target"]["pr"] == 7780
     assert "output the exact merge authorization prompt" in action["prompt"]
     assert "Do not merge without separate explicit operator authorization" in action["prompt"]
+
+
+def test_selects_unstable_green_pr_before_stale_owner_coordination() -> None:
+    state = _state(prs=[_pr(7780, draft=False, merge_state="UNSTABLE")])
+    state["operator_snapshot"]["data"]["health"] = {
+        "ok": False,
+        "issues": [
+            {
+                "type": "lane_missing_steering_outcome",
+                "session": "stale-owner",
+                "detail": "missing steering outcome",
+            }
+        ],
+    }
+
+    action = conductor.select_action(state)
+
+    assert action["kind"] == "merge_ready_prompt"
+    assert action["target"]["pr"] == 7780
+
+
+def test_dirty_pr_is_not_selected_for_merge_prompt() -> None:
+    state = _state(prs=[_pr(7780, draft=False, merge_state="DIRTY")])
+
+    action = conductor.select_action(state)
+
+    assert action["kind"] == "blocker_report"
+    assert action["reason"] == "no safe candidate"
+
+
+def test_pr_check_probe_uses_required_checks_only() -> None:
+    args = conductor.required_checks_args(7780)
+
+    assert args[:4] == ["gh", "pr", "checks", "7780"]
+    assert "--required" in args
+    assert "--json" in args
 
 
 def test_selects_draft_gate_preparation_for_green_draft_pr() -> None:

@@ -20,6 +20,7 @@ from typing import Any
 GREEN_STATES = {"PASS", "SUCCESS", "SKIPPED"}
 PENDING_STATES = {"EXPECTED", "PENDING", "QUEUED", "REQUESTED", "STARTUP_FAILURE", "WAITING"}
 FAIL_STATES = {"ACTION_REQUIRED", "CANCELLED", "ERROR", "FAILURE", "FAILED", "STALE", "TIMED_OUT"}
+MERGE_PROMPT_STATES = {"CLEAN", "UNSTABLE"}
 
 MAC_RUNNER = "mac-studio-m3ultra"
 HETZNER_PREFIX = "aragora-hetzner-cpu"
@@ -124,6 +125,18 @@ def check_summary(rows: list[dict[str, Any]] | None) -> dict[str, Any]:
     }
 
 
+def required_checks_args(pr_number: int) -> list[str]:
+    return [
+        "gh",
+        "pr",
+        "checks",
+        str(pr_number),
+        "--required",
+        "--json",
+        "name,state,bucket,workflow,link,startedAt,completedAt",
+    ]
+
+
 def runner_blockers(runner_payload: dict[str, Any] | list[dict[str, Any]] | None) -> list[str]:
     if isinstance(runner_payload, dict):
         runners = runner_payload.get("runners")
@@ -180,7 +193,7 @@ def _pr_is_clean(pr: dict[str, Any]) -> bool:
     return (
         str(pr.get("state", "OPEN")).upper() in {"", "OPEN"}
         and pr.get("mergeable") == "MERGEABLE"
-        and pr.get("mergeStateStatus") == "CLEAN"
+        and str(pr.get("mergeStateStatus") or "").upper() in MERGE_PROMPT_STATES
     )
 
 
@@ -311,7 +324,7 @@ def select_action(state: dict[str, Any]) -> dict[str, Any]:
         if _pr_is_clean(pr) and not pr.get("isDraft") and summary.get("green"):
             return {
                 "kind": "merge_ready_prompt",
-                "reason": "highest clean non-draft PR has green full checks",
+                "reason": "highest mergeable non-draft PR has green required checks",
                 "target": _pr_identity(pr),
                 "prompt": _merge_ready_prompt(pr),
             }
@@ -321,7 +334,7 @@ def select_action(state: dict[str, Any]) -> dict[str, Any]:
         if _pr_is_clean(pr) and pr.get("isDraft") and summary.get("green"):
             return {
                 "kind": "draft_gate_preparation",
-                "reason": "highest clean draft PR has green full checks",
+                "reason": "highest mergeable draft PR has green required checks",
                 "target": _pr_identity(pr),
                 "prompt": _draft_gate_prompt(pr),
             }
@@ -332,7 +345,7 @@ def select_action(state: dict[str, Any]) -> dict[str, Any]:
         if _pr_is_clean(pr) and failures:
             return {
                 "kind": "failing_check_repair_prompt",
-                "reason": "highest clean PR has a real check failure",
+                "reason": "highest mergeable PR has a real required-check failure",
                 "target": _pr_identity(pr),
                 "failure": failures[0],
                 "prompt": _failing_check_prompt(pr, failures[0]),
@@ -453,14 +466,7 @@ def gather_state(repo_root: Path, *, max_prs: int, runner: CommandRunner) -> dic
                 continue
             checks = _probe_json(
                 runner,
-                [
-                    "gh",
-                    "pr",
-                    "checks",
-                    str(number),
-                    "--json",
-                    "name,state,bucket,workflow,link,startedAt,completedAt",
-                ],
+                required_checks_args(int(number)),
                 timeout=60,
             )
             rows = checks.get("data")
