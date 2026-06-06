@@ -90,7 +90,7 @@ commit") from the v12/v13 lessons; soft-reset and re-commit instead.
 
 ## Agent Types
 
-Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 34 types as of 2026-02-12). Entries marked **opt-in** are registered but not allowlisted by default.
+Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 35 types as of 2026-06-06). Entries marked **opt-in** are registered but not allowlisted by default.
 
 ### CLI-Based Agents (allowlisted)
 
@@ -113,7 +113,7 @@ Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, l
 | `openai-api` | OpenAI | gpt-4.1 | `OPENAI_API_KEY` | allowlisted |
 | `gemini` | Google | gemini-3.1-pro-preview | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | allowlisted |
 | `grok` | xAI | grok-4-latest | `XAI_API_KEY` or `GROK_API_KEY` | allowlisted |
-| `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` | opt-in |
+| `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` | allowlisted |
 | `codestral` | Mistral | codestral-latest | `MISTRAL_API_KEY` | opt-in |
 
 ### Local & Legacy Direct Agents
