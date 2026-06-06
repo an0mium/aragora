@@ -501,6 +501,62 @@ def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts()
     assert outcome.quorum_rerun == {"should_rerun": True, "run_id": 123, "applied": True}
 
 
+def test_collect_low_tier_apply_prepares_only_when_reviewer_dissents() -> None:
+    fakes, posted = _fakes(tier=1)
+    calls: list[tuple[str, int]] = []
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult("grok", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
+        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        calls.append((repo, pr))
+        return {"applied": True}
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert outcome.action == "prepare"
+    assert "reviewer dissent" in outcome.action_reason
+    assert outcome.dissenting_families == ["grok"]
+    assert posted == []
+    assert calls == []
+    assert outcome.quorum_rerun is None
+
+
+def test_collect_success_requires_two_supportive_reviewers() -> None:
+    fakes, _posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult("grok", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
+        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=False,
+        **fakes,
+    )
+
+    assert outcome.counting_families == ["claude", "grok"]
+    assert outcome.supportive_families == ["claude"]
+    assert outcome.dissenting_families == ["grok"]
+    assert outcome.has_supportive_quorum is False
+
+
 def test_collect_records_quorum_reconciler_error_after_successful_posts() -> None:
     fakes, posted = _fakes(tier=1)
 
@@ -805,8 +861,8 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
             action="post",
             action_reason="ok",
             items=[
-                EvidenceItem("claude", "body", True, ["claude"], []),
-                EvidenceItem("grok", "body", True, ["grok"], []),
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
             ],
             posted=["claude", "grok"],
         )
