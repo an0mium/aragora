@@ -19,6 +19,7 @@ def test_main_writes_report_and_returns_success(monkeypatch, tmp_path, capsys) -
         "generated_at": "2026-03-25T00:00:00Z",
         "profiles": {
             "baseline": {
+                "message_count": 4,
                 "total_duration_seconds": 12.0,
                 "diagnostics_artifact_dir": "/tmp/baseline",
                 "meta": {
@@ -29,6 +30,7 @@ def test_main_writes_report_and_returns_success(monkeypatch, tmp_path, capsys) -
                 },
             },
             "staged_v1": {
+                "message_count": 4,
                 "total_duration_seconds": 7.0,
                 "diagnostics_artifact_dir": "/tmp/staged",
                 "meta": {
@@ -81,6 +83,7 @@ def test_main_fails_when_thresholds_missed(monkeypatch, tmp_path) -> None:
         "generated_at": "2026-03-25T00:00:00Z",
         "profiles": {
             "baseline": {
+                "message_count": 4,
                 "total_duration_seconds": 12.0,
                 "diagnostics_artifact_dir": "/tmp/baseline",
                 "meta": {
@@ -91,6 +94,7 @@ def test_main_fails_when_thresholds_missed(monkeypatch, tmp_path) -> None:
                 },
             },
             "staged_v1": {
+                "message_count": 4,
                 "total_duration_seconds": 11.0,
                 "diagnostics_artifact_dir": "/tmp/staged",
                 "meta": {
@@ -130,3 +134,46 @@ def test_main_fails_when_thresholds_missed(monkeypatch, tmp_path) -> None:
     )
 
     assert exit_code == 1
+
+
+def test_main_rejects_empty_comparison_before_writing_report(monkeypatch, tmp_path, capsys) -> None:
+    report = {
+        "fixture_path": "/tmp/fixtures.json",
+        "generated_at": "2026-03-25T00:00:00Z",
+        "profiles": {
+            "baseline": {
+                "message_count": 0,
+                "total_duration_seconds": 0.0,
+                "diagnostics_artifact_dir": "/tmp/baseline",
+                "meta": {},
+            },
+            "staged_v1": {
+                "message_count": 0,
+                "total_duration_seconds": 0.0,
+                "diagnostics_artifact_dir": "/tmp/staged",
+                "meta": {},
+            },
+        },
+        "comparison": {
+            "message_count": 0,
+            "passes_all_thresholds": False,
+        },
+    }
+
+    async def _fake_run(*args, **kwargs):
+        del args, kwargs
+        return report
+
+    fixture_path = tmp_path / "fixtures.json"
+    fixture_path.write_text("[]", encoding="utf-8")
+    output_path = tmp_path / "report.json"
+    monkeypatch.setattr(benchmark_triage_profiles, "run_fixture_benchmark", _fake_run)
+
+    exit_code = benchmark_triage_profiles.main(
+        ["--fixtures", str(fixture_path), "--output", str(output_path)]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "comparison.message_count must be a positive integer" in captured.err
+    assert not output_path.exists()

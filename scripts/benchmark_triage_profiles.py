@@ -8,6 +8,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from aragora.inbox.triage_profile_benchmark import render_benchmark_report, run_fixture_benchmark
 
@@ -45,6 +46,39 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _positive_int(value: Any, *, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{label} must be a positive integer")
+    return value
+
+
+def validate_report_shape(report: dict[str, Any]) -> None:
+    comparison = report.get("comparison")
+    profiles = report.get("profiles")
+    if not isinstance(comparison, dict):
+        raise ValueError("benchmark report comparison must be an object")
+    if not isinstance(profiles, dict):
+        raise ValueError("benchmark report profiles must be an object")
+
+    message_count = _positive_int(
+        comparison.get("message_count"),
+        label="comparison.message_count",
+    )
+    for profile in ("baseline", "staged_v1"):
+        profile_payload = profiles.get(profile)
+        if not isinstance(profile_payload, dict):
+            raise ValueError(f"profiles.{profile} must be an object")
+        profile_count = _positive_int(
+            profile_payload.get("message_count"),
+            label=f"profiles.{profile}.message_count",
+        )
+        if profile_count != message_count:
+            raise ValueError(
+                f"profiles.{profile}.message_count ({profile_count}) must match "
+                f"comparison.message_count ({message_count})"
+            )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     report = asyncio.run(
@@ -54,6 +88,11 @@ def main(argv: list[str] | None = None) -> int:
             verbose=args.verbose,
         )
     )
+    try:
+        validate_report_shape(report)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
     print(render_benchmark_report(report))
     if args.output is not None:
