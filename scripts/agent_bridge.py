@@ -13,7 +13,7 @@ Usage:
   python3 scripts/agent_bridge.py approve <name>
   python3 scripts/agent_bridge.py read <name> [--lines 20]
   python3 scripts/agent_bridge.py read-all [--lines 3] [--json]
-  python3 scripts/agent_bridge.py lanes [--json]
+  python3 scripts/agent_bridge.py lanes [--json] [--summary-only]
   python3 scripts/agent_bridge.py owner --pr 7292 [--json]
   python3 scripts/agent_bridge.py processes [--json]
   python3 scripts/agent_bridge.py tmux-map
@@ -90,6 +90,7 @@ DEFAULT_STALE_TTL_HOURS = 24
 HEARTBEAT_FRESH_SECONDS = 15 * 60
 DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"
+DEFAULT_LANE_SUMMARY_LIMIT = 5
 RESOLVED_STEERING_OUTCOMES = {
     "obeyed",
     "stale",
@@ -1741,10 +1742,25 @@ def cmd_read_all(args: argparse.Namespace) -> int:
 
 
 def cmd_lanes(args: argparse.Namespace) -> int:
-    sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state()
+    summary_only = bool(getattr(args, "summary_only", False))
+    sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state(
+        include_summaries=not summary_only,
+    )
     _enrich_prs(sessions)
-    _write_session_snapshot(sessions)
+    if not summary_only:
+        _write_session_snapshot(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
+    if summary_only:
+        payload = _lanes_summary_payload(records, sessions)
+        if args.json:
+            return _emit_text(json.dumps(payload, indent=2))
+        lines = [
+            f"Lanes: {payload['lane_count']} total / {payload['active_count']} active / "
+            f"{payload['conflict_count']} conflict",
+            f"Sessions: {payload['session_count']} total",
+            f"Examples omitted: {payload['examples_omitted']}",
+        ]
+        return _emit_text("\n".join(lines))
     if records:
         _write_lane_registry(records)
         if args.json:
@@ -1776,6 +1792,66 @@ def cmd_lanes(args: argparse.Namespace) -> int:
         summary = (s.summary[:30] + "..." if len(s.summary) > 30 else s.summary) or "-"
         print(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<26} {pr:>5} {summary}")
     return 0
+
+
+def _count_by_status(items: list[LaneRecord] | list[Session]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        status = str(item.status or "unknown")
+        counts[status] = counts.get(status, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _lane_example(record: LaneRecord) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in {
+            "lane_id": record.lane_id,
+            "owner_session": record.owner_session,
+            "status": record.status,
+            "branch": record.branch,
+            "pr_number": record.pr_number,
+            "next_action": record.next_action,
+        }.items()
+        if value not in ("", None)
+    }
+
+
+def _session_example(session: Session) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in {
+            "name": session.name,
+            "agent": session.agent,
+            "status": session.status,
+            "branch": session.branch,
+            "pr_number": session.pr_number,
+        }.items()
+        if value not in ("", None)
+    }
+
+
+def _lanes_summary_payload(
+    records: list[LaneRecord],
+    sessions: list[Session],
+    *,
+    limit: int = DEFAULT_LANE_SUMMARY_LIMIT,
+) -> dict[str, Any]:
+    examples = [_lane_example(record) for record in records[:limit]]
+    session_examples = [_session_example(session) for session in sessions[:limit]]
+    return {
+        "lane_count": len(records),
+        "active_count": sum(1 for record in records if record.status in ACTIVE_LANE_STATUSES),
+        "conflict_count": sum(1 for record in records if record.status == "conflict"),
+        "status_counts": _count_by_status(records),
+        "lane_examples": examples,
+        "examples_omitted": max(0, len(records) - len(examples)),
+        "session_count": len(sessions),
+        "session_status_counts": _count_by_status(sessions),
+        "session_examples": session_examples,
+        "session_examples_omitted": max(0, len(sessions) - len(session_examples)),
+        "records_omitted": True,
+    }
 
 
 def cmd_owner(args: argparse.Namespace) -> int:
@@ -2799,7 +2875,12 @@ def main() -> int:
     ra_p = sub.add_parser("read-all", parents=[json_parent], help="Read all sessions")
     ra_p.add_argument("--lines", type=int, default=5)
 
-    sub.add_parser("lanes", parents=[json_parent], help="Sessions + PR state")
+    lanes_p = sub.add_parser("lanes", parents=[json_parent], help="Sessions + PR state")
+    lanes_p.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact lane counts and bounded examples for automation probes.",
+    )
     owner_p = sub.add_parser(
         "owner",
         parents=[json_parent],

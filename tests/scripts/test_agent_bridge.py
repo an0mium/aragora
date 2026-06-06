@@ -337,6 +337,82 @@ def test_cmd_lanes_json_prefers_registry_and_syncs_live_session(
     ]
 
 
+def test_cmd_lanes_summary_only_json_omits_full_records(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "bridge-hardening",
+                    "owner_session": "codex-strategic",
+                    "status": "active",
+                    "next_action": "open PR",
+                    "branch": "stale-branch",
+                },
+                {
+                    "lane_id": "bridge-conflict",
+                    "owner_session": "codex-other",
+                    "status": "conflict",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    session = mod.Session(
+        name="codex-strategic",
+        agent="codex",
+        status="alive",
+        branch="codex/issue-5320",
+        worktree="/tmp/aragora-5320",
+    )
+    discover_kwargs: list[dict[str, object]] = []
+
+    def fake_discover_with_broker_state(**kwargs):
+        discover_kwargs.append(kwargs)
+        return [session], [], set()
+
+    monkeypatch.setattr(mod, "_discover_with_broker_state", fake_discover_with_broker_state)
+    monkeypatch.setattr(
+        mod,
+        "_write_session_snapshot",
+        lambda _sessions: (_ for _ in ()).throw(
+            AssertionError("summary-only should not write a session snapshot")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_write_lane_registry",
+        lambda _records: (_ for _ in ()).throw(
+            AssertionError("summary-only should not rewrite the lane registry")
+        ),
+    )
+
+    rc = mod.cmd_lanes(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["records_omitted"] is True
+    assert payload["lane_count"] == 2
+    assert payload["active_count"] == 1
+    assert payload["conflict_count"] == 1
+    assert payload["status_counts"] == {"active": 1, "conflict": 1}
+    assert payload["lane_examples"][0] == {
+        "lane_id": "bridge-hardening",
+        "owner_session": "codex-strategic",
+        "status": "active",
+        "branch": "codex/issue-5320",
+        "next_action": "open PR",
+    }
+    assert payload["session_count"] == 1
+    assert payload["session_status_counts"] == {"alive": 1}
+    assert discover_kwargs == [{"include_summaries": False}]
+
+
 def test_main_accepts_json_after_subcommand(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -351,6 +427,25 @@ def test_main_accepts_json_after_subcommand(
 
     assert mod.main() == 0
     assert json.loads(capsys.readouterr().out) == []
+
+
+def test_main_accepts_lanes_summary_only_after_subcommand(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "_discover_with_broker_state", lambda **_kwargs: ([], [], set()))
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(sys, "argv", ["agent_bridge.py", "lanes", "--json", "--summary-only"])
+
+    assert mod.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["records_omitted"] is True
+    assert payload["lane_count"] == 0
+    assert payload["session_count"] == 0
 
 
 def test_operator_snapshot_summary_only_json_omits_records(
