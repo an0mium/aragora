@@ -601,7 +601,13 @@ def test_broad_packet_lazy_loader_uses_single_bulk_packet(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
         commands.append(args)
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+        ]:
             assert "--limit" in args
             assert "--pr" not in args
             return _packet(_entry(7376), _entry(7449)), {"command": "packet", "returncode": 0}
@@ -625,7 +631,13 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
         nonlocal bulk_calls
         del cwd, timeout
         commands.append(args)
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+        ]:
             if "--limit" in args:
                 bulk_calls += 1
                 return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
@@ -647,7 +659,11 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -668,7 +684,13 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_times_out(
 ) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+        ]:
             if "--limit" in args:
                 return None, {
                     "command": "bulk-packet",
@@ -689,7 +711,11 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_times_out(
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -708,7 +734,13 @@ def test_broad_packet_lazy_loader_returns_empty_when_bulk_and_light_metadata_fai
 ) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+        ]:
             return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
         if args[:3] == ["gh", "pr", "list"]:
             return None, {"command": "metadata", "returncode": 1, "stderr": "HTTP 504"}
@@ -727,7 +759,13 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
 ) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+        ]:
             if "--limit" in args:
                 return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             pr_number = args[args.index("--pr") + 1]
@@ -747,7 +785,11 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -765,7 +807,13 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
 ) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+        ]:
             if "--limit" in args:
                 return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             return None, {
@@ -785,7 +833,11 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -803,7 +855,13 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
 def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+        ]:
             if "--limit" in args:
                 return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             pr_number = int(args[args.index("--pr") + 1])
@@ -825,7 +883,11 @@ def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) ->
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -842,7 +904,13 @@ def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) ->
 def test_combine_packets_preserves_source_packet_timestamps(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+        ]:
             if "--limit" in args:
                 return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             pr_number = int(args[args.index("--pr") + 1])
@@ -857,7 +925,11 @@ def test_combine_packets_preserves_source_packet_timestamps(monkeypatch) -> None
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -908,7 +980,11 @@ def test_build_report_threads_repo_to_policy_metadata(monkeypatch) -> None:
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return (
@@ -966,7 +1042,11 @@ def test_build_report_explicit_pr_loads_policy_metadata_without_broad_list(monke
                 },
                 {"command": "policy-view", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -1003,7 +1083,11 @@ def test_build_report_fails_closed_when_operator_snapshot_fails(monkeypatch) -> 
                 [{"number": 7451, "title": "fix: candidate", "headRefName": "codex/candidate"}],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return None, {"command": "snapshot", "returncode": 1, "stderr": "snapshot failed"}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return (
@@ -1053,7 +1137,11 @@ def test_build_report_does_not_reload_snapshot_when_packet_already_failed_closed
         del cwd, timeout
         if args[:3] == ["gh", "pr", "list"]:
             return [], {"command": "metadata", "returncode": 0}
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             snapshot_called = True
             return None, {"command": "snapshot", "returncode": 1, "stderr": "outage"}
         raise AssertionError(args)
@@ -1087,7 +1175,11 @@ def test_build_report_blocks_repo_mismatch_when_repo_override_supplied(monkeypat
                 [{"number": 7451, "title": "fix: candidate", "headRefName": "codex/candidate"}],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             snapshot_called = True
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
@@ -1147,11 +1239,19 @@ def test_lazy_policy_metadata_continues_past_failed_pr_view(monkeypatch) -> None
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
-        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+        if args[:3] == [settle_one_pr.PYTHON_EXECUTABLE, "scripts/identify_lane_owner.py", "--pr"]:
             return {"status": "completed"}, {"command": "owner", "returncode": 0}
-        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/read_operator_steering.py",
+            "--pr",
+        ]:
             return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return None, {"command": "policy-view-7451", "returncode": 1, "stderr": "timeout"}
@@ -1247,11 +1347,19 @@ def test_explicit_pr_reuses_preloaded_policy_file_scope(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         nonlocal policy_view_calls
         del cwd, timeout
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
-        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+        if args[:3] == [settle_one_pr.PYTHON_EXECUTABLE, "scripts/identify_lane_owner.py", "--pr"]:
             return {"status": "completed"}, {"command": "owner", "returncode": 0}
-        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/read_operator_steering.py",
+            "--pr",
+        ]:
             return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
         if (
             args[:3] == ["gh", "pr", "view"]
@@ -1361,7 +1469,11 @@ def test_build_report_fails_closed_when_selected_policy_metadata_unavailable(
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return None, {"command": "policy-view", "returncode": 1, "stderr": "timeout"}
@@ -1402,7 +1514,11 @@ def test_build_report_lazy_loads_file_scope_for_selected_candidate(monkeypatch) 
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return (
@@ -1726,11 +1842,19 @@ def test_build_report_reads_required_checks_from_pr_base_branch(monkeypatch) -> 
         commands.append(args)
         if args[:3] == ["gh", "pr", "list"]:
             return [], {"command": "metadata", "returncode": 0}
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
-        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+        if args[:3] == [settle_one_pr.PYTHON_EXECUTABLE, "scripts/identify_lane_owner.py", "--pr"]:
             return {"status": "completed"}, {"command": "owner", "returncode": 0}
-        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/read_operator_steering.py",
+            "--pr",
+        ]:
             return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"]:
             return (
@@ -1810,11 +1934,19 @@ def test_build_report_fails_closed_when_required_check_sources_unreadable(monkey
         del cwd, timeout
         if args[:3] == ["gh", "pr", "list"]:
             return [], {"command": "metadata", "returncode": 0}
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
-        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+        if args[:3] == [settle_one_pr.PYTHON_EXECUTABLE, "scripts/identify_lane_owner.py", "--pr"]:
             return {"status": "completed"}, {"command": "owner", "returncode": 0}
-        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/read_operator_steering.py",
+            "--pr",
+        ]:
             return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"]:
             return (

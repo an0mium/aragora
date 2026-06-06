@@ -65,6 +65,11 @@ SURFACE_EXCLUDE_REASON = (
     "security/auth/RBAC/secrets/deploy/workflow/legal/compliance/destructive/"
     "migration/public-API surface"
 )
+PYTHON_EXECUTABLE = sys.executable or "python3"
+
+
+def _python_command(*args: str) -> list[str]:
+    return [PYTHON_EXECUTABLE, *args]
 
 
 def _repo_root() -> Path:
@@ -1088,7 +1093,7 @@ def _has_policy_file_scope(metadata: dict[str, Any]) -> bool:
 
 def load_active_owned_prs(cwd: Path) -> tuple[set[int], dict[str, Any]]:
     payload, command = _run_json(
-        ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json"],
+        _python_command("scripts/agent_bridge.py", "operator-snapshot", "--json"),
         cwd=cwd,
         timeout=OPERATOR_SNAPSHOT_TIMEOUT_SECONDS,
     )
@@ -1331,7 +1336,7 @@ def build_report(
                 preselection_blockers.append(snapshot_blocker)
         elif snapshot_preblocked:
             active_owned_command = {
-                "command": "python3 scripts/agent_bridge.py operator-snapshot --json",
+                "command": f"{PYTHON_EXECUTABLE} scripts/agent_bridge.py operator-snapshot --json",
                 "returncode": None,
                 "skipped": True,
                 "reason": "operator-snapshot failure already carried by packet load_blockers",
@@ -1432,7 +1437,7 @@ def build_report(
         steering_root = state_root / ".aragora" / "operator-steering"
         owner_payload, owner_cmd = _run_json(
             [
-                "python3",
+                PYTHON_EXECUTABLE,
                 "scripts/identify_lane_owner.py",
                 "--pr",
                 str(pr_number),
@@ -1449,7 +1454,7 @@ def build_report(
 
         steering_payload, steering_cmd = _run_json(
             [
-                "python3",
+                PYTHON_EXECUTABLE,
                 "scripts/read_operator_steering.py",
                 "--pr",
                 str(pr_number),
@@ -1577,7 +1582,7 @@ def build_report(
 
 def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str, Any]:
     command = [
-        "python3",
+        PYTHON_EXECUTABLE,
         "-m",
         "aragora.cli.main",
         "review-queue",
@@ -1598,7 +1603,7 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
 
 def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[str, Any]:
     command = [
-        "python3",
+        PYTHON_EXECUTABLE,
         "-m",
         "aragora.cli.main",
         "review-queue",
