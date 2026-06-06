@@ -217,6 +217,57 @@ def _apply_lane_metadata(item: WorkItem, lane: dict[str, Any]) -> None:
         item.owner = owner_session
 
 
+def _outbox_branch(data: dict[str, Any]) -> str | None:
+    for container in (
+        data,
+        data.get("requested_action"),
+        data.get("local_evidence"),
+        data.get("metadata"),
+    ):
+        if not isinstance(container, dict):
+            continue
+        for key in ("branch", "head_ref", "branch_name"):
+            value = container.get(key)
+            if value is not None:
+                text = str(value).strip()
+                if text:
+                    return text
+    return None
+
+
+_MISSING = object()
+
+
+def _outbox_value(data: dict[str, Any], key: str) -> Any:
+    for container in (
+        data,
+        data.get("local_evidence"),
+        data.get("metadata"),
+    ):
+        if not isinstance(container, dict):
+            continue
+        if key in container:
+            return container[key]
+    return _MISSING
+
+
+def _outbox_metadata(data: dict[str, Any], path: Path) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "path": str(path),
+        "idempotency_key": data.get("idempotency_key"),
+    }
+    for key in _OUTBOX_READY_METADATA_KEYS:
+        value = _outbox_value(data, key)
+        if value is not _MISSING:
+            metadata[key] = value
+    files = _outbox_value(data, "files")
+    if files is _MISSING:
+        files = _outbox_value(data, "changed_files")
+    if isinstance(files, list):
+        metadata["files"] = [str(path) for path in files if path]
+    return metadata
+
+
 def enrich_with_agent_bridge_lanes(
     repo_root: Path, items: list[WorkItem]
 ) -> tuple[list[WorkItem], dict[str, Any]]:
@@ -240,7 +291,7 @@ def enrich_with_agent_bridge_lanes(
     enriched = 0
     active = 0
     for item in items:
-        if item.source != "github_pr":
+        if item.source not in {"github_pr", "automation_outbox"}:
             continue
         number = item.metadata.get("number")
         candidates: list[dict[str, Any]] = []
@@ -374,16 +425,11 @@ def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str
         if data is None:
             continue
         title = str(data.get("task") or data.get("title") or data.get("summary") or path.stem)
-        branch = data.get("branch") or data.get("head_ref") or data.get("branch_name")
-        metadata: dict[str, Any] = {
-            "path": str(path),
-            "idempotency_key": data.get("idempotency_key"),
-        }
-        for key in _OUTBOX_READY_METADATA_KEYS:
-            if key in data:
-                metadata[key] = data[key]
+        branch = _outbox_branch(data)
+        dependencies = data.get("dependencies") or []
+        if not isinstance(dependencies, list):
+            dependencies = []
         owner = data.get("owner") or data.get("claimed_by") or data.get("assignee")
-        dependencies = data.get("dependencies")
         items.append(
             WorkItem(
                 id=f"automation-outbox:{path.stem}",
@@ -395,11 +441,9 @@ def collect_automation_outbox(repo_root: Path) -> tuple[list[WorkItem], dict[str
                 branch=str(branch) if branch else None,
                 owner=str(owner) if owner else None,
                 updated_at=str(data.get("updated_at") or data.get("recorded_at") or "") or None,
-                dependencies=[str(dep) for dep in dependencies]
-                if isinstance(dependencies, list)
-                else [],
+                dependencies=[str(dep) for dep in dependencies if dep],
                 evidence_refs=[_state_evidence_ref(repo_root, path)],
-                metadata=metadata,
+                metadata=_outbox_metadata(data, path),
             )
         )
     return items, _health("automation_outbox", "ok", f"{len(items)} pending handoff(s)")

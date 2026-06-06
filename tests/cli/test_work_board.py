@@ -215,6 +215,67 @@ def test_work_list_preserves_outbox_readiness_metadata(
     assert item["metadata"]["dependencies_declared"] is True
 
 
+def test_work_show_enriches_nested_outbox_branch_with_lane_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "task": "Open PR for compact operator snapshot output",
+                "requested_action": {
+                    "type": "open_or_update_pr",
+                    "branch": "codex/operator-snapshot-summary",
+                },
+                "local_evidence": {
+                    "changed_files": [
+                        "scripts/agent_bridge.py",
+                        "tests/scripts/test_agent_bridge.py",
+                    ]
+                },
+                "validation": {"pytest": "tests/scripts/test_agent_bridge.py passed"},
+                "updated_at": _now_iso(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q290-repair-operator-snapshot",
+                    "owner_session": "repair-owner",
+                    "status": "active",
+                    "branch": "codex/operator-snapshot-summary",
+                    "worktree": "/repo/.worktrees/q290",
+                    "updated_at": "2026-06-03T16:34:22Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_show(_args(tmp_path, work_id="automation-outbox:handoff")) == 0
+    payload = _capture_json(capsys)
+    item = payload["item"]
+
+    assert item["branch"] == "codex/operator-snapshot-summary"
+    assert item["owner"] == "repair-owner"
+    assert item["metadata"]["active_lane"] is True
+    assert item["metadata"]["lane_id"] == "Q290-repair-operator-snapshot"
+    assert item["metadata"]["owner_session"] == "repair-owner"
+    assert item["metadata"]["lane_worktree"] == "/repo/.worktrees/q290"
+    assert item["metadata"]["validation"] == {"pytest": "tests/scripts/test_agent_bridge.py passed"}
+    assert item["metadata"]["files"] == [
+        "scripts/agent_bridge.py",
+        "tests/scripts/test_agent_bridge.py",
+    ]
+
+
 def test_work_list_limit_bounds_emitted_items_but_preserves_total_count(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
 ) -> None:
