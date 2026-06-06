@@ -91,6 +91,8 @@ class TestCollectPendingSteeringMessages:
         assert result == {
             "count": 0,
             "latest_three": [],
+            "unresolved_count": 0,
+            "latest_unresolved_three": [],
             "read_receipt_count": 0,
             "unread_message_count": 0,
             "latest_read_receipt": None,
@@ -102,6 +104,9 @@ class TestCollectPendingSteeringMessages:
             "count": 0,
             "by_recipient": {},
             "latest_three": [],
+            "unresolved_count": 0,
+            "unresolved_by_recipient": {},
+            "latest_unresolved_three": [],
             "read_receipt_count": 0,
             "unread_message_count": 0,
             "read_receipts_by_recipient": {},
@@ -113,11 +118,23 @@ class TestCollectPendingSteeringMessages:
         result = ab._collect_pending_steering_messages(
             "fixture", steering_root=tmp_path / "no-root"
         )
-        assert result == {"count": 0, "latest_three": []}
+        assert result == {
+            "count": 0,
+            "latest_three": [],
+            "unresolved_count": 0,
+            "latest_unresolved_three": [],
+        }
         result_rollup = ab._collect_pending_steering_messages(
             None, steering_root=tmp_path / "no-root"
         )
-        assert result_rollup == {"count": 0, "by_recipient": {}, "latest_three": []}
+        assert result_rollup == {
+            "count": 0,
+            "by_recipient": {},
+            "latest_three": [],
+            "unresolved_count": 0,
+            "unresolved_by_recipient": {},
+            "latest_unresolved_three": [],
+        }
 
     def test_single_message_scoped_surfaces_metadata(self, tmp_path: Path) -> None:
         _write_message(
