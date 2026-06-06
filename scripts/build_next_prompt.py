@@ -882,7 +882,7 @@ def _merge_ready_prompt_blocker(merge_packet: Any, *, pr: int | None = None) -> 
     try:
         tier = int(entry.get("tier"))
     except (TypeError, ValueError):
-        tier = 99
+        return f"merge-packet ready entry for PR #{pr_number} is missing a parseable tier"
     if tier >= 3:
         return f"PR #{pr_number} is Tier {tier}, not an autonomous merge-ready prompt target"
     return ""

@@ -832,6 +832,36 @@ def test_merge_ready_prompt_fails_closed_for_string_not_ready_entry(tmp_path: Pa
     assert "I authorize normal protected squash merge" not in prompt
 
 
+def test_merge_ready_cli_json_emits_prompt_and_packet(monkeypatch: Any, capsys: Any) -> None:
+    packet = _merge_ready_packet()
+    calls: list[dict[str, Any]] = []
+
+    def fake_build_merge_ready_packet(**kwargs: Any) -> dict[str, Any]:
+        calls.append(kwargs)
+        return packet
+
+    monkeypatch.setattr(
+        prompt_builder,
+        "build_merge_ready_packet",
+        fake_build_merge_ready_packet,
+    )
+
+    result = prompt_builder.main(
+        [
+            "--merge-ready-prompt",
+            "--pr",
+            "7827",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert calls[0]["pr"] == 7827
+    assert payload["merge_packet"]["admin_squash_order"] == [7828, 7827]
+    assert "PR #7827 at exact head d5d91763c26bbe31e5938bd30fa837ec586e0f94" in payload["prompt"]
+
+
 def test_decision_packet_detects_merged_pr_with_active_tmux_evidence_lane(
     tmp_path: Path,
 ) -> None:
