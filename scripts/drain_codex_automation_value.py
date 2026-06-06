@@ -751,6 +751,85 @@ def _int_from_mapping(payload: Mapping[str, Any], *keys: str) -> int:
     return 0
 
 
+def _optional_int_from_mapping(payload: Mapping[str, Any], key: str) -> int | None:
+    value = payload.get(key)
+    if isinstance(value, int):
+        return value
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_bool_from_mapping(payload: Mapping[str, Any], key: str) -> bool | None:
+    value = payload.get(key)
+    return value if isinstance(value, bool) else None
+
+
+def _cache_phase_summary(phase: Mapping[str, Any]) -> dict[str, Any]:
+    payload = phase.get("json") if isinstance(phase.get("json"), Mapping) else {}
+    local_queue = (
+        payload.get("local_queue") if isinstance(payload.get("local_queue"), Mapping) else {}
+    )
+    github_queue = (
+        payload.get("github_queue") if isinstance(payload.get("github_queue"), Mapping) else {}
+    )
+    pressure = (
+        github_queue.get("pressure") if isinstance(github_queue.get("pressure"), Mapping) else {}
+    )
+    return {
+        "ok": phase.get("ok") is True,
+        "returncode": _optional_int_from_mapping(phase, "returncode"),
+        "generated_at": payload.get("generated_at")
+        if isinstance(payload.get("generated_at"), str)
+        else None,
+        "local_outbox_count": _optional_int_from_mapping(local_queue, "outbox_count"),
+        "unreceipted_outbox_count": _optional_int_from_mapping(
+            local_queue, "unreceipted_outbox_count"
+        ),
+        "terminal_receipted_outbox_count": _optional_int_from_mapping(
+            local_queue, "terminal_receipted_outbox_count"
+        ),
+        "github_queue_available": _optional_bool_from_mapping(github_queue, "available"),
+        "open_codex_pr_count": _optional_int_from_mapping(github_queue, "open_codex_pr_count"),
+        "open_issue_count": _optional_int_from_mapping(github_queue, "open_issue_count"),
+        "open_issue_cap_reached": _optional_bool_from_mapping(pressure, "open_issue_cap_reached"),
+        "open_pr_cap_reached": _optional_bool_from_mapping(pressure, "open_pr_cap_reached"),
+    }
+
+
+def _cache_delta(
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+    *keys: str,
+) -> dict[str, int]:
+    delta: dict[str, int] = {}
+    for key in keys:
+        before_value = before.get(key)
+        after_value = after.get(key)
+        if isinstance(before_value, int) and isinstance(after_value, int):
+            delta[key] = after_value - before_value
+    return delta
+
+
+def _cache_refresh_summary(report: Mapping[str, Any]) -> dict[str, Any]:
+    before = _cache_phase_summary(_phase_by_name(report, "cache_refresh_before"))
+    after = _cache_phase_summary(_phase_by_name(report, "cache_refresh_after"))
+    return {
+        "before": before,
+        "after": after,
+        "delta": _cache_delta(
+            before,
+            after,
+            "local_outbox_count",
+            "unreceipted_outbox_count",
+            "terminal_receipted_outbox_count",
+            "open_codex_pr_count",
+            "open_issue_count",
+        ),
+    }
+
+
 def action_summary(report: Mapping[str, Any]) -> dict[str, Any]:
     mode = str(report.get("mode") or "dry-run")
     merge_phase = _phase_by_name(report, "merge_existing_prs")
@@ -783,6 +862,7 @@ def action_summary(report: Mapping[str, Any]) -> dict[str, Any]:
             if isinstance(item, Mapping) and item.get("eligible") is True
         ),
         "applied_protected_merges": len(merge_phase.get("merged") or []),
+        "cache_refresh": _cache_refresh_summary(report),
         "skipped": skipped,
     }
 

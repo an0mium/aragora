@@ -328,6 +328,8 @@ def test_run_drain_skips_issue_publish_when_cap_reached(monkeypatch: Any, tmp_pa
 
 
 def test_run_drain_reports_dry_run_action_summary(monkeypatch: Any, tmp_path: Path) -> None:
+    cache_refresh_count = 0
+
     def fake_health(_repo_root: Path) -> GitHubCLIHealth:
         return GitHubCLIHealth(
             ready=True,
@@ -339,17 +341,28 @@ def test_run_drain_reports_dry_run_action_summary(monkeypatch: Any, tmp_path: Pa
         )
 
     def fake_runner(args: Any, cwd: Path) -> subprocess.CompletedProcess[str]:
+        nonlocal cache_refresh_count
         command = list(args)
         stdout = "{}"
         if any(str(part).endswith("cache_codex_automation_github_status.py") for part in command):
+            cache_refresh_count += 1
             stdout = json.dumps(
                 {
+                    "generated_at": f"2026-06-06T19:1{cache_refresh_count}:00+00:00",
                     "github_queue": {
                         "available": True,
+                        "open_codex_pr_count": 4,
                         "open_issue_count": 3,
-                        "pressure": {"open_issue_cap_reached": False},
+                        "pressure": {
+                            "open_issue_cap_reached": False,
+                            "open_pr_cap_reached": False,
+                        },
                     },
-                    "local_queue": {"outbox_count": 5},
+                    "local_queue": {
+                        "outbox_count": 5 - cache_refresh_count,
+                        "unreceipted_outbox_count": 3 - cache_refresh_count,
+                        "terminal_receipted_outbox_count": cache_refresh_count,
+                    },
                 }
             )
         elif any(str(part).endswith("reconcile_automation_outbox.py") for part in command):
@@ -429,6 +442,41 @@ def test_run_drain_reports_dry_run_action_summary(monkeypatch: Any, tmp_path: Pa
         "published_handoff_issues": 0,
         "planned_protected_merges": 1,
         "applied_protected_merges": 0,
+        "cache_refresh": {
+            "before": {
+                "ok": True,
+                "returncode": 0,
+                "generated_at": "2026-06-06T19:11:00+00:00",
+                "local_outbox_count": 4,
+                "unreceipted_outbox_count": 2,
+                "terminal_receipted_outbox_count": 1,
+                "github_queue_available": True,
+                "open_codex_pr_count": 4,
+                "open_issue_count": 3,
+                "open_issue_cap_reached": False,
+                "open_pr_cap_reached": False,
+            },
+            "after": {
+                "ok": True,
+                "returncode": 0,
+                "generated_at": "2026-06-06T19:12:00+00:00",
+                "local_outbox_count": 3,
+                "unreceipted_outbox_count": 1,
+                "terminal_receipted_outbox_count": 2,
+                "github_queue_available": True,
+                "open_codex_pr_count": 4,
+                "open_issue_count": 3,
+                "open_issue_cap_reached": False,
+                "open_pr_cap_reached": False,
+            },
+            "delta": {
+                "local_outbox_count": -1,
+                "unreceipted_outbox_count": -1,
+                "terminal_receipted_outbox_count": 1,
+                "open_codex_pr_count": 0,
+                "open_issue_count": 0,
+            },
+        },
         "skipped": [],
     }
 
