@@ -139,6 +139,31 @@ except Exception:  # pragma: no cover - fallback for partially bootstrapped scri
         )
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull_fd, sys.stdout.fileno())
+        finally:
+            os.close(devnull_fd)
+    except Exception:
+        try:
+            sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        except OSError:
+            pass
+
+
+def _emit_stdout(text: str) -> bool:
+    try:
+        sys.stdout.write(f"{text}\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+        return False
+    return True
+
+
 @dataclass(frozen=True)
 class Handoff:
     source_file: str
@@ -1563,12 +1588,18 @@ def main(argv: list[str] | None = None) -> int:
         }
         if args.json:
             output_payload = summary_only_payload(payload) if args.summary_only else payload
-            print(json.dumps(output_payload, indent=2))
+            emitted = _emit_stdout(json.dumps(output_payload, indent=2))
         else:
             if handoffs:
-                print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
+                emitted = _emit_stdout(
+                    f"github_unavailable: {github_health.mode} {github_health.error}".strip()
+                )
             else:
-                print(f"noop: no handoffs to publish; github_unavailable={github_health.mode}")
+                emitted = _emit_stdout(
+                    f"noop: no handoffs to publish; github_unavailable={github_health.mode}"
+                )
+        if not emitted:
+            return 0
         return 1 if handoffs else 0
 
     decisions = decide_handoffs(
@@ -1618,7 +1649,8 @@ def main(argv: list[str] | None = None) -> int:
     }
     if args.json:
         output_payload = summary_only_payload(payload) if args.summary_only else payload
-        print(json.dumps(output_payload, indent=2))
+        if not _emit_stdout(json.dumps(output_payload, indent=2)):
+            return 0
     else:
         for item in results:
             marker = (
@@ -1629,7 +1661,8 @@ def main(argv: list[str] | None = None) -> int:
                 else "publish"
             )
             target = item.created_issue_url or item.existing_issue_url or item.existing_pr_url or ""
-            print(f"{marker}: {item.task_title} [{item.reason}] {target}".strip())
+            if not _emit_stdout(f"{marker}: {item.task_title} [{item.reason}] {target}".strip()):
+                return 0
     return 0
 
 

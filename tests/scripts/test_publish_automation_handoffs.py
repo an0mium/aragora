@@ -2259,6 +2259,55 @@ def test_main_limits_github_unavailable_decision_preview(
     }
 
 
+def test_emit_stdout_suppresses_flush_time_broken_pipe(monkeypatch: Any) -> None:
+    muted_stdout = []
+
+    class FlushBrokenStdout:
+        def write(self, text: str) -> int:
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr(mod.sys, "stdout", FlushBrokenStdout())
+    monkeypatch.setattr(mod, "_mute_stdout_after_broken_pipe", lambda: muted_stdout.append(True))
+
+    assert mod._emit_stdout("payload") is False
+    assert muted_stdout == [True]
+
+
+def test_main_json_pipe_close_returns_success(monkeypatch: Any, tmp_path: Path) -> None:
+    handoffs = [
+        Handoff(
+            source_file=str(tmp_path / "handoff.md"),
+            task_title="Offline handoff",
+            priority="MEDIUM",
+            body="body",
+            labels={},
+            expires_at=None,
+        )
+    ]
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: handoffs)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=True,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(mod, "_emit_stdout", lambda text: False)
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--codex-home", str(tmp_path), "--json"])
+
+    assert exit_code == 0
+
+
 def test_parser_rejects_abbreviated_max_options() -> None:
     parser = mod._build_parser()
 
