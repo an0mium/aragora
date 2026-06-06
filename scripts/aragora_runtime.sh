@@ -84,3 +84,29 @@ resolve_aragora_python() {
     echo "  Set ARAGORA_PYTHON to a working interpreter or install deps (e.g. pip install -e .)." >&2
     return 1
 }
+
+# aragora_bootstrap_automation_env
+#
+# Configure long-running Aragora automation (boss loop, merge-arbiter) so that:
+#
+#   1. Provider secrets are sourced from AWS Secrets Manager. With
+#      ARAGORA_USE_SECRETS_MANAGER=true the Aragora CLI hydrates provider keys
+#      from AWS into this process's env at startup (hydrate_env_from_secrets),
+#      so no plaintext per-provider API keys need to live in .env on the host.
+#      AWS loading degrades gracefully to environment variables when
+#      unconfigured, so enabling it is safe even without AWS access.
+#
+#   2. The merge quorum runs OpenRouter-backed reviewer families. grok and
+#      gemini both route through OpenRouter when their direct provider key is
+#      unset, so a single OPENROUTER_API_KEY (ideally the AWS-sourced one)
+#      satisfies the >=2-family quorum without the local `claude` CLI.
+#
+# Every value is overridable: export it before launch to change or opt out
+# (e.g. ARAGORA_USE_SECRETS_MANAGER=false, or a different reviewer set).
+aragora_bootstrap_automation_env() {
+    export ARAGORA_USE_SECRETS_MANAGER="${ARAGORA_USE_SECRETS_MANAGER:-true}"
+    export ARAGORA_QUORUM_REVIEWER_FAMILIES="${ARAGORA_QUORUM_REVIEWER_FAMILIES:-grok,gemini}"
+    if [[ -z "${AWS_REGION:-}" && -z "${AWS_DEFAULT_REGION:-}" ]]; then
+        export AWS_REGION="${ARAGORA_DEFAULT_AWS_REGION:-us-east-1}"
+    fi
+}

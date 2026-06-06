@@ -739,3 +739,74 @@ def test_run_collect_cli_catches_runtime_error(monkeypatch, capsys) -> None:
     )
     assert rc == 1
     assert "empty diff" in capsys.readouterr().out
+
+
+# --- _default_reviewer_families (operator env override) ---------------------
+
+
+def test_default_reviewer_families_unset_returns_builtin(monkeypatch) -> None:
+    monkeypatch.delenv(qe._FAMILIES_ENV_VAR, raising=False)
+    assert qe._default_reviewer_families() == qe.DEFAULT_FAMILIES
+
+
+def test_default_reviewer_families_env_override(monkeypatch) -> None:
+    monkeypatch.setenv(qe._FAMILIES_ENV_VAR, "grok,gemini")
+    assert qe._default_reviewer_families() == ("grok", "gemini")
+
+
+def test_default_reviewer_families_normalizes_drops_unknown_and_dedupes(monkeypatch) -> None:
+    monkeypatch.setenv(qe._FAMILIES_ENV_VAR, " Grok , bogus, grok , GEMINI ")
+    # case-folded, unknown dropped, de-duplicated, order preserved
+    assert qe._default_reviewer_families() == ("grok", "gemini")
+
+
+def test_default_reviewer_families_all_invalid_falls_back(monkeypatch) -> None:
+    monkeypatch.setenv(qe._FAMILIES_ENV_VAR, "bogus, , router")
+    assert qe._default_reviewer_families() == qe.DEFAULT_FAMILIES
+
+
+def test_run_collect_cli_uses_env_families_when_none(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        captured["families"] = kwargs.get("families")
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="ok",
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    monkeypatch.setenv(qe._FAMILIES_ENV_VAR, "gemini,grok")
+    qe.run_collect_cli(repo="o/r", pr=1, families=None, author=None, apply=False, json_output=False)
+    assert captured["families"] == ("gemini", "grok")
+
+
+def test_run_collect_cli_explicit_families_override_env(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        captured["families"] = kwargs.get("families")
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="ok",
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    monkeypatch.setenv(qe._FAMILIES_ENV_VAR, "gemini,grok")
+    qe.run_collect_cli(
+        repo="o/r", pr=1, families=["claude"], author=None, apply=False, json_output=False
+    )
+    # An explicit caller argument always wins over the env default.
+    assert captured["families"] == ("claude",)

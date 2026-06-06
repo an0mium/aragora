@@ -43,8 +43,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--reviewers",
         nargs="+",
-        default=list(DEFAULT_FAMILIES),
-        help=f"reviewer model families to run (default: {' '.join(DEFAULT_FAMILIES)})",
+        default=None,
+        help=(
+            "reviewer model families to run (default: env "
+            f"ARAGORA_QUORUM_REVIEWER_FAMILIES, else {' '.join(DEFAULT_FAMILIES)})"
+        ),
     )
     parser.add_argument(
         "--author",

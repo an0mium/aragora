@@ -7,6 +7,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/aragora_runtime.sh
 source "${REPO_ROOT}/scripts/aragora_runtime.sh"
+aragora_bootstrap_automation_env
 
 PYTHON_BIN="$(resolve_aragora_python 'import pydantic; import aragora.cli.commands.swarm' 'merge-arbiter' 'merge-arbiter runtime')"
 

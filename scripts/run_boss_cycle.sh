@@ -11,6 +11,7 @@ boss_label=""
 
 # shellcheck source=scripts/aragora_runtime.sh
 source "${REPO_ROOT}/scripts/aragora_runtime.sh"
+aragora_bootstrap_automation_env
 
 args=("$@")
 for ((i = 0; i < ${#args[@]}; i++)); do

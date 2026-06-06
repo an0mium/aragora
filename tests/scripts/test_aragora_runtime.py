@@ -116,3 +116,54 @@ def test_helper_is_sourced_not_executed() -> None:
     # The helper defines functions and must be sourced; it should not be marked
     # executable (callers use `source`).
     assert not os.access(HELPER, os.X_OK)
+
+
+def _bootstrap(env_overrides: dict[str, str]) -> dict[str, str]:
+    """Source the helper, run aragora_bootstrap_automation_env, echo the result.
+
+    ``env`` fully replaces the environment, so anything not in ``env_overrides``
+    is unset for the call (exercising the defaults).
+    """
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin")}
+    env.update(env_overrides)
+    script = (
+        f'source "{HELPER}"; aragora_bootstrap_automation_env; '
+        'echo "USE=${ARAGORA_USE_SECRETS_MANAGER:-}"; '
+        'echo "FAMS=${ARAGORA_QUORUM_REVIEWER_FAMILIES:-}"; '
+        'echo "REGION=${AWS_REGION:-}"'
+    )
+    result = subprocess.run(
+        ["/bin/bash", "-c", script], env=env, capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+    out: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        key, _, value = line.partition("=")
+        out[key] = value
+    return out
+
+
+def test_bootstrap_sets_secure_defaults() -> None:
+    out = _bootstrap({})
+    assert out["USE"] == "true"
+    assert out["FAMS"] == "grok,gemini"
+    assert out["REGION"] == "us-east-1"
+
+
+def test_bootstrap_respects_explicit_overrides() -> None:
+    out = _bootstrap(
+        {
+            "ARAGORA_USE_SECRETS_MANAGER": "false",
+            "ARAGORA_QUORUM_REVIEWER_FAMILIES": "claude,grok",
+            "AWS_REGION": "eu-west-1",
+        }
+    )
+    assert out["USE"] == "false"
+    assert out["FAMS"] == "claude,grok"
+    assert out["REGION"] == "eu-west-1"
+
+
+def test_bootstrap_does_not_override_existing_aws_default_region() -> None:
+    # When AWS_DEFAULT_REGION is already set, the helper must not force AWS_REGION.
+    out = _bootstrap({"AWS_DEFAULT_REGION": "ap-south-1"})
+    assert out["REGION"] == ""

@@ -77,6 +77,32 @@ FAMILY_DISPLAY: dict[str, str] = {
 
 DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "grok")
 
+# Operator override for the reviewer families used when a caller does not pass an
+# explicit set. ``ARAGORA_QUORUM_REVIEWER_FAMILIES`` (comma-separated) lets the
+# boss loop run OpenRouter-backed families (e.g. ``grok,gemini``) so a single
+# ``OPENROUTER_API_KEY`` — ideally sourced from AWS Secrets Manager — satisfies
+# the quorum with no per-provider key and without the local ``claude`` CLI.
+_FAMILIES_ENV_VAR = "ARAGORA_QUORUM_REVIEWER_FAMILIES"
+
+
+def _default_reviewer_families() -> tuple[str, ...]:
+    """Resolve default reviewer families, honoring the operator env override.
+
+    Unknown families (not countable by the quorum parser) are dropped; if nothing
+    valid remains the built-in :data:`DEFAULT_FAMILIES` applies, so a malformed
+    override can never silently disable evidence collection.
+    """
+    raw = os.environ.get(_FAMILIES_ENV_VAR, "")
+    seen: set[str] = set()
+    resolved: list[str] = []
+    for part in raw.split(","):
+        fam = part.strip().lower()
+        if fam and fam in FAMILY_PROVIDERS and fam not in seen:
+            seen.add(fam)
+            resolved.append(fam)
+    return tuple(resolved) or DEFAULT_FAMILIES
+
+
 # Tiers at or above this require exact-head operator settlement; never auto-post.
 SETTLEMENT_TIER_FLOOR = 3
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
@@ -642,7 +668,7 @@ def run_collect_cli(
     return 1 (quorum is enforced as N-of-M elsewhere). Inspect ``posted_families``
     in the JSON output rather than treating exit-code 1 as "nothing posted".
     """
-    fams = tuple(families) if families else DEFAULT_FAMILIES
+    fams = tuple(families) if families else _default_reviewer_families()
     resolved_author = author or resolve_author()
     try:
         outcome = collect_evidence(

@@ -2339,7 +2339,10 @@ def _add_review_queue_parser(subparsers) -> None:
         "--reviewers",
         nargs="+",
         default=None,
-        help="reviewer model families to run (default: claude grok)",
+        help=(
+            "reviewer model families to run (default: env "
+            "ARAGORA_QUORUM_REVIEWER_FAMILIES, else 'claude grok')"
+        ),
     )
     collect_evidence_parser.add_argument(
         "--author",
