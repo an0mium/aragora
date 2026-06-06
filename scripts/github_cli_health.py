@@ -191,6 +191,16 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true", help="Print machine-readable output")
     parser.add_argument("--quiet", action="store_true", help="Suppress normal output")
+    parser.add_argument(
+        "--diagnostic",
+        "--exit-zero-on-degraded",
+        action="store_true",
+        dest="diagnostic",
+        help=(
+            "Exit 0 after reporting health even when GitHub is unavailable. "
+            "Use for diagnostic probes, not readiness gates."
+        ),
+    )
     return parser
 
 
@@ -209,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"gh ready for GitHub automation in {health.repo}")
         else:
             print(f"gh unavailable in {health.repo}: [{health.mode}] {health.error}".strip())
-    return 0 if health.ready else 1
+    return 0 if health.ready or args.diagnostic else 1
 
 
 if __name__ == "__main__":

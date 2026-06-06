@@ -338,3 +338,42 @@ def test_main_json_reports_unavailable_state(monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
     assert '"mode": "connectivity_failed"' in out
     assert '"ready": false' in out
+
+
+def test_main_diagnostic_json_exits_zero_when_unavailable(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root, timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS: mod.GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(Path(repo_root).resolve()),
+        ),
+    )
+
+    exit_code = mod.main(["--json", "--diagnostic"])
+
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert '"mode": "connectivity_failed"' in out
+    assert '"ready": false' in out
+
+
+def test_main_exit_zero_alias_matches_diagnostic(monkeypatch) -> None:
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root, timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS: mod.GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="auth_failed",
+            error="not authenticated",
+            repo=str(Path(repo_root).resolve()),
+        ),
+    )
+
+    assert mod.main(["--quiet", "--exit-zero-on-degraded"]) == 0
