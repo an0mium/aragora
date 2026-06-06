@@ -2197,7 +2197,13 @@ def _operator_summary_int(summary: dict[str, Any], key: str) -> int:
 def _operator_boss_loop_status(summary: dict[str, Any]) -> dict[str, Any]:
     """Explain the legacy boss-loop liveness boolean in operator snapshots."""
 
-    active_roles = sorted(str(role) for role in summary.get("active_process_roles", []))
+    raw_roles = summary.get("active_process_roles") or []
+    if isinstance(raw_roles, str):
+        raw_roles = [raw_roles]
+    try:
+        active_roles = sorted(str(role) for role in raw_roles)
+    except TypeError:
+        active_roles = []
     active_role_set = set(active_roles)
     active_broker_runs = _operator_summary_int(summary, "active_broker_runs")
     fresh_agent_heartbeats = _operator_summary_int(summary, "fresh_agent_heartbeats")

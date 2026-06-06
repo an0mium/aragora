@@ -673,6 +673,27 @@ def test_operator_boss_loop_status_reports_idle_without_live_signal() -> None:
     }
 
 
+def test_operator_boss_loop_status_tolerates_malformed_roles() -> None:
+    import agent_bridge as mod
+
+    assert mod._operator_boss_loop_status({"active_process_roles": None}) == {
+        "alive": False,
+        "reason": "idle_no_live_boss_loop_signal",
+        "active_broker_runs": 0,
+        "fresh_agent_heartbeats": 0,
+        "has_boss_cycle_process": False,
+        "active_process_roles": [],
+    }
+    assert mod._operator_boss_loop_status({"active_process_roles": object()}) == {
+        "alive": False,
+        "reason": "idle_no_live_boss_loop_signal",
+        "active_broker_runs": 0,
+        "fresh_agent_heartbeats": 0,
+        "has_boss_cycle_process": False,
+        "active_process_roles": [],
+    }
+
+
 def test_operator_boss_loop_alive_preserves_legacy_boolean() -> None:
     import agent_bridge as mod
 
