@@ -3426,12 +3426,13 @@ def _lint_evidence_comment(
 ) -> dict[str, Any]:
     """Dry-run whether one proposed comment would satisfy quorum parsers."""
     grounded, grounding_method = _proposed_evidence_head_grounding(body, head_sha)
+    pr_grounded, pr_grounding_method = _proposed_evidence_pr_grounding(body, pr)
     comment = {
         "author": {"login": author},
         "body": body,
         "createdAt": "",
     }
-    if grounded:
+    if grounded and pr_grounded:
         dogfood_evidence = _dogfood_evidence_from_comments([comment])
         reviewer_signals = _model_review_signals_from_comments([comment])
     else:
@@ -3447,6 +3448,8 @@ def _lint_evidence_comment(
         problems.append("empty_body")
     if not grounded:
         problems.append("missing_current_head_grounding")
+    if not pr_grounded:
+        problems.append("wrong_pr_reference")
     if _is_github_actions_author(author):
         problems.append("github_actions_author_not_counted")
     if inferred_reviewer == "unknown_model_reviewer":
@@ -3491,6 +3494,8 @@ def _lint_evidence_comment(
         "identity_problems": list(identity.identity_problems),
         "current_head_grounded": grounded,
         "current_head_grounding_method": grounding_method,
+        "current_pr_grounded": pr_grounded,
+        "current_pr_grounding_method": pr_grounding_method,
         "dogfood_evidence": dogfood_evidence,
         "reviewer_signals": reviewer_signals,
         "counted_reviewer_ids": counted_reviewer_ids,
@@ -3498,6 +3503,34 @@ def _lint_evidence_comment(
         "would_count": bool(counted_reviewer_ids),
         "problems": problems,
     }
+
+
+def _proposed_evidence_pr_grounding(body: str, pr: str) -> tuple[bool, str]:
+    """Fail closed when a proposed evidence comment names the wrong PR.
+
+    Evidence comments are commonly drafted from recursive prompts that include
+    both a PR number and an exact head SHA. Lint mode should not approve a
+    body that is exact-head grounded but visibly copied from a different PR.
+    Comments without an explicit PR citation remain acceptable because the
+    caller already supplies the target ``--pr`` and the head SHA is the primary
+    current-head proof.
+    """
+    normalized_pr = str(pr or "").strip().lstrip("#")
+    if not normalized_pr:
+        return False, "missing_pr_argument"
+    cited = {
+        match.group(1)
+        for match in re.finditer(
+            r"\b(?:PR|pull\s+request)\s*[:#]?\s*#?(\d+)\b",
+            str(body or ""),
+            flags=re.IGNORECASE,
+        )
+    }
+    if not cited:
+        return True, "no_pr_citation"
+    if normalized_pr in cited:
+        return True, "pr_citation"
+    return False, "wrong_pr_citation"
 
 
 def _proposed_evidence_head_grounding(body: str, head_sha: str) -> tuple[bool, str]:
