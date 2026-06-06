@@ -1,12 +1,26 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 import scripts.cache_codex_automation_github_status as mod
 import scripts.refresh_automation_status_cache as refresh_mod
 from scripts.github_cli_health import GitHubCLIHealth
+
+
+def test_cache_status_help_avoids_swarm_eager_import() -> None:
+    proc = subprocess.run(
+        [sys.executable, "scripts/cache_codex_automation_github_status.py", "--help"],
+        text=True,
+        capture_output=True,
+        timeout=45,
+    )
+
+    assert proc.returncode == 0
+    assert "Cache GitHub queue status" in proc.stdout
 
 
 def test_build_status_uses_local_queue_when_github_unavailable(
