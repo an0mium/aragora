@@ -327,6 +327,112 @@ def test_run_drain_skips_issue_publish_when_cap_reached(monkeypatch: Any, tmp_pa
     assert issue_phase["skipped"] == [{"reason": "open issue cap reached"}]
 
 
+def test_run_drain_reports_dry_run_action_summary(monkeypatch: Any, tmp_path: Path) -> None:
+    def fake_health(_repo_root: Path) -> GitHubCLIHealth:
+        return GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        )
+
+    def fake_runner(args: Any, cwd: Path) -> subprocess.CompletedProcess[str]:
+        command = list(args)
+        stdout = "{}"
+        if any(str(part).endswith("cache_codex_automation_github_status.py") for part in command):
+            stdout = json.dumps(
+                {
+                    "github_queue": {
+                        "available": True,
+                        "open_issue_count": 3,
+                        "pressure": {"open_issue_cap_reached": False},
+                    },
+                    "local_queue": {"outbox_count": 5},
+                }
+            )
+        elif any(str(part).endswith("reconcile_automation_outbox.py") for part in command):
+            stdout = json.dumps({"archived": 0, "kept": 5})
+        elif command[:3] == ["gh", "pr", "list"]:
+            stdout = json.dumps(
+                [
+                    {
+                        "number": 7768,
+                        "headRefName": "codex/safe-queue-repair",
+                        "title": "Safe queue repair",
+                        "url": "https://github.example/pr/7768",
+                    }
+                ]
+            )
+        elif command[:3] == ["gh", "pr", "view"]:
+            stdout = json.dumps(_pr_view())
+        elif command[:3] == ["gh", "pr", "checks"]:
+            stdout = json.dumps(_checks())
+        elif any(str(part).endswith("identify_lane_owner.py") for part in command):
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=1,
+                stdout=json.dumps({"ok": False, "error": "no lane matched criteria {'pr': 7768}"}),
+                stderr="",
+            )
+        elif "review-queue" in command and "merge-packet" in command:
+            stdout = json.dumps(_packet())
+        elif any(str(part).endswith("settle_one_pr.py") for part in command):
+            stdout = json.dumps(_settle())
+        elif any(str(part).endswith("publish_codex_automation_branches.py") for part in command):
+            stdout = json.dumps(
+                {
+                    "decision_count": 4,
+                    "eligible_decision_count": 2,
+                    "ineligible_decision_count": 2,
+                    "published": [],
+                }
+            )
+        elif any(str(part).endswith("publish_automation_handoffs.py") for part in command):
+            stdout = json.dumps(
+                {
+                    "decision_count": 3,
+                    "eligible_count": 1,
+                    "ineligible_count": 2,
+                    "published": [],
+                }
+            )
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fake_health)
+    config = mod.DrainConfig(
+        repo_root=tmp_path,
+        github_repo="owner/repo",
+        state_root=tmp_path,
+        outbox_dir=tmp_path / ".aragora" / "automation-outbox",
+        receipt_dir=tmp_path / ".aragora" / "automation-receipts",
+        cache_output=None,
+        base="origin/main",
+        branch_limit=2,
+        issue_limit=4,
+        merge_limit=1,
+        max_open_prs=12,
+        max_open_issues=16,
+        branch_scan_limit=40,
+        apply=False,
+    )
+
+    report = mod.run_drain(config, runner=fake_runner)
+
+    assert report["status"] == "ok"
+    assert report["action_summary"] == {
+        "mode": "dry-run",
+        "planned_branch_prs": 2,
+        "published_branch_prs": 0,
+        "planned_handoff_issues": 1,
+        "published_handoff_issues": 0,
+        "planned_protected_merges": 1,
+        "applied_protected_merges": 0,
+        "skipped": [],
+    }
+
+
 def test_publisher_wrapper_propagates_value_drain_failure() -> None:
     wrapper = Path("scripts/run_codex_automation_publisher.sh").read_text(encoding="utf-8")
 

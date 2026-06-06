@@ -732,6 +732,61 @@ def _run_merge_phase(config: DrainConfig, runner: Runner) -> dict[str, Any]:
     return phase
 
 
+def _phase_by_name(report: Mapping[str, Any], name: str) -> Mapping[str, Any]:
+    for phase in report.get("phases") or []:
+        if isinstance(phase, Mapping) and phase.get("name") == name:
+            return phase
+    return {}
+
+
+def _int_from_mapping(payload: Mapping[str, Any], *keys: str) -> int:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, int):
+            return value
+        try:
+            return int(str(value))
+        except (TypeError, ValueError):
+            continue
+    return 0
+
+
+def action_summary(report: Mapping[str, Any]) -> dict[str, Any]:
+    mode = str(report.get("mode") or "dry-run")
+    merge_phase = _phase_by_name(report, "merge_existing_prs")
+    branch_phase = _phase_by_name(report, "publish_branch_prs")
+    issue_phase = _phase_by_name(report, "publish_handoff_issues")
+    branch_payload = (
+        branch_phase.get("json") if isinstance(branch_phase.get("json"), Mapping) else {}
+    )
+    issue_payload = issue_phase.get("json") if isinstance(issue_phase.get("json"), Mapping) else {}
+
+    skipped: list[dict[str, Any]] = []
+    for phase_name, phase in (
+        ("merge_existing_prs", merge_phase),
+        ("publish_branch_prs", branch_phase),
+        ("publish_handoff_issues", issue_phase),
+    ):
+        for item in phase.get("skipped") or []:
+            if isinstance(item, Mapping):
+                skipped.append({"phase": phase_name, **dict(item)})
+
+    return {
+        "mode": mode,
+        "planned_branch_prs": _int_from_mapping(branch_payload, "eligible_decision_count"),
+        "published_branch_prs": len(branch_payload.get("published") or []),
+        "planned_handoff_issues": _int_from_mapping(issue_payload, "eligible_count"),
+        "published_handoff_issues": len(issue_payload.get("published") or []),
+        "planned_protected_merges": sum(
+            1
+            for item in merge_phase.get("evaluations") or []
+            if isinstance(item, Mapping) and item.get("eligible") is True
+        ),
+        "applied_protected_merges": len(merge_phase.get("merged") or []),
+        "skipped": skipped,
+    }
+
+
 def run_drain(config: DrainConfig, *, runner: Runner | None = None) -> dict[str, Any]:
     runner = runner or _run
     report: dict[str, Any] = {
@@ -835,6 +890,7 @@ def run_drain(config: DrainConfig, *, runner: Runner | None = None) -> dict[str,
         _payload, proc = _run_json(final_cache_cmd, config.repo_root, runner)
         report["phases"].append(_phase_result("cache_refresh_after", final_cache_cmd, proc))
 
+    report["action_summary"] = action_summary(report)
     report["status"] = "ok"
     report["blockers"] = []
     return report
