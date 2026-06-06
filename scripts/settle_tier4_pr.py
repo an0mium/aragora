@@ -824,7 +824,7 @@ def _required_checks_from_direct_check_runs(
 
 
 def _load_live_inputs(
-    pr: int, *, cwd: Path
+    pr: int, *, cwd: Path, repo: str = DEFAULT_REPO
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     pr_view = _run_json(
         [
@@ -870,7 +870,7 @@ def _load_live_inputs(
     )
     if not required_checks:
         required_checks = _required_checks_from_direct_check_runs(
-            repo=DEFAULT_REPO,
+            repo=repo,
             base_ref=str(pr_view.get("baseRefName") or "main"),
             head=str(pr_view.get("headRefOid") or ""),
             cwd=cwd,
@@ -1127,7 +1127,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        pr_view, merge_packet, required_checks = _load_live_inputs(args.pr, cwd=args.cwd)
+        pr_view, merge_packet, required_checks = _load_live_inputs(
+            args.pr,
+            cwd=args.cwd,
+            repo=args.repo,
+        )
         applied_commands: list[list[str]] = []
         if args.settle_only:
             gate = evaluate_tier4_settlement_preconditions(

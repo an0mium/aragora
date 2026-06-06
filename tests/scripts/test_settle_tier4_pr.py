@@ -115,6 +115,7 @@ def test_load_live_inputs_uses_direct_required_check_runs_when_required_rows_emp
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    api_endpoints: list[str] = []
 
     def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
         if command[:3] == ["gh", "pr", "view"]:
@@ -132,8 +133,10 @@ def test_load_live_inputs_uses_direct_required_check_runs_when_required_rows_emp
             }
         if command[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
             return _tier4_packet()
-        if command[:2] == ["gh", "api"] and command[2].endswith(
-            "/branches/main/protection/required_status_checks"
+        if command[:2] == ["gh", "api"]:
+            api_endpoints.append(command[2])
+        if command[:2] == ["gh", "api"] and command[2] == (
+            "repos/example/project/branches/main/protection/required_status_checks"
         ):
             return {
                 "strict": False,
@@ -148,8 +151,10 @@ def test_load_live_inputs_uses_direct_required_check_runs_when_required_rows_emp
     def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
         if command[:5] == ["gh", "pr", "checks", "7423", "--required"]:
             return []
-        if command[:2] == ["gh", "api"] and command[2].endswith(
-            f"/commits/{head}/check-runs?per_page=100"
+        if command[:2] == ["gh", "api"]:
+            api_endpoints.append(command[2])
+        if command[:2] == ["gh", "api"] and command[2] == (
+            f"repos/example/project/commits/{head}/check-runs?per_page=100"
         ):
             return {
                 "check_runs": [
@@ -172,7 +177,7 @@ def test_load_live_inputs_uses_direct_required_check_runs_when_required_rows_emp
     monkeypatch.setattr(settler, "_run_json", fake_run_json)
     monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
 
-    _, _, required_checks = settler._load_live_inputs(7423, cwd=tmp_path)
+    _, _, required_checks = settler._load_live_inputs(7423, cwd=tmp_path, repo="example/project")
 
     assert required_checks == [
         {
@@ -187,6 +192,10 @@ def test_load_live_inputs_uses_direct_required_check_runs_when_required_rows_emp
             "workflow": "direct required check-run fallback",
             "source": "direct_commit_check_run",
         },
+    ]
+    assert api_endpoints == [
+        "repos/example/project/branches/main/protection/required_status_checks",
+        f"repos/example/project/commits/{head}/check-runs?per_page=100",
     ]
 
 
@@ -498,7 +507,7 @@ def test_cli_trusted_operator_login_authorizes_member_comment(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(
                 head,
                 comments=[_authorized_comment(head, association="MEMBER", author="trusted-member")],
@@ -881,7 +890,7 @@ def test_check_json_includes_authorization_diagnostics(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[_authorized_comment(head, association="MEMBER")]),
             _tier4_packet(),
             _valid_checks(),
@@ -922,7 +931,7 @@ def test_settle_only_posts_comment_and_status_without_merge(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
             _tier4_packet(),
             [
@@ -996,7 +1005,7 @@ def test_settle_only_rejects_untrusted_invoking_login(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
             _tier4_packet(),
             [
@@ -1051,7 +1060,7 @@ def test_settle_only_requires_trusted_operator_allowlist(monkeypatch: Any, tmp_p
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
             _tier4_packet(),
             [
@@ -1089,7 +1098,7 @@ def test_settle_only_rejects_unrelated_required_failure(monkeypatch: Any, tmp_pa
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
             _tier4_packet(),
             [
@@ -1139,7 +1148,7 @@ def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Pat
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[_authorized_comment(head)]),
             _tier4_packet(),
             _valid_checks(),
@@ -1236,7 +1245,7 @@ def test_merge_apply_skips_required_status_check_patch_when_quorum_already_requi
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[_authorized_comment(head)]),
             _tier4_packet(),
             _valid_checks(),
@@ -1277,7 +1286,7 @@ def test_merge_apply_merge_only_authorization_skips_branch_protection(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(
                 head,
                 comments=[_authorized_comment(head, include_branch_protection=False)],
