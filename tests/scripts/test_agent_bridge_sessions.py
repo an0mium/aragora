@@ -548,6 +548,106 @@ def test_main_json_output(
     assert payload["sessions"][0]["name"] == "codex-strategic"
 
 
+def test_main_json_summary_only_omits_full_sessions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    observed: dict[str, object] = {}
+
+    def fake_collect_sessions(**kwargs):
+        observed.update(kwargs)
+        return [
+            mod.SessionRecord(
+                source="codex_desktop",
+                session_id="019e9551",
+                name="codex-019e9551",
+                agent="codex",
+                status="unknown",
+                updated_at="2026-06-06T01:00:00+00:00",
+                branch="codex/example",
+                cwd=str(repo_root),
+                prompt_file=None,
+                summary="Detailed summary should be omitted.",
+                transcript_file="/tmp/rollout.jsonl",
+            ),
+            mod.SessionRecord(
+                source="tmux",
+                session_id="codex-worker",
+                name="codex-worker",
+                agent="codex",
+                status="alive",
+                updated_at="2026-06-06T00:59:00+00:00",
+                branch=None,
+                cwd=str(repo_root),
+                prompt_file="/tmp/prompt.md",
+                summary="Another detailed summary.",
+            ),
+        ]
+
+    monkeypatch.setattr(mod, "resolve_canonical_repo_root", lambda path: repo_root)
+    monkeypatch.setattr(mod, "collect_sessions", fake_collect_sessions)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "agent_bridge_sessions.py",
+            "--repo",
+            str(repo_root),
+            "--json",
+            "--summary-only",
+            "--summary-limit",
+            "1",
+        ],
+    )
+
+    rc = mod.main()
+
+    assert rc == 0
+    assert observed["include_summaries"] is False
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["details_omitted"] is True
+    assert payload["count"] == 2
+    assert payload["summary_limit"] == 1
+    assert payload["sessions_omitted"] == 1
+    assert payload["source_counts"] == {"codex_desktop": 1, "tmux": 1}
+    assert payload["agent_counts"] == {"codex": 2}
+    assert payload["sessions_with_branch"] == 1
+    assert "sessions" not in payload
+    assert payload["top_sessions"] == [
+        {
+            "source": "codex_desktop",
+            "name": "codex-019e9551",
+            "agent": "codex",
+            "status": "unknown",
+            "updated_at": "2026-06-06T01:00:00+00:00",
+            "branch": "codex/example",
+            "cwd": str(repo_root),
+        }
+    ]
+
+
+def test_emit_text_suppresses_broken_pipe(monkeypatch: pytest.MonkeyPatch) -> None:
+    import agent_bridge_sessions as mod
+
+    muted_stdout: list[bool] = []
+
+    class BrokenStdout:
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not run after write failure")
+
+    monkeypatch.setattr(mod.sys, "stdout", BrokenStdout())
+    monkeypatch.setattr(mod, "_mute_stdout_after_broken_pipe", lambda: muted_stdout.append(True))
+
+    assert mod._emit_text('{"ok": true}') == 0
+    assert muted_stdout == [True]
+
+
 def _write_codex_rollout(
     codex_home: Path,
     *,

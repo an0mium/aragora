@@ -23,6 +23,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from dataclasses import asdict
 from dataclasses import dataclass
 from datetime import UTC
@@ -791,19 +792,91 @@ def collect_sessions(
     return records[:limit]
 
 
+def summary_only_payload(payload: dict[str, Any], *, summary_limit: int = 20) -> dict[str, Any]:
+    sessions = payload.get("sessions")
+    rows = sessions if isinstance(sessions, list) else []
+    limit = max(0, int(summary_limit))
+
+    def _counts(field: str) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            value = row.get(field) or "unknown"
+            counts[str(value)] = counts.get(str(value), 0) + 1
+        return dict(sorted(counts.items()))
+
+    top_sessions: list[dict[str, Any]] = []
+    for row in rows[:limit]:
+        if not isinstance(row, dict):
+            continue
+        top_sessions.append(
+            {
+                "source": row.get("source"),
+                "name": row.get("name"),
+                "agent": row.get("agent"),
+                "status": row.get("status"),
+                "updated_at": row.get("updated_at"),
+                "branch": row.get("branch"),
+                "cwd": row.get("cwd"),
+            }
+        )
+
+    count = int(payload.get("count") or len(rows))
+    return {
+        "generated_at": payload.get("generated_at"),
+        "repo_root": payload.get("repo_root"),
+        "count": count,
+        "details_omitted": True,
+        "sessions_omitted": max(0, count - len(top_sessions)),
+        "summary_limit": limit,
+        "source_counts": _counts("source"),
+        "agent_counts": _counts("agent"),
+        "status_counts": _counts("status"),
+        "sessions_with_branch": sum(
+            1 for row in rows if isinstance(row, dict) and bool(row.get("branch"))
+        ),
+        "sessions_with_cwd": sum(
+            1 for row in rows if isinstance(row, dict) and bool(row.get("cwd"))
+        ),
+        "top_sessions": top_sessions,
+    }
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")  # noqa: SIM115
+    except OSError:
+        pass
+
+
+def _emit_text(text: str) -> int:
+    try:
+        sys.stdout.write(text)
+        if text and not text.endswith("\n"):
+            sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+    return 0
+
+
 def _print_table(repo_root: Path, sessions: list[SessionRecord]) -> None:
-    print(f"repo_root: {repo_root}")
-    print(f"sessions: {len(sessions)}")
-    print("")
+    lines = [
+        f"repo_root: {repo_root}",
+        f"sessions: {len(sessions)}",
+        "",
+    ]
     header = f"{'source':<13} {'name':<24} {'agent':<8} {'status':<8} {'branch':<28} summary"
-    print(header)
-    print("-" * len(header))
+    lines.append(header)
+    lines.append("-" * len(header))
     for row in sessions:
         branch = row.branch or "-"
-        print(
+        lines.append(
             f"{row.source:<13} {row.name[:24]:<24} {row.agent[:8]:<8} {row.status[:8]:<8} "
             f"{branch[:28]:<28} {row.summary}"
         )
+    _emit_text("\n".join(lines))
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -817,6 +890,17 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--limit", type=int, default=100, help="Maximum sessions to return")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact counts and bounded top sessions without full session details",
+    )
+    parser.add_argument(
+        "--summary-limit",
+        type=int,
+        default=20,
+        help="Maximum sessions to include in --summary-only top_sessions",
+    )
     parser.add_argument(
         "--tmux-dir",
         default=str(Path.home() / ".aragora" / "tmux-sessions"),
@@ -852,6 +936,7 @@ def main() -> int:
         source=args.source,
         limit=max(1, int(args.limit)),
         resolve_repo=False,
+        include_summaries=not args.summary_only,
         codex_scan_limit=max(0, int(args.codex_scan_limit)),
     )
 
@@ -862,7 +947,12 @@ def main() -> int:
         "sessions": [asdict(item) for item in sessions],
     }
     if args.json:
-        print(json.dumps(payload, indent=2))
+        output_payload = (
+            summary_only_payload(payload, summary_limit=args.summary_limit)
+            if args.summary_only
+            else payload
+        )
+        _emit_text(json.dumps(output_payload, indent=2))
     else:
         _print_table(repo_root, sessions)
     return 0
