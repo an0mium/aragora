@@ -555,8 +555,13 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
     repo_root = tmp_path / "repo"
     (repo_root / "scripts").mkdir(parents=True)
     (repo_root / "docs" / "benchmarks").mkdir(parents=True)
+    (repo_root / "docs" / "status").mkdir(parents=True)
     (repo_root / "scripts" / "measure_b0_scorecard.py").write_text("# fixture\n")
     (repo_root / "docs" / "benchmarks" / "corpus.json").write_text("{}\n")
+    (repo_root / "docs" / "status" / "TW03_RESCUE_PRODUCTIZATION_STATUS.md").write_text(
+        "# TW03 status\n",
+        encoding="utf-8",
+    )
     mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
     mod.LANE_REGISTRY_FILE.write_text(
         json.dumps(
@@ -649,6 +654,16 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
     payload = json.loads(capsys.readouterr().out)
     assert payload["queue_depth"] == 3
     assert payload["success_rate"] == 0.625
+    assert payload["proof_surfaces"] == [
+        {
+            "path": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+            "exists": False,
+        },
+        {
+            "path": "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md",
+            "exists": True,
+        },
+    ]
     assert payload["boss_loop_alive"] is True
     assert payload["boss_loop_status"] == {
         "alive": True,
@@ -944,6 +959,26 @@ def test_collect_b0_success_rate_times_out_fail_closed(
     monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
     assert mod._collect_b0_success_rate(repo_root) is None
+
+
+def test_collect_proof_surfaces_reports_status_doc_existence(tmp_path: Path) -> None:
+    import agent_bridge as mod
+
+    repo_root = tmp_path / "repo"
+    proof_doc = repo_root / "docs" / "status" / "B0_BENCHMARK_TRUTH_STATUS.md"
+    proof_doc.parent.mkdir(parents=True)
+    proof_doc.write_text("# B0 status\n", encoding="utf-8")
+
+    assert mod._collect_proof_surfaces(repo_root) == [
+        {
+            "path": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+            "exists": True,
+        },
+        {
+            "path": "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md",
+            "exists": False,
+        },
+    ]
 
 
 def test_operator_snapshot_summary_counts_repo_local_lane_when_user_registry_exists(
