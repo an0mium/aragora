@@ -77,6 +77,34 @@ def test_lifecycle_state_machine_statuses_round_trip(tmp_registry: Path) -> None
     assert result["last_steering_outcome"] == "obeyed"
 
 
+def test_blocked_status_defaults_steering_outcome_to_blocked(tmp_registry: Path) -> None:
+    result = claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="publisher-blocked",
+        owner_session="codex-publisher",
+        status="blocked",
+        next_action="networked publisher should open draft PR",
+        last_heartbeat_at="2026-06-06T13:10:00Z",
+    )
+
+    assert result["status"] == "blocked"
+    assert result["last_steering_outcome"] == "blocked"
+
+
+def test_blocked_status_keeps_explicit_steering_outcome(tmp_registry: Path) -> None:
+    result = claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="publisher-held",
+        owner_session="codex-publisher",
+        status="blocked",
+        next_action="waiting for operator decision",
+        last_steering_outcome="held",
+    )
+
+    assert result["status"] == "blocked"
+    assert result["last_steering_outcome"] == "held"
+
+
 def test_same_owner_refresh_overwrites_in_place(tmp_registry: Path) -> None:
     claim_module.claim_lane(
         registry_path=tmp_registry,

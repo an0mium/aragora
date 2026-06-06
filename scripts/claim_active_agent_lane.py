@@ -155,10 +155,17 @@ ACTIVE_STATUSES = {
 
 DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"
+STATUS_DEFAULT_STEERING_OUTCOMES = {
+    "blocked": "blocked",
+}
 
 
 def _utc_now_iso() -> str:
     return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _default_steering_outcome(status: str) -> str:
+    return STATUS_DEFAULT_STEERING_OUTCOMES.get(status, DEFAULT_STEERING_OUTCOME)
 
 
 def resolve_registry_path(
@@ -397,7 +404,7 @@ def claim_lane(
         if status in ACTIVE_STATUSES:
             next_action = next_action or DEFAULT_ACTIVE_NEXT_ACTION
             last_heartbeat_at = last_heartbeat_at or timestamp
-            last_steering_outcome = last_steering_outcome or DEFAULT_STEERING_OUTCOME
+            last_steering_outcome = last_steering_outcome or _default_steering_outcome(status)
 
         new_row: dict[str, Any] = {
             "lane_id": lane_id,
