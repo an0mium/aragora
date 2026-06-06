@@ -37,6 +37,9 @@ AUTOMATION_BRANCH_PREFIXES: list[str] = [
     "codex/",
     "factory/",
     "aragora/boss-harvest/",
+    # Scoped agent-owned spec namespace. Bare ``spec/`` is intentionally NOT
+    # listed so human design branches never become auto-merge candidates.
+    "aragora/spec/",
 ]
 PASSING_CHECK_STATES = frozenset({"SUCCESS", "NEUTRAL", "SKIPPED"})
 READY_SUITE_GATE_CHECKS = frozenset({"Prioritize Required Checks"})
@@ -134,6 +137,11 @@ def _normalize_branch_prefixes(branch_prefixes: list[str] | None) -> list[str]:
         "aragora/boss-harvest": "aragora/boss-harvest/",
         "codex": "codex/",
         "factory": "factory/",
+        # Map any bare "spec" form to the scoped agent-owned namespace so an
+        # operator can never accidentally widen the gate to human "spec/" work.
+        "spec": "aragora/spec/",
+        "spec/": "aragora/spec/",
+        "aragora/spec": "aragora/spec/",
     }
     for prefix in raw_prefixes:
         value = aliases.get(str(prefix or "").strip(), str(prefix or "").strip())

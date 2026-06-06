@@ -15,12 +15,14 @@ from aragora.swarm.merge_arbiter import (
     MergeArbiter,
     MergeArbiterConfig,
     MergeResult,
+    classify_automation_branch_ownership,
     _classify_required_checks,
     _evaluate_pr,
     _get_check_status,
     _has_local_settlement_receipt,
     _has_matching_human_approval,
     _list_candidate_prs,
+    _normalize_branch_prefixes,
     _review_counts_as_human_approval,
     _merge_pr,
     _promote_draft,
@@ -543,3 +545,48 @@ class TestFullRun:
 
         assert 7 in summary.merged
         assert summary.polls >= 1
+
+
+# ---------------------------------------------------------------------------
+# Scoped agent-owned spec prefix (aragora/spec/) — Tier-4 merge-authority scope
+# ---------------------------------------------------------------------------
+
+
+class TestScopedSpecPrefix:
+    def test_scoped_spec_branch_is_queue_owned_candidate(self):
+        assert (
+            classify_automation_branch_ownership("aragora/spec/ground-truth-integrity-20260606")
+            == "queue-owned"
+        )
+
+    def test_bare_spec_branch_is_never_owned(self):
+        # The whole point of scoping: human "spec/" design branches stay manual.
+        assert classify_automation_branch_ownership("spec/ground-truth-integrity-20260606") is None
+
+    def test_scoped_spec_is_distinct_from_boss_harvest(self):
+        assert classify_automation_branch_ownership("aragora/boss-harvest/issue-1") == "boss-owned"
+        assert classify_automation_branch_ownership("aragora/spec/x") == "queue-owned"
+
+    def test_bare_spec_alias_normalizes_to_scoped_namespace(self):
+        # Passing "spec" or "spec/" at launch must NOT widen the gate to bare spec/.
+        normalized = _normalize_branch_prefixes(["spec"])
+        assert "aragora/spec/" in normalized
+        assert "spec/" not in normalized
+        assert classify_automation_branch_ownership("spec/x", branch_prefixes=["spec"]) is None
+        assert (
+            classify_automation_branch_ownership("aragora/spec/x", branch_prefixes=["spec"])
+            == "queue-owned"
+        )
+
+    def test_list_candidate_prs_includes_scoped_spec_excludes_bare_spec(self):
+        prs = [
+            _pr(1, "aragora/spec/gti-20260606"),
+            _pr(2, "spec/human-design-draft"),
+            _pr(3, "codex/task"),
+            _pr(4, "feat/manual"),
+        ]
+        config = MergeArbiterConfig()
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            mock_gh.return_value = _make_gh_result(stdout=json.dumps(prs))
+            result = _list_candidate_prs(config)
+        assert [pr["number"] for pr in result] == [1, 3]
