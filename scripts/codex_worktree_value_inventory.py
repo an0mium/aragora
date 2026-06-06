@@ -82,6 +82,24 @@ PROTECTED_CLASSES = {
 }
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> int:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+    return 0
+
+
 @dataclass(frozen=True)
 class WorktreeEntry:
     path: Path
@@ -1206,19 +1224,21 @@ def main(argv: list[str] | None = None) -> int:
         payload["ledger_written"] = None
 
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        return _emit_output(json.dumps(payload, indent=2, sort_keys=True))
     else:
         summary = payload["summary"]
         roots_str = ", ".join(payload.get("roots") or []) or payload.get("root", "")
-        print(f"roots: {roots_str}")
-        print(f"candidates: {summary['total_candidates']}")
-        print(f"coverage: {summary['inventory_coverage']:.2%}")
-        print(f"cleanup_candidates: {summary['cleanup_candidate_count']}")
-        print(f"harvest_candidates: {summary['harvest_candidate_count']}")
-        print("classes:")
+        lines = [
+            f"roots: {roots_str}",
+            f"candidates: {summary['total_candidates']}",
+            f"coverage: {summary['inventory_coverage']:.2%}",
+            f"cleanup_candidates: {summary['cleanup_candidate_count']}",
+            f"harvest_candidates: {summary['harvest_candidate_count']}",
+            "classes:",
+        ]
         for name, count in summary["count_by_class"].items():
-            print(f"  {name}: {count}")
-    return 0
+            lines.append(f"  {name}: {count}")
+        return _emit_output("\n".join(lines))
 
 
 if __name__ == "__main__":

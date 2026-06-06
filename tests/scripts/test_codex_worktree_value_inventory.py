@@ -783,6 +783,28 @@ def test_build_parser_include_pr_state_default_off() -> None:
     assert parser.parse_args(["--include-pr-state"]).include_pr_state is True
 
 
+def test_emit_output_suppresses_broken_pipe(monkeypatch: pytest.MonkeyPatch) -> None:
+    import codex_worktree_value_inventory as mod
+
+    class BrokenPipeStream:
+        closed = False
+
+        def write(self, _value: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not run after write failure")
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = BrokenPipeStream()
+    monkeypatch.setattr(sys, "stdout", stream)
+
+    assert mod._emit_output('{"ok": true}') == 0
+    assert stream.closed is True
+
+
 def test_lookup_open_prs_uses_cached_open_pr_heads_when_provided(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
