@@ -655,6 +655,16 @@ def test_work_graph_parser_accepts_summary_only() -> None:
     assert args.limit == 3
 
 
+def test_work_graph_limit_help_mentions_summary_only(capsys: pytest.CaptureFixture) -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["work", "graph", "--help"])
+
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "with --summary-only" in help_text
+
+
 def test_work_graph_summary_only_clamps_negative_limit(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
     bead_dir = tmp_path / ".aragora_beads"
@@ -709,7 +719,10 @@ def test_work_graph_human_summary_shows_details_omitted(
 
     assert cmd_work_graph(_args(tmp_path, summary_only=True, limit=1, json=False)) == 0
 
-    assert "details_omitted: true" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "items_omitted: 0" in output
+    assert "edges_omitted: 0" in output
+    assert "details_omitted: true" in output
 
 
 def test_work_robot_ranks_actionable_current_work(tmp_path: Path, monkeypatch, capsys) -> None:

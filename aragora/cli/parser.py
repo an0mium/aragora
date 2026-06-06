@@ -365,7 +365,12 @@ def _add_work_parser(subparsers) -> None:
     graph_cmd = work_sub.add_parser("graph", help="Show the work dependency/context graph")
     add_common(graph_cmd)
     graph_cmd.add_argument("work_id", nargs="?", help="Optional root work item id")
-    add_limit(graph_cmd)
+    graph_cmd.add_argument(
+        "--limit",
+        type=_nonnegative_int,
+        default=None,
+        help="Maximum compact graph items and edge examples to emit with --summary-only",
+    )
     graph_cmd.add_argument(
         "--summary-only",
         action="store_true",

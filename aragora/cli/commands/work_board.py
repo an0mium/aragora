@@ -104,9 +104,9 @@ def _render_human(payload: dict[str, Any]) -> str:
         lines.append(f"item_count: {payload['item_count']}")
     if "edge_count" in payload:
         lines.append(f"edge_count: {payload['edge_count']}")
-    if payload.get("items_omitted"):
+    if "items_omitted" in payload:
         lines.append(f"items_omitted: {payload['items_omitted']}")
-    if payload.get("edges_omitted"):
+    if "edges_omitted" in payload:
         lines.append(f"edges_omitted: {payload['edges_omitted']}")
     if payload.get("details_omitted"):
         lines.append("details_omitted: true")
