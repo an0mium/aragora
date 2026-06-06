@@ -655,6 +655,63 @@ def test_work_graph_parser_accepts_summary_only() -> None:
     assert args.limit == 3
 
 
+def test_work_graph_summary_only_clamps_negative_limit(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    bead_dir = tmp_path / ".aragora_beads"
+    bead_dir.mkdir()
+    (bead_dir / "beads.jsonl").write_text(
+        json.dumps(
+            {
+                "id": "a",
+                "bead_type": "task",
+                "status": "pending",
+                "title": "A",
+                "updated_at": _now_iso(),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_graph(_args(tmp_path, summary_only=True, limit=-1)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["summary_limit"] == 0
+    assert payload["items_omitted"] == 1
+    assert payload["top_items"] == []
+
+
+def test_work_graph_summary_counts_normalize_keys_to_strings() -> None:
+    assert work_board_cmd._sorted_counts(["pending", None, "pending", 3]) == {
+        "3": 1,
+        "None": 1,
+        "pending": 2,
+    }
+
+
+def test_work_graph_human_summary_shows_details_omitted(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    bead_dir = tmp_path / ".aragora_beads"
+    bead_dir.mkdir()
+    (bead_dir / "beads.jsonl").write_text(
+        json.dumps(
+            {
+                "id": "a",
+                "bead_type": "task",
+                "status": "pending",
+                "title": "A",
+                "updated_at": _now_iso(),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_graph(_args(tmp_path, summary_only=True, limit=1, json=False)) == 0
+
+    assert "details_omitted: true" in capsys.readouterr().out
+
+
 def test_work_robot_ranks_actionable_current_work(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
     outbox = tmp_path / ".aragora" / "automation-outbox"

@@ -108,6 +108,8 @@ def _render_human(payload: dict[str, Any]) -> str:
         lines.append(f"items_omitted: {payload['items_omitted']}")
     if payload.get("edges_omitted"):
         lines.append(f"edges_omitted: {payload['edges_omitted']}")
+    if payload.get("details_omitted"):
+        lines.append("details_omitted: true")
     if payload.get("top_items"):
         lines.append("top_items:")
         for item in payload["top_items"]:
@@ -143,8 +145,8 @@ def _mute_stdout_after_broken_pipe() -> None:
     sys.stdout = open(os.devnull, "w", encoding="utf-8")
 
 
-def _sorted_counts(values: list[str]) -> dict[str, int]:
-    return dict(sorted(Counter(values).items()))
+def _sorted_counts(values: list[Any]) -> dict[str, int]:
+    return dict(sorted(Counter(str(value) for value in values).items()))
 
 
 def _compact_work_item(item: Any) -> dict[str, Any]:
@@ -167,7 +169,7 @@ def _compact_work_item(item: Any) -> dict[str, Any]:
 
 
 def _graph_summary_payload(graph: Any, *, limit: int | None) -> dict[str, Any]:
-    summary_limit = limit if limit is not None else 20
+    summary_limit = max(0, limit if limit is not None else 20)
     emitted_items = graph.items[:summary_limit]
     emitted_edges = graph.edges[:summary_limit]
     return {
