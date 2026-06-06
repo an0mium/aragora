@@ -1206,3 +1206,168 @@ def test_merge_apply_merge_only_authorization_skips_branch_protection(
             None,
         )
     ]
+
+
+# --- --check merge-packet diagnostics enrichment -----------------------------
+
+HEAD_57 = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+
+def _diagnostic_packet(pr: int = 7423) -> dict[str, Any]:
+    """A not-ready Tier 4 packet carrying the rich human-readable entry fields."""
+    return {
+        "not_ready": [pr],
+        "human_risk_settlement_required": [pr],
+        "entries": [
+            {
+                "pr_number": pr,
+                "tier": 4,
+                "tier_name": "tier_4_preapproval_required",
+                "status": "repair_or_wait",
+                "verdict": "not_ready_for_settlement",
+                "machine_recommendation": "repair_first",
+                "checks_summary": "1 failing / 42 total",
+                "counted_model_families": [],
+                "requires_human_risk_settlement": True,
+                "requires_human_preapproval": True,
+                "reasons": [
+                    "merge-authority/destructive surface touched",
+                    "checks are failing; repair before settlement",
+                    "model quorum incomplete: 0/2 signal(s)",
+                    "focused adversarial dogfood evidence is required",
+                ],
+            }
+        ],
+    }
+
+
+def _failing_checks() -> list[dict[str, str]]:
+    return [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "FAILURE"},
+    ]
+
+
+def test_gate_surfaces_merge_packet_diagnostics_when_blocked() -> None:
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=HEAD_57,
+        pr_view=_pr_view(HEAD_57, comments=[]),
+        merge_packet=_diagnostic_packet(),
+        required_checks=_failing_checks(),
+    )
+
+    assert result["ok"] is False
+    assert result["settle_eligible"] is False
+    assert result["head_match"] is True
+    assert "aragora-merge-quorum=FAILURE" in result["required_failing"]
+    diag = result["merge_packet"]
+    assert diag["tier"] == 4
+    assert diag["tier_name"] == "tier_4_preapproval_required"
+    assert diag["status"] == "repair_or_wait"
+    assert diag["verdict"] == "not_ready_for_settlement"
+    assert diag["checks_summary"] == "1 failing / 42 total"
+    assert diag["counted_model_families"] == []
+    assert "model quorum incomplete: 0/2 signal(s)" in diag["reasons"]
+    # Top-level convenience mirror for downstream automation.
+    assert result["reasons"] == diag["reasons"]
+
+
+def test_gate_head_mismatch_sets_head_match_false() -> None:
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head="expected",
+        pr_view={
+            "headRefOid": "actual",
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [],
+            "reviews": [],
+        },
+        merge_packet=_diagnostic_packet(),
+    )
+
+    assert result["ok"] is False
+    assert result["head_match"] is False
+    assert result["settle_eligible"] is False
+    assert "head mismatch: expected expected, got actual" in result["blockers"]
+
+
+def test_gate_ready_case_is_settle_eligible() -> None:
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=HEAD_57,
+        pr_view=_pr_view(
+            HEAD_57,
+            comments=[
+                _authorized_comment(
+                    HEAD_57,
+                    association="MEMBER",
+                    author="trusted-member",
+                    include_branch_protection=False,
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-member"],
+        permission_checker=lambda login: login == "trusted-member",
+    )
+
+    assert result["ok"] is True
+    assert result["settle_eligible"] is True
+    assert result["head_match"] is True
+    assert result["required_failing"] == []
+    assert result["merge_packet_blockers"] == []
+
+
+def test_check_json_includes_merge_packet_reasons(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(HEAD_57, comments=[]),
+            _diagnostic_packet(),
+            _failing_checks(),
+        ),
+    )
+
+    rc = settler.main(
+        ["--check", "--pr", "7423", "--head", HEAD_57, "--cwd", str(tmp_path), "--json"]
+    )
+
+    assert rc == 1
+    gate = settler.json.loads(capsys.readouterr().out)["gate"]
+    assert gate["head_match"] is True
+    assert gate["settle_eligible"] is False
+    assert "aragora-merge-quorum=FAILURE" in gate["required_failing"]
+    assert "model quorum incomplete: 0/2 signal(s)" in gate["reasons"]
+    assert gate["merge_packet"]["tier_name"] == "tier_4_preapproval_required"
+
+
+def test_check_text_prints_merge_packet_reasons_when_blocked(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(HEAD_57, comments=[]),
+            _diagnostic_packet(),
+            _failing_checks(),
+        ),
+    )
+
+    rc = settler.main(["--check", "--pr", "7423", "--head", HEAD_57, "--cwd", str(tmp_path)])
+
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert out.startswith("blocked")
+    assert "merge-packet: tier=4 (tier_4_preapproval_required)" in out
+    assert "checks: 1 failing / 42 total" in out
+    assert "counted_model_families: 0 []" in out
+    assert "reason: model quorum incomplete: 0/2 signal(s)" in out
