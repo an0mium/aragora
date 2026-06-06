@@ -586,6 +586,63 @@ def _outbox_evidence_value(payload: dict[str, Any], key: str) -> str:
     return str(payload.get(key) or "").strip()
 
 
+def _automation_id_values(value: Any) -> set[str]:
+    values: set[str] = set()
+    if isinstance(value, str):
+        text = value.strip()
+        if text:
+            values.add(text)
+    elif isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
+        for item in value:
+            if isinstance(item, str) and item.strip():
+                values.add(item.strip())
+    return values
+
+
+def _outbox_automation_ids(payload: Mapping[str, Any]) -> set[str]:
+    ids: set[str] = set()
+    for key in ("automation_id", "automation_ids", "source_automation_id"):
+        ids.update(_automation_id_values(payload.get(key)))
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        for key in ("automation_id", "automation_ids", "source_automation_id"):
+            ids.update(_automation_id_values(local_evidence.get(key)))
+    requested_action = _structured_action(payload.get("requested_action"))
+    if requested_action is not None:
+        for key in ("automation_id", "automation_ids", "source_automation_id"):
+            ids.update(_automation_id_values(requested_action.get(key)))
+    return ids
+
+
+def _outbox_owner_session_candidates(payload: Mapping[str, Any]) -> list[str]:
+    candidates: list[str] = []
+    for key in ("owner", "owner_session"):
+        value = str(payload.get(key) or "").strip()
+        if value:
+            candidates.append(value)
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        for key in ("owner", "owner_session"):
+            value = str(local_evidence.get(key) or "").strip()
+            if value:
+                candidates.append(value)
+    return candidates
+
+
+def _outbox_matches_automation_ids(
+    payload: Mapping[str, Any],
+    automation_ids: set[str],
+) -> bool:
+    declared_ids = _outbox_automation_ids(payload)
+    if declared_ids:
+        return bool(declared_ids & automation_ids)
+    for owner_session in _outbox_owner_session_candidates(payload):
+        if any(
+            owner_session == automation_id or owner_session.startswith(f"{automation_id}-")
+            for automation_id in automation_ids
+        ):
+            return True
+    return False
+
+
 def _structured_action(value: Any) -> Mapping[str, Any] | None:
     if isinstance(value, Mapping):
         return value
@@ -862,12 +919,14 @@ def load_outbox_handoffs(
     *,
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
+    automation_ids: set[str] | None = None,
     now: datetime | None = None,
 ) -> list[Handoff]:
     handoffs, _skip_reasons = _load_outbox_handoffs_with_skip_reasons(
         repo_root,
         outbox_dir=outbox_dir,
         receipt_dir=receipt_dir,
+        automation_ids=automation_ids,
         now=now,
     )
     return handoffs
@@ -878,6 +937,7 @@ def _load_outbox_handoffs_with_skip_reasons(
     *,
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
+    automation_ids: set[str] | None = None,
     now: datetime | None = None,
 ) -> tuple[list[Handoff], Counter[str]]:
     outbox_root = _automation_state_path(repo_root, outbox_dir, DEFAULT_OUTBOX_DIR).resolve()
@@ -902,6 +962,12 @@ def _load_outbox_handoffs_with_skip_reasons(
             continue
         if not _has_required_outbox_contract(payload):
             skipped_reasons["missing_required_contract"] += 1
+            continue
+        if automation_ids is not None and not _outbox_matches_automation_ids(
+            payload,
+            automation_ids,
+        ):
+            skipped_reasons["automation_id_mismatch"] += 1
             continue
         task_title = str(payload.get("task") or payload.get("title") or "").strip()
         requested_action = _normalized_requested_action(payload.get("requested_action"))
@@ -1510,16 +1576,22 @@ def main(argv: list[str] | None = None) -> int:
         DEFAULT_RECEIPT_DIR,
     ).resolve()
     labels = list(dict.fromkeys(args.labels))
-    automation_ids = set(args.automation_ids or DEFAULT_AUTOMATION_IDS)
+    explicit_automation_ids = set(args.automation_ids)
+    automation_ids = explicit_automation_ids or set(DEFAULT_AUTOMATION_IDS)
     memory_handoffs = load_handoffs(codex_home, automation_ids=automation_ids)
     if args.no_outbox:
         outbox_handoffs = []
         outbox_skipped_reason_counts: Counter[str] = Counter()
     else:
+        outbox_kwargs: dict[str, Any] = {
+            "outbox_dir": outbox_dir,
+            "receipt_dir": receipt_dir,
+        }
+        if explicit_automation_ids:
+            outbox_kwargs["automation_ids"] = explicit_automation_ids
         outbox_handoffs, outbox_skipped_reason_counts = _load_outbox_handoffs_with_skip_reasons(
             repo_root,
-            outbox_dir=outbox_dir,
-            receipt_dir=receipt_dir,
+            **outbox_kwargs,
         )
     outbox_file_count = 0 if args.no_outbox else len(_outbox_files(outbox_dir))
     outbox_skipped_count = sum(outbox_skipped_reason_counts.values())
@@ -1551,6 +1623,7 @@ def main(argv: list[str] | None = None) -> int:
             "automation_ids": sorted(automation_ids),
             "outbox_dir": str(outbox_dir),
             "receipt_dir": str(receipt_dir),
+            "outbox_automation_filter": sorted(explicit_automation_ids) or None,
             "memory_handoff_count": len(memory_handoffs),
             "outbox_file_count": outbox_file_count,
             "outbox_handoff_count": len(outbox_handoffs),
@@ -1606,6 +1679,7 @@ def main(argv: list[str] | None = None) -> int:
         "automation_ids": sorted(automation_ids),
         "outbox_dir": str(outbox_dir),
         "receipt_dir": str(receipt_dir),
+        "outbox_automation_filter": sorted(explicit_automation_ids) or None,
         "memory_handoff_count": len(memory_handoffs),
         "outbox_file_count": outbox_file_count,
         "outbox_handoff_count": len(outbox_handoffs),

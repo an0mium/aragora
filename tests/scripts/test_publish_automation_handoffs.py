@@ -254,6 +254,72 @@ def test_load_outbox_handoffs_uses_automation_state_root_for_default_dirs(
     assert handoffs[0].task_title == "Publish validated repair branch"
 
 
+def test_load_outbox_handoffs_filters_explicit_automation_id(tmp_path: Path) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "improver.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                task="Publish Improver branch",
+                idempotency_key="open-pr-codex-improver-abc123",
+                local_evidence={
+                    "automation_id": "engineering-autopilot-3-2",
+                    "branch": "codex/improver",
+                    "head": "abc123",
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+    (outbox / "repair.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                task="Publish Repair branch",
+                idempotency_key="open-pr-codex-repair-def456",
+                local_evidence={
+                    "automation_id": "engineering-autopilot-2",
+                    "branch": "codex/repair",
+                    "head": "def456",
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    handoffs, skipped = mod._load_outbox_handoffs_with_skip_reasons(
+        tmp_path,
+        automation_ids={"engineering-autopilot-3-2"},
+    )
+
+    assert [handoff.task_title for handoff in handoffs] == ["Publish Improver branch"]
+    assert skipped["automation_id_mismatch"] == 1
+
+
+def test_load_outbox_handoffs_matches_owner_session_when_id_missing(tmp_path: Path) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "owner-session.json").write_text(
+        json.dumps(
+            _outbox_payload(
+                idempotency_key="open-pr-codex-owner-session-abc123",
+                local_evidence={
+                    "owner_session": "engineering-autopilot-3-2-Q386-example",
+                    "branch": "codex/improver",
+                    "head": "abc123",
+                },
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    handoffs = mod.load_outbox_handoffs(
+        tmp_path,
+        automation_ids={"engineering-autopilot-3-2"},
+    )
+
+    assert [handoff.branch for handoff in handoffs] == ["codex/improver"]
+
+
 def test_load_outbox_handoffs_skips_terminal_receipt(tmp_path: Path) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
     receipts = tmp_path / ".aragora" / "automation-receipts"
@@ -1879,6 +1945,59 @@ def test_main_derives_outbox_dirs_from_explicit_aragora_state_root(
     assert captured["outbox_dir"] == (state_root / "automation-outbox").resolve()
     assert captured["receipt_dir"] == (state_root / "automation-receipts").resolve()
     assert str((state_root / "automation-outbox").resolve()) in capsys.readouterr().out
+
+
+def test_main_passes_explicit_automation_id_to_outbox_filter(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: tmp_path)
+    monkeypatch.setattr(mod, "load_handoffs", lambda codex_home, automation_ids=None: [])
+
+    def fake_load_outbox_handoffs(
+        repo_root: Path,
+        outbox_dir: Path | None = None,
+        receipt_dir: Path | None = None,
+        automation_ids: set[str] | None = None,
+    ) -> tuple[list[Handoff], Counter[str]]:
+        captured["automation_ids"] = automation_ids
+        return [], Counter()
+
+    monkeypatch.setattr(
+        mod,
+        "_load_outbox_handoffs_with_skip_reasons",
+        fake_load_outbox_handoffs,
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(repo_root),
+        ),
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path),
+            "--automation-id",
+            "engineering-autopilot-3-2",
+            "--json",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["automation_ids"] == {"engineering-autopilot-3-2"}
+    assert json.loads(capsys.readouterr().out)["outbox_automation_filter"] == [
+        "engineering-autopilot-3-2"
+    ]
 
 
 def test_main_treats_empty_handoff_queue_as_noop_when_github_unavailable(
