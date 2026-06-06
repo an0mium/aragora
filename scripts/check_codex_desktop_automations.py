@@ -266,10 +266,12 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _mute_stdout_after_broken_pipe() -> None:
-    try:
-        sys.stdout.close()
-    except OSError:
-        pass
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
     sys.stdout = open(os.devnull, "w", encoding="utf-8")
 
 
