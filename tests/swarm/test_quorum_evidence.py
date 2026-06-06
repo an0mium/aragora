@@ -366,6 +366,54 @@ def test_run_api_agent_timeout_terminates_blocked_worker(
     assert events == ["start", "join:0.06", "terminate", "join:5.00", "kill", "join:5.00"]
 
 
+def test_run_api_agent_parent_timeout_honors_env_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "1200")
+    monkeypatch.setattr(qe, "_REVIEWER_TIMEOUT", 300)
+    monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 7)
+    events: list[str] = []
+
+    class FakeQueue:
+        def get(self, timeout: float):
+            raise AssertionError("timed-out worker result must not be read")
+
+    class FakeContext:
+        def Queue(self, maxsize: int) -> FakeQueue:
+            assert maxsize == 1
+            return FakeQueue()
+
+    class FakeProcess:
+        def start(self) -> None:
+            events.append("start")
+
+        def join(self, timeout: float) -> None:
+            events.append(f"join:{timeout:g}")
+
+        def is_alive(self) -> bool:
+            return True
+
+        def terminate(self) -> None:
+            events.append("terminate")
+
+        def kill(self) -> None:
+            events.append("kill")
+
+    monkeypatch.setattr(qe, "_api_agent_process_context", lambda: FakeContext(), raising=False)
+    monkeypatch.setattr(
+        qe,
+        "_start_api_agent_worker_process",
+        lambda ctx, family, prompt, result_queue: FakeProcess(),
+        raising=False,
+    )
+
+    result = qe._run_api_agent("grok", "review prompt")
+
+    assert result.ok is False
+    assert result.error == "grok reviewer timed out after 1200s"
+    assert events == ["start", "join:1207", "terminate", "join:5", "kill", "join:5"]
+
+
 def test_api_agent_cleanup_does_not_hang_on_stuck_agent_close(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

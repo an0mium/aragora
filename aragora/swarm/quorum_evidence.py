@@ -393,11 +393,12 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
 
 
 def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
+    timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
     ctx = _api_agent_process_context()
     result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
     process = _start_api_agent_worker_process(ctx, family, prompt, result_queue)
     process.start()
-    process.join(_REVIEWER_TIMEOUT + _REVIEWER_CLEANUP_TIMEOUT)
+    process.join(timeout + _REVIEWER_CLEANUP_TIMEOUT)
     if process.is_alive():
         process.terminate()
         process.join(5)
@@ -405,7 +406,7 @@ def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
             process.kill()
             process.join(5)
         return ReviewerResult(
-            family, "", False, f"{family} reviewer timed out after {_REVIEWER_TIMEOUT}s"
+            family, "", False, f"{family} reviewer timed out after {_format_seconds(timeout)}s"
         )
     try:
         payload = result_queue.get(timeout=_REVIEWER_RESULT_QUEUE_TIMEOUT)
