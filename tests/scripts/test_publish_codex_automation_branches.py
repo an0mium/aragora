@@ -243,6 +243,8 @@ def test_main_summary_only_omits_decisions_and_unhealthy_pr_details(
     assert payload["decision_reason_counts"] == {"eligible": 1}
     assert payload["decisions_omitted"] is True
     assert payload["details_omitted"] is True
+    assert payload["open_pr_count_available"] is True
+    assert payload["open_pr_count_source"] == "live"
     assert payload["queue_health"]["unhealthy_open_pr_count"] == 1
     assert "unhealthy_open_prs" not in payload["queue_health"]
     assert payload["queue_health"]["unhealthy_open_prs_omitted"] == 1
@@ -835,6 +837,8 @@ def test_main_reports_github_health_failure_when_unavailable_with_local_candidat
     assert '"mode": "connectivity_failed"' in out
     assert '"scanned_branch_count": 1' in out
     assert '"open_pr_lookup_skipped": true' in out
+    assert '"open_pr_count_available": false' in out
+    assert '"open_pr_count_source": "github_unavailable"' in out
     assert '"branch": "codex/ready"' in out
     assert '"eligible": false' in out
     assert '"reason": "github_unavailable"' in out
@@ -943,7 +947,9 @@ def test_publish_decisions_uses_remaining_open_pr_capacity(
     )
     monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
     monkeypatch.setattr(
-        mod, "_create_pr", lambda repo_root, repo, branch, base: next(created_numbers)
+        mod,
+        "_create_pr",
+        lambda repo_root, repo, branch, base, draft=False: next(created_numbers),
     )
     monkeypatch.setattr(
         mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
@@ -1000,7 +1006,7 @@ def test_publish_decisions_records_publish_failures_and_continues(
     monkeypatch.setattr(mod, "_ensure_gh_auth", lambda repo_root: None)
     monkeypatch.setattr(mod, "_push_branch", fake_push)
     monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
-    monkeypatch.setattr(mod, "_create_pr", lambda repo_root, repo, branch, base: 2001)
+    monkeypatch.setattr(mod, "_create_pr", lambda repo_root, repo, branch, base, draft=False: 2001)
     monkeypatch.setattr(
         mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
     )

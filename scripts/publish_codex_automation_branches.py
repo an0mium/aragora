@@ -1648,6 +1648,8 @@ def main(argv: list[str] | None = None) -> int:
             "receipt_dir": str(args.receipt_dir) if args.receipt_dir else None,
             "scanned_branch_count": len(hydrated_branches),
             "open_pr_count": 0,
+            "open_pr_count_available": False,
+            "open_pr_count_source": "github_unavailable",
             "max_open_prs": args.max_open_prs,
             "open_pr_lookup_skipped": True,
             "historical_pr_lookup_skipped": True,
@@ -1675,6 +1677,8 @@ def main(argv: list[str] | None = None) -> int:
             "receipt_dir": str(args.receipt_dir) if args.receipt_dir else None,
             "scanned_branch_count": len(hydrated_branches),
             "open_pr_count": 0,
+            "open_pr_count_available": False,
+            "open_pr_count_source": "lookup_failed",
             "max_open_prs": args.max_open_prs,
             "github_health": github_health.to_dict(),
             "open_pr_lookup": {
@@ -1783,6 +1787,8 @@ def main(argv: list[str] | None = None) -> int:
         "cutoff": cutoff.isoformat(),
         "receipt_dir": str(args.receipt_dir) if args.receipt_dir else None,
         "open_pr_count": len(open_pr_heads),
+        "open_pr_count_available": True,
+        "open_pr_count_source": str(open_pr_lookup.get("source") or "unknown"),
         "max_open_prs": args.max_open_prs,
         "queue_health": {
             "open_pr_lookup_source": open_pr_lookup.get("source"),
