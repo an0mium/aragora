@@ -328,7 +328,66 @@ def build_result_row(runtime_manifest_path: Path) -> dict[str, Any]:
     }
 
 
+def _parse_json_string_list(row: dict[str, Any], field: str) -> list[str]:
+    raw_value = row.get(field)
+    if not isinstance(raw_value, str) or not raw_value.strip():
+        raise ValueError(f"{field} must be a JSON-encoded list")
+    try:
+        payload = json.loads(raw_value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{field} must be valid JSON") from exc
+    if not isinstance(payload, list):
+        raise ValueError(f"{field} must decode to a list")
+
+    values: list[str] = []
+    for index, item in enumerate(payload):
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"{field}[{index}] must be a non-empty string")
+        values.append(item.strip())
+    return values
+
+
+def _non_negative_int(row: dict[str, Any], field: str) -> int:
+    value = row.get(field)
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a non-negative integer")
+    if isinstance(value, int):
+        integer = value
+    elif isinstance(value, str) and value.strip().isdigit():
+        integer = int(value.strip())
+    else:
+        raise ValueError(f"{field} must be a non-negative integer")
+    if integer < 0:
+        raise ValueError(f"{field} must be a non-negative integer")
+    return integer
+
+
+def validate_result_row(row: dict[str, Any]) -> None:
+    """Reject internally inconsistent result rows before publishing benchmark truth."""
+    for field in ("experiment_id", "config_id", "project_id", "runtime_manifest_path"):
+        if not str(row.get(field) or "").strip():
+            raise ValueError(f"{field} is required")
+
+    branch_count = _non_negative_int(row, "worker_branch_count")
+    commit_count = _non_negative_int(row, "worker_commit_count")
+    worker_branches = _parse_json_string_list(row, "worker_branches_json")
+    worker_commits = _parse_json_string_list(row, "worker_commits_json")
+
+    if branch_count != len(worker_branches):
+        raise ValueError("worker_branch_count must match the length of worker_branches_json")
+    if commit_count != len(worker_commits):
+        raise ValueError("worker_commit_count must match the length of worker_commits_json")
+
+    primary_branch = str(row.get("worker_branch") or "").strip()
+    if primary_branch and primary_branch not in worker_branches:
+        raise ValueError("worker_branch must be included in worker_branches_json")
+    primary_commit = str(row.get("worker_commit") or "").strip()
+    if primary_commit and primary_commit not in worker_commits:
+        raise ValueError("worker_commit must be included in worker_commits_json")
+
+
 def _upsert_result(row: dict[str, Any]) -> None:
+    validate_result_row(row)
     _ensure_layout()
     payload = _load_json(RESULTS_JSON_PATH, {"runs": []})
     runs = [dict(item) for item in payload.get("runs", []) if isinstance(item, dict)]
