@@ -1153,6 +1153,25 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print(f"harness_confidence:    {info.harness_confidence}")
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_json(payload: dict[str, Any]) -> int:
+    try:
+        sys.stdout.write(json.dumps(payload, indent=2, sort_keys=True))
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="identify_lane_owner.py",
@@ -1255,10 +1274,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     if args.json:
-        print(json.dumps(dataclasses.asdict(info), indent=2, sort_keys=True))
-    else:
-        _print_human(info)
+        return _emit_json(dataclasses.asdict(info))
 
+    _print_human(info)
     return 0
 
 

@@ -1004,6 +1004,41 @@ class TestMainCLI:
         assert data["harness_confidence"] == "mailbox_only"
         assert "send_operator_steering.py --to codex-p19-repair-7292" in data["steering_command"]
 
+    def test_json_output_suppresses_flush_time_broken_pipe(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        registry = write_lane_registry(tmp_path)
+        muted_stdout = []
+
+        class ClosedPipeStdout:
+            def write(self, text: str) -> int:
+                return len(text)
+
+            def flush(self) -> None:
+                raise BrokenPipeError("downstream closed")
+
+            def close(self) -> None:
+                pass
+
+        monkeypatch.setattr(ilo.sys, "stdout", ClosedPipeStdout())
+        monkeypatch.setattr(
+            ilo,
+            "_mute_stdout_after_broken_pipe",
+            lambda: muted_stdout.append(True),
+        )
+
+        rc = ilo.main(
+            [
+                "--pr",
+                "7292",
+                "--json",
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+
+        assert rc == 0
+        assert muted_stdout == [True]
+
     def test_completed_lane_reports_mailbox_only_but_not_dispatchable(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
