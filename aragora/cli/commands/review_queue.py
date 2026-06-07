@@ -3427,12 +3427,13 @@ def _lint_evidence_comment(
     """Dry-run whether one proposed comment would satisfy quorum parsers."""
     grounded, grounding_method = _proposed_evidence_head_grounding(body, head_sha)
     pr_grounded, pr_grounding_method = _proposed_evidence_pr_grounding(body, pr)
+    negative_verdict = _has_blocking_or_negative_verdict(body)
     comment = {
         "author": {"login": author},
         "body": body,
         "createdAt": "",
     }
-    if grounded and pr_grounded:
+    if grounded and pr_grounded and not negative_verdict:
         dogfood_evidence = _dogfood_evidence_from_comments([comment])
         reviewer_signals = _model_review_signals_from_comments([comment])
     else:
@@ -3452,6 +3453,8 @@ def _lint_evidence_comment(
         problems.append("wrong_pr_reference")
     if _is_github_actions_author(author):
         problems.append("github_actions_author_not_counted")
+    if negative_verdict:
+        problems.append("blocking_or_negative_verdict")
     if inferred_reviewer == "unknown_model_reviewer":
         problems.append("missing_known_model_reviewer_heading")
     for problem in identity.identity_problems:
@@ -3599,6 +3602,66 @@ def _known_model_reviewer_id(item: dict[str, Any]) -> str:
 
 def _is_github_actions_author(author: str) -> bool:
     return str(author or "").strip().lower() in {"github-actions", "github-actions[bot]"}
+
+
+def _has_blocking_or_negative_verdict(body: str) -> bool:
+    """Return True for explicit evidence comments that report blockers.
+
+    Merge quorum should count independent evidence that can support readiness,
+    not a comment that visibly says the reviewer failed or blocked the PR.
+    Keep the parser deliberately label-based so ordinary prose such as
+    "no blocking findings" remains countable.
+    """
+    negative_verdict_prefixes = (
+        "fail",
+        "failed",
+        "failing",
+        "block",
+        "blocked",
+        "blocking",
+        "request changes",
+        "request_changes",
+        "changes requested",
+        "reject",
+        "rejected",
+        "not ready",
+        "needs repair",
+    )
+    non_blocking_prefixes = (
+        "none",
+        "none found",
+        "no",
+        "no blockers",
+        "no blocking findings",
+        "not found",
+        "0",
+        "n/a",
+        "not applicable",
+        "[]",
+    )
+
+    for raw_line in str(body or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        line = line.lstrip("-").strip().strip("*").strip()
+        line = line.replace("**", "")
+        label, sep, value = line.partition(":")
+        if not sep:
+            continue
+        normalized_label = re.sub(r"\s+", " ", label.strip().lower())
+        normalized_value = re.sub(r"\s+", " ", value.strip().strip("*").strip().lower())
+        if normalized_label in {"verdict", "decision", "recommendation"} and any(
+            normalized_value.startswith(prefix) for prefix in negative_verdict_prefixes
+        ):
+            return True
+        if normalized_label in {"blocking finding", "blocking findings", "blocker", "blockers"}:
+            if not normalized_value or any(
+                normalized_value.startswith(value) for value in non_blocking_prefixes
+            ):
+                continue
+            return True
+    return False
 
 
 def _normalize_model_reviewer_id(value: str) -> str:
@@ -3909,6 +3972,8 @@ def _dogfood_evidence_from_comments(
         if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
             continue
         body = str(comment.get("body", "") or "")
+        if _has_blocking_or_negative_verdict(body):
+            continue
         lower = body.lower()
         if not any(
             token in lower for token in ("dogfood", "adversarial", "cross-author", "recheck")
@@ -3948,6 +4013,8 @@ def _model_review_signals_from_comments(
         if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
             continue
         body = str(comment.get("body", "") or "")
+        if _has_blocking_or_negative_verdict(body):
+            continue
         lower = body.lower()
         if not any(
             token in lower
