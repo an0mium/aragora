@@ -1402,6 +1402,34 @@ def test_tier3_or_human_risk_is_report_only() -> None:
     assert "requires_human_risk_settlement=true" in blockers
 
 
+def test_entry_blockers_use_effective_required_checks_gate() -> None:
+    entry = _entry(
+        1005,
+        status="satisfied",
+        verdict="admin_squash_allowed",
+        admin_squash_allowed=True,
+        reasons=["bounded helper reliability surface"],
+        checks_summary="2 pending / 21 total",
+    )
+    entry["check_surfaces"] = {
+        "effective_gate": {
+            "source": "required_pr_checks",
+            "summary": "6/6 required green (required PR checks)",
+        },
+        "required_pr_checks": {
+            "available": True,
+            "gate_selected": True,
+            "summary": "6/6 required green",
+            "pending": [],
+            "failing_or_cancelled": [],
+        },
+    }
+
+    blockers = entry_blockers(entry)
+
+    assert blockers == []
+
+
 def test_owner_payload_blocks_active_owner() -> None:
     blockers = owner_blockers(
         {
