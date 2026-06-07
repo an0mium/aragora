@@ -4671,6 +4671,51 @@ class TestCommandDispatch:
         assert payload["current_head_grounding_method"] == "head_sha_citation"
         assert payload["problems"] == []
 
+    @pytest.mark.parametrize(
+        "body_suffix",
+        [
+            (
+                "I reviewed the diff, but this is only a quoted template:\n\n"
+                "```\n"
+                "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                "```\n\n"
+                "Validation passed for the touched surface."
+            ),
+            (
+                "I reviewed the diff, but this is only an inline template: "
+                "`Current head: cd87c5a1b2db34f04167906553502db3ede9525e`.\n\n"
+                "Validation passed for the touched surface."
+            ),
+            (
+                "I reviewed the diff, but this is only a quoted prior note:\n\n"
+                "> Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n\n"
+                "Validation passed for the touched surface."
+            ),
+        ],
+    )
+    def test_evidence_lint_rejects_non_prose_head_sha_citation(self, body_suffix: str) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(body=body_suffix),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_head_grounding_method"] == "missing_head_sha_citation"
+        assert "missing_current_head_grounding" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
     def test_evidence_lint_rejects_github_actions_bot_author(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="evidence-lint",

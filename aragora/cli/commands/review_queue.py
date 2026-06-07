@@ -3510,9 +3510,36 @@ def _proposed_evidence_head_grounding(body: str, head_sha: str) -> tuple[bool, s
     normalized_head = str(head_sha or "").strip().lower()
     if len(normalized_head) < 7:
         return False, "missing_head_sha_argument"
-    if normalized_head[:7] in str(body or "").lower():
+    grounding_text = _evidence_lint_grounding_text(body)
+    if normalized_head[:7] in grounding_text:
         return True, "head_sha_citation"
     return False, "missing_head_sha_citation"
+
+
+def _evidence_lint_grounding_text(body: str) -> str:
+    """Return prose eligible to ground a proposed evidence-lint comment.
+
+    A target SHA quoted in a template, prior comment, or inline example does
+    not prove the proposed evidence reviewed the exact head.
+    """
+    lines: list[str] = []
+    in_fence = False
+    fence_marker = ""
+    for raw_line in str(body or "").splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if in_fence or stripped.startswith(">"):
+            continue
+        lines.append(re.sub(r"`[^`]*`", "", raw_line))
+    return "\n".join(lines).lower()
 
 
 def _head_committed_at_from_pr(pr: dict[str, Any]) -> str:
