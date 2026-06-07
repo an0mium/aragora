@@ -301,6 +301,60 @@ def test_automation_pr_preflight_accepts_unrelated_latest_json(
     assert "preflight: ok" in proc.stdout
 
 
+def test_automation_pr_preflight_json_rejects_stale_next_steps_proof_state(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/stale-next-steps"], cwd=repo)
+    next_steps = repo / "docs" / "status" / "NEXT_STEPS_CANONICAL.md"
+    next_steps.parent.mkdir(parents=True)
+    next_steps.write_text(
+        "# Next Steps\n\n"
+        "Current May 28 proof-loop state: full-corpus truth remains 38.5%.\n"
+        "truth_success_rate_verified over five verified entries.\n",
+        encoding="utf-8",
+    )
+    _run(["git", "add", "docs/status/NEXT_STEPS_CANONICAL.md"], cwd=repo)
+    _run(["git", "commit", "-m", "docs: refresh next steps"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "failed"
+    assert payload["changed_files"] == ["docs/status/NEXT_STEPS_CANONICAL.md"]
+    assert (
+        payload["error"]
+        == "docs/status/NEXT_STEPS_CANONICAL.md still contains stale proof-loop percentages"
+    )
+
+
+def test_automation_pr_preflight_accepts_next_steps_with_current_proof_refs(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/current-next-steps"], cwd=repo)
+    next_steps = repo / "docs" / "status" / "NEXT_STEPS_CANONICAL.md"
+    next_steps.parent.mkdir(parents=True)
+    next_steps.write_text(
+        "# Next Steps\n\n"
+        "Current proof-loop state: use live proof surfaces instead of copied rates.\n"
+        "- B0_BENCHMARK_TRUTH_STATUS\n"
+        "- TW03_RESCUE_PRODUCTIZATION_STATUS\n",
+        encoding="utf-8",
+    )
+    _run(["git", "add", "docs/status/NEXT_STEPS_CANONICAL.md"], cwd=repo)
+    _run(["git", "commit", "-m", "docs: refresh next steps"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "ok"
+    assert payload["docs_only"] is True
+    assert payload["changed_files"] == ["docs/status/NEXT_STEPS_CANONICAL.md"]
+
+
 def test_github_cli_health_classifies_raw_dial_tcp_errors_as_connectivity() -> None:
     assert gh_health.is_github_connectivity_error(
         'Get "https://api.github.com/rate_limit": dial tcp 140.82.112.5:443: i/o timeout'

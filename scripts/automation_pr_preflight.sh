@@ -177,6 +177,23 @@ if [[ -z "${docs_only_changes}" ]]; then
     docs_only=true
 fi
 
+if printf '%s\n' "${changed_files}" | grep -qx 'docs/status/NEXT_STEPS_CANONICAL.md'; then
+    next_steps_blob="${HEAD_REF}:docs/status/NEXT_STEPS_CANONICAL.md"
+    if ! git cat-file -e "${next_steps_blob}" 2>/dev/null; then
+        fail_preflight 1 "docs/status/NEXT_STEPS_CANONICAL.md must exist at ${HEAD_REF}"
+    fi
+    next_steps_content="$(git show "${next_steps_blob}")"
+    stale_proof_regex='Current May 28 proof-loop state|truth_success_rate_verified over five verified entries|full-corpus truth remains 38\.5%'
+    if printf '%s\n' "${next_steps_content}" | grep -Eq "${stale_proof_regex}"; then
+        fail_preflight 1 "docs/status/NEXT_STEPS_CANONICAL.md still contains stale proof-loop percentages"
+    fi
+    for required_ref in B0_BENCHMARK_TRUTH_STATUS TW03_RESCUE_PRODUCTIZATION_STATUS 'Current proof-loop state'; do
+        if ! printf '%s\n' "${next_steps_content}" | grep -Fq "${required_ref}"; then
+            fail_preflight 1 "docs/status/NEXT_STEPS_CANONICAL.md is missing live proof-surface reference: ${required_ref}"
+        fi
+    done
+fi
+
 if [[ "${JSON_MODE}" == "true" ]]; then
     emit_json "ok"
     exit 0
