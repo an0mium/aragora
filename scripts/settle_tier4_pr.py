@@ -797,9 +797,9 @@ def _required_checks_from_direct_check_runs(
         cwd=cwd,
     )
     required_specs = _required_status_check_specs(protection)
-    if not required_specs:
-        return []
     existing = list(existing_required_checks or [])
+    if not required_specs:
+        return existing
     existing_names = {_required_check_name(check) for check in existing}
     missing_specs = [
         required
@@ -894,16 +894,13 @@ def _load_live_inputs(
         if isinstance(checks_raw, list)
         else []
     )
-    if not required_checks or not any(
-        _required_check_name(check) == MERGE_QUORUM_CONTEXT for check in required_checks
-    ):
-        required_checks = _required_checks_from_direct_check_runs(
-            repo=repo,
-            base_ref=str(pr_view.get("baseRefName") or "main"),
-            head=str(pr_view.get("headRefOid") or ""),
-            cwd=cwd,
-            existing_required_checks=required_checks,
-        )
+    required_checks = _required_checks_from_direct_check_runs(
+        repo=repo,
+        base_ref=str(pr_view.get("baseRefName") or "main"),
+        head=str(pr_view.get("headRefOid") or ""),
+        cwd=cwd,
+        existing_required_checks=required_checks,
+    )
     return pr_view, merge_packet, required_checks
 
 
