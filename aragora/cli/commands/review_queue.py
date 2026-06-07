@@ -3522,10 +3522,11 @@ def _evidence_grounding_text(body: str) -> str:
     A target SHA quoted in a template, prior comment, or inline example does
     not prove the evidence reviewed the exact head.
     """
+    text = re.sub(r"<!--.*?-->", "", str(body or ""), flags=re.DOTALL)
     lines: list[str] = []
     in_fence = False
     fence_marker = ""
-    for raw_line in str(body or "").splitlines():
+    for raw_line in text.splitlines():
         stripped = raw_line.strip()
         if stripped.startswith(("```", "~~~")):
             marker = stripped[:3]
