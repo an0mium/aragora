@@ -747,7 +747,7 @@ def _direct_check_run_state(run: dict[str, Any] | None) -> str:
     if conclusion:
         return conclusion
     status = str(run.get("status") or "").strip().upper()
-    if status in {"COMPLETED", "SUCCESS"}:
+    if status == "SUCCESS":
         return "SUCCESS"
     return status or "MISSING"
 

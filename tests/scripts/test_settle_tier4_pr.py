@@ -229,6 +229,61 @@ def test_direct_required_check_fallback_respects_strict_branch_protection(
     )
 
 
+def test_direct_required_check_fallback_does_not_treat_completed_without_conclusion_as_success(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        assert command[:2] == ["gh", "api"]
+        return {
+            "strict": False,
+            "contexts": [],
+            "checks": [{"context": "lint", "app_id": 15368}],
+        }
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        assert command[:2] == ["gh", "api"]
+        return {
+            "check_runs": [
+                {
+                    "name": "lint",
+                    "status": "completed",
+                    "conclusion": "",
+                    "app": {"id": 15368},
+                },
+            ]
+        }
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    required_checks = settler._required_checks_from_direct_check_runs(
+        repo="synaptent/aragora",
+        base_ref="main",
+        head=head,
+        cwd=tmp_path,
+    )
+
+    assert required_checks == [
+        {
+            "name": "lint",
+            "state": "COMPLETED",
+            "workflow": "direct required check-run fallback",
+            "source": "direct_commit_check_run",
+        }
+    ]
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
+        required_checks=required_checks,
+    )
+    assert result["ok"] is False
+    assert "required check lint is COMPLETED" in result["blockers"]
+
+
 def test_load_live_inputs_fills_missing_required_check_rows_from_direct_runs(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
