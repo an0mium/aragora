@@ -12,6 +12,13 @@ from typing import Any
 
 from aragora.inbox.triage_profile_benchmark import render_benchmark_report, run_fixture_benchmark
 
+ACCEPTANCE_KEYS = (
+    "decision_agreement",
+    "latency_improvement",
+    "blocked_rate_delta",
+    "unsafe_auto_approval",
+)
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -52,6 +59,12 @@ def _positive_int(value: Any, *, label: str) -> int:
     return value
 
 
+def _bool(value: Any, *, label: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{label} must be a boolean")
+    return value
+
+
 def validate_report_shape(report: dict[str, Any]) -> None:
     comparison = report.get("comparison")
     profiles = report.get("profiles")
@@ -64,6 +77,22 @@ def validate_report_shape(report: dict[str, Any]) -> None:
         comparison.get("message_count"),
         label="comparison.message_count",
     )
+    acceptance = comparison.get("acceptance")
+    if not isinstance(acceptance, dict):
+        raise ValueError("comparison.acceptance must be an object")
+    acceptance_values = [
+        _bool(acceptance.get(key), label=f"comparison.acceptance.{key}") for key in ACCEPTANCE_KEYS
+    ]
+    passes_all_thresholds = _bool(
+        comparison.get("passes_all_thresholds"),
+        label="comparison.passes_all_thresholds",
+    )
+    expected_passes = all(acceptance_values)
+    if passes_all_thresholds != expected_passes:
+        raise ValueError(
+            "comparison.passes_all_thresholds must match the conjunction of "
+            "comparison.acceptance values"
+        )
     for profile in ("baseline", "staged_v1"):
         profile_payload = profiles.get(profile)
         if not isinstance(profile_payload, dict):

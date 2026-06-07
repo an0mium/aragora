@@ -71,6 +71,10 @@ def _row_is_skip(row: dict[str, Any]) -> bool:
     return False
 
 
+def _valid_issue_number(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
 def top_issues_by_skip_count(rows: list[dict[str, Any]], top_n: int = 20) -> list[dict[str, Any]]:
     """Return the top-N issues ranked by skip-row count."""
     counter: Counter[int] = Counter()
@@ -78,7 +82,7 @@ def top_issues_by_skip_count(rows: list[dict[str, Any]], top_n: int = 20) -> lis
         if not _row_is_skip(row):
             continue
         issue_number = row.get("issue_number")
-        if not isinstance(issue_number, int) or issue_number <= 0:
+        if not _valid_issue_number(issue_number):
             continue
         counter[issue_number] += 1
 
@@ -130,7 +134,7 @@ def detect_stale_loops(rows: list[dict[str, Any]], min_skip_rows: int = 10) -> l
         if not _row_is_skip(row):
             continue
         issue_number = row.get("issue_number")
-        if not isinstance(issue_number, int) or issue_number <= 0:
+        if not _valid_issue_number(issue_number):
             continue
         counter[issue_number] += 1
 

@@ -916,8 +916,20 @@ def save_results(summary: BenchmarkSummary, output_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _non_negative_int(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a non-negative integer") from exc
+    if value < 0:
+        raise argparse.ArgumentTypeError("must be a non-negative integer")
+    return value
+
+
 def select_prompts(prompt_limit: int) -> list[dict[str, str]]:
     """Select benchmark prompts while preserving 0 as the all-prompts CLI sentinel."""
+    if prompt_limit < 0:
+        raise ValueError("prompt_limit must be a non-negative integer")
     return PROMPTS[:prompt_limit] if prompt_limit > 0 else PROMPTS
 
 
@@ -932,7 +944,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--prompts",
-        type=int,
+        type=_non_negative_int,
         default=0,
         metavar="N",
         help="Run only the first N prompts (0 = all 12).",

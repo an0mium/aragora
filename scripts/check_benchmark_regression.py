@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -62,6 +63,26 @@ def extract_means(data: dict) -> dict[str, float]:
     return results
 
 
+def _non_negative_finite_float(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        candidate = float(value)
+        if math.isfinite(candidate) and candidate >= 0:
+            return candidate
+    return None
+
+
+def _format_name_sample(names: set[str]) -> str:
+    ordered = sorted(names)
+    if not ordered:
+        return "none"
+    sample = ", ".join(ordered[:10])
+    if len(ordered) > 10:
+        sample += f", ... (+{len(ordered) - 10} more)"
+    return sample
+
+
 def compare_benchmarks(
     current_path: Path,
     baseline_path: Path,
@@ -81,14 +102,14 @@ def compare_benchmarks(
         print("WARNING: Baseline has no benchmarks to compare against.")
         return 0
 
+    matched_names = sorted(set(current_means) & set(baseline_means))
+
     regressions: list[str] = []
     improvements: list[str] = []
     unchanged: list[str] = []
 
-    for name, current_mean in sorted(current_means.items()):
-        if name not in baseline_means:
-            continue
-
+    for name in matched_names:
+        current_mean = current_means[name]
         baseline_mean = baseline_means[name]
         if baseline_mean == 0:
             continue
@@ -149,7 +170,13 @@ def compare_benchmarks(
         print(f"FAILED: {len(regressions)} benchmark(s) regressed by more than {threshold_pct}%.")
         return 1
 
-    matched = len([n for n in current_means if n in baseline_means])
+    matched = len(matched_names)
+    if matched == 0:
+        print("FAILED: No shared benchmark names between current and baseline results.")
+        print(f"  Current-only:  {_format_name_sample(set(current_means) - set(baseline_means))}")
+        print(f"  Baseline-only: {_format_name_sample(set(baseline_means) - set(current_means))}")
+        return 1
+
     print(f"PASSED: {matched} benchmark(s) within {threshold_pct}% threshold.")
     return 0
 
@@ -174,11 +201,25 @@ def validate_results(results_path: Path) -> int:
 
     # Check for any benchmarks with suspicious stats (e.g., extremely slow)
     warnings = 0
+    invalid_stats = 0
     for bench in benchmarks:
         name = bench.get("name", "unknown")
         stats = bench.get("stats", {})
-        mean = stats.get("mean", 0)
-        stddev = stats.get("stddev", 0)
+        if not isinstance(stats, dict):
+            print(f"  ERROR: {name} has invalid stats payload")
+            invalid_stats += 1
+            continue
+
+        mean = _non_negative_finite_float(stats.get("mean"))
+        stddev = _non_negative_finite_float(stats.get("stddev", 0))
+        if mean is None:
+            print(f"  ERROR: {name} has invalid mean stat: {stats.get('mean')!r}")
+            invalid_stats += 1
+            continue
+        if stddev is None:
+            print(f"  ERROR: {name} has invalid stddev stat: {stats.get('stddev')!r}")
+            invalid_stats += 1
+            continue
 
         # Flag benchmarks with coefficient of variation > 100% (highly unstable)
         if mean > 0 and stddev / mean > 1.0:
@@ -190,6 +231,10 @@ def validate_results(results_path: Path) -> int:
 
     if warnings:
         print(f"\n{warnings} benchmark(s) with high variance (informational only).")
+
+    if invalid_stats:
+        print(f"\nFAILED: {invalid_stats} benchmark(s) with invalid numeric stats.")
+        return 1
 
     print("PASSED: Benchmark results file is valid.")
     return 0

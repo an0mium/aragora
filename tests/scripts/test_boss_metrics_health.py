@@ -81,12 +81,23 @@ def test_top_issues_drops_invalid_issue_numbers() -> None:
         {"issue_number": None, "terminal_class": "blocked_auth_failure"},
         {"issue_number": -5, "terminal_class": "blocked_auth_failure"},
         {"issue_number": "abc", "terminal_class": "blocked_auth_failure"},
+        {"issue_number": True, "terminal_class": "blocked_auth_failure"},
+        {"issue_number": False, "terminal_class": "blocked_auth_failure"},
         {"issue_number": 0, "terminal_class": "blocked_auth_failure"},
         {"issue_number": 7, "terminal_class": "blocked_auth_failure"},
     ]
     out = mod.top_issues_by_skip_count(rows, top_n=10)
     assert len(out) == 1
     assert out[0]["issue_number"] == 7
+
+
+def test_stale_loop_detector_drops_bool_issue_numbers() -> None:
+    rows = [{"issue_number": True, "terminal_class": "blocked_auth_failure"}] * 12
+    rows += [{"issue_number": 9, "terminal_class": "blocked_auth_failure"}] * 10
+
+    out = mod.detect_stale_loops(rows, min_skip_rows=10)
+
+    assert out == [{"issue_number": 9, "skip_count": 10}]
 
 
 def test_top_issues_respects_top_n_limit() -> None:
