@@ -297,8 +297,8 @@ def _rollup_summary(items: list[Any]) -> dict[str, Any]:
     cancelled: list[dict[str, str]] = []
     non_actionable: list[dict[str, str]] = []
     for item in checks:
-        descriptor = _check_descriptor(item)
-        bucket = _required_pr_check_bucket(item)
+        bucket = _rollup_check_bucket(item)
+        descriptor = _check_descriptor(item, bucket=bucket)
         name = descriptor.get("name", "").lower()
         if bucket == "pending":
             pending.append(descriptor)
@@ -349,18 +349,30 @@ def _merge_packet_summary(
     entry = entries[0] if entries else {}
     raw_quorum = entry.get("model_review_quorum")
     quorum: dict[str, Any] = raw_quorum if isinstance(raw_quorum, dict) else {}
+    counted_model_families = _packet_value(entry, quorum, "counted_model_families", [])
+    dogfood_evidence = entry.get("dogfood_evidence") if isinstance(entry, dict) else None
+    focused_dogfood_present = bool(
+        _packet_value(entry, quorum, "focused_dogfood_present", False)
+        or (isinstance(dogfood_evidence, list) and dogfood_evidence)
+    )
     return {
         "available": True,
         "error": "",
         "pr_number": entry.get("pr_number", pr_number),
         "head_sha": str(entry.get("head_sha") or ""),
-        "tier": quorum.get("tier"),
-        "verdict": quorum.get("verdict"),
-        "checks_summary": quorum.get("checks_summary"),
-        "counted_model_families": quorum.get("counted_model_families") or [],
-        "focused_dogfood_present": bool(quorum.get("focused_dogfood_present")),
-        "human_preapproval_recorded": bool(quorum.get("human_preapproval_recorded")),
-        "admin_squash_allowed": bool(packet.get("admin_squash_allowed")),
+        "tier": _packet_value(entry, quorum, "tier"),
+        "verdict": _packet_value(entry, quorum, "verdict"),
+        "checks_summary": _packet_value(entry, quorum, "checks_summary"),
+        "counted_model_families": counted_model_families
+        if isinstance(counted_model_families, list)
+        else [],
+        "focused_dogfood_present": focused_dogfood_present,
+        "human_preapproval_recorded": bool(
+            _packet_value(entry, quorum, "human_preapproval_recorded", False)
+        ),
+        "admin_squash_allowed": bool(
+            packet.get("admin_squash_allowed") or entry.get("admin_squash_allowed")
+        ),
         "admin_squash_order": packet.get("admin_squash_order") or [],
         "not_ready": packet.get("not_ready") or [],
     }
@@ -725,11 +737,42 @@ def _safe_origin_main_sha(providers: ConductorProviders) -> str:
     return proc.stdout.strip()
 
 
-def _check_descriptor(item: dict[str, Any]) -> dict[str, str]:
+def _packet_value(
+    entry: dict[str, Any],
+    quorum: dict[str, Any],
+    key: str,
+    default: Any = None,
+) -> Any:
+    if key in quorum:
+        return quorum.get(key)
+    return entry.get(key, default)
+
+
+def _rollup_check_bucket(item: dict[str, Any]) -> str:
+    bucket = str(item.get("bucket") or "").strip().lower()
+    if bucket:
+        return _required_pr_check_bucket(item)
+
+    status = str(item.get("status") or "").strip().upper()
+    conclusion = str(item.get("conclusion") or "").strip().upper()
+    if status and status != "COMPLETED":
+        return "pending"
+    if conclusion in {"SUCCESS"}:
+        return "pass"
+    if conclusion in {"SKIPPED", "NEUTRAL"}:
+        return "skipping"
+    if conclusion in {"CANCELLED", "CANCELED"}:
+        return "cancel"
+    if conclusion in {"FAILURE", "FAILED", "ERROR", "TIMED_OUT", "ACTION_REQUIRED"}:
+        return "fail"
+    return _required_pr_check_bucket(item)
+
+
+def _check_descriptor(item: dict[str, Any], *, bucket: str | None = None) -> dict[str, str]:
     return {
         "name": str(item.get("name") or item.get("context") or item.get("workflow") or ""),
-        "state": str(item.get("state") or ""),
-        "bucket": _required_pr_check_bucket(item),
+        "state": str(item.get("state") or item.get("status") or item.get("conclusion") or ""),
+        "bucket": bucket or _required_pr_check_bucket(item),
         "workflow": str(item.get("workflow") or ""),
         "link": str(item.get("link") or item.get("detailsUrl") or ""),
     }

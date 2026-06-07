@@ -91,6 +91,32 @@ def _packet(
     }
 
 
+def _flattened_packet(
+    pr_number: int,
+    *,
+    head: str,
+    not_ready: list[int] | None = None,
+) -> dict[str, object]:
+    return {
+        "entries": [
+            {
+                "pr_number": pr_number,
+                "head_sha": head,
+                "tier": 4,
+                "verdict": "not_ready_for_settlement",
+                "checks_summary": "21/21 green",
+                "counted_model_families": ["claude", "openai"],
+                "focused_dogfood_present": True,
+                "human_preapproval_recorded": False,
+                "admin_squash_allowed": False,
+            }
+        ],
+        "admin_squash_allowed": False,
+        "admin_squash_order": [],
+        "not_ready": not_ready or [],
+    }
+
+
 def test_conductor_owner_lookup_timeout_preserves_no_mutate() -> None:
     view = _view(7843, head="head-a", draft=True)
 
@@ -159,6 +185,75 @@ def test_conductor_selects_unowned_tier2_evidence_candidate_prompt() -> None:
     assert candidate["mutate_allowed"] is True
     assert "PR #7843" in packet["next_prompt"]
     assert "exact-head" in packet["next_prompt"]
+
+
+def test_conductor_treats_completed_skipped_rollup_as_non_actionable() -> None:
+    view = _view(7885, head="exact-head", draft=True)
+    view["statusCheckRollup"] = [
+        {
+            "name": "Core Suites",
+            "workflowName": "Core Suites",
+            "status": "COMPLETED",
+            "conclusion": "SKIPPED",
+        },
+        {
+            "name": "aragora-merge-quorum",
+            "workflowName": "Aragora Merge Quorum",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+        },
+    ]
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885, head="exact-head", not_ready=[7885]
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    candidate = packet["candidates"][0]
+    assert candidate["rollup"]["actionable_non_green"] is False
+    assert candidate["rollup"]["pending"] == []
+    assert candidate["classification"] == "ready_but_human_gated"
+
+
+def test_conductor_reads_flattened_merge_packet_fields() -> None:
+    view = _view(7885, head="exact-head", draft=True)
+    view["statusCheckRollup"] = [
+        {
+            "name": "Core Suites",
+            "workflowName": "Core Suites",
+            "status": "COMPLETED",
+            "conclusion": "SKIPPED",
+        }
+    ]
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885, head="exact-head", not_ready=[7885]
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    merge_summary = packet["candidates"][0]["merge_packet"]
+    assert merge_summary["tier"] == 4
+    assert merge_summary["checks_summary"] == "21/21 green"
+    assert merge_summary["counted_model_families"] == ["claude", "openai"]
+    assert merge_summary["focused_dogfood_present"] is True
 
 
 def test_conductor_supersession_hint_blocks_conflict_repair() -> None:
