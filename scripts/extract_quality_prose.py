@@ -416,7 +416,27 @@ def extract_quality_prose(
 # =============================================================================
 
 
-def main():
+def _positive_int(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return value
+
+
+def _non_negative_float(raw: str) -> float:
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a non-negative number") from exc
+    if value < 0:
+        raise argparse.ArgumentTypeError("must be a non-negative number")
+    return value
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Extract high-quality prose from conversations",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -438,29 +458,30 @@ def main():
     )
     parser.add_argument(
         "--min-quality",
-        type=float,
+        type=_non_negative_float,
         default=0.5,
         help="Minimum quality score (default: 0.5)",
     )
     parser.add_argument(
         "--min-words",
-        type=int,
+        type=_positive_int,
         default=100,
         help="Minimum words per passage (default: 100)",
     )
-    parser.add_argument(
+    role_group = parser.add_mutually_exclusive_group()
+    role_group.add_argument(
         "--user-only",
         action="store_true",
         help="Only extract user messages",
     )
-    parser.add_argument(
+    role_group.add_argument(
         "--assistant-only",
         action="store_true",
         help="Only extract assistant messages",
     )
     parser.add_argument(
         "--top-n",
-        type=int,
+        type=_positive_int,
         help="Only output top N passages by quality",
     )
     parser.add_argument(
@@ -470,7 +491,11 @@ def main():
         help="Verbose output",
     )
 
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None):
+    args = parse_args(argv)
 
     # Load conversations
     print(f"Loading: {args.input}")
