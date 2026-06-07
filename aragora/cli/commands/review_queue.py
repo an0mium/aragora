@@ -3510,17 +3510,17 @@ def _proposed_evidence_head_grounding(body: str, head_sha: str) -> tuple[bool, s
     normalized_head = str(head_sha or "").strip().lower()
     if len(normalized_head) < 7:
         return False, "missing_head_sha_argument"
-    grounding_text = _evidence_lint_grounding_text(body)
+    grounding_text = _evidence_grounding_text(body)
     if normalized_head[:7] in grounding_text:
         return True, "head_sha_citation"
     return False, "missing_head_sha_citation"
 
 
-def _evidence_lint_grounding_text(body: str) -> str:
-    """Return prose eligible to ground a proposed evidence-lint comment.
+def _evidence_grounding_text(body: str) -> str:
+    """Return prose eligible to ground exact-head evidence.
 
     A target SHA quoted in a template, prior comment, or inline example does
-    not prove the proposed evidence reviewed the exact head.
+    not prove the evidence reviewed the exact head.
     """
     lines: list[str] = []
     in_fence = False
@@ -4145,7 +4145,7 @@ def _is_comment_grounded_on_head(
         return True
     body = str(comment.get("body", "") or "")
     head_short = head_sha[:7]
-    if head_short and head_short in body:
+    if head_short and head_short in _evidence_grounding_text(body):
         return True
     created = str(comment.get("createdAt", "") or "")
     if not created:

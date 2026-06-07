@@ -1338,6 +1338,57 @@ class TestModelReviewQuorum:
         assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
         assert quorum["status"] == "satisfied"
 
+    @pytest.mark.parametrize(
+        "body_suffix",
+        [
+            (
+                "I reviewed this earlier, but the later exact-head citation is only a template:\n\n"
+                "```\n"
+                "Current head: abcdef1234567890abcdef1234567890abcdef12\n"
+                "```\n"
+            ),
+            (
+                "I reviewed this earlier, but the later exact-head citation is only inline code: "
+                "`Current head: abcdef1234567890abcdef1234567890abcdef12`."
+            ),
+            (
+                "I reviewed this earlier, but the later exact-head citation is a quoted note:\n\n"
+                "> Current head: abcdef1234567890abcdef1234567890abcdef12\n"
+            ),
+        ],
+    )
+    def test_stale_comment_with_non_prose_head_sha_citation_still_excluded(
+        self, body_suffix: str
+    ) -> None:
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [
+            {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
+        ]
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": _codex_openai_body(body=body_suffix),
+                "createdAt": "2026-04-28T18:00:00Z",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": "## Grok independent model review\nVerdict: approve.",
+                "createdAt": "2026-04-28T20:10:00Z",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == ["grok"]
+        assert quorum["status"] == "needs_model_review_quorum"
+
     def test_unresolved_dissent_forces_human_risk_settlement(self) -> None:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [_dogfood_comment()]
