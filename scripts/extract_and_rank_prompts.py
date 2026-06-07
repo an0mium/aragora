@@ -203,6 +203,15 @@ def extract_user_voice(text: str) -> str:
 
 def deduplicate(prompts: list[dict], threshold: float = 0.65) -> list[dict]:
     """Remove near-duplicate prompts using word overlap."""
+    if (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, int | float)
+        or not 0.0 <= threshold < 1.0
+    ):
+        raise ValueError(
+            "deduplication similarity threshold must be between 0.0 inclusive and 1.0 exclusive"
+        )
+
     seen = []
     unique = []
     for p in prompts:

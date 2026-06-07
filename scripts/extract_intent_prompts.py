@@ -313,6 +313,15 @@ def extract_user_text(message: dict) -> str | None:
 
 def deduplicate(prompts: list[dict], threshold: float = 0.7) -> list[dict]:
     """Remove near-duplicate prompts."""
+    if (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, int | float)
+        or not 0.0 <= threshold < 1.0
+    ):
+        raise ValueError(
+            "deduplication similarity threshold must be between 0.0 inclusive and 1.0 exclusive"
+        )
+
     seen = []
     unique = []
     for p in prompts:

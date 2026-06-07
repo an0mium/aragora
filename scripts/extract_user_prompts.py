@@ -173,6 +173,15 @@ def extract_prompts(
 
 def deduplicate(prompts: list[dict], similarity_threshold: float = 0.8) -> list[dict]:
     """Remove near-duplicate prompts (same text repeated across sessions)."""
+    if (
+        isinstance(similarity_threshold, bool)
+        or not isinstance(similarity_threshold, int | float)
+        or not 0.0 <= similarity_threshold < 1.0
+    ):
+        raise ValueError(
+            "deduplication similarity threshold must be between 0.0 inclusive and 1.0 exclusive"
+        )
+
     seen_texts = []
     unique = []
 
