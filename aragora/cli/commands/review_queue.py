@@ -3539,6 +3539,8 @@ def _evidence_grounding_text(body: str) -> str:
             continue
         if in_fence or stripped.startswith(">"):
             continue
+        if re.match(r"^\[[^\]]+\]:", stripped):
+            continue
         raw_line = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", raw_line)
         lines.append(re.sub(r"`[^`]*`", "", raw_line))
     return "\n".join(lines).lower()

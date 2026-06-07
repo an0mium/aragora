@@ -1365,6 +1365,12 @@ class TestModelReviewQuorum:
                 "[current head](https://github.com/synaptent/aragora/commit/"
                 "abcdef1234567890abcdef1234567890abcdef12)\n"
             ),
+            (
+                "I reviewed this earlier, but the later exact-head citation is only a "
+                "Markdown reference definition:\n\n"
+                "[current-head]: https://github.com/synaptent/aragora/commit/"
+                "abcdef1234567890abcdef1234567890abcdef12\n"
+            ),
         ],
     )
     def test_stale_comment_with_non_prose_head_sha_citation_still_excluded(
@@ -4762,6 +4768,13 @@ class TestCommandDispatch:
                 "link destination:\n\n"
                 "[current head](https://github.com/synaptent/aragora/commit/"
                 "cd87c5a1b2db34f04167906553502db3ede9525e)\n\n"
+                "Validation passed for the touched surface."
+            ),
+            (
+                "I reviewed the diff, but this exact-head citation is only a Markdown "
+                "reference definition:\n\n"
+                "[current-head]: https://github.com/synaptent/aragora/commit/"
+                "cd87c5a1b2db34f04167906553502db3ede9525e\n\n"
                 "Validation passed for the touched surface."
             ),
         ],
