@@ -543,3 +543,208 @@ class TestFullRun:
 
         assert 7 in summary.merged
         assert summary.polls >= 1
+
+
+# ---------------------------------------------------------------------------
+# Auto-collect quorum evidence for ready candidates blocked only on quorum
+# ---------------------------------------------------------------------------
+
+from aragora.swarm.merge_arbiter import (  # noqa: E402
+    QUORUM_REQUIRED_CHECK,
+    _result_blocked_only_on_quorum,
+    _should_collect_evidence,
+)
+from aragora.swarm.merge_quorum_reconcile import EvidenceComment  # noqa: E402
+
+
+def _evidence(*families: str) -> list[EvidenceComment]:
+    return [
+        EvidenceComment(created_at="2026-06-06T00:00:00Z", would_count=True, reviewer_id=f)
+        for f in families
+    ]
+
+
+class TestResultBlockedOnlyOnQuorum:
+    def test_true_when_only_quorum_check_failing(self):
+        r = MergeResult(
+            1, "codex/x", False, f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE"
+        )
+        assert _result_blocked_only_on_quorum(r) is True
+
+    def test_true_when_quorum_check_missing(self):
+        r = MergeResult(1, "codex/x", False, f"missing required checks: {QUORUM_REQUIRED_CHECK}")
+        assert _result_blocked_only_on_quorum(r) is True
+
+    def test_false_when_functional_check_failing(self):
+        r = MergeResult(1, "codex/x", False, "failing required checks: lint=FAILURE")
+        assert _result_blocked_only_on_quorum(r) is False
+
+    def test_false_when_mixed_with_functional_check(self):
+        r = MergeResult(
+            1,
+            "codex/x",
+            False,
+            f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE, lint=FAILURE",
+        )
+        assert _result_blocked_only_on_quorum(r) is False
+
+    def test_false_for_success_or_other_waiting(self):
+        assert _result_blocked_only_on_quorum(MergeResult(1, "codex/x", True, "merged")) is False
+        assert (
+            _result_blocked_only_on_quorum(
+                MergeResult(
+                    1, "codex/x", False, "waiting on full-suite checks: Core Suites=PENDING"
+                )
+            )
+            is False
+        )
+
+
+class TestShouldCollectEvidence:
+    def _quorum_blocked(self):
+        return MergeResult(
+            42, "codex/x", False, f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE"
+        )
+
+    def _ctx(self, *_a):
+        return {"head_sha": "abc123", "head_committed_at": "2026-06-06T00:00:00Z"}
+
+    def test_true_for_tier2_quorum_blocked_no_evidence(self):
+        assert (
+            _should_collect_evidence(
+                _pr(42, "codex/x"),
+                self._quorum_blocked(),
+                config=MergeArbiterConfig(),
+                tier_fetcher=lambda *_: 2,
+                context_fetcher=self._ctx,
+                evidence_reader=lambda *_: _evidence(),
+            )
+            is True
+        )
+
+    def test_false_when_flag_off(self):
+        assert (
+            _should_collect_evidence(
+                _pr(42, "codex/x"),
+                self._quorum_blocked(),
+                config=MergeArbiterConfig(auto_collect_evidence=False),
+                tier_fetcher=lambda *_: 2,
+                context_fetcher=self._ctx,
+                evidence_reader=lambda *_: _evidence(),
+            )
+            is False
+        )
+
+    def test_false_when_already_has_required_evidence(self):
+        assert (
+            _should_collect_evidence(
+                _pr(42, "codex/x"),
+                self._quorum_blocked(),
+                config=MergeArbiterConfig(),
+                tier_fetcher=lambda *_: 2,
+                context_fetcher=self._ctx,
+                evidence_reader=lambda *_: _evidence("claude", "grok"),
+            )
+            is False
+        )
+
+    def test_false_for_tier3_and_tier4(self):
+        for tier in (3, 4):
+            assert (
+                _should_collect_evidence(
+                    _pr(42, "codex/x"),
+                    self._quorum_blocked(),
+                    config=MergeArbiterConfig(),
+                    tier_fetcher=lambda *_a, _t=tier: _t,
+                    context_fetcher=self._ctx,
+                    evidence_reader=lambda *_: _evidence(),
+                )
+                is False
+            )
+
+    def test_false_when_not_quorum_blocked(self):
+        assert (
+            _should_collect_evidence(
+                _pr(42, "codex/x"),
+                MergeResult(42, "codex/x", False, "failing required checks: lint=FAILURE"),
+                config=MergeArbiterConfig(),
+                tier_fetcher=lambda *_: 2,
+                context_fetcher=self._ctx,
+                evidence_reader=lambda *_: _evidence(),
+            )
+            is False
+        )
+
+
+class TestAutoCollectIntegration:
+    def _arbiter_with_fakes(self, collector, *, tier=2, evidence=None):
+        calls = {"n": 0}
+
+        def counting_collector(**kw):
+            calls["n"] += 1
+            return collector(**kw)
+
+        arb = MergeArbiter(
+            config=MergeArbiterConfig(
+                poll_interval_seconds=0.001,
+                max_runtime_hours=0.0003,
+                max_consecutive_failures=99,
+            ),
+            tier_fetcher=lambda *_: tier,
+            context_fetcher=lambda *_: {
+                "head_sha": "deadbeef",
+                "head_committed_at": "2026-06-06T00:00:00Z",
+            },
+            evidence_reader=lambda *_: (evidence or []),
+            collector=counting_collector,
+            author_resolver=lambda: "an0mium",
+        )
+        return arb, calls
+
+    @pytest.mark.asyncio
+    async def test_collects_once_per_head_across_polls(self):
+        arb, calls = self._arbiter_with_fakes(lambda **kw: None)
+        quorum_pr = _pr(50, "codex/x")
+        blocked = MergeResult(
+            50, "codex/x", False, f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE"
+        )
+        with (
+            patch("aragora.swarm.merge_arbiter._list_candidate_prs", return_value=[quorum_pr]),
+            patch("aragora.swarm.merge_arbiter._evaluate_pr", return_value=blocked),
+        ):
+            summary = await arb.run()
+        # Many polls happen in the window, but collection is idempotent per head.
+        assert calls["n"] == 1
+        assert summary.polls >= 1
+
+    @pytest.mark.asyncio
+    async def test_does_not_collect_for_tier3(self):
+        arb, calls = self._arbiter_with_fakes(lambda **kw: None, tier=3)
+        quorum_pr = _pr(51, "codex/x")
+        blocked = MergeResult(
+            51, "codex/x", False, f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE"
+        )
+        with (
+            patch("aragora.swarm.merge_arbiter._list_candidate_prs", return_value=[quorum_pr]),
+            patch("aragora.swarm.merge_arbiter._evaluate_pr", return_value=blocked),
+        ):
+            await arb.run()
+        assert calls["n"] == 0
+
+    @pytest.mark.asyncio
+    async def test_collector_fault_is_swallowed(self):
+        def boom(**kw):
+            raise RuntimeError("reviewer substrate down")
+
+        arb, calls = self._arbiter_with_fakes(boom)
+        quorum_pr = _pr(52, "codex/x")
+        blocked = MergeResult(
+            52, "codex/x", False, f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE"
+        )
+        with (
+            patch("aragora.swarm.merge_arbiter._list_candidate_prs", return_value=[quorum_pr]),
+            patch("aragora.swarm.merge_arbiter._evaluate_pr", return_value=blocked),
+        ):
+            summary = await arb.run()  # must not raise
+        assert calls["n"] == 1  # attempted once; head recorded so no retry storm
+        assert summary.polls >= 1

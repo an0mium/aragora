@@ -23,6 +23,17 @@ from pathlib import Path
 
 from aragora.config.trusted_authors import resolve_trusted_authors
 from aragora.swarm.github_app_auth import gh_subprocess_run
+from aragora.swarm.merge_quorum_io import (
+    fetch_evidence_comments,
+    fetch_pr_context,
+    fetch_pr_tier,
+)
+from aragora.swarm.merge_quorum_reconcile import TIER_REQUIREMENTS, counted_reviewer_ids
+from aragora.swarm.quorum_evidence import (
+    DEFAULT_FAMILIES,
+    collect_evidence,
+    resolve_author,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +83,12 @@ class MergeArbiterConfig:
     max_runtime_hours: float = 12.0
     max_consecutive_failures: int = 3
     dry_run: bool = False
+    # When True, the arbiter auto-collects model-quorum evidence for ready
+    # candidates blocked solely on the quorum check (Tier 0-2 only). Posting is
+    # tier-gated inside collect_evidence; high-tier PRs never auto-post.
+    auto_collect_evidence: bool = True
+    # Reviewer families for auto-collection; falls back to DEFAULT_FAMILIES.
+    reviewer_families: list[str] | None = None
 
 
 @dataclass
@@ -507,12 +524,124 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
     return MergeResult(pr_number, branch, ok, reason)
 
 
+QUORUM_REQUIRED_CHECK = "aragora-merge-quorum"
+
+
+def _required_model_signals(tier: int | None) -> int:
+    """Number of distinct countable model families a PR's tier requires."""
+    return TIER_REQUIREMENTS.get(tier if tier is not None else -1, (2, True, True))[0]
+
+
+def _result_blocked_only_on_quorum(result: MergeResult) -> bool:
+    """True when a not-ready PR is blocked solely on the merge-quorum check.
+
+    The quorum check is a branch-protection required context, so the arbiter
+    reports a quorum-only block as a 'failing'/'missing required checks' reason
+    naming exactly ``aragora-merge-quorum``. Any other failing/missing required
+    check (a real functional failure) returns False — we never spend reviewers
+    on a PR that is broken for other reasons.
+    """
+    if result.success:
+        return False
+    for prefix in ("failing required checks: ", "missing required checks: "):
+        if result.reason.startswith(prefix):
+            entries = [e.strip() for e in result.reason[len(prefix) :].split(",") if e.strip()]
+            return bool(entries) and all(
+                e.split("=", 1)[0].strip() == QUORUM_REQUIRED_CHECK for e in entries
+            )
+    return False
+
+
+def _should_collect_evidence(
+    pr: dict,
+    result: MergeResult,
+    *,
+    config: MergeArbiterConfig,
+    tier_fetcher,
+    context_fetcher,
+    evidence_reader,
+) -> bool:
+    """Decide whether to auto-collect quorum evidence for a not-ready candidate.
+
+    True iff the flag is on; the PR is blocked only on the quorum check; its tier
+    is auto-postable (0-2); and it has fewer countable model families than its
+    tier requires. All I/O is injected so this is fully testable with fakes.
+    """
+    if not config.auto_collect_evidence:
+        return False
+    if not _result_blocked_only_on_quorum(result):
+        return False
+    pr_number = pr.get("number")
+    if pr_number is None:
+        return False
+    tier = tier_fetcher(config.repo, pr_number)
+    if tier is None or tier < 0 or tier > 2:
+        return False
+    ctx = context_fetcher(config.repo, pr_number) or {}
+    head_sha = str(ctx.get("head_sha") or "")
+    if not head_sha:
+        return False
+    head_committed_at = str(ctx.get("head_committed_at") or "")
+    comments = evidence_reader(config.repo, pr_number, head_sha, head_committed_at)
+    return len(counted_reviewer_ids(comments)) < _required_model_signals(tier)
+
+
 class MergeArbiter:
     """Polling loop that auto-merges boss-loop PRs when CI passes."""
 
-    def __init__(self, config: MergeArbiterConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: MergeArbiterConfig | None = None,
+        *,
+        tier_fetcher=fetch_pr_tier,
+        context_fetcher=fetch_pr_context,
+        evidence_reader=fetch_evidence_comments,
+        collector=collect_evidence,
+        author_resolver=resolve_author,
+    ) -> None:
         self.config = config or MergeArbiterConfig()
         self._consecutive_failures = 0
+        self._collected_heads: set[str] = set()
+        self._tier_fetcher = tier_fetcher
+        self._context_fetcher = context_fetcher
+        self._evidence_reader = evidence_reader
+        self._collector = collector
+        self._author_resolver = author_resolver
+
+    def _maybe_collect_evidence(self, pr: dict, result: MergeResult) -> bool:
+        """Collect quorum evidence at most once per head for a quorum-blocked PR.
+
+        Returns True iff a collection was attempted. Posting is tier-gated inside
+        ``collect_evidence`` (Tier 3+ never posts). The head is recorded before
+        collecting so a transient fault never re-triggers the costly multi-model
+        collection on the same head every poll.
+        """
+        head_sha = str(pr.get("headRefOid") or "")
+        if head_sha and head_sha in self._collected_heads:
+            return False
+        if not _should_collect_evidence(
+            pr,
+            result,
+            config=self.config,
+            tier_fetcher=self._tier_fetcher,
+            context_fetcher=self._context_fetcher,
+            evidence_reader=self._evidence_reader,
+        ):
+            return False
+        self._collected_heads.add(head_sha)
+        try:
+            self._collector(
+                repo=self.config.repo,
+                pr=pr["number"],
+                families=self.config.reviewer_families or list(DEFAULT_FAMILIES),
+                author=self._author_resolver(),
+                apply=True,
+            )
+        except Exception as exc:  # noqa: BLE001 - best-effort resilience boundary: one bad collection must not abort the poll loop
+            logger.warning("evidence collection fault for #%s: %s", pr.get("number"), exc)
+            return False
+        logger.info("Auto-collected quorum evidence for #%s", pr.get("number"))
+        return True
 
     async def run(self) -> ArbiterSummary:
         """Run the polling loop until max runtime or circuit breaker trips."""
@@ -533,6 +662,7 @@ class MergeArbiter:
             summary.polls += 1
             any_failure_this_poll = False
             any_merge_this_poll = False
+            collected_this_poll = False
 
             candidates = _list_candidate_prs(self.config)
             logger.debug("Poll %d: %d candidate PRs", summary.polls, len(candidates))
@@ -565,6 +695,15 @@ class MergeArbiter:
                         result.reason,
                         result.branch,
                     )
+
+                # Auto-collect quorum evidence for a candidate blocked only on the
+                # quorum check (at most one collection per poll, once per head).
+                if (
+                    not result.success
+                    and not collected_this_poll
+                    and self._maybe_collect_evidence(pr, result)
+                ):
+                    collected_this_poll = True
 
             # Circuit breaker: track consecutive polls with only failures
             if any_failure_this_poll and not any_merge_this_poll:
