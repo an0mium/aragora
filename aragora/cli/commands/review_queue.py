@@ -3707,6 +3707,8 @@ def _structured_identity_metadata(text: str, heading_index: int | None) -> dict[
     in_fence = False
     fence_marker = ""
     for line in lines[heading_index + 1 : heading_index + 26]:
+        if line.startswith(("    ", "\t")):
+            continue
         stripped = line.strip()
         if stripped.startswith(("```", "~~~")):
             marker = stripped[:3]

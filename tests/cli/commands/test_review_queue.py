@@ -1950,6 +1950,37 @@ class TestModelReviewQuorum:
         assert quorum["dogfood_evidence"] == []
         assert quorum["counted_reviewer_ids"] == []
 
+    def test_model_review_metadata_in_indented_code_block_is_not_counted(self) -> None:
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Codex review\n\n"
+                    "Template copied from the reviewer instructions:\n\n"
+                    "    **Model family:** openai\n"
+                    "    **Model id:** gpt-5-codex\n"
+                    "    **Receipt artifact:** /tmp/codex-review.md\n\n"
+                    "independent model review example only."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["counted_reviewer_ids"] == []
+        assert quorum["reviewer_signals"][0]["identity_problems"] == [
+            "missing_model_family_disclosure",
+            "missing_receipt_artifact",
+        ]
+
     # --- Plain-headed dogfood with body-named model (PR #7587 regression) ---
     #
     # A dogfood comment headed `## Focused adversarial dogfood` (no `(claude)`
@@ -2215,6 +2246,38 @@ class TestModelReviewQuorum:
             "6/6 cases pass."
         )
         assert _model_family_from_body(body) == ""
+
+    def test_dogfood_structured_metadata_in_indented_code_block_is_not_counted(
+        self,
+    ) -> None:
+        files = ["aragora/agents/router.py"]
+        pr = _make_pr(files=files)
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Codex focused adversarial dogfood\n\n"
+                    "Template copied from the reviewer instructions:\n\n"
+                    "    **Model family:** openai\n"
+                    "    **Model id:** gpt-5-codex\n"
+                    "    **Receipt artifact:** /tmp/codex-dogfood.md\n\n"
+                    "6/6 adversarial examples pass in the pasted template."
+                ),
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == []
+        assert quorum["dogfood_evidence"][0]["identity_problems"] == [
+            "missing_model_family_disclosure",
+            "missing_receipt_artifact",
+        ]
 
     def test_dogfood_real_family_line_outside_fence_still_counts(self) -> None:
         """A genuine `Model family:` disclosure outside any code fence still
