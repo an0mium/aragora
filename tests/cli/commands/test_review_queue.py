@@ -1371,6 +1371,11 @@ class TestModelReviewQuorum:
                 "[current-head]: https://github.com/synaptent/aragora/commit/"
                 "abcdef1234567890abcdef1234567890abcdef12\n"
             ),
+            (
+                "I reviewed this earlier, but the later exact-head citation is only "
+                "inside an indented code block:\n\n"
+                "    Current head: abcdef1234567890abcdef1234567890abcdef12\n"
+            ),
         ],
     )
     def test_stale_comment_with_non_prose_head_sha_citation_still_excluded(
@@ -2195,6 +2200,18 @@ class TestModelReviewQuorum:
         body = (
             "## Focused adversarial dogfood\n\n"
             "I left a note saying `Model family: claude` as an example only.\n\n"
+            "6/6 cases pass."
+        )
+        assert _model_family_from_body(body) == ""
+
+    def test_dogfood_model_family_in_indented_code_block_is_not_counted(self) -> None:
+        """An indented-code `Model family:` example is not a real disclosure."""
+        from aragora.cli.commands.review_queue import _model_family_from_body
+
+        body = (
+            "## Focused adversarial dogfood\n\n"
+            "The old template looked like this:\n\n"
+            "    Model family: claude\n\n"
             "6/6 cases pass."
         )
         assert _model_family_from_body(body) == ""
@@ -4775,6 +4792,12 @@ class TestCommandDispatch:
                 "reference definition:\n\n"
                 "[current-head]: https://github.com/synaptent/aragora/commit/"
                 "cd87c5a1b2db34f04167906553502db3ede9525e\n\n"
+                "Validation passed for the touched surface."
+            ),
+            (
+                "I reviewed the diff, but this exact-head citation is only inside "
+                "an indented code block:\n\n"
+                "    Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n\n"
                 "Validation passed for the touched surface."
             ),
         ],

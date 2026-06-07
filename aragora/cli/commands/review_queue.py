@@ -3527,6 +3527,8 @@ def _evidence_grounding_text(body: str) -> str:
     in_fence = False
     fence_marker = ""
     for raw_line in text.splitlines():
+        if raw_line.startswith(("    ", "\t")):
+            continue
         stripped = raw_line.strip()
         if stripped.startswith(("```", "~~~")):
             marker = stripped[:3]
@@ -3796,6 +3798,8 @@ def _model_family_from_body(body: str) -> str:
     in_fence = False
     fence_marker = ""
     for raw_line in str(body).splitlines():
+        if raw_line.startswith(("    ", "\t")):
+            continue
         stripped = raw_line.strip()
         # Track fenced code blocks and skip everything inside them.
         if stripped.startswith(("```", "~~~")):
