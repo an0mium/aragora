@@ -16,6 +16,7 @@ deterministic. This is the safe coverage floor under the AFT spec's
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
 import pytest
@@ -33,6 +34,7 @@ from scripts.aft_harness import (
     brier_score,
     mcnemar_p,
 )
+from scripts import aft_seeded_train_eval
 from scripts.aft_repeated_eval import aggregate
 from scripts.aft_to_mlx_chat import convert_row
 
@@ -359,6 +361,56 @@ class TestConvertRow:
         out = convert_row(row)
         assert out is not None
         assert '"label": "closed_no_merge"' in out["messages"][2]["content"]
+
+
+# ----- aft_seeded_train_eval::build_mlx_dir --------------------------------
+
+
+def _write_training_rows(path: _pl.Path, labels: list[str]) -> None:
+    path.write_text(
+        "\n".join(
+            json.dumps({"pr_number": idx, "decision": label})
+            for idx, label in enumerate(labels, start=1)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+class TestSeededTrainEvalMlxSplit:
+    def test_build_mlx_dir_rejects_one_convertible_row_before_writing(
+        self, tmp_path: _pl.Path
+    ) -> None:
+        corpus = tmp_path / "train.jsonl"
+        out_dir = tmp_path / "mlx"
+        _write_training_rows(corpus, ["merged_fast"])
+
+        with pytest.raises(ValueError, match="at least two convertible training examples"):
+            aft_seeded_train_eval.build_mlx_dir(corpus, out_dir, seed=17)
+
+        assert not out_dir.exists()
+
+    def test_build_mlx_dir_keeps_train_and_valid_examples(self, tmp_path: _pl.Path) -> None:
+        corpus = tmp_path / "train.jsonl"
+        out_dir = tmp_path / "mlx"
+        _write_training_rows(corpus, ["merged_fast", "closed_no_merge"])
+
+        aft_seeded_train_eval.build_mlx_dir(corpus, out_dir, seed=17)
+
+        assert len((out_dir / "train.jsonl").read_text(encoding="utf-8").splitlines()) == 1
+        assert len((out_dir / "valid.jsonl").read_text(encoding="utf-8").splitlines()) == 1
+
+    def test_build_mlx_dir_clamps_validation_split_to_leave_training_rows(
+        self, tmp_path: _pl.Path
+    ) -> None:
+        corpus = tmp_path / "train.jsonl"
+        out_dir = tmp_path / "mlx"
+        _write_training_rows(corpus, ["merged_fast", "closed_no_merge", "open_aged"])
+
+        aft_seeded_train_eval.build_mlx_dir(corpus, out_dir, seed=17, valid_frac=0.99)
+
+        assert len((out_dir / "train.jsonl").read_text(encoding="utf-8").splitlines()) == 1
+        assert len((out_dir / "valid.jsonl").read_text(encoding="utf-8").splitlines()) == 2
 
 
 # ----- aggregate (repeated-seed summary) -----------------------------------
