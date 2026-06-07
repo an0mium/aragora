@@ -15,7 +15,8 @@ A run is *re-triggerable* when all hold:
 - its conclusion is ``cancelled`` (a completed-but-cancelled run);
 - its branch maps to an open, non-draft PR head (draft PRs are skipped);
 - its head SHA equals that PR's current head (not superseded by a new push);
-- no newer run of the same workflow+branch exists (not superseded by a re-run);
+- no newer re-run of the same workflow+branch+head SHA via a PR event exists
+  (an unrelated ``push``/``workflow_dispatch`` or different-SHA run does not count);
 - it was created within a short TTL (stale cancellations are left alone);
 - it has not already been re-run (``run_attempt`` guard + optional marker file).
 
@@ -197,10 +198,22 @@ def _run_workflow_key(run: dict[str, Any]) -> Any:
     return _field(run, "workflow_id", "workflowId") or _field(run, "name", default="")
 
 
-def _has_newer_sibling(run: dict[str, Any], runs: list[dict[str, Any]]) -> bool:
-    """True if another run for the same workflow+branch is newer than ``run``."""
+def _has_newer_sibling(
+    run: dict[str, Any],
+    runs: list[dict[str, Any]],
+    *,
+    pr_events: set[str] | None = None,
+) -> bool:
+    """True if a genuine newer re-run of the *same* PR check context exists.
+
+    A sibling only supersedes ``run`` when it targets the same workflow, branch,
+    and head SHA via a pull-request event. Unrelated ``push`` /
+    ``workflow_dispatch`` runs, or runs for a different head SHA on the same
+    branch, must not suppress re-running a still-current cancelled PR run.
+    """
     wf = _run_workflow_key(run)
     branch = _run_branch(run)
+    sha = str(_field(run, "head_sha", "headSha")).strip()
     key = _run_sort_key(run)
     run_id = int(_field(run, "id", "databaseId", default=0) or 0)
     for other in runs:
@@ -208,6 +221,10 @@ def _has_newer_sibling(run: dict[str, Any], runs: list[dict[str, Any]]) -> bool:
         if other_id == run_id:
             continue
         if _run_workflow_key(other) != wf or _run_branch(other) != branch:
+            continue
+        if str(_field(other, "head_sha", "headSha")).strip() != sha:
+            continue
+        if pr_events is not None and str(_field(other, "event")).strip() not in pr_events:
             continue
         if _run_sort_key(other) > key:
             return True
@@ -265,7 +282,7 @@ def compute_retriggerable_runs(
         if active_sha != sha:
             mark("superseded-sha")
             continue
-        if _has_newer_sibling(run, runs):
+        if _has_newer_sibling(run, runs, pr_events=cancel_events):
             mark("superseded-by-newer-run")
             continue
 

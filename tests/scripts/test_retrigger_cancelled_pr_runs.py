@@ -107,6 +107,59 @@ def test_superseded_by_newer_run_is_skipped() -> None:
     assert candidates == 1
 
 
+def test_newer_non_pr_sibling_does_not_supersede() -> None:
+    # A newer push/workflow_dispatch run on the same branch+workflow+SHA must not
+    # suppress re-running a still-current cancelled PR run.
+    runs = [
+        make_run(
+            id=20,
+            head_branch="feat/p",
+            head_sha="sha-p",
+            run_number=1,
+            created_at="2026-06-06T20:50:00Z",
+        ),
+        make_run(
+            id=21,
+            event="push",
+            conclusion="success",
+            head_branch="feat/p",
+            head_sha="sha-p",
+            run_number=2,
+            created_at="2026-06-06T20:55:00Z",
+        ),
+    ]
+    eligible, reasons, candidates = _compute(runs, {"feat/p": "sha-p"})
+    assert [e["run_id"] for e in eligible] == [20]
+    assert reasons == {}
+    assert candidates == 1
+
+
+def test_newer_different_sha_sibling_does_not_supersede() -> None:
+    # A newer run for a *different* head SHA on the same branch+workflow must not
+    # suppress the cancelled run that still matches the current PR head.
+    runs = [
+        make_run(
+            id=22,
+            head_branch="feat/q",
+            head_sha="sha-q",
+            run_number=1,
+            created_at="2026-06-06T20:50:00Z",
+        ),
+        make_run(
+            id=23,
+            head_branch="feat/q",
+            head_sha="other-sha",
+            conclusion="success",
+            run_number=2,
+            created_at="2026-06-06T20:55:00Z",
+        ),
+    ]
+    eligible, reasons, candidates = _compute(runs, {"feat/q": "sha-q"})
+    assert [e["run_id"] for e in eligible] == [22]
+    assert reasons == {}
+    assert candidates == 1
+
+
 def test_max_attempts_guard_is_honored() -> None:
     runs = [make_run(id=8, head_branch="feat/g", head_sha="sha-g", run_attempt=2)]
     eligible, reasons, _ = _compute(runs, {"feat/g": "sha-g"}, max_attempts=2)
