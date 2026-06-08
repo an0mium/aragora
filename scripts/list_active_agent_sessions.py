@@ -371,8 +371,6 @@ def detect_agent_process_census(
         )
     except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
         return {}
-    if proc.returncode != 0:
-        return {}
     try:
         payload = json.loads(proc.stdout or "{}")
     except json.JSONDecodeError:
@@ -380,11 +378,14 @@ def detect_agent_process_census(
     if not isinstance(payload, dict):
         return {}
     by_role = payload.get("by_role")
-    return {
+    out: dict[str, Any] = {
         "ok": bool(payload.get("ok")),
         "total": payload.get("total"),
         "by_role": by_role if isinstance(by_role, dict) else {},
     }
+    if isinstance(payload.get("error"), str):
+        out["error"] = payload["error"]
+    return out
 
 
 def detect_agent_bridge_lanes(

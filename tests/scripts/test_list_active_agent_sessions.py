@@ -333,6 +333,34 @@ def test_detect_agent_process_census_parses_summary(tmp_path: Path) -> None:
     }
 
 
+def test_detect_agent_process_census_preserves_structured_error(tmp_path: Path) -> None:
+    script = tmp_path / "scripts" / "agent_bridge.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+
+    class _Proc:
+        returncode = 1
+        stdout = json.dumps(
+            {
+                "ok": False,
+                "total": 0,
+                "by_role": {},
+                "error": "[Errno 1] Operation not permitted: 'ps'",
+            }
+        )
+        stderr = ""
+
+    with patch.object(detector.subprocess, "run", return_value=_Proc()):
+        out = detector.detect_agent_process_census(tmp_path)
+
+    assert out == {
+        "ok": False,
+        "total": 0,
+        "by_role": {},
+        "error": "[Errno 1] Operation not permitted: 'ps'",
+    }
+
+
 def test_detect_agent_process_census_returns_empty_when_script_missing(tmp_path: Path) -> None:
     assert detector.detect_agent_process_census(tmp_path) == {}
 
