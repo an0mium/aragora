@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import stat
 import subprocess
 from pathlib import Path
@@ -34,8 +35,13 @@ def _init_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def _stub_gh(path: Path, *, token_available: bool) -> None:
+def _stub_gh(path: Path, *, token_available: bool, calls_file: Path | None = None) -> None:
     token_block = "echo fake-token\nexit 0" if token_available else "exit 1"
+    record_create = (
+        f"  printf '%s\\n' \"$*\" > {shlex.quote(str(calls_file))}\n"
+        if calls_file is not None
+        else ""
+    )
     path.write_text(
         "\n".join(
             [
@@ -59,6 +65,7 @@ def _stub_gh(path: Path, *, token_available: bool) -> None:
                 "  exit 0",
                 "fi",
                 'if [[ "$cmd" == "pr" && "$subcmd" == "create" ]]; then',
+                record_create.rstrip("\n"),
                 '  echo "https://example.com/pr/123"',
                 "  exit 0",
                 "fi",
@@ -72,10 +79,12 @@ def _stub_gh(path: Path, *, token_available: bool) -> None:
     path.chmod(path.stat().st_mode | stat.S_IEXEC)
 
 
-def _env_with_stub(tmp_path: Path, *, token_available: bool) -> dict[str, str]:
+def _env_with_stub(
+    tmp_path: Path, *, token_available: bool, calls_file: Path | None = None
+) -> dict[str, str]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    _stub_gh(bin_dir / "gh", token_available=token_available)
+    _stub_gh(bin_dir / "gh", token_available=token_available, calls_file=calls_file)
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env['PATH']}"
     return env
@@ -90,6 +99,45 @@ def test_open_pr_uses_cached_token_when_auth_status_is_unavailable(tmp_path: Pat
     assert proc.returncode == 0
     assert "https://example.com/pr/123" in proc.stdout
     assert "gh is not authenticated" not in proc.stderr
+
+
+def test_open_pr_creates_draft_by_default(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    calls_file = tmp_path / "gh-pr-create.args"
+    env = _env_with_stub(tmp_path, token_available=True, calls_file=calls_file)
+
+    proc = _run(["bash", str(SCRIPT)], cwd=repo, env=env)
+
+    assert proc.returncode == 0, proc.stderr
+    assert calls_file.read_text(encoding="utf-8").strip().split() == [
+        "pr",
+        "create",
+        "--base",
+        "main",
+        "--head",
+        "codex/fix-open-pr-auth",
+        "--fill",
+        "--draft",
+    ]
+
+
+def test_open_pr_no_draft_omits_draft_flag(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    calls_file = tmp_path / "gh-pr-create.args"
+    env = _env_with_stub(tmp_path, token_available=True, calls_file=calls_file)
+
+    proc = _run(["bash", str(SCRIPT), "--no-draft"], cwd=repo, env=env)
+
+    assert proc.returncode == 0, proc.stderr
+    assert calls_file.read_text(encoding="utf-8").strip().split() == [
+        "pr",
+        "create",
+        "--base",
+        "main",
+        "--head",
+        "codex/fix-open-pr-auth",
+        "--fill",
+    ]
 
 
 def test_open_pr_still_fails_when_no_gh_token_is_available(tmp_path: Path) -> None:
