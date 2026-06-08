@@ -105,30 +105,35 @@ STOPWORDS = {
     "with",
 }
 
-try:
-    from aragora.swarm.github_app_auth import gh_subprocess_run, github_cli_env
-except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
 
-    def github_cli_env(
-        base_env: Mapping[str, str] | None = None,
-        *,
-        prefer_app: bool = True,
-    ) -> dict[str, str]:
+def github_cli_env(
+    base_env: Mapping[str, str] | None = None,
+    *,
+    prefer_app: bool = True,
+) -> dict[str, str]:
+    try:
+        from aragora.swarm.github_app_auth import github_cli_env as _github_cli_env
+    except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
         return dict(os.environ if base_env is None else base_env)
+    return _github_cli_env(base_env, prefer_app=prefer_app)
 
-    def gh_subprocess_run(
-        args: Sequence[str],
-        *,
-        timeout: float = 30.0,
-        prefer_app: bool = True,
-        write_op: bool = False,
-        env: Mapping[str, str] | None = None,
-        max_retries: int = 3,
-        base_backoff: float = 5.0,
-        max_backoff: float = 600.0,
-        sleep: Callable[[float], None] | None = None,
-    ) -> subprocess.CompletedProcess[str]:
-        del prefer_app, write_op, max_retries, base_backoff, max_backoff, sleep
+
+def gh_subprocess_run(
+    args: Sequence[str],
+    *,
+    timeout: float = 30.0,
+    prefer_app: bool = True,
+    write_op: bool = False,
+    env: Mapping[str, str] | None = None,
+    max_retries: int = 3,
+    base_backoff: float = 5.0,
+    max_backoff: float = 600.0,
+    sleep: Callable[[float], None] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        from aragora.swarm.github_app_auth import gh_subprocess_run as _gh_subprocess_run
+    except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
+        _ = (prefer_app, write_op, max_retries, base_backoff, max_backoff, sleep)
         return subprocess.run(
             ["gh", *list(args)],
             capture_output=True,
@@ -137,6 +142,17 @@ except Exception:  # pragma: no cover - fallback for partially bootstrapped scri
             env=dict(os.environ if env is None else env),
             check=False,
         )
+    return _gh_subprocess_run(
+        args,
+        timeout=timeout,
+        prefer_app=prefer_app,
+        write_op=write_op,
+        env=env,
+        max_retries=max_retries,
+        base_backoff=base_backoff,
+        max_backoff=max_backoff,
+        sleep=sleep,
+    )
 
 
 def _mute_stdout_after_broken_pipe() -> None:
