@@ -118,6 +118,34 @@ def test_automation_pr_preflight_json_suggests_validation_for_source_without_tes
     ]
 
 
+def test_automation_pr_preflight_json_suggests_publisher_startup_import_smoke(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/publisher-startup-json"], cwd=repo)
+    source = repo / "scripts" / "github_app_auth_shim.py"
+    source.parent.mkdir()
+    source.write_text("APP_ID = '123'\n", encoding="utf-8")
+    _run(["git", "add", "scripts/github_app_auth_shim.py"], cwd=repo)
+    _run(["git", "commit", "-m", "fix: add auth shim"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "ok"
+    assert payload["source_without_tests"] is True
+    assert payload["suggested_validation_commands"] == [
+        "python3 scripts/nomic_ci_test_selector.py --changed-files "
+        "scripts/github_app_auth_shim.py --dry-run",
+        "python3 -m ruff check scripts/github_app_auth_shim.py",
+        'python3 -c "import importlib; [importlib.import_module(module) '
+        'for module in ("scripts.cache_codex_automation_github_status", '
+        '"scripts.github_app_auth_shim", "scripts.publish_automation_handoffs", '
+        '"scripts.publish_codex_automation_branches", "scripts.github_cli_health")]"',
+    ]
+
+
 def test_automation_pr_preflight_rejects_synthetic_preflight_commit_subject(
     tmp_path: Path,
 ) -> None:
