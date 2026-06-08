@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 from scripts.github_cli_health import GitHubCLIHealth
 
 import scripts.drain_codex_automation_value as mod
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _pr_view(**overrides: Any) -> dict[str, Any]:
@@ -185,6 +189,28 @@ def test_run_gh_invalid_timeout_env_falls_back(monkeypatch: Any, tmp_path: Path)
     assert observed["args"] == ["pr", "list"]
     assert observed["timeout"] == mod.DEFAULT_GH_TIMEOUT_SECONDS
     assert observed["write_op"] is False
+
+
+def test_module_import_does_not_eagerly_import_swarm() -> None:
+    code = (
+        "import json, sys; "
+        "import scripts.drain_codex_automation_value; "
+        "print(json.dumps({"
+        "'swarm': 'aragora.swarm' in sys.modules, "
+        "'github_app_auth': 'aragora.swarm.github_app_auth' in sys.modules"
+        "}))"
+    )
+
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout) == {"swarm": False, "github_app_auth": False}
 
 
 def test_issue_publish_blocker_respects_open_issue_cap() -> None:
