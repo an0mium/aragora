@@ -353,6 +353,114 @@ def test_main_accepts_json_after_subcommand(
     assert json.loads(capsys.readouterr().out) == []
 
 
+def test_tmux_map_json_emits_structured_panes(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    def fake_run(*_args, **_kwargs):
+        return argparse.Namespace(
+            returncode=0,
+            stdout=(
+                "aragora:codex 12345 codex\nother:ignored 22222 zsh\naragora:factory 67890 droid\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    rc = mod.cmd_tmux_map(argparse.Namespace(json=True, summary_only=False))
+
+    assert rc == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "ok": True,
+        "pane_count": 2,
+        "panes": [
+            {"window": "aragora:codex", "pid": "12345", "command": "codex"},
+            {"window": "aragora:factory", "pid": "67890", "command": "droid"},
+        ],
+    }
+
+
+def test_tmux_map_summary_only_json_omits_full_panes(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    def fake_run(*_args, **_kwargs):
+        return argparse.Namespace(
+            returncode=0,
+            stdout=(
+                "aragora:codex 12345 codex\n"
+                "aragora:factory 67890 droid\n"
+                "aragora:review 24680 codex\n"
+                "aragora:queue 13579 python\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    rc = mod.cmd_tmux_map(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "panes" not in payload
+    assert payload == {
+        "ok": True,
+        "pane_count": 4,
+        "command_counts": {"codex": 2, "droid": 1, "python": 1},
+        "window_counts": {
+            "aragora:codex": 1,
+            "aragora:factory": 1,
+            "aragora:queue": 1,
+            "aragora:review": 1,
+        },
+        "pane_examples": [
+            {"window": "aragora:codex", "pid": "12345", "command": "codex"},
+            {"window": "aragora:factory", "pid": "67890", "command": "droid"},
+            {"window": "aragora:review", "pid": "24680", "command": "codex"},
+        ],
+        "panes_omitted": 1,
+        "details_omitted": True,
+    }
+
+
+def test_main_accepts_tmux_map_summary_only_after_subcommand(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *_args, **_kwargs: argparse.Namespace(
+            returncode=0,
+            stdout="aragora:codex 12345 codex\n",
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["agent_bridge.py", "tmux-map", "--json", "--summary-only"],
+    )
+
+    assert mod.main() == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "ok": True,
+        "pane_count": 1,
+        "command_counts": {"codex": 1},
+        "window_counts": {"aragora:codex": 1},
+        "pane_examples": [{"window": "aragora:codex", "pid": "12345", "command": "codex"}],
+        "panes_omitted": 0,
+        "details_omitted": True,
+    }
+
+
 def test_operator_snapshot_summary_only_json_omits_records(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

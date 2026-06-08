@@ -2590,7 +2590,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     return _emit_text("\n".join(lines))
 
 
-def cmd_tmux_map(args: argparse.Namespace) -> int:
+def _collect_tmux_panes() -> tuple[bool, str | None, list[dict[str, str]]]:
     try:
         result = subprocess.run(
             [
@@ -2606,16 +2606,60 @@ def cmd_tmux_map(args: argparse.Namespace) -> int:
             check=False,
         )
         if result.returncode != 0:
-            print("No tmux sessions.")
-            return 0
-        print(f"{'WINDOW':<40} {'PID':<8} COMMAND")
-        print("-" * 65)
+            return False, "No tmux sessions.", []
+        panes: list[dict[str, str]] = []
         for line in result.stdout.strip().splitlines():
             parts = line.strip().split(None, 2)
             if len(parts) >= 3 and TMUX_SESSION in parts[0]:
-                print(f"{parts[0]:<40} {parts[1]:<8} {parts[2]}")
+                panes.append({"window": parts[0], "pid": parts[1], "command": parts[2]})
+        return True, None, panes
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        print("tmux not available.")
+        return False, "tmux not available.", []
+
+
+def _tmux_map_summary_payload(payload: dict[str, Any], *, example_limit: int = 3) -> dict[str, Any]:
+    panes = list(payload.get("panes") or [])
+    command_counts: dict[str, int] = {}
+    window_counts: dict[str, int] = {}
+    for pane in panes:
+        command = str(pane.get("command") or "unknown")
+        window = str(pane.get("window") or "unknown")
+        command_counts[command] = command_counts.get(command, 0) + 1
+        window_counts[window] = window_counts.get(window, 0) + 1
+    examples = panes[: max(0, example_limit)]
+    summary = {
+        "ok": bool(payload.get("ok", False)),
+        "pane_count": len(panes),
+        "command_counts": dict(sorted(command_counts.items())),
+        "window_counts": dict(sorted(window_counts.items())),
+        "pane_examples": examples,
+        "panes_omitted": max(0, len(panes) - len(examples)),
+        "details_omitted": True,
+    }
+    if payload.get("error"):
+        summary["error"] = payload["error"]
+    return summary
+
+
+def cmd_tmux_map(args: argparse.Namespace) -> int:
+    ok, error, panes = _collect_tmux_panes()
+    payload: dict[str, Any] = {"ok": ok, "pane_count": len(panes), "panes": panes}
+    if error:
+        payload["error"] = error
+
+    if args.json:
+        if getattr(args, "summary_only", False):
+            payload = _tmux_map_summary_payload(payload)
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    if error:
+        print(error)
+        return 0
+    print(f"{'WINDOW':<40} {'PID':<8} COMMAND")
+    print("-" * 65)
+    for pane in panes:
+        print(f"{pane['window']:<40} {pane['pid']:<8} {pane['command']}")
     return 0
 
 
@@ -2824,7 +2868,12 @@ def main() -> int:
         default=50,
         help="Maximum process records to include when not using --summary-only.",
     )
-    sub.add_parser("tmux-map", parents=[json_parent], help="Show tmux panes")
+    tmux_map_p = sub.add_parser("tmux-map", parents=[json_parent], help="Show tmux panes")
+    tmux_map_p.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact tmux pane counts and bounded examples for automation probes.",
+    )
     sub.add_parser(
         "health", parents=[json_parent], help="Check for stale worktrees and lane conflicts"
     ).add_argument(
