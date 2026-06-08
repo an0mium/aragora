@@ -200,6 +200,39 @@ def test_cli_both_fresh_exits_zero(mock_repo: Path) -> None:
     assert "stale proof surface" not in proc.stderr
 
 
+def test_cli_accepts_explicit_json_flag(mock_repo: Path) -> None:
+    """Automation probes can pass --json even though JSON is the default."""
+    fresh = _today_iso()
+    _write_surface(
+        mock_repo,
+        "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+        f"Last updated: {fresh}",
+    )
+
+    proc = _run_cli(mock_repo, "--json", "--surfaces", "b0")
+
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert payload["fresh"] is True
+    assert [entry["surface"] for entry in payload["surfaces"]] == ["b0"]
+
+
+def test_cli_json_flag_composes_with_pretty(mock_repo: Path) -> None:
+    fresh = _today_iso()
+    _write_surface(
+        mock_repo,
+        "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+        f"Last updated: {fresh}",
+    )
+
+    proc = _run_cli(mock_repo, "--json", "--pretty", "--surfaces", "b0")
+
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.startswith("{\n  ")
+    payload = json.loads(proc.stdout)
+    assert payload["fresh"] is True
+
+
 def test_cli_one_stale_exits_non_zero_with_offender(mock_repo: Path) -> None:
     """Acceptance #2 — one stale surface -> non-zero exit + offender listed."""
     fresh = _today_iso()

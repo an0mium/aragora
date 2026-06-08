@@ -53,6 +53,9 @@ Usage
     python3 scripts/probe_proof_surface_freshness.py \\
         --surfaces b0 --max-age-days 3
 
+    # Explicit JSON flag accepted for automation CLI consistency:
+    python3 scripts/probe_proof_surface_freshness.py --json
+
     # Operator-facing pretty output:
     python3 scripts/probe_proof_surface_freshness.py --pretty
 
@@ -317,6 +320,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Override the repo root used to resolve surface paths. "
             "Defaults to the repo containing this script."
+        ),
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "Emit JSON output. This is accepted for consistency with other "
+            "automation probes; JSON is already the default output format."
         ),
     )
     parser.add_argument(
