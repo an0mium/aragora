@@ -2663,6 +2663,7 @@ def _gc_tmux_candidates(*, ttl_hours: int) -> list[dict[str, Any]]:
 def cmd_gc(args: argparse.Namespace) -> int:
     ttl_hours = max(1, int(args.ttl_hours))
     write = bool(args.write)
+    summary_only = bool(getattr(args, "summary_only", False))
     candidates = _gc_tmux_candidates(ttl_hours=ttl_hours)
     archive_dir = TMUX_SESSIONS_DIR / "archive" / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     actions: list[dict[str, Any]] = []
@@ -2705,7 +2706,8 @@ def cmd_gc(args: argparse.Namespace) -> int:
         "external_transcripts_touched": False,
     }
     if args.json:
-        print(json.dumps(payload, indent=2))
+        output_payload = _gc_summary_payload(payload) if summary_only else payload
+        print(json.dumps(output_payload, indent=2))
         return 0
     if not actions:
         print("No stale bridge-owned tmux sessions to archive.")
@@ -2714,6 +2716,32 @@ def cmd_gc(args: argparse.Namespace) -> int:
         mode = "would archive" if action["dry_run"] else "archived"
         print(f"{mode}: {action['name']} ({len(action['files'])} file(s))")
     return 0
+
+
+def _gc_summary_payload(payload: dict[str, Any], *, example_limit: int = 3) -> dict[str, Any]:
+    actions = payload.get("actions")
+    action_list = actions if isinstance(actions, list) else []
+    examples: list[dict[str, Any]] = []
+    for action in action_list[: max(0, example_limit)]:
+        if not isinstance(action, dict):
+            continue
+        files = action.get("files")
+        examples.append(
+            {
+                "action": action.get("action"),
+                "name": action.get("name"),
+                "reason": action.get("reason"),
+                "dry_run": action.get("dry_run"),
+                "file_count": len(files) if isinstance(files, list) else 0,
+            }
+        )
+    return {key: value for key, value in payload.items() if key != "actions"} | {
+        "action_count": len(action_list),
+        "action_examples": examples,
+        "actions_omitted": True,
+        "action_omitted_count": max(len(action_list) - len(examples), 0),
+        "details_omitted": True,
+    }
 
 
 def _json_parent() -> argparse.ArgumentParser:
@@ -2839,6 +2867,11 @@ def main() -> int:
     )
     gc_p.add_argument("--write", action="store_true", help="Apply archive actions")
     gc_p.add_argument("--ttl-hours", type=int, default=DEFAULT_STALE_TTL_HOURS)
+    gc_p.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact action counts and bounded examples for automation probes.",
+    )
     operator_snapshot_p = sub.add_parser(
         "operator-snapshot",
         parents=[json_parent],

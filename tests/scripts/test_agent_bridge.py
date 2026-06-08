@@ -2663,6 +2663,74 @@ def test_gc_dry_run_archives_only_bridge_owned_tmux_candidates(
     assert transcript.exists()
 
 
+def test_gc_summary_only_omits_full_action_list(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    tmux_dir = tmp_path / "tmux"
+    tmux_dir.mkdir()
+    meta = tmux_dir / "factory-old.meta.json"
+    log = tmux_dir / "factory-old.log"
+    meta.write_text("{}", encoding="utf-8")
+    log.write_text("old log", encoding="utf-8")
+    monkeypatch.setattr(mod, "TMUX_SESSIONS_DIR", tmux_dir)
+    monkeypatch.setattr(
+        mod.agent_bridge_sessions,
+        "load_tmux_sessions",
+        lambda **_kwargs: [
+            SimpleNamespace(
+                name="factory-old",
+                source="tmux",
+                status="dead",
+                updated_at="2026-05-13T00:00:00Z",
+                session_id="factory-old",
+                log_file=str(log),
+            )
+        ],
+    )
+
+    rc = mod.cmd_gc(argparse.Namespace(json=True, write=False, ttl_hours=24, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dry_run"] is True
+    assert payload["external_transcripts_touched"] is False
+    assert payload["action_count"] == 1
+    assert payload["actions_omitted"] is True
+    assert payload["details_omitted"] is True
+    assert "actions" not in payload
+    assert payload["action_examples"][0]["name"] == "factory-old"
+    assert payload["action_examples"][0]["file_count"] == 2
+    assert meta.exists()
+    assert log.exists()
+
+
+def test_main_accepts_gc_summary_only_after_subcommand(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    tmux_dir = tmp_path / "tmux"
+    tmux_dir.mkdir()
+    monkeypatch.setattr(mod, "TMUX_SESSIONS_DIR", tmux_dir)
+    monkeypatch.setattr(mod.agent_bridge_sessions, "load_tmux_sessions", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["agent_bridge.py", "gc", "--json", "--summary-only"],
+    )
+
+    assert mod.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["action_count"] == 0
+    assert "actions" not in payload
+
+
 def test_gc_dry_run_skips_stale_tmux_session_kept_current_by_broker_state(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
