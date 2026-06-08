@@ -118,6 +118,29 @@ def test_automation_pr_preflight_json_suggests_validation_for_source_without_tes
     ]
 
 
+def test_automation_pr_preflight_json_suggests_agent_bridge_snapshot_smoke(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/agent-bridge-json"], cwd=repo)
+    source = repo / "scripts" / "agent_bridge.py"
+    source.parent.mkdir()
+    source.write_text("print('snapshot')\n", encoding="utf-8")
+    _run(["git", "add", "scripts/agent_bridge.py"], cwd=repo)
+    _run(["git", "commit", "-m", "fix: adjust agent bridge"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "ok"
+    assert payload["source_without_tests"] is True
+    assert (
+        "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only"
+        in payload["suggested_validation_commands"]
+    )
+
+
 def test_automation_pr_preflight_rejects_synthetic_preflight_commit_subject(
     tmp_path: Path,
 ) -> None:
