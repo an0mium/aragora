@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.epistemic.coherence import CoherenceIssue
+    from aragora.epistemic.decay_monitor import DecaySignal
     from aragora.reasoning.cruxset import Crux, CruxSet
     from aragora.reputation.types import (
         ReputationDelta,
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
 # DIC-17 default thresholds
 DEFAULT_CRUX_LOAD_BEARING_THRESHOLD = 0.6
 DEFAULT_DELTA_LOSS_THRESHOLD = -10.0
+DEFAULT_DECAY_INTEGRITY_THRESHOLD: float = 0.7
 MAX_BODY_STATEMENT_CHARS = 800
 
 
@@ -52,7 +54,8 @@ MAX_BODY_STATEMENT_CHARS = 800
 class FollowupProposal:
     """A proposed bounded follow-up issue.
 
-    - ``source_kind``: ``"crux"``, ``"failed_claim"``, or ``"coherence_issue"``
+    - ``source_kind``: ``"crux"``, ``"failed_claim"``, ``"coherence_issue"``,
+      or ``"decay_signal"``
     - ``source_key``: stable dedup key; callers should skip proposals
       whose source_key they have already filed
     - ``labels``: intentionally excludes ``boss-ready`` by default;
@@ -72,7 +75,7 @@ class FollowupProposal:
     provenance: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.source_kind not in {"crux", "failed_claim", "coherence_issue"}:
+        if self.source_kind not in {"crux", "failed_claim", "coherence_issue", "decay_signal"}:
             raise ValueError(f"unsupported source_kind: {self.source_kind!r}")
         if not str(self.source_key).strip():
             raise ValueError("source_key must be non-empty")
@@ -422,13 +425,113 @@ def propose_followup_for_coherence_issue(
     )
 
 
+# ---------------------------------------------------------------------------
+# Decay signal → proposal  (DIC-20 → DIC-17 bridge)
+# ---------------------------------------------------------------------------
+
+
+def propose_followup_for_decay_signal(
+    signal: "DecaySignal",
+    *,
+    unit_source_path: str = "",
+    integrity_threshold: float = DEFAULT_DECAY_INTEGRITY_THRESHOLD,
+    extra_labels: tuple[str, ...] = (),
+) -> FollowupProposal | None:
+    """Propose exactly one bounded follow-up issue for a decayed code unit, or None.
+
+    Returns ``None`` when the unit is healthy enough or when the recommended
+    action is ``"report_only"`` — report-only decay does not warrant a
+    bounded work proposal; only ``"repair_required"`` or ``"fail_closed"``
+    actions combined with an integrity score below ``integrity_threshold``
+    produce a proposal.
+
+    Gated on ``ARAGORA_EPISTEMIC_FOLLOWUP_ENABLED`` by the caller;
+    this function itself is always safe to call.
+
+    Advances DIC-17 (#6027) and extends DIC-20 (#6031) with a follow-up
+    feed path.
+    """
+    if not (0.0 <= integrity_threshold <= 1.0):
+        raise ValueError("integrity_threshold must be in [0, 1]")
+    if signal.integrity_score >= integrity_threshold:
+        return None
+    if signal.recommended_action == "report_only":
+        return None
+
+    urgency = "⚠ fail-closed" if signal.recommended_action == "fail_closed" else "repair required"
+    title = f"[DIC-20→DIC-17] Repair decayed proof unit: {signal.code_unit_id[:70]}"
+    if len(title) > 140:
+        title = title[:139] + "…"
+
+    body_lines = [
+        "## Goal",
+        f"Repair an epistemic-decayed proof-carrying code unit ({urgency}).",
+        "",
+        "## Decay signal",
+        f"- code_unit_id: `{signal.code_unit_id}`",
+        f"- integrity_score: {signal.integrity_score:.3f} (threshold: < {integrity_threshold:.3f})",
+        f"- recommended_action: **{signal.recommended_action}**",
+    ]
+    if unit_source_path:
+        body_lines.append(f"- source_path: `{unit_source_path}`")
+
+    if signal.reasons:
+        body_lines.extend(["", "## Decay reasons"])
+        for reason in signal.reasons:
+            detail = _truncate(reason.detail, 200)
+            line = f"- [{reason.kind}] {detail}"
+            if reason.claim_id:
+                line += f" (claim: `{reason.claim_id}`)"
+            if reason.crux_id:
+                line += f" (crux: `{reason.crux_id}`)"
+            body_lines.append(line)
+
+    body_lines.extend(
+        [
+            "",
+            "## Provenance",
+            "- source: DIC-20 epistemic decay monitor → DIC-17 follow-up bridge",
+            f"- code_unit_id: {signal.code_unit_id}",
+            "",
+            "## Queue policy",
+            "This issue is a DIC-17 proposal. It MUST NOT carry `boss-ready` unless the "
+            "current tranche in `docs/status/NEXT_STEPS_CANONICAL.md` explicitly permits "
+            "it. The proof-first reconciler in `scripts/reconcile_proof_first_queue.py` "
+            "will strip the label if it is added outside the permitted lane.",
+        ]
+    )
+
+    labels = tuple(sorted({"epistemic", "decay", "proof-unit", *extra_labels} - {"boss-ready"}))
+    source_key = _source_key("decay_signal", signal.code_unit_id)
+
+    return FollowupProposal(
+        source_kind="decay_signal",
+        source_key=source_key,
+        title=title,
+        body="\n".join(body_lines),
+        labels=labels,
+        rationale=(
+            f"integrity_score={signal.integrity_score:.3f} < {integrity_threshold:.3f}; "
+            f"action={signal.recommended_action}"
+        ),
+        provenance={
+            "code_unit_id": signal.code_unit_id,
+            "integrity_score": round(signal.integrity_score, 6),
+            "recommended_action": signal.recommended_action,
+            "reason_kinds": [r.kind for r in signal.reasons],
+        },
+    )
+
+
 __all__ = [
     "DEFAULT_CRUX_LOAD_BEARING_THRESHOLD",
+    "DEFAULT_DECAY_INTEGRITY_THRESHOLD",
     "DEFAULT_DELTA_LOSS_THRESHOLD",
     "FollowupProposal",
     "MAX_BODY_STATEMENT_CHARS",
     "propose_followup_for_coherence_issue",
     "propose_followup_for_crux",
     "propose_followup_for_cruxset",
+    "propose_followup_for_decay_signal",
     "propose_followup_for_failed_claim",
 ]
