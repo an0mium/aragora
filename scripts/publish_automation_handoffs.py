@@ -1468,11 +1468,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--automation-id",
+        "--source",
         action="append",
         dest="automation_ids",
         default=[],
         help=(
-            "Automation memory id to scan. Defaults to scout/support automations: "
+            "Automation memory id/source to scan. Defaults to scout/support automations: "
             + ", ".join(DEFAULT_AUTOMATION_IDS)
         ),
     )

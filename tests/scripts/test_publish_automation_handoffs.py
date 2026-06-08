@@ -2514,6 +2514,21 @@ def test_parser_rejects_abbreviated_max_options() -> None:
     assert max_open_exc.value.code == 2
 
 
+def test_parser_accepts_source_as_automation_id_alias() -> None:
+    parser = mod._build_parser()
+
+    args = parser.parse_args(
+        [
+            "--source",
+            "engineering-autopilot",
+            "--automation-id",
+            "founder-review",
+        ]
+    )
+
+    assert args.automation_ids == ["engineering-autopilot", "founder-review"]
+
+
 def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path) -> None:
     bodies: list[str] = []
 
