@@ -1473,6 +1473,62 @@ def test_missing_evidence_yields_ready_for_minimum_evidence() -> None:
     assert report["recursive_best_next_prompt"].endswith(CONVERGENCE_SENTENCE)
 
 
+def test_draft_pr_does_not_hide_missing_evidence_blockers(monkeypatch) -> None:
+    entry = _entry(
+        1005,
+        reasons=[
+            "live automation surface",
+            "model quorum incomplete: 0/2 signal(s)",
+            "focused adversarial dogfood evidence is required",
+        ],
+    )
+
+    def fake_run_json(args, *, cwd, timeout=120):
+        command = " ".join(args)
+        result = {"command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return {"active_owned_prs": []}, result
+        if args[:2] == ["python3", "scripts/identify_lane_owner.py"]:
+            return {}, result
+        if args[:2] == ["python3", "scripts/read_operator_steering.py"]:
+            return {}, result
+        if args[:3] == ["gh", "pr", "view"]:
+            return {
+                "headRefOid": entry["head_sha"],
+                "baseRefName": "main",
+                "isDraft": True,
+                "mergeable": "MERGEABLE",
+                "mergeStateStatus": "CLEAN",
+                "statusCheckRollup": [],
+            }, result
+        if args[:2] == ["gh", "api"] and "protection/required_status_checks" in args[2]:
+            return {"checks": []}, result
+        if args[:2] == ["gh", "api"] and "check-runs" in args[2]:
+            return {"check_runs": []}, result
+        if args[:3] == ["gh", "pr", "checks"]:
+            return [], result
+        raise AssertionError(command)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(entry),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=1005,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "blocked"
+    assert report["blockers"] == [
+        "PR is draft",
+        "model quorum incomplete: 0/2 signal(s)",
+        "focused adversarial dogfood evidence is required",
+    ]
+
+
 def test_no_candidate_report_includes_actionable_diagnostics() -> None:
     report = build_report(
         _packet(

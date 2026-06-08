@@ -733,6 +733,13 @@ def evidence_summary(entry: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def evidence_blockers(summary: dict[str, Any]) -> list[str]:
+    blockers = [str(reason) for reason in summary.get("missing_model_quorum") or []]
+    if summary.get("missing_focused_dogfood"):
+        blockers.append("focused adversarial dogfood evidence is required")
+    return blockers
+
+
 def owner_blockers(payload: Any) -> list[str]:
     if not isinstance(payload, dict):
         return []
@@ -1500,6 +1507,9 @@ def build_report(
     for item in report["validation"]:
         if item.get("status") == "blocked":
             blockers.append(f"validation failed: {item.get('command')}")
+
+    if blockers:
+        blockers.extend(evidence_blockers(report["evidence"]))
 
     if (
         not blockers
