@@ -71,9 +71,12 @@ def github_cli_env(
     if not prefer_app:
         return env
     try:
-        from aragora.swarm.github_app_auth import github_cli_env as app_github_cli_env
+        from scripts.github_app_auth_shim import github_cli_env as app_github_cli_env
     except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
-        return env
+        try:
+            from github_app_auth_shim import github_cli_env as app_github_cli_env
+        except Exception:
+            return env
     return app_github_cli_env(env, prefer_app=True)
 
 
