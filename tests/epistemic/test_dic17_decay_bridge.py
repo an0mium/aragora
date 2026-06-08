@@ -154,9 +154,7 @@ class TestDecaySignalQueueGovernance:
 
     def test_extra_labels_merged_without_boss_ready(self) -> None:
         sig = _signal(integrity_score=0.5)
-        p = propose_followup_for_decay_signal(
-            sig, extra_labels=("priority-p1", "boss-ready")
-        )
+        p = propose_followup_for_decay_signal(sig, extra_labels=("priority-p1", "boss-ready"))
         assert p is not None
         assert "priority-p1" in p.labels
         assert "boss-ready" not in p.labels
@@ -175,12 +173,8 @@ class TestDecaySignalQueueGovernance:
         assert p1.source_key == p2.source_key
 
     def test_different_units_give_different_source_keys(self) -> None:
-        p1 = propose_followup_for_decay_signal(
-            _signal(code_unit_id="unit.a", integrity_score=0.3)
-        )
-        p2 = propose_followup_for_decay_signal(
-            _signal(code_unit_id="unit.b", integrity_score=0.3)
-        )
+        p1 = propose_followup_for_decay_signal(_signal(code_unit_id="unit.a", integrity_score=0.3))
+        p2 = propose_followup_for_decay_signal(_signal(code_unit_id="unit.b", integrity_score=0.3))
         assert p1 is not None and p2 is not None
         assert p1.source_key != p2.source_key
 
