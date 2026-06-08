@@ -105,38 +105,89 @@ STOPWORDS = {
     "with",
 }
 
-try:
-    from aragora.swarm.github_app_auth import gh_subprocess_run, github_cli_env
-except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
+_GITHUB_APP_AUTH: tuple[Any, Any] | None = None
 
-    def github_cli_env(
-        base_env: Mapping[str, str] | None = None,
-        *,
-        prefer_app: bool = True,
-    ) -> dict[str, str]:
-        return dict(os.environ if base_env is None else base_env)
 
-    def gh_subprocess_run(
-        args: Sequence[str],
-        *,
-        timeout: float = 30.0,
-        prefer_app: bool = True,
-        write_op: bool = False,
-        env: Mapping[str, str] | None = None,
-        max_retries: int = 3,
-        base_backoff: float = 5.0,
-        max_backoff: float = 600.0,
-        sleep: Callable[[float], None] | None = None,
-    ) -> subprocess.CompletedProcess[str]:
-        del prefer_app, write_op, max_retries, base_backoff, max_backoff, sleep
-        return subprocess.run(
-            ["gh", *list(args)],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=dict(os.environ if env is None else env),
-            check=False,
-        )
+def _fallback_github_cli_env(
+    base_env: Mapping[str, str] | None = None,
+    *,
+    prefer_app: bool = True,
+) -> dict[str, str]:
+    del prefer_app
+    return dict(os.environ if base_env is None else base_env)
+
+
+def _fallback_gh_subprocess_run(
+    args: Sequence[str],
+    *,
+    timeout: float = 30.0,
+    prefer_app: bool = True,
+    write_op: bool = False,
+    env: Mapping[str, str] | None = None,
+    max_retries: int = 3,
+    base_backoff: float = 5.0,
+    max_backoff: float = 600.0,
+    sleep: Callable[[float], None] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    del prefer_app, write_op, max_retries, base_backoff, max_backoff, sleep
+    return subprocess.run(
+        ["gh", *list(args)],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=dict(os.environ if env is None else env),
+        check=False,
+    )
+
+
+def _github_app_auth() -> tuple[Any, Any]:
+    global _GITHUB_APP_AUTH
+    if _GITHUB_APP_AUTH is None:
+        try:
+            from aragora.swarm.github_app_auth import (
+                gh_subprocess_run as loaded_gh_subprocess_run,
+                github_cli_env as loaded_github_cli_env,
+            )
+        except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
+            _GITHUB_APP_AUTH = (_fallback_gh_subprocess_run, _fallback_github_cli_env)
+        else:
+            _GITHUB_APP_AUTH = (loaded_gh_subprocess_run, loaded_github_cli_env)
+    return _GITHUB_APP_AUTH
+
+
+def github_cli_env(
+    base_env: Mapping[str, str] | None = None,
+    *,
+    prefer_app: bool = True,
+) -> dict[str, str]:
+    _, loaded_github_cli_env = _github_app_auth()
+    return loaded_github_cli_env(base_env, prefer_app=prefer_app)
+
+
+def gh_subprocess_run(
+    args: Sequence[str],
+    *,
+    timeout: float = 30.0,
+    prefer_app: bool = True,
+    write_op: bool = False,
+    env: Mapping[str, str] | None = None,
+    max_retries: int = 3,
+    base_backoff: float = 5.0,
+    max_backoff: float = 600.0,
+    sleep: Callable[[float], None] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    loaded_gh_subprocess_run, _ = _github_app_auth()
+    return loaded_gh_subprocess_run(
+        args,
+        timeout=timeout,
+        prefer_app=prefer_app,
+        write_op=write_op,
+        env=env,
+        max_retries=max_retries,
+        base_backoff=base_backoff,
+        max_backoff=max_backoff,
+        sleep=sleep,
+    )
 
 
 def _mute_stdout_after_broken_pipe() -> None:

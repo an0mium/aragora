@@ -1,12 +1,49 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 import scripts.cache_codex_automation_github_status as mod
 import scripts.refresh_automation_status_cache as refresh_mod
 from scripts.github_cli_health import GitHubCLIHealth
+
+
+def _assert_subprocess_avoids_swarm_import(statement: str) -> None:
+    script = f"""
+import builtins
+
+attempts = []
+real_import = builtins.__import__
+
+
+def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if name.startswith("aragora.swarm"):
+        attempts.append(name)
+        raise ImportError(f"blocked eager import: {{name}}")
+    return real_import(name, globals, locals, fromlist, level)
+
+
+builtins.__import__ = guarded_import
+{statement}
+if attempts:
+    raise AssertionError(f"eager aragora.swarm imports: {{attempts!r}}")
+"""
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=Path(__file__).resolve().parents[2],
+        text=True,
+        capture_output=True,
+        timeout=15,
+    )
+
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+
+
+def test_cache_status_import_avoids_swarm_eager_import() -> None:
+    _assert_subprocess_avoids_swarm_import("import scripts.cache_codex_automation_github_status")
 
 
 def test_build_status_uses_local_queue_when_github_unavailable(

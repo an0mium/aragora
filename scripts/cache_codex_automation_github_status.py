@@ -27,14 +27,6 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.github_cli_health import check_github_cli_health
-from scripts.publish_automation_handoffs import _open_boss_ready_count
-from scripts.publish_codex_automation_branches import (
-    CODEX_BRANCH_PREFIX,
-    _open_codex_pr_is_unhealthy,
-    _open_codex_prs,
-)
-
 UTC = timezone.utc
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_LABELS = ("boss-ready",)
@@ -85,6 +77,31 @@ GITHUB_QUEUE_PRESERVED_KEYS = (
     "labels",
     "pressure",
 )
+CODEX_BRANCH_PREFIX = "codex/"
+
+
+def check_github_cli_health(repo_root: Path) -> Any:
+    from scripts.github_cli_health import check_github_cli_health as impl
+
+    return impl(repo_root)
+
+
+def _open_boss_ready_count(repo_root: Path, repo: str, labels: list[str]) -> int:
+    from scripts.publish_automation_handoffs import _open_boss_ready_count as impl
+
+    return impl(repo_root, repo, labels)
+
+
+def _open_codex_prs(repo_root: Path, repo: str) -> list[dict[str, Any]]:
+    from scripts.publish_codex_automation_branches import _open_codex_prs as impl
+
+    return impl(repo_root, repo)
+
+
+def _open_codex_pr_is_unhealthy(item: Mapping[str, Any]) -> bool:
+    from scripts.publish_codex_automation_branches import _open_codex_pr_is_unhealthy as impl
+
+    return impl(item)
 
 
 def _has_queue_state_dirs(state_root: Path) -> bool:
