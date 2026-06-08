@@ -11,6 +11,7 @@ import pytest
 from aragora.swarm.merge_arbiter import (
     AUTOMATION_REVIEWER_LOGINS,
     REQUIRED_CHECKS,
+    ArbiterOperationalError,
     ArbiterSummary,
     MergeArbiter,
     MergeArbiterConfig,
@@ -96,17 +97,19 @@ class TestListCandidatePrs:
         assert result[0]["number"] == 1
         assert result[1]["number"] == 2
 
-    def test_returns_empty_on_gh_failure(self):
+    def test_raises_operational_error_on_gh_failure(self):
         config = MergeArbiterConfig()
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
-            mock_gh.return_value = _make_gh_result(returncode=1, stderr="error")
-            assert _list_candidate_prs(config) == []
+            mock_gh.return_value = _make_gh_result(returncode=1, stderr="error connecting")
+            with pytest.raises(ArbiterOperationalError):
+                _list_candidate_prs(config)
 
-    def test_returns_empty_on_bad_json(self):
+    def test_raises_operational_error_on_bad_json(self):
         config = MergeArbiterConfig()
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
             mock_gh.return_value = _make_gh_result(stdout="not json")
-            assert _list_candidate_prs(config) == []
+            with pytest.raises(ArbiterOperationalError):
+                _list_candidate_prs(config)
 
 
 # ---------------------------------------------------------------------------
@@ -455,11 +458,14 @@ class TestEvaluatePrDraft:
 
 class TestCircuitBreaker:
     @pytest.mark.asyncio
-    async def test_stops_after_consecutive_failures(self):
+    async def test_not_ready_prs_never_trip_the_breaker(self):
+        # A queue of PRs with failing required checks (the common all-red state,
+        # incl. PRs waiting on the quorum check) must NOT stop the engine — else
+        # the arbiter would stop before posting the evidence that turns them green.
         config = MergeArbiterConfig(
             max_consecutive_failures=3,
-            poll_interval_seconds=0.01,
-            max_runtime_hours=0.01,
+            poll_interval_seconds=0.001,
+            max_runtime_hours=0.0002,  # ~0.7s of polling
         )
         arbiter = MergeArbiter(config=config)
 
@@ -467,15 +473,11 @@ class TestCircuitBreaker:
         failing_checks = _all_passing_ready_checks()
         failing_checks["lint"] = "FAILURE"
 
-        call_count = 0
-
-        def fake_list(_cfg):
-            nonlocal call_count
-            call_count += 1
-            return [failing_pr]
-
         with (
-            patch("aragora.swarm.merge_arbiter._list_candidate_prs", side_effect=fake_list),
+            patch(
+                "aragora.swarm.merge_arbiter._list_candidate_prs",
+                return_value=[failing_pr],
+            ),
             patch(
                 "aragora.swarm.merge_arbiter._get_required_checks",
                 return_value=list(REQUIRED_CHECKS),
@@ -484,8 +486,29 @@ class TestCircuitBreaker:
         ):
             summary = await arbiter.run()
 
-        assert "circuit breaker" in summary.stop_reason
-        assert call_count == 3
+        assert "circuit breaker" not in summary.stop_reason
+        assert summary.stop_reason == "max runtime reached"
+        assert summary.merged == []
+        assert 1 in summary.failed  # recorded for reporting, but did not stop the engine
+
+    @pytest.mark.asyncio
+    async def test_consecutive_operational_faults_trip_the_breaker(self):
+        # Genuine operational faults (cannot list PRs) SHOULD fail closed.
+        config = MergeArbiterConfig(
+            max_consecutive_failures=3,
+            poll_interval_seconds=0.001,
+            max_runtime_hours=1.0,  # long; breaker should stop us well before this
+        )
+        arbiter = MergeArbiter(config=config)
+
+        with patch(
+            "aragora.swarm.merge_arbiter._list_candidate_prs",
+            side_effect=ArbiterOperationalError("gh pr list failed: error connecting"),
+        ):
+            summary = await arbiter.run()
+
+        assert "operational faults" in summary.stop_reason
+        assert summary.polls == 3
 
 
 # ---------------------------------------------------------------------------
