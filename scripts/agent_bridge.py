@@ -97,6 +97,10 @@ RESOLVED_STEERING_OUTCOMES = {
     "completed",
 }
 DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS = 5.0
+OPERATOR_PROOF_SURFACE_PATHS = (
+    "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+    "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md",
+)
 
 
 class _LazyTransportError(Exception):
@@ -2419,6 +2423,20 @@ def _collect_b0_success_rate(repo_root: Path | None = None) -> float | None:
     return _coerce_success_rate(payload.get("no_rescue_success_rate", payload.get("success_rate")))
 
 
+def _collect_live_proof_surfaces(repo_root: Path | None = None) -> list[dict[str, Any]]:
+    root = repo_root or CANONICAL_REPO_ROOT
+    return [
+        {
+            "path": relative_path,
+            "exists": (root / relative_path).exists(),
+        }
+        for relative_path in OPERATOR_PROOF_SURFACE_PATHS
+    ]
+
+
+_collect_operator_proof_surfaces = _collect_live_proof_surfaces
+
+
 def _mute_stdout_after_broken_pipe() -> None:
     """Avoid interpreter-shutdown tracebacks after downstream pipes close.
 
@@ -2518,6 +2536,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "agent_heartbeats": agent_heartbeats,
         "queue_depth": _operator_queue_depth(summary, pending_steering),
         "success_rate": _collect_b0_success_rate(),
+        "proof_surfaces": _collect_live_proof_surfaces(),
         "recent_blockers": _operator_recent_blockers(issues, pending_steering),
         "boss_loop_alive": bool(boss_loop_status["alive"]),
         "boss_loop_status": boss_loop_status,
