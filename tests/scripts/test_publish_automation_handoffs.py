@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -148,6 +149,37 @@ def _repo_with_stale_outbox_head(tmp_path: Path) -> tuple[Path, str, str]:
     git("commit", "-am", "new")
     new_head = git("rev-parse", "HEAD")
     return repo, old_head, new_head
+
+
+def test_publish_handoffs_import_avoids_swarm_eager_import() -> None:
+    script = """
+import builtins
+
+attempts = []
+real_import = builtins.__import__
+
+
+def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if name.startswith("aragora.swarm"):
+        attempts.append(name)
+        raise ImportError(f"blocked eager import: {name}")
+    return real_import(name, globals, locals, fromlist, level)
+
+
+builtins.__import__ = guarded_import
+import scripts.publish_automation_handoffs
+if attempts:
+    raise AssertionError(f"eager aragora.swarm imports: {attempts!r}")
+"""
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=Path(__file__).resolve().parents[2],
+        text=True,
+        capture_output=True,
+        timeout=15,
+    )
+
+    assert proc.returncode == 0, proc.stderr or proc.stdout
 
 
 def test_load_handoffs_parses_structured_memory(tmp_path: Path) -> None:

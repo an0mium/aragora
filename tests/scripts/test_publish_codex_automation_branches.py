@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -61,6 +62,37 @@ def _worktree(
         dirty=dirty,
         active_session=active_session,
     )
+
+
+def test_branch_publisher_import_avoids_swarm_eager_import() -> None:
+    script = """
+import builtins
+
+attempts = []
+real_import = builtins.__import__
+
+
+def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if name.startswith("aragora.swarm"):
+        attempts.append(name)
+        raise ImportError(f"blocked eager import: {name}")
+    return real_import(name, globals, locals, fromlist, level)
+
+
+builtins.__import__ = guarded_import
+import scripts.publish_codex_automation_branches
+if attempts:
+    raise AssertionError(f"eager aragora.swarm imports: {attempts!r}")
+"""
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=Path(__file__).resolve().parents[2],
+        text=True,
+        capture_output=True,
+        timeout=15,
+    )
+
+    assert proc.returncode == 0, proc.stderr or proc.stdout
 
 
 def test_duplicate_patch_branches_skips_older_candidate(tmp_path: Path) -> None:
