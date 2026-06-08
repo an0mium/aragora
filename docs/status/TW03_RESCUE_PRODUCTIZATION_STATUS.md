@@ -1,6 +1,6 @@
 # TW-03 Rescue Productization Status
 
-Last updated: 2026-06-04T13:31:36Z
+Last updated: 2026-06-08T18:22:26Z
 
 This is the repo-tracked recurring `TW-03` publication surface for repeated rescue-class harvest and conversion.
 
@@ -22,7 +22,7 @@ This is the repo-tracked recurring `TW-03` publication surface for repeated resc
 
 ## Issue Linkage Actions
 
-- none
+- Issue #8002 draft PR handoff recorded for the Repair Writer operator-snapshot proof-surface dogfood fix: `.aragora/automation-outbox/open-pr-codex-operator-snapshot-proof-surfaces-r2-20260608-bcc3242d.json`
 
 ## Remaining Issue Drafts
 
