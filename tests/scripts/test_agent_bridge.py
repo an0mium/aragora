@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +28,105 @@ def _patch_bridge_paths(mod, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(mod, "SESSION_SNAPSHOT_FILE", bridge_dir / "sessions.json")
     monkeypatch.setattr(mod, "LANE_REGISTRY_FILE", bridge_dir / "lanes.json")
     monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", tmp_path / "repo")
+
+
+def _run_script_command(
+    args: list[str], *, cwd: Path, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(args, cwd=cwd, text=True, capture_output=True, check=False, env=env)
+
+
+def _init_git_repo(tmp_path: Path, *, with_origin: bool = False) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _run_script_command(["git", "init", "-b", "main"], cwd=repo)
+    _run_script_command(["git", "config", "user.name", "Test User"], cwd=repo)
+    _run_script_command(["git", "config", "user.email", "test@example.com"], cwd=repo)
+    (repo / "README.md").write_text("base\n", encoding="utf-8")
+    _run_script_command(["git", "add", "README.md"], cwd=repo)
+    _run_script_command(["git", "commit", "-m", "init"], cwd=repo)
+    if with_origin:
+        origin = tmp_path / "origin.git"
+        _run_script_command(["git", "init", "--bare", str(origin)], cwd=tmp_path)
+        _run_script_command(["git", "remote", "add", "origin", str(origin)], cwd=repo)
+        _run_script_command(["git", "push", "-u", "origin", "main"], cwd=repo)
+    else:
+        _run_script_command(["git", "update-ref", "refs/remotes/origin/main", "HEAD"], cwd=repo)
+    return repo
+
+
+def test_open_pr_defaults_to_draft_pr_create(tmp_path: Path) -> None:
+    repo = _init_git_repo(tmp_path, with_origin=True)
+    _run_script_command(["git", "switch", "-c", "codex/default-draft-pr"], cwd=repo)
+    (repo / "README.md").write_text("base\nchange\n", encoding="utf-8")
+    _run_script_command(["git", "add", "README.md"], cwd=repo)
+    _run_script_command(["git", "commit", "-m", "fix: add change"], cwd=repo)
+    calls_file = tmp_path / "gh-pr-create.args"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    gh = bin_dir / "gh"
+    gh.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env bash",
+                "set -euo pipefail",
+                'if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then exit 0; fi',
+                'if [[ "${1:-}" == "auth" && "${2:-}" == "token" ]]; then echo token; exit 0; fi',
+                'if [[ "${1:-}" == "pr" && "${2:-}" == "list" ]]; then echo ""; exit 0; fi',
+                'if [[ "${1:-}" == "pr" && "${2:-}" == "create" ]]; then',
+                f"  printf '%s\\n' \"$*\" > {calls_file}",
+                '  echo "https://example.invalid/pr/1"',
+                "  exit 0",
+                "fi",
+                'echo "unexpected gh invocation: $*" >&2',
+                "exit 1",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+
+    proc = _run_script_command(["bash", str(SCRIPTS_DIR / "open_pr.sh")], cwd=repo, env=env)
+
+    assert proc.returncode == 0, proc.stderr
+    assert calls_file.read_text(encoding="utf-8").strip().split() == [
+        "pr",
+        "create",
+        "--base",
+        "main",
+        "--head",
+        "codex/default-draft-pr",
+        "--fill",
+        "--draft",
+    ]
+
+
+def test_automation_preflight_suggests_operator_snapshot_for_agent_bridge_change(
+    tmp_path: Path,
+) -> None:
+    repo = _init_git_repo(tmp_path)
+    _run_script_command(["git", "switch", "-c", "codex/agent-bridge-smoke"], cwd=repo)
+    bridge = repo / "scripts" / "agent_bridge.py"
+    bridge.parent.mkdir()
+    bridge.write_text("print('agent bridge change')\n", encoding="utf-8")
+    _run_script_command(["git", "add", "scripts/agent_bridge.py"], cwd=repo)
+    _run_script_command(["git", "commit", "-m", "fix: update agent bridge"], cwd=repo)
+
+    proc = _run_script_command(
+        ["bash", str(SCRIPTS_DIR / "automation_pr_preflight.sh"), "--json", "origin/main", "HEAD"],
+        cwd=repo,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert payload["source_without_tests"] is True
+    assert (
+        "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only"
+        in payload["suggested_validation_commands"]
+    )
 
 
 def test_send_tmux_multiline_uses_delete_on_paste_buffer_transport(
@@ -555,8 +655,17 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
     repo_root = tmp_path / "repo"
     (repo_root / "scripts").mkdir(parents=True)
     (repo_root / "docs" / "benchmarks").mkdir(parents=True)
+    (repo_root / "docs" / "status").mkdir(parents=True)
     (repo_root / "scripts" / "measure_b0_scorecard.py").write_text("# fixture\n")
     (repo_root / "docs" / "benchmarks" / "corpus.json").write_text("{}\n")
+    (repo_root / "docs" / "status" / "B0_BENCHMARK_TRUTH_STATUS.md").write_text(
+        "# B0\n",
+        encoding="utf-8",
+    )
+    (repo_root / "docs" / "status" / "TW03_RESCUE_PRODUCTIZATION_STATUS.md").write_text(
+        "# TW03\n",
+        encoding="utf-8",
+    )
     mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
     mod.LANE_REGISTRY_FILE.write_text(
         json.dumps(
@@ -649,6 +758,13 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
     payload = json.loads(capsys.readouterr().out)
     assert payload["queue_depth"] == 3
     assert payload["success_rate"] == 0.625
+    assert [
+        {"path": surface["path"], "exists": surface["exists"]}
+        for surface in payload["proof_surfaces"]
+    ] == [
+        {"path": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md", "exists": True},
+        {"path": "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md", "exists": True},
+    ]
     assert payload["boss_loop_alive"] is True
     assert payload["boss_loop_status"] == {
         "alive": True,
@@ -667,6 +783,31 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
             "lane_id_hint": "b0-5426",
             "pr_hint": 5426,
         }
+    ]
+
+
+def test_collect_operator_proof_surfaces_reports_missing_docs(tmp_path: Path) -> None:
+    import agent_bridge as mod
+
+    repo_root = tmp_path / "repo"
+    (repo_root / "docs" / "status").mkdir(parents=True)
+    (repo_root / "docs" / "status" / "B0_BENCHMARK_TRUTH_STATUS.md").write_text(
+        "# B0\n",
+        encoding="utf-8",
+    )
+
+    collect_proof_surfaces = getattr(
+        mod,
+        "_collect_live_proof_surfaces",
+        getattr(mod, "_collect_operator_proof_surfaces", None),
+    )
+    assert collect_proof_surfaces is not None
+    assert [
+        {"path": surface["path"], "exists": surface["exists"]}
+        for surface in collect_proof_surfaces(repo_root)
+    ] == [
+        {"path": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md", "exists": True},
+        {"path": "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md", "exists": False},
     ]
 
 
