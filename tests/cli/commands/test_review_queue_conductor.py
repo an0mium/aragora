@@ -7,6 +7,7 @@ import argparse
 from aragora.cli.commands.review_queue import add_review_queue_parser
 from aragora.cli.commands.review_queue_conductor import (
     OWNER_TIMEOUT_CLASSIFICATION,
+    TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION,
     ConductorProviders,
     build_queue_conductor_packet,
 )
@@ -96,7 +97,11 @@ def _flattened_packet(
     *,
     head: str,
     not_ready: list[int] | None = None,
+    counted_model_families: list[str] | None = None,
+    focused_dogfood_present: bool = True,
+    reasons: list[str] | None = None,
 ) -> dict[str, object]:
+    families = ["claude", "openai"] if counted_model_families is None else counted_model_families
     return {
         "entries": [
             {
@@ -105,10 +110,11 @@ def _flattened_packet(
                 "tier": 4,
                 "verdict": "not_ready_for_settlement",
                 "checks_summary": "21/21 green",
-                "counted_model_families": ["claude", "openai"],
-                "focused_dogfood_present": True,
+                "counted_model_families": families,
+                "focused_dogfood_present": focused_dogfood_present,
                 "human_preapproval_recorded": False,
                 "admin_squash_allowed": False,
+                "reasons": reasons or [],
             }
         ],
         "admin_squash_allowed": False,
@@ -222,6 +228,42 @@ def test_conductor_treats_completed_skipped_rollup_as_non_actionable() -> None:
     assert candidate["rollup"]["actionable_non_green"] is False
     assert candidate["rollup"]["pending"] == []
     assert candidate["classification"] == "ready_but_human_gated"
+
+
+def test_conductor_tier4_missing_evidence_routes_to_evidence_collection() -> None:
+    view = _view(7885, head="exact-head", draft=True)
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885,
+                head="exact-head",
+                not_ready=[7885],
+                counted_model_families=[],
+                focused_dogfood_present=False,
+                reasons=[
+                    "draft PR",
+                    "model quorum incomplete: 0/2 signal(s)",
+                    "focused adversarial dogfood evidence is required",
+                ],
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    candidate = packet["candidates"][0]
+    assert candidate["classification"] == TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION
+    assert candidate["mutate_allowed"] is False
+    assert "collect exact-head Tier 4 model/dogfood evidence" in candidate["next_action"]
+    assert (
+        "collect fresh exact-head Tier 4 structured model/dogfood evidence" in packet["next_prompt"]
+    )
+    assert "recording settlement" in packet["next_prompt"]
 
 
 def test_conductor_reads_flattened_merge_packet_fields() -> None:

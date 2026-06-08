@@ -31,6 +31,7 @@ from aragora.worktree.fleet import resolve_repo_root
 
 QUEUE_CONDUCTOR_VERSION = "queue_conductor.v1"
 OWNER_TIMEOUT_CLASSIFICATION = "owner_lookup_timeout_preserve"
+TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION = "tier3_or_tier4_evidence_required"
 ACTIVE_OWNER_STATUSES = {
     "active",
     "claimed",
@@ -350,6 +351,7 @@ def _merge_packet_summary(
     raw_quorum = entry.get("model_review_quorum")
     quorum: dict[str, Any] = raw_quorum if isinstance(raw_quorum, dict) else {}
     counted_model_families = _packet_value(entry, quorum, "counted_model_families", [])
+    reasons = _packet_value(entry, quorum, "reasons", [])
     dogfood_evidence = entry.get("dogfood_evidence") if isinstance(entry, dict) else None
     focused_dogfood_present = bool(
         _packet_value(entry, quorum, "focused_dogfood_present", False)
@@ -366,6 +368,7 @@ def _merge_packet_summary(
         "counted_model_families": counted_model_families
         if isinstance(counted_model_families, list)
         else [],
+        "reasons": reasons if isinstance(reasons, list) else [],
         "focused_dogfood_present": focused_dogfood_present,
         "human_preapproval_recorded": bool(
             _packet_value(entry, quorum, "human_preapproval_recorded", False)
@@ -438,6 +441,12 @@ def _classify_candidate(
             "collect exact-head Tier 0-2 evidence, then keep draft/merge boundaries",
         )
     if tier is not None and tier >= 3 and pr_number in not_ready:
+        if _missing_tier3_or_tier4_evidence(merge_packet):
+            return (
+                TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION,
+                False,
+                f"collect exact-head Tier {tier} model/dogfood evidence before settlement",
+            )
         if "human" in verdict or "preapproval" in verdict or "settlement" in verdict:
             return (
                 "ready_but_human_gated",
@@ -469,6 +478,7 @@ def _build_next_prompt(candidates: list[dict[str, Any]], *, repo_override: str |
         candidates,
         [
             "unowned_evidence_candidate",
+            TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION,
             "unowned_repairable",
             "ready_but_human_gated",
             "ready_for_final_premerge_verification",
@@ -493,6 +503,14 @@ def _build_next_prompt(candidates: list[dict[str, Any]], *, repo_override: str |
         primary = (
             f"Primary task: collect fresh exact-head structured model/dogfood evidence for PR "
             f"#{pr_number} only, at current exact head {head}, without marking ready or merging."
+        )
+    elif classification == TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION:
+        tier = _safe_int((preferred.get("merge_packet") or {}).get("tier"))
+        tier_text = f"Tier {tier} " if tier is not None else ""
+        primary = (
+            f"Primary task: collect fresh exact-head {tier_text}structured model/dogfood "
+            f"evidence for PR #{pr_number} only, at current exact head {head}, without "
+            "marking ready, recording settlement, or merging."
         )
     elif classification == "unowned_repairable":
         primary = (
@@ -534,6 +552,21 @@ def _first_by_classification(
             if candidate.get("classification") == wanted:
                 return candidate
     return None
+
+
+def _missing_tier3_or_tier4_evidence(merge_packet: dict[str, Any]) -> bool:
+    families = {
+        str(family).strip().lower()
+        for family in merge_packet.get("counted_model_families") or []
+        if str(family).strip()
+    }
+    reasons = " ".join(str(reason).lower() for reason in merge_packet.get("reasons") or [])
+    model_quorum_missing = len(families) < 2 or "model quorum incomplete" in reasons
+    dogfood_missing = (
+        not bool(merge_packet.get("focused_dogfood_present"))
+        or "focused adversarial dogfood evidence is required" in reasons
+    )
+    return model_quorum_missing or dogfood_missing
 
 
 def _candidate_file_index(pr_views: list[dict[str, Any]]) -> dict[int, set[str]]:
