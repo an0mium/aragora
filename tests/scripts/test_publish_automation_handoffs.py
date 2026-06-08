@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +14,9 @@ import pytest
 from scripts.github_cli_health import GitHubCLIHealth
 import scripts.publish_automation_handoffs as mod
 from scripts.publish_automation_handoffs import Handoff, PublishDecision
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+COMPAT_WRAPPER_PATH = REPO_ROOT / "scripts" / "publish_codex_automation_handoffs.py"
 
 
 def _outbox_payload(**overrides: Any) -> dict[str, Any]:
@@ -188,6 +192,40 @@ def test_load_outbox_handoffs_parses_structured_json(tmp_path: Path) -> None:
     assert handoffs[0].idempotency_key == "open-pr-codex-example-abc123"
     assert "Requested Action:" in handoffs[0].body
     assert "Published from automation outbox" in handoffs[0].body
+
+
+def test_publish_codex_automation_handoffs_wrapper_executes_primary_script(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    codex_home = tmp_path / "codex-home"
+    repo.mkdir()
+    codex_home.mkdir()
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True, text=True)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(COMPAT_WRAPPER_PATH),
+            "--repo",
+            str(repo),
+            "--codex-home",
+            str(codex_home),
+            "--no-outbox",
+            "--json",
+            "--summary-only",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["repo"] == str(repo.resolve())
+    assert payload["memory_handoff_count"] == 0
+    assert payload["outbox_file_count"] == 0
+    assert payload["decision_summary"]["total"] == 0
 
 
 def test_load_outbox_handoffs_extracts_branch_from_list_local_evidence(
