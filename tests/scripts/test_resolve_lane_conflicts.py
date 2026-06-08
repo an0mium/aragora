@@ -114,6 +114,52 @@ def test_cli_defaults_to_automation_state_root_for_registry(
     assert payload["candidates"][0]["lane_id"] == "P104-ssd-cleanup-continuation"
 
 
+def test_cli_summary_only_omits_full_conflict_candidate_lists(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    rows: list[dict[str, Any]] = []
+    for idx in range(4):
+        rows.append(
+            {
+                "lane_id": f"conflict-{idx}",
+                "owner_session": f"codex-conflict-{idx}",
+                "status": "conflict",
+                "conflict_session": f"codex-done-{idx}",
+            }
+        )
+        rows.append(
+            {
+                "lane_id": f"done-{idx}",
+                "owner_session": f"codex-done-{idx}",
+                "status": "completed",
+            }
+        )
+    rows.append(
+        {
+            "lane_id": "unknown",
+            "owner_session": "codex-unknown-owner",
+            "status": "conflict",
+            "conflict_session": "codex-missing",
+        }
+    )
+    _write_json(registry, rows)
+
+    rc = resolver.main(["--registry-path", str(registry), "--json", "--summary-only"])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["candidate_count"] == 4
+    assert len(payload["candidate_examples"]) == 3
+    assert payload["candidates_omitted"] is True
+    assert payload["unknown_session_count"] == 1
+    assert len(payload["unknown_session_examples"]) == 1
+    assert payload["details_omitted"] is True
+    assert "candidates" not in payload
+    assert "candidates_unknown" not in payload
+
+
 def test_apply_marks_conflict_superseded_and_writes_receipt(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     receipt_dir = tmp_path / "receipts"
@@ -317,6 +363,68 @@ def test_merged_pr_audit_reports_active_rows_without_mutating(tmp_path: Path) ->
     )
     rows = json.loads(registry.read_text(encoding="utf-8"))
     assert [row["status"] for row in rows] == ["blocked", "active", "completed", "active"]
+
+
+def test_merged_pr_audit_summary_only_omits_commands_and_full_findings(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    receipt_dir = tmp_path / "receipts"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": f"codex-7435-{idx}",
+                "owner_session": f"codex-{idx}",
+                "status": "active",
+                "pr_number": 7435,
+            }
+            for idx in range(4)
+        ],
+    )
+    gh = _fake_gh(
+        tmp_path,
+        {
+            "number": 7435,
+            "state": "MERGED",
+            "headRefOid": "96ea60500851ac459aa542a0d31afc06d92c288a",
+            "mergedAt": "2026-05-23T19:16:23Z",
+            "mergeCommit": {"oid": "4e8b21e98a0ddbcb383d9c92e6c20b343e49d151"},
+            "url": "https://github.com/synaptent/aragora/pull/7435",
+        },
+    )
+
+    rc = resolver.main(
+        [
+            "--merged-pr-lane-audit",
+            "--pr",
+            "7435",
+            "--gh-bin",
+            str(gh),
+            "--registry-path",
+            str(registry),
+            "--receipt-dir",
+            str(receipt_dir),
+            "--json",
+            "--summary-only",
+        ]
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "merged_pr_lane_audit"
+    assert payload["finding_count"] == 4
+    assert len(payload["finding_examples"]) == 3
+    assert payload["findings_omitted"] is True
+    assert payload["owner_steering_command_count"] == 4
+    assert payload["owner_release_command_count"] == 4
+    assert payload["commands_omitted"] is True
+    assert payload["details_omitted"] is True
+    assert payload["github_state"]["state"] == "MERGED"
+    assert "findings" not in payload
+    assert "owner_steering_text" not in payload
+    assert "owner_release_commands" not in payload
 
 
 def test_merged_pr_audit_ignores_open_and_unmerged_prs(tmp_path: Path) -> None:

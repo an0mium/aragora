@@ -33,6 +33,7 @@ REGISTRY_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
 RECEIPT_RELATIVE_DIR = Path(".aragora") / "agent-bridge" / "conflict-resolution-receipts"
 RECEIPT_SCHEMA_VERSION = "aragora-lane-conflict-resolution/1.0"
 MERGED_PR_RECEIPT_SCHEMA_VERSION = "aragora-merged-pr-lane-audit/1.0"
+SUMMARY_EXAMPLE_LIMIT = 3
 ACTIVE_STATUSES = {
     "active",
     "running",
@@ -618,6 +619,97 @@ def resolve_conflicts(
     }
 
 
+def _bounded_examples(value: Any, *, limit: int = SUMMARY_EXAMPLE_LIMIT) -> list[Any]:
+    if not isinstance(value, list):
+        return []
+    return value[: max(limit, 0)]
+
+
+def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return compact JSON for live automation probes."""
+
+    if payload.get("mode") == "merged_pr_lane_audit":
+        findings = payload.get("findings") if isinstance(payload.get("findings"), list) else []
+        receipt_paths = (
+            payload.get("receipt_paths") if isinstance(payload.get("receipt_paths"), list) else []
+        )
+        github_state = payload.get("github_state")
+        compact_github_state: dict[str, Any] = {}
+        if isinstance(github_state, dict):
+            for key in (
+                "available",
+                "number",
+                "state",
+                "headRefOid",
+                "mergeCommit",
+                "mergedAt",
+                "url",
+                "returncode",
+                "error",
+            ):
+                if key in github_state:
+                    compact_github_state[key] = github_state[key]
+        return {
+            "mode": payload.get("mode"),
+            "registry_path": payload.get("registry_path"),
+            "receipt_dir": payload.get("receipt_dir"),
+            "dry_run": payload.get("dry_run"),
+            "pr_number": payload.get("pr_number"),
+            "github_state": compact_github_state,
+            "finding_count": payload.get("finding_count", len(findings)),
+            "finding_examples": _bounded_examples(findings),
+            "findings_omitted": len(findings) > SUMMARY_EXAMPLE_LIMIT,
+            "requires_operator_authorization": payload.get("requires_operator_authorization"),
+            "operator_authorized": payload.get("operator_authorized"),
+            "expected_merge_commit": payload.get("expected_merge_commit"),
+            "apply_eligible": payload.get("apply_eligible"),
+            "blocked_reason": payload.get("blocked_reason"),
+            "resolved_count": payload.get("resolved_count", 0),
+            "receipt_path_count": len(receipt_paths),
+            "receipt_paths_omitted": bool(receipt_paths),
+            "owner_steering_command_count": len(
+                [
+                    line
+                    for line in str(payload.get("owner_steering_text") or "").splitlines()
+                    if line.strip()
+                ]
+            ),
+            "owner_release_command_count": len(
+                payload.get("owner_release_commands")
+                if isinstance(payload.get("owner_release_commands"), list)
+                else []
+            ),
+            "commands_omitted": bool(
+                payload.get("owner_steering_text") or payload.get("owner_release_commands")
+            ),
+            "details_omitted": True,
+        }
+
+    candidates = payload.get("candidates") if isinstance(payload.get("candidates"), list) else []
+    unknown = (
+        payload.get("candidates_unknown")
+        if isinstance(payload.get("candidates_unknown"), list)
+        else []
+    )
+    receipt_paths = (
+        payload.get("receipt_paths") if isinstance(payload.get("receipt_paths"), list) else []
+    )
+    return {
+        "registry_path": payload.get("registry_path"),
+        "dry_run": payload.get("dry_run"),
+        "candidate_count": payload.get("candidate_count", len(candidates)),
+        "candidate_examples": _bounded_examples(candidates),
+        "candidates_omitted": len(candidates) > SUMMARY_EXAMPLE_LIMIT,
+        "unknown_session_count": payload.get("unknown_session_count", len(unknown)),
+        "unknown_session_examples": _bounded_examples(unknown),
+        "candidates_unknown_omitted": len(unknown) > SUMMARY_EXAMPLE_LIMIT,
+        "resolved_count": payload.get("resolved_count", 0),
+        "receipt_path_count": len(receipt_paths),
+        "receipt_paths_omitted": bool(receipt_paths),
+        "details_omitted": True,
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     action = parser.add_mutually_exclusive_group()
@@ -663,6 +755,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact JSON for automation probes; requires --json.",
+    )
     return parser
 
 
@@ -679,6 +776,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "receipt_paths": [],
             }
             if args.json:
+                if args.summary_only:
+                    result = summary_only_payload(result)
                 print(json.dumps(result, indent=2, sort_keys=True))
             else:
                 print("blocked: --pr is required for --merged-pr-lane-audit")
@@ -693,6 +792,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             expected_merge_commit=args.expected_merge_commit,
         )
         if args.json:
+            if args.summary_only:
+                result = summary_only_payload(result)
             print(json.dumps(result, indent=2, sort_keys=True))
         else:
             if result.get("blocked_reason"):
@@ -716,6 +817,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         apply=bool(args.apply),
     )
     if args.json:
+        if args.summary_only:
+            result = summary_only_payload(result)
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
         verb = "resolved" if args.apply else "candidate"
