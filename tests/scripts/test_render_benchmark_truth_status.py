@@ -383,6 +383,85 @@ def test_render_status_markdown_backfills_legacy_proxy_neutral_fields(tmp_path: 
     assert "`issue_already_resolved`: 4" in markdown
 
 
+def test_render_status_markdown_rejects_proxy_neutral_count_mismatch(
+    tmp_path: Path,
+) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 1,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+    latest_paths = mod.resolve_latest_paths(
+        corpus_path=corpus_path,
+        truth_root=tmp_path / "truth",
+        scorecard_root=tmp_path / "scorecards",
+    )
+
+    with pytest.raises(ValueError, match="unique_issues_neutral"):
+        mod.render_status_markdown(
+            corpus_path=corpus_path,
+            truth_path=latest_paths["truth_corpus_latest"],
+            scorecard_path=latest_paths["scorecard_corpus_latest"],
+            latest_paths=latest_paths,
+            truth_payload=_truth_payload(revision=1),
+            scorecard_payload={
+                **_scorecard_payload(revision=1),
+                "proxy_metrics": {
+                    "no_rescue_success_rate": 0.0,
+                    "unique_issues_attempted": 5,
+                    "unique_issues_succeeded": 1,
+                    "unique_issues_failed": 1,
+                    "unique_issues_neutral": 9,
+                    "total_ticks": 5,
+                },
+            },
+        )
+
+
+def test_render_status_markdown_rejects_proxy_success_failure_overflow(
+    tmp_path: Path,
+) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 1,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+    latest_paths = mod.resolve_latest_paths(
+        corpus_path=corpus_path,
+        truth_root=tmp_path / "truth",
+        scorecard_root=tmp_path / "scorecards",
+    )
+
+    with pytest.raises(ValueError, match="exceeds unique_issues_attempted"):
+        mod.render_status_markdown(
+            corpus_path=corpus_path,
+            truth_path=latest_paths["truth_corpus_latest"],
+            scorecard_path=latest_paths["scorecard_corpus_latest"],
+            latest_paths=latest_paths,
+            truth_payload=_truth_payload(revision=1),
+            scorecard_payload={
+                **_scorecard_payload(revision=1),
+                "proxy_metrics": {
+                    "no_rescue_success_rate": 0.0,
+                    "unique_issues_attempted": 1,
+                    "unique_issues_succeeded": 1,
+                    "unique_issues_failed": 1,
+                    "total_ticks": 2,
+                },
+            },
+        )
+
+
 def test_render_status_markdown_surfaces_stale_closed_corpus_issues(tmp_path: Path) -> None:
     corpus_path = _write_json(
         tmp_path / "corpus.json",

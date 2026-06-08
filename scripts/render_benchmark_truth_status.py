@@ -283,18 +283,49 @@ def _render_issue_drafts(drafts: list[dict[str, Any]]) -> list[str]:
     ] or ["- none"]
 
 
+def _proxy_count(value: Any, *, field: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"proxy metric `{field}` must be an integer count")
+    if value < 0:
+        raise ValueError(f"proxy metric `{field}` must be non-negative")
+    return value
+
+
 def _normalize_proxy_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     proxy_metrics = dict(payload)
     terminal_class_distribution = dict(proxy_metrics.get("terminal_class_distribution") or {})
 
-    if "unique_issues_neutral" not in proxy_metrics:
-        attempted = proxy_metrics.get("unique_issues_attempted")
-        succeeded = proxy_metrics.get("unique_issues_succeeded")
-        failed = proxy_metrics.get("unique_issues_failed")
-        if all(isinstance(value, (int, float)) for value in (attempted, succeeded, failed)):
-            proxy_metrics["unique_issues_neutral"] = max(
-                int(attempted) - int(succeeded) - int(failed),
-                0,
+    attempted = _proxy_count(
+        proxy_metrics.get("unique_issues_attempted"),
+        field="unique_issues_attempted",
+    )
+    succeeded = _proxy_count(
+        proxy_metrics.get("unique_issues_succeeded"),
+        field="unique_issues_succeeded",
+    )
+    failed = _proxy_count(
+        proxy_metrics.get("unique_issues_failed"),
+        field="unique_issues_failed",
+    )
+    if attempted is not None and succeeded is not None and failed is not None:
+        neutral = _proxy_count(
+            proxy_metrics.get("unique_issues_neutral"),
+            field="unique_issues_neutral",
+        )
+        expected_neutral = attempted - succeeded - failed
+        if expected_neutral < 0:
+            raise ValueError(
+                "proxy metrics inconsistent: unique_issues_succeeded + "
+                "unique_issues_failed exceeds unique_issues_attempted"
+            )
+        if neutral is None:
+            proxy_metrics["unique_issues_neutral"] = expected_neutral
+        elif neutral != expected_neutral:
+            raise ValueError(
+                "proxy metrics inconsistent: unique_issues_neutral must equal "
+                "unique_issues_attempted - unique_issues_succeeded - unique_issues_failed"
             )
 
     if "neutral_classes" not in proxy_metrics and terminal_class_distribution:
