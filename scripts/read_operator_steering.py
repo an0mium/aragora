@@ -141,6 +141,35 @@ def _message_summary(path: Path) -> dict[str, Any]:
     }
 
 
+def _summary_only_payload(out: dict[str, Any], *, message_limit: int = 3) -> dict[str, Any]:
+    messages = list(out.get("messages") or [])
+    receipt_paths = list(out.get("read_receipt_paths") or [])
+    message_count = int(out.get("message_count") or len(messages))
+    receipt_count = int(out.get("receipt_count") or len(receipt_paths))
+    examples = messages[: max(message_limit, 0)]
+    return {
+        "ok": out.get("ok", True),
+        "error": out.get("error"),
+        "owner_session": out.get("owner_session"),
+        "resolved_via": out.get("resolved_via"),
+        "lane_id": out.get("lane_id"),
+        "pr_number": out.get("pr_number"),
+        "branch": out.get("branch"),
+        "steering_inbox_path": out.get("steering_inbox_path"),
+        "steering_inbox_root": out.get("steering_inbox_root"),
+        "registry_path": out.get("registry_path"),
+        "message_count": message_count,
+        "receipt_count": receipt_count,
+        "read_by_session": out.get("read_by_session"),
+        "no_receipt": bool(out.get("no_receipt")),
+        "message_examples": examples,
+        "message_omitted_count": max(message_count - len(examples), 0),
+        "messages_omitted": True,
+        "read_receipt_paths_omitted": bool(receipt_paths),
+        "details_omitted": True,
+    }
+
+
 def build_read_receipt(
     *,
     owner_session: str,
@@ -230,6 +259,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-receipt", action="store_true", help="Read/list without writing.")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable output.")
     parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact counts and bounded message examples instead of full message arrays.",
+    )
+    parser.add_argument(
         "--quiet-empty",
         action="store_true",
         help="Print nothing and exit 0 when the selected mailbox has no messages.",
@@ -278,6 +312,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "read_receipt_paths": [],
                 "no_receipt": bool(args.no_receipt),
             }
+            if args.summary_only:
+                out = _summary_only_payload(out)
             print(json.dumps(out, indent=2, sort_keys=True))
             return 2
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -316,18 +352,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.quiet_empty and not files:
         return 0
     if args.json:
+        if args.summary_only:
+            out = _summary_only_payload(out)
         print(json.dumps(out, indent=2, sort_keys=True))
     else:
         print(f"owner_session: {owner_session}")
         print(f"steering_inbox_path: {out['steering_inbox_path']}")
         print(f"message_count: {len(files)}")
         print(f"receipt_count: {len(receipt_paths)}")
-        for msg in out["messages"]:
-            print(
-                f"- {msg['filename']} priority={msg['priority']} "
-                f"sent_at_utc={msg['sent_at_utc']} sha256_valid={msg['sha256_valid']} "
-                f"subject={msg['subject']}"
-            )
+        if not args.summary_only:
+            for msg in out["messages"]:
+                print(
+                    f"- {msg['filename']} priority={msg['priority']} "
+                    f"sent_at_utc={msg['sent_at_utc']} sha256_valid={msg['sha256_valid']} "
+                    f"subject={msg['subject']}"
+                )
     return 0
 
 
