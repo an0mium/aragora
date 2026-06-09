@@ -2443,6 +2443,8 @@ def _emit_text(output: str) -> int:
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
+    raw_lane_limit = getattr(args, "lane_limit", None)
+    lane_limit = None if raw_lane_limit is None else max(0, int(raw_lane_limit))
     include_historical = bool(getattr(args, "include_historical", False)) or (
         getattr(args, "scope", "current") == "all"
     )
@@ -2506,11 +2508,16 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     }
 
     boss_loop_status = _operator_boss_loop_status(summary)
+    emitted_lane_records = records
+    lanes_omitted = 0
+    if lane_limit is not None and not summary_only:
+        emitted_lane_records = records[:lane_limit]
+        lanes_omitted = max(0, len(records) - len(emitted_lane_records))
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
         "sessions": [s.to_dict() for s in sessions],
         "broker_runs": broker_runs,
-        "lanes": [r.to_dict() for r in records],
+        "lanes": [r.to_dict() for r in emitted_lane_records],
         "lane_conflicts": lane_conflicts,
         "process_census": process_census,
         "health": {"ok": len(issues) == 0, "issues": issues},
@@ -2523,6 +2530,11 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "boss_loop_status": boss_loop_status,
         "summary": summary,
     }
+    if lane_limit is not None and not summary_only:
+        snapshot["lane_limit"] = lane_limit
+        snapshot["lane_count"] = len(records)
+        snapshot["emitted_lane_count"] = len(emitted_lane_records)
+        snapshot["lanes_omitted"] = lanes_omitted
     if summary_only:
         snapshot.pop("sessions")
         snapshot.pop("lanes")
@@ -2565,11 +2577,15 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     if records and not summary_only:
         lines.extend(["", f"{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION"])
         lines.append("-" * 90)
-        for r in records:
+        for r in emitted_lane_records:
             next_action = (
                 r.next_action[:40] + "..." if len(r.next_action) > 40 else r.next_action
             ) or "-"
             lines.append(f"{r.lane_id:<22} {r.owner_session:<24} {r.status:<10} {next_action}")
+        if lanes_omitted:
+            lines.append(
+                f"... {lanes_omitted} additional lane record(s) omitted; use --lane-limit to show more."
+            )
 
     process_records = snapshot.get("process_census", {}).get("records", [])
     if process_records and not summary_only:
@@ -2848,6 +2864,14 @@ def main() -> int:
         "--summary-only",
         action="store_true",
         help="Omit session and lane records from output for compact automation checks.",
+    )
+    operator_snapshot_p.add_argument(
+        "--lane-limit",
+        type=int,
+        help=(
+            "Maximum lane records to emit in full snapshots. "
+            "Counts, health, and conflict analysis still use all records."
+        ),
     )
     operator_snapshot_p.add_argument(
         "--include-historical",

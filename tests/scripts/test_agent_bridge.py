@@ -440,6 +440,69 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert discover_include_summaries == [False]
 
 
+def test_operator_snapshot_lane_limit_caps_full_json_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": f"lane-{index}",
+                    "owner_session": f"codex-{index}",
+                    "status": "active",
+                    "next_action": "continue bounded work",
+                    "last_steering_outcome": "obeyed",
+                    "last_heartbeat_at": "2026-06-09T08:00:00Z",
+                }
+                for index in range(3)
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "_load_broker_run_summaries", lambda: [])
+    monkeypatch.setattr(mod, "_collect_pending_steering_messages", lambda _recipient: {"count": 0})
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+            **({"records": []} if include_records else {}),
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}},
+    )
+
+    rc = mod.cmd_operator_snapshot(
+        argparse.Namespace(
+            json=True,
+            summary_only=False,
+            include_historical=False,
+            scope="current",
+            lane_limit=2,
+        )
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert [lane["lane_id"] for lane in payload["lanes"]] == ["lane-0", "lane-1"]
+    assert payload["lane_count"] == 3
+    assert payload["emitted_lane_count"] == 2
+    assert payload["lanes_omitted"] == 1
+    assert payload["summary"]["active_lanes"] == 3
+
+
 def test_operator_snapshot_json_suppresses_broken_pipe(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
