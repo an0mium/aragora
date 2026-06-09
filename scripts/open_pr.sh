@@ -15,7 +15,7 @@ Behavior:
   - Fails on main/master branch.
   - Fails when working tree is dirty.
   - Pushes current branch to origin.
-  - Creates PR with gh using --fill (unless one already exists).
+  - Creates a draft PR with gh using --fill (unless one already exists).
 EOF
 }
 
@@ -60,7 +60,7 @@ while [[ $# -gt 0 ]]; do
       base_branch="$1"
       ;;
     --draft)
-      extra_args+=("--draft")
+      ;;
       ;;
     --)
       shift
@@ -107,4 +107,4 @@ if [[ -n "$existing_url" ]]; then
   exit 0
 fi
 
-gh pr create --base "$base_branch" --head "$branch" --fill "${extra_args[@]}"
+gh pr create --base "$base_branch" --head "$branch" --fill --draft "${extra_args[@]}"
