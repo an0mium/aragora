@@ -75,8 +75,15 @@ def _valid_issue_number(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
+def _positive_int(value: int, *, field: str) -> int:
+    if value <= 0:
+        raise ValueError(f"{field} must be a positive integer")
+    return value
+
+
 def top_issues_by_skip_count(rows: list[dict[str, Any]], top_n: int = 20) -> list[dict[str, Any]]:
     """Return the top-N issues ranked by skip-row count."""
+    top_n = _positive_int(top_n, field="top_n")
     counter: Counter[int] = Counter()
     for row in rows:
         if not _row_is_skip(row):
@@ -129,6 +136,7 @@ def detect_stale_loops(rows: list[dict[str, Any]], min_skip_rows: int = 10) -> l
     operator can join this list with ``aragora/swarm/unstick.py``
     output.
     """
+    min_skip_rows = _positive_int(min_skip_rows, field="min_skip_rows")
     counter: Counter[int] = Counter()
     for row in rows:
         if not _row_is_skip(row):
@@ -152,6 +160,8 @@ def render_scorecard(
     stale_threshold: int = 10,
 ) -> dict[str, Any]:
     """Compute the full scorecard payload."""
+    top_n = _positive_int(top_n, field="top_n")
+    stale_threshold = _positive_int(stale_threshold, field="stale_threshold")
     return {
         "total_rows": len(rows),
         "skip_rows": sum(1 for row in rows if _row_is_skip(row)),
@@ -239,7 +249,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="json",
         help="Output format (default: json)",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.top_n <= 0:
+        parser.error("--top-n must be a positive integer")
+    if args.stale_threshold <= 0:
+        parser.error("--stale-threshold must be a positive integer")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
