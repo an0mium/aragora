@@ -112,6 +112,12 @@ def write_json(path: Path, payload: dict[str, Any]) -> Path:
     return path
 
 
+def _coerce_schema_version(value: Any, *, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"{label} schema_version must be a positive integer")
+    return value
+
+
 def load_productization_map_payload(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"schema_version": 1, "entries": []}
@@ -122,7 +128,10 @@ def load_productization_map_payload(path: Path) -> dict[str, Any]:
     if not isinstance(entries, list):
         raise ValueError(f"Productization map at {path} must contain an 'entries' list")
     return {
-        "schema_version": int(payload.get("schema_version", 1) or 1),
+        "schema_version": _coerce_schema_version(
+            payload.get("schema_version", 1),
+            label=f"Productization map at {path}",
+        ),
         "entries": entries,
     }
 
@@ -135,7 +144,10 @@ def write_productization_map_payload(path: Path, payload: dict[str, Any]) -> Pat
     ]
     entries.sort(key=lambda entry: str(entry.get("class") or "").strip())
     normalized = {
-        "schema_version": int(payload.get("schema_version", 1) or 1),
+        "schema_version": _coerce_schema_version(
+            payload.get("schema_version", 1),
+            label=f"Productization map payload for {path}",
+        ),
         "entries": entries,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
