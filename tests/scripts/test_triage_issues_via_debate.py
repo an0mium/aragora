@@ -382,16 +382,20 @@ def test_evaluate_issue_uses_injected_generator(tmp_path: Path):
         now_iso="2026-05-14T12:00:00Z",
     )
 
+    panel = _stub_panel()
+    keep_high = '{"verdict":"keep","confidence":0.9,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}'
+    keep_medium = '{"verdict":"keep","confidence":0.8,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}'
+    refine = '{"verdict":"refine","confidence":0.6,"automation_value":"neutral","rationale":"r","suggested_action":"a","evidence_used":[]}'
     responses = {
-        "claude-opus-4-7": '{"verdict":"keep","confidence":0.9,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}',
-        "gpt-4.1": '{"verdict":"keep","confidence":0.8,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}',
-        "gemini-3.1-pro-preview": '{"verdict":"refine","confidence":0.6,"automation_value":"neutral","rationale":"r","suggested_action":"a","evidence_used":[]}',
+        panel[0].model_id: keep_high,
+        panel[1].model_id: keep_medium,
+        panel[2].model_id: refine,
     }
 
     async def generator(member: PanelMember, prompt: str) -> str:
         return responses[member.model_id]
 
-    receipt = asyncio.run(evaluate_issue(evidence, generator=generator))
+    receipt = asyncio.run(evaluate_issue(evidence, panel=panel, generator=generator))
     assert receipt.aggregate_verdict == "keep"
     assert receipt.aggregate_consensus == "majority"
     assert len(receipt.per_model) == 3
@@ -435,12 +439,14 @@ def test_evaluate_issue_records_untyped_provider_exception(tmp_path: Path):
         now_iso="2026-05-14T12:00:00Z",
     )
 
+    panel = _stub_panel()
+
     async def generator(member: PanelMember, prompt: str) -> str:
-        if member.model_id == "claude-opus-4-7":
+        if member.model_id == panel[0].model_id:
             raise ProviderSDKError("provider overloaded")
         return '{"verdict":"keep","confidence":0.9,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}'
 
-    receipt = asyncio.run(evaluate_issue(evidence, generator=generator))
+    receipt = asyncio.run(evaluate_issue(evidence, panel=panel, generator=generator))
     errored = [pm for pm in receipt.per_model if pm.get("error")]
     assert len(errored) == 1
     assert errored[0]["error"] == "ProviderSDKError: provider overloaded"
