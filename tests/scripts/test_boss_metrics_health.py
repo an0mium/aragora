@@ -106,6 +106,13 @@ def test_top_issues_respects_top_n_limit() -> None:
     assert len(out) == 3
 
 
+def test_top_issues_rejects_non_positive_top_n() -> None:
+    rows = [{"issue_number": 1, "terminal_class": "blocked_auth_failure"}]
+
+    with pytest.raises(ValueError, match="top_n must be a positive integer"):
+        mod.top_issues_by_skip_count(rows, top_n=0)
+
+
 def test_aggregate_skip_reasons_prefers_dispatch_skip_reason() -> None:
     rows = [
         {"dispatch_skip_reason": "no_work_orders"},
@@ -145,6 +152,13 @@ def test_detect_stale_loops_threshold() -> None:
     assert out[0]["skip_count"] == 12
 
 
+def test_detect_stale_loops_rejects_non_positive_threshold() -> None:
+    rows = [{"issue_number": 1, "terminal_class": "blocked_auth_failure"}]
+
+    with pytest.raises(ValueError, match="min_skip_rows must be a positive integer"):
+        mod.detect_stale_loops(rows, min_skip_rows=0)
+
+
 def test_detect_stale_loops_empty_when_no_skip_rows() -> None:
     rows = [{"issue_number": 1, "terminal_class": "deliverable_pr_created"}] * 20
     assert mod.detect_stale_loops(rows, min_skip_rows=10) == []
@@ -166,6 +180,15 @@ def test_render_scorecard_shape() -> None:
     assert "top_issues_by_skip_count" in out
     assert out["stale_threshold"] == 2
     assert "stale_loops" in out
+
+
+def test_render_scorecard_rejects_non_positive_threshold_controls() -> None:
+    rows = [{"issue_number": 1, "terminal_class": "blocked_auth_failure"}]
+
+    with pytest.raises(ValueError, match="top_n must be a positive integer"):
+        mod.render_scorecard(rows, top_n=0, stale_threshold=1)
+    with pytest.raises(ValueError, match="stale_threshold must be a positive integer"):
+        mod.render_scorecard(rows, top_n=1, stale_threshold=0)
 
 
 def test_render_markdown_includes_all_sections() -> None:
@@ -220,3 +243,12 @@ def test_main_markdown_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     out = capsys.readouterr().out
     assert rc == 0
     assert "boss-loop metrics health scorecard" in out
+
+
+def test_main_rejects_non_positive_cli_controls(tmp_path: Path) -> None:
+    p = _write(tmp_path, [{"issue_number": 1, "terminal_class": "blocked_auth_failure"}])
+
+    with pytest.raises(SystemExit):
+        mod.main(["--metrics", str(p), "--top-n", "0"])
+    with pytest.raises(SystemExit):
+        mod.main(["--metrics", str(p), "--stale-threshold", "0"])
