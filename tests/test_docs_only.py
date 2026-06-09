@@ -96,9 +96,12 @@ def test_codex_desktop_autonomy_uses_backlog_audit_state_root_defaults():
     )
 
     assert (
-        "python3 scripts/audit_codex_branch_backlog.py --max-branches 200 --json --summary-only"
-        in brief
+        "python3 scripts/audit_codex_branch_backlog.py --max-branches 200 --json "
+        "--summary-only --state-root <repo-root-or-.aragora> "
+        "--github-health-timeout-seconds 3 --patch-equivalence-time-budget-seconds 5" in brief
     )
     assert "--state-root <repo-root-or-.aragora>" in brief
+    assert "--github-health-timeout-seconds 3" in brief
+    assert "--patch-equivalence-time-budget-seconds 5" in brief
     assert "--outbox-dir ~/aragora/.aragora/automation-outbox" not in brief
     assert "--receipt-dir ~/aragora/.aragora/automation-receipts" not in brief
