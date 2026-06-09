@@ -1650,6 +1650,37 @@ def test_collect_agent_process_census_keeps_total_when_records_limited() -> None
     assert payload["records_omitted"] == 1
 
 
+def test_cmd_processes_summary_only_json_preserves_degraded_census(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    calls: list[dict[str, object]] = []
+
+    def _fake_census(*, include_records: bool, record_limit: int) -> dict[str, object]:
+        calls.append({"include_records": include_records, "record_limit": record_limit})
+        return {
+            "ok": False,
+            "total": 0,
+            "by_role": {},
+            "error": "[Errno 1] Operation not permitted: 'ps'",
+        }
+
+    monkeypatch.setattr(mod, "_collect_agent_process_census", _fake_census)
+
+    rc = mod.cmd_processes(argparse.Namespace(json=True, summary_only=True, limit=50))
+
+    assert rc == 1
+    assert calls == [{"include_records": False, "record_limit": 50}]
+    assert json.loads(capsys.readouterr().out) == {
+        "ok": False,
+        "total": 0,
+        "by_role": {},
+        "error": "[Errno 1] Operation not permitted: 'ps'",
+    }
+
+
 def test_session_lifecycle_classifies_claude_transcripts_as_historical() -> None:
     import agent_bridge as mod
 
