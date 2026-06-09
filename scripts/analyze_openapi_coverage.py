@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -147,51 +148,80 @@ def analyze_coverage(spec: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def print_report(analysis: dict[str, Any], verbose: bool = False) -> None:
-    """Print a human-readable coverage report."""
-    summary = analysis["summary"]
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
 
-    print("=" * 60)
-    print("OpenAPI Schema Coverage Report")
-    print("=" * 60)
-    print()
-    print(f"Total operations: {summary['total_operations']}")
-    print(f"  POST/PUT/PATCH (can have body): {summary.get('body_method_operations', 'N/A')}")
-    print(
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        if not output.endswith("\n"):
+            sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
+def _format_report(analysis: dict[str, Any], verbose: bool = False) -> str:
+    """Format a human-readable coverage report."""
+    summary = analysis["summary"]
+    lines: list[str] = []
+
+    lines.append("=" * 60)
+    lines.append("OpenAPI Schema Coverage Report")
+    lines.append("=" * 60)
+    lines.append("")
+    lines.append(f"Total operations: {summary['total_operations']}")
+    lines.append(
+        f"  POST/PUT/PATCH (can have body): {summary.get('body_method_operations', 'N/A')}"
+    )
+    lines.append(
         f"Request schema coverage: {summary['with_request_schema']}/{summary.get('body_method_operations', '?')} ({summary['request_coverage_pct']}%)"
     )
-    print(
+    lines.append(
         f"Response schema coverage: {summary['with_response_schema']}/{summary['total_operations']} ({summary['response_coverage_pct']}%)"
     )
-    print(f"Operations with issues: {summary['with_issues']}")
-    print()
+    lines.append(f"Operations with issues: {summary['with_issues']}")
+    lines.append("")
 
-    print("Coverage by Tag:")
-    print("-" * 50)
+    lines.append("Coverage by Tag:")
+    lines.append("-" * 50)
     for tag, stats in sorted(analysis["by_tag"].items(), key=lambda x: x[1]["coverage_pct"]):
         bar_len = int(stats["coverage_pct"] / 5)  # 20 char max
         bar = "█" * bar_len + "░" * (20 - bar_len)
-        print(
+        lines.append(
             f"  {tag:25} {bar} {stats['coverage_pct']:5.1f}% ({stats['with_response_schema']}/{stats['total']})"
         )
-    print()
+    lines.append("")
 
     if analysis["priority_gaps"]:
-        print("Priority Gaps (endpoints with request body but no schema):")
-        print("-" * 50)
+        lines.append("Priority Gaps (endpoints with request body but no schema):")
+        lines.append("-" * 50)
         for gap in analysis["priority_gaps"][:10]:
-            print(f"  {gap['method']:6} {gap['path']}")
+            lines.append(f"  {gap['method']:6} {gap['path']}")
         if len(analysis["priority_gaps"]) > 10:
-            print(f"  ... and {len(analysis['priority_gaps']) - 10} more")
-        print()
+            lines.append(f"  ... and {len(analysis['priority_gaps']) - 10} more")
+        lines.append("")
 
     if verbose:
-        print("All Endpoints Missing Response Schema:")
-        print("-" * 50)
+        lines.append("All Endpoints Missing Response Schema:")
+        lines.append("-" * 50)
         missing = [e for e in analysis["endpoints"] if not e["has_response_schema"]]
         for endpoint in sorted(missing, key=lambda x: (x["tags"] or ["Z"])[0] + x["path"]):
             tags = ", ".join(endpoint["tags"]) if endpoint["tags"] else "Untagged"
-            print(f"  [{tags}] {endpoint['method']:6} {endpoint['path']}")
+            lines.append(f"  [{tags}] {endpoint['method']:6} {endpoint['path']}")
+
+    return "\n".join(lines)
+
+
+def print_report(analysis: dict[str, Any], verbose: bool = False) -> None:
+    """Print a human-readable coverage report."""
+    _emit_output(_format_report(analysis, verbose=verbose))
 
 
 def main():
@@ -212,7 +242,7 @@ def main():
     if args.json:
         # Remove full endpoint list for cleaner JSON output
         output = {k: v for k, v in analysis.items() if k != "endpoints"}
-        print(json.dumps(output, indent=2))
+        _emit_output(json.dumps(output, indent=2))
     else:
         print_report(analysis, verbose=args.verbose)
 
