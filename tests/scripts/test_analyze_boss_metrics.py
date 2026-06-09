@@ -1,5 +1,8 @@
 """Tests for analyze_boss_metrics script."""
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from scripts.analyze_boss_metrics import analyze_boss_metrics, analyze_metrics, render_text
@@ -53,6 +56,24 @@ def test_analyze_metrics_surfaces_invalid_numeric_fields():
         "enriched_context_chars": 2,
         "prompt_chars": 2,
     }
+
+
+def test_cli_help_runs_when_called_as_script():
+    root = Path(__file__).resolve().parents[2]
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "analyze_boss_metrics.py"), "--help"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Analyze boss metrics JSONL" in result.stdout
 
 
 def test_render_text_includes_invalid_numeric_metrics():
