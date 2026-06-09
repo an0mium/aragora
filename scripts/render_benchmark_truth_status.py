@@ -56,11 +56,28 @@ def _load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _positive_revision(value: Any, *, path: Path) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"Corpus at {path} must contain a positive integer revision")
+    try:
+        revision = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Corpus at {path} must contain a positive integer revision") from exc
+    if revision <= 0:
+        raise ValueError(f"Corpus at {path} must contain a positive integer revision")
+    return revision
+
+
 def load_corpus(path: Path) -> dict[str, Any]:
     payload = _load_json(path)
     issues = payload.get("issues")
     if not isinstance(issues, list) or not issues:
         raise ValueError(f"Corpus at {path} must contain a non-empty 'issues' list")
+    corpus_id = str(payload.get("corpus_id") or "").strip()
+    if not corpus_id:
+        raise ValueError(f"Corpus at {path} must contain a non-empty corpus_id")
+    payload["corpus_id"] = corpus_id
+    payload["revision"] = _positive_revision(payload.get("revision"), path=path)
     return payload
 
 
