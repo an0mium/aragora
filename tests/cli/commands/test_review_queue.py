@@ -2466,6 +2466,34 @@ class TestBuildQueueAndPacket:
             "parked",
         ]
 
+    def test_build_queue_retries_without_rollup_after_graphql_timeout(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[list[str]] = []
+
+        lightweight_prs = [_make_pr(number=8041), _make_pr(number=8042)]
+        for pr in lightweight_prs:
+            pr.pop("statusCheckRollup", None)
+
+        def fake_gh_json(args: list[str]) -> list[dict[str, Any]]:
+            calls.append(args)
+            fields = args[-1]
+            if "statusCheckRollup" in fields:
+                raise _GhError(
+                    "gh pr list --state open --limit 80 --json "
+                    f"{fields} failed: HTTP 504: We couldn't respond to your request in time."
+                )
+            return lightweight_prs
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        items = _build_queue(limit=80)
+
+        assert [item.number for item in items] == [8042, 8041]
+        assert [item.lane for item in items] == ["needs_attention", "needs_attention"]
+        assert "statusCheckRollup" in calls[0][-1]
+        assert "statusCheckRollup" not in calls[1][-1]
+
     def test_build_packet_sets_recommendation(self, monkeypatch: pytest.MonkeyPatch) -> None:
         pr_payload = _make_pr(
             number=6280,

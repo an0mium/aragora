@@ -1493,26 +1493,42 @@ def _post_human_settlement_status(
     }
 
 
-def _build_queue(*, limit: int) -> list[QueueItem]:
-    fields = ",".join(
-        [
-            "number",
-            "title",
-            "url",
-            "headRefName",
-            "headRefOid",
-            "isDraft",
-            "mergeable",
-            "reviewDecision",
-            "labels",
-            "author",
-            "additions",
-            "deletions",
-            "changedFiles",
-            "statusCheckRollup",
-        ]
+QUEUE_LIST_FIELDS = [
+    "number",
+    "title",
+    "url",
+    "headRefName",
+    "headRefOid",
+    "isDraft",
+    "mergeable",
+    "reviewDecision",
+    "labels",
+    "author",
+    "additions",
+    "deletions",
+    "changedFiles",
+    "statusCheckRollup",
+]
+
+
+def _queue_list_fields(*, include_status_rollup: bool) -> str:
+    fields = QUEUE_LIST_FIELDS
+    if not include_status_rollup:
+        fields = [field for field in fields if field != "statusCheckRollup"]
+    return ",".join(fields)
+
+
+def _should_retry_pr_list_without_rollup(exc: _GhError) -> bool:
+    message = str(exc).lower()
+    return (
+        "gh pr list" in message
+        and "statuscheckrollup" in message
+        and ("http 504" in message or "request in time" in message or "timed out" in message)
     )
-    raw = _gh_json(
+
+
+def _list_open_prs_for_queue(*, limit: int, include_status_rollup: bool) -> Any:
+    return _gh_json(
         [
             "pr",
             "list",
@@ -1521,9 +1537,18 @@ def _build_queue(*, limit: int) -> list[QueueItem]:
             "--limit",
             str(limit),
             "--json",
-            fields,
+            _queue_list_fields(include_status_rollup=include_status_rollup),
         ]
     )
+
+
+def _build_queue(*, limit: int) -> list[QueueItem]:
+    try:
+        raw = _list_open_prs_for_queue(limit=limit, include_status_rollup=True)
+    except _GhError as exc:
+        if not _should_retry_pr_list_without_rollup(exc):
+            raise
+        raw = _list_open_prs_for_queue(limit=limit, include_status_rollup=False)
     items: list[QueueItem] = []
     for pr in raw or []:
         if not isinstance(pr, dict):
