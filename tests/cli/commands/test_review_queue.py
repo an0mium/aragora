@@ -5497,6 +5497,40 @@ class TestSettlementHelpers:
         assert payload["admin_squash_order"] == list(range(1, MODEL_REVIEW_QUEUE_CAP + 2))
         assert payload["entries"][0]["verdict"] == "admin_squash_allowed"
 
+    def test_merge_packet_json_error_is_machine_readable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _fail_build_packet(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError("gh pr view 7841 failed: api.github.com unavailable")
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            _fail_build_packet,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["7841"],
+            repo=None,
+            limit=1,
+            review_queue_root=None,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert err_buf.getvalue() == ""
+        payload = json.loads(out_buf.getvalue())
+        assert payload == {
+            "ok": False,
+            "error": "gh pr view 7841 failed: api.github.com unavailable",
+        }
+
     def test_act_command_requires_reason_for_request_changes(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="act",

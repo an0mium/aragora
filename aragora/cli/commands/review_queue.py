@@ -1204,7 +1204,10 @@ def _cmd_merge_packet(args: argparse.Namespace) -> int:
             ignore_own_quorum_check=bool(getattr(args, "ignore_own_quorum_check", False)),
         )
     except _GhError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        if json_output:
+            print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
+        else:
+            print(f"error: {exc}", file=sys.stderr)
         return 1
     if json_output:
         print(json.dumps(packet, indent=2))
