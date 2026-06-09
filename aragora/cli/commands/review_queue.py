@@ -617,6 +617,15 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         default=8.0,
         help="Timeout for owner and steering helper lookup. Timeout means preserve/no-mutate.",
     )
+    conductor_p.add_argument(
+        "--mode",
+        choices=("queue", "ready-boundary"),
+        default="queue",
+        help=(
+            "Conductor routing mode. ready-boundary emits mark-ready authorization "
+            "classification for draft PRs that are otherwise ready."
+        ),
+    )
     conductor_p.add_argument("--json", action="store_true", help="Output as JSON")
 
     evidence_lint_p = sub.add_parser(
@@ -959,6 +968,7 @@ def _cmd_conductor(args: argparse.Namespace) -> int:
             repo_override=getattr(args, "repo", None),
             review_queue_root=getattr(args, "review_queue_root", None),
             owner_timeout_seconds=float(getattr(args, "owner_timeout_seconds", 8.0)),
+            mode=getattr(args, "mode", "queue"),
         )
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)

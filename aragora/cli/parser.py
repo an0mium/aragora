@@ -2547,6 +2547,15 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Timeout for owner and steering helper lookup. Timeout means preserve/no-mutate.",
     )
     conductor_parser.add_argument(
+        "--mode",
+        choices=("queue", "ready-boundary"),
+        default="queue",
+        help=(
+            "Conductor routing mode. ready-boundary emits mark-ready authorization "
+            "classification for draft PRs that are otherwise ready."
+        ),
+    )
+    conductor_parser.add_argument(
         "--json",
         dest="json_output",
         action="store_true",

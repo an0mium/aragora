@@ -30,8 +30,11 @@ from aragora.worktree.fleet import resolve_repo_root
 
 
 QUEUE_CONDUCTOR_VERSION = "queue_conductor.v1"
+QUEUE_CONDUCTOR_DEFAULT_MODE = "queue"
+QUEUE_CONDUCTOR_READY_BOUNDARY_MODE = "ready-boundary"
 OWNER_TIMEOUT_CLASSIFICATION = "owner_lookup_timeout_preserve"
 TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION = "tier3_or_tier4_evidence_required"
+READY_BOUNDARY_MARK_READY_CLASSIFICATION = "ready_boundary_mark_ready_authorization_required"
 ACTIVE_OWNER_STATUSES = {
     "active",
     "claimed",
@@ -76,11 +79,13 @@ def build_queue_conductor_packet(
     repo_override: str | None = None,
     review_queue_root: str | Path | None = None,
     owner_timeout_seconds: float = 8.0,
+    mode: str = QUEUE_CONDUCTOR_DEFAULT_MODE,
     providers: ConductorProviders | None = None,
 ) -> dict[str, Any]:
     """Build a read-only owner-aware queue conductor packet."""
 
     active_providers = providers or ConductorProviders()
+    conductor_mode = _normalize_mode(mode)
     pr_views = _fetch_pr_views(
         pr_refs=pr_refs or [],
         limit=limit,
@@ -108,9 +113,14 @@ def build_queue_conductor_packet(
         )
         candidates.append(candidate)
 
-    next_prompt = _build_next_prompt(candidates, repo_override=repo_override)
+    next_prompt = _build_next_prompt(
+        candidates,
+        repo_override=repo_override,
+        mode=conductor_mode,
+    )
     return {
         "version": QUEUE_CONDUCTOR_VERSION,
+        "mode": conductor_mode,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "repo": repo_override or "",
         "origin_main_sha": _safe_origin_main_sha(active_providers),
@@ -149,8 +159,28 @@ def render_queue_conductor_packet(packet: dict[str, Any]) -> str:
         action = candidate.get("next_action")
         if action:
             lines.append(f"  next: {action}")
+        ready_boundary = candidate.get("ready_boundary")
+        if isinstance(ready_boundary, dict):
+            lines.append(
+                "  ready-boundary: {} eligible={}".format(
+                    ready_boundary.get("classification"),
+                    ready_boundary.get("eligible_for_mark_ready_authorization"),
+                )
+            )
     lines.extend(["", "Best next prompt:", str(packet.get("next_prompt") or "")])
     return "\n".join(lines)
+
+
+def _normalize_mode(mode: str) -> str:
+    normalized = str(mode or QUEUE_CONDUCTOR_DEFAULT_MODE).strip().lower()
+    if normalized in {"ready_boundary", "ready"}:
+        normalized = QUEUE_CONDUCTOR_READY_BOUNDARY_MODE
+    if normalized not in {QUEUE_CONDUCTOR_DEFAULT_MODE, QUEUE_CONDUCTOR_READY_BOUNDARY_MODE}:
+        raise ValueError(
+            f"unsupported queue conductor mode {mode!r}; expected "
+            f"{QUEUE_CONDUCTOR_DEFAULT_MODE!r} or {QUEUE_CONDUCTOR_READY_BOUNDARY_MODE!r}"
+        )
+    return normalized
 
 
 def _fetch_pr_views(
@@ -247,6 +277,16 @@ def _build_candidate(
         head_changed=head_changed,
         supersession_hints=supersession_hints,
     )
+    ready_boundary = _ready_boundary_summary(
+        view=view,
+        required=required,
+        owner=owner,
+        steering=steering,
+        merge_packet=merge_packet,
+        rollup=rollup,
+        head_changed=head_changed,
+        repo_override=repo_override,
+    )
     return {
         "pr_number": pr_number,
         "title": str(view.get("title") or ""),
@@ -266,6 +306,7 @@ def _build_candidate(
         "owner": owner,
         "steering": steering,
         "merge_packet": merge_packet,
+        "ready_boundary": ready_boundary,
         "supersession_hints": supersession_hints,
         "classification": classification,
         "mutate_allowed": mutate_allowed,
@@ -318,6 +359,7 @@ def _rollup_summary(items: list[Any]) -> dict[str, Any]:
         "failing": failing,
         "cancelled": cancelled,
         "non_actionable_cancelled": non_actionable,
+        "actionable_rows": [*pending, *failing, *actionable_cancelled],
         "actionable_non_green": actionable,
     }
 
@@ -373,11 +415,122 @@ def _merge_packet_summary(
         "human_preapproval_recorded": bool(
             _packet_value(entry, quorum, "human_preapproval_recorded", False)
         ),
+        "requires_human_preapproval": bool(
+            _packet_value(entry, quorum, "requires_human_preapproval", False)
+        ),
+        "requires_human_risk_settlement": bool(
+            _packet_value(entry, quorum, "requires_human_risk_settlement", False)
+        ),
         "admin_squash_allowed": bool(
             packet.get("admin_squash_allowed") or entry.get("admin_squash_allowed")
         ),
         "admin_squash_order": packet.get("admin_squash_order") or [],
         "not_ready": packet.get("not_ready") or [],
+    }
+
+
+def _ready_boundary_summary(
+    *,
+    view: dict[str, Any],
+    required: dict[str, Any],
+    owner: dict[str, Any],
+    steering: dict[str, Any],
+    merge_packet: dict[str, Any],
+    rollup: dict[str, Any],
+    head_changed: bool,
+    repo_override: str | None,
+) -> dict[str, Any]:
+    pr_number = int(view.get("number") or 0)
+    head_sha = str(view.get("headRefOid") or "")
+    state = str(view.get("state") or "").upper()
+    is_draft = bool(view.get("isDraft"))
+    mergeable = str(view.get("mergeable") or "").upper()
+    merge_state = str(view.get("mergeStateStatus") or "").upper()
+    tier = _safe_int(merge_packet.get("tier"))
+    families = [
+        str(family)
+        for family in merge_packet.get("counted_model_families") or []
+        if str(family).strip()
+    ]
+    focused_dogfood_present = bool(merge_packet.get("focused_dogfood_present"))
+    reasons = [str(reason) for reason in merge_packet.get("reasons") or []]
+    reasons_text = " ".join(reason.lower() for reason in reasons)
+    actionable_rows = list(rollup.get("actionable_rows") or [])
+    blockers: list[str] = []
+    post_ready_blockers: list[str] = []
+
+    if state != "OPEN":
+        blockers.append("PR is not open")
+    if head_changed:
+        blockers.append("head changed during conductor read")
+    if not is_draft:
+        blockers.append("PR is already non-draft")
+    if owner.get("lookup_state") == "timeout" or owner.get("preserve_no_mutate"):
+        blockers.append("owner lookup is not mutation-safe")
+    if owner.get("active_owner"):
+        blockers.append("active owner is present")
+    if steering.get("lookup_state") == "timeout" or steering.get("preserve_no_mutate"):
+        blockers.append("operator steering lookup is not mutation-safe")
+    elif steering.get("has_pending") or int(steering.get("message_count") or 0) > 0:
+        blockers.append("operator steering messages are pending")
+    if required.get("has_failures") or required.get("has_pending"):
+        blockers.append("required checks are not green")
+    if rollup.get("actionable_non_green"):
+        blockers.append("actionable non-required rollup rows remain")
+    if mergeable != "MERGEABLE":
+        blockers.append(f"mergeable is {mergeable or 'unknown'}")
+    if merge_state != "CLEAN":
+        blockers.append(f"mergeStateStatus is {merge_state or 'unknown'}")
+    if "model quorum incomplete" in reasons_text:
+        blockers.append("model quorum is incomplete")
+    if "focused adversarial dogfood evidence is required" in reasons_text:
+        blockers.append("focused dogfood evidence is missing")
+    if tier is not None and tier >= 3:
+        if len({family.lower() for family in families}) < 2:
+            blockers.append("Tier 3/4 model quorum has fewer than two families")
+        if not focused_dogfood_present:
+            blockers.append("Tier 3/4 focused dogfood evidence is missing")
+        if not bool(merge_packet.get("human_preapproval_recorded")):
+            post_ready_blockers.append(f"Tier {tier} human preapproval/settlement")
+
+    eligible = not blockers
+    classification = (
+        READY_BOUNDARY_MARK_READY_CLASSIFICATION if eligible else "ready_boundary_blocked"
+    )
+    authorization_prompt = (
+        _build_ready_boundary_authorization_prompt(
+            pr_number=pr_number,
+            head_sha=head_sha,
+            tier=tier,
+            repo_override=repo_override,
+        )
+        if eligible
+        else ""
+    )
+    return {
+        "classification": classification,
+        "eligible_for_mark_ready_authorization": eligible,
+        "blockers": blockers,
+        "post_ready_blockers": post_ready_blockers,
+        "required_checks_summary": required.get("summary"),
+        "actionable_rollup_rows": actionable_rows,
+        "evidence_status": {
+            "tier": tier,
+            "counted_model_families": families,
+            "focused_dogfood_present": focused_dogfood_present,
+            "human_preapproval_recorded": bool(merge_packet.get("human_preapproval_recorded")),
+            "reasons": reasons,
+        },
+        "owner_state": owner.get("state") or owner.get("lookup_state") or "",
+        "owner_active": bool(owner.get("active_owner")),
+        "steering_lookup_state": steering.get("lookup_state") or "",
+        "steering_message_count": int(steering.get("message_count") or 0),
+        "mark_ready_command": (
+            f"gh pr ready {pr_number}" + (f" --repo {repo_override}" if repo_override else "")
+            if eligible
+            else ""
+        ),
+        "authorization_prompt": authorization_prompt,
     }
 
 
@@ -473,7 +626,15 @@ def _classify_candidate(
     return ("blocked_or_needs_handoff", False, "produce bounded handoff with exact blocker")
 
 
-def _build_next_prompt(candidates: list[dict[str, Any]], *, repo_override: str | None) -> str:
+def _build_next_prompt(
+    candidates: list[dict[str, Any]],
+    *,
+    repo_override: str | None,
+    mode: str = QUEUE_CONDUCTOR_DEFAULT_MODE,
+) -> str:
+    if mode == QUEUE_CONDUCTOR_READY_BOUNDARY_MODE:
+        return _build_ready_boundary_next_prompt(candidates)
+
     preferred = _first_by_classification(
         candidates,
         [
@@ -529,7 +690,7 @@ def _build_next_prompt(candidates: list[dict[str, Any]], *, repo_override: str |
         )
     return (
         "Do not rely on transcript state. Re-check live GitHub/local state first. "
-        "Current environment date is 2026-06-06.\n\n"
+        f"Current environment date is {_current_environment_date()}.\n\n"
         f"{primary}\n\n"
         f"Reconfirm PR #{pr_number} state/head; run gh pr checks {pr_number} --required, "
         f"gh pr view {pr_number} --json statusCheckRollup,mergeStateStatus,headRefOid,"
@@ -542,6 +703,73 @@ def _build_next_prompt(candidates: list[dict[str, Any]], *, repo_override: str |
         "the concrete tooling improvement plan instead of repeating manual queue checks. "
         "Always include a final summary section with the best next recursive prompt."
     )
+
+
+def _build_ready_boundary_next_prompt(candidates: list[dict[str, Any]]) -> str:
+    for candidate in candidates:
+        ready_boundary = candidate.get("ready_boundary")
+        if (
+            isinstance(ready_boundary, dict)
+            and ready_boundary.get("eligible_for_mark_ready_authorization")
+            and ready_boundary.get("authorization_prompt")
+        ):
+            return str(ready_boundary["authorization_prompt"])
+    return (
+        "Do not rely on transcript state. Re-check live GitHub/local state first. "
+        f"Current environment date is {_current_environment_date()}.\n\n"
+        "Primary task: re-run review-queue conductor in ready-boundary mode from a clean "
+        "current-main checkout and report the exact owner, steering, required-check, "
+        "actionable-rollup, and merge-packet blocker before any mark-ready mutation.\n\n"
+        "If the prompt above accomplishes no incremental progress, make the next prompt one "
+        "that does. If any work can be better automated by improving Aragora tooling at a meta "
+        "level, include the concrete tooling improvement plan instead of repeating manual queue "
+        "checks. Always include a final summary section with the best next recursive prompt."
+    )
+
+
+def _build_ready_boundary_authorization_prompt(
+    *,
+    pr_number: int,
+    head_sha: str,
+    tier: int | None,
+    repo_override: str | None,
+) -> str:
+    tier_text = f"Tier {tier} " if tier is not None and tier >= 3 else ""
+    repo_arg = f" --repo {repo_override}" if repo_override else ""
+    settlement_boundary = (
+        f" Do not record {tier_text.strip()} settlement or merge."
+        if tier_text
+        else " Do not merge."
+    )
+    return (
+        "Do not rely on transcript state. Re-check live GitHub/local state first. "
+        f"Current environment date is {_current_environment_date()}.\n\n"
+        f"Primary task: mark PR #{pr_number} ready for review only if all live gates still "
+        "match this authorization.\n\n"
+        f"I explicitly authorize marking PR #{pr_number} ready for review at exact head "
+        f"{head_sha}.{settlement_boundary}\n\n"
+        f"Reconfirm #{pr_number} is open draft at exact head {head_sha}; run gh pr checks "
+        f"{pr_number} --required, gh pr view {pr_number} --json "
+        "statusCheckRollup,mergeStateStatus,headRefOid,isDraft,state,mergeable, branch "
+        "owner lookup, operator steering read-only, and provider-keys-unset python3 -m "
+        "aragora.cli.main review-queue merge-packet --limit 1 "
+        f"--pr {pr_number}{repo_arg} --json from a clean current-main checkout. Confirm "
+        "required checks are green, no actionable non-required rollup item remains, "
+        "evidence/quorum remains satisfied, focused dogfood is present, mergeStateStatus "
+        "is CLEAN, and the only actionable blockers are draft state plus later human "
+        "preapproval/settlement if applicable. If all gates still match, mark the PR ready "
+        "for review. Do not merge or record settlement. Re-read PR view and merge-packet. "
+        "Report exact head, whether mark-ready was performed, post-ready required-check "
+        "state, merge-packet summary, and safest next bounded action.\n\n"
+        "If the prompt above accomplishes no incremental progress, make the next prompt one "
+        "that does. If any work can be better automated by improving Aragora tooling at a meta "
+        "level, include the concrete tooling improvement plan instead of repeating manual queue "
+        "checks. Always include a final summary section with the best next recursive prompt."
+    )
+
+
+def _current_environment_date() -> str:
+    return datetime.now(UTC).date().isoformat()
 
 
 def _first_by_classification(
@@ -683,6 +911,17 @@ def _default_steering_lookup(branch: str, timeout_seconds: float) -> dict[str, A
         return {
             "lookup_state": "timeout",
             "preserve_no_mutate": True,
+            "error": result.get("error", ""),
+        }
+    if (
+        result.get("lookup_state") == "failed"
+        and "no lane matched" in str(result.get("error", "")).lower()
+    ):
+        return {
+            "lookup_state": "no_lane_match",
+            "message_count": 0,
+            "has_pending": False,
+            "raw": result.get("payload"),
             "error": result.get("error", ""),
         }
     payload = result.get("payload")

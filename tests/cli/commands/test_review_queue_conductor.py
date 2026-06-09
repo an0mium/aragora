@@ -7,6 +7,7 @@ import argparse
 from aragora.cli.commands.review_queue import add_review_queue_parser
 from aragora.cli.commands.review_queue_conductor import (
     OWNER_TIMEOUT_CLASSIFICATION,
+    READY_BOUNDARY_MARK_READY_CLASSIFICATION,
     TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION,
     ConductorProviders,
     build_queue_conductor_packet,
@@ -298,6 +299,110 @@ def test_conductor_reads_flattened_merge_packet_fields() -> None:
     assert merge_summary["focused_dogfood_present"] is True
 
 
+def test_ready_boundary_mode_emits_mark_ready_authorization_prompt() -> None:
+    view = _view(7885, head="exact-head", draft=True)
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        mode="ready-boundary",
+        repo_override="synaptent/aragora",
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885,
+                head="exact-head",
+                not_ready=[7885],
+                reasons=["workflow/deploy/destructive surface touched", "draft PR"],
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    candidate = packet["candidates"][0]
+    ready_boundary = candidate["ready_boundary"]
+    assert packet["mode"] == "ready-boundary"
+    assert ready_boundary["classification"] == READY_BOUNDARY_MARK_READY_CLASSIFICATION
+    assert ready_boundary["eligible_for_mark_ready_authorization"] is True
+    assert ready_boundary["blockers"] == []
+    assert ready_boundary["post_ready_blockers"] == ["Tier 4 human preapproval/settlement"]
+    assert ready_boundary["actionable_rollup_rows"] == []
+    assert ready_boundary["evidence_status"]["counted_model_families"] == ["claude", "openai"]
+    assert ready_boundary["evidence_status"]["focused_dogfood_present"] is True
+    assert ready_boundary["mark_ready_command"] == "gh pr ready 7885 --repo synaptent/aragora"
+    assert "I explicitly authorize marking PR #7885 ready" in packet["next_prompt"]
+    assert "exact head exact-head" in packet["next_prompt"]
+    assert "Do not merge or record settlement" in packet["next_prompt"]
+
+
+def test_ready_boundary_mode_blocks_missing_evidence() -> None:
+    view = _view(7885, head="exact-head", draft=True)
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        mode="ready-boundary",
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885,
+                head="exact-head",
+                not_ready=[7885],
+                counted_model_families=["openai"],
+                focused_dogfood_present=False,
+                reasons=[
+                    "draft PR",
+                    "model quorum incomplete: 1/2 signal(s)",
+                    "focused adversarial dogfood evidence is required",
+                ],
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    ready_boundary = packet["candidates"][0]["ready_boundary"]
+    assert ready_boundary["classification"] == "ready_boundary_blocked"
+    assert ready_boundary["eligible_for_mark_ready_authorization"] is False
+    assert "model quorum is incomplete" in ready_boundary["blockers"]
+    assert "focused dogfood evidence is missing" in ready_boundary["blockers"]
+    assert "re-run review-queue conductor in ready-boundary mode" in packet["next_prompt"]
+
+
+def test_steering_no_lane_match_is_empty_for_boundary_checks() -> None:
+    view = _view(7885, head="exact-head", draft=True)
+
+    def no_lane(_branch: str, _timeout: float) -> dict[str, object]:
+        return {
+            "lookup_state": "no_lane_match",
+            "message_count": 0,
+            "has_pending": False,
+            "error": "ERROR: no lane matched the requested selector",
+        }
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        mode="ready-boundary",
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885, head="exact-head", not_ready=[7885], reasons=["draft PR"]
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=no_lane,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    ready_boundary = packet["candidates"][0]["ready_boundary"]
+    assert ready_boundary["eligible_for_mark_ready_authorization"] is True
+    assert ready_boundary["steering_lookup_state"] == "no_lane_match"
+
+
 def test_conductor_supersession_hint_blocks_conflict_repair() -> None:
     views = {
         "7821": _view(
@@ -350,6 +455,8 @@ def test_review_queue_parser_accepts_conductor_subcommand() -> None:
             "conductor",
             "--pr",
             "7843",
+            "--mode",
+            "ready-boundary",
             "--owner-timeout-seconds",
             "0.5",
             "--json",
@@ -358,4 +465,5 @@ def test_review_queue_parser_accepts_conductor_subcommand() -> None:
 
     assert args.review_queue_command == "conductor"
     assert args.pr == ["7843"]
+    assert args.mode == "ready-boundary"
     assert args.owner_timeout_seconds == 0.5
