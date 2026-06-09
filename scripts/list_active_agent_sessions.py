@@ -897,6 +897,128 @@ def build_conflicts_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _compact_row(row: dict[str, Any], fields: Iterable[str]) -> dict[str, Any]:
+    return {field: row.get(field) for field in fields if row.get(field) is not None}
+
+
+def _bounded_rows(
+    rows: Iterable[dict[str, Any]],
+    *,
+    fields: Iterable[str],
+    limit: int,
+) -> list[dict[str, Any]]:
+    return [_compact_row(row, fields) for row in list(rows)[:limit]]
+
+
+def build_summary_only_payload(
+    payload: dict[str, Any], *, summary_limit: int = 10
+) -> dict[str, Any]:
+    """Return a compact operator payload while preserving routing-critical counts."""
+    limit = max(0, int(summary_limit))
+    worktrees = payload.get("worktrees") or []
+    dispatch_contracts = payload.get("dispatch_contracts") or []
+    issue_claims = payload.get("issue_claims") or []
+    work_leases = payload.get("work_leases") or []
+    automation_outbox = payload.get("automation_outbox") or []
+    codex_cli_sessions = payload.get("codex_cli_sessions") or []
+    agent_bridge_lanes = payload.get("agent_bridge_lanes") or []
+    lane_conflicts = payload.get("lane_conflicts") or []
+    open_prs = payload.get("open_prs") or []
+    overlap = payload.get("overlap_report") or {}
+    overlaps = overlap.get("overlaps") or []
+
+    active_lanes = [row for row in agent_bridge_lanes if row.get("is_active")]
+    conflict_lanes = [
+        row for row in agent_bridge_lanes if row.get("is_conflict") or row.get("identity_conflicts")
+    ]
+
+    compact_overlaps = [
+        _operator_overlap_record(row) for row in overlaps[:limit] if isinstance(row, dict)
+    ]
+    compact_lanes = [
+        _operator_conflict_lane_record(row)
+        for row in (conflict_lanes or active_lanes)[:limit]
+        if isinstance(row, dict)
+    ]
+
+    return {
+        "schema_version": payload.get("schema_version"),
+        "generated_at": payload.get("generated_at"),
+        "repo_root": payload.get("repo_root"),
+        "codex_home": payload.get("codex_home"),
+        "max_age_minutes": payload.get("max_age_minutes"),
+        "codex_session_scan_limit": payload.get("codex_session_scan_limit"),
+        "skip_gh": payload.get("skip_gh"),
+        "skip_codex_desktop": payload.get("skip_codex_desktop"),
+        "skip_process_census": payload.get("skip_process_census"),
+        "include_user_lane_registry": payload.get("include_user_lane_registry"),
+        "summary_only": True,
+        "summary_limit": limit,
+        "details_omitted": True,
+        "counts": {
+            "worktrees": len(worktrees),
+            "dispatch_contracts": len(dispatch_contracts),
+            "issue_claims": len(issue_claims),
+            "work_leases": len(work_leases),
+            "automation_outbox": len(automation_outbox),
+            "codex_cli_sessions": len(codex_cli_sessions),
+            "agent_bridge_lanes": len(agent_bridge_lanes),
+            "active_agent_bridge_lanes": len(active_lanes),
+            "conflict_agent_bridge_lanes": len(conflict_lanes),
+            "lane_conflicts": len(lane_conflicts),
+            "open_prs": len(open_prs),
+            "overlaps": int(overlap.get("overlap_count") or len(overlaps)),
+        },
+        "codex_desktop_automations": payload.get("codex_desktop_automations") or {},
+        "process_census": payload.get("process_census") or {},
+        "overlap_report": {
+            "counts": overlap.get("counts") or {},
+            "overlap_count": int(overlap.get("overlap_count") or len(overlaps)),
+            "overlaps": compact_overlaps,
+            "overlaps_omitted": max(0, len(overlaps) - len(compact_overlaps)),
+        },
+        "lane_conflicts": lane_conflicts[:limit],
+        "lane_conflicts_omitted": max(0, len(lane_conflicts) - min(len(lane_conflicts), limit)),
+        "agent_bridge_lanes_preview": compact_lanes,
+        "agent_bridge_lanes_omitted": max(
+            0, len(conflict_lanes or active_lanes) - len(compact_lanes)
+        ),
+        "worktrees_preview": _bounded_rows(
+            worktrees,
+            fields=("branch", "path", "head", "locked", "detached"),
+            limit=limit,
+        ),
+        "worktrees_omitted": max(0, len(worktrees) - min(len(worktrees), limit)),
+        "automation_outbox_preview": _bounded_rows(
+            automation_outbox,
+            fields=("name", "branch", "idempotency_key", "age_minutes"),
+            limit=limit,
+        ),
+        "automation_outbox_omitted": max(
+            0, len(automation_outbox) - min(len(automation_outbox), limit)
+        ),
+        "codex_cli_sessions_preview": _bounded_rows(
+            codex_cli_sessions,
+            fields=("relative_path", "name", "thread_id", "source", "cwd", "branch", "age_minutes"),
+            limit=limit,
+        ),
+        "codex_cli_sessions_omitted": max(
+            0, len(codex_cli_sessions) - min(len(codex_cli_sessions), limit)
+        ),
+        "open_prs_preview": _bounded_rows(
+            open_prs,
+            fields=("number", "title", "branch", "is_draft", "author", "updated_at", "url"),
+            limit=limit,
+        ),
+        "open_prs_omitted": max(0, len(open_prs) - min(len(open_prs), limit)),
+        "source_health": {
+            "gh_skipped": bool(payload.get("skip_gh")),
+            "codex_desktop_skipped": bool(payload.get("skip_codex_desktop")),
+            "process_census_skipped": bool(payload.get("skip_process_census")),
+        },
+    }
+
+
 def _operator_lane_record(row: dict[str, Any]) -> dict[str, Any]:
     """Return lane ownership fields safe for compact operator routing."""
     return {
@@ -951,6 +1073,9 @@ def _operator_conflict_lane_record(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def render_text(payload: dict[str, Any]) -> str:
+    if payload.get("summary_only"):
+        return render_summary_text(payload)
+
     lines: list[str] = []
     lines.append(f"Active agent sessions (generated_at={payload.get('generated_at')})")
     lines.append(f"  repo_root: {payload.get('repo_root')}")
@@ -1072,6 +1197,57 @@ def render_text(payload: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def render_summary_text(payload: dict[str, Any]) -> str:
+    counts = payload.get("counts") or {}
+    overlap = payload.get("overlap_report") or {}
+    lines: list[str] = []
+    lines.append(f"Active agent session summary (generated_at={payload.get('generated_at')})")
+    lines.append(f"  repo_root: {payload.get('repo_root')}")
+    lines.append(
+        "  counts: "
+        f"worktrees={counts.get('worktrees', 0)} "
+        f"codex_sessions={counts.get('codex_cli_sessions', 0)} "
+        f"lanes={counts.get('agent_bridge_lanes', 0)} "
+        f"active_lanes={counts.get('active_agent_bridge_lanes', 0)} "
+        f"conflict_lanes={counts.get('conflict_agent_bridge_lanes', 0)} "
+        f"open_prs={counts.get('open_prs', 0)} "
+        f"overlaps={counts.get('overlaps', 0)}"
+    )
+    process_census = payload.get("process_census") or {}
+    if process_census:
+        lines.append(
+            f"  process_census: ok={process_census.get('ok')} total={process_census.get('total')}"
+        )
+    lines.append("")
+
+    lanes = payload.get("agent_bridge_lanes_preview") or []
+    lines.append(f"lane preview ({len(lanes)}):")
+    for row in lanes:
+        lines.append(
+            "  - "
+            f"{row.get('lane_id')} status={row.get('status')} "
+            f"owner={row.get('owner_session') or '-'} branch={row.get('branch') or '-'}"
+        )
+    if payload.get("agent_bridge_lanes_omitted"):
+        lines.append(f"  ... ({payload['agent_bridge_lanes_omitted']} more)")
+    if not lanes:
+        lines.append("  (none)")
+    lines.append("")
+
+    overlaps = overlap.get("overlaps") or []
+    lines.append(f"overlap preview (count={overlap.get('overlap_count', 0)}):")
+    for row in overlaps:
+        sources = "+".join(row.get("sources") or [])
+        lines.append(f"  - {row.get('kind')}={row.get('value')} sources=[{sources}]")
+    if overlap.get("overlaps_omitted"):
+        lines.append(f"  ... ({overlap['overlaps_omitted']} more)")
+    if not overlaps:
+        lines.append("  (none)")
+    lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -1132,6 +1308,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit only active lane conflicts and agent-bridge overlaps.",
     )
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit compact counts and bounded previews instead of full source records.",
+    )
+    parser.add_argument(
+        "--summary-limit",
+        type=int,
+        default=10,
+        help="Maximum preview rows to include with --summary-only.",
+    )
     return parser
 
 
@@ -1150,6 +1337,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.conflicts_only:
         payload = build_conflicts_only_payload(payload)
+    if args.summary_only:
+        payload = build_summary_only_payload(payload, summary_limit=int(args.summary_limit))
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True, default=str))
     else:

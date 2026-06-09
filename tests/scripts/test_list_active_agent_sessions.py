@@ -478,6 +478,96 @@ def test_build_payload_assembles_top_level_keys(tmp_path: Path) -> None:
     assert payload["overlap_report"]["overlap_count"] == 0
 
 
+def test_build_summary_only_payload_omits_full_source_records() -> None:
+    payload: dict[str, Any] = {
+        "schema_version": detector.SCHEMA_VERSION,
+        "generated_at": "2026-05-17T12:00:00Z",
+        "repo_root": "/repo",
+        "codex_home": "/home/u/.codex",
+        "max_age_minutes": 120.0,
+        "codex_session_scan_limit": 500,
+        "skip_gh": True,
+        "skip_codex_desktop": False,
+        "skip_process_census": False,
+        "include_user_lane_registry": False,
+        "worktrees": [
+            {"path": "/repo", "branch": "main", "head": "abc"},
+            {"path": "/repo/wt", "branch": "feature/x", "head": "def"},
+        ],
+        "dispatch_contracts": [{"name": "dispatch.json", "branch": "feature/x"}],
+        "issue_claims": [{"name": "claim.json", "issue_number": 7}],
+        "work_leases": [],
+        "automation_outbox": [
+            {
+                "name": "open-pr.json",
+                "branch": "feature/x",
+                "idempotency_key": "open-pr-feature-x",
+                "path": "/repo/.aragora/automation-outbox/open-pr.json",
+            }
+        ],
+        "codex_cli_sessions": [
+            {
+                "relative_path": "2026/05/17/session.jsonl",
+                "thread_id": "thread-1",
+                "cwd": "/repo/wt",
+                "branch": "feature/x",
+            }
+        ],
+        "codex_desktop_automations": {"automation_count": 18},
+        "process_census": {"ok": False, "total": 0, "error": "ps denied"},
+        "agent_bridge_lanes": [
+            {
+                "lane_id": "lane-a",
+                "owner_session": "codex-A",
+                "status": "active",
+                "branch": "feature/x",
+                "is_active": True,
+                "is_conflict": False,
+            }
+        ],
+        "lane_conflicts": [],
+        "open_prs": [{"number": 1, "title": "draft", "branch": "feature/x"}],
+        "overlap_report": {
+            "counts": {"branch": 1},
+            "overlap_count": 1,
+            "overlaps": [
+                {
+                    "kind": "branch",
+                    "value": "feature/x",
+                    "sources": ["agent_bridge_lane", "automation_outbox"],
+                    "details": ["lane-a", "open-pr-feature-x"],
+                }
+            ],
+        },
+    }
+
+    out = detector.build_summary_only_payload(payload, summary_limit=1)
+
+    assert out["summary_only"] is True
+    assert out["details_omitted"] is True
+    assert out["counts"]["worktrees"] == 2
+    assert out["counts"]["active_agent_bridge_lanes"] == 1
+    assert out["worktrees_preview"] == [{"branch": "main", "path": "/repo", "head": "abc"}]
+    assert out["worktrees_omitted"] == 1
+    assert out["automation_outbox_preview"] == [
+        {
+            "name": "open-pr.json",
+            "branch": "feature/x",
+            "idempotency_key": "open-pr-feature-x",
+        }
+    ]
+    assert out["agent_bridge_lanes_preview"][0]["lane_id"] == "lane-a"
+    assert out["overlap_report"]["overlaps"][0]["details"] == [
+        "lane-a",
+        "open-pr-feature-x",
+    ]
+    assert "worktrees" not in out
+    assert "automation_outbox" not in out
+    assert "codex_cli_sessions" not in out
+    assert "agent_bridge_lanes" not in out
+    assert "open_prs" not in out
+
+
 def test_render_text_contains_expected_sections() -> None:
     payload: dict[str, Any] = {
         "generated_at": "2026-05-17T12:00:00Z",
@@ -531,6 +621,50 @@ def test_render_text_contains_expected_sections() -> None:
     assert "branch=droid/x" in out
 
 
+def test_render_summary_text_contains_counts() -> None:
+    text = detector.render_text(
+        {
+            "summary_only": True,
+            "generated_at": "2026-05-17T12:00:00Z",
+            "repo_root": "/repo",
+            "counts": {
+                "worktrees": 2,
+                "codex_cli_sessions": 1,
+                "agent_bridge_lanes": 3,
+                "active_agent_bridge_lanes": 1,
+                "conflict_agent_bridge_lanes": 1,
+                "open_prs": 0,
+                "overlaps": 1,
+            },
+            "process_census": {"ok": True, "total": 5},
+            "agent_bridge_lanes_preview": [
+                {
+                    "lane_id": "lane-a",
+                    "owner_session": "codex-A",
+                    "status": "active",
+                    "branch": "feature/x",
+                }
+            ],
+            "overlap_report": {
+                "overlap_count": 1,
+                "overlaps": [
+                    {
+                        "kind": "branch",
+                        "value": "feature/x",
+                        "sources": ["agent_bridge_lane", "git_worktree"],
+                    }
+                ],
+            },
+        }
+    )
+
+    assert text.startswith("Active agent session summary")
+    assert "worktrees=2" in text
+    assert "process_census: ok=True total=5" in text
+    assert "lane-a status=active owner=codex-A branch=feature/x" in text
+    assert "branch=feature/x sources=[agent_bridge_lane+git_worktree]" in text
+
+
 def test_main_json_mode_produces_parseable_output(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -555,6 +689,35 @@ def test_main_json_mode_produces_parseable_output(
     assert payload["skip_gh"] is True
     assert payload["skip_codex_desktop"] is True
     assert payload["skip_process_census"] is True
+
+
+def test_main_summary_only_json_omits_full_source_records(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc = detector.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--codex-home",
+            str(tmp_path / "codex"),
+            "--skip-gh",
+            "--skip-codex-desktop",
+            "--skip-process-census",
+            "--json",
+            "--summary-only",
+            "--summary-limit",
+            "2",
+        ]
+    )
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary_only"] is True
+    assert payload["summary_limit"] == 2
+    assert payload["details_omitted"] is True
+    assert "worktrees" not in payload
+    assert "agent_bridge_lanes" not in payload
+    assert "open_prs" not in payload
+    assert payload["counts"]["worktrees"] == 0
 
 
 def test_main_text_mode_prints_header(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
