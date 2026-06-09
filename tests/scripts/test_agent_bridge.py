@@ -353,6 +353,114 @@ def test_main_accepts_json_after_subcommand(
     assert json.loads(capsys.readouterr().out) == []
 
 
+def test_read_all_summary_only_json_omits_recent_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.SESSION_SNAPSHOT_FILE.parent.mkdir(parents=True)
+    mod.SESSION_SNAPSHOT_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "name": "codex-main",
+                    "agent": "codex",
+                    "status": "alive",
+                    "lifecycle": "live",
+                    "branch": "codex/main",
+                    "worktree": str(tmp_path),
+                    "summary": "Working on the main lane.",
+                },
+                {
+                    "name": "claude-review",
+                    "agent": "claude",
+                    "status": "unknown",
+                    "lifecycle": "historical",
+                    "branch": "codex/review",
+                    "worktree": str(tmp_path / "review"),
+                    "summary": "Review transcript.",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "discover",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError("summary-only should use the session snapshot")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_read_tmux_log",
+        lambda _name, _lines: (_ for _ in ()).throw(
+            AssertionError("summary-only should not read tmux logs")
+        ),
+    )
+
+    rc = mod.cmd_read_all(
+        argparse.Namespace(json=True, lines=5, summary_only=True, summary_limit=1)
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "ok": True,
+        "session_count": 2,
+        "by_agent": {"claude": 1, "codex": 1},
+        "by_status": {"alive": 1, "unknown": 1},
+        "by_lifecycle": {"historical": 1, "live": 1},
+        "session_examples": [
+            {
+                "name": "codex-main",
+                "agent": "codex",
+                "status": "alive",
+                "lifecycle": "live",
+                "branch": "codex/main",
+                "worktree": str(tmp_path),
+                "updated_at": "",
+                "summary": "Working on the main lane.",
+            }
+        ],
+        "sessions_omitted": 1,
+        "details_omitted": True,
+    }
+    assert "recent_output" not in payload["session_examples"][0]
+
+
+def test_main_accepts_read_all_summary_only_after_subcommand(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "TMUX_SESSIONS_DIR", tmp_path / "tmux-sessions")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["agent_bridge.py", "read-all", "--json", "--summary-only"],
+    )
+
+    assert mod.main() == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "ok": True,
+        "session_count": 0,
+        "by_agent": {},
+        "by_status": {},
+        "by_lifecycle": {},
+        "session_examples": [],
+        "sessions_omitted": 0,
+        "details_omitted": True,
+    }
+
+
 def test_operator_snapshot_summary_only_json_omits_records(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

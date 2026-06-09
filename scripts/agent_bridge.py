@@ -407,6 +407,40 @@ def _write_session_snapshot(sessions: list[Session]) -> None:
     _atomic_write_json(snapshot_file, snapshot)
 
 
+def _load_session_snapshot() -> list[Session]:
+    snapshot_file = _bridge_file_for_read(SESSION_SNAPSHOT_FILE)
+    try:
+        payload = json.loads(snapshot_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, list):
+        return []
+
+    sessions: list[Session] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        sessions.append(
+            Session(
+                name=str(item.get("name", "")),
+                agent=str(item.get("agent", "unknown") or "unknown"),
+                status=str(item.get("status", "unknown") or "unknown"),
+                source=str(item.get("source", "")),
+                lifecycle=str(item.get("lifecycle", "")),
+                tmux_target=str(item.get("tmux_target", "")),
+                branch=str(item.get("branch", "")),
+                worktree=str(item.get("worktree", "")),
+                session_id=str(item.get("session_id", "")),
+                updated_at=str(item.get("updated_at", "")),
+                summary=str(item.get("summary", "")),
+                log_file=str(item.get("log_file", "")),
+                transcript_file=str(item.get("transcript_file", "")),
+                pr_number=item.get("pr_number"),
+            )
+        )
+    return [session for session in sessions if session.name]
+
+
 def _filter_current_sessions(sessions: list[Session]) -> list[Session]:
     return [session for session in sessions if _is_current_session(session)]
 
@@ -1714,7 +1748,60 @@ def cmd_read(args: argparse.Namespace) -> int:
 
 
 def cmd_read_all(args: argparse.Namespace) -> int:
-    sessions = discover()
+    summary_only = bool(getattr(args, "summary_only", False))
+    summary_limit = max(0, int(getattr(args, "summary_limit", 5)))
+    sessions = _load_session_snapshot() if summary_only else discover()
+    if summary_only and not sessions:
+        sessions = _discover_tmux_fallback()
+    if summary_only:
+        by_agent: dict[str, int] = {}
+        by_status: dict[str, int] = {}
+        by_lifecycle: dict[str, int] = {}
+        for session in sessions:
+            by_agent[session.agent] = by_agent.get(session.agent, 0) + 1
+            by_status[session.status] = by_status.get(session.status, 0) + 1
+            lifecycle = session.lifecycle or "unknown"
+            by_lifecycle[lifecycle] = by_lifecycle.get(lifecycle, 0) + 1
+
+        session_examples = [
+            {
+                "name": session.name,
+                "agent": session.agent,
+                "status": session.status,
+                "lifecycle": session.lifecycle,
+                "branch": session.branch,
+                "worktree": session.worktree,
+                "updated_at": session.updated_at,
+                "summary": session.summary,
+            }
+            for session in sessions[:summary_limit]
+        ]
+        payload = {
+            "ok": True,
+            "session_count": len(sessions),
+            "by_agent": dict(sorted(by_agent.items())),
+            "by_status": dict(sorted(by_status.items())),
+            "by_lifecycle": dict(sorted(by_lifecycle.items())),
+            "session_examples": session_examples,
+            "sessions_omitted": max(0, len(sessions) - len(session_examples)),
+            "details_omitted": True,
+        }
+        if args.json:
+            print(json.dumps(payload, indent=2))
+            return 0
+        print(
+            "sessions: "
+            f"{payload['session_count']} "
+            f"(agents: {', '.join(f'{k}={v}' for k, v in payload['by_agent'].items()) or 'none'})"
+        )
+        for session in session_examples:
+            print(
+                f"- {session['name']} [{session['agent']}] [{session['status']}] "
+                f"branch={session['branch'] or '-'}"
+            )
+        if payload["sessions_omitted"]:
+            print(f"... {payload['sessions_omitted']} additional session(s) omitted")
+        return 0
     if not sessions:
         print("No sessions.")
         return 0
@@ -2798,6 +2885,17 @@ def main() -> int:
 
     ra_p = sub.add_parser("read-all", parents=[json_parent], help="Read all sessions")
     ra_p.add_argument("--lines", type=int, default=5)
+    ra_p.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit counts and bounded session examples without recent output logs.",
+    )
+    ra_p.add_argument(
+        "--summary-limit",
+        type=int,
+        default=5,
+        help="Maximum session examples to include with --summary-only.",
+    )
 
     sub.add_parser("lanes", parents=[json_parent], help="Sessions + PR state")
     owner_p = sub.add_parser(
