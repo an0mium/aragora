@@ -20,15 +20,17 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         raise FileNotFoundError(f"metrics file not found: {path}")
     records: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        raw = line.strip()
+        if not raw:
             continue
         try:
-            payload = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict):
-            records.append(payload)
+            payload = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"malformed JSONL row at {path}:{line_number}: {exc.msg}") from exc
+        if not isinstance(payload, dict):
+            raise ValueError(f"JSONL row at {path}:{line_number} must be an object")
+        records.append(payload)
     return records
 
 

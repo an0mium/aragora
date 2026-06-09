@@ -1,6 +1,9 @@
 """Tests for analyze_boss_metrics script."""
 
+import json
 from pathlib import Path
+
+import pytest
 
 from scripts.analyze_boss_metrics import analyze_boss_metrics, analyze_metrics, render_text
 
@@ -73,3 +76,40 @@ def test_render_text_includes_invalid_numeric_metrics():
 
     assert "invalid numeric metrics" in text
     assert "prompt_chars: 1" in text
+
+
+def test_analyze_boss_metrics_rejects_malformed_metrics_jsonl(tmp_path: Path):
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"issue_number": 1064, "terminal_class": "deliverable_pr_created"}),
+                "{not json}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"malformed JSONL row at .*boss_metrics\.jsonl:2"):
+        analyze_boss_metrics(metrics_path=metrics_path, signals_path=None)
+
+
+def test_analyze_boss_metrics_rejects_non_object_metrics_jsonl(tmp_path: Path):
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(json.dumps([{"issue_number": 1064}]), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"JSONL row at .*boss_metrics\.jsonl:1 must be an object"):
+        analyze_boss_metrics(metrics_path=metrics_path, signals_path=None)
+
+
+def test_analyze_boss_metrics_rejects_malformed_signals_jsonl(tmp_path: Path):
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        json.dumps({"issue_number": 1064, "terminal_class": "deliverable_pr_created"}),
+        encoding="utf-8",
+    )
+    signals_path = tmp_path / "outcome_signals.jsonl"
+    signals_path.write_text("{not json}", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"malformed JSONL row at .*outcome_signals\.jsonl:1"):
+        analyze_boss_metrics(metrics_path=metrics_path, signals_path=signals_path)
