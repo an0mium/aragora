@@ -97,6 +97,10 @@ RESOLVED_STEERING_OUTCOMES = {
     "completed",
 }
 DEFAULT_B0_SCORECARD_TIMEOUT_SECONDS = 5.0
+LIVE_PROOF_SURFACE_DOCS = (
+    "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+    "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md",
+)
 
 
 class _LazyTransportError(Exception):
@@ -2419,6 +2423,17 @@ def _collect_b0_success_rate(repo_root: Path | None = None) -> float | None:
     return _coerce_success_rate(payload.get("no_rescue_success_rate", payload.get("success_rate")))
 
 
+def _collect_live_proof_surfaces(repo_root: Path | None = None) -> list[dict[str, Any]]:
+    root = repo_root or CANONICAL_REPO_ROOT
+    return [
+        {
+            "path": path,
+            "exists": (root / path).exists(),
+        }
+        for path in LIVE_PROOF_SURFACE_DOCS
+    ]
+
+
 def _mute_stdout_after_broken_pipe() -> None:
     """Avoid interpreter-shutdown tracebacks after downstream pipes close.
 
@@ -2518,6 +2533,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "agent_heartbeats": agent_heartbeats,
         "queue_depth": _operator_queue_depth(summary, pending_steering),
         "success_rate": _collect_b0_success_rate(),
+        "proof_surfaces": _collect_live_proof_surfaces(),
         "recent_blockers": _operator_recent_blockers(issues, pending_steering),
         "boss_loop_alive": bool(boss_loop_status["alive"]),
         "boss_loop_status": boss_loop_status,
@@ -2551,6 +2567,10 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     lines.append(f"Processes:{summary['active_processes']} recognized ({process_roles})")
     boss_loop_label = "alive" if boss_loop_status["alive"] else "idle"
     lines.append(f"BossLoop: {boss_loop_label} ({boss_loop_status['reason']})")
+    proof_surface_paths = ", ".join(
+        str(surface["path"]) for surface in snapshot["proof_surfaces"] if surface.get("exists")
+    )
+    lines.append(f"Proof:    {proof_surface_paths or 'no live proof status docs found'}")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
     lines.append(f"Health:   {health_status}")
 

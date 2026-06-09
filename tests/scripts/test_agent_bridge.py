@@ -946,6 +946,101 @@ def test_collect_b0_success_rate_times_out_fail_closed(
     assert mod._collect_b0_success_rate(repo_root) is None
 
 
+def test_collect_live_proof_surfaces_reports_status_docs(tmp_path: Path) -> None:
+    import agent_bridge as mod
+
+    repo_root = tmp_path / "repo"
+    (repo_root / "docs" / "status").mkdir(parents=True)
+    (repo_root / "docs" / "status" / "B0_BENCHMARK_TRUTH_STATUS.md").write_text(
+        "# B0\n",
+        encoding="utf-8",
+    )
+
+    assert mod._collect_live_proof_surfaces(repo_root) == [
+        {
+            "path": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+            "exists": True,
+        },
+        {
+            "path": "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md",
+            "exists": False,
+        },
+    ]
+
+
+def test_operator_snapshot_json_includes_live_proof_surfaces(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    repo_root = tmp_path / "repo"
+    (repo_root / "docs" / "status").mkdir(parents=True)
+    (repo_root / "docs" / "status" / "TW03_RESCUE_PRODUCTIZATION_STATUS.md").write_text(
+        "# TW03\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["proof_surfaces"] == [
+        {
+            "path": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+            "exists": False,
+        },
+        {
+            "path": "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md",
+            "exists": True,
+        },
+    ]
+
+
+def test_operator_snapshot_text_lists_existing_proof_surfaces(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    repo_root = tmp_path / "repo"
+    (repo_root / "docs" / "status").mkdir(parents=True)
+    (repo_root / "docs" / "status" / "B0_BENCHMARK_TRUTH_STATUS.md").write_text(
+        "# B0\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=False, summary_only=True))
+
+    assert rc == 0
+    output = capsys.readouterr().out
+    assert "Proof:    docs/status/B0_BENCHMARK_TRUTH_STATUS.md" in output
+
+
 def test_operator_snapshot_summary_counts_repo_local_lane_when_user_registry_exists(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
