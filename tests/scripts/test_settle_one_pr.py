@@ -1126,6 +1126,64 @@ def test_build_report_fails_closed_when_operator_snapshot_fails(monkeypatch) -> 
     )
 
 
+def test_explicit_pr_report_does_not_require_broad_operator_snapshot(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return (
+                {
+                    "number": 7451,
+                    "title": "fix: explicit candidate",
+                    "headRefName": "codex/explicit-candidate",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "scripts/settle_one_pr.py"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        if args[:3] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "scripts/agent_bridge.py",
+            "operator-snapshot",
+        ]:
+            raise AssertionError("explicit PR report should not load broad operator snapshot")
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                7451,
+                tier=4,
+                requires_human_risk_settlement=True,
+                reasons=["workflow/deploy/destructive surface touched"],
+            )
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=7451,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["selected_pr"] == 7451
+    assert report["status"] == "blocked"
+    assert not any(
+        blocker.startswith(
+            "operator-snapshot unavailable; active-owned exclusions cannot be trusted"
+        )
+        for blocker in report["blockers"]
+    )
+    assert report["policy_context"]["operator_snapshot_command"] == {
+        "command": f"{settle_one_pr.PYTHON_EXECUTABLE} scripts/agent_bridge.py operator-snapshot --json",
+        "returncode": None,
+        "skipped": True,
+        "reason": "explicit PR mode uses targeted owner checks after candidate selection",
+    }
+
+
 def test_build_report_does_not_reload_snapshot_when_packet_already_failed_closed(
     monkeypatch,
 ) -> None:

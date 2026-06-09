@@ -1329,7 +1329,14 @@ def build_report(
         policy_metadata_commands.append(metadata_command)
         active_owned_command: dict[str, Any] | None = None
         snapshot_preblocked = _has_operator_snapshot_load_blocker(preselection_blockers)
-        if not repo_blocker and not snapshot_preblocked:
+        if explicit_pr is not None:
+            active_owned_command = {
+                "command": f"{PYTHON_EXECUTABLE} scripts/agent_bridge.py operator-snapshot --json",
+                "returncode": None,
+                "skipped": True,
+                "reason": "explicit PR mode uses targeted owner checks after candidate selection",
+            }
+        elif not repo_blocker and not snapshot_preblocked:
             active_owned_prs, active_owned_command = load_active_owned_prs(cwd)
             snapshot_blocker = active_owned_snapshot_blocker(active_owned_command)
             if snapshot_blocker:
