@@ -141,7 +141,15 @@ if [ -z "$\{LATEST_BACKUP\}" ]; then
 fi
 
 # 2. Check backup age (must be < 25 hours old)
-BACKUP_AGE_HOURS=$(( ($(date +%s) - $(stat -c %Y "$\{LATEST_BACKUP\}")) / 3600 ))
+backup_mtime() {
+    if stat -f %m "$1" >/dev/null 2>&1; then
+        stat -f %m "$1"
+    else
+        stat -c %Y "$1"
+    fi
+}
+
+BACKUP_AGE_HOURS=$(( ($(date +%s) - $(backup_mtime "$\{LATEST_BACKUP\}")) / 3600 ))
 if [ $\{BACKUP_AGE_HOURS\} -gt 25 ]; then
     alert "Latest backup is $\{BACKUP_AGE_HOURS\} hours old - exceeds 24h RPO"
     exit 1

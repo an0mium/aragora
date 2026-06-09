@@ -140,7 +140,15 @@ fi
 echo "Latest backup: $LATEST_BACKUP"
 
 # 2. Verify backup age (should be < 24 hours old)
-BACKUP_AGE=$(( ($(date +%s) - $(stat -f %m "$BACKUP_DIR/$LATEST_BACKUP")) / 3600 ))
+backup_mtime() {
+    if stat -f %m "$1" >/dev/null 2>&1; then
+        stat -f %m "$1"
+    else
+        stat -c %Y "$1"
+    fi
+}
+
+BACKUP_AGE=$(( ($(date +%s) - $(backup_mtime "$BACKUP_DIR/$LATEST_BACKUP")) / 3600 ))
 if [ $BACKUP_AGE -gt 24 ]; then
     echo "WARNING: Backup is $BACKUP_AGE hours old!"
 fi
