@@ -27,6 +27,7 @@ Examples
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -36,8 +37,36 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.swarm.quorum_evidence import DEFAULT_FAMILIES, run_collect_cli  # noqa: E402
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        sys.stdout.flush()
+    except BrokenPipeError:
+        pass
+    try:
+        with open(os.devnull, "w", encoding="utf-8") as devnull:
+            os.dup2(devnull.fileno(), sys.stdout.fileno())
+    except (OSError, ValueError):
+        try:
+            sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        except OSError:
+            pass
+
+
+class _PipeSafeArgumentParser(argparse.ArgumentParser):
+    def _print_message(self, message: str, file: object | None = None) -> None:
+        if not message:
+            return
+        stream = file if file is not None else sys.stderr
+        try:
+            stream.write(message)  # type: ignore[attr-defined]
+            stream.flush()  # type: ignore[attr-defined]
+        except BrokenPipeError:
+            if stream is sys.stdout:
+                _mute_stdout_after_broken_pipe()
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = _PipeSafeArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True, help="owner/name of the target repo")
     parser.add_argument("--pr", required=True, type=int, help="PR number to collect evidence for")
     parser.add_argument(
