@@ -774,6 +774,30 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return compact
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull_fd, sys.stdout.fileno())
+        finally:
+            os.close(devnull_fd)
+    except (AttributeError, OSError, ValueError):
+        try:
+            sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        except OSError:
+            pass
+
+
+def _emit_stdout(text: str) -> bool:
+    try:
+        sys.stdout.write(f"{text}\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+        return False
+    return True
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Cache GitHub queue status for local-only Codex automations."
@@ -865,7 +889,7 @@ def main(argv: list[str] | None = None) -> int:
     write_status(output, payload)
     if args.json:
         output_payload = summary_only_payload(payload) if args.summary_only else payload
-        print(json.dumps(output_payload, indent=2, sort_keys=True))
+        _emit_stdout(json.dumps(output_payload, indent=2, sort_keys=True))
     return 0
 
 

@@ -931,6 +931,21 @@ def test_summary_only_payload_omits_detail_lists() -> None:
     assert compact["details_omitted"] is True
 
 
+def test_emit_stdout_suppresses_broken_pipe(monkeypatch: Any) -> None:
+    class BrokenStdout:
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not run after write failure")
+
+    broken_stdout = BrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", broken_stdout)
+
+    assert mod._emit_stdout("{}") is False
+    assert mod.sys.stdout.write("muted\n") == len("muted\n")
+
+
 def test_main_summary_only_prints_compact_json_but_writes_full_cache(
     monkeypatch: Any,
     tmp_path: Path,
