@@ -68,6 +68,25 @@ MODEL_REVIEW_QUEUE_CAP = 6
 MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
 TIER_FOUR_SETTLEMENT_MARKER = "Tier-4 Human Settlement Authorization"
+GITHUB_TRANSPORT_ERROR_KIND = "github_transport"
+GITHUB_TRANSPORT_BLOCKED_STATUS = "transport_blocked"
+_GITHUB_TRANSPORT_ERROR_MARKERS = (
+    "tls handshake timeout",
+    "connection reset",
+    "connection refused",
+    "connection timed out",
+    "context deadline exceeded",
+    "client.timeout exceeded",
+    "http 502",
+    "http 503",
+    "http 504",
+    "i/o timeout",
+    "net/http",
+    "no such host",
+    "operation timed out",
+    "temporary failure in name resolution",
+    "timeout awaiting response headers",
+)
 TIER_FOUR_AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "claude",
@@ -971,6 +990,16 @@ def _cmd_conductor(args: argparse.Namespace) -> int:
             mode=getattr(args, "mode", "queue"),
         )
     except _GhError as exc:
+        if json_output and _is_github_transport_error(exc):
+            packet = _queue_conductor_transport_blocked_envelope(
+                error=str(exc),
+                pr_refs=list(getattr(args, "pr", []) or []),
+                repo_override=getattr(args, "repo", None),
+                limit=int(getattr(args, "limit", 30)),
+                mode=str(getattr(args, "mode", "queue") or "queue"),
+            )
+            print(json.dumps(packet, indent=2, sort_keys=True))
+            return 1
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if json_output:
@@ -1281,6 +1310,15 @@ def _cmd_merge_packet(args: argparse.Namespace) -> int:
             ignore_own_quorum_check=bool(getattr(args, "ignore_own_quorum_check", False)),
         )
     except _GhError as exc:
+        if json_output and _is_github_transport_error(exc):
+            packet = _merge_packet_transport_blocked_envelope(
+                error=str(exc),
+                pr_refs=list(getattr(args, "pr", []) or []),
+                repo_override=getattr(args, "repo", None),
+                limit=int(getattr(args, "limit", 30) or 30),
+            )
+            print(json.dumps(packet, indent=2, sort_keys=True))
+            return 1
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if json_output:
@@ -1508,6 +1546,148 @@ def _gh_json(args: list[str]) -> Any:
         return json.loads(out)
     except json.JSONDecodeError as exc:
         raise _GhError(f"gh {' '.join(args)} returned malformed JSON: {exc}") from exc
+
+
+def _gh_error_kind(error: object) -> str:
+    """Return a stable machine-readable error kind for GitHub helper failures."""
+    text = str(error or "").lower()
+    if any(marker in text for marker in _GITHUB_TRANSPORT_ERROR_MARKERS):
+        return GITHUB_TRANSPORT_ERROR_KIND
+    return "github_error"
+
+
+def _is_github_transport_error(error: object) -> bool:
+    return _gh_error_kind(error) == GITHUB_TRANSPORT_ERROR_KIND
+
+
+def _gh_json_with_transport_retries(
+    args: list[str],
+    *,
+    gh_json: Callable[[list[str]], Any] = _gh_json,
+    attempts: int = 2,
+    delay_seconds: float = 0.0,
+) -> Any:
+    """Run a bounded gh JSON call, retrying only transient transport failures."""
+    bounded_attempts = max(1, attempts)
+    last_error: _GhError | None = None
+    for attempt in range(1, bounded_attempts + 1):
+        try:
+            return gh_json(args)
+        except _GhError as exc:
+            last_error = exc
+            if not _is_github_transport_error(exc) or attempt >= bounded_attempts:
+                raise
+            if delay_seconds > 0:
+                time.sleep(delay_seconds)
+    if last_error is not None:
+        raise last_error
+    raise _GhError(f"gh {' '.join(args)} failed without an error")
+
+
+def _numeric_pr_refs(pr_refs: list[str]) -> list[int]:
+    numbers: list[int] = []
+    for ref in pr_refs:
+        try:
+            numbers.append(_parse_pr_number(str(ref)))
+        except Exception:
+            continue
+    return numbers
+
+
+def _transport_blocked_next_prompt(command_name: str, pr_refs: list[str]) -> str:
+    pr_text = ", ".join(f"#{number}" for number in _numeric_pr_refs(pr_refs)) or "the target PR"
+    return (
+        "Do not rely on transcript state. Re-check live GitHub/local state first. "
+        f"Primary task: retry {command_name} for {pr_text} only after GitHub API transport "
+        "recovers. Treat this packet as preserve/no-mutate; do not mark ready, collect "
+        "evidence, record settlement, merge, close, label, rerun workflows, or touch branch "
+        "protection while transport is blocked. If the prompt above accomplishes no "
+        "incremental progress, make the next prompt one that does. If any work can be better "
+        "automated by improving Aragora tooling at a meta level, include the concrete tooling "
+        "improvement plan instead of repeating manual queue checks. Always include a final "
+        "summary section with the best next recursive prompt."
+    )
+
+
+def _transport_blocked_fields(
+    *,
+    error: str,
+    command_name: str,
+    pr_refs: list[str],
+    repo_override: str | None,
+) -> dict[str, Any]:
+    return {
+        "status": GITHUB_TRANSPORT_BLOCKED_STATUS,
+        "transport_blocked": True,
+        "preserve_no_mutate": True,
+        "retryable": _is_github_transport_error(error),
+        "error_kind": _gh_error_kind(error),
+        "error": error,
+        "command": command_name,
+        "repo": repo_override or "",
+        "pr_refs": [str(ref) for ref in pr_refs],
+        "not_ready": _numeric_pr_refs(pr_refs),
+        "next_prompt": _transport_blocked_next_prompt(command_name, pr_refs),
+    }
+
+
+def _merge_packet_transport_blocked_envelope(
+    *,
+    error: str,
+    pr_refs: list[str],
+    repo_override: str | None,
+    limit: int,
+) -> dict[str, Any]:
+    return {
+        "version": "merge_authorization_packet.v1",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "queue_pressure": {
+            "current_open_prs": len(pr_refs),
+            "cap": MODEL_REVIEW_QUEUE_CAP,
+            "active": False,
+            "scope": "explicit_pr_refs" if pr_refs else "open_pr_queue",
+        },
+        "limit": limit,
+        "entries": [],
+        "admin_squash_order": [],
+        "human_risk_settlement_required": [],
+        "admin_squash_allowed": False,
+        **_transport_blocked_fields(
+            error=error,
+            command_name="review-queue merge-packet",
+            pr_refs=pr_refs,
+            repo_override=repo_override,
+        ),
+    }
+
+
+def _queue_conductor_transport_blocked_envelope(
+    *,
+    error: str,
+    pr_refs: list[str],
+    repo_override: str | None,
+    limit: int,
+    mode: str,
+) -> dict[str, Any]:
+    return {
+        "version": "queue_conductor.v1",
+        "mode": mode,
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "origin_main_sha": "",
+        "limit": limit,
+        "initial_heads": {},
+        "candidates": [],
+        "tooling_notes": [
+            "read_only_packet",
+            "transport_failure_is_preserve_no_mutate",
+        ],
+        **_transport_blocked_fields(
+            error=error,
+            command_name="review-queue conductor",
+            pr_refs=pr_refs,
+            repo_override=repo_override,
+        ),
+    }
 
 
 def _resolve_settlement_repo_slug(repo_override: str | None) -> str:
@@ -1749,6 +1929,9 @@ def _fetch_required_pr_check_surface(pr_number: int, repo_override: str | None) 
             "available": False,
             "checks": [],
             "error": str(exc),
+            "error_kind": _gh_error_kind(exc),
+            "transport_blocked": _is_github_transport_error(exc),
+            "preserve_no_mutate": _is_github_transport_error(exc),
         }
     if not isinstance(payload, list):
         return {

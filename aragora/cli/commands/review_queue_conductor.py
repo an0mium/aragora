@@ -22,7 +22,10 @@ from aragora.cli.commands.review_queue import (
     _GhError,
     _build_merge_authorization_packet,
     _fetch_required_pr_check_surface,
+    _gh_error_kind,
     _gh_json,
+    _gh_json_with_transport_retries,
+    _is_github_transport_error,
     _required_pr_check_bucket,
     _summarize_required_pr_checks,
 )
@@ -65,6 +68,7 @@ class ConductorProviders:
     """Dependency hooks used by tests and by the CLI builder."""
 
     gh_json: Callable[[list[str]], Any] = _gh_json
+    rest_json: Callable[[list[str]], Any] = _gh_json
     required_surface: Callable[[int, str | None], dict[str, Any]] = _fetch_required_pr_check_surface
     merge_packet: Callable[..., dict[str, Any]] = _build_merge_authorization_packet
     owner_lookup: Callable[[str, float], dict[str, Any]] | None = None
@@ -91,6 +95,7 @@ def build_queue_conductor_packet(
         limit=limit,
         repo_override=repo_override,
         gh_json=active_providers.gh_json,
+        rest_json=active_providers.rest_json,
     )
     initial_heads: dict[int, str] = {}
     for view in pr_views:
@@ -189,11 +194,18 @@ def _fetch_pr_views(
     limit: int,
     repo_override: str | None,
     gh_json: Callable[[list[str]], Any],
+    rest_json: Callable[[list[str]], Any],
 ) -> list[dict[str, Any]]:
     if pr_refs:
         refs = list(dict.fromkeys(str(ref).strip() for ref in pr_refs if str(ref).strip()))
         return [
-            _fetch_pr_view(str(ref), repo_override=repo_override, gh_json=gh_json) for ref in refs
+            _fetch_pr_view(
+                str(ref),
+                repo_override=repo_override,
+                gh_json=gh_json,
+                rest_json=rest_json,
+            )
+            for ref in refs
         ]
 
     args = [
@@ -215,7 +227,12 @@ def _fetch_pr_views(
         str(item.get("number")) for item in payload if isinstance(item, dict) and item.get("number")
     ]
     return [
-        _fetch_pr_view(ref, repo_override=repo_override, gh_json=gh_json)
+        _fetch_pr_view(
+            ref,
+            repo_override=repo_override,
+            gh_json=gh_json,
+            rest_json=rest_json,
+        )
         for ref in refs[: max(limit, 0)]
     ]
 
@@ -225,14 +242,207 @@ def _fetch_pr_view(
     *,
     repo_override: str | None,
     gh_json: Callable[[list[str]], Any],
+    rest_json: Callable[[list[str]], Any],
 ) -> dict[str, Any]:
     args = ["pr", "view", str(pr_ref), "--json", PR_VIEW_FIELDS]
     if repo_override:
         args.extend(["--repo", repo_override])
-    payload = gh_json(args)
+    try:
+        payload = gh_json(args)
+    except _GhError as exc:
+        if not _is_github_transport_error(exc):
+            raise
+        return _fetch_pr_view_rest(
+            pr_ref,
+            repo_override=repo_override,
+            rest_json=rest_json,
+            graphql_error=str(exc),
+        )
     if not isinstance(payload, dict):
         raise _GhError(f"gh pr view {pr_ref} returned a non-object payload")
     return payload
+
+
+def _fetch_pr_view_rest(
+    pr_ref: str,
+    *,
+    repo_override: str | None,
+    rest_json: Callable[[list[str]], Any],
+    graphql_error: str,
+) -> dict[str, Any]:
+    """Best-effort REST metadata/check-run fallback for conductor reads."""
+    pr_number = _safe_int(pr_ref)
+    repo_slug = _repo_slug_from_override(repo_override)
+    if pr_number is None or not repo_slug:
+        raise _GhError(
+            f"gh pr view {pr_ref} transport failed and REST fallback is unavailable: "
+            f"{graphql_error}"
+        )
+
+    try:
+        pr_payload = _gh_json_with_transport_retries(
+            ["api", f"repos/{repo_slug}/pulls/{pr_number}"],
+            gh_json=rest_json,
+            attempts=2,
+        )
+    except _GhError as exc:
+        raise _GhError(
+            f"gh pr view {pr_ref} transport failed and REST PR fallback failed: "
+            f"{graphql_error}; {exc}"
+        ) from exc
+    if not isinstance(pr_payload, dict):
+        raise _GhError(f"REST PR fallback for {pr_ref} returned a non-object payload")
+
+    files_payload, files_error = _try_rest_json(
+        ["api", f"repos/{repo_slug}/pulls/{pr_number}/files?per_page=100"],
+        rest_json=rest_json,
+    )
+    files = _rest_files(files_payload)
+    head_sha = _nested_str(pr_payload, "head", "sha")
+    check_runs_payload, check_runs_error = _try_rest_json(
+        ["api", f"repos/{repo_slug}/commits/{head_sha}/check-runs?per_page=100"],
+        rest_json=rest_json,
+    )
+    rollup = _rollup_from_rest_check_runs(check_runs_payload)
+    view = _rest_pr_to_view(pr_payload, files=files, rollup=rollup)
+    view["_transport_fallback"] = {
+        "source": "rest",
+        "graphql_error": graphql_error,
+        "pr_metadata_available": True,
+        "files_available": files_payload is not None,
+        "check_runs_available": check_runs_payload is not None,
+        "files_error": files_error,
+        "check_runs_error": check_runs_error,
+    }
+    return view
+
+
+def _try_rest_json(
+    args: list[str],
+    *,
+    rest_json: Callable[[list[str]], Any],
+) -> tuple[Any | None, str]:
+    try:
+        return (
+            _gh_json_with_transport_retries(args, gh_json=rest_json, attempts=2),
+            "",
+        )
+    except Exception as exc:  # noqa: BLE001 - fallback metadata should remain best-effort.
+        return None, str(exc)
+
+
+def _repo_slug_from_override(repo_override: str | None) -> str:
+    raw = str(repo_override or "").strip()
+    if not raw:
+        return ""
+    raw = raw.removeprefix("repos/").strip("/")
+    if raw.startswith("http"):
+        match = re.search(r"github\.com[:/]+([^/]+)/([^/.?#]+)", raw)
+        return f"{match.group(1)}/{match.group(2)}" if match else ""
+    if "/" in raw and not raw.startswith("-"):
+        return raw
+    return ""
+
+
+def _rest_pr_to_view(
+    payload: dict[str, Any],
+    *,
+    files: list[dict[str, str]],
+    rollup: list[dict[str, str]],
+) -> dict[str, Any]:
+    state = str(payload.get("state") or "").upper()
+    merged_at = str(payload.get("merged_at") or payload.get("mergedAt") or "")
+    if merged_at:
+        state = "MERGED"
+    mergeable_state = str(payload.get("mergeable_state") or "").upper()
+    mergeable = _rest_mergeable(payload.get("mergeable"), mergeable_state)
+    labels = [
+        {"name": str(label.get("name") or "")}
+        for label in payload.get("labels") or []
+        if isinstance(label, dict) and str(label.get("name") or "").strip()
+    ]
+    return {
+        "number": payload.get("number"),
+        "title": str(payload.get("title") or ""),
+        "url": str(payload.get("html_url") or payload.get("url") or ""),
+        "headRefName": _nested_str(payload, "head", "ref"),
+        "headRefOid": _nested_str(payload, "head", "sha"),
+        "baseRefName": _nested_str(payload, "base", "ref"),
+        "baseRefOid": _nested_str(payload, "base", "sha"),
+        "isDraft": bool(payload.get("draft")),
+        "state": state,
+        "mergeable": mergeable,
+        "mergeStateStatus": mergeable_state,
+        "updatedAt": str(payload.get("updated_at") or ""),
+        "mergedAt": merged_at,
+        "author": {"login": _nested_str(payload, "user", "login")},
+        "labels": labels,
+        "additions": payload.get("additions") or 0,
+        "deletions": payload.get("deletions") or 0,
+        "changedFiles": payload.get("changed_files") or len(files),
+        "body": str(payload.get("body") or ""),
+        "files": files,
+        "statusCheckRollup": rollup,
+    }
+
+
+def _rest_mergeable(value: Any, mergeable_state: str) -> str:
+    if value is True:
+        return "MERGEABLE"
+    if value is False:
+        if mergeable_state in {"DIRTY", "CONFLICTING"}:
+            return "CONFLICTING"
+        return "UNKNOWN"
+    return "UNKNOWN"
+
+
+def _rest_files(payload: Any) -> list[dict[str, str]]:
+    if not isinstance(payload, list):
+        return []
+    files: list[dict[str, str]] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("filename") or item.get("path") or "").strip()
+        if path:
+            files.append({"path": path})
+    return files
+
+
+def _rollup_from_rest_check_runs(payload: Any) -> list[dict[str, str]]:
+    if not isinstance(payload, dict):
+        return []
+    runs = payload.get("check_runs")
+    if not isinstance(runs, list):
+        return []
+    rollup: list[dict[str, str]] = []
+    for run in runs:
+        if not isinstance(run, dict):
+            continue
+        raw_suite = run.get("check_suite")
+        suite: dict[str, Any] = raw_suite if isinstance(raw_suite, dict) else {}
+        raw_app = suite.get("app")
+        app: dict[str, Any] = raw_app if isinstance(raw_app, dict) else {}
+        rollup.append(
+            {
+                "name": str(run.get("name") or run.get("context") or ""),
+                "workflowName": str(run.get("workflowName") or app.get("name") or ""),
+                "status": str(run.get("status") or "").upper(),
+                "conclusion": str(run.get("conclusion") or "").upper(),
+                "detailsUrl": str(run.get("html_url") or run.get("details_url") or ""),
+                "source": "rest_check_runs",
+            }
+        )
+    return rollup
+
+
+def _nested_str(payload: dict[str, Any], *path: str) -> str:
+    value: Any = payload
+    for key in path:
+        if not isinstance(value, dict):
+            return ""
+        value = value.get(key)
+    return str(value or "")
 
 
 def _build_candidate(
@@ -301,6 +511,7 @@ def _build_candidate(
         "merge_state_status": str(view.get("mergeStateStatus") or ""),
         "updated_at": str(view.get("updatedAt") or ""),
         "files": sorted(file_index.get(pr_number, set())),
+        "transport_fallback": view.get("_transport_fallback") or {},
         "required_checks": required,
         "rollup": rollup,
         "owner": owner,
@@ -329,6 +540,9 @@ def _required_summary(surface: dict[str, Any]) -> dict[str, Any]:
         "has_pending": bool(has_pending),
         "blocking": blocking,
         "error": str(surface.get("error") or ""),
+        "error_kind": str(surface.get("error_kind") or ""),
+        "transport_blocked": bool(surface.get("transport_blocked")),
+        "preserve_no_mutate": bool(surface.get("preserve_no_mutate")),
     }
 
 
@@ -381,9 +595,13 @@ def _merge_packet_summary(
             ignore_own_quorum_check=False,
         )
     except Exception as exc:  # noqa: BLE001 - conductor should preserve on helper failures.
+        transport_blocked = _is_github_transport_error(exc)
         return {
             "available": False,
             "error": str(exc),
+            "error_kind": _gh_error_kind(exc),
+            "transport_blocked": transport_blocked,
+            "preserve_no_mutate": transport_blocked,
             "not_ready": [pr_number],
             "admin_squash_allowed": False,
         }
@@ -475,6 +693,10 @@ def _ready_boundary_summary(
         blockers.append("operator steering messages are pending")
     if required.get("has_failures") or required.get("has_pending"):
         blockers.append("required checks are not green")
+    if required.get("transport_blocked") or required.get("preserve_no_mutate"):
+        blockers.append("GitHub required-check transport is blocked")
+    if merge_packet.get("transport_blocked") or merge_packet.get("preserve_no_mutate"):
+        blockers.append("GitHub merge-packet transport is blocked")
     if rollup.get("actionable_non_green"):
         blockers.append("actionable non-required rollup rows remain")
     if mergeable != "MERGEABLE":
@@ -578,6 +800,12 @@ def _classify_candidate(
             "active_owned",
             False,
             f"route to active owner {owner.get('owner_session') or owner.get('owner') or ''}".strip(),
+        )
+    if required.get("transport_blocked") or merge_packet.get("transport_blocked"):
+        return (
+            "transport_blocked_preserve",
+            False,
+            "GitHub transport blocked; preserve and do not mutate",
         )
     if required.get("has_failures") or required.get("has_pending"):
         return ("blocked_required_checks", False, "wait for or repair required checks")

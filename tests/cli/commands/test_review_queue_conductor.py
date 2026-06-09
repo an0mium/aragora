@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from aragora.cli.commands.review_queue import add_review_queue_parser
+from aragora.cli.commands.review_queue import _GhError, add_review_queue_parser
 from aragora.cli.commands.review_queue_conductor import (
     OWNER_TIMEOUT_CLASSIFICATION,
     READY_BOUNDARY_MARK_READY_CLASSIFICATION,
@@ -442,6 +442,98 @@ def test_conductor_supersession_hint_blocks_conflict_repair() -> None:
     assert older["classification"] == "superseded_or_stale"
     assert older["mutate_allowed"] is False
     assert older["supersession_hints"][0]["pr_number"] == 7831
+
+
+def test_conductor_graphql_timeout_falls_back_to_rest_metadata_and_check_runs() -> None:
+    def gh_json(args: list[str]) -> object:
+        if args[:2] == ["pr", "view"]:
+            raise _GhError("gh pr view 7885 failed: net/http: TLS handshake timeout")
+        raise AssertionError(f"unexpected gh call: {args}")
+
+    def rest_json(args: list[str]) -> object:
+        if args == ["api", "repos/synaptent/aragora/pulls/7885"]:
+            return {
+                "number": 7885,
+                "title": "queue conductor",
+                "html_url": "https://github.com/synaptent/aragora/pull/7885",
+                "head": {"ref": "codex/queue-conductor-command-20260606", "sha": "rest-head"},
+                "base": {"ref": "main", "sha": "base-head"},
+                "draft": True,
+                "state": "open",
+                "mergeable": True,
+                "mergeable_state": "clean",
+                "updated_at": "2026-06-09T00:00:00Z",
+                "user": {"login": "codex"},
+                "labels": [],
+                "changed_files": 1,
+            }
+        if args == ["api", "repos/synaptent/aragora/pulls/7885/files?per_page=100"]:
+            return [{"filename": "aragora/cli/commands/review_queue_conductor.py"}]
+        if args == [
+            "api",
+            "repos/synaptent/aragora/commits/rest-head/check-runs?per_page=100",
+        ]:
+            return {
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "html_url": "https://example.test/checks/1",
+                        "check_suite": {"app": {"name": "GitHub Actions"}},
+                    }
+                ]
+            }
+        raise AssertionError(f"unexpected REST call: {args}")
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        repo_override="synaptent/aragora",
+        providers=ConductorProviders(
+            gh_json=gh_json,
+            rest_json=rest_json,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885, head="rest-head", not_ready=[7885]
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    candidate = packet["candidates"][0]
+    assert candidate["head_sha"] == "rest-head"
+    assert candidate["files"] == ["aragora/cli/commands/review_queue_conductor.py"]
+    assert candidate["rollup"]["total"] == 1
+    assert candidate["rollup"]["actionable_non_green"] is False
+    assert candidate["transport_fallback"]["source"] == "rest"
+    assert candidate["transport_fallback"]["check_runs_available"] is True
+
+
+def test_conductor_transport_failure_classifies_preserve_no_mutate() -> None:
+    view = _view(7885, head="exact-head", draft=True)
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: (_ for _ in ()).throw(
+                _GhError("gh pr view 7885 failed: read: connection reset by peer")
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    candidate = packet["candidates"][0]
+    assert candidate["classification"] == "transport_blocked_preserve"
+    assert candidate["mutate_allowed"] is False
+    assert candidate["merge_packet"]["transport_blocked"] is True
+    assert candidate["merge_packet"]["preserve_no_mutate"] is True
+    assert candidate["merge_packet"]["error_kind"] == "github_transport"
 
 
 def test_review_queue_parser_accepts_conductor_subcommand() -> None:
