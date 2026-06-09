@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 
-import pytest
 
-
-@pytest.mark.asyncio
-async def test_run_sica_cycle_parses_env(monkeypatch, tmp_path):
+def test_run_sica_cycle_parses_env(monkeypatch, tmp_path):
     monkeypatch.setenv("NOMIC_SICA_ENABLED", "1")
     monkeypatch.setenv("NOMIC_SICA_IMPROVEMENT_TYPES", "reliability,readability")
     monkeypatch.setenv("NOMIC_SICA_GENERATOR_MODEL", "claude")
@@ -62,7 +60,7 @@ async def test_run_sica_cycle_parses_env(monkeypatch, tmp_path):
     loop.gemini = None
     loop.grok = None
     loop._log = lambda *_args, **_kwargs: None
-    result = await loop._run_sica_cycle()
+    result = asyncio.run(loop._run_sica_cycle())
 
     assert result["status"] == "success"
 
