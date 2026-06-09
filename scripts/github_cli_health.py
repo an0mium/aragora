@@ -8,10 +8,15 @@ import json
 import os
 import shutil
 import subprocess
-from dataclasses import asdict, dataclass
+import sys
 from collections.abc import Mapping
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 DEFAULT_TIMEOUT_SECONDS = 20
 CONNECTIVITY_ERROR_TOKENS = (
@@ -71,12 +76,9 @@ def github_cli_env(
     if not prefer_app:
         return env
     try:
-        from scripts.github_app_auth_shim import github_cli_env as app_github_cli_env
+        from aragora.swarm.github_app_auth import github_cli_env as app_github_cli_env
     except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
-        try:
-            from github_app_auth_shim import github_cli_env as app_github_cli_env
-        except Exception:
-            return env
+        return env
     return app_github_cli_env(env, prefer_app=True)
 
 

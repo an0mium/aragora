@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 import scripts.github_cli_health as mod
+from aragora.swarm import github_app_auth
 
 
 def test_run_uses_github_cli_env_for_gh(monkeypatch) -> None:
@@ -26,6 +27,25 @@ def test_run_uses_github_cli_env_for_gh(monkeypatch) -> None:
     mod._run(["gh", "auth", "status"], cwd=Path("."), timeout_seconds=5)
 
     assert captured["env"] == {"GH_TOKEN": "app-token"}
+
+
+def test_github_cli_env_uses_repo_app_auth_module(monkeypatch) -> None:
+    calls: list[tuple[dict[str, str], bool]] = []
+
+    def fake_app_env(env, prefer_app=True):
+        calls.append((dict(env), prefer_app))
+        app_env = dict(env)
+        app_env["GH_TOKEN"] = "app-token"
+        app_env["ARAGORA_GITHUB_AUTH_SOURCE"] = "github_app_installation"
+        return app_env
+
+    monkeypatch.setattr(github_app_auth, "github_cli_env", fake_app_env)
+
+    env = mod.github_cli_env({"PATH": "/usr/bin"}, prefer_app=True)
+
+    assert calls == [({"PATH": "/usr/bin"}, True)]
+    assert env["GH_TOKEN"] == "app-token"
+    assert env["ARAGORA_GITHUB_AUTH_SOURCE"] == "github_app_installation"
 
 
 def test_run_can_skip_app_env_for_diagnostic_health(monkeypatch) -> None:
