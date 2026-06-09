@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -246,6 +247,19 @@ class TestVerifyReceiptCLI:
 
         assert result.returncode == 2
         assert "requires a signing key" in result.stderr
+
+    def test_help_pipe_closes_cleanly(self):
+        """Closed downstream help pipes should not emit BrokenPipeError noise."""
+        command = f"{shlex.quote(sys.executable)} {shlex.quote(str(SCRIPT_PATH))} --help | head -5"
+        result = subprocess.run(
+            ["bash", "-o", "pipefail", "-c", command],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "Verify decision receipt signatures offline" in result.stdout
+        assert "BrokenPipeError" not in result.stderr
 
 
 class TestVerifyReceiptWithRSA:

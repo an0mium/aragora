@@ -40,6 +40,39 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
+class PipeSafeArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser that exits quietly when downstream closes stdout."""
+
+    def _print_message(self, message: str, file: Any | None = None) -> None:
+        if not message:
+            return
+        handle = file or sys.stderr
+        try:
+            handle.write(message)
+            handle.flush()
+        except BrokenPipeError:
+            if handle is sys.stdout:
+                _mute_stdout_after_broken_pipe()
+                raise SystemExit(0) from None
+            raise
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _print_stdout(message: str = "") -> None:
+    try:
+        print(message, flush=True)
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+        raise SystemExit(0) from None
+
+
 def load_receipt(path: str) -> dict:
     """Load and parse receipt JSON file."""
     with open(path) as f:
@@ -168,39 +201,39 @@ def print_receipt_info(data: dict, verbose: bool = False):
     receipt = data.get("receipt", {})
     metadata = data.get("signature_metadata", {})
 
-    print("\nReceipt Information:")
-    print(f"  Decision ID: {receipt.get('decision_id', 'N/A')}")
-    print(f"  Verdict: {receipt.get('verdict', 'N/A')}")
-    print(f"  Confidence: {receipt.get('confidence', 'N/A')}")
+    _print_stdout("\nReceipt Information:")
+    _print_stdout(f"  Decision ID: {receipt.get('decision_id', 'N/A')}")
+    _print_stdout(f"  Verdict: {receipt.get('verdict', 'N/A')}")
+    _print_stdout(f"  Confidence: {receipt.get('confidence', 'N/A')}")
 
-    print("\nSignature Metadata:")
-    print(f"  Algorithm: {metadata.get('algorithm', 'N/A')}")
-    print(f"  Timestamp: {metadata.get('timestamp', 'N/A')}")
-    print(f"  Key ID: {metadata.get('key_id', 'N/A')}")
-    print(f"  Version: {metadata.get('version', 'N/A')}")
+    _print_stdout("\nSignature Metadata:")
+    _print_stdout(f"  Algorithm: {metadata.get('algorithm', 'N/A')}")
+    _print_stdout(f"  Timestamp: {metadata.get('timestamp', 'N/A')}")
+    _print_stdout(f"  Key ID: {metadata.get('key_id', 'N/A')}")
+    _print_stdout(f"  Version: {metadata.get('version', 'N/A')}")
 
     # Print signatory info if present
     signatory = metadata.get("signatory")
     if signatory:
-        print("\nSignatory Information:")
-        print(f"  Name: {signatory.get('name', 'N/A')}")
-        print(f"  Email: {signatory.get('email', 'N/A')}")
+        _print_stdout("\nSignatory Information:")
+        _print_stdout(f"  Name: {signatory.get('name', 'N/A')}")
+        _print_stdout(f"  Email: {signatory.get('email', 'N/A')}")
         if signatory.get("title"):
-            print(f"  Title: {signatory['title']}")
+            _print_stdout(f"  Title: {signatory['title']}")
         if signatory.get("organization"):
-            print(f"  Organization: {signatory['organization']}")
+            _print_stdout(f"  Organization: {signatory['organization']}")
         if signatory.get("role"):
-            print(f"  Role: {signatory['role']}")
+            _print_stdout(f"  Role: {signatory['role']}")
         if signatory.get("department"):
-            print(f"  Department: {signatory['department']}")
+            _print_stdout(f"  Department: {signatory['department']}")
 
     if verbose:
-        print("\nFull Receipt Data:")
-        print(json.dumps(receipt, indent=2, default=str))
+        _print_stdout("\nFull Receipt Data:")
+        _print_stdout(json.dumps(receipt, indent=2, default=str))
 
 
 def main():
-    parser = argparse.ArgumentParser(
+    parser = PipeSafeArgumentParser(
         description="Verify decision receipt signatures offline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
@@ -298,14 +331,14 @@ def main():
         }
         if metadata.get("signatory"):
             result["signatory"] = metadata["signatory"]
-        print(json.dumps(result, indent=2))
+        _print_stdout(json.dumps(result, indent=2))
     elif args.quiet:
-        print("VALID" if is_valid else "INVALID")
+        _print_stdout("VALID" if is_valid else "INVALID")
     else:
         if is_valid:
-            print("\n[VALID] Signature verification successful")
+            _print_stdout("\n[VALID] Signature verification successful")
         else:
-            print("\n[INVALID] Signature verification failed")
+            _print_stdout("\n[INVALID] Signature verification failed")
 
         if not args.quiet:
             print_receipt_info(data, verbose=args.verbose)
