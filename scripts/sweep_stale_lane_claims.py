@@ -79,6 +79,35 @@ ACTIVE_STATUSES = {
 }
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull_fd, sys.stdout.fileno())
+        finally:
+            os.close(devnull_fd)
+    except (AttributeError, OSError, ValueError):
+        try:
+            sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        except OSError:
+            pass
+
+
+class PipeSafeArgumentParser(argparse.ArgumentParser):
+    def _print_message(self, message: str, file: Any | None = None) -> None:
+        if not message:
+            return
+        if file is None:
+            file = sys.stderr
+        try:
+            file.write(message)
+            file.flush()
+        except BrokenPipeError:
+            if file is sys.stdout:
+                _mute_stdout_after_broken_pipe()
+
+
 def _utc_now() -> dt.datetime:
     return dt.datetime.now(dt.UTC).replace(microsecond=0)
 
@@ -307,7 +336,7 @@ def sweep(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = PipeSafeArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import subprocess
 import sys
 from collections.abc import Generator
 from pathlib import Path
@@ -394,6 +395,26 @@ def test_build_parser_defaults() -> None:
     assert args.branch_grace_hours == 1.0
     assert args.skip_branch_check is False
     assert args.skip_remote_check is False
+
+
+def test_help_pipe_suppresses_broken_pipe() -> None:
+    script = SCRIPTS_DIR / "sweep_stale_lane_claims.py"
+    proc = subprocess.run(
+        [
+            "bash",
+            "-o",
+            "pipefail",
+            "-c",
+            f"{sys.executable} {script} --help | head -5",
+        ],
+        cwd=SCRIPTS_DIR.parent,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0
+    assert "BrokenPipeError" not in proc.stderr
 
 
 def test_dry_run_flag_is_accepted_as_noop_alias(
