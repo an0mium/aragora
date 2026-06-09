@@ -83,6 +83,25 @@ def _format_name_sample(names: set[str]) -> str:
     return sample
 
 
+def _validate_threshold_pct(value: float) -> float:
+    if not math.isfinite(value) or value < 0:
+        raise ValueError("threshold_pct must be a finite non-negative percentage")
+    return value
+
+
+def _threshold_pct_arg(value: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "threshold must be a finite non-negative percentage"
+        ) from exc
+    try:
+        return _validate_threshold_pct(parsed)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
 def compare_benchmarks(
     current_path: Path,
     baseline_path: Path,
@@ -92,6 +111,7 @@ def compare_benchmarks(
 
     Returns 0 if no regressions exceed threshold_pct, 1 otherwise.
     """
+    threshold_pct = _validate_threshold_pct(threshold_pct)
     current = load_benchmark_json(current_path)
     baseline = load_benchmark_json(baseline_path)
 
@@ -260,7 +280,7 @@ def main() -> None:
     )
     compare.add_argument(
         "--threshold",
-        type=float,
+        type=_threshold_pct_arg,
         default=20.0,
         help="Maximum allowed regression percentage (default: 20%%)",
     )
@@ -276,7 +296,12 @@ def main() -> None:
     # Legacy positional args: --current/--baseline at top level
     parser.add_argument("--current", type=Path, dest="top_current")
     parser.add_argument("--baseline", type=Path, dest="top_baseline")
-    parser.add_argument("--threshold", type=float, default=20.0, dest="top_threshold")
+    parser.add_argument(
+        "--threshold",
+        type=_threshold_pct_arg,
+        default=20.0,
+        dest="top_threshold",
+    )
     parser.add_argument("--validate", type=Path, dest="top_validate")
 
     args = parser.parse_args()

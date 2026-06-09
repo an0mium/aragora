@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "check_benchmark_regression.py"
@@ -83,6 +85,21 @@ def test_compare_allows_partial_overlap_without_regression(tmp_path: Path, capsy
     assert rc == 0
     assert "PASSED: 1 benchmark(s)" in captured.out
     assert "No shared benchmark names" not in captured.out
+
+
+def test_compare_rejects_invalid_threshold_percentages(tmp_path: Path) -> None:
+    current = _write_benchmarks(tmp_path / "current.json", {"bench": 0.001})
+    baseline = _write_benchmarks(tmp_path / "baseline.json", {"bench": 0.001})
+
+    for threshold in (-1.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="finite non-negative"):
+            bench_mod.compare_benchmarks(current, baseline, threshold_pct=threshold)
+
+
+def test_threshold_parser_rejects_invalid_percentages() -> None:
+    for raw in ("-1", "nan", "inf", "not-a-number"):
+        with pytest.raises(bench_mod.argparse.ArgumentTypeError):
+            bench_mod._threshold_pct_arg(raw)
 
 
 def test_validate_rejects_invalid_numeric_stats(tmp_path: Path, capsys) -> None:
