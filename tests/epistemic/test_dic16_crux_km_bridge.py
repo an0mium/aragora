@@ -50,6 +50,7 @@ KnowledgeSource = _km.KnowledgeSource  # type: ignore[attr-defined]
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _entry(crux_id: str = "crux.t1", lbs: float = 0.80) -> CruxEntry:
     return CruxEntry(
         crux_id=crux_id,
@@ -81,6 +82,7 @@ def _receipt(cruxes: list[CruxEntry] | None = None) -> CruxReceipt:
 # Flag-off: always returns empty regardless of cruxes
 # ---------------------------------------------------------------------------
 
+
 class TestFlagOff:
     def test_returns_empty_items(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ARAGORA_CRUX_RECEIPT_ENABLED", raising=False)
@@ -100,6 +102,7 @@ class TestFlagOff:
 # Flag-on, empty cruxes → still empty
 # ---------------------------------------------------------------------------
 
+
 def test_empty_cruxes_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ARAGORA_CRUX_RECEIPT_ENABLED", "1")
     r = crux_receipt_to_knowledge_items(_receipt(cruxes=[]))
@@ -110,6 +113,7 @@ def test_empty_cruxes_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
 # Item shape
 # ---------------------------------------------------------------------------
 
+
 class TestItemShape:
     @pytest.fixture(autouse=True)
     def _on(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -119,13 +123,18 @@ class TestItemShape:
         assert len(crux_receipt_to_knowledge_items(_receipt()).items) == 1
 
     def test_two_cruxes_two_items(self) -> None:
-        assert len(crux_receipt_to_knowledge_items(_receipt([_entry("c1"), _entry("c2")])).items) == 2
+        assert (
+            len(crux_receipt_to_knowledge_items(_receipt([_entry("c1"), _entry("c2")])).items) == 2
+        )
 
     def test_item_id_deterministic(self) -> None:
         assert crux_receipt_to_knowledge_items(_receipt()).items[0].id == "crux_km_crux.t1"
 
     def test_item_content(self) -> None:
-        assert crux_receipt_to_knowledge_items(_receipt()).items[0].content == "The benchmark is fresh."
+        assert (
+            crux_receipt_to_knowledge_items(_receipt()).items[0].content
+            == "The benchmark is fresh."
+        )
 
     def test_item_source_is_belief(self) -> None:
         assert crux_receipt_to_knowledge_items(_receipt()).items[0].source == KnowledgeSource.BELIEF
@@ -134,12 +143,15 @@ class TestItemShape:
         assert crux_receipt_to_knowledge_items(_receipt()).items[0].source_id == "crux.t1"
 
     def test_importance(self) -> None:
-        assert crux_receipt_to_knowledge_items(_receipt()).items[0].importance == pytest.approx(0.80, abs=1e-4)
+        assert crux_receipt_to_knowledge_items(_receipt()).items[0].importance == pytest.approx(
+            0.80, abs=1e-4
+        )
 
 
 # ---------------------------------------------------------------------------
 # Confidence mapping
 # ---------------------------------------------------------------------------
+
 
 class TestConfidence:
     @pytest.fixture(autouse=True)
@@ -165,6 +177,7 @@ class TestConfidence:
 # ---------------------------------------------------------------------------
 # Metadata provenance
 # ---------------------------------------------------------------------------
+
 
 class TestMetadata:
     @pytest.fixture(autouse=True)
