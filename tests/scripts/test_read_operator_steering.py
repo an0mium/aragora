@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 import types
 from pathlib import Path
@@ -46,6 +47,32 @@ def _write_message(root: Path, recipient: str, body: str = "body") -> Path:
 def _receipt_files(root: Path, recipient: str) -> list[Path]:
     receipt_dir = root / recipient / "_read_receipts"
     return sorted(receipt_dir.glob("*.json")) if receipt_dir.is_dir() else []
+
+
+def _assert_help_pipe_safe(script_name: str) -> None:
+    script_path = Path(__file__).resolve().parents[2] / "scripts" / script_name
+    proc = subprocess.Popen(
+        [sys.executable, str(script_path), "--help"],
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert proc.stdout is not None
+    assert proc.stderr is not None
+    sampled = [proc.stdout.readline() for _ in range(5)]
+    proc.stdout.close()
+    stderr = proc.stderr.read()
+    returncode = proc.wait(timeout=10)
+
+    assert returncode == 0
+    assert any("usage:" in line for line in sampled)
+    assert "BrokenPipeError" not in stderr
+    assert stderr == ""
+
+
+def test_help_output_is_pipe_safe() -> None:
+    _assert_help_pipe_safe("read_operator_steering.py")
+    _assert_help_pipe_safe("check_operator_steering.py")
 
 
 def test_reads_only_selected_owner_and_writes_bound_receipt(tmp_path: Path, capsys: Any) -> None:

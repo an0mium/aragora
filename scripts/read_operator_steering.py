@@ -36,6 +36,52 @@ READ_RECEIPT_SCHEMA_VERSION = "aragora-operator-steering-read-receipt/1.0"
 OUTCOME_CHOICES = ("read", "obeyed", "held", "stale", "superseded", "blocked", "completed")
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull_fd, sys.stdout.fileno())
+        finally:
+            os.close(devnull_fd)
+    except Exception:
+        try:
+            sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        except OSError:
+            pass
+
+
+def _emit_stdout(text: str) -> bool:
+    try:
+        sys.stdout.write(text)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+        return False
+    return True
+
+
+def _emit_json(payload: dict[str, Any]) -> bool:
+    return _emit_stdout(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+class _PipeSafeArgumentParser(argparse.ArgumentParser):
+    def _print_message(self, message: str, file: Any | None = None) -> None:
+        if not message:
+            return
+        if file is None or file is sys.stdout:
+            if not _emit_stdout(message):
+                raise SystemExit(0)
+            return
+        try:
+            file.write(message)
+            file.flush()
+        except BrokenPipeError:
+            if file is sys.stdout:
+                _mute_stdout_after_broken_pipe()
+                raise SystemExit(0)
+            raise
+
+
 def _default_state_dir() -> Path:
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
     if configured:
@@ -211,7 +257,7 @@ def _default_read_by_session(owner_session: str) -> str:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _PipeSafeArgumentParser(
         prog="read_operator_steering.py",
         description="Read one operator-steering mailbox and optionally write read receipts.",
     )
@@ -278,7 +324,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "read_receipt_paths": [],
                 "no_receipt": bool(args.no_receipt),
             }
-            print(json.dumps(out, indent=2, sort_keys=True))
+            if not _emit_json(out):
+                return 0
             return 2
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -316,20 +363,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.quiet_empty and not files:
         return 0
     if args.json:
-        print(json.dumps(out, indent=2, sort_keys=True))
+        if not _emit_json(out):
+            return 0
     else:
-        print(f"owner_session: {owner_session}")
-        print(f"steering_inbox_path: {out['steering_inbox_path']}")
-        print(f"message_count: {len(files)}")
-        print(f"receipt_count: {len(receipt_paths)}")
+        lines = [
+            f"owner_session: {owner_session}",
+            f"steering_inbox_path: {out['steering_inbox_path']}",
+            f"message_count: {len(files)}",
+            f"receipt_count: {len(receipt_paths)}",
+        ]
         for msg in out["messages"]:
-            print(
+            lines.append(
                 f"- {msg['filename']} priority={msg['priority']} "
                 f"sent_at_utc={msg['sent_at_utc']} sha256_valid={msg['sha256_valid']} "
                 f"subject={msg['subject']}"
             )
+        if not _emit_stdout("\n".join(lines) + "\n"):
+            return 0
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+        sys.exit(0)
