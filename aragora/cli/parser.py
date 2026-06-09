@@ -346,6 +346,13 @@ def _add_work_parser(subparsers) -> None:
             help="Maximum number of records to emit while preserving the total count",
         )
 
+    def add_summary_only(p) -> None:
+        p.add_argument(
+            "--summary-only",
+            action="store_true",
+            help="Emit compact counts/examples instead of full record details",
+        )
+
     list_cmd = work_sub.add_parser("list", help="List normalized work items")
     add_common(list_cmd)
     list_cmd.add_argument(
@@ -364,6 +371,8 @@ def _add_work_parser(subparsers) -> None:
 
     graph_cmd = work_sub.add_parser("graph", help="Show the work dependency/context graph")
     add_common(graph_cmd)
+    add_limit(graph_cmd)
+    add_summary_only(graph_cmd)
     graph_cmd.add_argument("work_id", nargs="?", help="Optional root work item id")
     graph_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_graph"))
 

@@ -26,6 +26,7 @@ def _args(tmp_path: Path, **kwargs) -> argparse.Namespace:
         "scope": "current",
         "work_id": None,
         "limit": None,
+        "summary_only": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -79,6 +80,16 @@ def test_work_parser_registers_list_limit() -> None:
     assert args.command == "work"
     assert args.work_cmd == "list"
     assert args.limit == 3
+
+
+def test_work_parser_registers_graph_compact_flags() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["work", "graph", "--json", "--summary-only", "--limit", "2"])
+
+    assert args.command == "work"
+    assert args.work_cmd == "graph"
+    assert args.summary_only is True
+    assert args.limit == 2
 
 
 def test_work_parser_rejects_negative_list_limit() -> None:
@@ -587,6 +598,65 @@ def test_work_graph_includes_bead_dependency_edges(tmp_path: Path, monkeypatch, 
 
     assert {item["id"] for item in payload["items"]} == {"bead:a", "bead:b"}
     assert payload["edges"] == [{"from": "bead:a", "relation": "depends_on", "to": "bead:b"}]
+
+
+def test_work_graph_limit_bounds_items_but_preserves_counts(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    for name in ("one", "two", "three"):
+        (outbox / f"{name}.json").write_text(
+            json.dumps({"task": f"open PR {name}", "branch": f"codex/{name}"}),
+            encoding="utf-8",
+        )
+
+    assert cmd_work_graph(_args(tmp_path, limit=2)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["item_count"] == 3
+    assert payload["emitted_item_count"] == 2
+    assert payload["limit"] == 2
+    assert len(payload["items"]) == 2
+    assert payload["items_omitted"] is True
+
+
+def test_work_graph_summary_only_emits_compact_examples(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "task": "Open PR for graph lane",
+                "branch": "codex/graph",
+                "context": "large metadata should not appear in summary output",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (outbox / "same-branch.json").write_text(
+        json.dumps({"task": "Open another graph PR", "branch": "codex/graph"}),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_graph(_args(tmp_path, limit=1, summary_only=True)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["details_omitted"] is True
+    assert payload["item_count"] == 2
+    assert payload["edge_count"] == 2
+    assert payload["emitted_item_count"] == 1
+    assert payload["emitted_edge_count"] == 1
+    assert "items" not in payload
+    assert "edges" not in payload
+    assert payload["item_examples"][0]["id"].startswith("automation-outbox:")
+    assert payload["item_examples"][0]["branch"] == "codex/graph"
+    assert payload["edge_examples"][0]["relation"] == "same_branch"
+    assert "metadata" not in payload["item_examples"][0]
 
 
 def test_work_robot_ranks_actionable_current_work(tmp_path: Path, monkeypatch, capsys) -> None:

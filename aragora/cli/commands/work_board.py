@@ -116,6 +116,98 @@ def _emit(payload: dict[str, Any], *, as_json: bool) -> int:
     return 0
 
 
+def _select_limited_items(
+    items: list[dict[str, Any]], *, limit: int | None, root_id: str | None
+) -> list[dict[str, Any]]:
+    if limit is None:
+        return list(items)
+    selected = list(items[:limit])
+    if limit <= 0 or not root_id or any(item.get("id") == root_id for item in selected):
+        return selected
+    root_item = next((item for item in items if item.get("id") == root_id), None)
+    if not root_item:
+        return selected
+    if len(selected) >= limit:
+        selected = selected[: max(limit - 1, 0)]
+    selected.append(root_item)
+    return selected
+
+
+def _edge_in_selected(edge: dict[str, Any], selected_ids: set[str]) -> bool:
+    return edge.get("from") in selected_ids and edge.get("to") in selected_ids
+
+
+def _limit_graph_payload(payload: dict[str, Any], *, limit: int | None) -> dict[str, Any]:
+    items = list(payload.get("items") or [])
+    edges = list(payload.get("edges") or [])
+    root_id = payload.get("root_id")
+    selected_items = _select_limited_items(items, limit=limit, root_id=root_id)
+    selected_ids = {str(item.get("id")) for item in selected_items}
+    selected_edges = [edge for edge in edges if _edge_in_selected(edge, selected_ids)]
+    if limit is None:
+        selected_edges = edges
+
+    limited = dict(payload)
+    limited.update(
+        {
+            "item_count": len(items),
+            "edge_count": len(edges),
+            "emitted_item_count": len(selected_items),
+            "emitted_edge_count": len(selected_edges),
+            "limit": limit,
+            "items": selected_items,
+            "edges": selected_edges,
+            "items_omitted": len(selected_items) < len(items),
+            "edges_omitted": len(selected_edges) < len(edges),
+        }
+    )
+    return limited
+
+
+def _compact_work_item(item: dict[str, Any]) -> dict[str, Any]:
+    score = item.get("score") or {}
+    compact = {
+        "id": item.get("id"),
+        "source": item.get("source"),
+        "item_type": item.get("item_type"),
+        "status": item.get("status"),
+        "scope": item.get("scope"),
+        "owner": item.get("owner"),
+        "branch": item.get("branch"),
+        "title": item.get("title"),
+    }
+    if "total" in score:
+        compact["score_total"] = score.get("total")
+    return {key: value for key, value in compact.items() if value not in (None, "", [])}
+
+
+def _summary_graph_payload(payload: dict[str, Any], *, limit: int | None) -> dict[str, Any]:
+    example_limit = 10 if limit is None else limit
+    items = list(payload.get("items") or [])
+    edges = list(payload.get("edges") or [])
+    item_examples = _select_limited_items(
+        items,
+        limit=example_limit,
+        root_id=payload.get("root_id"),
+    )
+    edge_examples = edges[:example_limit]
+    return {
+        "schema_version": payload.get("schema_version"),
+        "root_id": payload.get("root_id"),
+        "item_count": len(items),
+        "edge_count": len(edges),
+        "emitted_item_count": len(item_examples),
+        "emitted_edge_count": len(edge_examples),
+        "limit": example_limit,
+        "item_examples": [_compact_work_item(item) for item in item_examples],
+        "edge_examples": list(edge_examples),
+        "items_omitted": len(item_examples) < len(items),
+        "edges_omitted": len(edge_examples) < len(edges),
+        "source_health": list(payload.get("source_health") or []),
+        "details_omitted": True,
+    }
+
+
 def _mute_stdout_after_broken_pipe() -> None:
     """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
     try:
@@ -158,7 +250,13 @@ def cmd_work_show(args: argparse.Namespace) -> int:
 
 def cmd_work_graph(args: argparse.Namespace) -> int:
     graph = build_work_graph(_repo_root(args), scope="all", root_id=getattr(args, "work_id", None))
-    return _emit(graph.to_dict(), as_json=getattr(args, "json", False))
+    payload = graph.to_dict()
+    limit = getattr(args, "limit", None)
+    if getattr(args, "summary_only", False):
+        payload = _summary_graph_payload(payload, limit=limit)
+    elif limit is not None:
+        payload = _limit_graph_payload(payload, limit=limit)
+    return _emit(payload, as_json=getattr(args, "json", False))
 
 
 def cmd_work_robot(args: argparse.Namespace) -> int:
