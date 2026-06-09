@@ -87,6 +87,33 @@ def test_build_boss_loop_command_uses_explicit_issue_list_contract() -> None:
     assert command[command.index("--autonomy") + 1] == "fire_and_forget"
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"max_ticks": 0}, "max_ticks must be a positive integer"),
+        ({"max_consecutive_failures": 0}, "max_consecutive_failures must be a positive integer"),
+        (
+            {"max_consecutive_failures": None},
+            "max_consecutive_failures must be a positive integer",
+        ),
+        ({"interval_seconds": 0.0}, "interval_seconds must be a positive finite number"),
+        ({"interval_seconds": float("nan")}, "interval_seconds must be a positive finite number"),
+        ({"max_hours": -1.0}, "max_hours must be a positive finite number"),
+        ({"max_hours": float("inf")}, "max_hours must be a positive finite number"),
+    ],
+)
+def test_build_boss_loop_command_rejects_invalid_runtime_controls(
+    kwargs: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        mod.build_boss_loop_command(
+            repo="synaptent/aragora",
+            issue_numbers=[1064],
+            **kwargs,
+        )
+
+
 def test_run_recurrence_rotates_metrics_appends_closed_rows_and_dispatches_open_issue(
     tmp_path: Path,
     monkeypatch,

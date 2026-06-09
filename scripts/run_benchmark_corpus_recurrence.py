@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -119,6 +120,20 @@ def filter_open_issue_numbers(
     ]
 
 
+def _positive_int(value: int | None, *, name: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return value
+
+
+def _positive_finite_float(value: float, *, name: str) -> float:
+    if isinstance(value, bool) or not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be a positive finite number")
+    return value
+
+
 def append_closed_issue_rows(
     *,
     metrics_file: Path,
@@ -209,6 +224,15 @@ def build_boss_loop_command(
 ) -> list[str]:
     if not issue_numbers:
         raise ValueError("issue_numbers must not be empty")
+    max_ticks = _positive_int(max_ticks, name="max_ticks")
+    max_consecutive_failures = _positive_int(
+        max_consecutive_failures,
+        name="max_consecutive_failures",
+    )
+    if max_consecutive_failures is None:
+        raise ValueError("max_consecutive_failures must be a positive integer")
+    interval_seconds = _positive_finite_float(interval_seconds, name="interval_seconds")
+    max_hours = _positive_finite_float(max_hours, name="max_hours")
     # BossLoop can consume one initial attempt plus two repair attempts before
     # recording a terminal class for one issue. Budget for that full envelope so
     # later corpus issues are not omitted from the publication window.
