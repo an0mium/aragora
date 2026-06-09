@@ -114,6 +114,22 @@ def _load_expected_latest_payload(
     return payload
 
 
+def _require_matching_latest_payloads(
+    *,
+    corpus_latest_payload: dict[str, Any],
+    revision_latest_payload: dict[str, Any],
+    corpus_latest_path: Path,
+    revision_latest_path: Path,
+    label: str,
+) -> None:
+    if corpus_latest_payload == revision_latest_payload:
+        return
+    raise SystemExit(
+        f"{label} latest pointer mismatch: "
+        f"{corpus_latest_path} does not match {revision_latest_path}"
+    )
+
+
 def _format_percent(value: Any) -> str:
     if isinstance(value, (int, float)):
         return f"{float(value):.1%}"
@@ -633,23 +649,37 @@ def main(argv: list[str] | None = None) -> int:
         expected_corpus_id=expected_corpus_id,
         expected_revision=expected_revision,
     )
+    truth_revision_payload = _load_expected_latest_payload(
+        path=latest_paths["truth_revision_latest"],
+        label="truth artifact revision latest.json",
+        expected_corpus_id=expected_corpus_id,
+        expected_revision=expected_revision,
+    )
+    _require_matching_latest_payloads(
+        corpus_latest_payload=truth_payload,
+        revision_latest_payload=truth_revision_payload,
+        corpus_latest_path=truth_path,
+        revision_latest_path=latest_paths["truth_revision_latest"],
+        label="truth artifact",
+    )
     scorecard_payload = _load_expected_latest_payload(
         path=scorecard_path,
         label="scorecard latest.json",
         expected_corpus_id=expected_corpus_id,
         expected_revision=expected_revision,
     )
-    _load_expected_latest_payload(
-        path=latest_paths["truth_revision_latest"],
-        label="truth artifact revision latest.json",
-        expected_corpus_id=expected_corpus_id,
-        expected_revision=expected_revision,
-    )
-    _load_expected_latest_payload(
+    scorecard_revision_payload = _load_expected_latest_payload(
         path=latest_paths["scorecard_revision_latest"],
         label="scorecard revision latest.json",
         expected_corpus_id=expected_corpus_id,
         expected_revision=expected_revision,
+    )
+    _require_matching_latest_payloads(
+        corpus_latest_payload=scorecard_payload,
+        revision_latest_payload=scorecard_revision_payload,
+        corpus_latest_path=scorecard_path,
+        revision_latest_path=latest_paths["scorecard_revision_latest"],
+        label="scorecard",
     )
 
     content = render_status_markdown(
