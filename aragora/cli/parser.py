@@ -338,6 +338,20 @@ def _add_work_parser(subparsers) -> None:
         p.add_argument("--repo", default=".", help="Repository root to inspect (default: cwd)")
         p.add_argument("--json", action="store_true", help="Emit stable JSON")
 
+    def add_source_filter(p) -> None:
+        p.add_argument(
+            "--source",
+            dest="sources",
+            action="append",
+            default=None,
+            metavar="SOURCE",
+            help=(
+                "Limit collection to a source such as github-pr, automation-outbox, "
+                "automation-receipt, broker-run, bead, convoy, or mission-file. "
+                "May be repeated."
+            ),
+        )
+
     def add_limit(p) -> None:
         p.add_argument(
             "--limit",
@@ -348,6 +362,7 @@ def _add_work_parser(subparsers) -> None:
 
     list_cmd = work_sub.add_parser("list", help="List normalized work items")
     add_common(list_cmd)
+    add_source_filter(list_cmd)
     list_cmd.add_argument(
         "--scope",
         choices=("current", "all"),
@@ -364,6 +379,7 @@ def _add_work_parser(subparsers) -> None:
 
     graph_cmd = work_sub.add_parser("graph", help="Show the work dependency/context graph")
     add_common(graph_cmd)
+    add_source_filter(graph_cmd)
     graph_cmd.add_argument("work_id", nargs="?", help="Optional root work item id")
     graph_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_graph"))
 
@@ -372,6 +388,7 @@ def _add_work_parser(subparsers) -> None:
         help="Rank current work into read-only actionable recommendations",
     )
     add_common(robot_cmd)
+    add_source_filter(robot_cmd)
     add_limit(robot_cmd)
     robot_cmd.set_defaults(func=_lazy("aragora.cli.commands.work_board", "cmd_work_robot"))
 

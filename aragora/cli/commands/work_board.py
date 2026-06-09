@@ -9,12 +9,24 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from aragora.work.board import build_robot_recommendations, build_work_graph, collect_work_items
+from aragora.work.board import (
+    build_robot_recommendations,
+    build_work_graph,
+    collect_work_items,
+    normalize_work_sources,
+)
 from aragora.work.models import SCHEMA_VERSION
 
 
 def _repo_root(args: argparse.Namespace) -> Path:
     return Path(getattr(args, "repo", ".")).expanduser().resolve()
+
+
+def _source_filter(args: argparse.Namespace) -> set[str] | None:
+    try:
+        return normalize_work_sources(getattr(args, "sources", None))
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def _render_human(payload: dict[str, Any]) -> str:
@@ -49,6 +61,8 @@ def _render_human(payload: dict[str, Any]) -> str:
     # work list / robot share a top-level scope + count.
     if "scope" in payload:
         lines.append(f"scope: {payload['scope']}")
+    if payload.get("source_filter"):
+        lines.append(f"source_filter: {', '.join(payload['source_filter'])}")
     if "count" in payload:
         lines.append(f"count: {payload['count']}")
     if "emitted_count" in payload and payload.get("emitted_count") != payload.get("count"):
@@ -126,13 +140,15 @@ def _mute_stdout_after_broken_pipe() -> None:
 
 
 def cmd_work_list(args: argparse.Namespace) -> int:
-    items, health = collect_work_items(_repo_root(args), scope=args.scope)
+    source_filter = _source_filter(args)
+    items, health = collect_work_items(_repo_root(args), scope=args.scope, sources=source_filter)
     limit = getattr(args, "limit", None)
     emitted_items = items[:limit] if limit is not None else items
     return _emit(
         {
             "schema_version": SCHEMA_VERSION,
             "scope": args.scope,
+            "source_filter": sorted(source_filter) if source_filter else None,
             "count": len(items),
             "emitted_count": len(emitted_items),
             "limit": limit,
@@ -157,18 +173,30 @@ def cmd_work_show(args: argparse.Namespace) -> int:
 
 
 def cmd_work_graph(args: argparse.Namespace) -> int:
-    graph = build_work_graph(_repo_root(args), scope="all", root_id=getattr(args, "work_id", None))
-    return _emit(graph.to_dict(), as_json=getattr(args, "json", False))
+    source_filter = _source_filter(args)
+    graph = build_work_graph(
+        _repo_root(args),
+        scope="all",
+        root_id=getattr(args, "work_id", None),
+        sources=source_filter,
+    )
+    payload = graph.to_dict()
+    payload["source_filter"] = sorted(source_filter) if source_filter else None
+    return _emit(payload, as_json=getattr(args, "json", False))
 
 
 def cmd_work_robot(args: argparse.Namespace) -> int:
-    recommendations, health = build_robot_recommendations(_repo_root(args), scope="current")
+    source_filter = _source_filter(args)
+    recommendations, health = build_robot_recommendations(
+        _repo_root(args), scope="current", sources=source_filter
+    )
     limit = getattr(args, "limit", None)
     emitted_recommendations = recommendations[:limit] if limit is not None else recommendations
     return _emit(
         {
             "schema_version": SCHEMA_VERSION,
             "scope": "current",
+            "source_filter": sorted(source_filter) if source_filter else None,
             "count": len(recommendations),
             "emitted_count": len(emitted_recommendations),
             "limit": limit,

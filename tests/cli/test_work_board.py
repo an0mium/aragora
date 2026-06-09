@@ -26,6 +26,7 @@ def _args(tmp_path: Path, **kwargs) -> argparse.Namespace:
         "scope": "current",
         "work_id": None,
         "limit": None,
+        "sources": None,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -70,6 +71,17 @@ def test_work_parser_registers_robot_limit() -> None:
     assert args.command == "work"
     assert args.work_cmd == "robot"
     assert args.limit == 4
+
+
+def test_work_parser_registers_robot_source_filter() -> None:
+    parser = build_parser()
+    args = parser.parse_args(
+        ["work", "robot", "--json", "--source", "automation-outbox", "--source", "github-pr"]
+    )
+
+    assert args.command == "work"
+    assert args.work_cmd == "robot"
+    assert args.sources == ["automation-outbox", "github-pr"]
 
 
 def test_work_parser_registers_list_limit() -> None:
@@ -658,6 +670,32 @@ def test_work_robot_limit_bounds_emitted_recommendations_but_preserves_total_cou
     assert payload["emitted_count"] == 2
     assert len(payload["recommendations"]) == 2
     assert payload["mutations"] == []
+
+
+def test_work_robot_source_filter_skips_unrequested_collectors(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    def fail_github_collector(_repo_root: Path):
+        raise AssertionError("github collector should not run")
+
+    monkeypatch.setattr("aragora.work.board.collect_github_prs", fail_github_collector)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "repair.json").write_text(
+        json.dumps({"task": "repair queue health", "branch": "codex/repair"}),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_robot(_args(tmp_path, sources=["automation-outbox"])) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["source_filter"] == ["automation_outbox"]
+    assert payload["count"] == 1
+    assert payload["recommendations"][0]["item"]["source"] == "automation_outbox"
+    health_sources = {health["source"] for health in payload["source_health"]}
+    assert "automation_outbox" in health_sources
+    assert "github_pr" not in health_sources
+    assert "agent_bridge_lane" not in health_sources
 
 
 def test_work_robot_emits_ready_for_polished_bead(tmp_path: Path, monkeypatch, capsys) -> None:
