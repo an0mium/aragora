@@ -41,6 +41,9 @@ def _stub_gh(path: Path, *, token_available: bool) -> None:
             [
                 "#!/usr/bin/env bash",
                 "set -euo pipefail",
+                'if [[ -n "${GH_CALLS:-}" ]]; then',
+                '  printf "%s\\n" "$*" >> "$GH_CALLS"',
+                "fi",
                 'cmd="${1:-}"',
                 'subcmd="${2:-}"',
                 'if [[ "$cmd" == "auth" && "$subcmd" == "status" ]]; then',
@@ -100,3 +103,23 @@ def test_open_pr_still_fails_when_no_gh_token_is_available(tmp_path: Path) -> No
 
     assert proc.returncode == 1
     assert "gh is not authenticated" in proc.stderr
+
+
+def test_open_pr_creates_draft_by_default_and_deduplicates_flag(tmp_path: Path) -> None:
+    for case_name, args in {"default": [], "explicit": ["--draft"]}.items():
+        case_root = tmp_path / case_name
+        case_root.mkdir()
+        repo = _init_repo(case_root)
+        calls_file = case_root / "gh-calls.txt"
+        env = _env_with_stub(case_root, token_available=True)
+        env["GH_CALLS"] = str(calls_file)
+
+        proc = _run(["bash", str(SCRIPT), *args], cwd=repo, env=env)
+
+        assert proc.returncode == 0
+        calls = calls_file.read_text(encoding="utf-8").splitlines()
+        create_lines = [line for line in calls if line.startswith("pr create ")]
+        assert len(create_lines) == 1
+        create_args = create_lines[0].split()
+        assert create_args.count("--draft") == 1
+        assert "--fill" in create_args
