@@ -488,6 +488,62 @@ class TestGenerateMandatorySynthesis:
         assert ctx.result.final_answer == "Generated synthesis"
 
     @pytest.mark.asyncio
+    async def test_opus_output_does_not_fall_through_to_combined(self):
+        """Non-empty Opus output should be accepted as synthesis."""
+        ctx = MockDebateContext()
+        ctx.proposals = {"agent1": "Proposal 1", "agent2": "Proposal 2"}
+
+        gen = SynthesisGenerator()
+
+        with (
+            patch("aragora.utils.env.is_offline_mode", return_value=False),
+            patch.object(gen, "_anthropic_synthesis_available", return_value=True),
+            patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class,
+            patch.object(
+                gen, "_combine_proposals_as_synthesis", return_value="Combined synthesis"
+            ) as combine,
+        ):
+            mock_agent = MagicMock()
+            mock_agent.generate = AsyncMock(return_value="Opus synthesis.")
+            mock_agent_class.return_value = mock_agent
+
+            result = await gen.generate_mandatory_synthesis(ctx)
+
+        assert result is True
+        assert ctx.result.synthesis == "Opus synthesis."
+        assert ctx.result.final_answer == "Opus synthesis."
+        combine.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sonnet_output_does_not_fall_through_to_combined(self):
+        """Non-empty fallback output should be accepted as synthesis."""
+        ctx = MockDebateContext()
+        ctx.proposals = {"agent1": "Proposal 1", "agent2": "Proposal 2"}
+
+        gen = SynthesisGenerator()
+
+        with (
+            patch("aragora.utils.env.is_offline_mode", return_value=False),
+            patch.object(gen, "_anthropic_synthesis_available", return_value=True),
+            patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class,
+            patch.object(
+                gen, "_combine_proposals_as_synthesis", return_value="Combined synthesis"
+            ) as combine,
+        ):
+            opus_agent = MagicMock()
+            opus_agent.generate = AsyncMock(side_effect=RuntimeError("opus failed"))
+            sonnet_agent = MagicMock()
+            sonnet_agent.generate = AsyncMock(return_value="Sonnet synthesis.")
+            mock_agent_class.side_effect = [opus_agent, sonnet_agent]
+
+            result = await gen.generate_mandatory_synthesis(ctx)
+
+        assert result is True
+        assert ctx.result.synthesis == "Sonnet synthesis."
+        assert ctx.result.final_answer == "Sonnet synthesis."
+        combine.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_opus_timeout_falls_back_to_sonnet(self):
         """Timeout on Opus falls back to Sonnet."""
         ctx = MockDebateContext()
