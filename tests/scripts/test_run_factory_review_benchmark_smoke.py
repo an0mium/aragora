@@ -82,6 +82,21 @@ def test_manifest_rejects_missing_validation_url() -> None:
         raise AssertionError("missing validation_url should fail")
 
 
+def test_manifest_rejects_malformed_head_sha() -> None:
+    manifest = _manifest()
+    case = dict(manifest["smoke_cases"][0])
+    case["head_sha"] = "cb7212e"
+    manifest["smoke_cases"] = [case]
+
+    try:
+        smoke.build_run_plan(manifest)
+    except ValueError as exc:
+        assert "head_sha" in str(exc)
+        assert "40-character lowercase hex commit SHA" in str(exc)
+    else:
+        raise AssertionError("short head_sha should fail")
+
+
 def test_manifest_rejects_malformed_case() -> None:
     manifest = _manifest()
     manifest["smoke_cases"] = ["not-a-case"]

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -36,6 +37,7 @@ REQUIRED_CASE_FIELDS = {
     "validation_path",
     "validation_url",
 }
+FULL_COMMIT_SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
 
 def _utc_now() -> str:
@@ -60,6 +62,7 @@ def _validate_case(row: object, index: int) -> dict[str, Any]:
     missing = sorted(field for field in REQUIRED_CASE_FIELDS if field not in row)
     if missing:
         raise ValueError(f"smoke_cases[{index}] missing required fields: {', '.join(missing)}")
+    validated = dict(row)
     for field in REQUIRED_CASE_FIELDS:
         if field == "pr_number":
             if not isinstance(row[field], int) or isinstance(row[field], bool) or row[field] <= 0:
@@ -67,7 +70,14 @@ def _validate_case(row: object, index: int) -> dict[str, Any]:
             continue
         if not isinstance(row[field], str) or not row[field].strip():
             raise ValueError(f"smoke_cases[{index}].{field} must be a non-empty string")
-    return dict(row)
+        if field == "head_sha" and not FULL_COMMIT_SHA_PATTERN.fullmatch(row[field].strip()):
+            raise ValueError(
+                f"smoke_cases[{index}].head_sha must be a full 40-character lowercase "
+                "hex commit SHA"
+            )
+        if field == "head_sha":
+            validated[field] = row[field].strip()
+    return validated
 
 
 def _validate_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
