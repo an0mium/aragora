@@ -1256,6 +1256,15 @@ def write_ledger(ledger_root: Path, payload: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    compact = dict(payload)
+    candidates = payload.get("candidates")
+    compact["candidate_count"] = len(candidates) if isinstance(candidates, list) else 0
+    compact["candidates"] = []
+    compact["candidates_omitted"] = True
+    return compact
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -1310,6 +1319,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--write-ledger", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Suppress ledger writes.")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Omit full candidate records from JSON output for compact automation gating.",
+    )
     return parser
 
 
@@ -1339,6 +1353,9 @@ def main(argv: list[str] | None = None) -> int:
         payload["ledger_written"] = write_ledger(args.ledger_root, payload)
     else:
         payload["ledger_written"] = None
+
+    if args.summary_only:
+        payload = summary_only_payload(payload)
 
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))

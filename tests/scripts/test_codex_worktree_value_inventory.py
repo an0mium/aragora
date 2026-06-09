@@ -832,6 +832,55 @@ def test_build_parser_include_pr_state_default_off() -> None:
     assert parser.parse_args(["--include-pr-state"]).include_pr_state is True
 
 
+def test_summary_only_payload_omits_full_candidates() -> None:
+    import codex_worktree_value_inventory as mod
+
+    payload = {
+        "schema": mod.SCHEMA,
+        "summary": {"total_candidates": 2},
+        "candidates": [
+            {"path": "/tmp/a", "proof": ["large proof"]},
+            {"path": "/tmp/b", "proof": ["large proof"]},
+        ],
+    }
+
+    compact = mod.summary_only_payload(payload)
+
+    assert compact["summary"] == {"total_candidates": 2}
+    assert compact["candidates"] == []
+    assert compact["candidates_omitted"] is True
+    assert payload["candidates"]
+
+
+def test_main_summary_only_json_uses_compact_payload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    def fake_inventory(**_kwargs: Any) -> dict[str, Any]:
+        return {
+            "schema": mod.SCHEMA,
+            "generated_at": "2026-06-09T00:00:00+00:00",
+            "root": str(tmp_path),
+            "roots": [str(tmp_path)],
+            "repo": str(tmp_path),
+            "base": "origin/main",
+            "base_sha": "abc123",
+            "size_mode": "none",
+            "summary": {"total_candidates": 1},
+            "candidates": [{"path": str(tmp_path / "candidate"), "proof": ["large proof"]}],
+        }
+
+    monkeypatch.setattr(mod, "inventory", fake_inventory)
+
+    assert mod.main(["--repo", str(tmp_path), "--json", "--summary-only"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"] == {"total_candidates": 1}
+    assert payload["candidates"] == []
+    assert payload["candidates_omitted"] is True
+
+
 def test_lookup_open_prs_uses_cached_open_pr_heads_when_provided(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
