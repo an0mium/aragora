@@ -163,6 +163,35 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
     )
 
 
+def test_load_corpus_rejects_blank_corpus_id(tmp_path: Path) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": " ",
+            "revision": 1,
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+
+    with pytest.raises(ValueError, match="non-empty corpus_id"):
+        mod.load_corpus(corpus_path)
+
+
+@pytest.mark.parametrize("revision", [0, -1, True, "not-a-number", None])
+def test_load_corpus_rejects_invalid_revision(tmp_path: Path, revision: object) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": revision,
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+
+    with pytest.raises(ValueError, match="positive integer revision"):
+        mod.load_corpus(corpus_path)
+
+
 def test_render_status_markdown_headlines_verified_rate_and_in_flight_metrics(
     tmp_path: Path,
 ) -> None:
