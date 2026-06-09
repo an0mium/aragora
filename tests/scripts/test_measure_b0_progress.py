@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from scripts.measure_b0_progress import (
     is_b0_cohort_row,
     load_metrics_rows,
@@ -17,6 +19,30 @@ from scripts.rotate_boss_metrics import archive_path_for, rotate_metrics_file
 FIXTURE_PATH = (
     Path(__file__).resolve().parent.parent / "fixtures" / "b0_metrics" / "mixed_metrics.jsonl"
 )
+
+
+def test_load_metrics_rows_rejects_malformed_jsonl_row(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"issue_number": 101, "terminal_class": "deliverable_pr_created"}),
+                "{not json}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"malformed JSONL row at .*boss_metrics\.jsonl:2"):
+        load_metrics_rows(metrics_path)
+
+
+def test_load_metrics_rows_rejects_non_object_jsonl_row(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(json.dumps([{"issue_number": 101}]), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"JSONL row at .*boss_metrics\.jsonl:1 must be an object"):
+        load_metrics_rows(metrics_path)
 
 
 def test_measure_b0_progress_cohorts_and_unique_issue_aggregation() -> None:
