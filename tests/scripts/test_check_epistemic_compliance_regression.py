@@ -80,6 +80,66 @@ def test_checker_fails_when_case_threshold_is_too_strict(tmp_path: Path) -> None
     assert "above threshold" in result.stdout
 
 
+def test_checker_rejects_invalid_baseline_before_scoring(tmp_path: Path) -> None:
+    fixtures_path = tmp_path / "fixtures.json"
+    fixtures_path.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": "valid_case",
+                        "model": "strict_model",
+                        "text": "Confidence: 0.4; alternative: retry.",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(
+        json.dumps(
+            {
+                "global": {"min_total_cases": -1},
+                "models": {
+                    "strict_model": {
+                        "min_avg_score": 1.2,
+                        "min_missing_rate": 0.5,
+                        "max_confidence_rate": True,
+                    }
+                },
+                "cases": {
+                    "valid_case": {
+                        "max_score": -0.1,
+                        "unexpected_score": 0.2,
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run(
+        "--fixtures",
+        str(fixtures_path),
+        "--baseline",
+        str(baseline_path),
+    )
+
+    assert result.returncode == 1
+    assert "Invalid baseline" in result.stderr
+    assert "global.min_total_cases must be a non-negative integer" in result.stderr
+    assert "models.strict_model.min_avg_score must be a finite number between 0 and 1" in (
+        result.stderr
+    )
+    assert "models.strict_model.min_missing_rate is not a supported threshold" in result.stderr
+    assert "models.strict_model.max_confidence_rate must be a finite number between 0 and 1" in (
+        result.stderr
+    )
+    assert "cases.valid_case.max_score must be a finite number between 0 and 1" in result.stderr
+    assert "cases.valid_case.unexpected_score is not a supported threshold" in result.stderr
+
+
 def test_checker_rejects_duplicate_case_ids_before_scoring(tmp_path: Path) -> None:
     fixtures_path = tmp_path / "fixtures.json"
     fixtures_path.write_text(

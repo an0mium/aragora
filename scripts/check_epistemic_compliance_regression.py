@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -34,11 +35,111 @@ DEFAULT_BASELINE = PROJECT_ROOT / "scripts" / "baselines" / "epistemic_complianc
 
 def _load_json(path: Path) -> dict[str, Any]:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
         raise RuntimeError(f"Missing file: {path}") from exc
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"Invalid JSON in {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"JSON payload at {path} must be an object")
+    return payload
+
+
+MODEL_METRICS = frozenset(
+    {
+        "avg_score",
+        "alternatives_rate",
+        "falsifiers_rate",
+        "confidence_rate",
+        "unknowns_rate",
+    }
+)
+MODEL_THRESHOLD_KEYS = frozenset(
+    {f"{prefix}_{metric}" for prefix in ("min", "max") for metric in MODEL_METRICS}
+)
+CASE_THRESHOLD_KEYS = frozenset({"min_score", "max_score"})
+
+
+def _validate_unit_threshold(value: Any, *, field: str, errors: list[str]) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        errors.append(f"{field} must be a finite number between 0 and 1")
+        return
+    numeric = float(value)
+    if not math.isfinite(numeric) or numeric < 0.0 or numeric > 1.0:
+        errors.append(f"{field} must be a finite number between 0 and 1")
+
+
+def _validate_non_negative_int(value: Any, *, field: str, errors: list[str]) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        errors.append(f"{field} must be a non-negative integer")
+        return
+    if value < 0:
+        errors.append(f"{field} must be a non-negative integer")
+
+
+def _validate_baseline(baseline: dict[str, Any]) -> None:
+    errors: list[str] = []
+
+    global_cfg = baseline.get("global", {})
+    if global_cfg is None:
+        global_cfg = {}
+    if not isinstance(global_cfg, dict):
+        errors.append("global must be an object")
+    elif "min_total_cases" in global_cfg:
+        _validate_non_negative_int(
+            global_cfg.get("min_total_cases"),
+            field="global.min_total_cases",
+            errors=errors,
+        )
+
+    models = baseline.get("models", {})
+    if models is None:
+        models = {}
+    if not isinstance(models, dict):
+        errors.append("models must be an object")
+    else:
+        for model_name, thresholds in models.items():
+            if not str(model_name).strip():
+                errors.append("models keys must be non-empty model names")
+                continue
+            if not isinstance(thresholds, dict):
+                errors.append(f"models.{model_name} must be an object")
+                continue
+            for key, threshold in thresholds.items():
+                if key not in MODEL_THRESHOLD_KEYS:
+                    errors.append(f"models.{model_name}.{key} is not a supported threshold")
+                    continue
+                _validate_unit_threshold(
+                    threshold,
+                    field=f"models.{model_name}.{key}",
+                    errors=errors,
+                )
+
+    cases = baseline.get("cases", {})
+    if cases is None:
+        cases = {}
+    if not isinstance(cases, dict):
+        errors.append("cases must be an object")
+    else:
+        for case_id, thresholds in cases.items():
+            if not str(case_id).strip():
+                errors.append("cases keys must be non-empty case ids")
+                continue
+            if not isinstance(thresholds, dict):
+                errors.append(f"cases.{case_id} must be an object")
+                continue
+            for key, threshold in thresholds.items():
+                if key not in CASE_THRESHOLD_KEYS:
+                    errors.append(f"cases.{case_id}.{key} is not a supported threshold")
+                    continue
+                _validate_unit_threshold(
+                    threshold,
+                    field=f"cases.{case_id}.{key}",
+                    errors=errors,
+                )
+
+    if errors:
+        raise RuntimeError("Invalid baseline: " + "; ".join(errors))
 
 
 def _validate_cases(cases: list[Any]) -> list[dict[str, Any]]:
@@ -229,6 +330,7 @@ def main() -> int:
 
     fixture_doc = _load_json(args.fixtures)
     baseline_doc = _load_json(args.baseline)
+    _validate_baseline(baseline_doc)
     cases = fixture_doc.get("cases", [])
     if not isinstance(cases, list):
         raise RuntimeError("fixtures JSON must contain a list field named 'cases'")
