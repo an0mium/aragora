@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,6 +11,19 @@ import pytest
 from aragora.swarm.issue_scanner import BossIssueCandidate
 from aragora.swarm.roadmap_priority import RoadmapPriorityPolicy
 from scripts import generate_boss_issues as mod
+
+
+def test_help_does_not_load_full_swarm_stack() -> None:
+    result = subprocess.run(
+        [sys.executable, str(mod.REPO_ROOT / "scripts" / "generate_boss_issues.py"), "--help"],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.startswith("usage: generate_boss_issues.py")
+    assert result.stderr == ""
 
 
 def _candidate(name: str, *, file_scope: list[str]) -> BossIssueCandidate:

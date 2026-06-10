@@ -21,16 +21,45 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 # Add repo root to path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from aragora.swarm.decomposition_bridge import DecompositionBridge  # noqa: E402
-from aragora.swarm.issue_scanner import BossIssueCandidate, scan_all  # noqa: E402
-from aragora.swarm.issue_upgrader import upgrade_issue_heuristic  # noqa: E402
-from aragora.swarm.proof_first_queue import classify_proof_first_queue_issue  # noqa: E402
-from aragora.swarm.roadmap_priority import load_roadmap_priority_policy  # noqa: E402
+if TYPE_CHECKING:
+    from aragora.swarm.issue_scanner import BossIssueCandidate
+
+
+def DecompositionBridge(*args: Any, **kwargs: Any) -> Any:
+    from aragora.swarm.decomposition_bridge import DecompositionBridge as _Bridge
+
+    return _Bridge(*args, **kwargs)
+
+
+def scan_all(*args: Any, **kwargs: Any) -> list[BossIssueCandidate]:
+    from aragora.swarm.issue_scanner import scan_all as _scan_all
+
+    return _scan_all(*args, **kwargs)
+
+
+def upgrade_issue_heuristic(*args: Any, **kwargs: Any) -> Any:
+    from aragora.swarm.issue_upgrader import upgrade_issue_heuristic as _upgrade
+
+    return _upgrade(*args, **kwargs)
+
+
+def classify_proof_first_queue_issue(*args: Any, **kwargs: Any) -> Any:
+    from aragora.swarm.proof_first_queue import classify_proof_first_queue_issue as _classify
+
+    return _classify(*args, **kwargs)
+
+
+def load_roadmap_priority_policy(*args: Any, **kwargs: Any) -> Any:
+    from aragora.swarm.roadmap_priority import load_roadmap_priority_policy as _load
+
+    return _load(*args, **kwargs)
+
 
 _GENERIC_PARENT_PHRASES: tuple[str, ...] = (
     "read the module and identify all public functions",
