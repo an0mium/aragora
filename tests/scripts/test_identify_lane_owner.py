@@ -1075,6 +1075,108 @@ class TestMainCLI:
         assert data["harness_confidence"] == "mailbox_only"
         assert "send_operator_steering.py --to codex-p19-repair-7292" in data["steering_command"]
 
+    def test_happy_path_json_summary_only(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry = write_lane_registry(tmp_path)
+        rc = ilo.main(
+            [
+                "--pr",
+                "7292",
+                "--json",
+                "--summary-only",
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["lane_id"] == "P19-repair-7292-stage2-blockers"
+        assert data["owner_session"] == "codex-p19-repair-7292"
+        assert data["pr_number"] == 7292
+        assert data["owner_state"] == "owned"
+        assert data["liveness_state"] == "missing_heartbeat"
+        assert data["pending_message_count"] == 0
+        assert data["dispatchable"] is True
+        assert data["harness_confidence"] == "mailbox_only"
+        assert data["live_process_found"] is False
+        assert data["codex_thread_found"] is False
+        assert data["claude_session_found"] is False
+        assert data["factory_droid_found"] is False
+        assert data["details_omitted"] is True
+        assert "live_process" not in data
+        assert "codex_thread" not in data
+        assert "claude_session" not in data
+        assert "factory_droid" not in data
+        assert "steering_command" not in data
+
+    def test_summary_serializer_preserves_latest_receipt_and_heartbeat_state(
+        self, tmp_path: Path
+    ) -> None:
+        info = ilo.LaneOwnerInfo(
+            lane_id="lane-a",
+            owner_session="owner-a",
+            source="codex",
+            status="active",
+            branch="codex/branch-a",
+            worktree="/tmp/branch-a",
+            pr_number=123,
+            goal="Test compact owner summaries",
+            updated_at="2026-06-10T00:00:00Z",
+            codex_thread_id=None,
+            codex_rollout_path=None,
+            desktop_label=None,
+            session_title=None,
+            contact_method=None,
+            contact_payload=None,
+            last_mailbox_check_at="2026-06-10T00:01:00Z",
+            last_delivery_at=None,
+            last_ack_at=None,
+            last_heartbeat_at="2026-06-10T00:02:00Z",
+            last_steering_outcome="completed",
+            live_process={"found": False, "reason": "no process"},
+            codex_thread={"found": True, "rollout_path": "/large/rollout.jsonl"},
+            claude_session={"found": False, "reason": "absent"},
+            factory_droid={"found": False, "reason": "absent"},
+            steering_inbox_path=str(tmp_path / "inbox"),
+            pending_message_count=1,
+            read_receipt_count=2,
+            unread_message_count=0,
+            latest_read_receipt={
+                "outcome": "completed",
+                "read_at_utc": "2026-06-10T00:03:00Z",
+            },
+            latest_heartbeat={
+                "fresh": True,
+                "last_seen_at": "2026-06-10T00:04:00Z",
+            },
+            mailbox_dispatchable=True,
+            live_prompt_dispatchable=False,
+            dispatchable=True,
+            dispatch_blocker=None,
+            steering_command="python3 scripts/send_operator_steering.py --to owner-a",
+            harness_confidence="codex_thread_best_effort",
+            owner_state="owned",
+            liveness_state="fresh_heartbeat",
+            cleanup_state="preserve_live_owner",
+            owner_state_reason="lane status is active with current liveness evidence",
+            recommended_operator_action=(
+                "route work through owner_session; do not cleanup without owner release"
+            ),
+        )
+
+        data = ilo.summarize_owner_info(info)
+
+        assert data["latest_read_receipt_outcome"] == "completed"
+        assert data["latest_read_receipt_at"] == "2026-06-10T00:03:00Z"
+        assert data["latest_heartbeat_fresh"] is True
+        assert data["latest_heartbeat_last_seen_at"] == "2026-06-10T00:04:00Z"
+        assert data["codex_thread_found"] is True
+        assert data["details_omitted"] is True
+        assert "latest_read_receipt" not in data
+        assert "latest_heartbeat" not in data
+        assert "steering_inbox_path" not in data
+
     def test_completed_lane_reports_mailbox_only_but_not_dispatchable(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:

@@ -1243,6 +1243,51 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print(f"harness_confidence:    {info.harness_confidence}")
 
 
+def summarize_owner_info(info: LaneOwnerInfo) -> dict[str, Any]:
+    """Return compact owner state for automation startup probes."""
+
+    latest_heartbeat = info.latest_heartbeat or {}
+    latest_receipt = info.latest_read_receipt or {}
+    return {
+        "lane_id": info.lane_id,
+        "owner_session": info.owner_session,
+        "source": info.source,
+        "status": info.status,
+        "branch": info.branch,
+        "worktree": info.worktree,
+        "pr_number": info.pr_number,
+        "goal": info.goal,
+        "updated_at": info.updated_at,
+        "owner_state": info.owner_state,
+        "liveness_state": info.liveness_state,
+        "cleanup_state": info.cleanup_state,
+        "owner_state_reason": info.owner_state_reason,
+        "recommended_operator_action": info.recommended_operator_action,
+        "pending_message_count": info.pending_message_count,
+        "unread_message_count": info.unread_message_count,
+        "read_receipt_count": info.read_receipt_count,
+        "latest_read_receipt_outcome": latest_receipt.get("outcome"),
+        "latest_read_receipt_at": latest_receipt.get("read_at_utc"),
+        "latest_heartbeat_fresh": latest_heartbeat.get("fresh"),
+        "latest_heartbeat_last_seen_at": latest_heartbeat.get("last_seen_at"),
+        "last_mailbox_check_at": info.last_mailbox_check_at,
+        "last_delivery_at": info.last_delivery_at,
+        "last_ack_at": info.last_ack_at,
+        "last_heartbeat_at": info.last_heartbeat_at,
+        "last_steering_outcome": info.last_steering_outcome,
+        "mailbox_dispatchable": info.mailbox_dispatchable,
+        "live_prompt_dispatchable": info.live_prompt_dispatchable,
+        "dispatchable": info.dispatchable,
+        "dispatch_blocker": info.dispatch_blocker,
+        "harness_confidence": info.harness_confidence,
+        "live_process_found": bool(info.live_process.get("found")),
+        "codex_thread_found": bool(info.codex_thread.get("found")),
+        "claude_session_found": bool(info.claude_session.get("found")),
+        "factory_droid_found": bool(info.factory_droid.get("found")),
+        "details_omitted": True,
+    }
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="identify_lane_owner.py",
@@ -1257,6 +1302,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--branch", help="Exact match on LaneRecord.branch.")
     p.add_argument("--worktree", help="Exact match on LaneRecord.worktree (path-normalised).")
     p.add_argument("--json", action="store_true", help="Emit JSON instead of human table.")
+    p.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, emit compact owner/liveness fields and omit nested evidence blobs.",
+    )
     p.add_argument(
         "--registry-path",
         type=Path,
@@ -1345,7 +1395,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     if args.json:
-        print(json.dumps(dataclasses.asdict(info), indent=2, sort_keys=True))
+        payload = summarize_owner_info(info) if args.summary_only else dataclasses.asdict(info)
+        print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         _print_human(info)
 
