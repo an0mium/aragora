@@ -17,6 +17,9 @@ INTERVAL="${INTERVAL:-600}"
 LABEL="com.aragora.fleet-sentinel"
 LOG_PATH="${REPO_ROOT}/.aragora/overnight/fleet-sentinel.log"
 PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
+# launchd agents get a minimal PATH without /opt/homebrew/bin; the sentinel's
+# gh_auth check needs `gh` on PATH or it reports status unknown (exit 2).
+SENTINEL_PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 render_plist() {
   cat <<EOF
@@ -34,6 +37,11 @@ render_plist() {
     </array>
     <key>WorkingDirectory</key>
     <string>${REPO_ROOT}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>${SENTINEL_PATH}</string>
+    </dict>
     <key>StartInterval</key>
     <integer>${INTERVAL}</integer>
     <key>RunAtLoad</key>
