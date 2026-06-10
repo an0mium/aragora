@@ -320,10 +320,12 @@ def run_iteration(repo_root: Path, *, apply: bool, base_ref: str, timeout: float
         outcome = OUTCOME_ERROR
         error = f"{type(exc).__name__}: {exc}"
     finally:
-        if worktree is not None:
-            cleanup_worktree(repo_root, worktree, timeout)
-        if scratch is not None:
-            shutil.rmtree(scratch, ignore_errors=True)
+        try:
+            if worktree is not None:
+                cleanup_worktree(repo_root, worktree, timeout)
+        finally:
+            if scratch is not None:
+                shutil.rmtree(scratch, ignore_errors=True)
     return {
         "outcome": outcome,
         "error": error,
