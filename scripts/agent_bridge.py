@@ -636,10 +636,13 @@ def _worktree_matches(record_worktree: str, query_worktree: str | None) -> bool:
 def _record_matches_owner_query(
     record: LaneRecord,
     *,
+    lane_id: str | None,
     pr_number: int | None,
     branch: str | None,
     worktree: str | None,
 ) -> bool:
+    if lane_id and record.lane_id == lane_id:
+        return True
     if pr_number is not None and record.pr_number == pr_number:
         return True
     if branch and record.branch == branch:
@@ -656,6 +659,7 @@ def _owner_action_for(record: LaneRecord) -> str:
 
 def _unowned_owner_payload(
     *,
+    lane_id: str | None,
     pr_number: int | None,
     branch: str | None,
     worktree: str | None,
@@ -663,7 +667,7 @@ def _unowned_owner_payload(
     return {
         "owner_status": "unowned",
         "active_owner": False,
-        "lane_id": None,
+        "lane_id": lane_id,
         "owner_session": None,
         "pr_number": pr_number,
         "branch": branch,
@@ -781,6 +785,7 @@ def _newest_lane_record(records: list[LaneRecord]) -> LaneRecord:
 def _active_owner_payload(
     records: list[LaneRecord],
     *,
+    lane_id: str | None,
     pr_number: int | None,
     branch: str | None,
     worktree: str | None,
@@ -789,11 +794,20 @@ def _active_owner_payload(
         record
         for record in records
         if _record_matches_owner_query(
-            record, pr_number=pr_number, branch=branch, worktree=worktree
+            record,
+            lane_id=lane_id,
+            pr_number=pr_number,
+            branch=branch,
+            worktree=worktree,
         )
     ]
     if not matches:
-        return _unowned_owner_payload(pr_number=pr_number, branch=branch, worktree=worktree)
+        return _unowned_owner_payload(
+            lane_id=lane_id,
+            pr_number=pr_number,
+            branch=branch,
+            worktree=worktree,
+        )
 
     active_matches = [record for record in matches if record.status in ACTIVE_LANE_STATUSES]
     if active_matches:
@@ -810,7 +824,12 @@ def _active_owner_payload(
     if completed_matches:
         return _historical_owner_payload(_newest_lane_record(completed_matches))
 
-    return _unowned_owner_payload(pr_number=pr_number, branch=branch, worktree=worktree)
+    return _unowned_owner_payload(
+        lane_id=lane_id,
+        pr_number=pr_number,
+        branch=branch,
+        worktree=worktree,
+    )
 
 
 def _load_broker_run_summaries() -> list[dict[str, Any]]:
@@ -1779,12 +1798,13 @@ def cmd_lanes(args: argparse.Namespace) -> int:
 
 
 def cmd_owner(args: argparse.Namespace) -> int:
-    """Report the active lane owner for a PR, branch, or worktree."""
+    """Report the active lane owner for a lane id, PR, branch, or worktree."""
+    lane_id = str(getattr(args, "lane_id", "") or "").strip() or None
     pr_number = getattr(args, "pr", None)
     branch = str(getattr(args, "branch", "") or "").strip() or None
     worktree = str(getattr(args, "worktree", "") or "").strip() or None
-    if pr_number is None and branch is None and worktree is None:
-        print("Provide at least one of --pr, --branch, or --worktree.", file=sys.stderr)
+    if lane_id is None and pr_number is None and branch is None and worktree is None:
+        print("Provide at least one of --lane-id, --pr, --branch, or --worktree.", file=sys.stderr)
         return 2
 
     sessions, _broker_runs, _active_broker_ids = _discover_with_broker_state(
@@ -1795,6 +1815,7 @@ def cmd_owner(args: argparse.Namespace) -> int:
     records = _sync_lane_records(_load_lane_registry(), sessions)
     payload = _active_owner_payload(
         records,
+        lane_id=lane_id,
         pr_number=pr_number,
         branch=branch,
         worktree=worktree,
@@ -2803,8 +2824,9 @@ def main() -> int:
     owner_p = sub.add_parser(
         "owner",
         parents=[json_parent],
-        help="Find the active lane owner for a PR, branch, or worktree",
+        help="Find the active lane owner for a lane id, PR, branch, or worktree",
     )
+    owner_p.add_argument("--lane-id", help="Lane id to query")
     owner_p.add_argument("--pr", type=int, help="Pull request number to query")
     owner_p.add_argument("--branch", help="Branch name to query")
     owner_p.add_argument("--worktree", help="Worktree path to query")

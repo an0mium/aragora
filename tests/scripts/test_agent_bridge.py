@@ -1268,6 +1268,92 @@ def test_cmd_owner_json_reports_active_pr_owner(
     }
 
 
+def test_cmd_owner_json_reports_active_lane_id_owner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q465-primary-agent-bridge-owner-lane-id",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "updated_at": "2026-06-10T12:00:00Z",
+                    "branch": "codex/agent-bridge-owner-lane-id",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+
+    rc = mod.cmd_owner(
+        argparse.Namespace(
+            json=True,
+            lane_id="Q465-primary-agent-bridge-owner-lane-id",
+            pr=None,
+            branch=None,
+            worktree=None,
+        )
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["owner_status"] == "owned"
+    assert payload["active_owner"] is True
+    assert payload["lane_id"] == "Q465-primary-agent-bridge-owner-lane-id"
+    assert payload["owner_session"] == "codex-owner"
+    assert payload["branch"] == "codex/agent-bridge-owner-lane-id"
+    assert payload["recommended_operator_action"] == (
+        "route mutation/comment work to owner_session codex-owner; non-owners should stop or request release"
+    )
+
+
+def test_cmd_owner_json_reports_unowned_lane_id(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text("[]", encoding="utf-8")
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+
+    rc = mod.cmd_owner(
+        argparse.Namespace(
+            json=True,
+            lane_id="missing-lane",
+            pr=None,
+            branch=None,
+            worktree=None,
+        )
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "owner_status": "unowned",
+        "active_owner": False,
+        "lane_id": "missing-lane",
+        "owner_session": None,
+        "pr_number": None,
+        "branch": None,
+        "worktree": None,
+        "head": None,
+        "status": None,
+        "updated_at": None,
+        "recommended_operator_action": "no active owner found; claim the lane before mutation",
+    }
+
+
 def test_cmd_owner_preserves_registry_identity_when_live_session_is_sparse(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
