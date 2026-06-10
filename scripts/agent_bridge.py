@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -2367,11 +2368,15 @@ def _coerce_success_rate(raw_rate: Any) -> float | None:
     if raw_rate is None or isinstance(raw_rate, bool):
         return None
     if isinstance(raw_rate, int | float):
-        return float(raw_rate)
-    try:
-        return float(str(raw_rate))
-    except ValueError:
+        rate = float(raw_rate)
+    else:
+        try:
+            rate = float(str(raw_rate))
+        except ValueError:
+            return None
+    if not math.isfinite(rate) or rate < 0.0 or rate > 1.0:
         return None
+    return rate
 
 
 def _b0_scorecard_timeout_seconds() -> float:
