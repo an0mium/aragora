@@ -29,6 +29,25 @@ def _patch_bridge_paths(mod, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", tmp_path / "repo")
 
 
+def test_root_help_pipe_suppresses_broken_pipe() -> None:
+    proc = subprocess.run(
+        [
+            "bash",
+            "-o",
+            "pipefail",
+            "-c",
+            f"{sys.executable} {SCRIPTS_DIR / 'agent_bridge.py'} --help | head -5",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0
+    assert "usage: agent_bridge.py" in proc.stdout
+    assert "BrokenPipeError" not in proc.stderr
+
+
 def test_send_tmux_multiline_uses_delete_on_paste_buffer_transport(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

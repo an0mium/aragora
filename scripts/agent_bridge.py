@@ -2440,6 +2440,21 @@ def _emit_text(output: str) -> int:
     return 0
 
 
+class _PipeSafeArgumentParser(argparse.ArgumentParser):
+    def _print_message(self, message: str, file: Any | None = None) -> None:
+        if not message:
+            return
+        target = file or sys.stderr
+        try:
+            target.write(message)
+            target.flush()
+        except BrokenPipeError:
+            if target is sys.stdout:
+                _mute_stdout_after_broken_pipe()
+                self.exit(0)
+            raise
+
+
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
@@ -2717,13 +2732,13 @@ def cmd_gc(args: argparse.Namespace) -> int:
 
 
 def _json_parent() -> argparse.ArgumentParser:
-    parent = argparse.ArgumentParser(add_help=False)
+    parent = _PipeSafeArgumentParser(add_help=False)
     parent.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
     return parent
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
+    parser = _PipeSafeArgumentParser(
         description="Agent bridge: send, approve, read, lanes",
     )
     parser.add_argument("--json", action="store_true")
