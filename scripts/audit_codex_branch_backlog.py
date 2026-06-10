@@ -73,7 +73,7 @@ COMPACT_RECORD_EXAMPLE_FIELDS = (
     "handoff_receipt_exists",
     "handoff_outbox_exists",
 )
-DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY = 0
+DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY = 1
 DIVERGENCE_REF_BATCH_SIZE = 200
 
 
@@ -1712,7 +1712,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--examples",
         type=int,
         default=None,
-        help="Examples per Markdown category or summary-only JSON category",
+        help=(
+            "Examples per Markdown category or summary-only JSON category "
+            f"(default: {DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY} for summary-only JSON)"
+        ),
     )
     return parser
 
