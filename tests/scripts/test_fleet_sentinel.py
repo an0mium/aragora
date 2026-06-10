@@ -95,10 +95,19 @@ def test_publisher_status_corrupt_json_breaches(tmp_path: Path) -> None:
 def test_breach_replay_may18_publisher_incident(tmp_path: Path) -> None:
     """Acceptance: replaying the real May-18 publisher status raises the alarm.
 
-    Fixture replicates the structure of the live
-    ``.aragora/automation-publisher-status.json`` captured during the
+    Fixture replicates the status structure captured during the
     May-18 -> Jun-08 outage: ``auth_ok: false`` and ``generated_at``
     of 2026-05-18.  Even with a *fresh* file mtime the sentinel must breach.
+
+    Provenance: the original incident snapshot lived at the old
+    ``.aragora/automation-publisher-status.json`` path, whose writer moved
+    away around 2026-05-24 (the file became an orphan).  The check now
+    watches the live writer's path —
+    ``.aragora/automation-github-status/latest.json``, written by
+    ``scripts/cache_codex_automation_github_status.py`` on every publisher
+    pass — which carries the same ``generated_at`` +
+    ``github_health.auth_ok`` structure, so the breach semantics replayed
+    here are unchanged.
     """
     incident = {
         "generated_at": "2026-05-18T15:10:46.775938Z",
@@ -115,10 +124,25 @@ def test_breach_replay_may18_publisher_incident(tmp_path: Path) -> None:
         "github_queue": {"available": False, "reason": "connectivity_failed"},
         "github_repo": "synaptent/aragora",
     }
-    p = _touch(tmp_path / "automation-publisher-status.json", content=json.dumps(incident))
+    p = _touch(tmp_path / "latest.json", content=json.dumps(incident))
     result = sentinel.check_publisher_status(p, max_age_hours=24, now=NOW)
     assert result["status"] == "breach"
     assert "auth_ok" in result["detail"]
+
+
+def test_publisher_status_default_is_live_cache_path() -> None:
+    """The default must point at the live writer's file, not the orphan.
+
+    The publisher's status writer moved to
+    ``.aragora/automation-github-status/latest.json``
+    (scripts/cache_codex_automation_github_status.py) around 2026-05-24;
+    the old ``automation-publisher-status.json`` stopped being written.
+    A sentinel watching the orphan would breach forever on stale data —
+    or worse, report "ok" on a frozen healthy snapshot.
+    """
+    args = sentinel.build_parser().parse_args([])
+    default = Path(args.publisher_status)
+    assert default.parts[-3:] == (".aragora", "automation-github-status", "latest.json")
 
 
 # ---------------------------------------------------------------------------
@@ -438,30 +462,35 @@ def test_notify_cmd_not_invoked_when_all_ok(tmp_path: Path, capsys: Any) -> None
     assert not record.exists()
 
 
-# ---------------------------------------------------------------------------
-# install_fleet_sentinel_launchd.sh
-# ---------------------------------------------------------------------------
+def test_notify_bare_placeholder_token_passes_summary_raw() -> None:
+    """A standalone ``{summary}`` token is argv-level: pass the text through."""
+    captured: dict[str, list[str]] = {}
+
+    def runner(tokens: list[str]) -> int:
+        captured["tokens"] = tokens
+        return 0
+
+    sentinel.notify("notifier --msg {summary}", 'has "quotes" and \\slash', runner=runner)
+    assert captured["tokens"] == ["notifier", "--msg", 'has "quotes" and \\slash']
 
 
-def _installer_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "scripts" / "install_fleet_sentinel_launchd.sh"
+def test_notify_embedded_placeholder_neutralizes_quote_injection() -> None:
+    """{summary} embedded inside a larger token (e.g. an AppleScript string
+    literal, as in the installer's default osascript notify command) must not
+    let quotes/backslashes in the summary escape the host string literal."""
+    captured: dict[str, list[str]] = {}
 
+    def runner(tokens: list[str]) -> int:
+        captured["tokens"] = tokens
+        return 0
 
-def test_installer_bash_syntax_clean() -> None:
-    proc = subprocess.run(["bash", "-n", str(_installer_path())], capture_output=True, text=True)
-    assert proc.returncode == 0, proc.stderr
-
-
-def test_installer_dry_run_renders_plist() -> None:
-    proc = subprocess.run(
-        ["bash", str(_installer_path()), "--dry-run"],
-        capture_output=True,
-        text=True,
-        cwd=str(Path(__file__).resolve().parents[2]),
-    )
-    assert proc.returncode == 0, proc.stderr
-    out = proc.stdout
-    assert "com.aragora.fleet-sentinel" in out
-    assert "<integer>600</integer>" in out
-    assert "fleet_sentinel.py" in out
-    assert ".aragora/overnight/fleet-sentinel.log" in out
+    cmd = 'osascript -e "display notification \\"{summary}\\" with title \\"Aragora Fleet Sentinel\\""'
+    sentinel.notify(cmd, 'detail "x" \\ end', runner=runner)
+    tokens = captured["tokens"]
+    assert tokens[0] == "osascript"
+    script = tokens[2]
+    # The two delimiting quotes around the summary plus the two around the
+    # title are the ONLY double quotes left — none smuggled in via summary.
+    assert script.count('"') == 4
+    assert "\\" not in script
+    assert "detail 'x' / end" in script

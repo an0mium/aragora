@@ -249,7 +249,15 @@ def breach_summary(checks: list[CheckResult]) -> str:
 def notify(notify_cmd: str, summary: str, *, runner: Callable[[list[str]], int]) -> None:
     tokens = shlex.split(notify_cmd)
     if any("{summary}" in t for t in tokens):
-        tokens = [t.replace("{summary}", summary) for t in tokens]
+        # A bare "{summary}" token becomes its own argv element — safe to pass
+        # the text through verbatim.  A placeholder embedded in a larger token
+        # lands inside another language's string literal (e.g. the installer's
+        # default AppleScript "display notification" command), so neutralize
+        # quote/backslash injection before substituting.
+        embedded_safe = summary.replace("\\", "/").replace('"', "'")
+        tokens = [
+            summary if t == "{summary}" else t.replace("{summary}", embedded_safe) for t in tokens
+        ]
     else:
         tokens.append(summary)
     try:
@@ -324,7 +332,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repo-root", default=str(repo_root))
     parser.add_argument(
         "--publisher-status",
-        default=str(repo_root / ".aragora" / "automation-publisher-status.json"),
+        # Live writer path: scripts/cache_codex_automation_github_status.py
+        # refreshes this on every publisher pass.  The previous default,
+        # .aragora/automation-publisher-status.json, has been an orphan since
+        # its writer moved (~2026-05-24) — watching it would alarm forever on
+        # stale data or, worse, stay green on a frozen healthy snapshot.
+        default=str(repo_root / ".aragora" / "automation-github-status" / "latest.json"),
     )
     parser.add_argument("--publisher-max-age-hours", type=float, default=24.0)
     parser.add_argument(
