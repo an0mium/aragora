@@ -157,7 +157,7 @@ and in-progress graduation 0% → **50.0%** (4/8) — see
 
 ---
 
-## Sprint 3 — 2026-06-10 → 2026-06-24
+## Sprint 3 — 2026-06-10 → 2026-06-24 — CLOSED (same-day)
 
 > **Operating principle**: the loop is now demonstrably netting product truth
 > (69.2% full-corpus, 50% graduation). Sprint 3 spends loop capacity on the
@@ -210,6 +210,73 @@ the **only** sanctioned settlement/steering-surface work this sprint.
 Same discipline: every goal reaches terminal state (shipped, satisfied, or
 honestly falsified) or an explicit operator decision extends/replaces it. No
 drift extensions.
+
+### Sprint 3 closure — 2026-06-10 (same-day; run-20260610)
+
+| # | Goal | Outcome |
+|---|---|---|
+| 1 | Graduate remaining 4 B0-cohort issues | **Shipped** — #5182 #5183 #5184 #5186 closed via merged issue-linked PRs (#8097 #8100 #8102 #8103); cohort 8/8. Truth-metric republication registers at the next recurring TW-02 pass. |
+| 2 | Loop-steering substrate cap | **Shipped** — #8095 merged; live in the boss-loop launchd env (`ARAGORA_SUBSTRATE_CAP=0.3`). Trailing acceptance (before/after queue composition at next real refill) carried into Sprint 4 as a measurement item, per operator decision. |
+| 3 | Merge-gate liveness Phase 1 | **Shipped** — reconciler #8092 (incl. live circular-stall fix) + janitor #8093 merged; reconciler live (`ARAGORA_QUORUM_RECONCILER=1`); 4 duplicate drafts closed at sprint open, duplicate groups now zero. |
+| 4 | EU AI Act wedge artifact | **Shipped** — #8096 merged (dated walkthrough, live CLI outputs, honest PARTIAL grades). |
+
+Carried operator item resolved: #7472 design review **APPROVED** (recorded 2026-06-10; the
+lineage-bound implementation was already live on main — see the record correction on #7472).
+Closure authority: exit condition (b), explicit operator decision of 2026-06-10 instructing
+adoption of the steering-leverage operating plan's Phase 0 as Sprint 4.
+
+---
+
+## Sprint 4 — 2026-06-10 → 2026-06-24 — Phase 0: Instruments
+
+> **Operating principle**: the two-week steering audit
+> (run-20260610) found every loss shared one shape — *a cheap signal existed
+> on disk, nothing was contracted to read it, and the human was the only
+> fallback reader.* Sprint 4 ships the instruments before any further
+> features, per `docs/superpowers/plans/2026-06-10-steering-leverage-operating-plan-v2.md`
+> Phase 0, adopted by explicit operator decision (2026-06-10).
+
+### Sprint 4 goals (≤4)
+
+1. **Dead Man's Signals sentinel live.** `scripts/fleet_sentinel.py` +
+   launchd unit: reads publisher-status freshness/auth, `boss_metrics.jsonl`
+   mtime, launchd plist validity + daemon liveness, gh/codex auth state,
+   main-checkout-on-main invariant, outbox depth/age, disk free; breaches
+   emit to a JSONL ledger + notification channel; silence recorded as an
+   incident. Acceptance: replaying the May-18→Jun-08 on-disk state raises
+   the publisher alarm; ≥48h live with no human-discovered incident it
+   missed.
+2. **Leverage + waste instruments published.** `scripts/measure_leverage_ratio.py`
+   (refuses to invent operator-minutes; steering-integrity honestly null
+   until instrumented) + `scripts/measure_work_loss.py` (waste ratio from
+   outbox archive × origin refs × PR refs — the 2026-06-10 harvest logic,
+   productized) → `docs/status/LEVERAGE.md` with LR, waste ratio, and a
+   blind-period log. Acceptance: first publication with real numbers,
+   baseline = run-20260610.
+3. **Net-closure floor in the issue generator.** Weekly closed:created
+   below a configurable floor throttles `generate_boss_issues.py` (the
+   substrate-cap pattern applied to appetite; audit basis: 215 created : 0
+   closed in the window). Acceptance: floor enforced in one real refill or
+   throttle observed, skips reported never silent.
+4. **Substrate-cap composition measurement** (carried Sprint 3 goal 2
+   acceptance): publish the before/after queue composition at the first
+   real refill with the cap active.
+
+### Sprint 4 anti-goals
+
+Sprint 2/3 anti-goals carry forward verbatim. Additionally: **no Phase 1+
+work** (attention exchange, crux cards, intents, ledger, receipt standard)
+this sprint — instruments first, features after the instruments exist; and
+no settlement-surface changes (`review_queue.py`, quorum workflows,
+`settle_*.py`) — the three green settlement-surface PRs from the outbox
+harvest (#8122, #8126, #8140) await operator settlement and are not
+superseded by anything here.
+
+### Sprint 4 exit condition
+
+Every goal terminal (shipped / satisfied / honestly falsified) or explicit
+operator decision; no drift extensions. Sentinel goal additionally requires
+the 48h live-soak clause before it counts as shipped.
 
 ---
 
