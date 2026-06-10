@@ -41,15 +41,29 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("low", "medium", "high"),
         help="Droid auto mode for the live smoke",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the launch plan and exit without requiring binaries or launching agents",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON. The live smoke already emits JSON; this is explicit for scripted calls.",
+    )
     return parser
 
 
-def _artifact_dir(repo_root: Path, override: str | None) -> Path:
-    path = (
+def _artifact_path(repo_root: Path, override: str | None) -> Path:
+    return (
         Path(override).resolve()
         if override
         else repo_root / ".aragora" / "agent_bridge" / "live_smoke"
     )
+
+
+def _artifact_dir(repo_root: Path, override: str | None) -> Path:
+    path = _artifact_path(repo_root, override)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -108,9 +122,67 @@ def _serialize_result(result: Any) -> dict[str, Any]:
     }
 
 
-def main() -> int:
-    args = build_parser().parse_args()
+def _dry_run_payload(args: argparse.Namespace, repo_root: Path) -> dict[str, Any]:
+    required_binaries = list(ROLES)
+    binary_paths = {binary: shutil.which(binary) for binary in required_binaries}
+    missing_binaries = [binary for binary, path in binary_paths.items() if path is None]
+    turns: list[dict[str, str]] = []
+    for role in ROLES:
+        turns.append({"role": role, "transport_call": "launch", "purpose": "start"})
+        turns.append({"role": role, "transport_call": "resume", "purpose": "recall"})
+    turns.extend(
+        [
+            {"role": "codex", "transport_call": "resume", "purpose": "handoff"},
+            {"role": "droid", "transport_call": "resume", "purpose": "handoff"},
+            {"role": "claude", "transport_call": "resume", "purpose": "final_confirmation"},
+        ]
+    )
+    return {
+        "ok": True,
+        "dry_run": True,
+        "repo_root": str(repo_root),
+        "artifact_dir": str(_artifact_path(repo_root, args.artifact_dir)),
+        "roles": list(ROLES),
+        "required_binaries": required_binaries,
+        "binary_paths": binary_paths,
+        "missing_binaries": missing_binaries,
+        "models": {
+            "claude": args.claude_model,
+            "codex": args.codex_model,
+            "droid": args.droid_model,
+        },
+        "harness_options": {"droid": {"auto": args.droid_auto}},
+        "turn_count": len(turns),
+        "turns": turns,
+        "side_effects": {
+            "artifact_dir_created": False,
+            "artifact_written": False,
+            "binaries_required": False,
+            "agents_launched": False,
+        },
+    }
+
+
+def _print_dry_run(payload: dict[str, Any], *, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    print("agent_bridge_live_smoke dry run")
+    print(f"repo_root: {payload['repo_root']}")
+    print(f"artifact_dir: {payload['artifact_dir']}")
+    print(f"roles: {', '.join(payload['roles'])}")
+    print(f"turn_count: {payload['turn_count']}")
+    if payload["missing_binaries"]:
+        print(f"missing_binaries: {', '.join(payload['missing_binaries'])}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     repo_root = Path(args.repo).resolve()
+    if args.dry_run:
+        _print_dry_run(_dry_run_payload(args, repo_root), as_json=args.json)
+        return 0
+
     artifact_dir = _artifact_dir(repo_root, args.artifact_dir)
 
     _require("codex")
