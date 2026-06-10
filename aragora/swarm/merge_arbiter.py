@@ -295,7 +295,10 @@ def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
     """Return a mapping of check-name -> conclusion for a PR.
 
     Merges both status checks and GitHub Actions check runs.
-    """
+
+    Raises ``ArbiterOperationalError`` when ``gh pr checks`` fails without
+    producing parseable JSON (transport/auth fault). An empty mapping means
+    the call succeeded but reported no checks (a normal not-ready state)."""
     result = _run_gh(
         [
             "pr",
@@ -307,12 +310,21 @@ def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
             "name,state",
         ]
     )
-    if result.returncode != 0:
-        logger.debug("gh pr checks failed for #%d: %s", pr_number, result.stderr.strip())
-        return {}
+    # gh pr checks uses non-zero exits for pending/failing checks too, so the
+    # exit code alone does not distinguish "checks are red" from "gh broke".
+    # Parseable JSON output is the truth regardless of exit code; no JSON plus
+    # a non-zero exit is an operational fault, not a not-ready PR.
     try:
-        checks = json.loads(result.stdout)
+        checks = json.loads(result.stdout) if result.stdout else None
     except (json.JSONDecodeError, TypeError):
+        checks = None
+    if not isinstance(checks, list):
+        checks = None
+    if checks is None:
+        if result.returncode != 0:
+            raise ArbiterOperationalError(
+                f"gh pr checks failed for #{pr_number}: {result.stderr.strip()}"
+            )
         return {}
     return {c["name"]: c.get("state", "").upper() for c in checks if "name" in c}
 
@@ -669,12 +681,14 @@ class MergeArbiter:
         while time.monotonic() < deadline:
             summary.polls += 1
             collected_this_poll = False
-            operational_fault_this_poll = False
+            list_fault_this_poll = False
+            eval_faults_this_poll = 0
+            clean_evaluations_this_poll = 0
 
             try:
                 candidates = _list_candidate_prs(self.config)
             except ArbiterOperationalError as exc:
-                operational_fault_this_poll = True
+                list_fault_this_poll = True
                 candidates = []
                 logger.warning("Poll %d: candidate fetch fault: %s", summary.polls, exc)
             logger.debug("Poll %d: %d candidate PRs", summary.polls, len(candidates))
@@ -685,7 +699,7 @@ class MergeArbiter:
                 except ArbiterOperationalError as exc:
                     # Genuine evaluation fault (not "PR not ready"): count it, skip
                     # this PR, keep polling the rest.
-                    operational_fault_this_poll = True
+                    eval_faults_this_poll += 1
                     logger.warning(
                         "Poll %d: evaluation fault for #%s: %s",
                         summary.polls,
@@ -693,6 +707,7 @@ class MergeArbiter:
                         exc,
                     )
                     continue
+                clean_evaluations_this_poll += 1
                 if result.success:
                     summary.merged.append(result.pr_number)
                     logger.info("PR #%d: %s (%s)", result.pr_number, result.reason, result.branch)
@@ -727,8 +742,15 @@ class MergeArbiter:
                 ):
                     collected_this_poll = True
 
-            # Circuit breaker: trip only on consecutive polls with a genuine
-            # operational fault (cannot list / evaluate), never on not-ready PRs.
+            # Circuit breaker: trip only on consecutive polls with a *systemic*
+            # operational fault, never on not-ready PRs. A list-fetch fault is
+            # always systemic. Evaluation faults are systemic only when every
+            # evaluation in the poll faulted: a single PR that consistently
+            # faults (a poison pill) must not halt the arbiter for the healthy
+            # rest of the queue.
+            operational_fault_this_poll = list_fault_this_poll or (
+                eval_faults_this_poll > 0 and clean_evaluations_this_poll == 0
+            )
             if operational_fault_this_poll:
                 self._consecutive_failures += 1
             else:
