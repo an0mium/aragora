@@ -195,3 +195,63 @@ def test_apply_main_executes_and_fails_closed(monkeypatch: Any) -> None:
     monkeypatch.setattr(reconciler, "_fetch_packet", lambda repo, n: _packet("satisfied"))
     rc = reconciler.main(["--repo", "synaptent/aragora", "--apply"])
     assert rc == 1
+
+
+def test_circular_repair_or_wait_with_only_quorum_failing_plans_rerun() -> None:
+    packet = {
+        "status": "repair_or_wait",
+        "counted_reviewer_ids": ["grok"],
+        "unresolved_dissent": False,
+    }
+    plan = _plan(
+        [_pr(301)],
+        {301: _pr_detail([_quorum_check()])},
+        {301: packet},
+    )
+    assert [a["pr"] for a in plan] == [301]
+
+
+def test_repair_or_wait_with_other_real_failure_is_skipped() -> None:
+    other_failure = {
+        "workflowName": "ci",
+        "name": "build",
+        "conclusion": "FAILURE",
+        "status": "COMPLETED",
+        "completedAt": OLD,
+        "detailsUrl": "https://github.com/synaptent/aragora/actions/runs/111/job/222",
+    }
+    packet = {
+        "status": "repair_or_wait",
+        "counted_reviewer_ids": ["grok"],
+        "unresolved_dissent": False,
+    }
+    plan = _plan(
+        [_pr(302)],
+        {302: _pr_detail([_quorum_check(), other_failure])},
+        {302: packet},
+    )
+    assert plan == []
+
+
+def test_repair_or_wait_without_counted_reviewers_is_skipped() -> None:
+    packet = {"status": "repair_or_wait", "counted_reviewer_ids": [], "unresolved_dissent": False}
+    plan = _plan(
+        [_pr(303)],
+        {303: _pr_detail([_quorum_check()])},
+        {303: packet},
+    )
+    assert plan == []
+
+
+def test_repair_or_wait_with_unresolved_dissent_is_skipped() -> None:
+    packet = {
+        "status": "repair_or_wait",
+        "counted_reviewer_ids": ["grok"],
+        "unresolved_dissent": True,
+    }
+    plan = _plan(
+        [_pr(304)],
+        {304: _pr_detail([_quorum_check()])},
+        {304: packet},
+    )
+    assert plan == []

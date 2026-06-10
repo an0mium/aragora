@@ -30,6 +30,12 @@ from typing import Any, Callable
 
 FAILURE_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "ACTION_REQUIRED"}
 SATISFIABLE_PACKET_STATUSES = {"satisfied", "needs_model_review_quorum"}
+# repair_or_wait is accepted ONLY when the sole failing check is the stale
+# quorum run itself (circular short-circuit: resilience doc root cause #3,
+# observed live on run-20260610 PR #8100 — packet counted ['grok'] yet
+# reported repair_or_wait because its own stale FAILURE row counts as a
+# failing check).
+CIRCULAR_REPAIR_STATUS = "repair_or_wait"
 DEFAULT_REPO = "synaptent/aragora"
 GH_TIMEOUT_SECONDS = 120
 
@@ -82,6 +88,18 @@ def is_merge_quorum_check(check: dict[str, Any]) -> bool:
     return "merge quorum" in workflow or "merge-quorum" in workflow or "merge-quorum" in name
 
 
+def count_non_quorum_failures(detail: dict[str, Any]) -> int:
+    """Count failing checks at the head that are NOT the merge-quorum check."""
+    failures = 0
+    for check in latest_rollup(detail.get("statusCheckRollup") or []):
+        if is_merge_quorum_check(check):
+            continue
+        conclusion = str(check.get("conclusion") or "").upper()
+        if conclusion in FAILURE_CONCLUSIONS:
+            failures += 1
+    return failures
+
+
 def find_stale_quorum_failure(
     detail: dict[str, Any], *, now: datetime, min_age_minutes: int
 ) -> dict[str, Any] | None:
@@ -127,7 +145,17 @@ def build_plan(
         packet = fetch_packet(number)
         status = str(packet.get("status") or "").strip().lower()
         if status not in SATISFIABLE_PACKET_STATUSES:
-            continue
+            if status != CIRCULAR_REPAIR_STATUS:
+                continue
+            # Circular case: accept repair_or_wait only when the quorum run
+            # itself is the sole failure, reviewers are already counted, and
+            # there is no unresolved dissent. The rerun is read-only either way.
+            if count_non_quorum_failures(detail) > 0:
+                continue
+            if not packet.get("counted_reviewer_ids"):
+                continue
+            if packet.get("unresolved_dissent"):
+                continue
         plan.append(
             {
                 "pr": number,
