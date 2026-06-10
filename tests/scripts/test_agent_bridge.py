@@ -1268,6 +1268,50 @@ def test_cmd_owner_json_reports_active_pr_owner(
     }
 
 
+def test_cmd_owner_json_falls_back_to_branch_head_when_worktree_is_stale(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    stale_worktree = tmp_path / "missing-worktree"
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "q01-settle-7292",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "branch": "droid/P16-stage2",
+                    "worktree": str(stale_worktree),
+                    "pr_number": 7292,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "_head_for_worktree", lambda _path: None)
+    monkeypatch.setattr(
+        mod,
+        "_head_for_branch",
+        lambda branch: "b" * 40 if branch == "droid/P16-stage2" else None,
+    )
+
+    rc = mod.cmd_owner(
+        argparse.Namespace(json=True, pr=None, branch="droid/P16-stage2", worktree=None)
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["owner_status"] == "owned"
+    assert payload["head"] == "b" * 40
+
+
 def test_cmd_owner_preserves_registry_identity_when_live_session_is_sparse(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
