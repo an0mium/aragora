@@ -144,6 +144,31 @@ def test_automation_pr_preflight_json_suggests_publisher_startup_smoke(
     assert "'scripts.github_cli_health'" in startup_command
 
 
+def test_automation_pr_preflight_json_suggests_agent_bridge_smoke(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/agent-bridge-json"], cwd=repo)
+    source = repo / "scripts" / "agent_bridge.py"
+    source.parent.mkdir()
+    source.write_text("print('bridge')\n", encoding="utf-8")
+    _run(["git", "add", "scripts/agent_bridge.py"], cwd=repo)
+    _run(["git", "commit", "-m", "fix: update agent bridge"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "ok"
+    assert payload["docs_only"] is False
+    assert payload["source_without_tests"] is True
+    assert payload["suggested_validation_commands"] == [
+        "python3 scripts/nomic_ci_test_selector.py --changed-files scripts/agent_bridge.py --dry-run",
+        "python3 -m ruff check scripts/agent_bridge.py",
+        "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only",
+    ]
+
+
 def test_automation_pr_preflight_rejects_synthetic_preflight_commit_subject(
     tmp_path: Path,
 ) -> None:
