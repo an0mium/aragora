@@ -25,7 +25,7 @@
 
 ---
 
-## Sprint 2 — 2026-05-27 → 2026-06-10
+## Sprint 2 — 2026-05-27 → 2026-06-10 — CLOSED
 
 > **Operating principle**: settlement / review-queue tooling has
 > saturated. Sprint 1 already pushed producer:merger positive; further
@@ -140,6 +140,76 @@ satisfied, or honestly falsified) — same discipline as sprint 1 — or
 The sprint does *not* extend by drift, and substrate-tooling work
 that violates the anti-goal does *not* count toward any sprint goal
 even if it lands successfully.
+
+### Sprint 2 closure — 2026-06-10
+
+| # | Goal | Outcome |
+|---|---|---|
+| 1 | Land #7479 (product-proof unblocker) | **Shipped** (`d4f488de28`, recorded above) |
+| 2 | Fresh-agent product-proof sequence | **Satisfied** — operator proof + strict non-operator demo receipt proof passed; all three outreach evidence gates (a)(b)(c) satisfied. Outreach execution remains an operator decision. |
+| 3 | Operator design-review of #7472 | **Not terminal** — the pre-approval spec merged, but the operator design-review decision (approve / reject / request-changes) was not posted within the window. Carried into Sprint 3 as an **operator-action item**, not an autonomous lane. |
+| 4 | Substrate triage (≤3 open surface) | **Satisfied** — target met after #7487 merged; net-closing pressure held. |
+
+Bonus movement during the window: B0 full-corpus truth rose 38.5% → **69.2%**
+and in-progress graduation 0% → **50.0%** (4/8) — see
+`docs/status/B0_BENCHMARK_TRUTH_STATUS.md`; the remaining ungraduated cohort is
+`#5182 #5183 #5184 #5186` (bounded unit-test issues).
+
+---
+
+## Sprint 3 — 2026-06-10 → 2026-06-24
+
+> **Operating principle**: the loop is now demonstrably netting product truth
+> (69.2% full-corpus, 50% graduation). Sprint 3 spends loop capacity on the
+> product, not the loop: finish the cohort, cap substrate self-work at the
+> source, fix the two known merge-gate liveness stalls, and ship one dated
+> commercial artifact. Process work outside the four named goals stands down.
+
+### Sprint 3 goals (≤4)
+
+1. **Graduate the remaining 4 B0-cohort issues** — `#5182`
+   (server/handlers/orchestration/protocols), `#5183`
+   (control_plane/workers/testfixer_task_worker), `#5184`
+   (server/handlers/bots/slack/signature), `#5186` (agents/errors) — to
+   verified truth under the existing `mergeable_pr_or_merged_pr` success
+   contract, then republish `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`.
+   Target: in-progress graduation ≥ 87.5% (7/8), with honest falsification
+   recorded if any issue proves mis-scoped.
+2. **Ship the loop-steering substrate cap.** The boss issue generator gains a
+   product:substrate classification and a `--substrate-cap` (default 0.3) so
+   at most ~30% of generated issues target loop/meta surfaces. Acceptance:
+   one before/after queue-composition measurement published in this file.
+   (Sanctioned steering-surface work — it exists to redirect the queue toward
+   product; anti-goal clause (a).)
+3. **Merge-gate liveness Phase 1** per
+   `docs/governance/BOSS_LOOP_MERGE_GATE_RESILIENCE.md`: (i) quorum-rerun
+   reconciler (A1 — re-runs stale-but-satisfiable `aragora-merge-quorum`
+   checks; kills the observed 2.5h stall class, e.g. #7727), (ii) boss PR
+   dedupe janitor (closes duplicate draft PRs per issue — live duplicates at
+   sprint open: #8061 ×2, #8002 ×3, #7818 ×2). Both are sanctioned under
+   anti-goal clause (b): they net-close or unblock existing queue items.
+4. **EU AI Act wedge artifact.** One polished, dated end-to-end walkthrough
+   (`aragora compliance classify` → `eu-ai-act generate` → `report`) published
+   under `docs/compliance/`, with honest "known gaps" recorded for any step
+   that fails. The Aug 2, 2026 enforcement date is 7.5 weeks out; this is the
+   one dated commercial wedge with shipped tooling.
+
+**Carried operator item (not an autonomous lane):** post the design-review
+decision on #7472 (advisory-review recognizable header).
+
+### Sprint 3 anti-goals
+
+Sprint 2 anti-goals carry forward verbatim (no new review-queue / settlement /
+merge-quorum / steering meta-tooling outside clause (a)/(b); no premature
+external outreach without an explicit operator decision; no Tier 4 self-mods
+without spec + failing governance tests first). The four named goals above are
+the **only** sanctioned settlement/steering-surface work this sprint.
+
+### Sprint 3 exit condition
+
+Same discipline: every goal reaches terminal state (shipped, satisfied, or
+honestly falsified) or an explicit operator decision extends/replaces it. No
+drift extensions.
 
 ---
 
