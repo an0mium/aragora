@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -101,18 +102,25 @@ def _run_ok(
     return proc
 
 
-def parse_porcelain(text: str) -> list[str]:
-    """Paths from ``git status --porcelain`` output (rename-aware, deduped)."""
+def parse_porcelain(data: str) -> list[str]:
+    """Paths from ``git status --porcelain -z`` output (NUL-delimited, deduped).
+
+    The ``-z`` form never quotes or octal-escapes paths, so unicode and
+    special characters survive verbatim. Rename/copy entries carry the
+    destination in the status token and the *original* path in the next
+    NUL token, which is consumed and ignored.
+    """
     paths: set[str] = set()
-    for line in text.splitlines():
-        if len(line) < 4:
+    tokens = data.split("\0")
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        index += 1
+        if len(token) < 4 or token[2] != " ":
             continue
-        entry = line[3:]
-        if line[0] in "RC" and " -> " in entry:
-            entry = entry.split(" -> ", 1)[1]
-        entry = entry.strip()
-        if entry.startswith('"') and entry.endswith('"') and len(entry) >= 2:
-            entry = entry[1:-1]
+        if token[0] in "RC" and index < len(tokens):
+            index += 1
+        entry = token[3:]
         if entry:
             paths.add(entry)
     return sorted(paths)
@@ -197,6 +205,7 @@ def open_sync_pr(
     worktree: Path,
     mirrors: list[str],
     base_sha: str,
+    remote: str,
     timeout: float,
 ) -> str:
     branch = f"{BRANCH_PREFIX}-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}"
@@ -213,7 +222,7 @@ def open_sync_pr(
         "Co-authored-by: claude[bot] <claude[bot]@users.noreply.github.com>"
     )
     _run_ok(["git", "commit", "-m", commit_message], worktree, timeout, "git commit")
-    _run_ok(["git", "push", "-u", "origin", branch], worktree, timeout, "git push")
+    _run_ok(["git", "push", "-u", remote, branch], worktree, timeout, "git push")
     drifted_lines = "\n".join(f"- `{p}`" for p in mirrors)
     body = (
         f"## Summary\n\n"
@@ -259,6 +268,7 @@ def cleanup_worktree(repo_root: Path, worktree: Path, timeout: float) -> None:
 
 def run_iteration(repo_root: Path, *, apply: bool, base_ref: str, timeout: float) -> dict[str, Any]:
     started = time.time()
+    scratch: Path | None = None
     worktree: Path | None = None
     pr_url: str | None = None
     error: str | None = None
@@ -274,7 +284,8 @@ def run_iteration(repo_root: Path, *, apply: bool, base_ref: str, timeout: float
         base_sha = _run_ok(
             ["git", "rev-parse", base_ref], repo_root, timeout, "git rev-parse"
         ).stdout.strip()
-        worktree = Path(tempfile.mkdtemp(prefix="docs-drift-wt-"))
+        scratch = Path(tempfile.mkdtemp(prefix="docs-drift-wt-"))
+        worktree = scratch / "worktree"
         _run_ok(
             ["git", "worktree", "add", "--detach", str(worktree), base_ref],
             repo_root,
@@ -283,7 +294,7 @@ def run_iteration(repo_root: Path, *, apply: bool, base_ref: str, timeout: float
         )
         regenerate_docs(worktree, timeout)
         drifted = parse_porcelain(
-            _run_ok(["git", "status", "--porcelain"], worktree, timeout, "git status").stdout
+            _run_ok(["git", "status", "--porcelain", "-z"], worktree, timeout, "git status").stdout
         )
         mirrors, other = partition_drift(drifted)
         if other:
@@ -300,7 +311,7 @@ def run_iteration(repo_root: Path, *, apply: bool, base_ref: str, timeout: float
                 pr_url = existing
                 outcome = OUTCOME_DRIFT_PR_OPEN
             else:
-                pr_url = open_sync_pr(repo_root, worktree, mirrors, base_sha, timeout)
+                pr_url = open_sync_pr(repo_root, worktree, mirrors, base_sha, remote, timeout)
                 outcome = OUTCOME_DRIFT_PR_OPENED
     except DetectorError as exc:
         outcome = OUTCOME_ERROR
@@ -311,6 +322,8 @@ def run_iteration(repo_root: Path, *, apply: bool, base_ref: str, timeout: float
     finally:
         if worktree is not None:
             cleanup_worktree(repo_root, worktree, timeout)
+        if scratch is not None:
+            shutil.rmtree(scratch, ignore_errors=True)
     return {
         "outcome": outcome,
         "error": error,

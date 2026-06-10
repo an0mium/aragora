@@ -103,6 +103,15 @@ def _run_main(
     *args: str,
 ) -> tuple[int, dict[str, Any]]:
     monkeypatch.setattr(detector, "_run", runner)
+    scratches: list[Path] = []
+
+    def fake_mkdtemp(prefix: str = "tmp") -> str:
+        scratch = tmp_path / f"{prefix}{len(scratches)}"
+        scratch.mkdir()
+        scratches.append(scratch)
+        return str(scratch)
+
+    monkeypatch.setattr(detector.tempfile, "mkdtemp", fake_mkdtemp)
     status_path = tmp_path / "status.json"
     code = detector.main(
         [
@@ -115,6 +124,8 @@ def _run_main(
         ]
     )
     payload = json.loads(status_path.read_text()) if status_path.exists() else {}
+    leaked = [str(s) for s in scratches if s.exists()]
+    assert not leaked, f"scratch dirs leaked: {leaked}"
     return code, payload
 
 
@@ -130,17 +141,25 @@ def _assert_no_forbidden(runner: FakeRunner) -> None:
 
 def test_parse_porcelain_handles_variants() -> None:
     text = (
-        f" M {MIRROR}\n"
-        "?? docs-site/docs/new-file.md\n"
-        "R  docs/OLD.md -> docs/NEW.md\n"
-        ' M "docs-site/docs/with space.md"\n'
-        f" M {MIRROR}\n"
-        "x\n"
+        f" M {MIRROR}\x00"
+        "?? docs-site/docs/new-file.md\x00"
+        "R  docs/NEW.md\x00docs/OLD.md\x00"
+        " M docs-site/docs/with space.md\x00"
+        ' M docs-site/docs/"quoted" \u00fcnicode.md\x00'
+        f" M {MIRROR}\x00"
+        "x\x00"
     )
     paths = detector.parse_porcelain(text)
     assert paths == sorted(
-        {MIRROR, "docs-site/docs/new-file.md", "docs/NEW.md", "docs-site/docs/with space.md"}
+        {
+            MIRROR,
+            "docs-site/docs/new-file.md",
+            "docs/NEW.md",
+            "docs-site/docs/with space.md",
+            'docs-site/docs/"quoted" \u00fcnicode.md',
+        }
     )
+    assert "docs/OLD.md" not in paths
 
 
 def test_partition_drift_splits_on_allowlist() -> None:
@@ -193,7 +212,7 @@ def test_load_previous_status_tolerates_garbage(tmp_path: Path) -> None:
 def test_check_mode_reports_drift_without_mutating(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    runner = FakeRunner(_base_responses(f" M {MIRROR}\n"))
+    runner = FakeRunner(_base_responses(f" M {MIRROR}\x00"))
     code, payload = _run_main(monkeypatch, tmp_path, runner)
     assert code == 1
     assert payload["outcome"] == detector.OUTCOME_DRIFT_DETECTED
@@ -215,7 +234,7 @@ def test_check_mode_clean(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> No
 def test_drift_outside_allowlist_fails_closed_even_with_apply(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    runner = FakeRunner(_base_responses(f" M {MIRROR}\n M CLAUDE.md\n"))
+    runner = FakeRunner(_base_responses(f" M {MIRROR}\x00 M CLAUDE.md\x00"))
     code, payload = _run_main(monkeypatch, tmp_path, runner, "--apply")
     assert code == 2
     assert payload["outcome"] == detector.OUTCOME_OUTSIDE_ALLOWLIST
@@ -237,7 +256,7 @@ def test_apply_is_idempotent_when_sync_pr_already_open(
             },
         ]
     )
-    runner = FakeRunner(_base_responses(f" M {MIRROR}\n", pr_list=pr_list))
+    runner = FakeRunner(_base_responses(f" M {MIRROR}\x00", pr_list=pr_list))
     code, payload = _run_main(monkeypatch, tmp_path, runner, "--apply")
     assert code == 0
     assert payload["outcome"] == detector.OUTCOME_DRIFT_PR_OPEN
@@ -249,7 +268,7 @@ def test_apply_is_idempotent_when_sync_pr_already_open(
 def test_apply_opens_single_pr_and_never_merges(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    runner = FakeRunner(_base_responses(f" M {MIRROR}\n"))
+    runner = FakeRunner(_base_responses(f" M {MIRROR}\x00"))
     code, payload = _run_main(monkeypatch, tmp_path, runner, "--apply")
     assert code == 0
     assert payload["outcome"] == detector.OUTCOME_DRIFT_PR_OPENED
@@ -262,6 +281,23 @@ def test_apply_opens_single_pr_and_never_merges(
     assert len(creates) == 1
     adds = runner.issued("git", "add")
     assert adds and adds[0][3:] == [MIRROR]
+    _assert_no_forbidden(runner)
+
+
+def test_apply_pushes_to_remote_parsed_from_base_ref(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    runner = FakeRunner(_base_responses(f" M {MIRROR}\x00"))
+    code, payload = _run_main(
+        monkeypatch, tmp_path, runner, "--apply", "--base-ref", "upstream/main"
+    )
+    assert code == 0
+    assert payload["outcome"] == detector.OUTCOME_DRIFT_PR_OPENED
+    fetches = runner.issued("git", "fetch")
+    assert fetches and fetches[0][3:] == ["upstream", "main"]
+    pushes = runner.issued("git", "push")
+    assert len(pushes) == 1
+    assert pushes[0][:4] == ["git", "push", "-u", "upstream"]
     _assert_no_forbidden(runner)
 
 

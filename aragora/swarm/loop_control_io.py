@@ -266,7 +266,7 @@ def collect_docs_sync_drift(
         errors = int(payload.get("consecutive_errors", 0) or 0)
     except (TypeError, ValueError):
         errors = 0
-    fault = outcome in ("error", "drift_outside_allowlist")
+    fault = outcome in ("error", "drift_outside_allowlist")  # detector FAULT_OUTCOMES
     waiting = outcome in ("drift_pr_open", "drift_pr_opened", "drift_detected")
     stop_reason: str | None = None
     if fault:
