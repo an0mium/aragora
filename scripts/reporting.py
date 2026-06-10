@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,10 +20,20 @@ def _pct(summary: dict[str, Any], key: str) -> float:
     >>> _pct({"rate": "0.4"}, "rate")
     0.4
     """
-    try:
-        return float(summary.get(key, 0.0) or 0.0)
-    except (TypeError, ValueError):
+    raw_value = summary.get(key, 0.0)
+    if raw_value in (None, ""):
         return 0.0
+    if isinstance(raw_value, bool):
+        raise ValueError(f"benchmark report field `{key}` must be a numeric rate")
+    try:
+        value = float(raw_value)
+    except (TypeError, ValueError):
+        raise ValueError(f"benchmark report field `{key}` must be a numeric rate") from None
+    if not math.isfinite(value):
+        raise ValueError(f"benchmark report field `{key}` must be finite")
+    if value < 0.0 or value > 1.0:
+        raise ValueError(f"benchmark report field `{key}` must be between 0.0 and 1.0")
+    return value
 
 
 def _int(summary: dict[str, Any], key: str) -> int:

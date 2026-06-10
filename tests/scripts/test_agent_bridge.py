@@ -946,6 +946,39 @@ def test_collect_b0_success_rate_times_out_fail_closed(
     assert mod._collect_b0_success_rate(repo_root) is None
 
 
+@pytest.mark.parametrize(
+    ("raw_rate", "expected"),
+    [
+        (0, 0.0),
+        (1, 1.0),
+        (0.625, 0.625),
+        ("0.25", 0.25),
+        (None, None),
+        (True, None),
+        ("not-a-number", None),
+        (float("nan"), None),
+        (float("inf"), None),
+        ("-inf", None),
+        (-0.01, None),
+        (1.01, None),
+        ("nan", None),
+        ("1.01", None),
+    ],
+)
+def test_coerce_success_rate_rejects_non_finite_and_out_of_range_values(
+    raw_rate: object,
+    expected: float | None,
+) -> None:
+    import agent_bridge as mod
+
+    actual = mod._coerce_success_rate(raw_rate)
+
+    if expected is None:
+        assert actual is None
+    else:
+        assert actual == expected
+
+
 def test_operator_snapshot_summary_counts_repo_local_lane_when_user_registry_exists(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

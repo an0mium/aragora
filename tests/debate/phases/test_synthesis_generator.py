@@ -575,6 +575,37 @@ class TestGenerateMandatorySynthesis:
         assert "Sonnet synthesis" in ctx.result.synthesis
 
     @pytest.mark.asyncio
+    async def test_opus_none_falls_back_to_sonnet(self):
+        """Empty Opus output falls back without discarding a valid Sonnet synthesis."""
+        ctx = MockDebateContext()
+        ctx.proposals = {"agent1": "Proposal"}
+
+        gen = SynthesisGenerator()
+
+        call_count = 0
+
+        async def mock_generate(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return None
+            return "Sonnet synthesis"
+
+        with (
+            patch("aragora.utils.env.is_offline_mode", return_value=False),
+            patch.object(gen, "_anthropic_synthesis_available", return_value=True),
+            patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class,
+        ):
+            mock_agent = MagicMock()
+            mock_agent.generate = mock_generate
+            mock_agent_class.return_value = mock_agent
+
+            result = await gen.generate_mandatory_synthesis(ctx)
+
+        assert result is True
+        assert ctx.result.synthesis == "Sonnet synthesis"
+
+    @pytest.mark.asyncio
     async def test_import_error_falls_back_to_combined(self):
         """Import error falls back to combined proposals."""
         ctx = MockDebateContext()

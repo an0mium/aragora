@@ -123,10 +123,15 @@ mkdir -p "${REPO_ROOT}/.aragora/overnight"
 if ! INSTALL_PYTHON="$(resolve_aragora_python 'import pydantic' 'merge-arbiter' 'merge-arbiter launchd install')"; then
     exit 2
 fi
-command_string="cd \"${REPO_ROOT}\" && export PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$HOME/.pyenv/shims:\$PATH\" && export ARAGORA_USER_ID=\"${ARAGORA_USER_ID}\" && export ARAGORA_WORKSPACE_ID=\"${ARAGORA_WORKSPACE_ID}\" && exec \"${REPO_ROOT}/scripts/run_merge_arbiter.sh\" --boss-repo \"${BOSS_REPO}\" --branch-prefix \"${BRANCH_PREFIXES}\" --interval \"${INTERVAL_SECONDS}\" --max-hours \"${MAX_HOURS}\" --max-consecutive-failures \"${MAX_CONSECUTIVE_FAILURES}\""
+command_string="cd \"${REPO_ROOT}\" && export PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$HOME/.pyenv/shims:\$PATH\" && export ARAGORA_USER_ID=\"${ARAGORA_USER_ID}\" && export ARAGORA_WORKSPACE_ID=\"${ARAGORA_WORKSPACE_ID}\""
+runner_string="\"${REPO_ROOT}/scripts/run_merge_arbiter.sh\" --boss-repo \"${BOSS_REPO}\" --branch-prefix \"${BRANCH_PREFIXES}\" --interval \"${INTERVAL_SECONDS}\" --max-hours \"${MAX_HOURS}\" --max-consecutive-failures \"${MAX_CONSECUTIVE_FAILURES}\""
 if [[ "${DRY_RUN}" == true ]]; then
-    command_string="${command_string} --dry-run"
+    runner_string="${runner_string} --dry-run"
 fi
+# Jittered failure throttle: on a failed exit, sleep the configured throttle
+# plus 0-59s of jitter before exiting so a fleet of hosts sharing launchd's
+# fixed ThrottleInterval does not restart (and hit GitHub) in lockstep.
+command_string="${command_string} && export THROTTLE_SECONDS=\"${THROTTLE_SECONDS}\" && { ${runner_string}; } || { rc=\$?; sleep \$(( \${THROTTLE_SECONDS:-300} + RANDOM % 60 )); exit \"\${rc}\"; }"
 command_xml="${command_string//&/&amp;}"
 
 keepalive_block=""

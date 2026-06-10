@@ -6,7 +6,7 @@ compatibility: Works with Codex (.agents/skills) and Claude Code (.claude/skills
 metadata:
   author: Synaptent (aragora) — forked from aigorahub/elves (MIT)
   upstream: https://github.com/aigorahub/elves
-  version: "0.1.0-aragora"
+  version: "0.2.0-aragora"
   argument-hint: Path to plan file, or plan text directly.
 ---
 
@@ -39,57 +39,36 @@ unattended run: "run overnight", "I'm going offline until 8", "implement this pl
 
 ## The aragora validation gate (the core difference)
 
-Every batch runs through `references/validation-gate-aragora.md`, which encodes aragora's **real
-proof-first land loop** — the same gates the repo enforces on `main`, not a weaker stand-in. A
-batch is PR-grounded: evidence and checks bind to a PR head SHA, not a local diff. A batch is
-**not** complete until all of the following hold, in order:
+Every batch runs through `references/validation-gate-aragora.md`. In short, a batch is **not**
+complete until all of the following hold, in order:
 
-0. **Tier 4 first, before code.** If the batch is Tier 4 or touches an approval-required surface
-   (secrets/auth, workflows, runner/CI matrix, branch protection, release, destructive/irreversible
-   ops, public API/SDK removal, schema drop/rename, **merge-authority self-modification** to
-   `aragora/cli/commands/review_queue.py`, or protected files): **HARD STOP for human pre-approval
-   *before* implementing anything.** Do not write the change and then pause. Move to another
-   unblocked batch meanwhile.
-1. **Local truth (necessary, not sufficient).** `pre-commit run --all-files`, `mypy` (no new errors
-   above `.mypy-baseline`), the relevant `pytest` slice. Total test count must never decrease.
-   Local green does **not** close a batch.
-2. **Draft PR + required checks green.** Open the batch's PR as a **draft** and confirm all
-   required CI checks pass at the exact head: `gh pr checks <pr> --required` — `lint`, `typecheck`,
-   `sdk-parity`, `Generate & Validate`, `TypeScript SDK Type Check`, and the enforcing
-   `aragora-merge-quorum` check (`.github/workflows/aragora-merge-quorum.yml`). Exact-head evidence
-   expires on head drift; re-collect after any repair push.
-3. **Independent model-quorum evidence at the exact head.** Run `aragora review-pr <pr> --reviewer
-   claude` and `aragora review-pr <pr> --reviewer codex` (two distinct provider families) against
-   the live PR head, plus a focused adversarial dogfood note. If a review is `changes_requested`,
-   **repair first** — the findings are usually real; never silence a reviewer. Lint the evidence
-   comment for countability before posting: `aragora review-queue evidence-lint --pr <pr>
-   --head-sha <sha> --body-file <file> --json` (expect `would_count: true`), then post it.
-4. **Receipt + authorization surfaces agree.** Produce a `DecisionReceipt` and verify it:
-   `aragora verify <receipt.json>` (binds the decision to the reviewed SHA; no receipt → not
-   closed). Then `aragora review-queue merge-packet --pr <pr> --json` shows the entry satisfied
-   (not blocked except draft) **and** `python3 scripts/settle_one_pr.py --pr <pr> --json` returns
-   `blockers == ['PR is draft']` — i.e. the only thing left is that the PR is still a draft. Both
-   are read-only; neither merges.
-5. **Tier classification + settlement.** Classify against `docs/REVIEW_AUTHORITY_PRINCIPLES.md`:
-   - **Tier 0-2** (docs/tests; additive internal; live automation/CLI/observability): when steps
-     1-4 hold — required checks green, ≥2 distinct-family signals (Tier 2 also needs focused
-     dogfood + no unresolved dissent), verified receipt, and a clean `settle_one_pr` dry-run —
-     mark the draft ready (`gh pr ready <pr>`) and settle via the repo's protected **squash**
-     path. **Never `--admin`, never a bypass**; the `aragora-merge-quorum` required check still
-     gates the non-draft PR. Record settlement with `aragora review-queue record-settlement` /
-     `act`.
+1. **Local truth.** Project validation passes against current HEAD:
+   `pre-commit run --all-files`, `mypy` (no new errors above `.mypy-baseline`), and the relevant
+   `pytest` slice. Total test count must never decrease.
+2. **Adversarial review = a debate, not a comment.** Run a heterogeneous-model adversarial review
+   of the batch diff via aragora itself (e.g. `aragora ask` framed as a review of
+   `git diff <default-branch>...HEAD`, or the repo's `aragora-review-gate` path). Capture the
+   exact head SHA reviewed, the model/provider families, independence from the authoring lane,
+   the recommendation, and any dissent. Unresolved dissent blocks the batch.
+3. **Receipt.** Produce a `DecisionReceipt` for the batch decision and verify it:
+   `aragora verify <receipt.json>` (and/or `aragora receipt verify`). The receipt binds the
+   decision to the reviewed SHA. No receipt → batch not closed.
+4. **Tier classification + settlement.** Classify the batch against
+   `docs/REVIEW_AUTHORITY_PRINCIPLES.md` (Tier 0-4):
+   - **Tier 0-2** (docs/tests, additive internal, live automation/CLI/observability): a green,
+     receipt-backed model quorum with no unresolved dissent is sufficient to record settlement
+     autonomously and continue. **Still never merge by default** — settlement records the
+     authorization packet; the human or a recorded merge-on-green preference does the merge.
    - **Tier 3-4** (semantic correctness, persistence, security/RBAC/auth, public API/SDK,
      migrations; or secrets/deployment/workflow policy/destructive ops/merge-authority
      self-modification): **HARD STOP.** The model quorum prepares the packet, but the run must
-     pause and require explicit human risk acceptance (the `aragora/human-settlement` commit
-     status; Tier 4 also needs pre-approval *before implementation* per step 0) before that batch
-     counts as landed. Keep the PR draft until then. Continue with *other* unblocked batches if any
+     pause and require explicit human risk acceptance (the `aragora/human-settlement` signal)
+     before that batch is considered landed. Continue with *other* non-blocked batches if any
      exist; otherwise checkpoint and wait.
 
-The Tier 3-4 hard stop — and the Tier 4 pre-implementation stop — are the aragora-native
-expression of Elves' "you never merge by default" non-negotiable: autonomy is granted exactly
-where the governance model grants it, and revoked exactly where it requires a human. The agent
-never admin-merges and never bypasses a gate.
+The Tier 3-4 hard stop is the aragora-native expression of Elves' "you never merge by default"
+non-negotiable: autonomy is granted exactly where the governance model grants it, and revoked
+exactly where it requires a human.
 
 ## Operating-contract auto-halts (always active)
 
@@ -107,22 +86,54 @@ immediately and surface to the user when any of these fire:
 
 ## Non-negotiables (aragora additions to the Elves base)
 
-- **Never admin-merge; never bypass a gate.** Tier 0-2 settle by marking the draft ready and
-  letting the repo's protected squash + `aragora-merge-quorum` required check land it — never
-  `--admin`. Tier 3-4 always require human settlement first; Tier 4 also requires human pre-approval
-  *before* implementation.
-- The batch gate is PR-grounded and uses the repo's real surfaces:
-  `gh pr checks <pr> --required`, `aragora review-pr`, `aragora review-queue evidence-lint` /
-  `merge-packet`, `scripts/settle_one_pr.py`, `scripts/settle_tier4_pr.py`. Local tests alone never
-  close a batch.
+- Never merge by default; never approve a merge. Tier 3-4 always requires human settlement first.
 - Every closing commit carries a `Co-authored-by: codex[bot]` (or `claude[bot]`) trailer.
 - Never modify a test to make it pass; fix the code. Total test count never decreases.
-- One run owns one branch + one worktree. A surprise tip move = collision, not diverge → stop.
+- One **coordinator** owns the run. Serial batches share the run's branch + worktree.
+  **Independent batches may fan out in parallel**: each parallel lane gets its own subagent,
+  branch, and worktree (`python3 scripts/codex_worktree_autopilot.py ensure --agent claude
+  --base main --force-new --print-path`); lanes must touch file-disjoint surfaces; only the
+  coordinator writes the execution log / survival guide and records settlements. Within any
+  one worktree, a surprise tip move = collision, not diverge → stop that lane.
 - No destructive git (`reset --hard`, `checkout .`, `clean -fd`, `push --force`, rebase on shared).
-- Rollback tags are namespaced by branch (`elves/<branch>/pre-batch-N`) — never bare
-  `elves/pre-batch-N`, which collides globally across runs.
-- Receipts are mandatory per batch. A batch with no verified receipt (`aragora verify`) is not
-  complete.
+- Receipts are mandatory per batch. A batch with no verified receipt is not complete. Store
+  receipts under the run-scoped dir `.aragora/run-<run-id>/receipts/` (legacy
+  `.aragora/receipts/` accepted) and link the path in the execution log and PR body.
+
+## Budget, liveness, and pacing guards (defaults — a plan's Run Control may tighten them)
+
+- **Gate attempt cap.** Two full gate cycles per batch: implement → gate; on failure revise
+  once → re-gate. Still blocked after that → **park** the batch. Do not keep iterating.
+- **Parking is a legal disposition.** Park = push the branch, log the dissent/evidence and
+  receipt-so-far, queue the batch for human settlement, move to the next unblocked batch. A
+  parked batch is never counted as done and never merges — but parking does not violate
+  "unresolved dissent blocks the batch"; it *is* the documented disposition.
+- **Identical-error breaker.** Three identical tool/infra errors in a row → stop retrying that
+  tool. Switch to the documented fallback or park the affected batch. Never burn the night on
+  one error signature.
+- **Gate-tooling failure** (e.g. `aragora ask`/`aragora gauntlet` exits "no agents could be
+  created"): spend ≤15 min diagnosing (`python scripts/claude_pool_verify.py`, key hydration via
+  Secrets Manager — never raw keys in env), then retry once with an alternate provider set. If
+  the debate still cannot run, the gate **fails closed**: Tier 0-1 batches may close on local
+  truth + a single-model adversarial review explicitly logged as `degraded-evidence`; Tier ≥2
+  batches park. If no gate can run for *any* batch, checkpoint and halt the run.
+- **No-progress halt.** No batch closed or parked in 2 hours of wall-clock → checkpoint, write a
+  postmortem entry in the execution log, re-read the plan, then either advance to the next phase
+  or halt.
+- **Waiting on external state** (PR CI, merge quorum): never busy-poll and never sit idle. Log
+  `waiting-on:<thing>`, start another unblocked batch, and re-check at intervals matched to the
+  state's real cadence (PR CI ≈ every 4–5 min; quorum evidence ≈ every 15 min). On the FIRST
+  check, verify the required workflows actually started (this repo has a known permanent-pending
+  failure mode) and re-trigger with `gh run rerun` if they never ran.
+
+## Plan Run-Control precedence
+
+If the plan file carries its own **Autonomy Contract / Run Control** section, that section
+governs *scheduling policy* — attempt caps, budgets, parallel fan-out, pacing, receipt paths —
+and may tighten anything in this skill. It can never weaken the governance gate: receipts,
+dissent handling, tier hard-stops, approval-required surfaces, and never-merge-by-default are
+floor constraints. Where a plan says "abandon batch and continue", always read it as **park**
+(push + log + queue for settlement), never as counting the batch done.
 
 ## References
 

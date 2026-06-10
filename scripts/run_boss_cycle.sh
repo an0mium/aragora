@@ -42,6 +42,15 @@ boss_status=$?
 set -e
 echo "Boss loop exited with status ${boss_status}."
 
+# Opt-in merge-gate liveness reconciler (resilience doc A1; Sprint 3 goal 3(i)).
+# Re-runs stale-but-satisfiable aragora-merge-quorum checks. Best-effort: never
+# fails the cycle. Default off until the operator flips ARAGORA_QUORUM_RECONCILER=1.
+if [[ "${ARAGORA_QUORUM_RECONCILER:-0}" == "1" ]]; then
+    echo "Running quorum-rerun reconciler (apply mode)..."
+    "${PYTHON_BIN}" scripts/quorum_rerun_reconciler.py --repo "${boss_repo}" --apply \
+        || echo "Quorum reconciler reported failures (non-fatal for the cycle)." >&2
+fi
+
 if [[ "${POST_LOOP_ISSUE_REFILL}" != "1" ]]; then
     echo "Post-loop issue refill disabled."
     exit "${boss_status}"
@@ -61,6 +70,8 @@ refill_cmd=(
     "${POST_LOOP_MAX_ISSUES}"
     --label
     "${boss_label}"
+    --substrate-cap
+    "${ARAGORA_SUBSTRATE_CAP:-0.3}"
 )
 if [[ "${POST_LOOP_DRY_RUN}" == "1" ]]; then
     refill_cmd+=(--dry-run)

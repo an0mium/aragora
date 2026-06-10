@@ -62,6 +62,20 @@ def test_validate_result_row_rejects_primary_commit_outside_list() -> None:
         phase0b_role_benchmark.validate_result_row(row)
 
 
+def test_load_json_returns_default_for_missing_file(tmp_path: Path) -> None:
+    default = {"runs": []}
+
+    assert phase0b_role_benchmark._load_json(tmp_path / "missing.json", default) == default
+
+
+def test_load_json_rejects_malformed_existing_file(tmp_path: Path) -> None:
+    path = tmp_path / "results.json"
+    path.write_text("{not-json", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"Malformed JSON file .*results\.json"):
+        phase0b_role_benchmark._load_json(path, {"runs": []})
+
+
 def test_upsert_result_rejects_invalid_rows_before_creating_outputs(
     tmp_path: Path,
     monkeypatch,
@@ -79,6 +93,27 @@ def test_upsert_result_rejects_invalid_rows_before_creating_outputs(
         phase0b_role_benchmark._upsert_result(_result_row(worker_commit_count=2))
 
     assert not experiment_dir.exists()
+
+
+def test_upsert_result_rejects_malformed_existing_results_without_overwrite(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    experiment_dir = tmp_path / "phase0b_role_benchmark"
+    experiment_dir.mkdir()
+    results_json = experiment_dir / "results.json"
+    results_json.write_text("{not-json", encoding="utf-8")
+    monkeypatch.setattr(phase0b_role_benchmark, "EXPERIMENT_DIR", experiment_dir)
+    monkeypatch.setattr(phase0b_role_benchmark, "RUNS_DIR", experiment_dir / "runs")
+    monkeypatch.setattr(phase0b_role_benchmark, "ACTIVE_RUN_PATH", experiment_dir / "active.json")
+    monkeypatch.setattr(phase0b_role_benchmark, "RESULTS_JSON_PATH", results_json)
+    monkeypatch.setattr(phase0b_role_benchmark, "RESULTS_CSV_PATH", experiment_dir / "results.csv")
+
+    with pytest.raises(ValueError, match=r"Malformed JSON file .*results\.json"):
+        phase0b_role_benchmark._upsert_result(_result_row())
+
+    assert results_json.read_text(encoding="utf-8") == "{not-json"
+    assert not (experiment_dir / "results.csv").exists()
 
 
 def test_build_result_row_includes_multi_branch_metadata(
