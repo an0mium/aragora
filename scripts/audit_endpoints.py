@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Audit API endpoints for usage.
+"""Audit API endpoints for frontend usage.
 
 Compares documented endpoints in handlers with frontend usage to identify
 potentially unused endpoints.
@@ -13,14 +12,17 @@ Output:
     - Note: Some endpoints may be used by external clients or tests
 """
 
+from __future__ import annotations
+
+import argparse
 import os
 import re
-import subprocess
-from pathlib import Path
+import sys
 from collections import defaultdict
+from pathlib import Path
 
 
-def get_documented_endpoints(handlers_dir: Path) -> set[str]:
+def get_documented_endpoints(handlers_dir: Path) -> set[tuple[str, str]]:
     """Extract endpoints from handler docstrings."""
     endpoints = set()
     pattern = re.compile(r"(GET|POST|PUT|DELETE|PATCH)\s+(/api/[^\s]+)")
@@ -69,9 +71,9 @@ def get_frontend_usage(frontend_dir: Path) -> set[str]:
     return paths
 
 
-def categorize_unused(unused: list[tuple[str, str]]) -> dict[str, list]:
+def categorize_unused(unused: list[tuple[str, str]]) -> dict[str, list[tuple[str, str]]]:
     """Categorize unused endpoints by domain."""
-    categories = defaultdict(list)
+    categories: defaultdict[str, list[tuple[str, str]]] = defaultdict(list)
 
     for method, path in unused:
         parts = path.split("/")
@@ -84,37 +86,45 @@ def categorize_unused(unused: list[tuple[str, str]]) -> dict[str, list]:
     return dict(categories)
 
 
-def main():
-    root = Path(__file__).parent.parent
-    handlers_dir = root / "aragora" / "server" / "handlers"
-    frontend_dir = root / "aragora" / "live" / "src"
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
 
-    print("API Endpoint Audit")
-    print("=" * 60)
 
-    # Get endpoints
-    documented = get_documented_endpoints(handlers_dir)
-    frontend_paths = get_frontend_usage(frontend_dir)
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
 
-    print(f"\nDocumented endpoints: {len(documented)}")
-    print(f"Frontend API calls: {len(frontend_paths)}")
 
-    # Find unused
-    unused = []
-    for method, path in documented:
-        if path not in frontend_paths:
-            unused.append((method, path))
+def render_report(
+    documented: set[tuple[str, str]],
+    frontend_paths: set[str],
+    categories: dict[str, list[tuple[str, str]]],
+    unused_count: int,
+) -> str:
+    """Render a human-readable endpoint audit report."""
+    lines = [
+        "API Endpoint Audit",
+        "=" * 60,
+        "",
+        f"Documented endpoints: {len(documented)}",
+        f"Frontend API calls: {len(frontend_paths)}",
+        f"Potentially unused: {unused_count}",
+        "",
+        "-" * 60,
+        "Potentially Unused Endpoints by Category",
+        "-" * 60,
+    ]
 
-    print(f"Potentially unused: {len(unused)}")
-
-    # Categorize
-    categories = categorize_unused(unused)
-
-    print("\n" + "-" * 60)
-    print("Potentially Unused Endpoints by Category")
-    print("-" * 60)
-
-    # Known external APIs (don't deprecate)
     external_apis = {
         "auth",
         "billing",
@@ -131,19 +141,63 @@ def main():
         endpoints = categories[category]
         is_external = category in external_apis
         marker = " (likely external API)" if is_external else ""
-        print(f"\n{category}{marker}:")
+        lines.extend(("", f"{category}{marker}:"))
         for method, path in sorted(endpoints):
-            print(f"  {method:6} {path}")
+            lines.append(f"  {method:6} {path}")
 
-    print("\n" + "=" * 60)
-    print("Notes:")
-    print("- Endpoints marked 'external API' are likely used by:")
-    print("  - External integrations")
-    print("  - CLI tools")
-    print("  - Test suites")
-    print("- Review before deprecating any endpoint")
-    print("=" * 60)
+    lines.extend(
+        (
+            "",
+            "=" * 60,
+            "Notes:",
+            "- Endpoints marked 'external API' are likely used by:",
+            "  - External integrations",
+            "  - CLI tools",
+            "  - Test suites",
+            "- Review before deprecating any endpoint",
+            "=" * 60,
+        )
+    )
+    return "\n".join(lines)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path(__file__).parent.parent,
+        help="Repository root used to resolve handler and frontend directories.",
+    )
+    parser.add_argument(
+        "--handlers-dir",
+        type=Path,
+        default=None,
+        help="Override the server handlers directory.",
+    )
+    parser.add_argument(
+        "--frontend-dir",
+        type=Path,
+        default=None,
+        help="Override the frontend source directory.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    root = args.root
+    handlers_dir = args.handlers_dir or root / "aragora" / "server" / "handlers"
+    frontend_dir = args.frontend_dir or root / "aragora" / "live" / "src"
+
+    documented = get_documented_endpoints(handlers_dir)
+    frontend_paths = get_frontend_usage(frontend_dir)
+    unused = [(method, path) for method, path in documented if path not in frontend_paths]
+    categories = categorize_unused(unused)
+
+    _emit_output(render_report(documented, frontend_paths, categories, len(unused)))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
