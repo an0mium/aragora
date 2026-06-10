@@ -68,6 +68,28 @@ MODEL_REVIEW_QUEUE_CAP = 6
 MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
 TIER_FOUR_SETTLEMENT_MARKER = "Tier-4 Human Settlement Authorization"
+GITHUB_TRANSPORT_ERROR_KIND = "github_transport"
+GITHUB_TRANSPORT_BLOCKED_STATUS = "transport_blocked"
+_GITHUB_TRANSPORT_ERROR_MARKERS = (
+    "check your internet connection",
+    "client.timeout exceeded",
+    "connection refused",
+    "connection reset",
+    "connection timed out",
+    "context deadline exceeded",
+    "could not resolve host",
+    "error connecting",
+    "http 502",
+    "http 503",
+    "http 504",
+    "i/o timeout",
+    "net/http",
+    "no such host",
+    "operation timed out",
+    "temporary failure in name resolution",
+    "timeout awaiting response headers",
+    "tls handshake timeout",
+)
 TIER_FOUR_AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "claude",
@@ -1206,6 +1228,15 @@ def _cmd_merge_packet(args: argparse.Namespace) -> int:
             ignore_own_quorum_check=bool(getattr(args, "ignore_own_quorum_check", False)),
         )
     except _GhError as exc:
+        if json_output and _is_github_transport_error(exc):
+            packet = _merge_packet_transport_blocked_envelope(
+                error=str(exc),
+                pr_refs=list(getattr(args, "pr", []) or []),
+                repo_override=getattr(args, "repo", None),
+                limit=int(getattr(args, "limit", 30) or 30),
+            )
+            print(json.dumps(packet, indent=2, sort_keys=True))
+            return 1
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if json_output:
@@ -1451,6 +1482,74 @@ def _gh_json(args: list[str]) -> Any:
         return json.loads(out)
     except json.JSONDecodeError as exc:
         raise _GhError(f"gh {' '.join(args)} returned malformed JSON: {exc}") from exc
+
+
+def _gh_error_kind(error: object) -> str:
+    """Return a stable machine-readable kind for GitHub helper failures."""
+    text = str(error or "").lower()
+    if any(marker in text for marker in _GITHUB_TRANSPORT_ERROR_MARKERS):
+        return GITHUB_TRANSPORT_ERROR_KIND
+    return "github_error"
+
+
+def _is_github_transport_error(error: object) -> bool:
+    return _gh_error_kind(error) == GITHUB_TRANSPORT_ERROR_KIND
+
+
+def _numeric_pr_refs(pr_refs: list[str]) -> list[int]:
+    numbers: list[int] = []
+    for ref in pr_refs:
+        try:
+            numbers.append(_parse_pr_number(str(ref)))
+        except Exception:
+            continue
+    return numbers
+
+
+def _transport_blocked_next_prompt(command_name: str, pr_refs: list[str]) -> str:
+    pr_text = ", ".join(f"#{number}" for number in _numeric_pr_refs(pr_refs)) or "the queue"
+    return (
+        "Do not rely on transcript state. Re-check live GitHub/local state first. "
+        f"Retry {command_name} for {pr_text} only after GitHub API transport recovers. "
+        "Treat this packet as preserve/no-mutate: do not mark ready, collect evidence, "
+        "record settlement, merge, close, label, rerun workflows, or touch branch protection "
+        "while transport is blocked."
+    )
+
+
+def _merge_packet_transport_blocked_envelope(
+    *,
+    error: str,
+    pr_refs: list[str],
+    repo_override: str | None,
+    limit: int,
+) -> dict[str, Any]:
+    return {
+        "version": "merge_authorization_packet.v1",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "status": GITHUB_TRANSPORT_BLOCKED_STATUS,
+        "transport_blocked": True,
+        "preserve_no_mutate": True,
+        "retryable": _is_github_transport_error(error),
+        "error_kind": _gh_error_kind(error),
+        "error": error,
+        "command": "review-queue merge-packet",
+        "repo": repo_override or "",
+        "limit": limit,
+        "pr_refs": [str(ref) for ref in pr_refs],
+        "queue_pressure": {
+            "current_open_prs": len(pr_refs),
+            "cap": MODEL_REVIEW_QUEUE_CAP,
+            "active": False,
+            "scope": "explicit_pr_refs" if pr_refs else "open_pr_queue",
+        },
+        "entries": [],
+        "admin_squash_order": [],
+        "human_risk_settlement_required": [],
+        "not_ready": _numeric_pr_refs(pr_refs),
+        "admin_squash_allowed": False,
+        "next_prompt": _transport_blocked_next_prompt("review-queue merge-packet", pr_refs),
+    }
 
 
 def _resolve_settlement_repo_slug(repo_override: str | None) -> str:

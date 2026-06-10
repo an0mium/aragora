@@ -5516,6 +5516,80 @@ class TestSettlementHelpers:
         assert payload["admin_squash_order"] == list(range(1, MODEL_REVIEW_QUEUE_CAP + 2))
         assert payload["entries"][0]["verdict"] == "admin_squash_allowed"
 
+    def test_merge_packet_json_reports_transport_blocked(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_transport(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError(
+                "gh pr view 1 --json number failed: error connecting to api.github.com\n"
+                "check your internet connection or https://githubstatus.com"
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_transport,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["1"],
+            repo="synaptent/aragora",
+            review_queue_root=None,
+            limit=30,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stderr.getvalue() == ""
+        payload = json.loads(stdout.getvalue())
+        assert payload["status"] == "transport_blocked"
+        assert payload["transport_blocked"] is True
+        assert payload["preserve_no_mutate"] is True
+        assert payload["error_kind"] == "github_transport"
+        assert payload["command"] == "review-queue merge-packet"
+        assert payload["repo"] == "synaptent/aragora"
+        assert payload["pr_refs"] == ["1"]
+        assert payload["not_ready"] == [1]
+        assert payload["entries"] == []
+        assert payload["admin_squash_order"] == []
+        assert "do not mark ready" in payload["next_prompt"]
+
+    def test_merge_packet_json_keeps_non_transport_errors_on_stderr(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_permission(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError("gh pr view 1 failed: GraphQL: Resource not accessible by integration")
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_permission,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["1"],
+            repo="synaptent/aragora",
+            review_queue_root=None,
+            limit=30,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stdout.getvalue() == ""
+        assert "Resource not accessible by integration" in stderr.getvalue()
+
     def test_act_command_requires_reason_for_request_changes(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="act",
