@@ -431,6 +431,36 @@ def create_github_issue(
         return False
 
 
+def select_with_substrate_cap(
+    filtered: list[tuple[BossIssueCandidate, str]],
+    max_issues: int,
+    substrate_cap: float,
+) -> tuple[list[tuple[BossIssueCandidate, str]], int]:
+    """Trim candidates to ``max_issues``, capping the substrate-surface share.
+
+    Order-preserving single pass: product-surface candidates are never
+    skipped by the cap; substrate-surface candidates are admitted only up to
+    ``int(max_issues * substrate_cap)``. Returns (selected, substrate_skipped)
+    so callers can report skips instead of truncating silently.
+    """
+    if substrate_cap >= 1.0:
+        return filtered[:max_issues], 0
+    substrate_budget = int(max_issues * max(0.0, substrate_cap))
+    selected: list[tuple[BossIssueCandidate, str]] = []
+    substrate_taken = 0
+    substrate_skipped = 0
+    for item in filtered:
+        if len(selected) >= max_issues:
+            break
+        if getattr(item[0], "surface", "substrate") == "substrate":
+            if substrate_taken >= substrate_budget:
+                substrate_skipped += 1
+                continue
+            substrate_taken += 1
+        selected.append(item)
+    return selected, substrate_skipped
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate boss-ready GitHub issues by scanning the codebase"
@@ -438,6 +468,17 @@ def main() -> None:
     parser.add_argument("--repo", default="synaptent/aragora", help="GitHub repo")
     parser.add_argument("--dry-run", action="store_true", help="Preview without creating")
     parser.add_argument("--max-issues", type=int, default=20, help="Max issues to create")
+    parser.add_argument(
+        "--substrate-cap",
+        type=float,
+        default=0.3,
+        help=(
+            "Maximum fraction of created issues whose surface is loop/meta "
+            "substrate (scripts/, swarm, nomic, workflows). Product-surface "
+            "candidates are never skipped by this cap. 1.0 disables the cap. "
+            "FOCUS.md Sprint 3 goal 2."
+        ),
+    )
     parser.add_argument("--categories", nargs="*", help="Filter to specific categories")
     parser.add_argument("--label", default="boss-ready", help="Primary label for created issues")
     parser.add_argument(
@@ -569,8 +610,16 @@ def main() -> None:
         f"{skipped_val} validation failures"
     )
 
-    # 5. Trim to max
-    to_create = filtered[: args.max_issues]
+    # 5. Trim to max, capping the substrate-surface share (Sprint 3 goal 2)
+    to_create, substrate_skipped = select_with_substrate_cap(
+        filtered, args.max_issues, args.substrate_cap
+    )
+    if substrate_skipped:
+        print(
+            f"  Substrate cap {args.substrate_cap:.0%}: skipped "
+            f"{substrate_skipped} substrate-surface candidates "
+            f"(substrate_skipped={substrate_skipped})"
+        )
 
     # 6. Create or dry-run
     if args.dry_run:

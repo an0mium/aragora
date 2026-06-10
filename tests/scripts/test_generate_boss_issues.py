@@ -912,3 +912,49 @@ def test_main_omits_extra_labels_when_disabled(monkeypatch, capsys) -> None:
 
     assert len(created) == 1
     assert created[0][4] == []
+
+
+class TestSelectWithSubstrateCap:
+    """Substrate cap on issue creation (FOCUS.md Sprint 3 goal 2)."""
+
+    @staticmethod
+    def _items(spec: list[str]) -> list[tuple[BossIssueCandidate, str]]:
+        items = []
+        for i, surface in enumerate(spec):
+            scope = ["scripts/tool.py"] if surface == "s" else ["aragora/server/h.py"]
+            cand = BossIssueCandidate(
+                category="test_coverage",
+                title=f"candidate {i} {surface}",
+                description="x",
+                file_scope=scope,
+                new_files=[],
+            )
+            items.append((cand, f"body-{i}"))
+        return items
+
+    def test_cap_limits_substrate_and_product_fills_rest(self) -> None:
+        items = self._items(["s"] * 10 + ["p"] * 10)
+        selected, skipped = mod.select_with_substrate_cap(items, 10, 0.3)
+        surfaces = [c.surface for c, _ in selected]
+        assert len(selected) == 10
+        assert surfaces.count("substrate") == 3
+        assert surfaces.count("product") == 7
+        assert skipped == 7
+
+    def test_only_substrate_candidates_respects_budget_and_reports_skips(self) -> None:
+        items = self._items(["s"] * 10)
+        selected, skipped = mod.select_with_substrate_cap(items, 10, 0.3)
+        assert len(selected) == 3
+        assert skipped == 7
+
+    def test_cap_of_one_disables(self) -> None:
+        items = self._items(["s"] * 5)
+        selected, skipped = mod.select_with_substrate_cap(items, 5, 1.0)
+        assert len(selected) == 5
+        assert skipped == 0
+
+    def test_product_never_skipped_by_cap(self) -> None:
+        items = self._items(["p"] * 12)
+        selected, skipped = mod.select_with_substrate_cap(items, 10, 0.0)
+        assert len(selected) == 10
+        assert skipped == 0

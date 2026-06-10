@@ -101,6 +101,8 @@ refill_cmd=(
     "${POST_LOOP_MAX_ISSUES}"
     --label
     "${boss_label}"
+    --substrate-cap
+    "${ARAGORA_SUBSTRATE_CAP:-0.3}"
 )
 if [[ "${POST_LOOP_DRY_RUN}" == "1" ]]; then
     refill_cmd+=(--dry-run)
