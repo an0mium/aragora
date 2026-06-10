@@ -210,9 +210,9 @@ def _default_read_by_session(owner_session: str) -> str:
     )
 
 
-def _build_parser() -> argparse.ArgumentParser:
+def _build_parser(*, prog: str = "read_operator_steering.py") -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="read_operator_steering.py",
+        prog=prog,
         description="Read one operator-steering mailbox and optionally write read receipts.",
     )
     target = parser.add_mutually_exclusive_group(required=True)
@@ -249,8 +249,8 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = _build_parser().parse_args(argv)
+def main(argv: Sequence[str] | None = None, *, prog: str = "read_operator_steering.py") -> int:
+    args = _build_parser(prog=prog).parse_args(argv)
     try:
         owner_session, resolved_via, lane = _resolve_owner_session(
             to_session=args.to,

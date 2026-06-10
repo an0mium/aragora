@@ -18,5 +18,9 @@ if str(SCRIPT_DIR) not in sys.path:
 import read_operator_steering
 
 
+def main(argv: list[str] | None = None) -> int:
+    return read_operator_steering.main(argv, prog=Path(__file__).name)
+
+
 if __name__ == "__main__":
-    sys.exit(read_operator_steering.main())
+    sys.exit(main())

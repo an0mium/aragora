@@ -29,6 +29,7 @@ def _load_module(script_name: str) -> Any:
 
 sos = _load_module("send_operator_steering.py")
 ros = _load_module("read_operator_steering.py")
+cos = _load_module("check_operator_steering.py")
 
 
 def _write_message(root: Path, recipient: str, body: str = "body") -> Path:
@@ -46,6 +47,21 @@ def _write_message(root: Path, recipient: str, body: str = "body") -> Path:
 def _receipt_files(root: Path, recipient: str) -> list[Path]:
     receipt_dir = root / recipient / "_read_receipts"
     return sorted(receipt_dir.glob("*.json")) if receipt_dir.is_dir() else []
+
+
+def test_check_operator_steering_wrapper_help_uses_wrapper_name(capsys: Any) -> None:
+    try:
+        cos.main(["--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    else:  # pragma: no cover - argparse should always exit after help.
+        raise AssertionError("expected argparse help to exit")
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    usage = captured.out.splitlines()[0]
+    assert usage.startswith("usage: check_operator_steering.py ")
+    assert "read_operator_steering.py" not in usage
 
 
 def test_reads_only_selected_owner_and_writes_bound_receipt(tmp_path: Path, capsys: Any) -> None:
