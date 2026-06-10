@@ -94,8 +94,10 @@ def _load_json(path: Path, default: Any) -> Any:
         return default
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return default
+    except OSError as exc:
+        raise ValueError(f"Cannot read JSON file {path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Malformed JSON file {path}: {exc.msg}") from exc
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -388,8 +390,12 @@ def validate_result_row(row: dict[str, Any]) -> None:
 
 def _upsert_result(row: dict[str, Any]) -> None:
     validate_result_row(row)
-    _ensure_layout()
-    payload = _load_json(RESULTS_JSON_PATH, {"runs": []})
+    if RESULTS_JSON_PATH.exists():
+        payload = _load_json(RESULTS_JSON_PATH, {"runs": []})
+        _ensure_layout()
+    else:
+        _ensure_layout()
+        payload = _load_json(RESULTS_JSON_PATH, {"runs": []})
     runs = [dict(item) for item in payload.get("runs", []) if isinstance(item, dict)]
     key = (
         str(row.get("experiment_id", "")),
