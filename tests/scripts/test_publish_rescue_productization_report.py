@@ -4,12 +4,15 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from aragora.swarm.rescue_events import RescueEvent, RescueEventLedger
 
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
+import audit_codex_branch_backlog as backlog_mod  # noqa: E402
 import publish_rescue_productization_report as mod  # noqa: E402
 
 
@@ -107,6 +110,44 @@ def test_publish_report_bundle_writes_timestamped_and_latest(tmp_path: Path) -> 
     assert json.loads(written["latest"].read_text(encoding="utf-8"))["generated_at"] == (
         "2026-04-14T18:36:07Z"
     )
+
+
+@pytest.mark.parametrize("schema_version", [0, -1, True, "1"])
+def test_load_productization_map_rejects_invalid_schema_version(
+    tmp_path: Path,
+    schema_version: object,
+) -> None:
+    productization_map_path = tmp_path / "rescue_productization.json"
+    productization_map_path.write_text(
+        json.dumps({"schema_version": schema_version, "entries": []}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="schema_version must be a positive integer"):
+        mod.load_productization_map_payload(productization_map_path)
+
+
+def test_write_productization_map_rejects_invalid_schema_version(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="schema_version must be a positive integer"):
+        mod.write_productization_map_payload(
+            tmp_path / "rescue_productization.json",
+            {
+                "schema_version": False,
+                "entries": [
+                    {
+                        "class": "followup_prompt:needs explicit next step from founder",
+                    }
+                ],
+            },
+        )
+
+
+def test_branch_backlog_derives_branch_from_dated_open_pr_key() -> None:
+    branches = backlog_mod._outbox_payload_branches(
+        {"idempotency_key": ("open-pr-codex-gpt-55-model-migration-20260609-ab3db55f341e")}
+    )
+
+    assert branches == {"codex/gpt-55-model-migration"}
 
 
 def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> None:

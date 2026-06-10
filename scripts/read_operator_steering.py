@@ -300,6 +300,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
 
     out = {
+        "ok": True,
         "owner_session": owner_session,
         "resolved_via": resolved_via,
         "lane_id": lane.get("lane_id") if isinstance(lane, dict) else None,
