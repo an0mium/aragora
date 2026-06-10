@@ -72,6 +72,8 @@ refill_cmd=(
     "${boss_label}"
     --substrate-cap
     "${ARAGORA_SUBSTRATE_CAP:-0.3}"
+    --closure-floor
+    "${ARAGORA_CLOSURE_FLOOR:-0.25}"
 )
 if [[ "${POST_LOOP_DRY_RUN}" == "1" ]]; then
     refill_cmd+=(--dry-run)

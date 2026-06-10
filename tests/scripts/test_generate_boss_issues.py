@@ -12,6 +12,14 @@ from aragora.swarm.roadmap_priority import RoadmapPriorityPolicy
 from scripts import generate_boss_issues as mod
 
 
+@pytest.fixture(autouse=True)
+def _healthy_closure_counts(monkeypatch):
+    """Keep main() tests off the network: default the closure-floor counts
+    boundary to a healthy trailing-7d ratio. Tests that exercise the floor
+    override this explicitly."""
+    monkeypatch.setattr(mod, "fetch_closure_counts_7d", lambda repo: (1, 1))
+
+
 def _candidate(name: str, *, file_scope: list[str]) -> BossIssueCandidate:
     return BossIssueCandidate(
         category="test_coverage",
@@ -958,3 +966,219 @@ class TestSelectWithSubstrateCap:
         selected, skipped = mod.select_with_substrate_cap(items, 10, 0.0)
         assert len(selected) == 10
         assert skipped == 0
+
+
+class TestNetClosureFloor:
+    """Net-closure floor on issue appetite (Sprint 4 goal 3, plan v2 Phase 0.3).
+
+    Audit basis: 215 issues created, 0 closed over two weeks. The floor
+    scales the generator's allowance by the trailing closed:created ratio.
+    """
+
+    def test_zero_closures_allows_zero_with_clear_reason(self) -> None:
+        allowed, reason = mod.apply_net_closure_floor(20, 215, 0, 0.25)
+        assert allowed == 0
+        assert "215" in reason
+        assert "closed" in reason.lower()
+        assert "0.25" in reason
+        assert "allowed=0" in reason
+
+    def test_ratio_at_floor_gives_full_allowance(self) -> None:
+        allowed, reason = mod.apply_net_closure_floor(20, 100, 25, 0.25)
+        assert allowed == 20
+        assert "allowed=20" in reason
+
+    def test_ratio_at_half_floor_gives_half_allowance(self) -> None:
+        # ratio = 1/8 = 0.125, half of the 0.25 floor -> half of max_issues
+        allowed, reason = mod.apply_net_closure_floor(20, 8, 1, 0.25)
+        assert allowed == 10
+        assert "allowed=10" in reason
+
+    def test_floor_zero_disables_with_full_allowance(self) -> None:
+        allowed, reason = mod.apply_net_closure_floor(20, 215, 0, 0.0)
+        assert allowed == 20
+        assert "disabled" in reason.lower()
+        assert "allowed=20" in reason
+
+    def test_no_created_issues_gives_full_allowance(self) -> None:
+        allowed, reason = mod.apply_net_closure_floor(20, 0, 5, 0.25)
+        assert allowed == 20
+        assert "allowed=20" in reason
+
+    def test_ratio_above_floor_never_exceeds_max(self) -> None:
+        allowed, _ = mod.apply_net_closure_floor(20, 10, 9, 0.25)
+        assert allowed == 20
+
+    def test_reason_always_states_the_numbers(self) -> None:
+        cases = [
+            (20, 215, 0, 0.25),
+            (20, 100, 25, 0.25),
+            (20, 0, 0, 0.25),
+            (20, 8, 1, 0.25),
+            (20, 5, 1, 0.0),
+        ]
+        for max_issues, created, closed, floor in cases:
+            allowed, reason = mod.apply_net_closure_floor(max_issues, created, closed, floor)
+            assert f"created_7d={created}" in reason, reason
+            assert f"closed_7d={closed}" in reason, reason
+            assert f"allowed={allowed}" in reason, reason
+            assert 0 <= allowed <= max_issues
+
+
+class TestClosureFloorMainWiring:
+    """main() wiring for the net-closure floor (skips reported, never silent)."""
+
+    @staticmethod
+    def _eligible(n: int, *, substrate: int = 0) -> list[BossIssueCandidate]:
+        cands = []
+        for i in range(n):
+            scope = [f"scripts/tool_{i}.py"] if i < substrate else [f"aragora/server/mod_{i}.py"]
+            cands.append(
+                BossIssueCandidate(
+                    category="test_coverage",
+                    title=f"Closure floor candidate {i}",
+                    description="x",
+                    file_scope=scope,
+                    new_files=[],
+                )
+            )
+        return cands
+
+    def _patch_pipeline(self, monkeypatch, candidates: list[BossIssueCandidate]) -> None:
+        monkeypatch.setattr(
+            mod,
+            "scan_all",
+            lambda repo_root, categories=None, min_success_rate=0.3: list(candidates),
+        )
+        monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+        monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+        monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+        monkeypatch.setattr(mod, "load_roadmap_priority_policy", lambda repo_root: None)
+
+    def test_overrides_throttle_to_zero_without_fetching(self, monkeypatch, capsys) -> None:
+        self._patch_pipeline(monkeypatch, self._eligible(3))
+
+        def _boom(repo: str):
+            raise AssertionError("fetch_closure_counts_7d must not be called with overrides")
+
+        monkeypatch.setattr(mod, "fetch_closure_counts_7d", _boom)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "generate_boss_issues.py",
+                "--repo",
+                "org/repo",
+                "--dry-run",
+                "--max-issues",
+                "5",
+                "--label",
+                "lane:test",
+                "--closure-floor",
+                "0.25",
+                "--created-7d",
+                "215",
+                "--closed-7d",
+                "0",
+            ],
+        )
+        mod.main()
+        out = capsys.readouterr().out
+        assert "would create 0 issues" in out
+        assert "created_7d=215" in out
+        assert "closed_7d=0" in out
+        assert "allowed=0" in out
+
+    def test_fetches_counts_when_overrides_absent(self, monkeypatch, capsys) -> None:
+        self._patch_pipeline(monkeypatch, self._eligible(3))
+        fetch_calls: list[str] = []
+        monkeypatch.setattr(
+            mod,
+            "fetch_closure_counts_7d",
+            lambda repo: (fetch_calls.append(repo) or (10, 10)),
+        )
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "generate_boss_issues.py",
+                "--repo",
+                "org/repo",
+                "--dry-run",
+                "--max-issues",
+                "5",
+                "--label",
+                "lane:test",
+                "--closure-floor",
+                "0.25",
+            ],
+        )
+        mod.main()
+        out = capsys.readouterr().out
+        assert fetch_calls == ["org/repo"]
+        assert "would create 3 issues" in out
+        assert "created_7d=10" in out and "closed_7d=10" in out
+
+    def test_counts_unavailable_fails_open_with_report(self, monkeypatch, capsys) -> None:
+        self._patch_pipeline(monkeypatch, self._eligible(3))
+        monkeypatch.setattr(mod, "fetch_closure_counts_7d", lambda repo: None)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "generate_boss_issues.py",
+                "--repo",
+                "org/repo",
+                "--dry-run",
+                "--max-issues",
+                "5",
+                "--label",
+                "lane:test",
+                "--closure-floor",
+                "0.25",
+            ],
+        )
+        mod.main()
+        out = capsys.readouterr().out
+        assert "unavailable" in out.lower()
+        assert "would create 3 issues" in out
+
+    def test_partial_throttle_preserves_substrate_cap_composition(
+        self, monkeypatch, capsys
+    ) -> None:
+        # 10 substrate-first then 10 product candidates; cap 0.3 at max 10
+        # selects 3 substrate + 7 product. Floor at half ratio throttles the
+        # total to 5; re-selection keeps the cap (1 substrate + 4 product),
+        # never product-starved.
+        self._patch_pipeline(monkeypatch, self._eligible(20, substrate=10))
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "generate_boss_issues.py",
+                "--repo",
+                "org/repo",
+                "--dry-run",
+                "--max-issues",
+                "10",
+                "--label",
+                "lane:test",
+                "--substrate-cap",
+                "0.3",
+                "--closure-floor",
+                "0.25",
+                "--created-7d",
+                "8",
+                "--closed-7d",
+                "1",
+            ],
+        )
+        mod.main()
+        out = capsys.readouterr().out
+        assert "would create 5 issues" in out
+        assert "allowed=5" in out
+        files_lines = [ln for ln in out.splitlines() if ln.startswith("FILES:")]
+        substrate_files = [ln for ln in files_lines if "scripts/" in ln]
+        product_files = [ln for ln in files_lines if "aragora/server/" in ln]
+        assert len(substrate_files) == 1
+        assert len(product_files) == 4
