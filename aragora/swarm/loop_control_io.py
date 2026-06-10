@@ -11,6 +11,7 @@ the Loop Control Plane that touches the world, and it only ever reads:
 * ``scripts/publisher_freshness_check.py --json`` / ``scripts/agent_bridge.py
   operator-snapshot --json`` (themselves read-only)
 * ``.aragora/proof_first_shift/runtime_state.json`` (file read)
+* ``.aragora/docs_drift_status.json`` (file read)
 
 It never merges, comments, reruns, pushes, or passes an ``--apply`` flag, and it
 writes nothing. Collectors degrade gracefully (``source_status`` of ``degraded``
@@ -43,6 +44,9 @@ LAUNCHD_LABELS: dict[LoopKind, str] = {
 NETWORK_TOUCHING: frozenset[LoopKind] = frozenset({LoopKind.BOSS_LOOP})
 
 _PROOF_FIRST_STATE_FRESH_SECONDS = 900.0
+# Daily launchd cadence plus slack; staler than this means the detector
+# stopped firing (halted), not that it is broken.
+_DOCS_DRIFT_STATE_FRESH_SECONDS = 26 * 3600.0
 
 
 def _iso(epoch_seconds: float) -> str:
@@ -246,6 +250,47 @@ def collect_nomic(repo_root: Path, *, timeout: float = 5.0) -> dict[str, Any]:
     return {"source_status": "unavailable", "feedback_status": "none"}
 
 
+def collect_docs_sync_drift(
+    repo_root: Path, *, timeout: float = 5.0, now: float | None = None
+) -> dict[str, Any]:
+    path = repo_root / ".aragora" / "docs_drift_status.json"
+    if not path.is_file():
+        return {"source_status": "unavailable", "feedback_status": "docs_drift"}
+    payload = _read_json(path)
+    if payload is None:
+        return {"source_status": "degraded", "error": "docs drift status unreadable"}
+    now = now if now is not None else time.time()
+    age = max(0.0, now - path.stat().st_mtime)
+    outcome = str(payload.get("outcome") or "unknown")
+    try:
+        errors = int(payload.get("consecutive_errors", 0) or 0)
+    except (TypeError, ValueError):
+        errors = 0
+    fault = outcome in ("error", "drift_outside_allowlist")
+    waiting = outcome in ("drift_pr_open", "drift_pr_opened", "drift_detected")
+    stop_reason: str | None = None
+    if fault:
+        raw_error = payload.get("error")
+        stop_reason = (
+            str(raw_error)
+            if isinstance(raw_error, str) and raw_error
+            else "drift outside generated-mirror allowlist"
+        )
+    return {
+        "source_status": "ok",
+        "alive": age < _DOCS_DRIFT_STATE_FRESH_SECONDS,
+        "operational_fault": fault,
+        "stop_reason": stop_reason,
+        "waiting_only": waiting and not fault,
+        "no_progress_ticks": errors,
+        "last_progress_at": (
+            payload.get("generated_at") if isinstance(payload.get("generated_at"), str) else None
+        ),
+        "feedback_status": outcome,
+        "owner": "launchd",
+    }
+
+
 def collect_budget(repo_root: Path, *, timeout: float = 5.0) -> dict[str, Any]:
     """Side-effect-free budget read.
 
@@ -284,6 +329,7 @@ _COLLECTORS: dict[LoopKind, Callable[..., dict[str, Any]]] = {
     LoopKind.PUBLISHER: collect_publisher,
     LoopKind.WORKTREE_AUTOPILOT: collect_worktree_autopilot,
     LoopKind.NOMIC: collect_nomic,
+    LoopKind.DOCS_SYNC_DRIFT: collect_docs_sync_drift,
 }
 
 

@@ -82,6 +82,26 @@ a feedback gate, and a durable-state location. This is the curated registry in
 | `publisher` | publication | publisher_freshness | `.aragora/automation-github-status` | no |
 | `worktree_autopilot` | maintenance | worktree_health | `.worktrees` | no |
 | `nomic` | self_improvement | (none) | `.aragora_beads` | yes (approval checkpoints) |
+| `docs_sync_drift` | maintenance | docs_drift | `.aragora/docs_drift_status.json` | no (its PRs settle through the quorum gate) |
+
+### `docs_sync_drift` (added after PR #8089)
+
+`scripts/docs_sync_drift_detector.py` is a bounded single-shot iteration
+(launchd daily via `scripts/install_docs_drift_launchd.sh`) that regenerates
+the docs surface against a throwaway worktree of `origin/main` using the exact
+commands the `Build Documentation (PR Check)` workflow runs. It exists because
+the external run-canceller (`docs/governance/PR_RUN_CANCELLATION_DIAGNOSIS.md`)
+can kill that advisory check on a source-doc PR, letting source changes land
+without regenerated mirrors (observed escapes: #7829, #7814) - the next
+doc-touching PR then inherits a red docs check it did not cause.
+
+Guard design: drift confined to generated mirrors (`docs-site/docs/**`) yields
+at most **one** open sync PR (branch namespace `bot/docs-site-sync`), which
+settles through the normal model-quorum merge gate - the detector never merges,
+approves, or comments. Drift touching anything else (for example `doc_stats`
+stamp targets such as protected `CLAUDE.md`) **fails closed to report-only**
+(`drift_outside_allowlist`). Waiting on an already-open sync PR is classified
+as *waiting*, not a fault - the §4 distinction applied to a brand-new loop.
 
 ---
 

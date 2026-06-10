@@ -1,7 +1,8 @@
 """Loop Control Plane v1 - pure classification (no IO).
 
 Read-only governance observability for Aragora's standing loops (boss loop,
-merge arbiter, proof-first shift, publisher, worktree autopilot, nomic). This
+merge arbiter, proof-first shift, publisher, worktree autopilot, nomic,
+docs-sync drift detector). This
 module is *pure*: it takes already-collected raw signals (see
 ``loop_control_io``) plus a static per-loop spec and returns normalized
 ``LoopRecord`` objects. It performs no subprocess, filesystem, or network IO,
@@ -38,6 +39,7 @@ class LoopKind(str, Enum):
     PUBLISHER = "publisher"
     WORKTREE_AUTOPILOT = "worktree_autopilot"
     NOMIC = "nomic"
+    DOCS_SYNC_DRIFT = "docs_sync_drift"
 
 
 class LoopState(str, Enum):
@@ -190,7 +192,9 @@ class LoopSpec:
     title: str
     role: str  # supervisor | orchestration | maintenance | publication | self_improvement
     guards: HaltGuards
-    feedback_kind: str  # quorum | proof_freshness | publisher_freshness | worktree_health | none
+    feedback_kind: (
+        str  # quorum | proof_freshness | publisher_freshness | worktree_health | docs_drift | none
+    )
     durable_state_path: str | None
     human_gate_required: bool
     source_paths: tuple[str, ...]
@@ -514,5 +518,32 @@ LOOP_SPECS: dict[LoopKind, LoopSpec] = {
         durable_state_path=".aragora_beads",
         human_gate_required=True,
         source_paths=("scripts/nomic_loop.py",),
+    ),
+    LoopKind.DOCS_SYNC_DRIFT: LoopSpec(
+        kind=LoopKind.DOCS_SYNC_DRIFT,
+        title="Docs-site sync drift detector",
+        role="maintenance",
+        guards=HaltGuards(
+            max_iteration=True,
+            no_progress=True,
+            no_progress_distinguishes_fault=True,
+            budget_ceiling=False,
+            code_ref=(
+                "scripts/docs_sync_drift_detector.py (launchd single-shot per fire; "
+                "FAULT_OUTCOMES separates fault from waiting-on-PR; fail-closed outside "
+                "the generated-mirror allowlist)"
+            ),
+            notes=(
+                "sync PRs settle through the normal model-quorum gate; "
+                "the detector never merges, approves, or comments",
+            ),
+        ),
+        feedback_kind="docs_drift",
+        durable_state_path=".aragora/docs_drift_status.json",
+        human_gate_required=False,
+        source_paths=(
+            "scripts/docs_sync_drift_detector.py",
+            "scripts/install_docs_drift_launchd.sh",
+        ),
     ),
 }
