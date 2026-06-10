@@ -74,6 +74,14 @@ def _loads(proc: subprocess.CompletedProcess[str] | None) -> dict[str, Any] | No
     return payload if isinstance(payload, dict) else None
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
 def _read_json(path: Path) -> dict[str, Any] | None:
     try:
         with path.open(encoding="utf-8") as handle:
@@ -107,7 +115,7 @@ def collect_publisher(repo_root: Path, *, timeout: float = 10.0) -> dict[str, An
     if payload is None:
         return {"source_status": "unavailable", "error": "publisher freshness check unreadable"}
     verdict = payload.get("verdict")
-    blockers = payload.get("blockers") if isinstance(payload.get("blockers"), list) else []
+    blockers = _as_list(payload.get("blockers"))
     degraded = verdict == "degraded"
     return {
         "source_status": "ok",
@@ -134,15 +142,11 @@ def collect_boss_loop(repo_root: Path, *, timeout: float = 20.0) -> dict[str, An
     payload = _loads(proc)
     if payload is None:
         return {"source_status": "unavailable", "error": "operator snapshot unreadable"}
-    status = (
-        payload.get("boss_loop_status") if isinstance(payload.get("boss_loop_status"), dict) else {}
-    )
-    heartbeats = (
-        payload.get("agent_heartbeats") if isinstance(payload.get("agent_heartbeats"), dict) else {}
-    )
+    status = _as_dict(payload.get("boss_loop_status"))
+    heartbeats = _as_dict(payload.get("agent_heartbeats"))
     count = int(heartbeats.get("count", 0) or 0)
     fresh = int(heartbeats.get("fresh_count", 0) or 0)
-    health = payload.get("health") if isinstance(payload.get("health"), dict) else {}
+    health = _as_dict(payload.get("health"))
     queue_depth = payload.get("queue_depth")
     return {
         "source_status": "ok",

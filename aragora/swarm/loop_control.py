@@ -282,7 +282,8 @@ def classify_loop(spec: LoopSpec, raw: dict[str, Any]) -> LoopRecord:
     awaiting_human = bool(raw.get("awaiting_human", False))
     human_present = bool(raw.get("human_settlement_present", False))
 
-    raw_budget = raw.get("budget") if isinstance(raw.get("budget"), dict) else {}
+    raw_budget_value = raw.get("budget")
+    raw_budget: dict[str, Any] = raw_budget_value if isinstance(raw_budget_value, dict) else {}
     budget = Budget(
         spend_usd=_as_float(raw_budget.get("spend_usd")),
         ceiling_usd=_as_float(raw_budget.get("ceiling_usd")),
