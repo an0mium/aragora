@@ -124,3 +124,41 @@ def test_extract_weekly_kpis_strict_fails_when_thresholds_breached(tmp_path: Pat
     assert "settlement_success_rate" in summary["blocking_failures"]
     assert "oracle_stall_rate" in summary["blocking_failures"]
     assert "calibration_updates_realized" in summary["blocking_failures"]
+
+
+def test_extract_weekly_kpis_strict_fails_on_non_finite_metrics(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "dashboard_non_finite.json"
+    fixture_path.write_text(
+        json.dumps(
+            {
+                "oracle_stream": {
+                    "available": True,
+                    "sessions_started": float("inf"),
+                    "sessions_completed": 96,
+                    "stalls_total": 0,
+                    "ttft_avg_ms": 780.4,
+                    "ttft_samples": True,
+                },
+                "settlement_review": {
+                    "available": True,
+                    "stats": {
+                        "success_rate": float("nan"),
+                        "last_result": {"unresolved_due": 0},
+                    },
+                    "calibration_outcomes": {
+                        "correct": 1,
+                        "incorrect": 0,
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run("--input-json", str(fixture_path), "--strict")
+
+    assert result.returncode == 1
+    summary = json.loads(result.stdout.strip())
+    assert summary["passed"] is False
+    assert "settlement_success_rate" in summary["blocking_failures"]
+    assert "oracle_stall_rate" in summary["blocking_failures"]

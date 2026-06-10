@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import sys
 import urllib.error
 import urllib.request
@@ -32,16 +33,21 @@ DEFAULT_DASHBOARD_URL = "https://api.aragora.ai/api/v1/observability/dashboard"
 
 
 def _as_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _as_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except (OverflowError, TypeError, ValueError):
         return None
 
 
