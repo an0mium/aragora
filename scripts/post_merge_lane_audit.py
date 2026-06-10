@@ -7,7 +7,9 @@ keeping the default behavior dry-run and non-destructive.
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import subprocess
 import sys
 from collections.abc import Callable, Mapping
@@ -259,3 +261,88 @@ def post_merge_lane_audit_failure_reason(result: Mapping[str, Any] | None) -> st
         or result.get("audit_stderr")
         or "post-merge lane audit failed"
     )
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> bool:
+    try:
+        sys.stdout.write(output)
+        if not output.endswith("\n"):
+            sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+        return False
+    return True
+
+
+def _format_text_result(result: Mapping[str, Any], *, pr_number: int) -> str:
+    reason = result.get("audit_error") or result.get("blocked_reason") or result.get("audit_stderr")
+    status = "blocked" if result.get("audit_ok") is False or reason else "ok"
+    lines = [
+        f"post-merge lane audit: {status}",
+        f"pr: {pr_number}",
+        f"audit_ok: {result.get('audit_ok')}",
+        f"audit_applied: {result.get('audit_applied')}",
+        f"finding_count: {result.get('finding_count', 0)}",
+        f"resolved_count: {result.get('resolved_count', 0)}",
+    ]
+    if reason:
+        lines.append(f"reason: {reason}")
+    return "\n".join(lines)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run the shared post-merge lane audit helper. Dry-run is read-only; "
+            "--apply is guarded by the resolver's merged-PR and merge-commit checks."
+        )
+    )
+    parser.add_argument(
+        "--pr", type=int, required=True, help="Merged pull request number to audit."
+    )
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=REPO_ROOT,
+        help=f"Repository root. Default: {REPO_ROOT}",
+    )
+    parser.add_argument("--gh-bin", default="gh", help="GitHub CLI binary to pass to resolver.")
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply guarded lane cleanup when the dry-run proves the PR is merged.",
+    )
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    result = run_post_merge_lane_audit(
+        args.pr,
+        repo_root=args.repo_root,
+        apply=args.apply,
+        gh_bin=args.gh_bin,
+    )
+    if args.json:
+        output = json.dumps(result, indent=2, sort_keys=True)
+    else:
+        output = _format_text_result(result, pr_number=args.pr)
+    if not _emit_output(output):
+        return 0
+    if post_merge_lane_audit_failed(result, apply_requested=args.apply):
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
