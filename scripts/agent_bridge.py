@@ -569,6 +569,16 @@ def _sync_lane_records(records: list[LaneRecord], sessions: list[Session]) -> li
     return records
 
 
+def _non_negative_int(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a non-negative integer") from exc
+    if value < 0:
+        raise argparse.ArgumentTypeError("must be a non-negative integer")
+    return value
+
+
 def _conflict_lane_resolved_by_completed_owner(
     record: LaneRecord, records: list[LaneRecord]
 ) -> bool:
@@ -2443,6 +2453,7 @@ def _emit_text(output: str) -> int:
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
+    lane_limit = getattr(args, "lane_limit", None)
     include_historical = bool(getattr(args, "include_historical", False)) or (
         getattr(args, "scope", "current") == "all"
     )
@@ -2461,6 +2472,11 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     records = _sync_lane_records(_load_lane_registry(), sessions)
     if not include_historical:
         records = _filter_current_lane_records(records)
+    visible_records = records
+    lane_records_omitted = 0
+    if lane_limit is not None and not summary_only:
+        visible_records = records[:lane_limit]
+        lane_records_omitted = max(0, len(records) - len(visible_records))
 
     issues = _collect_health_issues(sessions, records)
     lane_conflicts = _active_lane_identity_conflicts(records)
@@ -2510,7 +2526,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "timestamp": _now_iso(),
         "sessions": [s.to_dict() for s in sessions],
         "broker_runs": broker_runs,
-        "lanes": [r.to_dict() for r in records],
+        "lanes": [r.to_dict() for r in visible_records],
         "lane_conflicts": lane_conflicts,
         "process_census": process_census,
         "health": {"ok": len(issues) == 0, "issues": issues},
@@ -2523,6 +2539,9 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "boss_loop_status": boss_loop_status,
         "summary": summary,
     }
+    if lane_limit is not None and not summary_only:
+        snapshot["lane_record_limit"] = lane_limit
+        snapshot["lane_records_omitted"] = lane_records_omitted
     if summary_only:
         snapshot.pop("sessions")
         snapshot.pop("lanes")
@@ -2546,6 +2565,8 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     lines.append(
         f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict"
     )
+    if lane_limit is not None and not summary_only:
+        lines.append(f"LaneRows: {len(visible_records)} shown / {lane_records_omitted} omitted")
     active_process_roles = [str(role) for role in summary.get("active_process_roles", [])]
     process_roles = ", ".join(active_process_roles) or "-"
     lines.append(f"Processes:{summary['active_processes']} recognized ({process_roles})")
@@ -2562,10 +2583,10 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
             summary_text = (s.summary[:40] + "..." if len(s.summary) > 40 else s.summary) or "-"
             lines.append(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary_text}")
 
-    if records and not summary_only:
+    if visible_records and not summary_only:
         lines.extend(["", f"{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION"])
         lines.append("-" * 90)
-        for r in records:
+        for r in visible_records:
             next_action = (
                 r.next_action[:40] + "..." if len(r.next_action) > 40 else r.next_action
             ) or "-"
@@ -2848,6 +2869,16 @@ def main() -> int:
         "--summary-only",
         action="store_true",
         help="Omit session and lane records from output for compact automation checks.",
+    )
+    operator_snapshot_p.add_argument(
+        "--lane-limit",
+        type=_non_negative_int,
+        default=None,
+        metavar="N",
+        help=(
+            "Maximum lane records to include in full snapshots. Summary counts, "
+            "health checks, and conflict detection still use all lanes."
+        ),
     )
     operator_snapshot_p.add_argument(
         "--include-historical",
