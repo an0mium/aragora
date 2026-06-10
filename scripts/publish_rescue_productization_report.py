@@ -112,6 +112,20 @@ def write_json(path: Path, payload: dict[str, Any]) -> Path:
     return path
 
 
+def _validate_productization_map_entries(path: Path, entries: list[Any]) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ValueError(f"Productization map at {path} entries[{index}] must be a JSON object")
+        class_name = str(entry.get("class") or "").strip()
+        if not class_name:
+            raise ValueError(
+                f"Productization map at {path} entries[{index}] must contain a non-empty 'class'"
+            )
+        normalized.append({**entry, "class": class_name})
+    return normalized
+
+
 def load_productization_map_payload(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"schema_version": 1, "entries": []}
@@ -123,16 +137,12 @@ def load_productization_map_payload(path: Path) -> dict[str, Any]:
         raise ValueError(f"Productization map at {path} must contain an 'entries' list")
     return {
         "schema_version": int(payload.get("schema_version", 1) or 1),
-        "entries": entries,
+        "entries": _validate_productization_map_entries(path, entries),
     }
 
 
 def write_productization_map_payload(path: Path, payload: dict[str, Any]) -> Path:
-    entries = [
-        entry
-        for entry in list(payload.get("entries") or [])
-        if isinstance(entry, dict) and str(entry.get("class") or "").strip()
-    ]
+    entries = _validate_productization_map_entries(path, list(payload.get("entries") or []))
     entries.sort(key=lambda entry: str(entry.get("class") or "").strip())
     normalized = {
         "schema_version": int(payload.get("schema_version", 1) or 1),
