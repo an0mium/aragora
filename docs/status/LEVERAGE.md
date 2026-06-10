@@ -1,7 +1,7 @@
 # Leverage & Waste Status
 
 <!-- leverage-managed:begin -->
-Last updated: 2026-06-10T21:26:37Z
+Last updated: 2026-06-10T21:33:55Z
 
 Repo-tracked recurring publication surface for the steering-leverage program
 (Operating Plan v2, Phase 0.2): leverage ratio (LR) and waste ratio together.
@@ -11,13 +11,15 @@ Repo-tracked recurring publication surface for the steering-leverage program
 <!-- leverage-lr:begin -->
 | Metric | Value |
 | --- | --- |
-| Window | 2026-06-10T00:00:00Z -> 2026-06-10T21:22:09Z (7d) |
-| Merged PRs in window (total) | 31 |
-| Merged PRs receipt-backed (verified) | 28 |
+| Window | 2026-06-10T00:00:00Z -> 2026-06-10T21:33:26Z (7d) |
+| Merged PRs in window (total) | 32 |
+| Merged PRs receipt-backed (verified) | 29 |
+| Unique verified receipts backing them | 50 |
+| Split factor (receipt-backed PRs / unique receipts; >1 = splitting) | 0.58 |
 | Receipts failed verify | 0 |
 | Receipt refs unresolved locally | 0 |
 | Operator minutes (self-reported) | 25.0 |
-| Leverage ratio (verified merged outcomes / operator-minute) | 1.12 |
+| Leverage ratio (verified merged outcomes / operator-minute) | 1.16 |
 | Steering integrity (SI) | null — pending: crux_shown, within_attention_budget, not_reversed_on_audit |
 | Methodology version | 1 |
 
@@ -61,8 +63,8 @@ Unit definitions:
 - **Receipt linkage is text-based.** A PR counts as receipt-backed when its
   body/comments reference a receipt path that exists locally and verifies;
   this can undercount (receipts not referenced) or be gamed by splitting work
-  into more PRs — the merged_total column is published alongside to keep the
-  numerator auditable.
+  into more PRs — merged_total, unique_receipts_backed, and split_factor are
+  published alongside so splitting is visible, not hidden.
 - **Waste units are defined in the waste table above**; categories are
   de-duplicated by unit key (branch name, else outbox idempotency key) so a
   unit of lost work is counted at most once.

@@ -164,6 +164,7 @@ def compute_leverage(
     refs_unresolved = 0
     verified_cache: dict[Path, bool] = {}
     backed_prs: list[int] = []
+    unique_receipts: set[str] = set()
 
     for pr in merged_prs:
         texts = [pr.get("body") or ""]
@@ -181,9 +182,16 @@ def compute_leverage(
                     failed_verify_paths.append(str(path))
             if verified_cache[path]:
                 backed = True
+                unique_receipts.add(str(path))
         if backed:
             merged_receipt_backed += 1
             backed_prs.append(pr["number"])
+
+    # Anti-gaming guard: splitting one piece of work across N PRs that all
+    # cite the same receipt inflates merged_receipt_backed but not
+    # unique_receipts_backed; split_factor > 1 surfaces the divergence.
+    unique_receipts_backed = len(unique_receipts)
+    split_factor = merged_receipt_backed / unique_receipts_backed if unique_receipts_backed else 0.0
 
     return {
         "methodology_version": METHODOLOGY_VERSION,
@@ -196,6 +204,8 @@ def compute_leverage(
         "operator_minutes_note": operator_minutes_note,
         "merged_total": len(merged_prs),
         "merged_receipt_backed": merged_receipt_backed,
+        "unique_receipts_backed": unique_receipts_backed,
+        "split_factor": split_factor,
         "receipt_backed_pr_numbers": backed_prs,
         "receipts_failed_verify": len(failed_verify_paths),
         "failed_verify_paths": failed_verify_paths,
@@ -231,8 +241,8 @@ CAVEATS = """\
 - **Receipt linkage is text-based.** A PR counts as receipt-backed when its
   body/comments reference a receipt path that exists locally and verifies;
   this can undercount (receipts not referenced) or be gamed by splitting work
-  into more PRs — the merged_total column is published alongside to keep the
-  numerator auditable.
+  into more PRs — merged_total, unique_receipts_backed, and split_factor are
+  published alongside so splitting is visible, not hidden.
 - **Waste units are defined in the waste table above**; categories are
   de-duplicated by unit key (branch name, else outbox idempotency key) so a
   unit of lost work is counted at most once.
@@ -325,6 +335,11 @@ def render_lr_block(result: dict) -> str:
         ),
         ("Merged PRs in window (total)", result["merged_total"]),
         ("Merged PRs receipt-backed (verified)", result["merged_receipt_backed"]),
+        ("Unique verified receipts backing them", result["unique_receipts_backed"]),
+        (
+            "Split factor (receipt-backed PRs / unique receipts; >1 = splitting)",
+            f"{result['split_factor']:.4g}",
+        ),
         ("Receipts failed verify", result["receipts_failed_verify"]),
         ("Receipt refs unresolved locally", result["receipt_refs_unresolved"]),
         ("Operator minutes (self-reported)", result["operator_minutes"]),

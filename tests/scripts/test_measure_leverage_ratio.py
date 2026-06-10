@@ -265,6 +265,8 @@ def _lr_result(**overrides) -> dict:
         "operator_minutes_note": "baseline day estimate",
         "merged_total": 9,
         "merged_receipt_backed": 4,
+        "unique_receipts_backed": 4,
+        "split_factor": 1.0,
         "receipts_failed_verify": 0,
         "receipt_refs_unresolved": 1,
         "failed_verify_paths": [],
@@ -339,3 +341,67 @@ class TestUpdateLeverageMdIdempotency:
         assert "<!-- leverage-managed:end -->#" not in text
         # blind-period heading still starts at a line boundary
         assert "\n## Blind-Period Log" in text
+
+
+class TestAntiSplitting:
+    """LR gameability guard: PR-splitting inflates merged_receipt_backed but
+    not unique_receipts_backed; split_factor surfaces the divergence."""
+
+    def test_unique_receipts_and_split_factor(self, tmp_path: Path) -> None:
+        rdir = tmp_path / "receipts"
+        rdir.mkdir()
+        (rdir / "shared.json").write_text("{}")
+        prs = [
+            _pr(1, body="receipts/shared.json"),
+            _pr(2, body="receipts/shared.json"),
+            _pr(3, body="receipts/shared.json"),
+        ]
+        result = compute_leverage(
+            merged_prs=prs,
+            operator_minutes=10.0,
+            receipts_dirs=[rdir],
+            comments_fetcher=lambda n: [],
+            verifier=lambda p: True,
+            window_start=WINDOW_START,
+            window_end=NOW,
+            window_days=7,
+            repo="synaptent/aragora",
+        )
+        assert result["merged_receipt_backed"] == 3
+        assert result["unique_receipts_backed"] == 1
+        assert result["split_factor"] == pytest.approx(3.0)
+
+    def test_split_factor_one_when_distinct(self, tmp_path: Path) -> None:
+        rdir = tmp_path / "receipts"
+        rdir.mkdir()
+        (rdir / "a.json").write_text("{}")
+        (rdir / "b.json").write_text("{}")
+        prs = [_pr(1, body="receipts/a.json"), _pr(2, body="receipts/b.json")]
+        result = compute_leverage(
+            merged_prs=prs,
+            operator_minutes=10.0,
+            receipts_dirs=[rdir],
+            comments_fetcher=lambda n: [],
+            verifier=lambda p: True,
+            window_start=WINDOW_START,
+            window_end=NOW,
+            window_days=7,
+            repo="synaptent/aragora",
+        )
+        assert result["unique_receipts_backed"] == 2
+        assert result["split_factor"] == pytest.approx(1.0)
+
+    def test_no_backed_prs_zero_unique(self, tmp_path: Path) -> None:
+        result = compute_leverage(
+            merged_prs=[_pr(1)],
+            operator_minutes=10.0,
+            receipts_dirs=[tmp_path],
+            comments_fetcher=lambda n: [],
+            verifier=lambda p: True,
+            window_start=WINDOW_START,
+            window_end=NOW,
+            window_days=7,
+            repo="synaptent/aragora",
+        )
+        assert result["unique_receipts_backed"] == 0
+        assert result["split_factor"] == 0.0
