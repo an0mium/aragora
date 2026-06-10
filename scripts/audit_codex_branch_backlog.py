@@ -41,6 +41,10 @@ DEFAULT_GITHUB_STATUS_CACHE = Path(".aragora/automation-github-status/latest.jso
 DEFAULT_CACHED_OPEN_PR_HEADS_MAX_AGE_HOURS = 24
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
+DATED_OPEN_PR_IDEMPOTENCY_RE = re.compile(
+    r"^open-pr-(?P<branch_slug>codex-.+)-[0-9]{8}-[0-9a-f]{7,40}$",
+    re.IGNORECASE,
+)
 BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
 DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS = 5
 DEFAULT_CHANGED_PATH_EXAMPLE_LIMIT = 8
@@ -422,11 +426,25 @@ def _structured_action(value: Any) -> Mapping[str, Any] | None:
     return None
 
 
+def _branch_from_dated_open_pr_key(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    match = DATED_OPEN_PR_IDEMPOTENCY_RE.fullmatch(Path(value).stem.strip())
+    if match is None:
+        return None
+    namespace, _, branch_name = match.group("branch_slug").partition("-")
+    if namespace != "codex" or not branch_name:
+        return None
+    return f"{namespace}/{branch_name}"
+
+
 def _outbox_payload_branches(payload: dict[str, Any]) -> set[str]:
     """Return primary and explicitly superseded branch references from a handoff."""
 
     branches: set[str] = set()
     _add_branch_reference(branches, _outbox_payload_branch(payload))
+    _add_branch_reference(branches, _branch_from_dated_open_pr_key(payload.get("idempotency_key")))
+    _add_branch_reference(branches, _branch_from_dated_open_pr_key(payload.get("source_file")))
     requested_action = _structured_action(payload.get("requested_action"))
     if requested_action is not None:
         _add_branch_reference(branches, requested_action.get("branch"))

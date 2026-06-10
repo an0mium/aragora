@@ -448,6 +448,27 @@ def test_audit_uses_cached_open_pr_heads_when_github_health_degraded(
     assert payload["summary"]["publishable_branch_backlog"] == 0
 
 
+def test_outbox_payload_branches_infers_branch_from_dated_open_pr_keys(
+    tmp_path: Path,
+) -> None:
+    payload = {
+        "idempotency_key": (
+            "open-pr-codex-backlog-summary-default-examples-primary-20260610-4b371cd"
+        ),
+        "source_file": str(
+            tmp_path
+            / ".aragora"
+            / "automation-outbox"
+            / "open-pr-codex-operator-proof-surfaces-20260610-fdf5d5c.json"
+        ),
+    }
+
+    assert mod._outbox_payload_branches(payload) == {
+        "codex/backlog-summary-default-examples-primary",
+        "codex/operator-proof-surfaces",
+    }
+
+
 def test_audit_does_not_let_cache_override_successful_live_open_pr_lookup(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
