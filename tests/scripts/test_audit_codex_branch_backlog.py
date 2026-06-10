@@ -158,7 +158,7 @@ def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     assert compact["records"] == []
     assert compact["records_omitted"] is True
     assert compact["record_examples"] == {}
-    assert compact["record_examples_limit"] == 0
+    assert compact["record_examples_limit"] == 1
     assert payload["records"] == [{"name": "codex/one"}, {"name": "codex/two"}]
 
 
@@ -315,6 +315,54 @@ def test_main_summary_only_json_honors_examples_flag(
     assert compact["records"] == []
     assert compact["record_examples"] == {}
     assert compact["record_examples_limit"] == 0
+
+
+def test_main_summary_only_json_defaults_to_one_category_example(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    payload = {
+        "branch_count": 2,
+        "summary": {"by_category": {"salvage_recent_unique": 2}},
+        "records": [
+            {
+                "name": "codex/salvage-one",
+                "category": "salvage_recent_unique",
+                "head_sha": "1111111",
+                "committed_at": "2026-05-06T00:00:00+00:00",
+                "subject": "first salvage",
+                "ahead_count": 1,
+                "behind_count": 0,
+            },
+            {
+                "name": "codex/salvage-two",
+                "category": "salvage_recent_unique",
+                "head_sha": "2222222",
+                "committed_at": "2026-05-06T00:01:00+00:00",
+                "subject": "second salvage",
+                "ahead_count": 1,
+                "behind_count": 0,
+            },
+        ],
+    }
+    monkeypatch.setattr(mod, "repo_root", lambda _path: tmp_path)
+    monkeypatch.setattr(mod, "audit", lambda **_kwargs: payload)
+
+    assert mod.main(["--repo", str(tmp_path), "--json", "--summary-only"]) == 0
+    compact = json.loads(capsys.readouterr().out)
+
+    assert compact["records"] == []
+    assert compact["record_examples_limit"] == 1
+    assert compact["record_examples"]["salvage_recent_unique"] == [
+        {
+            "name": "codex/salvage-one",
+            "category": "salvage_recent_unique",
+            "head_sha": "1111111",
+            "committed_at": "2026-05-06T00:00:00+00:00",
+            "subject": "first salvage",
+            "ahead_count": 1,
+            "behind_count": 0,
+        }
+    ]
 
 
 def test_main_suppresses_flush_time_broken_pipe(tmp_path: Path, monkeypatch: Any) -> None:
