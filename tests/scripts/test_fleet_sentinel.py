@@ -347,6 +347,19 @@ def _argv(paths: dict[str, Path], **overrides: Any) -> list[str]:
     return argv
 
 
+def test_default_publisher_status_is_live_github_status_cache() -> None:
+    """Regression: the default must be the file the publisher actually writes.
+
+    The original default (``.aragora/automation-publisher-status.json``) was a
+    legacy path no current component writes, so the check breached forever
+    against a healthy publisher.  ``run_codex_automation_publisher.sh`` writes
+    ``.aragora/automation-github-status/latest.json`` (same schema:
+    ``generated_at`` + ``github_health.auth_ok``) on every 5-minute pass.
+    """
+    default = sentinel.build_parser().get_default("publisher_status")
+    assert default.endswith("/.aragora/automation-github-status/latest.json")
+
+
 def test_main_all_ok_exits_zero_and_emits_contract(tmp_path: Path, capsys: Any) -> None:
     paths = _fixture_env(tmp_path)
     code = sentinel.main(_argv(paths))

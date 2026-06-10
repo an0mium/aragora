@@ -324,7 +324,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repo-root", default=str(repo_root))
     parser.add_argument(
         "--publisher-status",
-        default=str(repo_root / ".aragora" / "automation-publisher-status.json"),
+        # The publisher's launchd pass writes this cache every 5 minutes via
+        # cache_codex_automation_github_status.py; the former default
+        # (.aragora/automation-publisher-status.json) is a legacy path no
+        # current component writes, so the check fired forever once fixed.
+        default=str(repo_root / ".aragora" / "automation-github-status" / "latest.json"),
     )
     parser.add_argument("--publisher-max-age-hours", type=float, default=24.0)
     parser.add_argument(
