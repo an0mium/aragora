@@ -1182,3 +1182,30 @@ class TestClosureFloorMainWiring:
         product_files = [ln for ln in files_lines if "aragora/server/" in ln]
         assert len(substrate_files) == 1
         assert len(product_files) == 4
+
+
+class TestSearchIssueTotalFailureReporting:
+    """gh search failures are reported with cause, never swallowed silently
+    (grok review task 3 on PR #8148)."""
+
+    def test_nonzero_exit_reports_rc_and_stderr(self, monkeypatch, capsys) -> None:
+        monkeypatch.setattr(
+            mod.subprocess,
+            "run",
+            lambda *a, **k: SimpleNamespace(returncode=4, stdout="", stderr="gh: API rate limit"),
+        )
+        assert mod._search_issue_total("org/repo", "created:>=2026-06-03") is None
+        out = capsys.readouterr().out
+        assert "gh search failed" in out
+        assert "rc=4" in out
+        assert "rate limit" in out
+
+    def test_exception_reports_type_and_message(self, monkeypatch, capsys) -> None:
+        def _raise(*a, **k):
+            raise OSError("gh not found")
+
+        monkeypatch.setattr(mod.subprocess, "run", _raise)
+        assert mod._search_issue_total("org/repo", "closed:>=2026-06-03") is None
+        out = capsys.readouterr().out
+        assert "gh search failed" in out
+        assert "OSError" in out and "gh not found" in out

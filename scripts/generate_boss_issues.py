@@ -505,7 +505,12 @@ def apply_net_closure_floor(
 
 
 def _search_issue_total(repo: str, qualifier: str) -> int | None:
-    """Return the total_count of a GitHub issue search, or None on failure."""
+    """Return the total_count of a GitHub issue search, or None on failure.
+
+    Failures are reported (never silent): the underlying gh exit code /
+    stderr / parse error is printed so a fail-open closure floor is always
+    attributable to a concrete cause.
+    """
     query = f"repo:{repo} type:issue {qualifier}"
     try:
         result = subprocess.run(
@@ -528,8 +533,12 @@ def _search_issue_total(repo: str, qualifier: str) -> int | None:
         )
         if result.returncode == 0:
             return int(result.stdout.strip() or "0")
-    except (subprocess.TimeoutExpired, OSError, ValueError):
-        pass
+        stderr = (result.stderr or "").strip()
+        print(
+            f"  gh search failed for {qualifier!r}: rc={result.returncode} stderr={stderr[:200]!r}"
+        )
+    except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
+        print(f"  gh search failed for {qualifier!r}: {type(exc).__name__}: {exc}")
     return None
 
 
