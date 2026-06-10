@@ -670,6 +670,84 @@ def test_operator_snapshot_exposes_b0_issue_contract_fields(
     ]
 
 
+def test_operator_snapshot_summary_json_includes_proof_surfaces(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    repo_root = tmp_path / "repo"
+    status_dir = repo_root / "docs" / "status"
+    status_dir.mkdir(parents=True)
+    (status_dir / "B0_BENCHMARK_TRUTH_STATUS.md").write_text("b0 status\n", encoding="utf-8")
+    (status_dir / "TW03_RESCUE_PRODUCTIZATION_STATUS.md").write_text(
+        "tw03 status\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "_discover_with_broker_state",
+        lambda **_kwargs: (
+            [
+                mod.Session(
+                    name="codex-main",
+                    agent="codex",
+                    status="alive",
+                    lifecycle="live",
+                    branch="codex/example",
+                    worktree=str(tmp_path),
+                )
+            ],
+            [],
+            set(),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_pending_steering_messages",
+        lambda _recipient: {"count": 0, "latest_three": []},
+    )
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {"count": 0, "fresh_count": 0, "stale_count": 0, "latest_by_owner": {}},
+    )
+    monkeypatch.setattr(mod, "_collect_b0_success_rate", lambda: None)
+
+    rc = mod.cmd_operator_snapshot(argparse.Namespace(json=True, summary_only=True))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["records_omitted"] is True
+    assert payload["proof_surfaces"] == [
+        {
+            "path": "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+            "exists": True,
+            "metadata": payload["proof_surfaces"][0]["metadata"],
+        },
+        {
+            "path": "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md",
+            "exists": True,
+            "metadata": payload["proof_surfaces"][1]["metadata"],
+        },
+    ]
+    for surface in payload["proof_surfaces"]:
+        assert surface["metadata"]["size_bytes"] > 0
+        assert surface["metadata"]["modified_at"]
+
+
 def test_operator_boss_loop_status_reports_idle_without_live_signal() -> None:
     import agent_bridge as mod
 
