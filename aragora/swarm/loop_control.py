@@ -70,6 +70,9 @@ class HaltVerdict(str, Enum):
 _NORMAL_STOP_FRAGMENTS = (
     "max runtime reached",
     "max-runtime",
+    "max runtime",
+    "timelimit",
+    "time limit",
     "no candidates",
     "no candidate",
     "completed",
