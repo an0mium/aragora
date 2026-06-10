@@ -166,9 +166,9 @@ passed for both an operator run (`validate-env` → `doctor` → `ask
 --decision-integrity` → `receipt verify`, all exit 0) and a strict
 non-operator demo (`aragora demo --receipt` with no provider keys; receipt
 verified `VALID (3/3 checks passed)`) — see `docs/FOCUS.md` Sprint 2 goal 2.
-A merge-gate resilience design exists at
-`docs/governance/BOSS_LOOP_MERGE_GATE_RESILIENCE.md` (in flight at time of
-writing, not yet on main). Open governance liability: the operator
+A boss-loop merge-gate resilience design draft is in flight but not yet on
+main, so it is deliberately not cited here as a repo artifact until it
+lands. Open governance liability: the operator
 design-review of #7472 (advisory-review recognizable headers) is still
 pending, so advisory reviews continue to resolve to `unknown_model_reviewer`.
 
