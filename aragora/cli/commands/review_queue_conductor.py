@@ -555,14 +555,13 @@ def _rollup_summary(items: list[Any]) -> dict[str, Any]:
     for item in checks:
         bucket = _rollup_check_bucket(item)
         descriptor = _check_descriptor(item, bucket=bucket)
-        name = descriptor.get("name", "").lower()
         if bucket == "pending":
             pending.append(descriptor)
         elif bucket == "fail":
             failing.append(descriptor)
         elif bucket == "cancel":
             cancelled.append(descriptor)
-            if name.startswith(NON_ACTIONABLE_CANCELLED_PREFIXES):
+            if _is_non_actionable_cancelled_descriptor(descriptor):
                 non_actionable.append(descriptor)
 
     actionable_cancelled = [item for item in cancelled if item not in non_actionable]
@@ -576,6 +575,14 @@ def _rollup_summary(items: list[Any]) -> dict[str, Any]:
         "actionable_rows": [*pending, *failing, *actionable_cancelled],
         "actionable_non_green": actionable,
     }
+
+
+def _is_non_actionable_cancelled_descriptor(descriptor: dict[str, str]) -> bool:
+    names = [
+        str(descriptor.get("name") or ""),
+        str(descriptor.get("workflow") or ""),
+    ]
+    return any(name.lower().startswith(NON_ACTIONABLE_CANCELLED_PREFIXES) for name in names if name)
 
 
 def _merge_packet_summary(
@@ -1273,7 +1280,7 @@ def _check_descriptor(item: dict[str, Any], *, bucket: str | None = None) -> dic
         "name": str(item.get("name") or item.get("context") or item.get("workflow") or ""),
         "state": str(item.get("state") or item.get("status") or item.get("conclusion") or ""),
         "bucket": bucket or _required_pr_check_bucket(item),
-        "workflow": str(item.get("workflow") or ""),
+        "workflow": str(item.get("workflow") or item.get("workflowName") or ""),
         "link": str(item.get("link") or item.get("detailsUrl") or ""),
     }
 

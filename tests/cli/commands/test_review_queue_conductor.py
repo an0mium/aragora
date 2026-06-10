@@ -231,6 +231,60 @@ def test_conductor_treats_completed_skipped_rollup_as_non_actionable() -> None:
     assert candidate["classification"] == "ready_but_human_gated"
 
 
+def test_conductor_treats_cancelled_advisory_rollup_by_workflow_as_non_actionable() -> None:
+    view = _view(7885, head="exact-head", draft=True)
+    view["statusCheckRollup"] = [
+        {
+            "name": "check",
+            "workflowName": "Metrics Drift",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+        },
+        {
+            "name": "check",
+            "workflowName": "Module Tier Drift",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+        },
+        {
+            "name": "portability",
+            "workflowName": "Portability Lint",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+        },
+        {
+            "name": "Shadow Scope",
+            "workflowName": "Self-Hosted Shadow CI",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+        },
+    ]
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885, head="exact-head", not_ready=[7885]
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    rollup = packet["candidates"][0]["rollup"]
+    assert rollup["actionable_non_green"] is False
+    assert rollup["actionable_rows"] == []
+    assert [row["workflow"] for row in rollup["non_actionable_cancelled"]] == [
+        "Metrics Drift",
+        "Module Tier Drift",
+        "Portability Lint",
+        "Self-Hosted Shadow CI",
+    ]
+
+
 def test_conductor_tier4_missing_evidence_routes_to_evidence_collection() -> None:
     view = _view(7885, head="exact-head", draft=True)
 
