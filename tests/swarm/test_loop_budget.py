@@ -67,9 +67,32 @@ class TestBudgetPolicy:
     ) -> None:
         monkeypatch.setenv("ARAGORA_LOOP_BUDGET_USD", "7")
         path = tmp_path / ".aragora" / "loop_budgets.json"
-        path.parent.mkdir(parents=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("{not json")
         assert BudgetPolicy.load(tmp_path).ceiling_for("nomic")[0] == 7.0
+
+    def test_malformed_env_default_is_ignored(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ARAGORA_LOOP_BUDGET_USD", "not-a-number")
+        assert BudgetPolicy.load(tmp_path).ceiling_for("boss_loop") == (None, "none")
+
+    def test_non_finite_ceilings_are_rejected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # NaN would fail open downstream (NaN <= 0 is False), so it must never
+        # become a ceiling.
+        monkeypatch.setenv("ARAGORA_LOOP_BUDGET_USD", "nan")
+        assert BudgetPolicy.load(tmp_path).ceiling_for("boss_loop") == (None, "none")
+        monkeypatch.delenv("ARAGORA_LOOP_BUDGET_USD")
+        path = _write_policy(
+            tmp_path,
+            {"default_ceiling_usd": float("inf"), "loops": {"nomic": {"ceiling_usd": None}}},
+        )
+        assert "Infinity" in path.read_text()  # json.dump emits non-finite literals
+        policy = BudgetPolicy.load(tmp_path)
+        assert policy.ceiling_for("nomic") == (None, "none")
+        assert policy.ceiling_for("boss_loop") == (None, "none")
 
     def test_negative_and_malformed_loop_ceilings_are_ignored(self, tmp_path: Path) -> None:
         _write_policy(
@@ -103,18 +126,30 @@ class TestSpendLedger:
         assert record["source"] == "gate-debates"
         assert record["age_s"] < 60
 
-    def test_negative_spend_is_rejected(self, tmp_path: Path) -> None:
+    def test_negative_and_non_finite_spend_is_rejected(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError):
             record_loop_spend(tmp_path, "boss_loop", -0.01, source="x")
+        with pytest.raises(ValueError):
+            record_loop_spend(tmp_path, "boss_loop", float("nan"), source="x")
+        with pytest.raises(ValueError):
+            record_loop_spend(tmp_path, "boss_loop", float("inf"), source="x")
 
     def test_absent_and_corrupt_snapshots_read_as_none(self, tmp_path: Path) -> None:
         assert read_loop_spend(tmp_path, "publisher") is None
         path = spend_path(tmp_path, "publisher")
-        path.parent.mkdir(parents=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("{broken")
         assert read_loop_spend(tmp_path, "publisher") is None
         path.write_text(json.dumps({"spend_usd": -4}))
         assert read_loop_spend(tmp_path, "publisher") is None
+        # Python's json module parses bare NaN; a NaN spend would fail open
+        # downstream, so the reader must reject it.
+        path.write_text('{"spend_usd": NaN}')
+        assert read_loop_spend(tmp_path, "publisher") is None
+
+    def test_snapshot_is_world_readable(self, tmp_path: Path) -> None:
+        path = record_loop_spend(tmp_path, "boss_loop", 1.0, source="x")
+        assert path.stat().st_mode & 0o077 == 0o044
 
     def test_staleness_uses_injected_now(self, tmp_path: Path) -> None:
         record_loop_spend(tmp_path, "nomic", 1.0, source="x")
@@ -191,6 +226,19 @@ class TestClassification:
         assert record.state == LoopState.BUDGET_EXHAUSTED.value
         assert record.next_action == NextAction.HALT.value
         assert record.blocker == "budget exhausted"
+
+    def test_overspend_yields_negative_remaining_and_halts(self, tmp_path: Path) -> None:
+        # remaining_usd is the honest remainder, not capped at zero.
+        _write_policy(tmp_path, {"loops": {"boss_loop": {"ceiling_usd": 5.0}}})
+        record_loop_spend(tmp_path, "boss_loop", 9.0, source="gate-debates")
+        budget = resolve_loop_budget(tmp_path, "boss_loop")
+        assert budget["remaining_usd"] == pytest.approx(-4.0)
+        record = classify_loop(
+            LOOP_SPECS[LoopKind.BOSS_LOOP],
+            {"source_status": "ok", "alive": True, "budget": budget},
+        )
+        assert record.state == LoopState.BUDGET_EXHAUSTED.value
+        assert record.next_action == NextAction.HALT.value
 
     def test_degraded_budget_never_halts(self, tmp_path: Path) -> None:
         _write_policy(tmp_path, {"loops": {"boss_loop": {"ceiling_usd": 5.0}}})

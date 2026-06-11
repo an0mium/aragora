@@ -28,6 +28,7 @@ this module provides the rails, not the retirement.
 from __future__ import annotations
 
 import json
+import math
 import os
 import tempfile
 import time
@@ -47,16 +48,24 @@ ENV_FLEET_DEFAULT = "ARAGORA_LOOP_BUDGET_USD"
 
 
 def _as_float(value: Any) -> float | None:
+    """Parse a finite float; NaN/inf are rejected.
+
+    A NaN spend or ceiling would fail open: ``NaN <= 0`` is False, so an
+    exhausted budget would never classify ``budget_exhausted``.
+    """
     if isinstance(value, bool):
         return None
+    parsed: float
     if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
+        parsed = float(value)
+    elif isinstance(value, str):
         try:
-            return float(value)
+            parsed = float(value)
         except ValueError:
             return None
-    return None
+    else:
+        return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _utc_now_iso() -> str:
@@ -145,8 +154,8 @@ def record_loop_spend(
     The control-plane collectors never call this; loops (or their wrappers)
     adopt it to make their spend readable.
     """
-    if spend_usd < 0:
-        raise ValueError(f"spend_usd must be non-negative, got {spend_usd}")
+    if not math.isfinite(spend_usd) or spend_usd < 0:
+        raise ValueError(f"spend_usd must be a finite non-negative number, got {spend_usd}")
     path = spend_path(repo_root, loop_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -158,9 +167,17 @@ def record_loop_spend(
     }
     fd, tmp_name = tempfile.mkstemp(prefix=f".{loop_id}-", suffix=".json", dir=str(path.parent))
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        try:
+            handle = os.fdopen(fd, "w", encoding="utf-8")
+        except BaseException:
+            os.close(fd)
+            raise
+        with handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
             handle.write("\n")
+        # mkstemp creates 0600; widen to a normal data-file mode so a reader
+        # running as a different user than the writing loop is not locked out.
+        os.chmod(tmp_name, 0o644)
         os.replace(tmp_name, path)
     except BaseException:
         try:
