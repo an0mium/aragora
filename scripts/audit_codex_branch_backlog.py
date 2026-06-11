@@ -28,6 +28,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts import codex_worktree_autopilot as autopilot
+from scripts.github_cli_health import (
+    DEFAULT_TIMEOUT_SECONDS as DEFAULT_GITHUB_CLI_TIMEOUT_SECONDS,
+)
 from scripts.github_cli_health import check_github_cli_health
 
 ACTIVE_SESSION_FILES = (
@@ -42,7 +45,7 @@ DEFAULT_CACHED_OPEN_PR_HEADS_MAX_AGE_HOURS = 24
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
-DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS = 5
+DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS = DEFAULT_GITHUB_CLI_TIMEOUT_SECONDS
 DEFAULT_CHANGED_PATH_EXAMPLE_LIMIT = 8
 SALVAGE_CATEGORIES = {
     "salvage_recent_unique",
@@ -1123,7 +1126,7 @@ def audit(
     github_health = check_github_cli_health(
         root,
         timeout_seconds=github_health_timeout_seconds,
-        prefer_app=False,
+        prefer_app=True,
     )
     open_pr_lookup_failed = False
     if github_health.ready:

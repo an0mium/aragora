@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from scripts.github_cli_health import GitHubCLIHealth
+from scripts.github_cli_health import DEFAULT_TIMEOUT_SECONDS, GitHubCLIHealth
 
 import scripts.audit_codex_branch_backlog as mod
 
@@ -612,7 +612,7 @@ def test_audit_passes_bounded_timeout_to_github_health(tmp_path: Path, monkeypat
 
     def fake_health(_root: Path, *, timeout_seconds: int, prefer_app: bool) -> GitHubCLIHealth:
         observed_timeouts.append(timeout_seconds)
-        assert prefer_app is False
+        assert prefer_app is True
         return GitHubCLIHealth(
             ready=False,
             auth_ok=False,
@@ -639,6 +639,40 @@ def test_audit_passes_bounded_timeout_to_github_health(tmp_path: Path, monkeypat
     assert observed_timeouts == [3]
     assert payload["github_health"]["mode"] == "connectivity_failed"
     assert payload["open_pr_lookup_skipped"] is True
+
+
+def test_audit_uses_shared_github_health_timeout_by_default(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _stub_git_inventory(monkeypatch, _branch_row())
+    observed_timeouts: list[int] = []
+
+    def fake_health(_root: Path, *, timeout_seconds: int, prefer_app: bool) -> GitHubCLIHealth:
+        observed_timeouts.append(timeout_seconds)
+        assert prefer_app is True
+        return GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fake_health)
+
+    mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+    )
+
+    assert observed_timeouts == [DEFAULT_TIMEOUT_SECONDS]
 
 
 def test_audit_reports_worktree_and_base_revisions(tmp_path: Path, monkeypatch: Any) -> None:
