@@ -16,6 +16,7 @@ from scripts.measure_work_loss import (
     UNIT_DEFINITIONS,
     compute_work_loss,
     load_outbox_items,
+    load_pr_records,
     main,
     parse_ls_remote,
     render_waste_block,
@@ -237,6 +238,39 @@ class TestLoadOutboxItems:
         assert unreadable == 0
 
 
+class TestLoadPrRecords:
+    def test_loads_valid_pr_snapshot(self, tmp_path: Path) -> None:
+        path = tmp_path / "prs.json"
+        path.write_text(json.dumps([_pr(42, "codex/example", merged_at="2026-06-10T01:00:00Z")]))
+
+        records = load_pr_records(path)
+
+        assert records[0]["number"] == 42
+        assert records[0]["head_ref"] == "codex/example"
+
+    @pytest.mark.parametrize(
+        ("payload", "message"),
+        [
+            ({}, "must be a JSON list"),
+            ([[]], "must be a JSON object"),
+            ([{"head_ref": "codex/x"}], "positive integer number"),
+            ([{"number": True, "head_ref": "codex/x"}], "positive integer number"),
+            ([{"number": 1, "head_ref": {"bad": "shape"}}], "head_ref must be"),
+            ([{"number": 1, "merged": "yes"}], "merged must be"),
+            ([{"number": 1, "merged_at": 123}], "merged_at must be"),
+            ([{"number": 1, "closed_at": "not-a-date"}], "closed_at must be a valid"),
+        ],
+    )
+    def test_rejects_malformed_pr_snapshot(
+        self, tmp_path: Path, payload: object, message: str
+    ) -> None:
+        path = tmp_path / "prs.json"
+        path.write_text(json.dumps(payload))
+
+        with pytest.raises(ValueError, match=message):
+            load_pr_records(path)
+
+
 class TestMainJson:
     def test_end_to_end_with_injected_files(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
@@ -283,6 +317,33 @@ class TestMainJson:
         assert out["lost_units"] == 3
         assert out["waste_ratio"] == pytest.approx(3.0)
         assert "unit_definitions" in out
+
+    def test_main_fails_closed_on_malformed_pr_snapshot(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        outbox = tmp_path / "outbox"
+        outbox.mkdir()
+        ls_remote = tmp_path / "heads.txt"
+        ls_remote.write_text("abc\trefs/heads/main\n")
+        prs_file = tmp_path / "prs.json"
+        prs_file.write_text(json.dumps([{"head_ref": "codex/missing-number"}]))
+
+        rc = main(
+            [
+                "--outbox-dir",
+                str(outbox),
+                "--ls-remote-file",
+                str(ls_remote),
+                "--prs-file",
+                str(prs_file),
+                "--json",
+            ]
+        )
+
+        captured = capsys.readouterr()
+        assert rc == 2
+        assert captured.out == ""
+        assert "positive integer number" in captured.err
 
     def test_publish_updates_waste_block_only(
         self, tmp_path: Path, capsys: pytest.CaptureFixture

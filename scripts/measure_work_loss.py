@@ -29,7 +29,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -112,7 +112,8 @@ def fetch_all_prs(repo: str) -> list[dict]:
         check=True,
         timeout=1800,
     )
-    return [json.loads(line) for line in proc.stdout.splitlines() if line.strip()]
+    records = [json.loads(line) for line in proc.stdout.splitlines() if line.strip()]
+    return _validate_pr_records(records, source=f"GitHub PR API for {repo}")
 
 
 def parse_ls_remote(text: str) -> set[str]:
@@ -145,6 +146,49 @@ def load_outbox_items(dirs: Sequence[Path]) -> tuple[list[dict], int]:
             else:
                 unreadable += 1
     return items, unreadable
+
+
+def _validate_pr_records(payload: Any, *, source: str) -> list[dict]:
+    """Validate PR snapshot records before they can drive waste accounting."""
+    if not isinstance(payload, list):
+        raise ValueError(f"{source} must be a JSON list of PR records")
+
+    records: list[dict] = []
+    for index, item in enumerate(payload, start=1):
+        prefix = f"{source} PR record {index}"
+        if not isinstance(item, dict):
+            raise ValueError(f"{prefix} must be a JSON object")
+
+        number = item.get("number")
+        if isinstance(number, bool) or not isinstance(number, int) or number <= 0:
+            raise ValueError(f"{prefix} must include a positive integer number")
+
+        head_ref = item.get("head_ref")
+        if head_ref is not None and not isinstance(head_ref, str):
+            raise ValueError(f"{prefix} head_ref must be a string or null")
+
+        state = item.get("state")
+        if state is not None and not isinstance(state, str):
+            raise ValueError(f"{prefix} state must be a string or null")
+
+        merged = item.get("merged")
+        if merged is not None and not isinstance(merged, bool):
+            raise ValueError(f"{prefix} merged must be a boolean or null")
+
+        for field in ("merged_at", "closed_at"):
+            value = item.get(field)
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"{prefix} {field} must be an ISO timestamp string or null")
+            if value and _parse_iso(value) is None:
+                raise ValueError(f"{prefix} {field} must be a valid ISO timestamp")
+
+        records.append(item)
+    return records
+
+
+def load_pr_records(path: Path) -> list[dict]:
+    payload = json.loads(path.read_text())
+    return _validate_pr_records(payload, source=str(path))
 
 
 # ---------------------------------------------------------------------------
@@ -333,25 +377,35 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--status-doc", default=DEFAULT_STATUS_DOC)
     args = parser.parse_args(argv)
 
-    now = datetime.now(timezone.utc)
-    if args.since:
-        window_start = datetime.fromisoformat(args.since.replace("Z", "+00:00"))
-    else:
-        window_start = now - timedelta(days=args.window_days)
+    try:
+        now = datetime.now(timezone.utc)
+        if args.since:
+            window_start = datetime.fromisoformat(args.since.replace("Z", "+00:00"))
+        else:
+            window_start = now - timedelta(days=args.window_days)
 
-    outbox_dirs = [Path(d) for d in (args.outbox_dir or DEFAULT_OUTBOX_DIRS)]
-    outbox_items, unreadable = load_outbox_items(outbox_dirs)
+        outbox_dirs = [Path(d) for d in (args.outbox_dir or DEFAULT_OUTBOX_DIRS)]
+        outbox_items, unreadable = load_outbox_items(outbox_dirs)
 
-    if args.ls_remote_file:
-        ls_remote_text = Path(args.ls_remote_file).read_text()
-    else:
-        ls_remote_text = run_ls_remote()
-    remote_heads = parse_ls_remote(ls_remote_text)
+        if args.ls_remote_file:
+            ls_remote_text = Path(args.ls_remote_file).read_text()
+        else:
+            ls_remote_text = run_ls_remote()
+        remote_heads = parse_ls_remote(ls_remote_text)
 
-    if args.prs_file:
-        prs = json.loads(Path(args.prs_file).read_text())
-    else:
-        prs = fetch_all_prs(args.repo)
+        if args.prs_file:
+            prs = load_pr_records(Path(args.prs_file))
+        else:
+            prs = fetch_all_prs(args.repo)
+    except (
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+    ) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
     result = compute_work_loss(
         outbox_items=outbox_items,
