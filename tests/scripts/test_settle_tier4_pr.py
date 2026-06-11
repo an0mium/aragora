@@ -912,6 +912,31 @@ def test_settlement_preconditions_allow_failed_quorum_when_comment_missing() -> 
     assert result["blockers"] == []
 
 
+def test_settlement_preconditions_reject_failed_quorum_without_human_risk_packet() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    packet = _tier4_packet()
+    packet["not_ready"] = []
+    packet["human_risk_settlement_required"] = []
+    packet["entries"][0]["tier"] = 4
+    packet["entries"][0]["status"] = "satisfied"
+    packet["entries"][0]["requires_human_risk_settlement"] = False
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[]),
+        merge_packet=packet,
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is False
+    assert "required check aragora-merge-quorum is FAILURE" in result["blockers"]
+    assert "merge-packet does not mark Tier 4 human-risk settlement" in result["blockers"]
+
+
 def test_settle_only_rejects_untrusted_invoking_login(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:

@@ -555,7 +555,7 @@ def _failed_merge_quorum_is_allowed_for_settle_only(
         return False
     if _required_check_state(check) not in MERGE_QUORUM_SETTLE_ONLY_RED_STATES:
         return False
-    if not _packet_marks_tier4_settlement_surface(merge_packet, pr=pr):
+    if not _packet_marks_tier4_human_settlement(merge_packet, pr=pr):
         return False
     if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
         return False
@@ -712,7 +712,7 @@ def evaluate_tier4_settlement_preconditions(
         if unexpected:
             blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
 
-    if not _packet_marks_tier4_settlement_surface(merge_packet, pr=pr):
+    if not _packet_marks_tier4_human_settlement(merge_packet, pr=pr):
         blockers.append("merge-packet does not mark Tier 4 human-risk settlement")
     if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
         blockers.append(TIER4_EVIDENCE_BLOCKER)
