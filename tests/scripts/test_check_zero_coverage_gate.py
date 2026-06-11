@@ -47,6 +47,32 @@ def test_unmapped_python_changes_fail_even_without_coverage(tmp_path):
     assert "must fail the zero-coverage gate" in messages[1]
 
 
+def test_negative_changed_python_count_fails_before_skip(tmp_path):
+    mod = _load_module()
+    ok, messages = mod.evaluate_zero_coverage_gate(
+        coverage_path=tmp_path / "cov.json",
+        baseline_path=tmp_path / "baseline",
+        selector_status="skipped",
+        changed_python_count=-1,
+    )
+    assert ok is False
+    assert "cannot be negative" in messages[0]
+    assert "metadata is invalid" in messages[1]
+
+
+def test_negative_changed_python_count_fails_before_unmapped_message(tmp_path):
+    mod = _load_module()
+    ok, messages = mod.evaluate_zero_coverage_gate(
+        coverage_path=tmp_path / "cov.json",
+        baseline_path=tmp_path / "baseline",
+        selector_status="unmapped_python_changes",
+        changed_python_count=-3,
+    )
+    assert ok is False
+    assert "cannot be negative" in messages[0]
+    assert "unmapped Python changes" not in "\n".join(messages)
+
+
 def test_missing_coverage_fails_for_non_skipped_selector(tmp_path):
     mod = _load_module()
     ok, messages = mod.evaluate_zero_coverage_gate(
@@ -144,3 +170,24 @@ def test_main_cli_returns_failure_for_missing_coverage(monkeypatch, tmp_path, ca
     exit_code = mod.main()
     assert exit_code == 1
     assert "Coverage data not available" in capsys.readouterr().out
+
+
+def test_main_cli_returns_failure_for_negative_changed_count(monkeypatch, tmp_path, capsys):
+    mod = _load_module()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_zero_coverage_gate.py",
+            "--coverage-path",
+            "cov.json",
+            "--selector-status",
+            "skipped",
+            "--changed-python-count",
+            "-1",
+        ],
+    )
+    exit_code = mod.main()
+    assert exit_code == 1
+    assert "cannot be negative" in capsys.readouterr().out

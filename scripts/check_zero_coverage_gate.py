@@ -38,6 +38,15 @@ def _new_zero_coverage_files(coverage: dict[str, Any], baseline: set[str]) -> li
     return sorted(zero_cov)
 
 
+def _invalid_changed_python_count(changed_python_count: int) -> list[str] | None:
+    if changed_python_count < 0:
+        return [
+            f"::error::Changed Python file count cannot be negative: {changed_python_count}",
+            "::error::PR-scoped coverage selector metadata is invalid; zero-coverage gate cannot verify this change",
+        ]
+    return None
+
+
 def evaluate_zero_coverage_gate(
     *,
     coverage_path: Path,
@@ -45,6 +54,10 @@ def evaluate_zero_coverage_gate(
     selector_status: str,
     changed_python_count: int,
 ) -> tuple[bool, list[str]]:
+    count_errors = _invalid_changed_python_count(changed_python_count)
+    if count_errors:
+        return False, count_errors
+
     if selector_status == "skipped":
         return True, ["No changed Python files required PR-scoped zero-coverage probing; skipping."]
 
