@@ -3524,7 +3524,7 @@ def _proposed_evidence_pr_grounding(body: str, pr: str) -> tuple[bool, str]:
     cited = {
         match.group(1)
         for match in re.finditer(
-            r"\b(?:PR|pull\s+request)\s*[:#]?\s*#?(\d+)\b",
+            r"\b(?:PR(?:\s+Number)?|pull\s+request)\s*[:#-]?\s*#?(\d+)\b",
             str(body or ""),
             flags=re.IGNORECASE,
         )
@@ -3654,11 +3654,13 @@ def _has_blocking_or_negative_verdict(body: str) -> bool:
         # and "> **Verdict:** FAIL" still expose the label.
         line = line.lstrip("#>-* ").strip()
         line = line.replace("**", "")
-        label, sep, value = line.partition(":")
-        if not sep:
+        match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
+        if not match:
             continue
-        normalized_label = re.sub(r"\s+", " ", label.strip().lower())
-        normalized_value = re.sub(r"\s+", " ", value.strip().strip("*").strip().lower())
+        normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
+        normalized_value = re.sub(
+            r"\s+", " ", match.group("value").strip().strip("*").strip().lower()
+        )
         if normalized_label in {"verdict", "decision", "recommendation"} and _starts_with_phrase(
             normalized_value, negative_verdict_prefixes
         ):
