@@ -131,7 +131,26 @@ BRANCH_PUBLISH_ARGS=(
 if [[ "${ALLOW_UNHEALTHY_QUEUE_PUBLISH}" == "1" || "${ALLOW_UNHEALTHY_QUEUE_PUBLISH}" == "true" || "${ALLOW_UNHEALTHY_QUEUE_PUBLISH}" == "yes" ]]; then
   BRANCH_PUBLISH_ARGS+=(--allow-unhealthy-queue-publish)
 fi
-if python3 scripts/publish_codex_automation_branches.py "${BRANCH_PUBLISH_ARGS[@]}"; then
+# Bounded retry (failure class B, 2026-06-10/11): GitHub GraphQL 502/504
+# streaks stalled this pass overnight.  Up to 2 retries with 30s/60s backoff;
+# limits/spend caps are enforced inside the publish script on every attempt.
+BRANCH_PASS_OK="false"
+BRANCH_PASS_MAX_ATTEMPTS=3
+for attempt in $(seq 1 "${BRANCH_PASS_MAX_ATTEMPTS}"); do
+  if python3 scripts/publish_codex_automation_branches.py "${BRANCH_PUBLISH_ARGS[@]}"; then
+    BRANCH_PASS_OK="true"
+    break
+  else
+    rc=$?
+  fi
+  echo "$(STAMP) [codex-automation-publisher] branch publish pass attempt ${attempt}/${BRANCH_PASS_MAX_ATTEMPTS} failed (exit ${rc})"
+  if [[ "${attempt}" -lt "${BRANCH_PASS_MAX_ATTEMPTS}" ]]; then
+    backoff=$((attempt * 30))
+    echo "$(STAMP) [codex-automation-publisher] retrying branch publish pass in ${backoff}s"
+    sleep "${backoff}"
+  fi
+done
+if [[ "${BRANCH_PASS_OK}" == "true" ]]; then
   echo "$(STAMP) [codex-automation-publisher] branch publish pass complete"
 else
   echo "$(STAMP) [codex-automation-publisher] branch publish pass failed"
