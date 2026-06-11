@@ -1124,6 +1124,8 @@ def _classify_agent_process(command: str) -> str | None:
         or "run_codex_automation_publisher.py" in lowered
     ):
         return "publisher"
+    if "render_benchmark_truth_status.py" in lowered:
+        return "benchmark_truth"
     if "multi_agent_dialog.py" in lowered:
         return "multi_agent_dialog"
     if (
@@ -1147,6 +1149,7 @@ def _classify_agent_process(command: str) -> str | None:
 def _process_summary_for_role(role: str) -> str:
     summaries = {
         "boss_cycle": "boss-loop control process",
+        "benchmark_truth": "benchmark-truth status and latest-pointer guard process",
         "claude_code": "Claude Code local session process",
         "codex_app_server": "Codex Desktop app server process",
         "codex_cli": "Codex CLI process",
