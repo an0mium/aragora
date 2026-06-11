@@ -230,6 +230,9 @@ def _safe_max(values: list[float]) -> float | None:
 
 
 def _summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    if not runs:
+        raise ValueError("dogfood benchmark summary requires at least one run")
+
     total = len(runs)
     non_timeout = [run for run in runs if not run["timed_out"]]
     successful = [run for run in runs if run["exit_code"] == 0 and not run["timed_out"]]
@@ -292,7 +295,7 @@ def _summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
         "successful_runs": len(successful),
         "quality_present_runs": len(quality_present),
         "passed_quality_and_practicality_runs": len(passed),
-        "pass_rate": round(len(passed) / total, 4) if total else 0.0,
+        "pass_rate": round(len(passed) / total, 4),
         "duration_seconds": {
             "mean": _safe_mean(durations),
             "median": _safe_median(durations),

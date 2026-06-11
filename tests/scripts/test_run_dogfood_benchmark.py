@@ -124,6 +124,10 @@ class TestExtractPipelineChecks:
 
 
 class TestSummarizeHardCheckRates:
+    def test_rejects_empty_run_collection(self) -> None:
+        with pytest.raises(ValueError, match="requires at least one run"):
+            run_dogfood_benchmark._summarize([])
+
     def test_missing_values_count_as_failed_rate(self) -> None:
         runs = [
             _run_template(
