@@ -29,7 +29,7 @@ dependencies = [
     # ``collections.Callable`` and crash on Python 3.10+ during AWS timestamp
     # parsing — which aborts ``hydrate_env_from_secrets`` and the whole
     # settlement/secrets CLI path. Floor it above the fixed release.
-    "python-dateutil>=2.8.2",
+    "python-dateutil>=2.9.0.post0",
 ]
 
 [project.optional-dependencies]
