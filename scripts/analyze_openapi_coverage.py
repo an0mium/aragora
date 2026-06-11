@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -194,7 +195,14 @@ def print_report(analysis: dict[str, Any], verbose: bool = False) -> None:
             print(f"  [{tags}] {endpoint['method']:6} {endpoint['path']}")
 
 
-def main():
+def validate_fail_threshold(value: float) -> float:
+    """Return a safe coverage threshold or raise ValueError."""
+    if isinstance(value, bool) or not math.isfinite(value) or value < 0 or value > 100:
+        raise ValueError("--fail-threshold must be a finite percentage between 0 and 100")
+    return value
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Analyze OpenAPI schema coverage")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show all missing endpoints")
@@ -204,7 +212,16 @@ def main():
         default=None,
         help="Fail (exit 1) if response coverage is below this percentage (0-100)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    if args.fail_threshold is not None:
+        try:
+            fail_threshold = validate_fail_threshold(args.fail_threshold)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+    else:
+        fail_threshold = None
 
     spec = load_openapi_spec()
     analysis = analyze_coverage(spec)
@@ -216,11 +233,11 @@ def main():
     else:
         print_report(analysis, verbose=args.verbose)
 
-    if args.fail_threshold is not None:
+    if fail_threshold is not None:
         coverage = analysis["summary"]["response_coverage_pct"]
-        if coverage < args.fail_threshold:
+        if coverage < fail_threshold:
             print(
-                f"\n::error::OpenAPI coverage {coverage:.1f}% is below threshold {args.fail_threshold:.1f}%",
+                f"\n::error::OpenAPI coverage {coverage:.1f}% is below threshold {fail_threshold:.1f}%",
                 file=sys.stderr,
             )
             return 1
