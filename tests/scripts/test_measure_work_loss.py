@@ -150,6 +150,27 @@ class TestComputeWorkLoss:
         assert result["branches_pushed_never_prd"] == 0
         assert result["lost_units"] == 1
 
+    def test_pending_outbox_branch_not_counted_as_lost(self) -> None:
+        outbox = [
+            {
+                "idempotency_key": "k1",
+                "branch": "codex/pending-published-branch",
+                "expires_at": "2026-07-01T00:00:00Z",
+                "_source": "live",
+            }
+        ]
+        result = compute_work_loss(
+            outbox_items=outbox,
+            remote_heads={"main", "codex/pending-published-branch"},
+            prs=[],
+            now=NOW,
+            window_start=WINDOW_START,
+        )
+        assert result["pending_outbox_items"] == 1
+        assert result["branches_pushed_never_prd"] == 0
+        assert result["lost_units"] == 0
+        assert result["sample_pending_outbox"] == ["codex/pending-published-branch"]
+
     def test_explicit_publication_state_respected(self) -> None:
         outbox = [
             {
@@ -214,6 +235,7 @@ class TestComputeWorkLoss:
             "prs_closed_unmerged",
             "produced_units",
             "lost_units",
+            "pending_outbox_items",
             "waste_ratio",
         ):
             assert key in UNIT_DEFINITIONS
@@ -281,6 +303,7 @@ class TestMainJson:
         assert out["prs_closed_unmerged"] == 1
         assert out["produced_units"] == 1
         assert out["lost_units"] == 3
+        assert out["pending_outbox_items"] == 0
         assert out["waste_ratio"] == pytest.approx(3.0)
         assert "unit_definitions" in out
 
@@ -328,6 +351,7 @@ class TestRenderWasteBlock:
         block = render_waste_block(result)
         assert "Branches pushed, never PR'd" in block
         assert "Waste ratio" in block
+        assert "Pending outbox items" in block
         assert "lost_units / max(1, produced_units)" in block
 
 

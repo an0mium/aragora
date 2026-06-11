@@ -74,6 +74,11 @@ UNIT_DEFINITIONS = {
         "(branch name when present, else outbox idempotency key); each lost "
         "unit counts in exactly one category."
     ),
+    "pending_outbox_items": (
+        "Unpublished, unexpired outbox items whose branch is already present "
+        "on origin; these are still in-flight publication handoffs and are "
+        "not counted as lost."
+    ),
     "waste_ratio": "lost_units / max(1, produced_units).",
 }
 
@@ -204,8 +209,22 @@ def compute_work_loss(
     """Compute the waste report from already-loaded inputs."""
     pr_head_refs = {ref for pr in prs if (ref := _as_str(pr.get("head_ref")))}
     claimed: set[str] = set()
+    pending_outbox: list[str] = []
     lost_never_pushed: list[str] = []
     expired_unpublished: list[str] = []
+
+    for item in outbox_items:
+        branch = _item_branch(item)
+        key = branch or _as_str(item.get("idempotency_key")) or _as_str(item.get("_file")) or ""
+        if not branch or not key or key in claimed:
+            continue
+        if _item_published(item, pr_head_refs):
+            continue
+        expires_at = _parse_iso(item.get("expires_at"))
+        if branch in remote_heads and (expires_at is None or expires_at >= now):
+            pending_outbox.append(key)
+            claimed.add(key)
+            claimed.add(branch)
 
     for item in outbox_items:
         branch = _item_branch(item)
@@ -262,9 +281,11 @@ def compute_work_loss(
         "lost_units": lost_units,
         "waste_ratio": lost_units / max(1, produced_units),
         "outbox_items_scanned": len(outbox_items),
+        "pending_outbox_items": len(pending_outbox),
         "unreadable_outbox_items": unreadable_outbox_items,
         "remote_heads_scanned": len(remote_heads),
         "prs_scanned": len(prs),
+        "sample_pending_outbox": pending_outbox[:10],
         "sample_lost_never_pushed": lost_never_pushed[:10],
         "sample_expired_unpublished": expired_unpublished[:10],
         "sample_branches_never_prd": orphan_branches[:10],
@@ -283,6 +304,7 @@ def render_waste_block(result: dict) -> str:
         ("Lost units (deduplicated)", result["lost_units"]),
         ("Produced units (merged PRs in window)", result["produced_units"]),
         ("Waste ratio (lost_units / max(1, produced_units))", f"{result['waste_ratio']:.4g}"),
+        ("Pending outbox items (not counted as lost)", result["pending_outbox_items"]),
         (
             "Outbox items scanned / unreadable",
             f"{result['outbox_items_scanned']} / {result['unreadable_outbox_items']}",
