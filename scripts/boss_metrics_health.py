@@ -75,8 +75,8 @@ def _valid_issue_number(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
-def _positive_int(value: int, *, field: str) -> int:
-    if value <= 0:
+def _positive_int(value: Any, *, field: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise ValueError(f"{field} must be a positive integer")
     return value
 
