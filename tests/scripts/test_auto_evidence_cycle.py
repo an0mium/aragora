@@ -512,3 +512,150 @@ def test_latest_quorum_conclusion_uses_latest_row() -> None:
 def test_latest_quorum_conclusion_missing() -> None:
     assert cycle.latest_quorum_conclusion({"statusCheckRollup": []}) == ""
     assert cycle.latest_quorum_conclusion({}) == ""
+
+
+# --- Dogfood pass (#8219) ----------------------------------------------------
+
+
+def _dogfood_entry(
+    pr: int,
+    *,
+    tier: int = 1,
+    requires_dogfood: bool = True,
+    dogfood_evidence: list[dict[str, Any]] | None = None,
+    human: bool = False,
+    dissent: bool = False,
+) -> dict[str, Any]:
+    # A Tier-1+ code PR whose quorum is complete but dogfood is missing.
+    return {
+        "pr_number": pr,
+        "status": "needs_model_review_quorum",
+        "tier": tier,
+        "counted_model_families": ["claude", "grok"],
+        "requires_adversarial_dogfood": requires_dogfood,
+        "dogfood_evidence": dogfood_evidence or [],
+        "requires_human_risk_settlement": human,
+        "unresolved_dissent": dissent,
+    }
+
+
+class DogfoodRecorder:
+    def __init__(self, results: dict[int, dict[str, Any]] | None = None) -> None:
+        self.calls: list[tuple[int, bool]] = []
+        self.results = results or {}
+
+    def __call__(self, pr: int, apply: bool) -> dict[str, Any]:
+        self.calls.append((pr, apply))
+        return self.results.get(pr, {"status": "posted", "posted": True, "reason": "ok"})
+
+
+def _run_with_dogfood(
+    prs: list[dict[str, Any]],
+    packets: dict[int, dict[str, Any]],
+    *,
+    apply: bool = True,
+    dogfood: DogfoodRecorder | None = None,
+    reconciler: ReconcilerRecorder | None = None,
+    max_dogfood: int = 3,
+) -> tuple[dict[str, Any], DogfoodRecorder, ReconcilerRecorder]:
+    dogfood = dogfood or DogfoodRecorder()
+    reconciler = reconciler or ReconcilerRecorder()
+
+    # Collect runner that posts nothing (these PRs have full quorum already).
+    def collect(pr: int, apply_: bool) -> dict[str, Any]:
+        return {"ok": False, "counting_families": [], "posted_families": [], "error": "n/a"}
+
+    ticks = iter(range(100000))
+    summary = cycle.run_cycle(
+        list_prs=lambda: prs,
+        fetch_packet=lambda pr: packets.get(pr, {}),
+        run_collect=collect,
+        run_reconciler=reconciler,
+        run_dogfood=dogfood,
+        max_dogfood=max_dogfood,
+        apply=apply,
+        max_prs=3,
+        max_scan=30,
+        budget_seconds=1200.0,
+        breaker_threshold=3,
+        clock=lambda: next(ticks) * 0.001,
+    )
+    return summary, dogfood, reconciler
+
+
+def test_dogfood_selected_for_tier1_code_pr_missing_dogfood() -> None:
+    summary, dogfood, recon = _run_with_dogfood([_pr(5)], {5: _dogfood_entry(5)})
+    assert [item["pr"] for item in summary["dogfood_plan"]] == [5]
+    assert dogfood.calls == [(5, True)]
+    assert summary["dogfood_posted_prs"] == [5]
+    # A posted dogfood triggers the reconciler so the quorum check reruns.
+    assert recon.calls == 1
+    assert summary["exit_code"] == cycle.EXIT_OK
+
+
+def test_dogfood_not_selected_when_evidence_present() -> None:
+    summary, dogfood, _ = _run_with_dogfood(
+        [_pr(5)], {5: _dogfood_entry(5, dogfood_evidence=[{"reviewer_id": "claude"}])}
+    )
+    assert summary["dogfood_plan"] == []
+    assert dogfood.calls == []
+
+
+def test_dogfood_not_selected_for_docs_pr() -> None:
+    # Tier 0 docs PR: requires_adversarial_dogfood is False.
+    summary, dogfood, _ = _run_with_dogfood(
+        [_pr(5)], {5: _dogfood_entry(5, tier=0, requires_dogfood=False)}
+    )
+    assert summary["dogfood_plan"] == []
+    assert dogfood.calls == []
+
+
+def test_dogfood_failure_posts_nothing_and_is_not_a_cycle_failure() -> None:
+    # A failing dogfood (PR genuinely not ready) is a real signal, not a fault.
+    summary, dogfood, recon = _run_with_dogfood(
+        [_pr(5)],
+        {5: _dogfood_entry(5)},
+        dogfood=DogfoodRecorder({5: {"status": "failed", "posted": False, "reason": "tests red"}}),
+    )
+    assert summary["dogfood_failed_prs"] == [5]
+    assert summary["dogfood_posted_prs"] == []
+    assert recon.calls == 0  # nothing posted, no rerun
+    assert summary["exit_code"] == cycle.EXIT_OK  # not a cycle failure
+
+
+def test_dogfood_skipped_untrusted_recorded() -> None:
+    summary, _dogfood, recon = _run_with_dogfood(
+        [_pr(5)],
+        {5: _dogfood_entry(5)},
+        dogfood=DogfoodRecorder({5: {"status": "skipped", "posted": False, "reason": "untrusted"}}),
+    )
+    assert summary["dogfood_skipped_prs"] == [5]
+    assert recon.calls == 0
+    assert summary["exit_code"] == cycle.EXIT_OK
+
+
+def test_dogfood_human_risk_pr_not_selected() -> None:
+    summary, dogfood, _ = _run_with_dogfood([_pr(5)], {5: _dogfood_entry(5, tier=3, human=True)})
+    assert summary["dogfood_plan"] == []
+    assert dogfood.calls == []
+
+
+def test_dogfood_max_cap_honored() -> None:
+    prs = [_pr(n) for n in (5, 6, 7, 8)]
+    packets = {n: _dogfood_entry(n) for n in (5, 6, 7, 8)}
+    summary, dogfood, _ = _run_with_dogfood(prs, packets, max_dogfood=2)
+    assert len(summary["dogfood_plan"]) == 2
+    assert len(dogfood.calls) == 2
+
+
+def test_dogfood_dry_run_plans_but_does_not_execute() -> None:
+    summary, dogfood, recon = _run_with_dogfood([_pr(5)], {5: _dogfood_entry(5)}, apply=False)
+    assert [item["pr"] for item in summary["dogfood_plan"]] == [5]
+    assert dogfood.calls == []  # no execution in dry-run
+    assert recon.calls == 0
+
+
+def test_no_dogfood_runner_means_no_dogfood_plan() -> None:
+    # Backward compat: without run_dogfood the cycle ignores dogfood entirely.
+    summary, _collect, _recon = _run([_pr(5)], {5: _dogfood_entry(5)})
+    assert summary["dogfood_plan"] == []
