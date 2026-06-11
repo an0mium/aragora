@@ -1175,12 +1175,18 @@ def _cmd_collect_evidence(args: argparse.Namespace) -> int:
     json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
     repo = _resolve_repo_slug(str(getattr(args, "repo", "") or ""))
     if not repo:
-        print("error: could not resolve --repo (no gh repo context)", file=sys.stderr)
+        _render_collect_evidence_input_error(
+            "could not resolve --repo (no gh repo context)",
+            json_output=json_output,
+        )
         return 2
     try:
         pr = int(str(getattr(args, "pr", "") or ""))
     except (TypeError, ValueError):
-        print("error: --pr must be an integer", file=sys.stderr)
+        _render_collect_evidence_input_error(
+            "--pr must be an integer",
+            json_output=json_output,
+        )
         return 2
     return run_collect_cli(
         repo=repo,
@@ -1190,6 +1196,13 @@ def _cmd_collect_evidence(args: argparse.Namespace) -> int:
         apply=bool(getattr(args, "apply", False)),
         json_output=json_output,
     )
+
+
+def _render_collect_evidence_input_error(message: str, *, json_output: bool) -> None:
+    if json_output:
+        print(json.dumps({"mode": "collect_evidence", "error": message}, indent=2))
+    else:
+        print(f"error: {message}", file=sys.stderr)
 
 
 def _cmd_merge_packet(args: argparse.Namespace) -> int:

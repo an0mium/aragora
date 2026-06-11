@@ -5559,6 +5559,57 @@ class TestSettlementHelpers:
             "error": "gh pr view 7841 failed: api.github.com unavailable",
         }
 
+    def test_collect_evidence_json_reports_repo_resolution_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("aragora.cli.commands.review_queue._resolve_repo_slug", lambda _: "")
+        ns = argparse.Namespace(
+            review_queue_command="collect-evidence",
+            repo="",
+            pr="7841",
+            reviewers=None,
+            author=None,
+            apply=False,
+            json=True,
+        )
+
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 2
+        assert err_buf.getvalue() == ""
+        payload = json.loads(out_buf.getvalue())
+        assert payload == {
+            "mode": "collect_evidence",
+            "error": "could not resolve --repo (no gh repo context)",
+        }
+
+    def test_collect_evidence_json_reports_invalid_pr(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="collect-evidence",
+            repo="synaptent/aragora",
+            pr="not-a-number",
+            reviewers=None,
+            author=None,
+            apply=False,
+            json=True,
+        )
+
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 2
+        assert err_buf.getvalue() == ""
+        payload = json.loads(out_buf.getvalue())
+        assert payload == {
+            "mode": "collect_evidence",
+            "error": "--pr must be an integer",
+        }
+
     def test_act_command_requires_reason_for_request_changes(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="act",
