@@ -72,6 +72,61 @@ def test_load_json_rejects_non_object_baseline(tmp_path: Path) -> None:
         raise AssertionError("non-object baseline should fail closed")
 
 
+def test_baseline_list_count_rejects_non_list_field(tmp_path: Path) -> None:
+    baseline = tmp_path / "verify_sdk_contracts.json"
+    payload = {"python_sdk_drift": "GET /v1/drift"}
+
+    try:
+        contract_drift_report._baseline_list_count(payload, "python_sdk_drift", path=baseline)
+    except contract_drift_report.BaselineJsonError as exc:
+        assert "field 'python_sdk_drift' must be a list" in str(exc)
+        assert str(baseline) in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("non-list baseline field should fail closed")
+
+
+def test_baseline_list_count_allows_missing_field_as_empty(tmp_path: Path) -> None:
+    baseline = tmp_path / "verify_sdk_contracts.json"
+
+    assert contract_drift_report._baseline_list_count({}, "missing_stable", path=baseline) == 0
+
+
+def test_namespace_baseline_counts_rejects_non_object_namespaces(tmp_path: Path) -> None:
+    baseline = tmp_path / "check_sdk_namespace_parity.json"
+
+    try:
+        contract_drift_report._namespace_baseline_counts({"namespaces": []}, path=baseline)
+    except contract_drift_report.BaselineJsonError as exc:
+        assert "field 'namespaces' must be an object" in str(exc)
+        assert str(baseline) in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("non-object namespaces baseline should fail closed")
+
+
+def test_namespace_baseline_counts_rejects_invalid_counts(tmp_path: Path) -> None:
+    baseline = tmp_path / "check_sdk_namespace_parity.json"
+
+    try:
+        contract_drift_report._namespace_baseline_counts(
+            {"namespaces": {"debates": "3"}},
+            path=baseline,
+        )
+    except contract_drift_report.BaselineJsonError as exc:
+        assert "namespace 'debates' count must be a non-negative integer" in str(exc)
+        assert str(baseline) in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("non-integer namespace baseline should fail closed")
+
+
+def test_namespace_baseline_counts_accepts_non_negative_integer_counts(tmp_path: Path) -> None:
+    baseline = tmp_path / "check_sdk_namespace_parity.json"
+
+    assert contract_drift_report._namespace_baseline_counts(
+        {"namespaces": {"debates": 2, "receipts": 0}},
+        path=baseline,
+    ) == {"debates": 2, "receipts": 0}
+
+
 def test_main_stops_before_writing_reports_when_baseline_is_untrusted(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:

@@ -34,6 +34,31 @@ def _load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _baseline_list_count(payload: dict[str, Any], key: str, *, path: Path) -> int:
+    value = payload.get(key, [])
+    if not isinstance(value, list):
+        raise BaselineJsonError(f"contract drift baseline field {key!r} must be a list: {path}")
+    return len(value)
+
+
+def _namespace_baseline_counts(payload: dict[str, Any], *, path: Path) -> dict[str, int]:
+    namespaces = payload.get("namespaces", {})
+    if not isinstance(namespaces, dict):
+        raise BaselineJsonError(
+            f"contract drift baseline field 'namespaces' must be an object: {path}"
+        )
+
+    counts: dict[str, int] = {}
+    for key, value in namespaces.items():
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise BaselineJsonError(
+                f"contract drift baseline namespace {key!r} count must be a "
+                f"non-negative integer: {path}"
+            )
+        counts[str(key)] = value
+    return counts
+
+
 def _verify_counts() -> tuple[dict[str, int], dict[str, int]]:
     baseline_path = PROJECT_ROOT / "scripts/baselines/verify_sdk_contracts.json"
     baseline = _load_json(baseline_path)
@@ -64,9 +89,11 @@ def _verify_counts() -> tuple[dict[str, int], dict[str, int]]:
         "missing_stable": 0,
     }
     base = {
-        "python_sdk_drift": len(baseline.get("python_sdk_drift", [])),
-        "typescript_sdk_drift": len(baseline.get("typescript_sdk_drift", [])),
-        "missing_stable": len(baseline.get("missing_stable", [])),
+        "python_sdk_drift": _baseline_list_count(baseline, "python_sdk_drift", path=baseline_path),
+        "typescript_sdk_drift": _baseline_list_count(
+            baseline, "typescript_sdk_drift", path=baseline_path
+        ),
+        "missing_stable": _baseline_list_count(baseline, "missing_stable", path=baseline_path),
     }
     return base, current
 
@@ -83,8 +110,8 @@ def _route_counts() -> tuple[dict[str, int], dict[str, int]]:
         internal_prefixes_path="scripts/baselines/internal_route_prefixes.json",
     )
     base = {
-        "missing_in_spec": len(baseline.get("missing_in_spec", [])),
-        "orphaned_in_spec": len(baseline.get("orphaned_in_spec", [])),
+        "missing_in_spec": _baseline_list_count(baseline, "missing_in_spec", path=baseline_path),
+        "orphaned_in_spec": _baseline_list_count(baseline, "orphaned_in_spec", path=baseline_path),
     }
     current = {
         "missing_in_spec": result["missing_in_spec_count"],
@@ -103,7 +130,9 @@ def _parity_counts() -> tuple[dict[str, int], dict[str, int]]:
         check_sdk_parity.extract_openapi_routes(),
     )
     base = {
-        "missing_from_both_sdks": len(baseline.get("missing_from_both_sdks", [])),
+        "missing_from_both_sdks": _baseline_list_count(
+            baseline, "missing_from_both_sdks", path=baseline_path
+        ),
     }
     current = {"missing_from_both_sdks": report["summary"]["routes_missing_from_both_sdks"]}
     return base, current
@@ -111,7 +140,7 @@ def _parity_counts() -> tuple[dict[str, int], dict[str, int]]:
 
 def _namespace_counts() -> tuple[dict[str, int], dict[str, int]]:
     baseline_path = PROJECT_ROOT / "scripts/baselines/check_sdk_namespace_parity.json"
-    baseline = _load_json(baseline_path).get("namespaces", {})
+    baseline = _namespace_baseline_counts(_load_json(baseline_path), path=baseline_path)
     report = check_sdk_parity.build_parity_report(
         check_sdk_parity.extract_handler_routes(),
         check_sdk_parity.extract_sdk_paths_python(),
