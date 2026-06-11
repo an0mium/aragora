@@ -686,6 +686,81 @@ def _attach_agent_models_to_result(result: Any, agents: list[Any]) -> None:
         }
 
 
+def _attach_agent_roster_to_result(
+    result: Any,
+    *,
+    requested: list[str],
+    created: list[str],
+    failed: list[str],
+) -> None:
+    """Persist the requested/created/failed agent roster onto the result.
+
+    Issue #8101: receipts must surface requested vs created vs participated
+    agents instead of silently dropping agents that authored no message.
+    """
+    metadata = getattr(result, "metadata", None)
+    if not isinstance(metadata, dict):
+        metadata = {}
+        setattr(result, "metadata", metadata)
+    metadata["agent_roster"] = {
+        "requested": [str(r) for r in requested if str(r).strip()],
+        "created": [str(c) for c in created if str(c).strip()],
+        "failed": [str(f) for f in failed],
+    }
+
+
+def _collect_agent_contributions(result: Any) -> dict[str, dict[str, int]]:
+    """Count artifact-backed contributions (messages/proposals/critiques/votes)
+    per agent from a debate result. Only agents with at least one recorded
+    artifact appear in the returned mapping."""
+    contributions: dict[str, dict[str, int]] = {}
+
+    def _bump(raw_name: Any, kind: str) -> None:
+        name = str(raw_name or "").strip()
+        if not name:
+            return
+        entry = contributions.setdefault(
+            name, {"messages": 0, "proposals": 0, "critiques": 0, "votes": 0}
+        )
+        entry[kind] += 1
+
+    for msg in getattr(result, "messages", []) or []:
+        if str(getattr(msg, "content", "") or "").strip():
+            _bump(getattr(msg, "agent", ""), "messages")
+    proposals = getattr(result, "proposals", None)
+    if isinstance(proposals, dict):
+        for name in proposals:
+            _bump(name, "proposals")
+    for critique in getattr(result, "critiques", []) or []:
+        _bump(getattr(critique, "agent", ""), "critiques")
+    for vote in getattr(result, "votes", []) or []:
+        _bump(getattr(vote, "agent", ""), "votes")
+    return contributions
+
+
+def _create_revision_agent(
+    provider: str,
+    *,
+    name: str,
+    role: str = "synthesizer",
+    model: str | None = None,
+) -> Any:
+    """Create a post-consensus repair/upgrade agent.
+
+    Issue #8101: resolves credentials through the same CLI key-store surface
+    (``_resolved_cli_provider_key``) as the main debate path. Without this,
+    strict-secrets mode rejected env-provided keys here while the debate
+    itself accepted them — an inconsistent posture within one command.
+    """
+    return create_agent(
+        model_type=cast(AgentType, provider),
+        name=name,
+        role=role,
+        model=model,
+        api_key=_resolved_cli_provider_key(provider),
+    )
+
+
 def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
     """Generate and persist a debate receipt to ~/.aragora/receipts/.
 
@@ -733,7 +808,29 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         if timestamp.endswith("+00:00"):
             timestamp = timestamp[: -len("+00:00")] + "Z"
-        agents = list(dict.fromkeys(response["agent"] for response in agent_responses))
+        # Issue #8101: record ALL participating agents, not just message
+        # authors. The roster comes from the engine's canonical participants
+        # list (all agents in the debate), unioned with every artifact source
+        # (messages, proposals, critiques, votes). Per-agent contribution
+        # counts keep the accounting honest: a roster entry with zero
+        # contributions is visible as such, never claimed as having spoken.
+        contributions = _collect_agent_contributions(result)
+        roster_meta = metadata.get("agent_roster", {}) if isinstance(metadata, dict) else {}
+        if not isinstance(roster_meta, dict):
+            roster_meta = {}
+        participants = [
+            str(p).strip() for p in (getattr(result, "participants", []) or []) if str(p).strip()
+        ]
+        created_roster = [str(c) for c in (roster_meta.get("created") or [])]
+        requested_roster = [str(r) for r in (roster_meta.get("requested") or [])]
+        failed_roster = [str(f) for f in (roster_meta.get("failed") or [])]
+        roster = participants or created_roster or list(contributions)
+        agents = list(dict.fromkeys([*roster, *contributions]))
+        for name in agents:
+            contributions.setdefault(
+                name, {"messages": 0, "proposals": 0, "critiques": 0, "votes": 0}
+            )
+        contributing_agents = [name for name in agents if any(contributions[name].values())]
         input_hash = hashlib.sha256(
             json.dumps(
                 {
@@ -766,6 +863,9 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
             "final_answer": final_answer[:2000],
             "rounds_used": getattr(result, "rounds_used", 0),
             "agents": agents,
+            "agents_requested": requested_roster or agents,
+            "agents_failed": failed_roster,
+            "agent_contributions": contributions,
             "agent_responses": agent_responses,
             "dissenting_views": [
                 str(v)[:500] for v in (getattr(result, "dissenting_views", []) or [])
@@ -773,7 +873,7 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
             "consensus_proof": {
                 "reached": bool(consensus_reached),
                 "confidence": round(confidence, 4) if confidence else 0.0,
-                "supporting_agents": agents if consensus_reached else [],
+                "supporting_agents": contributing_agents if consensus_reached else [],
                 "dissenting_agents": [],
                 "method": "majority",
                 "evidence_hash": input_hash,
@@ -1437,6 +1537,12 @@ async def run_debate(
 
         result = await arena.run()
         _attach_agent_models_to_result(result, agents)
+        _attach_agent_roster_to_result(
+            result,
+            requested=[spec.name or spec.provider for spec in agent_specs],
+            created=[str(getattr(a, "name", "") or "") for a in agents],
+            failed=failed_agents,
+        )
 
         # Store result
         if memory:
@@ -2207,10 +2313,9 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 )
                 break
             try:
-                repair_agent = create_agent(
-                    model_type=cast(AgentType, provider),
+                repair_agent = _create_revision_agent(
+                    provider,
                     name=f"{stage}_{provider}_{attempt_num}",
-                    role="synthesizer",
                     model=spec.model,
                 )
                 existing = getattr(repair_agent, "system_prompt", "") or ""

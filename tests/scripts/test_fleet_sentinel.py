@@ -474,6 +474,377 @@ def test_notify_bare_placeholder_token_passes_summary_raw() -> None:
     assert captured["tokens"] == ["notifier", "--msg", 'has "quotes" and \\slash']
 
 
+# ---------------------------------------------------------------------------
+# lane_liveness  (failure class A: the silent c06/c07/c08 lane deaths of
+# 2026-06-10/11 — three coordinator-spawned lanes died at setup, left empty
+# branches on origin, and nobody noticed until a manual morning sweep)
+# ---------------------------------------------------------------------------
+
+
+def _write_lane_ledger(
+    lanes_dir: Path,
+    lane: str,
+    *,
+    branch: str,
+    launched_at: str,
+    status: str = "in_progress",
+) -> Path:
+    lanes_dir.mkdir(parents=True, exist_ok=True)
+    path = lanes_dir / f"{lane}.json"
+    path.write_text(
+        json.dumps(
+            {
+                "lane": lane,
+                "agent_id": "a0000000000000000",
+                "branch": branch,
+                "brief": f"brief for {lane}",
+                "launched_at": launched_at,
+                "status": status,
+            }
+        )
+    )
+    return path
+
+
+def _liveness(
+    lanes_dir: Path,
+    *,
+    heads: dict[str, str],
+    ahead: dict[str, int | None],
+    dates: dict[str, str] | None = None,
+    lane_max_age_hours: float = 3.0,
+    orphan_age_hours: float = 24.0,
+) -> Any:
+    date_map = {sha: sentinel.parse_iso(d) for sha, d in (dates or {}).items()}
+    return sentinel.check_lane_liveness(
+        str(lanes_dir),
+        lane_max_age_hours=lane_max_age_hours,
+        orphan_age_hours=orphan_age_hours,
+        now=NOW,
+        remote_heads=lambda: heads,
+        ahead_counter=lambda sha: ahead.get(sha),
+        commit_dater=lambda sha: date_map.get(sha),
+    )
+
+
+def test_lane_liveness_fresh_in_progress_ok(tmp_path: Path) -> None:
+    _write_lane_ledger(tmp_path, "q2", branch="elves/run-x-q2", launched_at="2026-06-10T11:00:00Z")
+    result = _liveness(tmp_path, heads={"elves/run-x-q2": "aaa"}, ahead={"aaa": 0})
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_stale_zero_ahead_breaches(tmp_path: Path) -> None:
+    _write_lane_ledger(tmp_path, "q2", branch="elves/run-x-q2", launched_at="2026-06-10T07:00:00Z")
+    result = _liveness(tmp_path, heads={"elves/run-x-q2": "aaa"}, ahead={"aaa": 0})
+    assert result["status"] == "breach"
+    assert "q2" in result["detail"]
+    assert "zero commits ahead" in result["detail"]
+
+
+def test_lane_liveness_stale_branch_absent_breaches(tmp_path: Path) -> None:
+    _write_lane_ledger(tmp_path, "q2", branch="elves/run-x-q2", launched_at="2026-06-10T07:00:00Z")
+    result = _liveness(tmp_path, heads={}, ahead={})
+    assert result["status"] == "breach"
+    assert "absent from origin" in result["detail"]
+
+
+def test_lane_liveness_stale_with_commits_ok(tmp_path: Path) -> None:
+    _write_lane_ledger(tmp_path, "q2", branch="elves/run-x-q2", launched_at="2026-06-10T07:00:00Z")
+    result = _liveness(tmp_path, heads={"elves/run-x-q2": "aaa"}, ahead={"aaa": 2})
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_unresolvable_ahead_is_not_dead(tmp_path: Path) -> None:
+    """None from the ahead counter means unfetched unique commits — never dead."""
+    _write_lane_ledger(tmp_path, "q2", branch="elves/run-x-q2", launched_at="2026-06-10T07:00:00Z")
+    result = _liveness(tmp_path, heads={"elves/run-x-q2": "aaa"}, ahead={"aaa": None})
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_non_in_progress_ignored(tmp_path: Path) -> None:
+    _write_lane_ledger(
+        tmp_path,
+        "q2",
+        branch="elves/run-x-q2",
+        launched_at="2026-06-10T07:00:00Z",
+        status="dead",
+    )
+    result = _liveness(tmp_path, heads={}, ahead={})
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_orphan_branch_breaches(tmp_path: Path) -> None:
+    result = _liveness(
+        tmp_path,
+        heads={"elves/run-20260610-c06-dead": "aaa"},
+        ahead={"aaa": 0},
+        dates={"aaa": "2026-06-09T06:00:00Z"},  # 30h old at NOW
+    )
+    assert result["status"] == "breach"
+    assert "orphan branch elves/run-20260610-c06-dead" in result["detail"]
+
+
+def test_lane_liveness_boss_pattern_orphan_breaches(tmp_path: Path) -> None:
+    result = _liveness(
+        tmp_path,
+        heads={"aragora/boss-harvest/issue-1-boss-x": "bbb"},
+        ahead={"bbb": 0},
+        dates={"bbb": "2026-06-08T12:00:00Z"},
+    )
+    assert result["status"] == "breach"
+
+
+def test_lane_liveness_young_empty_branch_ok(tmp_path: Path) -> None:
+    result = _liveness(
+        tmp_path,
+        heads={"elves/run-x-young": "aaa"},
+        ahead={"aaa": 0},
+        dates={"aaa": "2026-06-10T10:00:00Z"},  # 2h old
+    )
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_old_branch_with_commits_ok(tmp_path: Path) -> None:
+    result = _liveness(
+        tmp_path,
+        heads={"elves/run-x-real-work": "aaa"},
+        ahead={"aaa": 1},
+        dates={"aaa": "2026-06-01T00:00:00Z"},
+    )
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_non_pattern_branch_ignored(tmp_path: Path) -> None:
+    result = _liveness(
+        tmp_path,
+        heads={"feature/unrelated": "aaa"},
+        ahead={"aaa": 0},
+        dates={"aaa": "2026-06-01T00:00:00Z"},
+    )
+    assert result["status"] == "ok"
+
+
+def test_lane_liveness_remote_failure_is_unknown(tmp_path: Path) -> None:
+    def boom() -> dict[str, str]:
+        raise subprocess.CalledProcessError(128, ["git"])
+
+    result = sentinel.check_lane_liveness(
+        str(tmp_path),
+        lane_max_age_hours=3,
+        orphan_age_hours=24,
+        now=NOW,
+        remote_heads=boom,
+        ahead_counter=lambda sha: 0,
+        commit_dater=lambda sha: None,
+    )
+    assert result["status"] == "unknown"
+
+
+def test_lane_liveness_unreadable_ledger_is_unknown(tmp_path: Path) -> None:
+    tmp_path.mkdir(exist_ok=True)
+    (tmp_path / "broken.json").write_text("{not json")
+    result = _liveness(tmp_path, heads={}, ahead={})
+    assert result["status"] == "unknown"
+    assert "broken.json" in result["detail"]
+
+
+def test_breach_replay_jun10_silent_lane_death(tmp_path: Path) -> None:
+    """Acceptance: replaying the real 2026-06-10/11 incident raises the alarm.
+
+    Three coordinator-spawned lanes (c06/c07/c08) died at setup overnight.
+    Their branches sat on origin with zero commits ahead of main until a
+    manual morning sweep found them.  With ledgers present the ledger rule
+    fires; without ledgers (as on the real morning after) the orphan-branch
+    rule fires for every one of them.
+    """
+    heads = {
+        "elves/run-20260610-c06-mixed-family-fix": "c06sha",
+        "elves/run-20260610-c07-auto-evidence": "c07sha",
+        "elves/run-20260610-c08-b1-retrigger": "c08sha",
+    }
+    ahead: dict[str, int | None] = {"c06sha": 0, "c07sha": 0, "c08sha": 0}
+    dates = dict.fromkeys(ahead, "2026-06-09T02:00:00Z")  # ~34h old at NOW
+    # Ledger-less variant (the real morning-after state):
+    result = _liveness(tmp_path / "lanes", heads=heads, ahead=ahead, dates=dates)
+    assert result["status"] == "breach"
+    for branch in heads:
+        assert branch in result["detail"]
+    # Ledger-present variant: the ledger rule also catches each lane.
+    lanes = tmp_path / "run-20260610" / "lanes"
+    for lane, branch in (
+        ("c06", "elves/run-20260610-c06-mixed-family-fix"),
+        ("c07", "elves/run-20260610-c07-auto-evidence"),
+        ("c08", "elves/run-20260610-c08-b1-retrigger"),
+    ):
+        _write_lane_ledger(lanes, lane, branch=branch, launched_at="2026-06-09T02:00:00Z")
+    result = _liveness(lanes, heads=heads, ahead=ahead, dates=dates)
+    assert result["status"] == "breach"
+    assert result["detail"].count("lane c0") == 3
+
+
+# ---------------------------------------------------------------------------
+# github_api_health  (failure class B: GraphQL 502/504 streaks of 2026-06-10/11
+# stalled the publisher; the cached github_health flipped auth_ok:false so the
+# sentinel breached without distinguishing transient from persistent)
+# ---------------------------------------------------------------------------
+
+
+def _publisher_log(tmp_path: Path, passes: list[str], *, errors: list[str] | None = None) -> Path:
+    """Build a publisher log: one start/end marker pair per pass outcome."""
+    lines: list[str] = []
+    for i, outcome in enumerate(passes):
+        lines.append(
+            f"2026-06-11T0{i % 10}:00:00Z [codex-automation-publisher] starting branch publish pass"
+        )
+        for err in errors or []:
+            lines.append(f'    "error": "{err}",')
+        lines.append(
+            f"2026-06-11T0{i % 10}:01:00Z [codex-automation-publisher] branch publish pass {outcome}"
+        )
+    path = tmp_path / "codex-automation-publisher.log"
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def test_github_api_health_probe_ok_no_streak(tmp_path: Path) -> None:
+    log = _publisher_log(tmp_path, ["complete", "complete"])
+    result = sentinel.check_github_api_health(
+        log, persist_threshold=3, tail_lines=2000, probe_runner=lambda cmd: 0
+    )
+    assert result["status"] == "ok"
+    assert "streak=0" in result["detail"]
+
+
+def test_github_api_health_transient_blip_visible_but_quiet(tmp_path: Path) -> None:
+    """Probe down + short streak = transient: recorded in detail, NO breach."""
+    log = _publisher_log(
+        tmp_path,
+        ["complete", "failed", "failed"],
+        errors=["HTTP 502: 502 Bad Gateway (https://api.github.com/graphql)"],
+    )
+    result = sentinel.check_github_api_health(
+        log, persist_threshold=3, tail_lines=2000, probe_runner=lambda cmd: 1
+    )
+    assert result["status"] == "ok"
+    assert "streak=2" in result["detail"]
+    assert "HTTP 502" in result["detail"]
+
+
+def test_github_api_health_persistent_degradation_breaches(tmp_path: Path) -> None:
+    log = _publisher_log(
+        tmp_path,
+        ["complete", "failed", "failed", "failed"],
+        errors=["HTTP 504: We couldn't respond in time (https://api.github.com/graphql)"],
+    )
+    result = sentinel.check_github_api_health(
+        log, persist_threshold=3, tail_lines=2000, probe_runner=lambda cmd: 1
+    )
+    assert result["status"] == "breach"
+    assert "streak=3" in result["detail"]
+    assert "HTTP 504" in result["detail"]
+
+
+def test_github_api_health_probe_recovered_long_streak_ok(tmp_path: Path) -> None:
+    """Streak alone never breaches: a green probe means the API recovered."""
+    log = _publisher_log(tmp_path, ["failed", "failed", "failed", "failed"])
+    result = sentinel.check_github_api_health(
+        log, persist_threshold=3, tail_lines=2000, probe_runner=lambda cmd: 0
+    )
+    assert result["status"] == "ok"
+    assert "streak=4" in result["detail"]
+
+
+def test_github_api_health_streak_resets_on_complete(tmp_path: Path) -> None:
+    log = _publisher_log(tmp_path, ["failed", "failed", "complete", "failed"])
+    result = sentinel.check_github_api_health(
+        log, persist_threshold=3, tail_lines=2000, probe_runner=lambda cmd: 1
+    )
+    assert result["status"] == "ok"
+    assert "streak=1" in result["detail"]
+
+
+def test_github_api_health_attempt_lines_not_counted_as_pass_failures(tmp_path: Path) -> None:
+    lines = [
+        "2026-06-11T00:00:00Z [codex-automation-publisher] starting branch publish pass",
+        "2026-06-11T00:00:30Z [codex-automation-publisher] branch publish pass attempt 1/3 failed (exit 1); retrying in 30s",
+        "2026-06-11T00:01:30Z [codex-automation-publisher] branch publish pass complete",
+    ]
+    log = tmp_path / "pub.log"
+    log.write_text("\n".join(lines) + "\n")
+    streak, _ = sentinel.publisher_failure_streak(lines)
+    assert streak == 0
+    result = sentinel.check_github_api_health(
+        log, persist_threshold=3, tail_lines=2000, probe_runner=lambda cmd: 1
+    )
+    assert result["status"] == "ok"
+
+
+def test_github_api_health_log_missing_is_unknown(tmp_path: Path) -> None:
+    result = sentinel.check_github_api_health(
+        tmp_path / "absent.log", persist_threshold=3, tail_lines=2000, probe_runner=lambda cmd: 0
+    )
+    assert result["status"] == "unknown"
+
+
+def test_github_api_health_probe_crash_is_unknown(tmp_path: Path) -> None:
+    log = _publisher_log(tmp_path, ["complete"])
+
+    def boom(cmd: list[str]) -> int:
+        raise FileNotFoundError("gh not installed")
+
+    result = sentinel.check_github_api_health(
+        log, persist_threshold=3, tail_lines=2000, probe_runner=boom
+    )
+    assert result["status"] == "unknown"
+
+
+def test_new_checks_registered_in_all_checks() -> None:
+    assert "lane_liveness" in sentinel.ALL_CHECKS
+    assert "github_api_health" in sentinel.ALL_CHECKS
+
+
+def test_main_github_api_health_wired_end_to_end(tmp_path: Path, capsys: Any) -> None:
+    log = _publisher_log(tmp_path, ["complete"])
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--now",
+            "2026-06-10T12:00:00Z",
+            "--checks",
+            "github_api_health",
+            "--publisher-log",
+            str(log),
+            "--rate-limit-cmd",
+            f"{sys.executable} -c pass",
+        ]
+    )
+    assert code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["checks"][0]["check"] == "github_api_health"
+
+
+def test_main_lane_liveness_blind_repo_exits_two(tmp_path: Path, capsys: Any) -> None:
+    """Wiring test without network: a non-repo root makes the check blind."""
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--now",
+            "2026-06-10T12:00:00Z",
+            "--checks",
+            "lane_liveness",
+            "--repo-root",
+            str(tmp_path),
+            "--lanes-glob",
+            str(tmp_path / "run-*" / "lanes"),
+        ]
+    )
+    assert code == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["blind_checks"] == 1
+
+
 def test_notify_embedded_placeholder_neutralizes_quote_injection() -> None:
     """{summary} embedded inside a larger token (e.g. an AppleScript string
     literal, as in the installer's default osascript notify command) must not
