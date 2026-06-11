@@ -34,6 +34,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from audit_codex_branch_backlog import (  # noqa: E402
     DEFAULT_OUTBOX_DIR,
     DEFAULT_RECEIPT_DIR,
+    TERMINAL_RECEIPT_STATUSES,
     _commit_prefix_matches,
     is_patch_equivalent,
     terminal_receipted_handoff_branch_heads,
@@ -45,11 +46,38 @@ DEFAULT_LEGACY_ROOT = Path.home() / ".codex" / "worktrees"
 DEFAULT_CANONICAL_REL_ROOT = Path(".worktrees") / "codex-auto"
 DEFAULT_ROOT = DEFAULT_LEGACY_ROOT  # kept for backward compatibility
 DEFAULT_LEDGER_ROOT = Path(".aragora/worktree-harvest")
+DEFAULT_HARVEST_RECEIPT_REL_DIR = DEFAULT_LEDGER_ROOT / "harvest-receipts"
 ACTIVE_SESSION_FILES = (
     ".claude-session-active",
     ".codex_session_active",
     ".nomic-session-active",
 )
+RECEIPT_PATH_KEYS = frozenset(
+    {
+        "candidate_path",
+        "candidate_repo_path",
+        "checkout_path",
+        "path",
+        "repo_path",
+        "source_path",
+        "source_repo_path",
+        "worktree",
+        "worktree_path",
+    }
+)
+RECEIPT_HEAD_KEYS = frozenset(
+    {
+        "candidate_head",
+        "candidate_head_sha",
+        "commit",
+        "head",
+        "head_sha",
+        "sha",
+        "source_head",
+        "source_head_sha",
+    }
+)
+TERMINAL_HARVEST_DECISION_PREFIXES = ("already_", "preserve_")
 PROJECT_MARKER_FILES = (
     ".git",
     "pyproject.toml",
@@ -80,6 +108,15 @@ PROTECTED_CLASSES = {
     "receipt_protected",
     "lookup_failed",
 }
+SAFETY_CLASSES = (
+    "owned",
+    "unsafe_to_delete",
+    "unknown_preserve",
+    "referenced_preserve",
+    "harvested_or_duplicate",
+    "stale_or_merged",
+    "stale_residue",
+)
 
 
 @dataclass(frozen=True)
@@ -105,6 +142,17 @@ class GitInfo:
 
 
 @dataclass
+class CleanupSafety:
+    safety_class: str
+    preserve: bool
+    safe_to_delete: bool
+    requires_live_cleanup_inspect: bool
+    reason: str
+    next_action: str
+    signals: list[str] = field(default_factory=list)
+
+
+@dataclass
 class WorktreeCandidate:
     candidate_id: str
     path: str
@@ -115,6 +163,7 @@ class WorktreeCandidate:
     classification: str
     decision: str
     cleanup_candidate: bool
+    cleanup_safety: CleanupSafety
     proof: list[str]
     active_session: bool
     lock_files: list[str]
@@ -142,6 +191,7 @@ class InventoryContext:
     smart_merge_detection: bool = False
     smart_merge_main_subjects: list[str] = field(default_factory=list)
     open_pr_heads_cache: dict[str, list[dict[str, Any]]] | None = None
+    terminal_receipt_path_heads: dict[str, set[str | None]] = field(default_factory=dict)
 
 
 def utc_now() -> datetime:
@@ -265,6 +315,109 @@ def branch_matches_receipt(
     return any(
         receipt_head is None or _commit_prefix_matches(receipt_head, head) for receipt_head in heads
     )
+
+
+def _absolute_path_key(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        return None
+    return str(path.resolve(strict=False))
+
+
+def _receipt_heads_from_mapping(payload: dict[str, Any]) -> set[str | None]:
+    heads: set[str | None] = set()
+    for key, value in payload.items():
+        if key not in RECEIPT_HEAD_KEYS:
+            continue
+        if value is None:
+            heads.add(None)
+            continue
+        if isinstance(value, str):
+            text = value.strip()
+            if text:
+                heads.add(text)
+    return heads
+
+
+def _receipt_path_head_pairs(
+    value: Any,
+    *,
+    inherited_heads: set[str | None] | None = None,
+) -> list[tuple[str, str | None]]:
+    heads = set(inherited_heads or set())
+    pairs: list[tuple[str, str | None]] = []
+
+    if isinstance(value, dict):
+        local_heads = _receipt_heads_from_mapping(value)
+        if local_heads:
+            heads = local_heads
+        for key, item in value.items():
+            if key in RECEIPT_PATH_KEYS:
+                path_key = _absolute_path_key(item)
+                if path_key:
+                    for head in heads or {None}:
+                        pairs.append((path_key, head))
+            if isinstance(item, (dict, list)):
+                pairs.extend(_receipt_path_head_pairs(item, inherited_heads=heads))
+    elif isinstance(value, list):
+        for item in value:
+            pairs.extend(_receipt_path_head_pairs(item, inherited_heads=heads))
+
+    return pairs
+
+
+def _terminal_path_receipt(payload: dict[str, Any]) -> bool:
+    status = str(payload.get("status") or "").strip()
+    if status in TERMINAL_RECEIPT_STATUSES:
+        return True
+    decision = str(payload.get("decision") or "").strip()
+    if decision.startswith(TERMINAL_HARVEST_DECISION_PREFIXES):
+        return True
+    return False
+
+
+def terminal_receipt_path_heads(receipt_roots: list[Path]) -> dict[str, set[str | None]]:
+    """Return terminal receipt path refs with optional exact-head evidence."""
+
+    refs: dict[str, set[str | None]] = {}
+    for receipt_root in receipt_roots:
+        for receipt_file in json_files(receipt_root):
+            payload = load_json_mapping(receipt_file)
+            if payload is None or not _terminal_path_receipt(payload):
+                continue
+            for path_key, head in _receipt_path_head_pairs(payload):
+                refs.setdefault(path_key, set()).add(head)
+    return refs
+
+
+def path_matches_receipt(
+    candidate_path: Path,
+    repo_path: Path | None,
+    head: str | None,
+    receipt_path_heads: dict[str, set[str | None]],
+) -> bool:
+    path_keys = {_absolute_path_key(str(candidate_path))}
+    if repo_path is not None:
+        path_keys.add(_absolute_path_key(str(repo_path)))
+    for path_key in {item for item in path_keys if item}:
+        heads = receipt_path_heads.get(path_key, set())
+        if not heads:
+            continue
+        if not head:
+            if None in heads:
+                return True
+            continue
+        if any(
+            receipt_head is None or _commit_prefix_matches(receipt_head, head)
+            for receipt_head in heads
+        ):
+            return True
+    return False
 
 
 def outbox_files_for_branch(outbox_dir: Path, branch: str | None) -> list[str]:
@@ -707,11 +860,18 @@ def classify_candidate(
     links["outbox_files"] = outbox_files_for_branch(context.outbox_dir, branch)
     links["receipt_files"] = receipt_files_for_branch(context.receipt_dir, branch)
     outbox_protected = bool(branch and branch in context.unresolved_outbox_branches)
-    receipt_protected = branch_matches_receipt(
+    branch_receipt_protected = branch_matches_receipt(
         branch,
         head,
         context.terminal_receipt_branch_heads,
     )
+    path_receipt_protected = path_matches_receipt(
+        candidate_root,
+        repo_path,
+        head,
+        context.terminal_receipt_path_heads,
+    )
+    receipt_protected = branch_receipt_protected or path_receipt_protected
 
     if active_session or lock_files or dirty:
         classification = "active_or_dirty"
@@ -732,7 +892,10 @@ def classify_candidate(
             proof.append("unresolved automation outbox references branch")
     elif receipt_protected:
         classification = "receipt_protected"
-        proof.append("terminal automation receipt references branch/head")
+        if branch_receipt_protected:
+            proof.append("terminal automation receipt references branch/head")
+        if path_receipt_protected:
+            proof.append("terminal receipt references path/head")
     elif git.ahead and git.ahead > 0:
         patch_equivalent = False
         try:
@@ -819,6 +982,15 @@ def build_candidate(
     else:
         decision = "preserve"
         next_action = "review classification before cleanup"
+    cleanup_safety = cleanup_safety_for_candidate(
+        classification=classification,
+        decision=decision,
+        cleanup_candidate=cleanup_candidate,
+        active_session=active_session,
+        lock_files=lock_files,
+        git=git,
+        links=links,
+    )
     return WorktreeCandidate(
         candidate_id=candidate_id(candidate_root, repo_path),
         path=str(candidate_root),
@@ -829,12 +1001,113 @@ def build_candidate(
         classification=classification,
         decision=decision,
         cleanup_candidate=cleanup_candidate,
+        cleanup_safety=cleanup_safety,
         proof=proof,
         active_session=active_session,
         lock_files=lock_files,
         git=git,
         links=links,
         next_action=next_action,
+    )
+
+
+def cleanup_safety_for_candidate(
+    *,
+    classification: str,
+    decision: str,
+    cleanup_candidate: bool,
+    active_session: bool,
+    lock_files: list[str],
+    git: GitInfo,
+    links: dict[str, Any],
+) -> CleanupSafety:
+    if active_session or lock_files:
+        return CleanupSafety(
+            safety_class="owned",
+            preserve=True,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=False,
+            reason="active session or owner lock marker is present",
+            next_action="route to the active owner or wait for explicit release",
+            signals=["owned"],
+        )
+    if git.dirty or decision == "harvest_candidate":
+        reason = (
+            "branch has unique unharvested work"
+            if decision == "harvest_candidate"
+            else "git status is dirty or unavailable"
+        )
+        return CleanupSafety(
+            safety_class="unsafe_to_delete",
+            preserve=True,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=False,
+            reason=reason,
+            next_action="preserve and harvest or resolve dirty state before any cleanup",
+            signals=["unsafe_to_delete"],
+        )
+    if git.lookup_failed or classification == "lookup_failed":
+        return CleanupSafety(
+            safety_class="unknown_preserve",
+            preserve=True,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=False,
+            reason="one or more identity, git, GitHub, or patch-equivalence lookups failed",
+            next_action="preserve until lookup succeeds and a fresh cleanup inspect agrees",
+            signals=["unknown", "unsafe_to_delete"],
+        )
+    if classification == "open_pr_or_outbox":
+        signals = ["referenced"]
+        if links.get("open_prs"):
+            signals.append("duplicate")
+        return CleanupSafety(
+            safety_class="referenced_preserve",
+            preserve=True,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=False,
+            reason="open PR or unresolved outbox still references the branch",
+            next_action="preserve or route to the owning publication/handoff lane",
+            signals=signals,
+        )
+    if classification == "receipt_protected":
+        return CleanupSafety(
+            safety_class="referenced_preserve",
+            preserve=True,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=False,
+            reason="terminal receipt references this branch or head",
+            next_action="preserve unless a bounded cleanup lane verifies supersedence",
+            signals=["referenced", "harvested"],
+        )
+    if classification == "patch_equivalent_or_merged":
+        safety_class = "stale_or_merged" if git.registered_worktree else "harvested_or_duplicate"
+        return CleanupSafety(
+            safety_class=safety_class,
+            preserve=False,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=True,
+            reason="branch has no unique diff against base or matches a merged patch",
+            next_action="run fresh safe_worktree_cleanup.py inspect before any removal",
+            signals=["stale", "harvested", "duplicate"],
+        )
+    if cleanup_candidate and classification in {"unregistered_git_residue", "no_git_cache_residue"}:
+        return CleanupSafety(
+            safety_class="stale_residue",
+            preserve=False,
+            safe_to_delete=False,
+            requires_live_cleanup_inspect=True,
+            reason="local residue has no active owner or unique confirmed work in inventory",
+            next_action="run fresh safe_worktree_cleanup.py inspect before any removal",
+            signals=["stale"],
+        )
+    return CleanupSafety(
+        safety_class="unknown_preserve",
+        preserve=True,
+        safe_to_delete=False,
+        requires_live_cleanup_inspect=False,
+        reason=f"inventory classification is not cleanup-authoritative: {classification}",
+        next_action="preserve until a narrower helper provides cleanup authority",
+        signals=["unknown"],
     )
 
 
@@ -934,6 +1207,7 @@ def candidate_roots_from(roots: list[Path], limit: int | None = None) -> list[Pa
 
 def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
     counts = Counter(candidate.classification for candidate in candidates)
+    safety_counts = Counter(candidate.cleanup_safety.safety_class for candidate in candidates)
     bytes_by_class: dict[str, int] = dict.fromkeys(VALUE_CLASSES, 0)
     known_bytes = 0
     size_lookup_failures = 0
@@ -953,10 +1227,12 @@ def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
             {
                 "path": candidate.path,
                 "classification": candidate.classification,
+                "safety_class": candidate.cleanup_safety.safety_class,
                 "size_bytes": candidate.size_bytes,
                 "branch": candidate.git.branch,
                 "head": candidate.git.head,
                 "decision": candidate.decision,
+                "cleanup_safety": asdict(candidate.cleanup_safety),
                 "proof": candidate.proof,
             }
             for candidate in selected[:20]
@@ -967,6 +1243,7 @@ def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
         "classified_candidates": sum(counts.values()),
         "unknown_candidates": counts.get("lookup_failed", 0),
         "count_by_class": {name: counts.get(name, 0) for name in VALUE_CLASSES},
+        "count_by_safety_class": {name: safety_counts.get(name, 0) for name in SAFETY_CLASSES},
         "bytes_by_class": bytes_by_class,
         "known_size_bytes": known_bytes,
         "size_lookup_failures": size_lookup_failures,
@@ -1037,6 +1314,12 @@ def inventory(
             repo,
             outbox_dir=outbox_dir,
             receipt_dir=receipt_dir,
+        ),
+        terminal_receipt_path_heads=terminal_receipt_path_heads(
+            [
+                receipt_dir if receipt_dir.is_absolute() else repo / receipt_dir,
+                repo / DEFAULT_HARVEST_RECEIPT_REL_DIR,
+            ]
         ),
         skip_gh=skip_gh,
         git_timeout=git_timeout,
@@ -1217,6 +1500,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"harvest_candidates: {summary['harvest_candidate_count']}")
         print("classes:")
         for name, count in summary["count_by_class"].items():
+            print(f"  {name}: {count}")
+        print("safety_classes:")
+        for name, count in summary["count_by_safety_class"].items():
             print(f"  {name}: {count}")
     return 0
 

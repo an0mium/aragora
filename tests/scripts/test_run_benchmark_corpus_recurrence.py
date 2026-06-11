@@ -182,6 +182,7 @@ def test_run_recurrence_rotates_metrics_appends_closed_rows_and_dispatches_open_
     assert summary["synthetic_resolved_issue_numbers"] == [1064]
     assert summary["recorded_issue_numbers"] == [1064, 2712]
     assert summary["missing_issue_numbers"] == []
+    assert summary["unexpected_issue_numbers"] == []
     assert summary["rotated_metrics"]["archived_existing_file"] is True
     archived_path = Path(str(summary["rotated_metrics"]["archive_path"]))
     assert archived_path.exists()
@@ -276,6 +277,7 @@ def test_run_recurrence_records_open_issues_skipped_by_dispatch_label(
     assert summary["boss_loop_command"] is None
     assert summary["recorded_issue_numbers"] == [5818]
     assert summary["missing_issue_numbers"] == []
+    assert summary["unexpected_issue_numbers"] == []
 
     payloads = _load_metrics(metrics_path)
     assert payloads == [
@@ -343,6 +345,70 @@ def test_run_recurrence_raises_when_open_issue_still_missing_from_metrics(
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     with pytest.raises(RuntimeError, match="missing issue numbers 2712"):
+        mod.run_recurrence(
+            corpus_path=corpus_path,
+            repo="synaptent/aragora",
+            metrics_file=metrics_path,
+            runner=runner,
+        )
+
+
+def test_run_recurrence_raises_when_metrics_include_non_corpus_issue(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 8,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 2712, "title": "Open issue"}],
+        },
+    )
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text("", encoding="utf-8")
+
+    def fake_append_iteration_metrics(
+        *,
+        metrics_jsonl_path: str | None,
+        outcome_learner_window: int,
+        deferred_queue_depth: int,
+        iteration: int,
+        issue_number: int | None,
+        worker_result: dict[str, object],
+        elapsed_seconds: float,
+        files_changed: int,
+        tests_run: int,
+        tests_passed: int,
+    ) -> None:
+        del metrics_jsonl_path, outcome_learner_window, deferred_queue_depth, iteration
+        del issue_number, worker_result, elapsed_seconds, files_changed, tests_run, tests_passed
+
+    monkeypatch.setattr(mod, "append_iteration_metrics", fake_append_iteration_metrics)
+
+    def runner(
+        cmd: list[str],
+        *,
+        capture_output: bool = False,
+        text: bool = False,
+        check: bool = False,
+        cwd: str | None = None,
+    ) -> SimpleNamespace:
+        del capture_output, text, check, cwd
+        if cmd[:3] == ["gh", "issue", "view"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps({"number": 2712, "state": "OPEN"}),
+                stderr="",
+            )
+        with metrics_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"issue_number": 2712}) + "\n")
+            handle.write(json.dumps({"issue_number": 9999}) + "\n")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    with pytest.raises(RuntimeError, match="unexpected issue numbers 9999"):
         mod.run_recurrence(
             corpus_path=corpus_path,
             repo="synaptent/aragora",

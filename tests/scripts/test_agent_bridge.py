@@ -946,6 +946,39 @@ def test_collect_b0_success_rate_times_out_fail_closed(
     assert mod._collect_b0_success_rate(repo_root) is None
 
 
+@pytest.mark.parametrize(
+    ("raw_rate", "expected"),
+    [
+        (0, 0.0),
+        (1, 1.0),
+        (0.625, 0.625),
+        ("0.25", 0.25),
+        (None, None),
+        (True, None),
+        ("not-a-number", None),
+        (float("nan"), None),
+        (float("inf"), None),
+        ("-inf", None),
+        (-0.01, None),
+        (1.01, None),
+        ("nan", None),
+        ("1.01", None),
+    ],
+)
+def test_coerce_success_rate_rejects_non_finite_and_out_of_range_values(
+    raw_rate: object,
+    expected: float | None,
+) -> None:
+    import agent_bridge as mod
+
+    actual = mod._coerce_success_rate(raw_rate)
+
+    if expected is None:
+        assert actual is None
+    else:
+        assert actual == expected
+
+
 def test_operator_snapshot_summary_counts_repo_local_lane_when_user_registry_exists(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1063,7 +1096,49 @@ def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
     assert payload["summary"]["conflict_lanes"] == 2
     assert payload["lane_conflicts"][0]["key_kind"] == "branch"
     assert payload["health"]["ok"] is False
-    assert payload["health"]["issues"][0]["type"] == "lane_identity_conflict"
+    issue = payload["health"]["issues"][0]
+    assert issue["type"] == "lane_identity_conflict"
+    assert issue["owner_state"] == "duplicate_active_owner"
+    assert issue["key_kind"] == "branch"
+    assert issue["key_value"] == "worktree-codex-insights"
+    assert issue["owner_sessions"] == ["codex-A", "codex-B"]
+    assert issue["recommended_operator_action"] == (
+        "resolve duplicate active owners before mutation or cleanup"
+    )
+
+
+def test_health_missing_heartbeat_has_liveness_diagnostic() -> None:
+    import agent_bridge as mod
+
+    issues = mod._collect_health_issues(
+        [],
+        [
+            mod.LaneRecord(
+                lane_id="lane-no-heartbeat",
+                owner_session="codex-worker",
+                status="active",
+                next_action="finish one safe cleanup diagnostic",
+                last_steering_outcome="obeyed",
+                worktree="/tmp/owned-worktree",
+            )
+        ],
+    )
+
+    assert issues == [
+        {
+            "type": "lane_missing_heartbeat",
+            "session": "codex-worker",
+            "detail": "active lane 'lane-no-heartbeat' has no heartbeat timestamp",
+            "owner_state": "active_lane_missing_liveness",
+            "lane_id": "lane-no-heartbeat",
+            "status": "active",
+            "worktree": "/tmp/owned-worktree",
+            "heartbeat_state": "missing",
+            "recommended_operator_action": (
+                "start or refresh agent_heartbeat.py before treating owner as live"
+            ),
+        }
+    ]
 
 
 def test_operator_snapshot_does_not_conflict_same_owner_refreshes(
@@ -2312,13 +2387,18 @@ def test_health_reports_dead_non_root_worktree(
 
     assert mod.cmd_health(argparse.Namespace(json=True)) == 1
     payload = json.loads(capsys.readouterr().out)
-    assert payload["issues"] == [
-        {
-            "type": "stale_worktree",
-            "session": "codex-old-lane",
-            "detail": f"dead session with lingering worktree: {worktree}",
-        }
-    ]
+    assert len(payload["issues"]) == 1
+    issue = payload["issues"][0]
+    assert issue["type"] == "stale_worktree"
+    assert issue["session"] == "codex-old-lane"
+    assert issue["detail"] == f"dead session with lingering worktree: {worktree}"
+    assert issue["owner_state"] == "stale_session"
+    assert issue["worktree"] == str(worktree)
+    assert issue["worktree_exists"] is True
+    assert issue["cleanup_state"] == "stale_lingering_worktree"
+    assert issue["recommended_operator_action"] == (
+        "inspect with safe_worktree_cleanup.py before any removal"
+    )
 
 
 def test_health_ignores_dead_tmux_session_kept_current_by_broker_state(
@@ -2561,13 +2641,16 @@ def test_health_reports_claimed_claude_transcript_missing_worktree(tmp_path: Pat
         ],
     )
 
-    assert issues == [
-        {
-            "type": "stale_worktree",
-            "session": "claude-review",
-            "detail": f"worktree path missing: {removed_worktree}",
-        }
-    ]
+    assert len(issues) == 1
+    issue = issues[0]
+    assert issue["type"] == "stale_worktree"
+    assert issue["session"] == "claude-review"
+    assert issue["detail"] == f"worktree path missing: {removed_worktree}"
+    assert issue["owner_state"] == "active_or_current_session"
+    assert issue["worktree"] == str(removed_worktree)
+    assert issue["worktree_exists"] is False
+    assert issue["cleanup_state"] == "missing_path_metadata"
+    assert issue["recommended_operator_action"] == "verify lane ownership before pruning metadata"
 
 
 def test_gc_dry_run_archives_only_bridge_owned_tmux_candidates(

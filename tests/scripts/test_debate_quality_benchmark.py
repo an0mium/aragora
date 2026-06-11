@@ -34,6 +34,15 @@ def test_select_prompts_zero_preserves_all_prompts_sentinel() -> None:
     assert module.select_prompts(0) == module.PROMPTS
 
 
+def test_prompt_limit_rejects_negative_values() -> None:
+    module = _load_module()
+
+    with pytest.raises(SystemExit):
+        module.parse_args(["--prompts", "-1"])
+    with pytest.raises(ValueError, match="non-negative integer"):
+        module.select_prompts(-1)
+
+
 def test_select_prompts_positive_limit_returns_prefix() -> None:
     module = _load_module()
 

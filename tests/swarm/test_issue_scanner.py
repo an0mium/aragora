@@ -533,3 +533,56 @@ class TestHistoricalSuccessRates:
             "actionable_todo": pytest.approx(0.6),
             "handler_validation": pytest.approx(0.75),
         }
+
+
+class TestClassifyCandidateSurface:
+    """Surface classification for the generator's substrate cap (Sprint 3 goal 2)."""
+
+    def test_all_substrate_paths(self) -> None:
+        from aragora.swarm.issue_scanner import classify_candidate_surface
+
+        assert classify_candidate_surface(["scripts/foo.py", "aragora/swarm/bar.py"]) == "substrate"
+
+    def test_all_product_paths(self) -> None:
+        from aragora.swarm.issue_scanner import classify_candidate_surface
+
+        assert (
+            classify_candidate_surface(["aragora/debate/orchestrator.py", "aragora/server/h.py"])
+            == "product"
+        )
+
+    def test_mixed_majority_product_wins(self) -> None:
+        from aragora.swarm.issue_scanner import classify_candidate_surface
+
+        paths = ["aragora/server/a.py", "aragora/compliance/b.py", "scripts/c.py"]
+        assert classify_candidate_surface(paths) == "product"
+
+    def test_tie_resolves_to_substrate(self) -> None:
+        from aragora.swarm.issue_scanner import classify_candidate_surface
+
+        assert classify_candidate_surface(["aragora/server/a.py", "scripts/b.py"]) == "substrate"
+
+    def test_empty_scope_resolves_to_substrate(self) -> None:
+        from aragora.swarm.issue_scanner import classify_candidate_surface
+
+        assert classify_candidate_surface([]) == "substrate"
+
+    def test_candidate_dataclass_computes_surface(self) -> None:
+        from aragora.swarm.issue_scanner import BossIssueCandidate
+
+        product = BossIssueCandidate(
+            category="test_coverage",
+            title="Add unit tests for aragora/agents/errors.py",
+            description="x",
+            file_scope=["aragora/agents/errors.py"],
+            new_files=["tests/agents/test_errors.py"],
+        )
+        substrate = BossIssueCandidate(
+            category="test_coverage",
+            title="Add unit tests for scripts/foo.py",
+            description="x",
+            file_scope=["scripts/foo.py"],
+            new_files=["tests/scripts/test_foo.py"],
+        )
+        assert product.surface == "product"
+        assert substrate.surface == "substrate"

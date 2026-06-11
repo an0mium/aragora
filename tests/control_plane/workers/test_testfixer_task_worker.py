@@ -227,3 +227,239 @@ async def test_handle_task_fails_task_on_timeout_error(
         error="timed out",
         agent_id="worker-123",
     )
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage (B0-cohort #5183)
+# ---------------------------------------------------------------------------
+
+
+def test_init_stores_integration_and_defaults(integration: MagicMock) -> None:
+    """Construction wires the integration and applies safe defaults."""
+
+    fresh = worker_module.TestFixerTaskWorker(integration)
+
+    assert fresh._integration is integration
+    assert fresh._worker_id == "testfixer-worker"
+    assert fresh._running is False
+
+
+@pytest.mark.asyncio
+async def test_default_worker_id_used_when_claiming(
+    integration: MagicMock,
+    scheduler_bridge: MagicMock,
+) -> None:
+    """The default worker id is passed through to claim_task."""
+
+    fresh = worker_module.TestFixerTaskWorker(integration)
+    scheduler_bridge.claim_task.return_value = None
+
+    with patch.object(worker_module.asyncio, "sleep", new=AsyncMock()):
+        await fresh.start(run_once=True)
+
+    scheduler_bridge.claim_task.assert_awaited_once_with(
+        agent_id="testfixer-worker",
+        capabilities=["testfixer"],
+        block_ms=2000,
+    )
+
+
+@pytest.mark.asyncio
+async def test_start_logs_startup_message(
+    worker: worker_module.TestFixerTaskWorker,
+    scheduler_bridge: MagicMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Starting the worker emits the startup log line."""
+
+    scheduler_bridge.claim_task.return_value = None
+
+    with patch.object(worker_module.asyncio, "sleep", new=AsyncMock()):
+        with caplog.at_level("INFO", logger=worker_module.__name__):
+            await worker.start(run_once=True)
+
+    assert "TestFixer task worker started" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_worker_is_running_while_handling_task(
+    worker: worker_module.TestFixerTaskWorker,
+    scheduler_bridge: MagicMock,
+) -> None:
+    """start() flips the run flag on before the first task is processed."""
+
+    scheduler_bridge.claim_task.return_value = make_task()
+    observed: list[bool] = []
+
+    async def record_running(task: SimpleNamespace) -> None:
+        observed.append(worker._running)
+
+    worker._handle_task = AsyncMock(side_effect=record_running)
+
+    await worker.start(run_once=True)
+
+    assert observed == [True]
+
+
+@pytest.mark.asyncio
+async def test_start_continues_polling_after_empty_claim(
+    worker: worker_module.TestFixerTaskWorker,
+    scheduler_bridge: MagicMock,
+) -> None:
+    """In continuous mode, an empty poll sleeps and the loop claims again."""
+
+    task = make_task()
+    scheduler_bridge.claim_task.side_effect = [None, task]
+
+    async def stop_after_handling(t: SimpleNamespace) -> None:
+        await worker.stop()
+
+    worker._handle_task = AsyncMock(side_effect=stop_after_handling)
+
+    with patch.object(worker_module.asyncio, "sleep", new=AsyncMock()) as sleep_mock:
+        await worker.start(run_once=False)
+
+    assert scheduler_bridge.claim_task.await_count == 2
+    sleep_mock.assert_awaited_once_with(0.5)
+    worker._handle_task.assert_awaited_once_with(task)
+
+
+@pytest.mark.asyncio
+async def test_start_continues_after_requeueing_unsupported_task(
+    worker: worker_module.TestFixerTaskWorker,
+    scheduler_bridge: MagicMock,
+) -> None:
+    """In continuous mode, a requeued task does not stop the loop."""
+
+    bad_task = make_task(task_id="task-bad", task_type="debate")
+    good_task = make_task(task_id="task-good")
+    scheduler_bridge.claim_task.side_effect = [bad_task, good_task]
+
+    async def stop_after_handling(t: SimpleNamespace) -> None:
+        await worker.stop()
+
+    worker._handle_task = AsyncMock(side_effect=stop_after_handling)
+
+    await worker.start(run_once=False)
+
+    scheduler_bridge.fail_task.assert_awaited_once_with(
+        "task-bad",
+        "Unsupported task type",
+        agent_id="worker-123",
+        requeue=True,
+    )
+    assert scheduler_bridge.claim_task.await_count == 2
+    worker._handle_task.assert_awaited_once_with(good_task)
+
+
+@pytest.mark.asyncio
+async def test_start_run_once_with_task_does_not_sleep(
+    worker: worker_module.TestFixerTaskWorker,
+    scheduler_bridge: MagicMock,
+) -> None:
+    """The idle backoff sleep only happens on empty polls."""
+
+    scheduler_bridge.claim_task.return_value = make_task()
+    worker._handle_task = AsyncMock()
+
+    with patch.object(worker_module.asyncio, "sleep", new=AsyncMock()) as sleep_mock:
+        await worker.start(run_once=True)
+
+    sleep_mock.assert_not_awaited()
+    scheduler_bridge.fail_task.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_stop_is_idempotent(worker: worker_module.TestFixerTaskWorker) -> None:
+    """stop() can be called repeatedly, including before start()."""
+
+    await worker.stop()
+    await worker.stop()
+
+    assert worker._running is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "exc",
+    [
+        ValueError("bad value"),
+        OSError("disk gone"),
+        ConnectionError("link down"),
+    ],
+    ids=["value-error", "os-error", "connection-error"],
+)
+async def test_handle_task_fails_task_on_each_caught_exception(
+    worker: worker_module.TestFixerTaskWorker,
+    scheduler_bridge: MagicMock,
+    exc: Exception,
+) -> None:
+    """Every declared-recoverable exception type fails the scheduler task."""
+
+    task = make_task()
+    handler = MagicMock()
+    handler.execute = AsyncMock(side_effect=exc)
+    worker._create_handler = MagicMock(return_value=handler)
+
+    await worker._handle_task(task)
+
+    scheduler_bridge.fail_task.assert_awaited_once_with(
+        task.id,
+        error=str(exc),
+        agent_id="worker-123",
+    )
+    scheduler_bridge.complete_task.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_task_propagates_unexpected_exception(
+    worker: worker_module.TestFixerTaskWorker,
+    scheduler_bridge: MagicMock,
+) -> None:
+    """Exception types outside the caught tuple bubble up to the caller."""
+
+    task = make_task()
+    handler = MagicMock()
+    handler.execute = AsyncMock(side_effect=KeyError("missing"))
+    worker._create_handler = MagicMock(return_value=handler)
+
+    with pytest.raises(KeyError):
+        await worker._handle_task(task)
+
+    scheduler_bridge.complete_task.assert_not_awaited()
+    scheduler_bridge.fail_task.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_task_success_does_not_fail_task(
+    worker: worker_module.TestFixerTaskWorker,
+    scheduler_bridge: MagicMock,
+) -> None:
+    """A successful execution never reports failure to the scheduler."""
+
+    task = make_task()
+    handler = MagicMock()
+    handler.execute = AsyncMock(return_value={"fixed": 3})
+    worker._create_handler = MagicMock(return_value=handler)
+
+    await worker._handle_task(task)
+
+    scheduler_bridge.fail_task.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_task_creates_fresh_handler_per_task(
+    worker: worker_module.TestFixerTaskWorker,
+    scheduler_bridge: MagicMock,
+) -> None:
+    """Each task gets its own handler instance rather than a cached one."""
+
+    handler = MagicMock()
+    handler.execute = AsyncMock(return_value={})
+    worker._create_handler = MagicMock(return_value=handler)
+
+    await worker._handle_task(make_task(task_id="t1"))
+    await worker._handle_task(make_task(task_id="t2"))
+
+    assert worker._create_handler.call_count == 2
+    assert scheduler_bridge.complete_task.await_count == 2

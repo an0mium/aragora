@@ -105,6 +105,10 @@ AUTOMATION_BRANCH_PREFIXES = (
     "codex/",
     "factory/",
     "aragora/boss-harvest/",
+    # Scoped agent-owned spec namespace (parity with merge_arbiter.py). Bare
+    # ``spec/`` is intentionally excluded so human design branches are never
+    # counted as automation backlog.
+    "aragora/spec/",
     "benchmark-truth-publication/",
 )
 RECOVERY_BUDGET_PER_FAILURE_CLASS = 1

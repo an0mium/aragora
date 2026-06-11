@@ -559,8 +559,36 @@ def run_benchmark() -> BenchmarkResults:
 # ---------------------------------------------------------------------------
 
 
+_REPORT_DECISION_CATEGORIES = {"strong", "weak"}
+
+
+def _validate_report_corpus(results: BenchmarkResults) -> None:
+    """Fail closed before computing report percentages from an invalid corpus."""
+    if not results.decisions:
+        raise ValueError("gauntlet benchmark report requires at least one decision")
+
+    categories = {decision.category for decision in results.decisions}
+    unsupported = categories - _REPORT_DECISION_CATEGORIES
+    if unsupported:
+        unsupported_list = ", ".join(sorted(unsupported))
+        raise ValueError(
+            "gauntlet benchmark report only supports strong and weak decision "
+            f"categories; unsupported: {unsupported_list}"
+        )
+
+    missing = _REPORT_DECISION_CATEGORIES - categories
+    if missing:
+        missing_list = ", ".join(sorted(missing))
+        raise ValueError(
+            "gauntlet benchmark report requires both strong and weak decision "
+            f"categories; missing: {missing_list}"
+        )
+
+
 def generate_report(results: BenchmarkResults) -> str:
     """Generate markdown benchmark report."""
+    _validate_report_corpus(results)
+
     lines = []
 
     # Header

@@ -249,5 +249,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
+def _coerce_exit_code(code: object) -> int:
+    if code is None:
+        return 0
+    if isinstance(code, int):
+        return code
+    print(code, file=sys.stderr)
+    return 1
+
+
+def _cli_entrypoint() -> int:
+    try:
+        rc = main()
+    except BrokenPipeError:
+        return 0
+    except SystemExit as exc:
+        rc = _coerce_exit_code(exc.code)
+    try:
+        sys.stdout.flush()
+    except BrokenPipeError:
+        os._exit(0)
+    return rc
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_cli_entrypoint())

@@ -126,14 +126,20 @@ class TestGetV1DeprecationHeaders:
         assert headers["X-API-Version"] == "v1"
 
     def test_returns_x_api_version_warning(self):
-        """Should return X-API-Version-Warning header."""
+        """Should return X-API-Version-Warning header.
+
+        The wording changes with the live deprecation phase (warning /
+        critical / sunset), so only assert the phase-independent contract
+        here; per-phase wording is covered by the dedicated level tests.
+        """
         from aragora.server.middleware.deprecation import get_v1_deprecation_headers
 
         headers = get_v1_deprecation_headers()
 
         assert "X-API-Version-Warning" in headers
-        assert "deprecated" in headers["X-API-Version-Warning"].lower()
-        assert "v2" in headers["X-API-Version-Warning"]
+        warning = headers["X-API-Version-Warning"]
+        assert "deprecated" in warning.lower() or "sunset" in warning.lower()
+        assert "v2" in warning
 
     def test_returns_x_api_sunset(self):
         """Should return X-API-Sunset header with ISO date."""

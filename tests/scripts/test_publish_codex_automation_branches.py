@@ -773,6 +773,32 @@ branch refs/heads/codex/b
     assert dirty_checked == [str(Path("/tmp/codex-b").resolve())]
 
 
+def test_list_worktrees_tolerates_missing_worktree_path(monkeypatch: Any, tmp_path: Path) -> None:
+    missing = tmp_path / "missing-worktree"
+    payload = f"""
+worktree {missing}
+HEAD abc123
+branch refs/heads/codex/missing
+""".strip()
+
+    def fake_run(
+        args: list[str], *, cwd: Path, check: bool = False, env_overrides=None
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["git", "worktree", "list"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=payload, stderr="")
+        raise FileNotFoundError(str(cwd))
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+    monkeypatch.setattr(mod, "_has_active_session", lambda path: False)
+
+    snapshots = mod._list_worktrees(tmp_path)
+
+    assert len(snapshots) == 1
+    assert snapshots[0].branch == "codex/missing"
+    assert snapshots[0].dirty is False
+    assert snapshots[0].active_session is False
+
+
 def test_main_treats_unavailable_github_with_empty_local_queue_as_noop(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
@@ -943,7 +969,9 @@ def test_publish_decisions_uses_remaining_open_pr_capacity(
     )
     monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
     monkeypatch.setattr(
-        mod, "_create_pr", lambda repo_root, repo, branch, base: next(created_numbers)
+        mod,
+        "_create_pr",
+        lambda repo_root, repo, branch, base, draft=False: next(created_numbers),
     )
     monkeypatch.setattr(
         mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
@@ -1000,7 +1028,7 @@ def test_publish_decisions_records_publish_failures_and_continues(
     monkeypatch.setattr(mod, "_ensure_gh_auth", lambda repo_root: None)
     monkeypatch.setattr(mod, "_push_branch", fake_push)
     monkeypatch.setattr(mod, "_existing_pr_number", lambda repo_root, repo, branch, base: None)
-    monkeypatch.setattr(mod, "_create_pr", lambda repo_root, repo, branch, base: 2001)
+    monkeypatch.setattr(mod, "_create_pr", lambda repo_root, repo, branch, base, draft=False: 2001)
     monkeypatch.setattr(
         mod, "_add_labels", lambda repo_root, repo, number, labels: calls.append(f"label:{number}")
     )

@@ -557,8 +557,22 @@ def run_benchmark() -> BenchmarkResults:
 # ---------------------------------------------------------------------------
 
 
+def validate_benchmark_results(results: BenchmarkResults) -> None:
+    """Fail closed before publishing a misleading benchmark report."""
+    if results.total_claims <= 0:
+        raise ValueError("belief network benchmark requires at least one claim")
+    if results.total_relations <= 0:
+        raise ValueError("belief network benchmark requires at least one relationship")
+    if results.cruxes_found <= 0:
+        raise ValueError("belief network benchmark requires at least one crux claim")
+    if len(results.crux_details) != results.cruxes_found:
+        raise ValueError("belief network crux count must match crux details")
+
+
 def generate_report(results: BenchmarkResults) -> str:
     """Generate markdown benchmark report."""
+    validate_benchmark_results(results)
+
     lines = []
 
     # Header

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import subprocess
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
@@ -25,11 +26,16 @@ from aragora.cli.commands.review_queue import (
     _build_queue,
     _classify_pr,
     _classify_model_review_tier,
+    _dogfood_evidence_from_comments,
+    _has_blocking_or_negative_verdict,
     _extract_validation_commands,
     _effective_required_pr_check_count,
     _filter_lanes,
     _GhError,
+    _gh_json,
+    _gh_text,
     _is_high_risk_path,
+    _is_github_transport_error,
     _is_merge_quorum_check,
     _parse_pr_number,
     _record_external_settlement,
@@ -2165,6 +2171,81 @@ class TestModelReviewQuorum:
         assert quorum["dogfood_evidence"][0]["model_family"] == "claude"
         assert "claude" in quorum["counted_reviewer_ids"]
 
+    def test_dogfood_negative_verdict_is_not_counted(self) -> None:
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        comments = [
+            _codex_openai_comment(
+                body=(
+                    f"Current head: {head}\n"
+                    "Verdict: FAIL\n"
+                    "Blocking findings: found - exact-head evidence is stale."
+                )
+            )
+        ]
+
+        assert _dogfood_evidence_from_comments(comments, head_sha=head) == []
+
+
+class TestHasBlockingOrNegativeVerdict:
+    def test_blocker_value_starting_with_no_letters_is_still_blocking(self) -> None:
+        # Word-boundary regression: "node"/"not working" must not be swallowed
+        # by the non-blocking prefix "no".
+        assert _has_blocking_or_negative_verdict("Blockers: node crashes on startup")
+        assert _has_blocking_or_negative_verdict("Blocking findings: not working under load")
+
+    def test_markdown_heading_labels_are_recognized(self) -> None:
+        assert _has_blocking_or_negative_verdict("### Verdict: FAIL")
+        assert _has_blocking_or_negative_verdict("> **Verdict:** blocked on stale evidence")
+
+    def test_dash_separated_negative_labels_are_recognized(self) -> None:
+        assert _has_blocking_or_negative_verdict("Verdict - FAIL")
+        assert _has_blocking_or_negative_verdict("Blocking findings — found stale evidence")
+
+    def test_multi_line_blocker_lists_are_blocking(self) -> None:
+        assert _has_blocking_or_negative_verdict("Blocking findings:\n- Crash on startup")
+        assert _has_blocking_or_negative_verdict("Blockers:\n\n1. Stale exact-head evidence")
+
+    def test_multi_line_non_blocking_values_remain_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers:\nNone found.")
+        assert not _has_blocking_or_negative_verdict("Blocking findings:")
+
+    def test_decorated_and_numbered_labels_are_recognized(self) -> None:
+        assert _has_blocking_or_negative_verdict("1. Verdict: FAIL")
+        assert _has_blocking_or_negative_verdict("*Verdict*: FAIL")
+        assert _has_blocking_or_negative_verdict("__Verdict__: FAIL")
+
+    def test_failure_verdict_and_inline_list_blockers_are_negative(self) -> None:
+        assert _has_blocking_or_negative_verdict("Verdict: Failure")
+        assert _has_blocking_or_negative_verdict("Blockers: - broken auth flow")
+
+    def test_boolean_and_zero_values_remain_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers: false")
+        assert not _has_blocking_or_negative_verdict("Blocking findings: zero")
+
+    def test_word_boundary_does_not_flag_blockchain_verdict(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Verdict: blockchain summary attached")
+
+    def test_inline_empty_markers_never_consume_the_next_section(self) -> None:
+        # "Blockers: []" is an explicit empty list; the following unrelated
+        # section must not be read as a blocker entry.
+        assert not _has_blocking_or_negative_verdict("Blockers: []\nVerdict: PASS")
+        assert not _has_blocking_or_negative_verdict("Blockers: -\nScope reviewed: full diff")
+        assert not _has_blocking_or_negative_verdict("Blocking findings: [ ]\n\nVerdict: passed")
+
+    def test_empty_blockers_followed_by_new_section_or_heading_is_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers:\nVerdict: PASS")
+        assert not _has_blocking_or_negative_verdict("Blockers:\n### Validation notes")
+
+    def test_lookahead_still_catches_list_items_with_colons(self) -> None:
+        assert _has_blocking_or_negative_verdict("Blockers:\n- crash: stack overflow in parser")
+        assert _has_blocking_or_negative_verdict("Blockers:\n1. regression: settle gate bypassed")
+
+    def test_non_blocking_values_remain_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers: none")
+        assert not _has_blocking_or_negative_verdict("Blocking findings: no blocking findings")
+        assert not _has_blocking_or_negative_verdict("#### Blockers: N/A")
+        assert not _has_blocking_or_negative_verdict("Verdict: **passed**, zero findings.")
+
 
 # --- parenthetical model-family disclosure ---------------------------------
 
@@ -2361,6 +2442,47 @@ class TestValidationExtraction:
             "`python3 -m pytest tests/cli/commands/test_review_queue.py -q`",
             "`bash scripts/automation_pr_preflight.sh origin/main HEAD`",
         ]
+
+
+class TestGhTimeouts:
+    def test_gh_json_fails_closed_on_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, Any] = {}
+
+        def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+            raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+
+        with pytest.raises(_GhError, match=r"gh pr view 7811 timed out after \d+s"):
+            _gh_json(["pr", "view", "7811"])
+
+        assert captured["kwargs"]["timeout"] > 0
+
+    def test_gh_json_fails_closed_on_startup_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+            raise OSError("gh executable unavailable")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+
+        with pytest.raises(_GhError) as exc_info:
+            _gh_json(["pr", "view", "7811"])
+
+        assert "gh pr view 7811 failed to start: gh executable unavailable" in str(exc_info.value)
+        assert _is_github_transport_error(exc_info.value) is True
+
+    def test_gh_text_fails_closed_on_startup_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+            raise OSError("permission denied")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+
+        with pytest.raises(_GhError) as exc_info:
+            _gh_text(["repo", "view"])
+
+        assert "gh repo view failed to start: permission denied" in str(exc_info.value)
+        assert _is_github_transport_error(exc_info.value) is True
 
 
 # --- _build_queue + _build_packet (with mocked gh) -------------------------
@@ -4798,6 +4920,129 @@ class TestCommandDispatch:
         assert "missing_current_head_grounding" in payload["problems"]
         assert "no_counted_model_reviewer" in payload["problems"]
 
+    def test_evidence_lint_rejects_wrong_pr_reference(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #9999\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Focused adversarial dogfood found no blockers."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_head_grounding_method"] == "head_sha_citation"
+        assert payload["current_pr_grounding_method"] == "wrong_pr_citation"
+        assert payload["dogfood_evidence"] == []
+        assert "wrong_pr_reference" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
+    def test_evidence_lint_rejects_wrong_pr_number_label(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR Number: #9999\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Focused adversarial dogfood found no blockers."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_pr_grounding_method"] == "wrong_pr_citation"
+        assert payload["dogfood_evidence"] == []
+        assert "wrong_pr_reference" in payload["problems"]
+
+    def test_evidence_lint_rejects_wrong_pr_url_reference(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "Evidence comment: https://github.com/synaptent/aragora/pull/9999"
+                    "#issuecomment-123\n"
+                    "Exact head reviewed: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Focused adversarial dogfood found no blockers."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_head_grounding_method"] == "head_sha_citation"
+        assert payload["current_pr_grounding_method"] == "wrong_pr_citation"
+        assert payload["dogfood_evidence"] == []
+        assert "wrong_pr_reference" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
+    def test_evidence_lint_rejects_explicit_blocking_verdict(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Verdict: FAIL\n"
+                    "Blocking findings: found - helper can still misclassify stale evidence."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["reviewer_signals"] == []
+        assert payload["dogfood_evidence"] == []
+        assert "blocking_or_negative_verdict" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
     def test_evidence_lint_requires_head_sha_when_timestamp_omitted(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="evidence-lint",
@@ -5571,6 +5816,80 @@ class TestSettlementHelpers:
         assert payload["queue_pressure"]["scope"] == "open_pr_queue"
         assert payload["admin_squash_order"] == list(range(1, MODEL_REVIEW_QUEUE_CAP + 2))
         assert payload["entries"][0]["verdict"] == "admin_squash_allowed"
+
+    def test_merge_packet_json_reports_transport_blocked(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_transport(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError(
+                "gh pr view 1 --json number failed: error connecting to api.github.com\n"
+                "check your internet connection or https://githubstatus.com"
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_transport,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["1"],
+            repo="synaptent/aragora",
+            review_queue_root=None,
+            limit=30,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stderr.getvalue() == ""
+        payload = json.loads(stdout.getvalue())
+        assert payload["status"] == "transport_blocked"
+        assert payload["transport_blocked"] is True
+        assert payload["preserve_no_mutate"] is True
+        assert payload["error_kind"] == "github_transport"
+        assert payload["command"] == "review-queue merge-packet"
+        assert payload["repo"] == "synaptent/aragora"
+        assert payload["pr_refs"] == ["1"]
+        assert payload["not_ready"] == [1]
+        assert payload["entries"] == []
+        assert payload["admin_squash_order"] == []
+        assert "do not mark ready" in payload["next_prompt"]
+
+    def test_merge_packet_json_keeps_non_transport_errors_on_stderr(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_permission(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError("gh pr view 1 failed: GraphQL: Resource not accessible by integration")
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_permission,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["1"],
+            repo="synaptent/aragora",
+            review_queue_root=None,
+            limit=30,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stdout.getvalue() == ""
+        assert "Resource not accessible by integration" in stderr.getvalue()
 
     def test_act_command_requires_reason_for_request_changes(self) -> None:
         ns = argparse.Namespace(

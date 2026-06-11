@@ -1,0 +1,571 @@
+#!/usr/bin/env python3
+"""Bounded auto-evidence cycle for ready PRs (throughput lever 1, run-20260610).
+
+Open, ready (non-draft) PRs that are missing counted model-review evidence sit
+behind the merge-quorum gate until a human coordinator runs reviewers by hand.
+This wrapper closes that loop autonomously and *boundedly*: it selects up to
+``--max-prs`` such PRs, produces two-family evidence through the proven
+``review-queue collect-evidence`` pipeline (which lint-validates every comment
+with the gate's own ``evidence-lint`` parser *before* posting), then invokes
+``scripts/quorum_rerun_reconciler.py --apply`` so stale quorum checks re-run.
+
+Probe (cheapest reliable, two stages):
+
+1. One ``gh pr list --json number,isDraft,statusCheckRollup`` call prunes
+   drafts and PRs whose latest ``aragora-merge-quorum`` check already concluded
+   SUCCESS (counted evidence exists at that head). Cheap but potentially stale.
+2. Each surviving candidate is confirmed with ``review-queue merge-packet
+   --pr N --json`` — the gate's own parser, hence the ground truth the
+   reconciler also trusts. Only ``needs_model_review_quorum`` entries at
+   Tier 0-2 with <2 counted families, no human-risk settlement requirement and
+   no unresolved dissent are selected. Raw comment grepping would be cheaper
+   than stage 2 but drifts from the canonical parser, so it is not used.
+
+Safety model (mirrors ``quorum_rerun_reconciler.py``):
+
+- Dry-run by default: prints the plan, runs nothing that spends or posts.
+  ``--apply`` gates ALL mutations (reviewer spend, comment posting, reruns).
+- Per-invocation caps: ``--max-prs`` (default 3), ``--max-scan`` packet probes
+  (default 15), ``--budget-seconds`` wall clock (default 1800).
+- Identical-error breaker: 3 consecutive identical collect failures abort the
+  cycle (exit 2) — a systemic fault (CLI missing, auth broken) must not burn
+  the whole budget.
+- Never-post-on-lint-fail is enforced *inside* collect-evidence; this wrapper
+  additionally requires >=2 posted families before counting a PR as done.
+- Tier gating is enforced twice: by this wrapper's selection and again by
+  collect-evidence itself (Tier 3+/unknown always prepare-only).
+- Secrets guard: collect-evidence subprocesses run with
+  ``ARAGORA_SECRETS_STRICT=false`` and ``ARAGORA_USE_SECRETS_MANAGER=false``
+  forced, because API reviewer construction under strict MFA-gated AWS dies on
+  an interactive MFA prompt EOF (Lane V, run-20260609).
+- Fail-closed exits: 0 clean (including empty plan), 1 any failure,
+  2 breaker tripped.
+
+Opt-in wiring: ``scripts/run_merge_arbiter.sh`` runs this before the arbiter
+when ``ARAGORA_AUTO_EVIDENCE=1`` (default off, non-fatal for the arbiter).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+from typing import Any, Callable
+
+DEFAULT_REPO = "synaptent/aragora"
+DEFAULT_FAMILIES = ("claude", "grok")
+SELECTABLE_STATUS = "needs_model_review_quorum"
+AUTO_POSTABLE_TIERS = {0, 1, 2}
+REQUIRED_FAMILIES = 2
+GH_TIMEOUT_SECONDS = 120
+PACKET_TIMEOUT_SECONDS = 300
+COLLECT_TIMEOUT_SECONDS = 1200
+RECONCILER_TIMEOUT_SECONDS = 600
+
+EXIT_OK = 0
+EXIT_FAILURES = 1
+EXIT_BREAKER = 2
+
+
+def _sanitized_env() -> dict[str, str]:
+    """Child env for collect-evidence: never enter the MFA-gated secrets path.
+
+    Lane V (run-20260609) saw ``scripts/collect_quorum_evidence.py`` API
+    reviewers crash under ``ARAGORA_SECRETS_STRICT=true`` with MFA-gated AWS:
+    ``create_agent`` triggered an interactive MFA prompt that EOFs in an
+    unattended run. Reviewer API keys come from the local environment instead.
+    """
+    env = dict(os.environ)
+    env["ARAGORA_SECRETS_STRICT"] = "false"
+    env["ARAGORA_USE_SECRETS_MANAGER"] = "false"
+    return env
+
+
+def latest_quorum_conclusion(pr_row: dict[str, Any]) -> str:
+    """Latest ``aragora-merge-quorum`` check conclusion at the PR head, or ``""``."""
+    best_key = ""
+    conclusion = ""
+    for check in pr_row.get("statusCheckRollup") or []:
+        if not isinstance(check, dict):
+            continue
+        workflow = str(check.get("workflowName") or "").lower()
+        name = str(check.get("name") or check.get("context") or "").lower()
+        if (
+            "merge-quorum" not in workflow
+            and "merge quorum" not in workflow
+            and "merge-quorum" not in name
+        ):
+            continue
+        key = str(check.get("completedAt") or check.get("startedAt") or "")
+        if key >= best_key:
+            best_key = key
+            conclusion = str(check.get("conclusion") or "").upper()
+    return conclusion
+
+
+def stage1_candidates(prs: list[dict[str, Any]]) -> list[int]:
+    """Ready (non-draft) PRs whose latest quorum check is not SUCCESS, oldest first."""
+    out: list[int] = []
+    for pr in prs:
+        if not isinstance(pr, dict) or pr.get("isDraft"):
+            continue
+        try:
+            number = int(pr["number"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if latest_quorum_conclusion(pr) == "SUCCESS":
+            continue
+        out.append(number)
+    return sorted(out)
+
+
+def needs_evidence(entry: dict[str, Any]) -> bool:
+    """Whether a merge-packet entry is selectable for bounded auto-evidence."""
+    if not entry:
+        return False
+    if str(entry.get("status") or "").strip().lower() != SELECTABLE_STATUS:
+        return False
+    try:
+        tier = int(entry.get("tier"))
+    except (TypeError, ValueError):
+        return False  # unknown tier: fail safe, never auto-postable anyway
+    if tier not in AUTO_POSTABLE_TIERS:
+        return False
+    if entry.get("requires_human_risk_settlement"):
+        return False
+    if entry.get("unresolved_dissent"):
+        return False
+    families = entry.get("counted_model_families")
+    if families is None:
+        families = entry.get("counted_reviewer_ids") or []
+    return len(families) < REQUIRED_FAMILIES
+
+
+def parse_collect_output(returncode: int, stdout: str, stderr: str) -> dict[str, Any]:
+    """Normalize a collect-evidence ``--json`` run into the wrapper's result shape."""
+    try:
+        payload = json.loads(stdout or "{}")
+        if not isinstance(payload, dict):
+            raise ValueError("non-object payload")
+    except (json.JSONDecodeError, ValueError):
+        return {
+            "ok": False,
+            "counting_families": [],
+            "posted_families": [],
+            "error": f"unparseable collect-evidence output (exit {returncode}): "
+            f"{(stderr or stdout or '').strip()[:200]}",
+        }
+    counting = list(payload.get("counting_families") or [])
+    posted = list(payload.get("posted_families") or [])
+    error = str(payload.get("error") or "")
+    post_errors = list(payload.get("post_errors") or [])
+    ok = returncode == 0 and len(counting) >= REQUIRED_FAMILIES and not error
+    if not ok and not error:
+        problems = [
+            f"{item.get('family')}: {', '.join(item.get('problems') or [])}"
+            for item in payload.get("items") or []
+            if isinstance(item, dict) and not item.get("would_count")
+        ]
+        failures = [
+            f"{item.get('family')}: {item.get('error')}"
+            for item in payload.get("failures") or []
+            if isinstance(item, dict)
+        ]
+        error = "; ".join(["<2 counting families"] + failures + problems + post_errors)
+    return {"ok": ok, "counting_families": counting, "posted_families": posted, "error": error}
+
+
+# --- Default (real) I/O callables --------------------------------------------
+
+
+def _gh_pr_list(repo: str, fields: str, limit: int) -> list[dict[str, Any]] | None:
+    try:
+        proc = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--json",
+                fields,
+                "--limit",
+                str(limit),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=GH_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, list) else None
+
+
+def default_list_prs(repo: str) -> list[dict[str, Any]]:
+    """Open-PR listing with graceful degradation.
+
+    ``statusCheckRollup`` over many PRs 504s GitHub's GraphQL endpoint
+    (observed live at ``--limit 50``), so try shrinking pages, then fall back
+    to a light listing without rollups — stage 1 then only prunes drafts and
+    the canonical stage-2 probe (bounded by ``--max-scan``) carries selection.
+    Fails closed with a clean error when even the light listing is down.
+    """
+    for limit in (100, 50, 30):
+        rows = _gh_pr_list(repo, "number,isDraft,statusCheckRollup", limit)
+        if rows is not None:
+            return rows
+    rows = _gh_pr_list(repo, "number,isDraft", 200)
+    if rows is not None:
+        return rows
+    raise RuntimeError(f"gh pr list failed for {repo} (heavy and light listings)")
+
+
+def default_fetch_packet(repo: str, pr: int) -> dict[str, Any]:
+    """Canonical per-PR probe: ``review-queue merge-packet --pr N --json``."""
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "aragora.cli.main",
+                "review-queue",
+                "merge-packet",
+                "--pr",
+                str(pr),
+                "--repo",
+                repo,
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=PACKET_TIMEOUT_SECONDS,
+            env=_sanitized_env(),
+        )
+    except subprocess.TimeoutExpired:
+        return {}
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return {}
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return {}
+    if isinstance(payload, dict):
+        entries = payload.get("entries")
+        entries = entries if isinstance(entries, list) else [payload]
+    elif isinstance(payload, list):
+        entries = payload
+    else:
+        return {}
+    for entry in entries:
+        if isinstance(entry, dict) and str(entry.get("pr_number")) == str(pr):
+            return entry
+    return {}
+
+
+def default_run_collect(
+    repo: str, families: tuple[str, ...], pr: int, apply: bool
+) -> dict[str, Any]:
+    cmd = [
+        sys.executable,
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "collect-evidence",
+        "--pr",
+        str(pr),
+        "--repo",
+        repo,
+        "--reviewers",
+        *families,
+        "--json",
+    ]
+    if apply:
+        cmd.append("--apply")
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=COLLECT_TIMEOUT_SECONDS,
+            env=_sanitized_env(),
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "ok": False,
+            "counting_families": [],
+            "posted_families": [],
+            "error": f"collect-evidence timed out after {COLLECT_TIMEOUT_SECONDS}s",
+        }
+    return parse_collect_output(proc.returncode, proc.stdout, proc.stderr)
+
+
+def default_run_reconciler(repo: str) -> int:
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "quorum_rerun_reconciler.py")
+    try:
+        proc = subprocess.run(
+            [sys.executable, script, "--repo", repo, "--apply"],
+            timeout=RECONCILER_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return 1
+    return proc.returncode
+
+
+# --- Singleton lock -------------------------------------------------------------
+
+
+class CycleLockHeld(RuntimeError):
+    """Another auto-evidence cycle currently holds the singleton lock."""
+
+
+def acquire_cycle_lock(
+    lock_path: str,
+    *,
+    stale_after_seconds: float = 7200.0,
+    now: Callable[[], float] = time.time,
+) -> Callable[[], None]:
+    """Take an exclusive advisory lock for apply mode; return a release callable.
+
+    Two concurrent ``--apply`` invocations (e.g. the merge-arbiter wiring racing
+    a manual run) could both pass selection before either posts, double-posting
+    evidence. ``O_CREAT | O_EXCL`` makes acquisition atomic; a lock older than
+    ``stale_after_seconds`` (default 2h — well past any sane ``--budget-seconds``)
+    is treated as a crash leftover and reclaimed. Raises :class:`CycleLockHeld`
+    when a live lock exists (caller fails closed without posting anything).
+    """
+    try:
+        age = now() - os.path.getmtime(lock_path)
+        if age > stale_after_seconds:
+            os.unlink(lock_path)
+    except OSError:
+        pass  # no lock file (common case) or it vanished between checks
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        raise CycleLockHeld(f"lock {lock_path} is held by another invocation") from None
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(f"pid={os.getpid()}\n")
+
+    def release() -> None:
+        try:
+            os.unlink(lock_path)
+        except OSError:
+            pass
+
+    return release
+
+
+def default_lock_path() -> str:
+    return os.path.join(os.path.expanduser("~"), ".aragora", "auto_evidence_cycle.lock")
+
+
+# --- Orchestrator --------------------------------------------------------------
+
+
+def run_cycle(
+    *,
+    list_prs: Callable[[], list[dict[str, Any]]],
+    fetch_packet: Callable[[int], dict[str, Any]],
+    run_collect: Callable[[int, bool], dict[str, Any]],
+    run_reconciler: Callable[[], int],
+    apply: bool,
+    max_prs: int,
+    max_scan: int,
+    budget_seconds: float,
+    breaker_threshold: int,
+    clock: Callable[[], float] = time.monotonic,
+    log: Callable[[str], None] = print,
+) -> dict[str, Any]:
+    """Plan and (with ``apply``) execute one bounded auto-evidence cycle."""
+    started = clock()
+
+    def over_budget() -> bool:
+        return clock() - started > budget_seconds
+
+    summary: dict[str, Any] = {
+        "mode": "apply" if apply else "dry-run",
+        "plan": [],
+        "posted_prs": [],
+        "failed_prs": [],
+        "breaker_tripped": False,
+        "budget_exhausted": False,
+        "reconciler_exit": None,
+        "exit_code": EXIT_OK,
+    }
+
+    candidates = stage1_candidates(list_prs())
+    probes = 0
+    for number in candidates:
+        if len(summary["plan"]) >= max_prs or probes >= max_scan:
+            break
+        if over_budget():
+            summary["budget_exhausted"] = True
+            break
+        probes += 1
+        entry = fetch_packet(number)
+        if not needs_evidence(entry):
+            continue
+        families = entry.get("counted_model_families") or entry.get("counted_reviewer_ids") or []
+        summary["plan"].append(
+            {
+                "pr": number,
+                "tier": entry.get("tier"),
+                "status": entry.get("status"),
+                "counted_families": list(families),
+            }
+        )
+
+    for item in summary["plan"]:
+        log(json.dumps({**item, "mode": summary["mode"]}))
+    if not summary["plan"]:
+        log(json.dumps({"plan": "empty", "mode": summary["mode"]}))
+
+    if not apply:
+        return summary
+
+    identical_errors = 0
+    last_error = None
+    for item in summary["plan"]:
+        if over_budget():
+            summary["budget_exhausted"] = True
+            break
+        result = run_collect(item["pr"], True)
+        posted = list(result.get("posted_families") or [])
+        ok = bool(result.get("ok")) and len(posted) >= REQUIRED_FAMILIES
+        if ok:
+            summary["posted_prs"].append(item["pr"])
+            identical_errors = 0
+            last_error = None
+            log(json.dumps({"pr": item["pr"], "posted_families": posted, "result": "posted"}))
+            continue
+        if result.get("ok"):
+            # Collected fine but posted <2 families: not quorum evidence.
+            error = f"only {len(posted)} family posted ({', '.join(posted) or 'none'}); not quorum"
+        else:
+            error = str(result.get("error") or "collect failed")
+        summary["failed_prs"].append(item["pr"])
+        log(json.dumps({"pr": item["pr"], "result": "failed", "error": error[:300]}))
+        identical_errors = identical_errors + 1 if error == last_error else 1
+        last_error = error
+        if identical_errors >= breaker_threshold:
+            summary["breaker_tripped"] = True
+            log(
+                json.dumps(
+                    {
+                        "result": "breaker_tripped",
+                        "identical_errors": identical_errors,
+                        "error": error[:300],
+                    }
+                )
+            )
+            break
+
+    if summary["posted_prs"]:
+        summary["reconciler_exit"] = run_reconciler()
+        log(json.dumps({"reconciler_exit": summary["reconciler_exit"]}))
+
+    if summary["breaker_tripped"]:
+        summary["exit_code"] = EXIT_BREAKER
+    elif summary["failed_prs"] or (summary["reconciler_exit"] not in (None, 0)):
+        summary["exit_code"] = EXIT_FAILURES
+    return summary
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("--repo", default=DEFAULT_REPO, help="GitHub repo owner/name")
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Run reviewers, post counting evidence, and rerun stale quorum checks "
+        "(default: dry-run plan only — nothing is spent or posted)",
+    )
+    parser.add_argument(
+        "--max-prs", type=int, default=3, help="Maximum PRs to produce evidence for (default: 3)"
+    )
+    parser.add_argument(
+        "--max-scan",
+        type=int,
+        default=15,
+        help="Maximum merge-packet probes per invocation (default: 15)",
+    )
+    parser.add_argument(
+        "--budget-seconds",
+        type=float,
+        default=1800.0,
+        help="Wall-clock budget; no new work starts past this (default: 1800)",
+    )
+    parser.add_argument(
+        "--breaker-threshold",
+        type=int,
+        default=3,
+        help="Consecutive identical collect failures that abort the cycle (default: 3)",
+    )
+    parser.add_argument(
+        "--families",
+        default=",".join(DEFAULT_FAMILIES),
+        help="Comma-separated reviewer model families (default: claude,grok)",
+    )
+    args = parser.parse_args(argv)
+
+    families = tuple(f.strip() for f in str(args.families).split(",") if f.strip())
+    if len(families) < REQUIRED_FAMILIES:
+        print(f"error: need >= {REQUIRED_FAMILIES} reviewer families", file=sys.stderr)
+        return EXIT_FAILURES
+
+    release: Callable[[], None] = lambda: None
+    if args.apply:
+        # Mutations require the singleton lock: two racing --apply invocations
+        # could both pass selection and double-post evidence on the same PR.
+        lock_dir = os.path.dirname(default_lock_path())
+        try:
+            os.makedirs(lock_dir, exist_ok=True)
+            release = acquire_cycle_lock(default_lock_path())
+        except CycleLockHeld as exc:
+            print(f"error: {exc}; refusing to run concurrently", file=sys.stderr)
+            return EXIT_FAILURES
+        except OSError as exc:
+            print(f"error: could not take cycle lock: {exc}", file=sys.stderr)
+            return EXIT_FAILURES
+
+    try:
+        summary = run_cycle(
+            list_prs=lambda: default_list_prs(args.repo),
+            fetch_packet=lambda pr: default_fetch_packet(args.repo, pr),
+            run_collect=lambda pr, apply: default_run_collect(args.repo, families, pr, apply),
+            run_reconciler=lambda: default_run_reconciler(args.repo),
+            apply=args.apply,
+            max_prs=max(0, args.max_prs),
+            max_scan=max(0, args.max_scan),
+            budget_seconds=args.budget_seconds,
+            breaker_threshold=max(1, args.breaker_threshold),
+        )
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILURES
+    finally:
+        release()
+    print(
+        json.dumps(
+            {key: value for key, value in summary.items() if key != "plan"}
+            | {"planned_prs": [item["pr"] for item in summary["plan"]]}
+        )
+    )
+    return int(summary["exit_code"])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

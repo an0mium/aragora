@@ -196,6 +196,31 @@ async def _run_concurrent_debates(
     )
 
 
+def _require_positive_int(value: int, *, label: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{label} must be a positive integer")
+
+
+def _validate_benchmark_config(
+    *,
+    num_agents: int,
+    num_rounds: int,
+    concurrent_levels: list[int],
+    large_panel_agents: int,
+    large_panel_rounds: int,
+) -> None:
+    _require_positive_int(num_agents, label="num_agents")
+    _require_positive_int(num_rounds, label="num_rounds")
+    _require_positive_int(large_panel_agents, label="large_panel_agents")
+    _require_positive_int(large_panel_rounds, label="large_panel_rounds")
+    if not concurrent_levels:
+        raise ValueError("concurrent_levels must include at least one level")
+    for index, level in enumerate(concurrent_levels):
+        _require_positive_int(level, label=f"concurrent_levels[{index}]")
+    if len(set(concurrent_levels)) != len(concurrent_levels):
+        raise ValueError("concurrent_levels must not contain duplicate levels")
+
+
 # ---------------------------------------------------------------------------
 # Main benchmark runner
 # ---------------------------------------------------------------------------
@@ -211,6 +236,13 @@ async def run_benchmark(
     """Execute the full benchmark suite."""
     if concurrent_levels is None:
         concurrent_levels = [5, 10, 25, 50]
+    _validate_benchmark_config(
+        num_agents=num_agents,
+        num_rounds=num_rounds,
+        concurrent_levels=concurrent_levels,
+        large_panel_agents=large_panel_agents,
+        large_panel_rounds=large_panel_rounds,
+    )
 
     results = BenchmarkResults(
         config={

@@ -196,6 +196,11 @@ class LaneOwnerInfo:
     dispatch_blocker: str | None
     steering_command: str | None
     harness_confidence: str
+    owner_state: str
+    liveness_state: str
+    cleanup_state: str
+    owner_state_reason: str
+    recommended_operator_action: str
 
 
 # ---------------------------------------------------------------------------
@@ -1012,6 +1017,80 @@ def _harness_confidence_for(
     return "mailbox_only"
 
 
+def _owner_state_for(
+    lane: dict[str, Any],
+    *,
+    owner_session: str,
+    live: dict[str, Any],
+    heartbeat: dict[str, Any] | None,
+) -> dict[str, str]:
+    status = str(lane.get("status") or "").strip().lower()
+    if live.get("found"):
+        liveness_state = "live_process"
+    elif heartbeat is None:
+        liveness_state = "missing_heartbeat"
+    elif heartbeat.get("fresh"):
+        liveness_state = "fresh_heartbeat"
+    else:
+        liveness_state = "stale_heartbeat"
+
+    if not owner_session:
+        return {
+            "owner_state": "unowned",
+            "liveness_state": liveness_state,
+            "cleanup_state": "unowned_requires_fresh_cleanup_inspect",
+            "owner_state_reason": "lane has no owner_session",
+            "recommended_operator_action": "claim the lane before mutation; run cleanup inspection before deletion",
+        }
+    if status in CONFLICT_STATUSES:
+        return {
+            "owner_state": "duplicate",
+            "liveness_state": liveness_state,
+            "cleanup_state": "preserve_duplicate_owner",
+            "owner_state_reason": "lane is in conflict status",
+            "recommended_operator_action": "resolve the lane conflict before mutation or cleanup",
+        }
+    if status in COMPLETED_STATUSES:
+        return {
+            "owner_state": "stale",
+            "liveness_state": liveness_state,
+            "cleanup_state": "historical_requires_cleanup_inspect",
+            "owner_state_reason": f"lane status is {status}",
+            "recommended_operator_action": "treat as historical; run fresh cleanup inspection before any deletion",
+        }
+    if status in ACTIVE_STATUSES:
+        if liveness_state == "stale_heartbeat":
+            return {
+                "owner_state": "owned",
+                "liveness_state": liveness_state,
+                "cleanup_state": "preserve_stale_owner",
+                "owner_state_reason": "active lane has stale heartbeat evidence",
+                "recommended_operator_action": "preserve; refresh heartbeat or contact owner before mutation or cleanup",
+            }
+        if liveness_state == "missing_heartbeat":
+            return {
+                "owner_state": "owned",
+                "liveness_state": liveness_state,
+                "cleanup_state": "preserve_unverified_owner",
+                "owner_state_reason": "active lane has no heartbeat evidence",
+                "recommended_operator_action": "preserve; start or refresh agent heartbeat before cleanup decisions",
+            }
+        return {
+            "owner_state": "owned",
+            "liveness_state": liveness_state,
+            "cleanup_state": "preserve_live_owner",
+            "owner_state_reason": f"lane status is {status} with current liveness evidence",
+            "recommended_operator_action": "route work through owner_session; do not cleanup without owner release",
+        }
+    return {
+        "owner_state": "unknown",
+        "liveness_state": liveness_state,
+        "cleanup_state": "preserve_unknown_owner_state",
+        "owner_state_reason": f"lane status is {status or 'unknown'}",
+        "recommended_operator_action": "preserve until lane status is clarified",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Composition
 # ---------------------------------------------------------------------------
@@ -1043,6 +1122,7 @@ def build_owner_info(
         freshness_seconds=heartbeat_fresh_seconds,
     )
     dispatch_blocker = _dispatch_blocker_for(lane, owner)
+    owner_state = _owner_state_for(lane, owner_session=owner, live=live, heartbeat=heartbeat)
 
     raw_pr = lane.get("pr_number")
     try:
@@ -1093,6 +1173,11 @@ def build_owner_info(
             claude=claude,
             factory=factory,
         ),
+        owner_state=owner_state["owner_state"],
+        liveness_state=owner_state["liveness_state"],
+        cleanup_state=owner_state["cleanup_state"],
+        owner_state_reason=owner_state["owner_state_reason"],
+        recommended_operator_action=owner_state["recommended_operator_action"],
     )
 
 
@@ -1110,6 +1195,11 @@ def _print_human(info: LaneOwnerInfo) -> None:
     print(f"owner_session:  {info.owner_session or '(none)'}")
     print(f"source:         {info.source or '(unspecified)'}")
     print(f"status:         {info.status or '(unspecified)'}")
+    print(f"owner_state:    {info.owner_state}")
+    print(f"liveness_state: {info.liveness_state}")
+    print(f"cleanup_state:  {info.cleanup_state}")
+    print(f"owner_reason:   {info.owner_state_reason}")
+    print(f"recommended_action: {info.recommended_operator_action}")
     print(f"branch:         {info.branch or '-'}")
     print(f"worktree:       {info.worktree or '-'}")
     print(f"pr_number:      {info.pr_number if info.pr_number is not None else '-'}")
