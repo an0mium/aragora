@@ -14,6 +14,18 @@ import pytest
 import yaml
 
 from aragora.epistemic.claim_verifier import ClaimResult, ClaimStatus, ClaimVerifier
+from aragora.epistemic.executable_claim import (
+    ClaimConfidence,
+    ClaimEvidence,
+    ClaimFailurePolicy,
+    ClaimManifest,
+    ClaimReceipt,
+    ClaimVerification,
+    ExecutableClaim,
+    FailureAction,
+    FailureSeverity,
+    VerificationKind,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -283,3 +295,127 @@ class TestVerifyManifest:
         statuses = {r.claim_id: r.status for r in results}
         # In dry_run all command-kind claims → unsupported (not error)
         assert ClaimStatus.ERROR not in statuses.values()
+
+
+# ---------------------------------------------------------------------------
+# Typed manifest bridge (DIC-14 × DIC-13 integration)
+# ---------------------------------------------------------------------------
+
+
+def _make_typed_claim(
+    *,
+    claim_id: str = "typed.claim",
+    kind: VerificationKind = VerificationKind.COMMAND,
+    command: str = "python3 -c 'pass'",
+    freshness_sla_hours: int = 24,
+    evidence: list[ClaimEvidence] | None = None,
+    severity: FailureSeverity = FailureSeverity.INFO,
+    allowed_action: FailureAction = FailureAction.REPORT_ONLY,
+) -> ExecutableClaim:
+    return ExecutableClaim(
+        claim_id=claim_id,
+        statement="Typed test claim.",
+        owner="test",
+        scope="repo",
+        confidence=ClaimConfidence.HIGH,
+        evidence=evidence if evidence is not None else [ClaimEvidence(note="test baseline")],
+        freshness_sla_hours=freshness_sla_hours,
+        verification=ClaimVerification(kind=kind, command=command),
+        failure=ClaimFailurePolicy(severity=severity, allowed_action=allowed_action),
+        receipts=[ClaimReceipt(type="test")],
+    )
+
+
+class TestTypedManifestBridge:
+    """DIC-14 bridge: verify_executable_claim / verify_executable_manifest."""
+
+    def test_typed_pass_matches_dict_pass(self) -> None:
+        verifier = ClaimVerifier(command_runner=_stub_pass)
+        typed = _make_typed_claim()
+        result_typed = verifier.verify_executable_claim(typed)
+        result_dict = verifier.verify_claim(typed.to_dict())
+        assert result_typed.status == result_dict.status == ClaimStatus.PASS
+        assert result_typed.claim_id == result_dict.claim_id == "typed.claim"
+
+    def test_typed_fail_matches_dict_fail(self) -> None:
+        verifier = ClaimVerifier(command_runner=_stub_fail)
+        typed = _make_typed_claim()
+        result = verifier.verify_executable_claim(typed)
+        assert result.status == ClaimStatus.FAIL
+
+    def test_typed_unsupported_workflow(self) -> None:
+        verifier = ClaimVerifier(command_runner=_stub_pass)
+        typed = _make_typed_claim(kind=VerificationKind.WORKFLOW)
+        result = verifier.verify_executable_claim(typed)
+        assert result.status == ClaimStatus.UNSUPPORTED
+
+    def test_typed_unsupported_manual(self) -> None:
+        verifier = ClaimVerifier(command_runner=_stub_pass)
+        typed = _make_typed_claim(kind=VerificationKind.MANUAL)
+        result = verifier.verify_executable_claim(typed)
+        assert result.status == ClaimStatus.UNSUPPORTED
+
+    def test_typed_stale_evidence(self, tmp_path: Path) -> None:
+        old_file = tmp_path / "old.json"
+        old_file.write_text("{}")
+        import os
+
+        past = time.time() - 7200  # 2 hours ago
+        os.utime(old_file, (past, past))
+
+        typed = _make_typed_claim(
+            freshness_sla_hours=1,
+            evidence=[ClaimEvidence(path=str(old_file))],
+        )
+        verifier = ClaimVerifier(command_runner=_stub_pass)
+        result = verifier.verify_executable_claim(typed)
+        assert result.status == ClaimStatus.STALE
+
+    def test_typed_severity_and_action_propagated(self) -> None:
+        verifier = ClaimVerifier(command_runner=_stub_fail)
+        typed = _make_typed_claim(
+            severity=FailureSeverity.BLOCKING,
+            allowed_action=FailureAction.PROPOSE_BOUNDED_ISSUE,
+        )
+        result = verifier.verify_executable_claim(typed)
+        assert result.severity == "blocking"
+        assert result.allowed_action == "propose_bounded_issue"
+
+    def test_verify_executable_manifest_all_claims(self) -> None:
+        verifier = ClaimVerifier(command_runner=_stub_pass)
+        manifest = ClaimManifest(
+            schema_version=1,
+            manifest_id="bridge_test",
+            claims=[
+                _make_typed_claim(claim_id="b.c1"),
+                _make_typed_claim(claim_id="b.c2", kind=VerificationKind.WORKFLOW),
+            ],
+        )
+        results = verifier.verify_executable_manifest(manifest)
+        assert len(results) == 2
+        assert results[0].claim_id == "b.c1"
+        assert results[0].status == ClaimStatus.PASS
+        assert results[1].claim_id == "b.c2"
+        assert results[1].status == ClaimStatus.UNSUPPORTED
+
+    def test_verify_executable_manifest_empty(self) -> None:
+        verifier = ClaimVerifier(command_runner=_stub_pass)
+        manifest = ClaimManifest(schema_version=1, manifest_id="empty", claims=[])
+        results = verifier.verify_executable_manifest(manifest)
+        assert results == []
+
+    def test_verify_real_manifest_via_typed_path(self) -> None:
+        """Round-trip smoke: load DIC-13 YAML as typed manifest, verify via typed bridge."""
+        from aragora.epistemic.executable_claim import ClaimManifest as CM
+
+        manifest_path = (
+            Path(__file__).parents[2] / "docs" / "status" / "claims" / "proof_first_claims.yaml"
+        )
+        if not manifest_path.exists():
+            pytest.skip("proof_first_claims.yaml not found")
+
+        typed_manifest = CM.from_yaml_file(manifest_path)
+        verifier = ClaimVerifier(dry_run=True)
+        results = verifier.verify_executable_manifest(typed_manifest)
+        assert len(results) >= 3
+        assert ClaimStatus.ERROR not in {r.status for r in results}

@@ -23,9 +23,12 @@ import time
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import yaml
+
+if TYPE_CHECKING:
+    from aragora.epistemic.executable_claim import ClaimManifest, ExecutableClaim
 
 
 class ClaimStatus(str, Enum):
@@ -109,6 +112,26 @@ class ClaimVerifier:
             manifest = yaml.safe_load(fh)
         claims: list[dict[str, Any]] = manifest.get("claims", [])
         return [self.verify_claim(c) for c in claims]
+
+    def verify_executable_claim(self, claim: ExecutableClaim) -> ClaimResult:
+        """Verify a typed DIC-13 ExecutableClaim.
+
+        Bridges the DIC-13 typed model
+        (:class:`~aragora.epistemic.executable_claim.ExecutableClaim`) with
+        the DIC-14 runner by serialising the dataclass to the dict format
+        expected by the core verification pipeline.
+        """
+        return self.verify_claim(claim.to_dict())
+
+    def verify_executable_manifest(self, manifest: ClaimManifest) -> list[ClaimResult]:
+        """Verify every claim in a typed DIC-13 ClaimManifest.
+
+        Accepts a :class:`~aragora.epistemic.executable_claim.ClaimManifest`
+        (as returned by ``ClaimManifest.from_yaml_file`` or
+        ``ClaimManifest.from_dict``) and runs each claim through the
+        verifier without re-parsing YAML.
+        """
+        return [self.verify_executable_claim(c) for c in manifest.claims]
 
     def verify_claim(self, claim: dict[str, Any]) -> ClaimResult:
         """Verify a single claim dict and return a ClaimResult."""
