@@ -5516,6 +5516,38 @@ class TestSettlementHelpers:
         assert payload["admin_squash_order"] == list(range(1, MODEL_REVIEW_QUEUE_CAP + 2))
         assert payload["entries"][0]["verdict"] == "admin_squash_allowed"
 
+    def test_merge_packet_json_error_stays_parseable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def fail_packet(**_kwargs: Any) -> dict[str, Any]:
+            raise _GhError("gh pr view failed: GraphQL rate limit exceeded")
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_packet,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["7841"],
+            repo=None,
+            review_queue_root=None,
+            limit=30,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stderr.getvalue() == ""
+        payload = json.loads(stdout.getvalue())
+        assert payload == {
+            "ok": False,
+            "error": "gh pr view failed: GraphQL rate limit exceeded",
+        }
+
     def test_act_command_requires_reason_for_request_changes(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="act",
