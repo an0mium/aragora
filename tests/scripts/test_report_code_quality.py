@@ -150,6 +150,45 @@ def test_scan_boss_metrics_rejects_invalid_issue_numbers(
     }
 
 
+def test_scan_boss_metrics_reports_malformed_jsonl(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.write_text(
+        '{"issue_number": 1, "prompt_chars": 100, "worker_status": "completed"}\n{not json}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(report_code_quality, "REPO_ROOT", tmp_path)
+
+    metrics = report_code_quality.scan_boss_metrics()
+
+    assert metrics == {
+        "available": False,
+        "reason": "malformed boss metrics JSONL",
+        "line": 2,
+    }
+
+
+def test_scan_boss_metrics_reports_non_object_jsonl_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.write_text("[]\n", encoding="utf-8")
+    monkeypatch.setattr(report_code_quality, "REPO_ROOT", tmp_path)
+
+    metrics = report_code_quality.scan_boss_metrics()
+
+    assert metrics == {
+        "available": False,
+        "reason": "malformed boss metrics JSONL",
+        "line": 1,
+    }
+
+
 def test_scan_boss_metrics_skips_missing_issue_numbers(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -225,3 +264,41 @@ def test_main_text_compare_prints_baseline_section(
     assert "baseline_date: 2026-04-12" in output
     assert "except_exception" in output
     assert "delta=+1" in output
+
+
+def test_main_text_reports_unavailable_boss_metrics_reason(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["report_code_quality.py"])
+    monkeypatch.setattr(
+        report_code_quality,
+        "scan_all_aragora",
+        lambda: {"except_exception": 0, "type_ignore": 0, "noqa": 0, "todo": 0, "fixme": 0},
+    )
+    monkeypatch.setattr(
+        report_code_quality,
+        "scan_boss_metrics",
+        lambda: {
+            "available": False,
+            "reason": "malformed boss metrics JSONL",
+            "line": 3,
+        },
+    )
+    monkeypatch.setattr(
+        report_code_quality,
+        "scan_subsystem",
+        lambda name, path: {
+            "name": name,
+            "files": 0,
+            "loc": 0,
+            "test_ratio": 0.0,
+            "suppressions": {"except_exception": 0, "noqa": 0},
+            "top5_largest": [],
+        },
+    )
+
+    report_code_quality.main()
+
+    output = capsys.readouterr().out
+    assert "Boss Loop Metrics:" in output
+    assert "Unavailable: malformed boss metrics JSONL (line 3)" in output

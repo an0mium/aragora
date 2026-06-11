@@ -61,6 +61,7 @@ _SUPPRESSION_PATTERNS = {
 }
 
 _INVALID_BOSS_ISSUE_REASON = "invalid issue_number in v2 prompt data"
+_MALFORMED_BOSS_METRICS_REASON = "malformed boss metrics JSONL"
 
 
 def count_lines(path: Path) -> int:
@@ -150,12 +151,26 @@ def scan_boss_metrics() -> dict:
 
     rows = []
     try:
-        with metrics_path.open() as f:
-            for line in f:
+        with metrics_path.open(encoding="utf-8") as f:
+            for line_number, line in enumerate(f, start=1):
                 line = line.strip()
                 if line:
-                    rows.append(json.loads(line))
-    except (OSError, json.JSONDecodeError):
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        return {
+                            "available": False,
+                            "reason": _MALFORMED_BOSS_METRICS_REASON,
+                            "line": line_number,
+                        }
+                    if not isinstance(row, dict):
+                        return {
+                            "available": False,
+                            "reason": _MALFORMED_BOSS_METRICS_REASON,
+                            "line": line_number,
+                        }
+                    rows.append(row)
+    except OSError:
         return {"available": False}
 
     # Filter to v2 prompt runs
@@ -280,6 +295,14 @@ def main() -> None:
             print(f"  Issues completed: {boss_metrics['issues_completed']}")
             print(f"  Per-issue success rate: {boss_metrics['per_issue_success_rate']:.1%}")
             print(f"  Meets B0 target (>=50%): {boss_metrics['meets_b0_target']}")
+        elif boss_metrics.get("reason"):
+            print("\nBoss Loop Metrics:")
+            line_suffix = (
+                f" (line {boss_metrics['line']})"
+                if isinstance(boss_metrics.get("line"), int)
+                else ""
+            )
+            print(f"  Unavailable: {boss_metrics['reason']}{line_suffix}")
 
         if comparison is not None:
             print(
