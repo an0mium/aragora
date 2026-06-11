@@ -693,19 +693,27 @@ def _resolve_receipt_data(receipt_ref: str) -> dict[str, Any] | None:
         return _load_receipt_json(path)
 
     # Not a file on disk — try the durable store, then the legacy store.
+    # Store access errors are surfaced (not silently treated as "not found")
+    # so a broken store is distinguishable from a genuinely missing ID.
     data: dict[str, Any] | None = None
+    store_errors: list[str] = []
     try:
         data = _load_storage_receipt(receipt_ref)
-    except (ImportError, OSError, RuntimeError, ValueError):
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
+        logger.warning("Durable receipt store lookup failed: %s", e)
+        store_errors.append(f"durable store: {e.__class__.__name__}")
         data = None
     if data is None:
         try:
             data = _load_legacy_receipt(receipt_ref, org_id=None)
-        except (ImportError, OSError, RuntimeError, ValueError):
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
+            logger.warning("Legacy receipt store lookup failed: %s", e)
+            store_errors.append(f"legacy store: {e.__class__.__name__}")
             data = None
     if data is None:
+        detail = f" (store errors: {'; '.join(store_errors)})" if store_errors else ""
         print(
-            f"Error: Receipt not found as file or stored ID: {receipt_ref}",
+            f"Error: Receipt not found as file or stored ID: {receipt_ref}{detail}",
             file=sys.stderr,
         )
     return data
