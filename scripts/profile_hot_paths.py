@@ -69,6 +69,9 @@ def timer():
 
 def profile_function(func, iterations: int = 100, name: str = None) -> ProfileResult:
     """Profile a function over multiple iterations."""
+    if isinstance(iterations, bool) or iterations < 1:
+        raise ValueError("profile iterations must be a positive integer")
+
     times = []
 
     for _ in range(iterations):
