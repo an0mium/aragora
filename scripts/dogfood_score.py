@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,10 @@ STANDARD_SECTIONS = [
     "Rollback Plan",
     "Gate Criteria",
 ]
+
+
+class DogfoodScoreInputError(RuntimeError):
+    """Raised when score input artifacts cannot be trusted."""
 
 
 @dataclass
@@ -52,25 +57,34 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
+def _parse_timeout_payload(raw: str, *, source: str) -> dict[str, Any] | None:
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise DogfoodScoreInputError(f"invalid timeout JSON in {source}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise DogfoodScoreInputError(f"timeout JSON in {source} must be an object")
+    return payload
+
+
 def _load_timeout_payload(report_path: Path | None, stdout_text: str) -> dict[str, Any] | None:
     if report_path and report_path.exists():
-        raw = _read_text(report_path).strip()
-        if raw:
-            try:
-                return json.loads(raw)
-            except json.JSONDecodeError:
-                pass
+        payload = _parse_timeout_payload(_read_text(report_path), source=str(report_path))
+        if payload is not None:
+            return payload
 
     for line in stdout_text.splitlines():
         if not line.startswith(TIMEOUT_PREFIX):
             continue
-        raw = line[len(TIMEOUT_PREFIX) :].strip()
-        if not raw:
-            continue
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            continue
+        payload = _parse_timeout_payload(
+            line[len(TIMEOUT_PREFIX) :],
+            source=f"{TIMEOUT_PREFIX} line",
+        )
+        if payload is not None:
+            return payload
     return None
 
 
@@ -283,26 +297,31 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     repo_root = Path(args.repo_root).expanduser().resolve()
 
-    baseline = _score_run(
-        name="baseline",
-        stdout_path=Path(args.baseline_stdout).expanduser(),
-        timeout_report_path=(
-            Path(args.baseline_timeout_report).expanduser()
-            if args.baseline_timeout_report
-            else None
-        ),
-        repo_root=repo_root,
-    )
-    enhanced = _score_run(
-        name="enhanced",
-        stdout_path=Path(args.enhanced_stdout).expanduser(),
-        timeout_report_path=(
-            Path(args.enhanced_timeout_report).expanduser()
-            if args.enhanced_timeout_report
-            else None
-        ),
-        repo_root=repo_root,
-    )
+    try:
+        baseline = _score_run(
+            name="baseline",
+            stdout_path=Path(args.baseline_stdout).expanduser(),
+            timeout_report_path=(
+                Path(args.baseline_timeout_report).expanduser()
+                if args.baseline_timeout_report
+                else None
+            ),
+            repo_root=repo_root,
+        )
+        enhanced = _score_run(
+            name="enhanced",
+            stdout_path=Path(args.enhanced_stdout).expanduser(),
+            timeout_report_path=(
+                Path(args.enhanced_timeout_report).expanduser()
+                if args.enhanced_timeout_report
+                else None
+            ),
+            repo_root=repo_root,
+        )
+    except DogfoodScoreInputError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
     summary = _build_summary(baseline, enhanced)
 
     payload = {
