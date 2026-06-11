@@ -17,6 +17,7 @@ test_changes=""
 docs_only_changes=""
 forbidden_files=""
 rescue_publish_files=""
+publisher_startup_changes=""
 docs_only=false
 
 usage() {
@@ -49,6 +50,7 @@ emit_json() {
     export PREFLIGHT_DOCS_ONLY="${docs_only}"
     export PREFLIGHT_FORBIDDEN_FILES="${forbidden_files}"
     export PREFLIGHT_RESCUE_PUBLISH_FILES="${rescue_publish_files}"
+    export PREFLIGHT_PUBLISHER_STARTUP_CHANGES="${publisher_startup_changes}"
     python3 -c '
 import json
 import os
@@ -61,6 +63,7 @@ def lines(name: str) -> list[str]:
 
 source_changes = lines("PREFLIGHT_SOURCE_CHANGES")
 test_changes = lines("PREFLIGHT_TEST_CHANGES")
+publisher_startup_changes = lines("PREFLIGHT_PUBLISHER_STARTUP_CHANGES")
 python_sources = [path for path in source_changes if path.endswith(".py")]
 suggested_commands: list[str] = []
 if python_sources:
@@ -72,6 +75,17 @@ if python_sources:
 if test_changes:
     quoted_tests = " ".join(shlex.quote(path) for path in test_changes)
     suggested_commands.append(f"python3 -m pytest {quoted_tests} -q")
+if publisher_startup_changes:
+    startup_modules = (
+        "scripts.cache_codex_automation_github_status",
+        "scripts.publish_automation_handoffs",
+        "scripts.publish_codex_automation_branches",
+        "scripts.github_cli_health",
+    )
+    suggested_commands.append(
+        "python3 -c \"import importlib; [importlib.import_module(module) "
+        f"for module in {startup_modules!r}]\""
+    )
 
 payload = {
     "base_ref": os.environ["PREFLIGHT_BASE_REF"],
@@ -172,6 +186,7 @@ fi
 
 source_changes="$(printf '%s\n' "${changed_files}" | grep -E '(^aragora/|^scripts/|^\.github/|^tests/).*\.(py|sh|ya?ml|toml|json|ts|tsx|js|jsx)$' || true)"
 test_changes="$(printf '%s\n' "${changed_files}" | grep -E '(^tests/|__tests__/|\.test\.|\.spec\.)' || true)"
+publisher_startup_changes="$(printf '%s\n' "${changed_files}" | grep -E '^scripts/(cache_codex_automation_github_status|github_cli_health|publish_automation_handoffs|publish_codex_automation_branches)\.py$' || true)"
 docs_only_changes="$(printf '%s\n' "${changed_files}" | grep -Ev '(^docs/|^docs-site/|\.md$)' || true)"
 if [[ -z "${docs_only_changes}" ]]; then
     docs_only=true

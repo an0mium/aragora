@@ -6,7 +6,7 @@ compatibility: Works with Codex (.agents/skills) and Claude Code (.claude/skills
 metadata:
   author: Synaptent (aragora) — forked from aigorahub/elves (MIT)
   upstream: https://github.com/aigorahub/elves
-  version: "0.2.0-aragora"
+  version: "0.2.1-aragora"
   argument-hint: Path to plan file, or plan text directly.
 ---
 
@@ -95,6 +95,13 @@ immediately and surface to the user when any of these fire:
   --base main --force-new --print-path`); lanes must touch file-disjoint surfaces; only the
   coordinator writes the execution log / survival guide and records settlements. Within any
   one worktree, a surprise tip move = collision, not diverge → stop that lane.
+- **Lanes finish synchronously — never via background watchers.** A lane's background
+  monitors/waiters die with the lane; "standing by for the watcher to re-invoke me" is lane
+  death (observed 4× in run-20260610: lanes ended mid-settlement and required manual
+  resumption). Wait for external state with bounded *foreground* until-loops
+  (`until <check>; do sleep 20; done`, hard-capped), and register every lane in the run's
+  lane ledger (`.aragora/run-<id>/lanes/<lane>.json`: lane, agent_id, branch, brief,
+  launched_at, status) at launch so the sentinel's liveness check can detect silent death.
 - No destructive git (`reset --hard`, `checkout .`, `clean -fd`, `push --force`, rebase on shared).
 - Receipts are mandatory per batch. A batch with no verified receipt is not complete. Store
   receipts under the run-scoped dir `.aragora/run-<run-id>/receipts/` (legacy

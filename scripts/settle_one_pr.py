@@ -158,6 +158,24 @@ def _is_green_summary(summary: str) -> bool:
     return "green" in lower and "failing" not in lower and "pending" not in lower
 
 
+def _effective_check_summary(entry: dict[str, Any]) -> str:
+    check_surfaces = entry.get("check_surfaces")
+    if not isinstance(check_surfaces, dict):
+        return str(entry.get("checks_summary", ""))
+    effective_gate = check_surfaces.get("effective_gate")
+    if isinstance(effective_gate, dict):
+        source = str(effective_gate.get("source", "") or "")
+        summary = str(effective_gate.get("summary", "") or "")
+        if source and summary:
+            return summary
+    required_gate = check_surfaces.get("required_pr_checks")
+    if isinstance(required_gate, dict) and bool(required_gate.get("gate_selected")):
+        summary = str(required_gate.get("summary", "") or "")
+        if summary:
+            return summary
+    return str(entry.get("checks_summary", ""))
+
+
 def _entry_by_pr(packet: dict[str, Any], pr_number: int) -> dict[str, Any] | None:
     for entry in packet.get("entries") or []:
         if isinstance(entry, dict) and _entry_pr(entry) == pr_number:
@@ -694,7 +712,7 @@ def entry_blockers(entry: dict[str, Any]) -> list[str]:
         blockers.append("requires_human_risk_settlement=true")
     if bool(entry.get("unresolved_dissent")):
         blockers.append("unresolved_dissent=true")
-    summary = str(entry.get("checks_summary", ""))
+    summary = _effective_check_summary(entry)
     if "failing" in summary.lower():
         blockers.append(f"checks failing: {summary}")
     if "pending" in summary.lower():

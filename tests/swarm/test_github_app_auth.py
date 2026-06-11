@@ -160,6 +160,39 @@ def test_github_cli_env_falls_back_when_unconfigured() -> None:
     assert env == {"PATH": "/usr/bin", "ARAGORA_AUTOMATION_ENV_FILE": "/missing"}
 
 
+def test_github_cli_env_no_prefer_app_drops_shell_exported_app_token() -> None:
+    """A shell-exported App token (tagged by gh_app_env.py wiring) must be
+    dropped when the caller does not prefer App auth (e.g. write ops), so the
+    operator PAT/keyring auth is used instead of a narrow-scope App token."""
+    mod.clear_github_app_token_cache()
+
+    env = mod.github_cli_env(
+        {
+            "PATH": "/usr/bin",
+            "GH_TOKEN": "ghs_shell_exported",
+            "GITHUB_TOKEN": "ghs_shell_exported",
+            "ARAGORA_GITHUB_AUTH_SOURCE": "github_app_installation",
+        },
+        prefer_app=False,
+    )
+
+    assert "GH_TOKEN" not in env
+    assert "GITHUB_TOKEN" not in env
+    assert "ARAGORA_GITHUB_AUTH_SOURCE" not in env
+    assert env["PATH"] == "/usr/bin"
+
+
+def test_github_cli_env_no_prefer_app_keeps_untagged_user_token() -> None:
+    mod.clear_github_app_token_cache()
+
+    env = mod.github_cli_env(
+        {"PATH": "/usr/bin", "GH_TOKEN": "user_pat"},
+        prefer_app=False,
+    )
+
+    assert env["GH_TOKEN"] == "user_pat"
+
+
 def test_validate_github_api_request_allows_github_https() -> None:
     request = Request("https://api.github.com/app/installations/456/access_tokens")
 
