@@ -7,6 +7,7 @@ calls happen in these tests.
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -185,6 +186,23 @@ class TestComputeLeverage:
         assert result["merged_receipt_backed"] == 1
         assert result["receipts_failed_verify"] == 1
 
+    @pytest.mark.parametrize("operator_minutes", [0.0, -1.0, math.nan, math.inf, -math.inf, True])
+    def test_rejects_impossible_operator_minutes(
+        self, tmp_path: Path, operator_minutes: float
+    ) -> None:
+        with pytest.raises(ValueError, match="finite positive"):
+            compute_leverage(
+                merged_prs=[],
+                operator_minutes=operator_minutes,
+                receipts_dirs=[tmp_path],
+                comments_fetcher=lambda n: [],
+                verifier=lambda p: True,
+                window_start=WINDOW_START,
+                window_end=NOW,
+                window_days=7,
+                repo="synaptent/aragora",
+            )
+
 
 # ---------------------------------------------------------------------------
 # CLI refusal contract: operator-minutes must never be invented
@@ -206,6 +224,15 @@ class TestOperatorMinutesRefusal:
     def test_refuses_negative_operator_minutes(self, capsys: pytest.CaptureFixture) -> None:
         rc = main(["--operator-minutes", "-3"])
         assert rc == 2
+
+    @pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
+    def test_refuses_non_finite_operator_minutes(
+        self, value: str, capsys: pytest.CaptureFixture
+    ) -> None:
+        rc = main([f"--operator-minutes={value}", "--json"])
+        assert rc == 2
+        err = capsys.readouterr().err
+        assert "finite positive" in err
 
 
 class TestMainJson:

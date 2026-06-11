@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import subprocess
 import sys
@@ -52,6 +53,8 @@ OPERATOR_MINUTES_REFUSAL = (
     "human minutes actually spent steering this window (approvals, design "
     "reviews, queue replies) and pass it explicitly."
 )
+
+OPERATOR_MINUTES_INVALID = "refusing to run: --operator-minutes must be a finite positive number."
 
 # Receipt references in PR bodies/comments: any path-ish token whose parent
 # directory chain contains a `receipts/` segment and that ends in .json.
@@ -145,6 +148,17 @@ def resolve_receipt_path(ref: str, receipts_dirs: Sequence[Path]) -> Path | None
     return None
 
 
+def validate_operator_minutes(operator_minutes: float) -> float:
+    """Return a safe LR denominator or raise ValueError."""
+    if (
+        isinstance(operator_minutes, bool)
+        or not math.isfinite(operator_minutes)
+        or operator_minutes <= 0
+    ):
+        raise ValueError(OPERATOR_MINUTES_INVALID)
+    return operator_minutes
+
+
 def compute_leverage(
     *,
     merged_prs: list[dict],
@@ -159,6 +173,7 @@ def compute_leverage(
     operator_minutes_note: str = "",
 ) -> dict:
     """Compute the leverage-ratio report from already-fetched inputs."""
+    operator_minutes = validate_operator_minutes(operator_minutes)
     merged_receipt_backed = 0
     failed_verify_paths: list[str] = []
     refs_unresolved = 0
@@ -400,8 +415,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--status-doc", default=DEFAULT_STATUS_DOC)
     args = parser.parse_args(argv)
 
-    if args.operator_minutes is None or args.operator_minutes <= 0:
+    if args.operator_minutes is None:
         print(OPERATOR_MINUTES_REFUSAL, file=sys.stderr)
+        return 2
+    try:
+        operator_minutes = validate_operator_minutes(args.operator_minutes)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
         return 2
 
     window_end = datetime.now(timezone.utc)
@@ -414,7 +434,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     merged_prs = fetch_merged_prs(args.repo, window_start)
     result = compute_leverage(
         merged_prs=merged_prs,
-        operator_minutes=args.operator_minutes,
+        operator_minutes=operator_minutes,
         receipts_dirs=receipts_dirs,
         comments_fetcher=lambda n: fetch_issue_comments(args.repo, n),
         verifier=verify_receipt,
