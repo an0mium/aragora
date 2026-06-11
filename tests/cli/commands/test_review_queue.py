@@ -31,7 +31,9 @@ from aragora.cli.commands.review_queue import (
     _filter_lanes,
     _GhError,
     _gh_json,
+    _gh_text,
     _is_high_risk_path,
+    _is_github_transport_error,
     _is_merge_quorum_check,
     _parse_pr_number,
     _record_external_settlement,
@@ -2380,6 +2382,30 @@ class TestGhTimeouts:
             _gh_json(["pr", "view", "7811"])
 
         assert captured["kwargs"]["timeout"] > 0
+
+    def test_gh_json_fails_closed_on_startup_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+            raise OSError("gh executable unavailable")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+
+        with pytest.raises(_GhError) as exc_info:
+            _gh_json(["pr", "view", "7811"])
+
+        assert "gh pr view 7811 failed to start: gh executable unavailable" in str(exc_info.value)
+        assert _is_github_transport_error(exc_info.value) is True
+
+    def test_gh_text_fails_closed_on_startup_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+            raise OSError("permission denied")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+
+        with pytest.raises(_GhError) as exc_info:
+            _gh_text(["repo", "view"])
+
+        assert "gh repo view failed to start: permission denied" in str(exc_info.value)
+        assert _is_github_transport_error(exc_info.value) is True
 
 
 # --- _build_queue + _build_packet (with mocked gh) -------------------------

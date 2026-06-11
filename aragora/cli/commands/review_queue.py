@@ -79,6 +79,7 @@ _GITHUB_TRANSPORT_ERROR_MARKERS = (
     "context deadline exceeded",
     "could not resolve host",
     "error connecting",
+    "failed to start",
     "http 502",
     "http 503",
     "http 504",
@@ -1451,6 +1452,8 @@ def _gh_text(args: list[str]) -> str:
         raise _GhError(
             _command_timeout_message(cmd, int(exc.timeout or GH_COMMAND_TIMEOUT_SECONDS))
         ) from exc
+    except OSError as exc:
+        raise _GhError(f"{' '.join(cmd)} failed to start: {exc}") from exc
     if proc.returncode != 0:
         stderr = proc.stderr.strip() or "no stderr"
         raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
@@ -1472,6 +1475,8 @@ def _gh_json(args: list[str]) -> Any:
         raise _GhError(
             _command_timeout_message(cmd, int(exc.timeout or GH_COMMAND_TIMEOUT_SECONDS))
         ) from exc
+    except OSError as exc:
+        raise _GhError(f"{' '.join(cmd)} failed to start: {exc}") from exc
     if proc.returncode != 0:
         stderr = proc.stderr.strip() or "no stderr"
         raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
