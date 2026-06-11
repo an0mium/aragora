@@ -68,6 +68,7 @@ import argparse
 import dataclasses
 import datetime as dt
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -197,6 +198,7 @@ def probe_surface(
     now: dt.datetime,
 ) -> SurfaceProbeResult:
     """Probe a single named surface against ``max_age_days``."""
+    max_age_days = _validate_max_age_days(max_age_days)
     try:
         rel = SURFACE_PATHS[surface.lower()]
     except KeyError as exc:
@@ -249,6 +251,7 @@ def probe_surfaces(
     now: dt.datetime,
 ) -> list[SurfaceProbeResult]:
     """Probe ``surfaces`` and return one result per entry, in order."""
+    max_age_days = _validate_max_age_days(max_age_days)
     results: list[SurfaceProbeResult] = []
     for surface in surfaces:
         results.append(
@@ -285,6 +288,25 @@ def _split_surfaces(raw: str) -> list[str]:
     return deduped
 
 
+def _validate_max_age_days(value: float) -> float:
+    try:
+        days = float(value)
+    except (TypeError, ValueError) as exc:
+        raise FreshnessProbeError("--max-age-days must be a finite non-negative number") from exc
+
+    if not math.isfinite(days) or days < 0:
+        raise FreshnessProbeError("--max-age-days must be a finite non-negative number")
+
+    return days
+
+
+def _max_age_days_arg(raw: str) -> float:
+    try:
+        return _validate_max_age_days(float(raw))
+    except FreshnessProbeError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -294,7 +316,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--max-age-days",
-        type=float,
+        type=_max_age_days_arg,
         default=DEFAULT_MAX_AGE_DAYS,
         help=(
             "Maximum permitted age (in days) of the 'Last updated:' "
@@ -348,12 +370,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     surfaces = list(args.surfaces)
-    if args.max_age_days < 0:
-        print(
-            "error: --max-age-days must be non-negative",
-            file=sys.stderr,
-        )
-        return 2
+    max_age_days = _validate_max_age_days(args.max_age_days)
 
     now = dt.datetime.now(tz=dt.timezone.utc)
 
@@ -361,14 +378,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         results = probe_surfaces(
             surfaces,
             repo_root=args.repo_root,
-            max_age_days=args.max_age_days,
+            max_age_days=max_age_days,
             now=now,
         )
     except FreshnessProbeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    output = _render_json(results, max_age_days=args.max_age_days, pretty=args.pretty)
+    output = _render_json(results, max_age_days=max_age_days, pretty=args.pretty)
     print(output)
 
     stale = [r for r in results if not r.fresh]

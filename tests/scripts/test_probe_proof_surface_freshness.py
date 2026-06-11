@@ -17,6 +17,7 @@ from __future__ import annotations
 import datetime as dt
 import importlib.util
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -148,6 +149,22 @@ def test_probe_surface_rejects_material_future_timestamp(mock_repo: Path) -> Non
         probe_mod.probe_surface("b0", repo_root=mock_repo, max_age_days=7, now=now)
 
 
+@pytest.mark.parametrize("max_age_days", [-1, math.nan, math.inf, -math.inf])
+def test_probe_surface_rejects_impossible_max_age_days(
+    mock_repo: Path,
+    max_age_days: float,
+) -> None:
+    _write_surface(
+        mock_repo,
+        "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+        "Last updated: 2026-05-17T00:00:00Z",
+    )
+    now = dt.datetime(2026, 5, 18, 0, 0, 0, tzinfo=dt.timezone.utc)
+
+    with pytest.raises(probe_mod.FreshnessProbeError, match="finite non-negative"):
+        probe_mod.probe_surface("b0", repo_root=mock_repo, max_age_days=max_age_days, now=now)
+
+
 # ---------------------------------------------------------------------------
 # CLI / acceptance tests required by the lane brief.
 # ---------------------------------------------------------------------------
@@ -257,6 +274,25 @@ def test_cli_malformed_last_updated_raises_clear_error(
     assert "malformed" in proc.stderr.lower()
     assert "garbage-not-a-date" in proc.stderr
     assert "b0" in proc.stderr
+
+
+@pytest.mark.parametrize("max_age_days", ["-1", "nan", "inf", "-inf"])
+def test_cli_rejects_impossible_max_age_days(
+    mock_repo: Path,
+    max_age_days: str,
+) -> None:
+    fresh = _today_iso()
+    _write_surface(
+        mock_repo,
+        "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+        f"Last updated: {fresh}",
+    )
+
+    proc = _run_cli(mock_repo, "--surfaces", "b0", f"--max-age-days={max_age_days}")
+
+    assert proc.returncode == 2, (proc.stdout, proc.stderr)
+    assert proc.stdout == ""
+    assert "finite non-negative" in proc.stderr
 
 
 def test_cli_future_last_updated_raises_clear_error(mock_repo: Path) -> None:
