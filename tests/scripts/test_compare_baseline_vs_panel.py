@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -426,6 +427,70 @@ def test_baseline_null_negative_fpr_gate_warning_is_explicit() -> None:
     assert flags["baseline_null_negative_exceeds_gate"] is True
     assert flags["baseline_clean_neutral_exceeds_gate"] is False
     assert flags["panel_null_negative_exceeds_gate"] is False
+
+
+@pytest.mark.parametrize("ci", [(math.nan, 0.2), (0.0, math.inf), (0.4, 0.3)])
+def test_comparison_rejects_impossible_ci_metrics(ci: tuple[float, float]) -> None:
+    baseline = _receipt(ci=ci, rate=0.0, successes=0)
+    panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9)
+
+    with pytest.raises(ComparisonError, match="CI"):
+        build_comparison_receipt(
+            baseline,
+            panel,
+            baseline_receipt_path="baseline.json",
+            panel_receipt_path="panel.json",
+            produced_at="2026-05-04T00:00:00Z",
+        )
+
+
+@pytest.mark.parametrize("rate", [math.nan, math.inf, -0.1, 1.1, True])
+def test_comparison_rejects_impossible_rate_metrics(rate: object) -> None:
+    baseline = _receipt(ci=(0.0, 0.2), rate=rate, successes=0)  # type: ignore[arg-type]
+    panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9)
+
+    with pytest.raises(ComparisonError, match="metric 'independent_flag_rate'"):
+        build_comparison_receipt(
+            baseline,
+            panel,
+            baseline_receipt_path="baseline.json",
+            panel_receipt_path="panel.json",
+            produced_at="2026-05-04T00:00:00Z",
+        )
+
+
+@pytest.mark.parametrize("trials", [-1, math.inf, 2.5, False])
+def test_comparison_rejects_impossible_count_metrics(trials: object) -> None:
+    baseline = _receipt(ci=(0.0, 0.2), rate=0.0, successes=0, trials=trials)  # type: ignore[arg-type]
+    panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9)
+
+    with pytest.raises(ComparisonError, match="metric 'independent_flag_trials'"):
+        build_comparison_receipt(
+            baseline,
+            panel,
+            baseline_receipt_path="baseline.json",
+            panel_receipt_path="panel.json",
+            produced_at="2026-05-04T00:00:00Z",
+        )
+
+
+def test_comparison_rejects_impossible_class_counts() -> None:
+    baseline = _receipt(
+        ci=(0.0, 0.2),
+        rate=0.0,
+        successes=0,
+        n_per_class={"single_seeded_error": -1},
+    )
+    panel = _receipt(ci=(0.31, 0.7), rate=0.5, successes=9)
+
+    with pytest.raises(ComparisonError, match="n_per_class"):
+        build_comparison_receipt(
+            baseline,
+            panel,
+            baseline_receipt_path="baseline.json",
+            panel_receipt_path="panel.json",
+            produced_at="2026-05-04T00:00:00Z",
+        )
 
 
 def test_schema_validation_rejects_non_v1_receipt(tmp_path: Path) -> None:

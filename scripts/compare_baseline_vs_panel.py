@@ -7,6 +7,7 @@ import argparse
 import copy
 import hashlib
 import json
+import math
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -82,20 +83,38 @@ def _metric(receipt: Mapping[str, Any], key: str, *, default: Any = None) -> Any
     return metrics.get(key, default)
 
 
-def _float_metric(receipt: Mapping[str, Any], key: str) -> float:
-    value = _metric(receipt, key, default=0.0)
-    if isinstance(value, int | float):
-        return float(value)
-    return 0.0
+def _finite_metric(receipt: Mapping[str, Any], key: str, *, default: float = 0.0) -> float:
+    value = _metric(receipt, key, default=default)
+    if value is None:
+        return default
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise ComparisonError(f"metric {key!r} must be a finite number")
+    result = float(value)
+    if not math.isfinite(result):
+        raise ComparisonError(f"metric {key!r} must be a finite number")
+    return result
+
+
+def _rate_metric(receipt: Mapping[str, Any], key: str) -> float:
+    value = _finite_metric(receipt, key)
+    if not 0.0 <= value <= 1.0:
+        raise ComparisonError(f"metric {key!r} must be a probability in [0, 1]")
+    return value
 
 
 def _int_metric(receipt: Mapping[str, Any], key: str) -> int:
     value = _metric(receipt, key, default=0)
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        raise ComparisonError(f"metric {key!r} must be a non-negative integer")
     if isinstance(value, int):
+        if value < 0:
+            raise ComparisonError(f"metric {key!r} must be a non-negative integer")
         return value
-    if isinstance(value, float) and value.is_integer():
+    if isinstance(value, float) and math.isfinite(value) and value.is_integer() and value >= 0:
         return int(value)
-    return 0
+    raise ComparisonError(f"metric {key!r} must be a non-negative integer")
 
 
 def _ci(receipt: Mapping[str, Any], key: str) -> tuple[float, float]:
@@ -104,9 +123,17 @@ def _ci(receipt: Mapping[str, Any], key: str) -> tuple[float, float]:
         isinstance(value, Sequence)
         and not isinstance(value, str | bytes)
         and len(value) == 2
-        and all(isinstance(item, int | float) for item in value)
+        and all(not isinstance(item, bool) and isinstance(item, int | float) for item in value)
     ):
-        return (float(value[0]), float(value[1]))
+        low = float(value[0])
+        high = float(value[1])
+        if not math.isfinite(low) or not math.isfinite(high):
+            raise ComparisonError(f"metric {key!r} CI bounds must be finite")
+        if not 0.0 <= low <= 1.0 or not 0.0 <= high <= 1.0:
+            raise ComparisonError(f"metric {key!r} CI bounds must be probabilities in [0, 1]")
+        if low > high:
+            raise ComparisonError(f"metric {key!r} CI lower bound must not exceed upper bound")
+        return (low, high)
     raise ComparisonError(f"receipt missing numeric two-point CI metric {key!r}")
 
 
@@ -116,11 +143,21 @@ def _n_per_class(receipt: Mapping[str, Any]) -> dict[str, int]:
         n_per_class = receipt.get("n_per_class", {})
     if not isinstance(n_per_class, Mapping):
         return {}
-    return {
-        str(prompt_class): int(count)
-        for prompt_class, count in n_per_class.items()
-        if isinstance(count, int | float)
-    }
+    counts: dict[str, int] = {}
+    for prompt_class, count in n_per_class.items():
+        key = str(prompt_class)
+        if isinstance(count, bool):
+            raise ComparisonError(f"n_per_class[{key!r}] must be a non-negative integer")
+        if isinstance(count, int):
+            if count < 0:
+                raise ComparisonError(f"n_per_class[{key!r}] must be a non-negative integer")
+            counts[key] = count
+            continue
+        if isinstance(count, float) and math.isfinite(count) and count.is_integer() and count >= 0:
+            counts[key] = int(count)
+            continue
+        raise ComparisonError(f"n_per_class[{key!r}] must be a non-negative integer")
+    return counts
 
 
 def _seeded_class_counts(receipt: Mapping[str, Any]) -> dict[str, int]:
@@ -328,12 +365,12 @@ def _fp_summary(receipt: Mapping[str, Any]) -> dict[str, Any]:
         "clean_neutral": {
             "false_positives": _int_metric(receipt, "clean_neutral_false_positives"),
             "trials": _int_metric(receipt, "clean_neutral_false_positive_trials"),
-            "rate": _float_metric(receipt, "false_positive_rate_on_clean_neutral"),
+            "rate": _rate_metric(receipt, "false_positive_rate_on_clean_neutral"),
         },
         "null_negative": {
             "false_positives": _int_metric(receipt, "null_negative_false_positives"),
             "trials": _int_metric(receipt, "null_negative_false_positive_trials"),
-            "rate": _float_metric(receipt, "false_positive_rate_on_null_negative"),
+            "rate": _rate_metric(receipt, "false_positive_rate_on_null_negative"),
         },
     }
 
@@ -346,7 +383,7 @@ def _metrics_summary(receipt: Mapping[str, Any]) -> dict[str, Any]:
         "n_per_class": _n_per_class(receipt),
         "independent_flag_successes": _int_metric(receipt, "independent_flag_successes"),
         "independent_flag_trials": _int_metric(receipt, "independent_flag_trials"),
-        "independent_flag_rate": _float_metric(receipt, "independent_flag_rate"),
+        "independent_flag_rate": _rate_metric(receipt, "independent_flag_rate"),
         "independent_flag_rate_ci_95_wilson": [ci_low, ci_high],
         "false_positive_rates": _fp_summary(receipt),
         "successful_seeded_trials": _successful_seeded_trials(receipt),
@@ -368,10 +405,10 @@ def _receipt_provenance(receipt: Mapping[str, Any]) -> dict[str, Any]:
 def _fp_flags(
     baseline_receipt: Mapping[str, Any], panel_receipt: Mapping[str, Any]
 ) -> dict[str, Any]:
-    baseline_clean = _float_metric(baseline_receipt, "false_positive_rate_on_clean_neutral")
-    panel_clean = _float_metric(panel_receipt, "false_positive_rate_on_clean_neutral")
-    baseline_null = _float_metric(baseline_receipt, "false_positive_rate_on_null_negative")
-    panel_null = _float_metric(panel_receipt, "false_positive_rate_on_null_negative")
+    baseline_clean = _rate_metric(baseline_receipt, "false_positive_rate_on_clean_neutral")
+    panel_clean = _rate_metric(panel_receipt, "false_positive_rate_on_clean_neutral")
+    baseline_null = _rate_metric(baseline_receipt, "false_positive_rate_on_null_negative")
+    panel_null = _rate_metric(panel_receipt, "false_positive_rate_on_null_negative")
     return {
         "baseline_clean_neutral_exceeds_gate": baseline_clean
         > ACCEPTANCE_GATES["false_positive_rate_on_clean_neutral_max"],
