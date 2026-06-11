@@ -85,6 +85,34 @@ def test_compare_allows_partial_overlap_without_regression(tmp_path: Path, capsy
     assert "No shared benchmark names" not in captured.out
 
 
+def test_compare_rejects_invalid_current_mean(tmp_path: Path, capsys) -> None:
+    current = _write_benchmark_entries(
+        tmp_path / "current.json",
+        [{"name": "bench_shared", "stats": {"mean": "slow"}}],
+    )
+    baseline = _write_benchmarks(tmp_path / "baseline.json", {"bench_shared": 0.001})
+
+    rc = bench_mod.compare_benchmarks(current, baseline, threshold_pct=20.0)
+
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "current benchmark bench_shared has invalid mean stat" in captured.err
+
+
+def test_compare_rejects_invalid_baseline_stats_payload(tmp_path: Path, capsys) -> None:
+    current = _write_benchmarks(tmp_path / "current.json", {"bench_shared": 0.001})
+    baseline = _write_benchmark_entries(
+        tmp_path / "baseline.json",
+        [{"name": "bench_shared", "stats": "not-a-dict"}],
+    )
+
+    rc = bench_mod.compare_benchmarks(current, baseline, threshold_pct=20.0)
+
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert "baseline benchmark bench_shared has invalid stats payload" in captured.err
+
+
 def test_validate_rejects_invalid_numeric_stats(tmp_path: Path, capsys) -> None:
     results = _write_benchmark_entries(
         tmp_path / "results.json",

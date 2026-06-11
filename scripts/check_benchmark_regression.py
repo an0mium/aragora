@@ -51,18 +51,6 @@ def load_benchmark_json(path: Path) -> dict:
     return data
 
 
-def extract_means(data: dict) -> dict[str, float]:
-    """Extract benchmark name -> mean time mapping."""
-    results: dict[str, float] = {}
-    for bench in data["benchmarks"]:
-        name = bench.get("name", bench.get("fullname", "unknown"))
-        stats = bench.get("stats", {})
-        mean = stats.get("mean")
-        if mean is not None:
-            results[name] = mean
-    return results
-
-
 def _non_negative_finite_float(value: object) -> float | None:
     if isinstance(value, bool):
         return None
@@ -71,6 +59,26 @@ def _non_negative_finite_float(value: object) -> float | None:
         if math.isfinite(candidate) and candidate >= 0:
             return candidate
     return None
+
+
+def extract_means(data: dict, *, source_label: str = "benchmark") -> dict[str, float]:
+    """Extract benchmark name -> validated mean time mapping."""
+    results: dict[str, float] = {}
+    for bench in data["benchmarks"]:
+        name = bench.get("name", bench.get("fullname", "unknown"))
+        stats = bench.get("stats", {})
+        if not isinstance(stats, dict):
+            raise ValueError(f"{source_label} benchmark {name} has invalid stats payload")
+        mean_value = stats.get("mean")
+        if mean_value is None:
+            continue
+        mean = _non_negative_finite_float(mean_value)
+        if mean is None:
+            raise ValueError(
+                f"{source_label} benchmark {name} has invalid mean stat: {mean_value!r}"
+            )
+        results[name] = mean
+    return results
 
 
 def _format_name_sample(names: set[str]) -> str:
@@ -95,8 +103,12 @@ def compare_benchmarks(
     current = load_benchmark_json(current_path)
     baseline = load_benchmark_json(baseline_path)
 
-    current_means = extract_means(current)
-    baseline_means = extract_means(baseline)
+    try:
+        current_means = extract_means(current, source_label="current")
+        baseline_means = extract_means(baseline, source_label="baseline")
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
     if not baseline_means:
         print("WARNING: Baseline has no benchmarks to compare against.")
