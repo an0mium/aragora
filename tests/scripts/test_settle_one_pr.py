@@ -942,6 +942,77 @@ def test_build_report_explicit_pr_loads_policy_metadata_without_broad_list(monke
     assert all(command[:3] != ["gh", "pr", "list"] for command in commands)
 
 
+def test_build_report_bounds_policy_command_output(monkeypatch) -> None:
+    large_stdout = "stdout-line\n" * 1200
+    large_stderr = "stderr-line\n" * 900
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return (
+                {
+                    "number": 7451,
+                    "title": "fix: candidate",
+                    "headRefName": "codex/candidate",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "aragora/server/routes.py"}],
+                },
+                {
+                    "command": "policy-view",
+                    "returncode": 0,
+                    "stdout": large_stdout,
+                    "stderr": large_stderr,
+                },
+            )
+        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+            return (
+                {"lanes": []},
+                {
+                    "command": "snapshot",
+                    "returncode": 0,
+                    "stdout": large_stdout,
+                    "stderr": large_stderr,
+                },
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                7451,
+                tier=3,
+                requires_human_risk_settlement=True,
+                reasons=["semantic, persistence, security, API, or SDK surface touched"],
+            )
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=7451,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    policy_context = report["policy_context"]
+    command_reports = [
+        policy_context["operator_snapshot_command"],
+        policy_context["policy_metadata_commands"][0],
+    ]
+    limit = getattr(settle_one_pr, "COMMAND_OUTPUT_REPORT_LIMIT", 4096)
+    for command_report in command_reports:
+        assert command_report["stdout_length"] == len(large_stdout)
+        assert command_report["stderr_length"] == len(large_stderr)
+        assert command_report["stdout_truncated"] is True
+        assert command_report["stderr_truncated"] is True
+        assert len(command_report["stdout"]) <= limit + 128
+        assert len(command_report["stderr"]) <= limit + 128
+        assert command_report["stdout"] != large_stdout
+        assert command_report["stderr"] != large_stderr
+
+
 def test_build_report_fails_closed_when_operator_snapshot_fails(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout

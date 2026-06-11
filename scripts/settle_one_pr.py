@@ -51,6 +51,7 @@ OPERATOR_SNAPSHOT_TIMEOUT_SECONDS = _env_timeout_seconds(
 )
 BROAD_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_BROAD_PACKET_TIMEOUT_SECONDS", 90)
 SINGLE_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_SINGLE_PACKET_TIMEOUT_SECONDS", 90)
+COMMAND_OUTPUT_REPORT_LIMIT = 4096
 OPEN_PR_LIGHT_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,mergeable,mergeStateStatus,"
     "reviewDecision,labels,author,additions,deletions,changedFiles"
@@ -132,6 +133,55 @@ def _run_json(
     except json.JSONDecodeError as exc:
         result["json_error"] = str(exc)
         return None, result
+
+
+def _truncate_command_output_for_report(value: str) -> tuple[str, bool]:
+    if len(value) <= COMMAND_OUTPUT_REPORT_LIMIT:
+        return value, False
+    omitted = len(value) - COMMAND_OUTPUT_REPORT_LIMIT
+    marker = f"\n... [truncated {omitted} bytes from settle_one_pr report output]"
+    return f"{value[:COMMAND_OUTPUT_REPORT_LIMIT]}{marker}", True
+
+
+def _command_result_for_report(command: dict[str, Any] | None) -> dict[str, Any] | None:
+    if command is None:
+        return None
+    report_command = dict(command)
+    for field in ("stdout", "stderr"):
+        value = report_command.get(field)
+        if not isinstance(value, str):
+            continue
+        report_command[f"{field}_length"] = len(value)
+        report_command[field], report_command[f"{field}_truncated"] = (
+            _truncate_command_output_for_report(value)
+        )
+    return report_command
+
+
+def _command_results_for_report(commands: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        sanitized
+        for command in commands
+        if (sanitized := _command_result_for_report(command)) is not None
+    ]
+
+
+def _policy_context_for_report(policy_context: dict[str, Any]) -> dict[str, Any]:
+    if not policy_context:
+        return {}
+    report_context = dict(policy_context)
+    commands = report_context.get("policy_metadata_commands")
+    if isinstance(commands, list):
+        report_context["policy_metadata_commands"] = _command_results_for_report(
+            [command for command in commands if isinstance(command, dict)]
+        )
+    operator_command = report_context.get("operator_snapshot_command")
+    if isinstance(operator_command, dict) or operator_command is None:
+        report_context["operator_snapshot_command"] = _command_result_for_report(operator_command)
+    cwd_repo_command = report_context.get("cwd_repo_command")
+    if isinstance(cwd_repo_command, dict) or cwd_repo_command is None:
+        report_context["cwd_repo_command"] = _command_result_for_report(cwd_repo_command)
+    return report_context
 
 
 def _with_repo(args: list[str], repo: str | None) -> list[str]:
@@ -1328,7 +1378,7 @@ def build_report(
         "blockers": selection_blockers,
         "evidence": {},
         "checks": {},
-        "policy_context": policy_context,
+        "policy_context": _policy_context_for_report(policy_context),
         "load_warnings": load_warnings,
         "policy_exclusions": policy_exclusions,
         "validation": [],
