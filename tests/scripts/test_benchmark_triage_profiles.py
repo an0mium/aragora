@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -193,6 +194,9 @@ def test_main_rejects_missing_acceptance_field_before_writing_report(
         },
         "comparison": {
             "message_count": 2,
+            "agreement_rate": 1.0,
+            "latency_improvement_pct": 10.0,
+            "blocked_rate_delta_pp": 0.0,
             "acceptance": {
                 "decision_agreement": True,
                 "latency_improvement": True,
@@ -235,6 +239,9 @@ def test_main_rejects_inconsistent_acceptance_summary_before_writing_report(
         },
         "comparison": {
             "message_count": 2,
+            "agreement_rate": 1.0,
+            "latency_improvement_pct": 10.0,
+            "blocked_rate_delta_pp": 0.0,
             "acceptance": {
                 "decision_agreement": True,
                 "latency_improvement": False,
@@ -261,4 +268,96 @@ def test_main_rejects_inconsistent_acceptance_summary_before_writing_report(
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "comparison.passes_all_thresholds must match" in captured.err
+    assert not output_path.exists()
+
+
+def test_main_rejects_impossible_comparison_rates_before_writing_report(
+    monkeypatch,
+    tmp_path,
+    capsys,
+) -> None:
+    report = {
+        "fixture_path": "/tmp/fixtures.json",
+        "generated_at": "2026-03-25T00:00:00Z",
+        "profiles": {
+            "baseline": {"message_count": 2},
+            "staged_v1": {"message_count": 2},
+        },
+        "comparison": {
+            "message_count": 2,
+            "agreement_rate": 1.2,
+            "latency_improvement_pct": 10.0,
+            "blocked_rate_delta_pp": 0.0,
+            "acceptance": {
+                "decision_agreement": True,
+                "latency_improvement": True,
+                "blocked_rate_delta": True,
+                "unsafe_auto_approval": True,
+            },
+            "passes_all_thresholds": True,
+        },
+    }
+
+    async def _fake_run(*args, **kwargs):
+        del args, kwargs
+        return report
+
+    fixture_path = tmp_path / "fixtures.json"
+    fixture_path.write_text("[]", encoding="utf-8")
+    output_path = tmp_path / "report.json"
+    monkeypatch.setattr(benchmark_triage_profiles, "run_fixture_benchmark", _fake_run)
+
+    exit_code = benchmark_triage_profiles.main(
+        ["--fixtures", str(fixture_path), "--output", str(output_path)]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "comparison.agreement_rate must be between 0 and 1" in captured.err
+    assert not output_path.exists()
+
+
+def test_main_rejects_non_finite_latency_metric_before_writing_report(
+    monkeypatch,
+    tmp_path,
+    capsys,
+) -> None:
+    report = {
+        "fixture_path": "/tmp/fixtures.json",
+        "generated_at": "2026-03-25T00:00:00Z",
+        "profiles": {
+            "baseline": {"message_count": 2},
+            "staged_v1": {"message_count": 2},
+        },
+        "comparison": {
+            "message_count": 2,
+            "agreement_rate": 1.0,
+            "latency_improvement_pct": math.inf,
+            "blocked_rate_delta_pp": 0.0,
+            "acceptance": {
+                "decision_agreement": True,
+                "latency_improvement": True,
+                "blocked_rate_delta": True,
+                "unsafe_auto_approval": True,
+            },
+            "passes_all_thresholds": True,
+        },
+    }
+
+    async def _fake_run(*args, **kwargs):
+        del args, kwargs
+        return report
+
+    fixture_path = tmp_path / "fixtures.json"
+    fixture_path.write_text("[]", encoding="utf-8")
+    output_path = tmp_path / "report.json"
+    monkeypatch.setattr(benchmark_triage_profiles, "run_fixture_benchmark", _fake_run)
+
+    exit_code = benchmark_triage_profiles.main(
+        ["--fixtures", str(fixture_path), "--output", str(output_path)]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "comparison.latency_improvement_pct must be a finite number" in captured.err
     assert not output_path.exists()

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -65,6 +66,25 @@ def _bool(value: Any, *, label: str) -> bool:
     return value
 
 
+def _finite_number(value: Any, *, label: str) -> float:
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
+        raise ValueError(f"{label} must be a finite number")
+    return float(value)
+
+
+def _bounded_number(
+    value: Any,
+    *,
+    label: str,
+    minimum: float,
+    maximum: float,
+) -> float:
+    number = _finite_number(value, label=label)
+    if number < minimum or number > maximum:
+        raise ValueError(f"{label} must be between {minimum:g} and {maximum:g}")
+    return number
+
+
 def validate_report_shape(report: dict[str, Any]) -> None:
     comparison = report.get("comparison")
     profiles = report.get("profiles")
@@ -80,6 +100,22 @@ def validate_report_shape(report: dict[str, Any]) -> None:
     acceptance = comparison.get("acceptance")
     if not isinstance(acceptance, dict):
         raise ValueError("comparison.acceptance must be an object")
+    _bounded_number(
+        comparison.get("agreement_rate"),
+        label="comparison.agreement_rate",
+        minimum=0.0,
+        maximum=1.0,
+    )
+    _finite_number(
+        comparison.get("latency_improvement_pct"),
+        label="comparison.latency_improvement_pct",
+    )
+    _bounded_number(
+        comparison.get("blocked_rate_delta_pp"),
+        label="comparison.blocked_rate_delta_pp",
+        minimum=-100.0,
+        maximum=100.0,
+    )
     acceptance_values = [
         _bool(acceptance.get(key), label=f"comparison.acceptance.{key}") for key in ACCEPTANCE_KEYS
     ]
