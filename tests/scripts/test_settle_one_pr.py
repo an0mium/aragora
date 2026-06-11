@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -165,6 +166,39 @@ def test_load_single_pr_packet_uses_current_interpreter(monkeypatch) -> None:
         "review-queue",
         "merge-packet",
     ]
+
+
+def test_load_single_pr_packet_summarizes_transport_envelope(monkeypatch) -> None:
+    packet_error = {
+        "status": "transport_blocked",
+        "transport_blocked": True,
+        "error_kind": "github_transport",
+        "error": "gh pr view 7841 failed: GraphQL: API rate limit already exceeded",
+    }
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del args, cwd, timeout
+        return None, {
+            "command": "packet",
+            "returncode": 1,
+            "stdout": json.dumps(packet_error),
+            "stderr": "",
+        }
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    try:
+        settle_one_pr._load_single_pr_packet(cwd=Path.cwd(), pr=7841, repo=None)
+    except RuntimeError as exc:
+        message = str(exc)
+    else:  # pragma: no cover - the assertion below is clearer than pytest.raises here.
+        raise AssertionError("expected RuntimeError")
+
+    assert message == (
+        "merge-packet transport blocked: "
+        "gh pr view 7841 failed: GraphQL: API rate limit already exceeded"
+    )
+    assert "transport_blocked" not in message
 
 
 def test_select_candidate_prefers_admin_order() -> None:

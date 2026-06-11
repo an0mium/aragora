@@ -180,6 +180,24 @@ def _command_results_for_report(commands: list[dict[str, Any]]) -> list[dict[str
     ]
 
 
+def _merge_packet_failure_message(result: dict[str, Any]) -> str:
+    stderr = str(result.get("stderr") or "").strip()
+    stdout = str(result.get("stdout") or "").strip()
+    if stdout:
+        try:
+            payload = json.loads(stdout)
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, dict):
+            error = str(payload.get("error") or "").strip()
+            if payload.get("transport_blocked") or payload.get("status") == "transport_blocked":
+                detail = error or "GitHub transport unavailable"
+                return f"merge-packet transport blocked: {detail}"
+            if error:
+                return f"merge-packet failed: {error}"
+    return stderr or stdout or "merge-packet failed"
+
+
 def _policy_context_for_report(policy_context: dict[str, Any]) -> dict[str, Any]:
     if not policy_context:
         return {}
@@ -1607,7 +1625,7 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
         command.extend(["--repo", repo])
     payload, result = _run_json(command, cwd=cwd, timeout=SINGLE_PACKET_TIMEOUT_SECONDS)
     if result["returncode"] != 0:
-        raise RuntimeError(result["stderr"] or result["stdout"] or "merge-packet failed")
+        raise RuntimeError(_merge_packet_failure_message(result))
     if not isinstance(payload, dict):
         raise RuntimeError("merge-packet did not return a JSON object")
     return payload
@@ -1627,7 +1645,7 @@ def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[
         command.extend(["--repo", repo])
     payload, result = _run_json(command, cwd=cwd, timeout=BROAD_PACKET_TIMEOUT_SECONDS)
     if result["returncode"] != 0:
-        raise RuntimeError(result["stderr"] or result["stdout"] or "merge-packet failed")
+        raise RuntimeError(_merge_packet_failure_message(result))
     if not isinstance(payload, dict):
         raise RuntimeError("merge-packet did not return a JSON object")
     return payload
