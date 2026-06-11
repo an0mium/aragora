@@ -20,6 +20,7 @@ Usage:
 
 from __future__ import annotations
 
+import math
 import os
 import sys
 import time
@@ -274,6 +275,10 @@ def run_single_debate(
     """Run a single debate and track convergence."""
     if max_rounds <= 0:
         raise ValueError("max_rounds must be a positive integer")
+    if isinstance(convergence_threshold, bool) or not math.isfinite(convergence_threshold):
+        raise ValueError("convergence_threshold must be a finite number between 0.0 and 1.0")
+    if convergence_threshold < 0.0 or convergence_threshold > 1.0:
+        raise ValueError("convergence_threshold must be between 0.0 and 1.0")
     if not agents:
         raise ValueError("agents must include at least one persona")
     unknown_agents = sorted(agent for agent in agents if agent not in PERSONAS)
