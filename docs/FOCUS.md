@@ -260,7 +260,19 @@ adoption of the steering-leverage operating plan's Phase 0 as Sprint 4.
    throttle observed, skips reported never silent.
 4. **Substrate-cap composition measurement** (carried Sprint 3 goal 2
    acceptance): publish the before/after queue composition at the first
-   real refill with the cap active.
+   real refill with the cap active. **Satisfied (2026-06-11)** — published in
+   `docs/status/LEVERAGE.md` § "Queue Composition (substrate cap)". The live
+   generator yields **0 valid candidates at both cap settings** (proof-first
+   canonical-priority filter empties the queue upstream of the cap, same as
+   2026-06-10), so no real refill reached the cap to compose. The measurement
+   is therefore **synthetic — the cap's mathematical effect proven by unit**
+   (`select_with_substrate_cap`, 7/7 tests passing): on a 10-substrate +
+   10-product set at the default `cap=0.3`, composition shifts from 100%
+   substrate (cap disabled) to **30% substrate / 70% product** (3 substrate /
+   7 product, 7 substrate skipped, never silently). The synthetic-vs-live
+   distinction is stated explicitly in the published section; it is to be
+   replaced with an observed live composition at the next real refill that
+   reaches the cap with mixed candidates.
 
 ### Sprint 4 anti-goals
 
