@@ -888,6 +888,65 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
     ]
 
 
+def test_single_packet_reports_json_parse_error(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del args, cwd, timeout
+        return None, {
+            "command": "packet",
+            "returncode": 0,
+            "stdout": "<html>not json</html>",
+            "stderr": "",
+            "json_error": "Expecting value: line 1 column 1 (char 0)",
+        }
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    try:
+        settle_one_pr._load_single_pr_packet(cwd=Path.cwd(), pr=7449, repo=None)
+    except RuntimeError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+    assert "Expecting value" in message
+    assert "not json" not in message
+
+
+def test_broad_packet_lazy_loader_reports_bulk_json_parse_error(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:5] == [
+            settle_one_pr.PYTHON_EXECUTABLE,
+            "-m",
+            "aragora.cli.main",
+            "review-queue",
+            "merge-packet",
+        ]:
+            return None, {
+                "command": "bulk-packet",
+                "returncode": 0,
+                "stdout": "<html>not json</html>",
+                "stderr": "",
+                "json_error": "Expecting value: line 1 column 1 (char 0)",
+            }
+        if args[:3] == ["gh", "pr", "list"]:
+            return None, {"command": "metadata", "returncode": 1, "stderr": "HTTP 504"}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert packet["entries"] == []
+    assert packet["load_warnings"] == [
+        "bulk merge-packet failed; using fallback: Expecting value: line 1 column 1 (char 0)"
+    ]
+    assert packet["load_blockers"] == [
+        "Expecting value: line 1 column 1 (char 0)",
+        "HTTP 504",
+    ]
+
+
 def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout

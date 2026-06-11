@@ -173,7 +173,16 @@ def _bounded_command_result(result: dict[str, Any]) -> dict[str, Any]:
 
 def _command_failure_detail(result: dict[str, Any], fallback: str) -> str:
     bounded = _bounded_command_result(result)
-    return str(bounded.get("stderr") or bounded.get("stdout") or fallback)
+    return str(
+        bounded.get("stderr") or bounded.get("json_error") or bounded.get("stdout") or fallback
+    )
+
+
+def _json_payload_failure_detail(result: dict[str, Any], fallback: str) -> str:
+    detail = str(result.get("json_error") or "").strip()
+    if detail:
+        return _truncate_text(detail)
+    return fallback
 
 
 def _merge_packet_failure_message(result: dict[str, Any]) -> str:
@@ -1660,7 +1669,9 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
     if result["returncode"] != 0:
         raise RuntimeError(_merge_packet_failure_message(result))
     if not isinstance(payload, dict):
-        raise RuntimeError("merge-packet did not return a JSON object")
+        raise RuntimeError(
+            _json_payload_failure_detail(result, "merge-packet did not return a JSON object")
+        )
     return payload
 
 
@@ -1680,7 +1691,9 @@ def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[
     if result["returncode"] != 0:
         raise RuntimeError(_merge_packet_failure_message(result))
     if not isinstance(payload, dict):
-        raise RuntimeError("merge-packet did not return a JSON object")
+        raise RuntimeError(
+            _json_payload_failure_detail(result, "merge-packet did not return a JSON object")
+        )
     return payload
 
 
