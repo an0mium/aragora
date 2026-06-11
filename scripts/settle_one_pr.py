@@ -73,15 +73,20 @@ def _python_command(*args: str) -> list[str]:
 
 
 def _repo_root() -> Path:
-    proc = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return Path.cwd()
     if proc.returncode != 0:
         return Path.cwd()
-    return Path(proc.stdout.strip())
+    root = proc.stdout.strip()
+    return Path(root) if root else Path.cwd()
 
 
 def _state_repo_root(cwd: Path) -> Path:

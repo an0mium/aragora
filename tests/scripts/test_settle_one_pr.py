@@ -131,6 +131,28 @@ def test_run_reports_startup_error_without_traceback(monkeypatch) -> None:
     assert "command failed to start: gh" in result["stderr"]
 
 
+def test_repo_root_falls_back_when_git_cannot_start(monkeypatch) -> None:
+    def fake_run(*args, **kwargs):
+        assert args[0] == ["git", "rev-parse", "--show-toplevel"]
+        assert kwargs["timeout"] == 10
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(settle_one_pr.subprocess, "run", fake_run)
+
+    assert settle_one_pr._repo_root() == Path.cwd()
+
+
+def test_repo_root_falls_back_when_git_times_out(monkeypatch) -> None:
+    def fake_run(*args, **kwargs):
+        assert args[0] == ["git", "rev-parse", "--show-toplevel"]
+        assert kwargs["timeout"] == 10
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs["timeout"])
+
+    monkeypatch.setattr(settle_one_pr.subprocess, "run", fake_run)
+
+    assert settle_one_pr._repo_root() == Path.cwd()
+
+
 def test_run_json_with_gh_retries_retries_transient_connection_error(monkeypatch) -> None:
     calls: list[list[str]] = []
 
