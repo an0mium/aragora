@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
@@ -45,6 +47,29 @@ def _write_metrics(path: Path, rows: list[dict[str, object]]) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def test_load_metrics_returns_empty_for_missing_file(tmp_path: Path) -> None:
+    assert mod.load_metrics(tmp_path / "missing.jsonl") == []
+
+
+def test_load_metrics_rejects_malformed_jsonl_line(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        json.dumps({"issue_number": 1001}) + "\n{bad\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"boss_metrics\.jsonl:2.*invalid JSON"):
+        mod.load_metrics(metrics_path)
+
+
+def test_load_metrics_rejects_non_object_jsonl_line(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text('{"issue_number": 1001}\n["not", "a", "row"]\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"boss_metrics\.jsonl:2.*must be a JSON object"):
+        mod.load_metrics(metrics_path)
 
 
 def test_build_readiness_reports_gap_to_promotion_floor() -> None:

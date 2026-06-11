@@ -65,15 +65,20 @@ def load_metrics(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     rows: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        if not line.strip():
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8", errors="replace").splitlines(),
+        start=1,
+    ):
+        stripped = line.strip()
+        if not stripped:
             continue
         try:
-            payload = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict):
-            rows.append(payload)
+            payload = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Metrics JSONL at {path}:{line_number} is invalid JSON") from exc
+        if not isinstance(payload, dict):
+            raise ValueError(f"Metrics JSONL at {path}:{line_number} must be a JSON object")
+        rows.append(payload)
     return rows
 
 
