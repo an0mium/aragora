@@ -11,6 +11,7 @@ Usage:
 
 import hashlib
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -27,9 +28,15 @@ from aragora.gauntlet.result import (
 )
 
 
+class TranscriptParseError(RuntimeError):
+    """Raised when a debate transcript cannot support a receipt."""
+
+
 def parse_debate_transcript(transcript_path: Path) -> dict:
     """Parse the epic debate transcript into structured data."""
-    content = transcript_path.read_text()
+    content = transcript_path.read_text(encoding="utf-8")
+    if not content.strip():
+        raise TranscriptParseError(f"Debate transcript is empty: {transcript_path}")
 
     # Extract agents that participated
     agents = [
@@ -258,15 +265,18 @@ def main():
     # Paths
     transcript_path = Path(".nomic/epic_strategic_debate/debate_transcript.txt")
     output_dir = Path(".nomic/epic_strategic_debate/receipts")
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     if not transcript_path.exists():
-        print(f"Error: Transcript not found at {transcript_path}")
-        return
+        print(f"Error: Transcript not found at {transcript_path}", file=sys.stderr)
+        return 2
 
     # Parse transcript
     print("Parsing debate transcript...")
-    debate_data = parse_debate_transcript(transcript_path)
+    try:
+        debate_data = parse_debate_transcript(transcript_path)
+    except TranscriptParseError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
     print(f"  - {len(debate_data['agents'])} agents participated")
     print(f"  - {len(debate_data['consensus_points'])} consensus points")
     print(f"  - {len(debate_data['recommendations'])} recommendations")
@@ -286,6 +296,7 @@ def main():
     receipt = create_receipt_manually(result, debate_data)
 
     # Export to different formats
+    output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "epic_debate_receipt.json"
     md_path = output_dir / "epic_debate_receipt.md"
 
@@ -323,7 +334,8 @@ def main():
     print()
 
     print(f"Full receipts saved to: {output_dir}/")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
