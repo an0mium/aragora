@@ -359,6 +359,88 @@ def test_terminal_receipt_classification_blocks_cleanup(
     assert "harvested" in candidate.cleanup_safety.signals
 
 
+def test_terminal_path_receipt_classification_blocks_branchless_candidate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    _stub_clean_git(monkeypatch, branch=None, ahead=2, head="abcdef123456")
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            terminal_receipt_path_heads={str(repo_path.resolve()): {"abcdef1"}},
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "receipt_protected"
+    assert candidate.cleanup_candidate is False
+    assert "terminal receipt references path/head" in candidate.proof
+
+
+def test_terminal_path_receipt_head_mismatch_stays_unique(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    _stub_clean_git(
+        monkeypatch,
+        branch=None,
+        ahead=2,
+        head="abcdef123456",
+        patch_equivalent=False,
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            terminal_receipt_path_heads={str(repo_path.resolve()): {"9999999"}},
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.decision == "harvest_candidate"
+
+
+def test_terminal_receipt_path_heads_reads_harvest_receipt_source_candidate(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "preserve.json").write_text(
+        json.dumps(
+            {
+                "decision": "preserve_existing_pr",
+                "source_candidate": {
+                    "path": str(root),
+                    "repo_path": str(repo_path),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs[str(root.resolve())] == {"abcdef123456"}
+    assert refs[str(repo_path.resolve())] == {"abcdef123456"}
+
+
 def test_unique_unharvested_when_ahead_and_not_patch_equivalent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
