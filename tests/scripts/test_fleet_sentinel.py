@@ -278,6 +278,59 @@ def test_outbox_missing_dir_is_ok(tmp_path: Path) -> None:
     assert result["status"] == "ok"
 
 
+def test_resolves_automation_state_root_from_env(tmp_path: Path, monkeypatch: Any) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    shared_root = tmp_path / "shared-root"
+    (shared_root / ".aragora" / "automation-outbox").mkdir(parents=True)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_root))
+
+    assert sentinel.resolve_automation_state_root(repo_root) == shared_root
+    assert sentinel.automation_state_path(shared_root, Path(".aragora/automation-outbox")) == (
+        shared_root / ".aragora" / "automation-outbox"
+    )
+
+
+def test_state_path_accepts_direct_aragora_dir(tmp_path: Path) -> None:
+    state_dir = tmp_path / ".aragora"
+
+    assert sentinel.automation_state_path(state_dir, Path(".aragora/automation-outbox")) == (
+        state_dir / "automation-outbox"
+    )
+
+
+def test_main_default_outbox_uses_shared_state_root(
+    tmp_path: Path, capsys: Any, monkeypatch: Any
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    shared_root = tmp_path / "shared-root"
+    outbox = shared_root / ".aragora" / "automation-outbox"
+    for i in range(4):
+        _touch(outbox / f"item-{i}.json", age_hours=1)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_root))
+
+    code = sentinel.main(
+        [
+            "--json",
+            "--now",
+            "2026-06-10T12:00:00Z",
+            "--repo-root",
+            str(repo_root),
+            "--checks",
+            "outbox_depth",
+            "--outbox-max",
+            "3",
+            "--no-ledger",
+        ]
+    )
+
+    assert code == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["checks"][0]["status"] == "breach"
+    assert "4 items queued" in report["checks"][0]["detail"]
+
+
 # ---------------------------------------------------------------------------
 # disk_free
 # ---------------------------------------------------------------------------

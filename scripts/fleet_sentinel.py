@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import plistlib
 import shlex
 import shutil
@@ -64,6 +65,49 @@ def _result(check: str, status: str, detail: str) -> CheckResult:
 
 def _age_hours(path: Path, now: datetime) -> float:
     return (now.timestamp() - path.stat().st_mtime) / 3600.0
+
+
+def _state_dir(state_root: Path) -> Path:
+    expanded = state_root.expanduser()
+    return expanded if expanded.name == ".aragora" else expanded / ".aragora"
+
+
+def _has_automation_outbox(state_root: Path) -> bool:
+    return (_state_dir(state_root) / "automation-outbox").is_dir()
+
+
+def resolve_automation_state_root(
+    repo_root: Path, configured: str | os.PathLike[str] | None = None
+) -> Path:
+    """Return the checkout or direct .aragora dir backing shared automation state."""
+
+    repo_root = repo_root.expanduser()
+    if _has_automation_outbox(repo_root):
+        return repo_root
+
+    configured = (
+        configured if configured is not None else os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    )
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(Path(configured).expanduser())
+    candidates.append(Path.home() / "Development" / "aragora")
+
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if _has_automation_outbox(resolved):
+            return resolved
+    return repo_root
+
+
+def automation_state_path(state_root: Path, default_relative: Path) -> Path:
+    expanded = state_root.expanduser()
+    if default_relative.parts[:1] == (".aragora",) and expanded.name == ".aragora":
+        return expanded.joinpath(*default_relative.parts[1:])
+    return expanded / default_relative
 
 
 # ---------------------------------------------------------------------------
@@ -323,26 +367,45 @@ def build_parser() -> argparse.ArgumentParser:
     repo_root = Path(__file__).resolve().parents[1]
     parser.add_argument("--repo-root", default=str(repo_root))
     parser.add_argument(
+        "--state-root",
+        default=None,
+        help=(
+            "Checkout or direct .aragora dir backing shared automation state. "
+            "Defaults to --repo-root when it owns .aragora/automation-outbox, "
+            "else ARAGORA_AUTOMATION_STATE_ROOT, else ~/Development/aragora."
+        ),
+    )
+    parser.add_argument(
         "--publisher-status",
-        default=str(repo_root / ".aragora" / "automation-publisher-status.json"),
+        default=None,
+        help=(
+            "Publisher status JSON "
+            "(default: <state-root>/.aragora/automation-publisher-status.json)."
+        ),
     )
     parser.add_argument("--publisher-max-age-hours", type=float, default=24.0)
     parser.add_argument(
         "--boss-metrics",
-        default=str(repo_root / ".aragora" / "overnight" / "boss_metrics.jsonl"),
+        default=None,
+        help="Boss metrics JSONL (default: <state-root>/.aragora/overnight/boss_metrics.jsonl).",
     )
     parser.add_argument("--metrics-max-age-hours", type=float, default=48.0)
     parser.add_argument(
         "--launch-agents-dir", default=str(Path.home() / "Library" / "LaunchAgents")
     )
     parser.add_argument("--gh-auth-cmd", default="gh auth status")
-    parser.add_argument("--outbox-dir", default=str(repo_root / ".aragora" / "automation-outbox"))
+    parser.add_argument(
+        "--outbox-dir",
+        default=None,
+        help="Automation outbox dir (default: <state-root>/.aragora/automation-outbox).",
+    )
     parser.add_argument("--outbox-max", type=int, default=50)
     parser.add_argument("--outbox-max-age-days", type=float, default=7.0)
     parser.add_argument("--min-free-gib", type=float, default=25.0)
     parser.add_argument(
         "--ledger",
-        default=str(repo_root / ".aragora" / "fleet-sentinel" / "ledger.jsonl"),
+        default=None,
+        help="Sentinel ledger path (default: <state-root>/.aragora/fleet-sentinel/ledger.jsonl).",
     )
     parser.add_argument("--checks", default=",".join(ALL_CHECKS))
     parser.add_argument("--json", action="store_true", help="emit the JSON report to stdout")
@@ -360,6 +423,22 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    repo_root = Path(args.repo_root).expanduser()
+    state_root = resolve_automation_state_root(repo_root, args.state_root)
+    if args.publisher_status is None:
+        args.publisher_status = str(
+            automation_state_path(state_root, Path(".aragora/automation-publisher-status.json"))
+        )
+    if args.boss_metrics is None:
+        args.boss_metrics = str(
+            automation_state_path(state_root, Path(".aragora/overnight/boss_metrics.jsonl"))
+        )
+    if args.outbox_dir is None:
+        args.outbox_dir = str(automation_state_path(state_root, Path(".aragora/automation-outbox")))
+    if args.ledger is None:
+        args.ledger = str(
+            automation_state_path(state_root, Path(".aragora/fleet-sentinel/ledger.jsonl"))
+        )
     now = parse_iso(args.now) if args.now else datetime.now(timezone.utc)
     checks = run_checks(args, now)
     breaches = sum(1 for c in checks if c["status"] == "breach")
