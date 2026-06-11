@@ -113,6 +113,24 @@ def test_run_reports_timeout_and_terminates_process_group(monkeypatch) -> None:
     assert killed == [(4242, settle_one_pr.signal.SIGKILL)]
 
 
+def test_run_reports_startup_error_without_traceback(monkeypatch) -> None:
+    def fake_popen(*args, **kwargs):
+        assert args[0] == ["gh", "pr", "view", "8126"]
+        assert kwargs["start_new_session"] is True
+        raise FileNotFoundError("gh")
+
+    monkeypatch.setattr(settle_one_pr.subprocess, "Popen", fake_popen)
+
+    result = settle_one_pr._run(["gh", "pr", "view", "8126"], cwd=Path.cwd(), timeout=7)
+
+    assert result["command"] == "gh pr view 8126"
+    assert result["returncode"] == 127
+    assert result["stdout"] == ""
+    assert result["startup_error"] is True
+    assert result["error_type"] == "FileNotFoundError"
+    assert "command failed to start: gh" in result["stderr"]
+
+
 def test_run_json_with_gh_retries_retries_transient_connection_error(monkeypatch) -> None:
     calls: list[list[str]] = []
 
