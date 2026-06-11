@@ -51,8 +51,15 @@ NON_ACTIONABLE_CANCELLED_PREFIXES = (
     "metrics drift",
     "module tier drift",
     "portability lint",
+    "pr admission signal (advisory)",
     "self-hosted shadow",
 )
+SUPERSEDED_CANCELLED_CHECKS = {
+    "lint": {
+        "lint-run": "lint",
+        "typecheck-run": "typecheck",
+    },
+}
 
 PR_LIST_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,state,mergeable,mergeStateStatus,updatedAt"
@@ -548,20 +555,24 @@ def _required_summary(surface: dict[str, Any]) -> dict[str, Any]:
 
 def _rollup_summary(items: list[Any]) -> dict[str, Any]:
     checks = [item for item in items if isinstance(item, dict)]
+    descriptors: list[tuple[str, dict[str, str]]] = []
+    for item in checks:
+        bucket = _rollup_check_bucket(item)
+        descriptors.append((bucket, _check_descriptor(item, bucket=bucket)))
+    successful = [descriptor for bucket, descriptor in descriptors if bucket == "pass"]
+
     pending: list[dict[str, str]] = []
     failing: list[dict[str, str]] = []
     cancelled: list[dict[str, str]] = []
     non_actionable: list[dict[str, str]] = []
-    for item in checks:
-        bucket = _rollup_check_bucket(item)
-        descriptor = _check_descriptor(item, bucket=bucket)
+    for bucket, descriptor in descriptors:
         if bucket == "pending":
             pending.append(descriptor)
         elif bucket == "fail":
             failing.append(descriptor)
         elif bucket == "cancel":
             cancelled.append(descriptor)
-            if _is_non_actionable_cancelled_descriptor(descriptor):
+            if _is_non_actionable_cancelled_descriptor(descriptor, successful):
                 non_actionable.append(descriptor)
 
     actionable_cancelled = [item for item in cancelled if item not in non_actionable]
@@ -577,12 +588,27 @@ def _rollup_summary(items: list[Any]) -> dict[str, Any]:
     }
 
 
-def _is_non_actionable_cancelled_descriptor(descriptor: dict[str, str]) -> bool:
+def _is_non_actionable_cancelled_descriptor(
+    descriptor: dict[str, str],
+    successful_descriptors: list[dict[str, str]],
+) -> bool:
     names = [
         str(descriptor.get("name") or ""),
         str(descriptor.get("workflow") or ""),
     ]
-    return any(name.lower().startswith(NON_ACTIONABLE_CANCELLED_PREFIXES) for name in names if name)
+    if any(name.lower().startswith(NON_ACTIONABLE_CANCELLED_PREFIXES) for name in names if name):
+        return True
+
+    workflow = str(descriptor.get("workflow") or "").lower()
+    name = str(descriptor.get("name") or "").lower()
+    replacement_name = SUPERSEDED_CANCELLED_CHECKS.get(workflow, {}).get(name)
+    if not replacement_name:
+        return False
+    return any(
+        str(item.get("workflow") or "").lower() == workflow
+        and str(item.get("name") or "").lower() == replacement_name
+        for item in successful_descriptors
+    )
 
 
 def _merge_packet_summary(

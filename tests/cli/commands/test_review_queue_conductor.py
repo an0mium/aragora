@@ -285,6 +285,70 @@ def test_conductor_treats_cancelled_advisory_rollup_by_workflow_as_non_actionabl
     ]
 
 
+def test_conductor_ignores_superseded_cancelled_wrappers_when_successors_pass() -> None:
+    view = _view(7885, head="exact-head", draft=True)
+    view["statusCheckRollup"] = [
+        {
+            "name": "aragora-merge-quorum",
+            "workflowName": "Aragora Merge Quorum",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+        },
+        {
+            "name": "PR Admission Signal (Advisory)",
+            "workflowName": "PR Admission Controller",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+        },
+        {
+            "name": "lint-run",
+            "workflowName": "Lint",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+        },
+        {
+            "name": "typecheck-run",
+            "workflowName": "Lint",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+        },
+        {
+            "name": "lint",
+            "workflowName": "Lint",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+        },
+        {
+            "name": "typecheck",
+            "workflowName": "Lint",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+        },
+    ]
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885, head="exact-head", not_ready=[7885]
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    rollup = packet["candidates"][0]["rollup"]
+    assert [row["name"] for row in rollup["actionable_rows"]] == ["aragora-merge-quorum"]
+    assert [row["name"] for row in rollup["non_actionable_cancelled"]] == [
+        "PR Admission Signal (Advisory)",
+        "lint-run",
+        "typecheck-run",
+    ]
+
+
 def test_conductor_tier4_missing_evidence_routes_to_evidence_collection() -> None:
     view = _view(7885, head="exact-head", draft=True)
 
