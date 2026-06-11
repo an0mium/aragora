@@ -158,35 +158,36 @@ def _goals_text() -> str:
     return _GOALS_TEXT_CACHE
 
 
+def _claimed_positive_headline_count(label: str) -> int | None:
+    match = re.search(rf"{re.escape(label)}\s*\|\s*([^\n|]+)", _goals_text())
+    if match is None:
+        return None
+    value = match.group(1).strip()
+    number_match = re.match(
+        r"(?P<number>(?:[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*|0))\+?(?=$|\s|/)",
+        value,
+    )
+    if number_match is None:
+        return None
+    number = int(number_match.group("number").replace(",", ""))
+    if number <= 0:
+        return None
+    return number
+
+
 def _claimed_km_adapter_count() -> int | None:
     """Parse 'Knowledge Mound adapters | <n> registered adapter specs'."""
-    match = re.search(
-        r"Knowledge Mound adapters\s*\|\s*(\d+)",
-        _goals_text(),
-    )
-    return int(match.group(1)) if match else None
+    return _claimed_positive_headline_count("Knowledge Mound adapters")
 
 
 def _claimed_python_modules_count() -> int | None:
     """Parse 'Python modules | 3,800+' → 3800."""
-    match = re.search(
-        r"Python modules\s*\|\s*([\d,]+)\+?",
-        _goals_text(),
-    )
-    if match is None:
-        return None
-    return int(match.group(1).replace(",", ""))
+    return _claimed_positive_headline_count("Python modules")
 
 
 def _claimed_test_definitions_count() -> int | None:
     """Parse 'Automated tests | 210,000+' → 210000."""
-    match = re.search(
-        r"Automated tests\s*\|\s*([\d,]+)\+?",
-        _goals_text(),
-    )
-    if match is None:
-        return None
-    return int(match.group(1).replace(",", ""))
+    return _claimed_positive_headline_count("Automated tests")
 
 
 def _claimed_version() -> str | None:

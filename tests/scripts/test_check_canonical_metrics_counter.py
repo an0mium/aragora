@@ -51,6 +51,16 @@ def fake_repo(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     return tmp_path
 
 
+@pytest.fixture
+def fake_goals(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Repoint CANONICAL_GOALS.md at a tmp file and clear the text cache."""
+
+    goals = tmp_path / "CANONICAL_GOALS.md"
+    monkeypatch.setattr(ccm, "CANONICAL_GOALS", goals)
+    monkeypatch.setattr(ccm, "_GOALS_TEXT_CACHE", None)
+    return goals
+
+
 def _write(p: Path, body: str) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(body, encoding="utf-8")
@@ -195,3 +205,48 @@ class TestDocumentedMethodAlignment:
         # Expected: 5 (a, b, c, d, e); non-literal-space async forms,
         # not_a_test, and helper are excluded to match the documented grep.
         assert ccm._observe_test_definitions_count() == 5
+
+
+class TestClaimedHeadlineCountParsing:
+    def test_valid_current_headline_counts_parse(self, fake_goals: Path) -> None:
+        fake_goals.write_text(
+            "| Metric | Value | Source |\n"
+            "| Python modules | 135 top-level package directories | `docs/METRICS.md` |\n"
+            "| Automated tests | 216,016 test functions | `docs/METRICS.md` |\n"
+            "| Knowledge Mound adapters | 46 adapter files / 41 registered specs | `docs/METRICS.md` |\n",
+            encoding="utf-8",
+        )
+
+        assert ccm._claimed_python_modules_count() == 135
+        assert ccm._claimed_test_definitions_count() == 216016
+        assert ccm._claimed_km_adapter_count() == 46
+
+    def test_zero_headline_counts_are_invalid(
+        self, fake_goals: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_goals.write_text(
+            "| Metric | Value | Source |\n"
+            "| Python modules | 0 top-level package directories | `docs/METRICS.md` |\n"
+            "| Automated tests | 0 test functions | `docs/METRICS.md` |\n"
+            "| Knowledge Mound adapters | 0 adapter files / 0 registered specs | `docs/METRICS.md` |\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(ccm, "_observe_python_modules_count", lambda: 135)
+
+        assert ccm._claimed_python_modules_count() is None
+        assert ccm._claimed_test_definitions_count() is None
+        assert ccm._claimed_km_adapter_count() is None
+        assert ccm._check_python_modules_count().status == "fail"
+
+    def test_malformed_grouped_headline_counts_are_invalid(self, fake_goals: Path) -> None:
+        fake_goals.write_text(
+            "| Metric | Value | Source |\n"
+            "| Python modules | 1,35 top-level package directories | `docs/METRICS.md` |\n"
+            "| Automated tests | 216,01 test functions | `docs/METRICS.md` |\n"
+            "| Knowledge Mound adapters | ,46 adapter files / 41 registered specs | `docs/METRICS.md` |\n",
+            encoding="utf-8",
+        )
+
+        assert ccm._claimed_python_modules_count() is None
+        assert ccm._claimed_test_definitions_count() is None
+        assert ccm._claimed_km_adapter_count() is None
