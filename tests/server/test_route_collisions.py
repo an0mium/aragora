@@ -171,10 +171,8 @@ def _current_collisions() -> dict[tuple[str, str], frozenset[str]]:
 KNOWN_COLLISIONS: dict[tuple[str, str], frozenset[str]] = {
     ("*", "/api/agent/*/domains"): frozenset({"AgentsHandler", "PersonaHandler"}),
     ("*", "/api/agent/*/performance"): frozenset({"AgentsHandler", "PersonaHandler"}),
-    ("*", "/api/auth/revoke"): frozenset({"AuthHandler", "SystemHandler"}),
     ("*", "/api/flips/recent"): frozenset({"AgentsHandler", "InsightsHandler"}),
     ("*", "/api/flips/summary"): frozenset({"AgentsHandler", "InsightsHandler"}),
-    ("*", "/api/health/stores"): frozenset({"HealthHandler", "StorageHealthHandler"}),
     ("*", "/api/v1/accounting/expenses"): frozenset({"APAutomationHandler", "ExpenseHandler"}),
     ("*", "/api/v1/accounting/expenses/categorize"): frozenset(
         {"APAutomationHandler", "ExpenseHandler"}
@@ -219,8 +217,6 @@ KNOWN_COLLISIONS: dict[tuple[str, str], frozenset[str]] = {
     ("*", "/api/v1/debates/*/share"): frozenset({"DebateShareHandler", "SharingHandler"}),
     ("*", "/api/v1/debates/*/summary"): frozenset({"DebatesHandler", "ExplainabilityHandler"}),
     ("*", "/api/v1/email/prioritize"): frozenset({"EmailDebateHandler", "EmailHandler"}),
-    ("*", "/api/v1/health/database"): frozenset({"HealthHandler", "StorageHealthHandler"}),
-    ("*", "/api/v1/health/stores"): frozenset({"HealthHandler", "StorageHealthHandler"}),
     ("*", "/api/v1/marketplace/categories"): frozenset(
         {"MarketplaceHandler", "TemplateMarketplaceHandler"}
     ),
@@ -253,10 +249,15 @@ KNOWN_COLLISIONS: dict[tuple[str, str], frozenset[str]] = {
     ("*", "/api/v1/webhooks"): frozenset({"AutomationHandler", "WebhookHandler"}),
     ("*", "/api/v1/webhooks/events"): frozenset({"AutomationHandler", "WebhookHandler"}),
     ("*", "/api/v1/webhooks/subscribe"): frozenset({"AutomationHandler", "EmailWebhooksHandler"}),
-    ("*", "/healthz"): frozenset({"HealthHandler", "LivenessHandler"}),
-    ("*", "/metrics"): frozenset({"MetricsHandler", "SystemHandler", "UnifiedMetricsHandler"}),
-    ("*", "/readyz"): frozenset({"HealthHandler", "ReadinessHandler"}),
-    ("*", "/readyz/dependencies"): frozenset({"HealthHandler", "ReadinessHandler"}),
+    # RESOLVED 2026-06-10 (cluster 1 — health/metrics/auth-revoke):
+    #   /healthz, /readyz, /readyz/dependencies, /api/{v1/}health/stores,
+    #     /api/v1/health/database — focused Liveness/Readiness/StorageHealth
+    #     handlers unregistered (fully shadowed duplicates of HealthHandler).
+    #   /metrics — SystemHandler and UnifiedMetricsHandler claims removed;
+    #     MetricsHandler owns the documented public scrape contract.
+    #   /api/auth/revoke — SystemHandler legacy claim removed; AuthHandler
+    #     owns the canonical session.revoke contract.
+    # Ownership pins live in tests/server/test_route_ownership.py.
 }
 
 

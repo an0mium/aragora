@@ -757,42 +757,16 @@ class TestAuthStats:
             assert body["rate_limit_per_minute"] == 60
             assert "stats" in body
 
-    def test_revoke_token(self, mock_http_handler):
-        """Test that /api/auth/revoke revokes a token."""
-        with patch("aragora.server.auth.auth_config") as mock_config:
-            mock_config.revoke_token.return_value = True
-            mock_config.get_revocation_count.return_value = 5
+    def test_revoke_token_not_claimed(self, mock_http_handler):
+        """/api/auth/revoke is owned by AuthHandler (session.revoke contract).
 
-            mock_http_handler.rfile = Mock()
-            mock_http_handler.rfile.read.return_value = (
-                b'{"token": "test_token", "reason": "compromised"}'
-            )
-            mock_http_handler.headers = {"Content-Length": "50"}
-
-            ctx = {}
-            handler = SystemHandler(ctx)
-
-            result = handler.handle_post("/api/auth/revoke", {}, mock_http_handler)
-
-            assert result is not None
-            assert result.status_code == 200
-            body = json.loads(result.body)
-            assert body["success"] is True
-            assert body["revoked_count"] == 5
-
-    def test_revoke_token_missing_token(self, mock_http_handler):
-        """Test that /api/auth/revoke returns error when token missing."""
-        mock_http_handler.rfile = Mock()
-        mock_http_handler.rfile.read.return_value = b'{"reason": "test"}'
-        mock_http_handler.headers = {"Content-Length": "20"}
-
-        ctx = {}
-        handler = SystemHandler(ctx)
-
-        result = handler.handle_post("/api/auth/revoke", {}, mock_http_handler)
-
-        assert result is not None
-        assert result.status_code == 400
+        SystemHandler's legacy admin-gated implementation shadowed
+        AuthHandler via first-wins route registration and was removed; see
+        tests/server/test_route_ownership.py for the ownership pin.
+        """
+        handler = SystemHandler({})
+        assert handler.can_handle("/api/auth/revoke") is False
+        assert "/api/auth/revoke" not in SystemHandler.ROUTES
 
 
 # =============================================================================
@@ -879,22 +853,18 @@ class TestCircuitBreakers:
 
 
 class TestPrometheusMetrics:
-    """Tests for /metrics endpoint."""
+    """Tests for /metrics ownership (moved to MetricsHandler)."""
 
-    def test_get_prometheus_metrics(self, mock_http_handler):
-        """Test that /metrics returns Prometheus format."""
-        with patch("aragora.server.metrics.generate_metrics") as mock_gen:
-            mock_gen.return_value = "# HELP aragora_requests_total\naragora_requests_total 100"
+    def test_metrics_not_claimed_by_system_handler(self, mock_http_handler):
+        """/metrics is owned by MetricsHandler (public scrape contract).
 
-            ctx = {}
-            handler = SystemHandler(ctx)
-
-            result = _run(handler.handle("/metrics", {}, mock_http_handler))
-
-            assert result is not None
-            assert result.status_code == 200
-            assert "text/plain" in result.content_type
-            assert b"aragora_requests_total" in result.body
+        SystemHandler's RBAC-gated claim broke anonymous Prometheus scrapes
+        and was removed; see tests/server/test_route_ownership.py.
+        """
+        handler = SystemHandler({})
+        assert handler.can_handle("/metrics") is False
+        result = _run(handler.handle("/metrics", {}, mock_http_handler))
+        assert result is None
 
 
 # =============================================================================
@@ -1534,39 +1504,6 @@ class TestCircuitBreakerEdgeCases:
 
 
 # =============================================================================
-# Prometheus Metrics Edge Cases
-# =============================================================================
-
-
-class TestPrometheusEdgeCases:
-    """Additional tests for Prometheus metrics edge cases."""
-
-    def test_prometheus_module_not_available(self, mock_http_handler):
-        """Test metrics endpoint when module not available."""
-        with patch("aragora.server.metrics.generate_metrics", side_effect=ImportError):
-            ctx = {}
-            handler = SystemHandler(ctx)
-
-            result = _run(handler.handle("/metrics", {}, mock_http_handler))
-
-            assert result is not None
-            assert result.status_code == 503
-
-    def test_prometheus_generation_error(self, mock_http_handler):
-        """Test metrics endpoint handles generation errors."""
-        with patch(
-            "aragora.server.metrics.generate_metrics", side_effect=RuntimeError("Generation failed")
-        ):
-            ctx = {}
-            handler = SystemHandler(ctx)
-
-            result = _run(handler.handle("/metrics", {}, mock_http_handler))
-
-            assert result is not None
-            assert result.status_code == 500
-
-
-# =============================================================================
 # OpenAPI Edge Cases
 # =============================================================================
 
@@ -1714,27 +1651,11 @@ class TestNomicHealthEdgeCases:
 
 
 class TestPostHandler:
-    """Tests for POST request handling."""
+    """SystemHandler no longer defines POST routes.
 
-    def test_post_unknown_path_returns_none(self, mock_http_handler):
-        """Test that POST to unknown path returns None."""
-        ctx = {}
-        handler = SystemHandler(ctx)
+    Its only POST endpoint (/api/auth/revoke) moved to AuthHandler — see
+    tests/server/test_route_ownership.py for the ownership pin.
+    """
 
-        result = handler.handle_post("/api/unknown", {}, mock_http_handler)
-
-        assert result is None
-
-    def test_revoke_token_invalid_json(self, mock_http_handler):
-        """Test token revocation with invalid JSON body."""
-        mock_http_handler.rfile = Mock()
-        mock_http_handler.rfile.read.return_value = b"not valid json"
-        mock_http_handler.headers = {"Content-Length": "16"}
-
-        ctx = {}
-        handler = SystemHandler(ctx)
-
-        result = handler.handle_post("/api/auth/revoke", {}, mock_http_handler)
-
-        assert result is not None
-        assert result.status_code == 400
+    def test_no_handle_post_defined(self):
+        assert "handle_post" not in SystemHandler.__dict__
