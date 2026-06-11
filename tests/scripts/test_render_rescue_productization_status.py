@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
@@ -131,3 +133,39 @@ def test_main_writes_output_from_latest_report(tmp_path: Path) -> None:
     rendered = output_path.read_text(encoding="utf-8")
     assert "No repeated rescue classes found in the current ledger window." in rendered
     assert "Last updated: 2026-04-14T18:42:00Z" in rendered
+
+
+@pytest.mark.parametrize(
+    "issue_numbers",
+    [
+        "5512",
+        ["5512"],
+        [0],
+        [-1],
+        [True],
+    ],
+)
+def test_render_status_markdown_rejects_malformed_repeated_issue_numbers(
+    tmp_path: Path, issue_numbers: object
+) -> None:
+    report_path = tmp_path / "latest.json"
+    payload = {
+        "generated_at": "2026-04-14T18:40:00Z",
+        "summary": {},
+        "repeated_classes": [
+            {
+                "class": "manual_merge:required review gate",
+                "count": 2,
+                "productization_status": "unlinked",
+                "productization_target": "",
+                "issue_numbers": issue_numbers,
+            }
+        ],
+        "issue_linkage_results": [],
+        "issue_drafts": [],
+        "one_off_classes": [],
+        "below_threshold_classes": [],
+    }
+
+    with pytest.raises(ValueError, match=r"repeated_classes\[0\]\.issue_numbers"):
+        mod.render_status_markdown(report_path=report_path, payload=payload)

@@ -34,10 +34,20 @@ def _format_value(value: Any) -> str:
     return str(value)
 
 
-def _issue_numbers_cell(value: Any) -> str:
-    if not isinstance(value, list) or not value:
+def _issue_numbers_cell(value: Any, *, field_name: str = "issue_numbers") -> str:
+    if value is None:
         return "-"
-    return ", ".join(f"#{int(item)}" for item in value if isinstance(item, int))
+    if not isinstance(value, list):
+        raise ValueError(f"{field_name} must be a list of positive integer issue numbers")
+    if not value:
+        return "-"
+
+    issue_numbers: list[int] = []
+    for index, item in enumerate(value):
+        if isinstance(item, bool) or not isinstance(item, int) or item <= 0:
+            raise ValueError(f"{field_name}[{index}] must be a positive integer issue number")
+        issue_numbers.append(item)
+    return ", ".join(f"#{item}" for item in issue_numbers)
 
 
 def _render_repeated_classes(rows: list[dict[str, Any]]) -> list[str]:
@@ -48,14 +58,14 @@ def _render_repeated_classes(rows: list[dict[str, Any]]) -> list[str]:
         "| Rescue class | Count | Productization | Target | Example issues |",
         "| --- | --- | --- | --- | --- |",
     ]
-    for row in rows:
+    for index, row in enumerate(rows):
         lines.append(
             "| "
             f"`{str(row.get('class') or '').strip()}` | "
             f"{int(row.get('count', 0) or 0)} | "
             f"`{str(row.get('productization_status') or 'unlinked').strip() or 'unlinked'}` | "
             f"`{str(row.get('productization_target') or '-').strip() or '-'}` | "
-            f"{_issue_numbers_cell(row.get('issue_numbers'))} |"
+            f"{_issue_numbers_cell(row.get('issue_numbers'), field_name=f'repeated_classes[{index}].issue_numbers')} |"
         )
     return lines
 
