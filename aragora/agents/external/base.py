@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 from collections.abc import AsyncIterator, Callable
 
-from aragora.resilience.circuit_breaker_v2 import (
+from aragora.resilience.simple_circuit_breaker import (
     BaseCircuitBreaker,
     CircuitBreakerConfig as CBConfig,
     get_circuit_breaker,
