@@ -30,6 +30,28 @@ def test_load_prompt_rows_filters_prompt_versions(tmp_path: Path) -> None:
     assert [row["issue_number"] for row in rows] == [2]
 
 
+@pytest.mark.parametrize(
+    ("prompt_chars", "message"),
+    [
+        (True, "numeric value"),
+        ("NaN", "finite"),
+    ],
+)
+def test_load_prompt_rows_rejects_malformed_prompt_counts(
+    tmp_path: Path,
+    prompt_chars: object,
+    message: str,
+) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        json.dumps({"issue_number": 3, "prompt_chars": prompt_chars}) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=message):
+        load_prompt_rows(metrics_path)
+
+
 def test_terminal_class_counts_and_report(tmp_path: Path) -> None:
     rows = [
         {

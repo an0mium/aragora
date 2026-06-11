@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from collections import Counter
 from pathlib import Path
@@ -20,6 +21,25 @@ from aragora.swarm.issue_scanner import (  # noqa: E402
 from aragora.swarm.terminal_truth import classify_from_metrics  # noqa: E402
 
 
+def _prompt_chars_value(row: dict[str, Any], *, line_number: int) -> float:
+    raw_value = row.get("prompt_chars", 0)
+    if raw_value in (None, ""):
+        return 0.0
+    if isinstance(raw_value, bool):
+        raise ValueError(
+            f"boss metrics row {line_number} field `prompt_chars` must be a numeric value"
+        )
+    try:
+        value = float(raw_value)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"boss metrics row {line_number} field `prompt_chars` must be a numeric value"
+        ) from None
+    if not math.isfinite(value):
+        raise ValueError(f"boss metrics row {line_number} field `prompt_chars` must be finite")
+    return value
+
+
 def load_prompt_rows(metrics_file: Path) -> list[dict[str, Any]]:
     """Load prompt-era rows only (`prompt_chars > 0`)."""
     if not metrics_file.exists():
@@ -27,14 +47,14 @@ def load_prompt_rows(metrics_file: Path) -> list[dict[str, Any]]:
 
     rows: list[dict[str, Any]] = []
     with metrics_file.open(encoding="utf-8", errors="replace") as fh:
-        for line in fh:
+        for line_number, line in enumerate(fh, start=1):
             try:
                 row = json.loads(line)
             except json.JSONDecodeError:
                 continue
             if not isinstance(row, dict):
                 continue
-            if float(row.get("prompt_chars", 0) or 0) <= 0:
+            if _prompt_chars_value(row, line_number=line_number) <= 0:
                 continue
             rows.append(row)
     return rows
