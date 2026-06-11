@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -211,6 +212,17 @@ def get_overall_coverage(coverage_data: dict) -> float:
     return totals.get("percent_covered", 0)
 
 
+def coverage_percentage(raw: str) -> float:
+    """Parse a finite percentage threshold for coverage-report CLI flags."""
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a number from 0 to 100") from exc
+    if not math.isfinite(value) or value < 0 or value > 100:
+        raise argparse.ArgumentTypeError("must be a finite percentage from 0 to 100")
+    return value
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate module-level coverage report")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
@@ -223,7 +235,7 @@ def main():
     )
     parser.add_argument(
         "--min-coverage",
-        type=float,
+        type=coverage_percentage,
         default=0,
         help="Minimum overall coverage percentage required",
     )
