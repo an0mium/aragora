@@ -1646,6 +1646,50 @@ class TestModelReviewQuorum:
         )
         assert not any("GitHub review object from codex" in reason for reason in quorum["reasons"])
 
+    def test_review_pr_object_ignores_metadata_inside_fenced_template(
+        self,
+    ) -> None:
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [
+            {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
+        ]
+        pr["comments"] = [
+            {
+                **_dogfood_comment("## Claude focused dogfood\n10/10 pass"),
+                "createdAt": "2026-04-28T20:05:00Z",
+            },
+        ]
+        pr["reviews"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "Template for the review-pr output to mirror:\n\n"
+                    "```markdown\n"
+                    "- Reviewer: `codex`\n"
+                    "- Model family: `openai`\n"
+                    "- Model id: `gpt-5-codex`\n"
+                    f"- Head SHA: `{head_sha}`\n"
+                    "- Final status: `passed`\n"
+                    "```\n"
+                ),
+                "commit": {"oid": head_sha},
+                "state": "COMMENTED",
+                "submittedAt": "2026-04-28T20:10:00Z",
+            }
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == ["claude"]
+        assert not any("GitHub review object" in reason for reason in quorum["reasons"])
+
     def test_review_pr_object_with_router_reviewer_requires_model_family_metadata(
         self,
     ) -> None:

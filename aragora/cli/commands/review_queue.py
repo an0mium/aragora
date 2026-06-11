@@ -3685,7 +3685,18 @@ def _first_heading_candidate(text: str) -> tuple[str, int | None]:
             candidate = stripped.lstrip("#").strip()
             if candidate:
                 return candidate, index
-    return str(text)[:200], None
+    fallback_lines: list[str] = []
+    in_fence = False
+    for line in re.sub(r"<!--.*?-->", "", str(text), flags=re.DOTALL).splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence or line.startswith(("    ", "\t")) or stripped.startswith(">"):
+            continue
+        if stripped:
+            fallback_lines.append(stripped)
+    return "\n".join(fallback_lines)[:200], None
 
 
 def _infer_surface_reviewer_from_candidate(candidate: str) -> str:
@@ -4077,8 +4088,19 @@ def _resolve_review_object_model_identity(body: str) -> ModelReviewIdentity:
 
 def _review_pr_metadata_from_body(body: str) -> dict[str, str]:
     metadata: dict[str, str] = {}
-    for line in str(body).splitlines():
+    text = re.sub(r"<!--.*?-->", "", str(body), flags=re.DOTALL)
+    in_fence = False
+    for line in text.splitlines():
         stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if line.startswith(("    ", "\t")) or stripped.startswith(">"):
+            continue
+        if re.match(r"^\[[^\]]+\]:", stripped):
+            continue
         if stripped.startswith("-"):
             stripped = stripped[1:].strip()
         label, sep, value = stripped.partition(":")
