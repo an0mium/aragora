@@ -43,6 +43,15 @@ def test_prompt_limit_rejects_negative_values() -> None:
         module.select_prompts(-1)
 
 
+def test_prompt_limit_rejects_values_larger_than_prompt_corpus() -> None:
+    module = _load_module()
+
+    oversized = len(module.PROMPTS) + 1
+    assert module.parse_args(["--prompts", str(oversized)]).prompts == oversized
+    with pytest.raises(ValueError, match="exceeds available prompt corpus size"):
+        module.select_prompts(oversized)
+
+
 def test_select_prompts_positive_limit_returns_prefix() -> None:
     module = _load_module()
 

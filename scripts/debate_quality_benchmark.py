@@ -930,6 +930,10 @@ def select_prompts(prompt_limit: int) -> list[dict[str, str]]:
     """Select benchmark prompts while preserving 0 as the all-prompts CLI sentinel."""
     if prompt_limit < 0:
         raise ValueError("prompt_limit must be a non-negative integer")
+    if prompt_limit > len(PROMPTS):
+        raise ValueError(
+            f"prompt_limit={prompt_limit} exceeds available prompt corpus size {len(PROMPTS)}"
+        )
     return PROMPTS[:prompt_limit] if prompt_limit > 0 else PROMPTS
 
 
@@ -961,7 +965,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 async def main() -> None:
     args = parse_args()
 
-    selected = select_prompts(args.prompts)
+    try:
+        selected = select_prompts(args.prompts)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
     logger.info(
         "Starting benchmark: %d prompts, dry_run=%s",
