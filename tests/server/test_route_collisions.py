@@ -217,7 +217,8 @@ KNOWN_COLLISIONS: dict[tuple[str, str], frozenset[str]] = {
     ("*", "/api/v1/billing/usage"): frozenset({"BillingHandler", "UsageMeteringHandler"}),
     ("*", "/api/v1/billing/usage/export"): frozenset({"BillingHandler", "UsageMeteringHandler"}),
     ("*", "/api/v1/debates/*/share"): frozenset({"DebateShareHandler", "SharingHandler"}),
-    ("*", "/api/v1/debates/*/summary"): frozenset({"DebatesHandler", "ExplainabilityHandler"}),
+    # RESOLVED (run-20260611 PROD lane): /api/v1/debates/*/summary now owned solely
+    # by DebatesHandler; duplicate claim removed from ExplainabilityHandler.
     ("*", "/api/v1/email/prioritize"): frozenset({"EmailDebateHandler", "EmailHandler"}),
     ("*", "/api/v1/health/database"): frozenset({"HealthHandler", "StorageHealthHandler"}),
     ("*", "/api/v1/health/stores"): frozenset({"HealthHandler", "StorageHealthHandler"}),
@@ -238,9 +239,10 @@ KNOWN_COLLISIONS: dict[tuple[str, str], frozenset[str]] = {
     ("*", "/api/v1/marketplace/templates/*"): frozenset(
         {"MarketplaceBrowseHandler", "MarketplaceHandler", "TemplateMarketplaceHandler"}
     ),
-    ("*", "/api/v1/notifications/history"): frozenset(
-        {"NotificationHistoryHandler", "NotificationsHandler"}
-    ),
+    # RESOLVED (run-20260611 PROD lane): /api/v1/notifications/history now owned
+    # solely by NotificationHistoryHandler (the real implementation). The social
+    # NotificationsHandler claimed the path but never served it (broken endpoint);
+    # the dead claim was removed, restoring the working handler.
     ("*", "/api/v1/pipeline"): frozenset({"DecompositionHandler", "PipelineExecuteHandler"}),
     ("*", "/api/v1/rlm/codebase/health"): frozenset({"RLMContextHandler", "RLMHandler"}),
     ("*", "/api/v1/rlm/compress"): frozenset({"RLMContextHandler", "RLMHandler"}),
