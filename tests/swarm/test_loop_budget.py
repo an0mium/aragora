@@ -134,6 +134,16 @@ class TestSpendLedger:
         with pytest.raises(ValueError):
             record_loop_spend(tmp_path, "boss_loop", float("inf"), source="x")
 
+    def test_path_escaping_loop_ids_are_rejected(self, tmp_path: Path) -> None:
+        # The loop id is a filename component; it must never traverse out of
+        # the spend directory or resolve to an absolute path.
+        for hostile in ("/etc/passwd", "../escape", "a/b", "..", "", "Boss Loop", "no.dots"):
+            with pytest.raises(ValueError):
+                spend_path(tmp_path, hostile)
+            with pytest.raises(ValueError):
+                record_loop_spend(tmp_path, hostile, 1.0, source="x")
+        assert spend_path(tmp_path, "boss_loop").name == "boss_loop.json"
+
     def test_absent_and_corrupt_snapshots_read_as_none(self, tmp_path: Path) -> None:
         assert read_loop_spend(tmp_path, "publisher") is None
         path = spend_path(tmp_path, "publisher")

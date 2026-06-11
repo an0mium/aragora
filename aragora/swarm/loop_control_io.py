@@ -295,19 +295,6 @@ def collect_docs_sync_drift(
     }
 
 
-def collect_budget(repo_root: Path, loop_id: str, *, timeout: float = 5.0) -> dict[str, Any]:
-    """Side-effect-free per-loop budget read.
-
-    v2 resolves a per-loop dollar ceiling from the operator policy file
-    (``.aragora/loop_budgets.json``, with ``ARAGORA_LOOP_BUDGET_USD`` as the
-    v1 fleet-default fallback) plus the loop's spend-ledger snapshot
-    (``.aragora/loop_spend/<loop_id>.json``). Loops that do not write spend are
-    reported ``degraded``/``unavailable`` - carried by each loop's
-    halt-readiness (``budget_ceiling=False``) rather than fabricated here.
-    """
-    return resolve_loop_budget(repo_root, loop_id)
-
-
 _COLLECTORS: dict[LoopKind, Callable[..., dict[str, Any]]] = {
     LoopKind.BOSS_LOOP: collect_boss_loop,
     LoopKind.MERGE_ARBITER: collect_merge_arbiter,
@@ -335,7 +322,13 @@ def collect_all(
     allow_network: bool = True,
     kinds: list[LoopKind] | None = None,
 ) -> dict[LoopKind, dict[str, Any]]:
-    """Collect raw signals for the selected loops, concurrently and read-only."""
+    """Collect raw signals for the selected loops, concurrently and read-only.
+
+    Each loop's raw dict carries a per-loop ``budget`` resolved from the
+    operator policy file plus that loop's spend-ledger snapshot (see
+    ``aragora.swarm.loop_budget``); loops without a ceiling or written spend
+    are reported ``degraded``/``unavailable`` rather than fabricated.
+    """
     root = Path(repo_root)
     selected = list(kinds) if kinds else list(_COLLECTORS)
     policy = BudgetPolicy.load(root)

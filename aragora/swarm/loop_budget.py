@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -137,7 +138,18 @@ class BudgetPolicy:
         return None, "none"
 
 
+_LOOP_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+
+
 def spend_path(repo_root: Path | str, loop_id: str) -> Path:
+    """Resolve one loop's snapshot path; the loop id is a filename component.
+
+    Reject anything that is not a plain snake-case identifier so a hostile or
+    buggy ``loop_id`` (absolute path, ``..``, separators) can never escape the
+    spend directory.
+    """
+    if not _LOOP_ID_RE.fullmatch(loop_id):
+        raise ValueError(f"invalid loop_id: {loop_id!r}")
     return Path(repo_root) / SPEND_DIR_RELPATH / f"{loop_id}.json"
 
 
@@ -195,8 +207,10 @@ def read_loop_spend(
     path = spend_path(repo_root, loop_id)
     try:
         with path.open(encoding="utf-8") as handle:
+            # fstat the open descriptor so the freshness mtime belongs to the
+            # same snapshot we parsed, even across a concurrent atomic replace.
+            mtime = os.fstat(handle.fileno()).st_mtime
             payload = json.load(handle)
-        mtime = path.stat().st_mtime
     except (OSError, json.JSONDecodeError, ValueError):
         return None
     if not isinstance(payload, dict):
