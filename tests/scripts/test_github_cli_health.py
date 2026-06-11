@@ -72,6 +72,70 @@ def test_run_can_skip_app_env_for_diagnostic_health(monkeypatch) -> None:
     assert captured["env"] == {"BASE_ENV": "1"}
 
 
+def test_run_wraps_gh_with_external_timeout_when_available(monkeypatch) -> None:
+    monkeypatch.setattr(
+        mod,
+        "github_cli_env",
+        lambda env, prefer_app=True: {"GH_TOKEN": "app-token"},
+    )
+    monkeypatch.setattr(
+        mod.shutil,
+        "which",
+        lambda name: {
+            "timeout": "/usr/bin/timeout",
+            "bash": "/bin/bash",
+        }.get(name),
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_subprocess_run(*args, **kwargs):
+        captured["args"] = kwargs.get("args", args[0])
+        return subprocess.CompletedProcess(
+            args=kwargs.get("args", args[0]), returncode=0, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+
+    proc = mod._run(["gh", "api", "rate_limit"], cwd=Path("."), timeout_seconds=5)
+
+    assert proc.returncode == 0
+    assert captured["args"] == [
+        "/bin/bash",
+        "-lc",
+        "/usr/bin/timeout 5 gh api rate_limit",
+    ]
+
+
+def test_run_normalizes_external_timeout_without_stderr(monkeypatch) -> None:
+    monkeypatch.setattr(
+        mod,
+        "github_cli_env",
+        lambda env, prefer_app=True: {"GH_TOKEN": "app-token"},
+    )
+    monkeypatch.setattr(
+        mod.shutil,
+        "which",
+        lambda name: {
+            "timeout": "/usr/bin/timeout",
+            "bash": "/bin/bash",
+        }.get(name),
+    )
+
+    def fake_subprocess_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=kwargs.get("args", args[0]), returncode=124, stdout="", stderr=""
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+
+    proc = mod._run(["gh", "api", "rate_limit"], cwd=Path("."), timeout_seconds=5)
+
+    assert proc.args == ["gh", "api", "rate_limit"]
+    assert proc.returncode == 124
+    assert proc.stderr == "command timed out after 5s: gh api rate_limit"
+
+
 def test_check_github_cli_health_ready(monkeypatch) -> None:
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 
@@ -338,11 +402,61 @@ def test_check_github_cli_health_detects_auth_failure(monkeypatch) -> None:
     assert health.api_ok is False
 
 
+def test_main_uses_diagnostic_mode_without_app_auth_by_default(monkeypatch) -> None:
+    calls: list[bool] = []
+
+    def fake_check(
+        repo_root,
+        timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS,
+        prefer_app=True,
+    ) -> mod.GitHubCLIHealth:
+        calls.append(prefer_app)
+        return mod.GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(Path(repo_root).resolve()),
+        )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fake_check)
+
+    assert mod.main(["--quiet"]) == 0
+    assert calls == [False]
+
+
+def test_main_can_opt_into_app_auth(monkeypatch) -> None:
+    calls: list[bool] = []
+
+    def fake_check(
+        repo_root,
+        timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS,
+        prefer_app=True,
+    ) -> mod.GitHubCLIHealth:
+        calls.append(prefer_app)
+        return mod.GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(Path(repo_root).resolve()),
+        )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fake_check)
+
+    assert mod.main(["--quiet", "--prefer-app-auth"]) == 0
+    assert calls == [True]
+
+
 def test_main_json_reports_unavailable_state(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root, timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS: mod.GitHubCLIHealth(
+        lambda repo_root,
+        timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS,
+        prefer_app=True: mod.GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,

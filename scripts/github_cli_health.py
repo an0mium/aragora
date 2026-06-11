@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -67,6 +68,17 @@ def _command_error(proc: subprocess.CompletedProcess[str], fallback: str) -> str
     return proc.stderr.strip() or proc.stdout.strip() or fallback
 
 
+def _external_timeout_args(args: list[str], timeout_seconds: int) -> list[str]:
+    timeout_bin = shutil.which("timeout") or shutil.which("gtimeout")
+    if not timeout_bin or timeout_seconds <= 0:
+        return args
+    bash_bin = shutil.which("bash") or "/bin/bash"
+    command = " ".join(
+        shlex.quote(part) for part in [timeout_bin, str(max(1, int(timeout_seconds))), *args]
+    )
+    return [bash_bin, "-lc", command]
+
+
 def github_cli_env(
     base_env: Mapping[str, str] | None = None,
     *,
@@ -90,15 +102,29 @@ def _run(
     prefer_app: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     env = github_cli_env(os.environ, prefer_app=prefer_app) if args and args[0] == "gh" else None
+    run_args = _external_timeout_args(args, timeout_seconds) if args and args[0] == "gh" else args
     try:
-        return subprocess.run(
-            args,
+        proc = subprocess.run(
+            run_args,
             cwd=cwd,
             text=True,
             capture_output=True,
             check=False,
-            timeout=timeout_seconds,
+            timeout=timeout_seconds + 5,
             env=env,
+        )
+        if proc.returncode == 124 and not (proc.stderr or proc.stdout):
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=124,
+                stdout="",
+                stderr=f"command timed out after {timeout_seconds}s: {' '.join(args)}",
+            )
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=proc.returncode,
+            stdout=proc.stdout,
+            stderr=proc.stderr,
         )
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout if isinstance(exc.stdout, str) else ""
@@ -196,6 +222,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true", help="Print machine-readable output")
     parser.add_argument("--quiet", action="store_true", help="Suppress normal output")
+    parser.add_argument(
+        "--prefer-app-auth",
+        action="store_true",
+        help=(
+            "Prefer GitHub App installation-token auth. By default the CLI stays diagnostic-only "
+            "and avoids app-token minting before the bounded gh probes."
+        ),
+    )
     return parser
 
 
@@ -205,6 +239,7 @@ def main(argv: list[str] | None = None) -> int:
     health = check_github_cli_health(
         Path(args.repo),
         timeout_seconds=int(args.timeout_seconds),
+        prefer_app=bool(args.prefer_app_auth),
     )
 
     if args.json:
