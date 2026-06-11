@@ -118,6 +118,33 @@ def test_automation_pr_preflight_json_suggests_validation_for_source_without_tes
     ]
 
 
+def test_automation_pr_preflight_json_suggests_benchmark_truth_status_validation(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/benchmark-truth-status-json"], cwd=repo)
+    source = repo / "scripts" / "render_benchmark_truth_status.py"
+    source.parent.mkdir()
+    source.write_text("print('status')\n", encoding="utf-8")
+    _run(["git", "add", "scripts/render_benchmark_truth_status.py"], cwd=repo)
+    _run(["git", "commit", "-m", "fix: update benchmark truth status renderer"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "ok"
+    assert payload["suggested_validation_commands"] == [
+        (
+            "python3 scripts/nomic_ci_test_selector.py --changed-files "
+            "scripts/render_benchmark_truth_status.py --dry-run"
+        ),
+        "python3 -m ruff check scripts/render_benchmark_truth_status.py",
+        "python3 -m py_compile scripts/render_benchmark_truth_status.py",
+        "python3 -m pytest tests/scripts/test_render_benchmark_truth_status.py -q",
+    ]
+
+
 def test_automation_pr_preflight_json_suggests_publisher_startup_smoke(
     tmp_path: Path,
 ) -> None:
