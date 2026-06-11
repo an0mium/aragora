@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -95,3 +96,40 @@ def test_score_fixtures_rejects_duplicate_examples_across_files(
 
     assert all_passed is False
     assert "duplicate benchmark example also seen in a.json[0]" in report
+
+
+def test_score_fixtures_reports_malformed_fixture_json(tmp_path: Path) -> None:
+    fixtures_dir = tmp_path / "fixtures"
+    fixtures_dir.mkdir()
+    (fixtures_dir / "broken.json").write_text("{not json}\n", encoding="utf-8")
+
+    all_passed, report = score_benchmark.score_fixtures(fixtures_dir)
+
+    assert all_passed is False
+    assert "Terminal-truth benchmark: FAIL" in report
+    assert "FAIL  broken.json (0/1)" in report
+    assert "fixture must be valid JSON: line 1 column 2" in report
+    assert "Examples: 1" in report
+    assert "Fail: 1" in report
+
+
+def test_main_returns_failure_for_malformed_fixture_json(tmp_path: Path) -> None:
+    fixtures_dir = tmp_path / "fixtures"
+    fixtures_dir.mkdir()
+    (fixtures_dir / "broken.json").write_text("{not json}\n", encoding="utf-8")
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(Path("scripts/score_benchmark.py")),
+            "--fixtures-dir",
+            str(fixtures_dir),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 1
+    assert "fixture must be valid JSON" in proc.stdout
+    assert "Traceback" not in proc.stderr

@@ -106,12 +106,27 @@ def score_fixtures(fixtures_dir: Path) -> tuple[bool, str]:
     seen_examples: dict[str, str] = {}
 
     for fixture_file in fixture_files:
-        with fixture_file.open() as fh:
-            examples = json.load(fh)
-
         file_pass = 0
         file_fail = 0
         file_errors: list[str] = []
+
+        try:
+            with fixture_file.open(encoding="utf-8") as fh:
+                examples = json.load(fh)
+        except OSError as exc:
+            total_examples += 1
+            total_fail += 1
+            lines.append(f"  FAIL  {fixture_file.name} (0/1)")
+            lines.append(f"  [root] could not read fixture: {exc}")
+            continue
+        except json.JSONDecodeError as exc:
+            total_examples += 1
+            total_fail += 1
+            lines.append(f"  FAIL  {fixture_file.name} (0/1)")
+            lines.append(
+                f"  [root] fixture must be valid JSON: line {exc.lineno} column {exc.colno}"
+            )
+            continue
 
         if not isinstance(examples, list):
             total_fail += 1
