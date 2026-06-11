@@ -49,12 +49,14 @@ HAS_RLM = False
 HAS_OFFICIAL_RLM = False
 
 try:
-    from aragora.rlm import get_rlm, RLMConfig, RLMContext as RLMContextImport, HAS_OFFICIAL_RLM
+    from aragora.rlm import get_rlm, RLMConfig, RLMContext as RLMContextImport
+    from aragora.rlm import HAS_OFFICIAL_RLM as _HAS_OFFICIAL_RLM_IMPORT
 
     _get_rlm = get_rlm
     _RLMConfig = RLMConfig
     _RLMContextClass = RLMContextImport
     HAS_RLM = True
+    HAS_OFFICIAL_RLM = _HAS_OFFICIAL_RLM_IMPORT
 except ImportError:
     pass
 
