@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
@@ -134,6 +136,44 @@ def test_rendered_next_commands_are_read_only_guidance() -> None:
         assert " rm " not in f" {command} "
         assert "git branch -D" not in command
         assert "git push --force" not in command
+
+
+@pytest.mark.parametrize("bad_size", [-1, "1024", 1.5, True])
+def test_render_unblock_map_rejects_malformed_candidate_size_bytes(bad_size: object) -> None:
+    inventory = _inventory()
+    candidates = inventory["candidates"]
+    assert isinstance(candidates, list)
+    candidates[0]["size_bytes"] = bad_size
+
+    with pytest.raises(ValueError, match=r"candidates\[0\]\.size_bytes"):
+        unblock_map.render_unblock_map(inventory)
+
+
+@pytest.mark.parametrize("bad_size", [-1, "1024", 1.5, False])
+def test_render_unblock_map_rejects_malformed_summary_known_size_bytes(
+    bad_size: object,
+) -> None:
+    inventory = _inventory()
+    summary = inventory["summary"]
+    assert isinstance(summary, dict)
+    summary["known_size_bytes"] = bad_size
+
+    with pytest.raises(ValueError, match=r"summary\.known_size_bytes"):
+        unblock_map.render_unblock_map(inventory)
+
+
+def test_render_unblock_map_allows_unknown_candidate_size_bytes() -> None:
+    inventory = _inventory()
+    candidates = inventory["candidates"]
+    assert isinstance(candidates, list)
+    candidates[0]["size_bytes"] = None
+
+    result = unblock_map.render_unblock_map(inventory, limit=10)
+
+    rows = result["top_human_review_candidates"]
+    dirty_row = next(row for row in rows if row["path"] == "/Users/armand/.codex/worktrees/dirty")
+    assert dirty_row["size_bytes"] == 0
+    assert dirty_row["size_gib"] == 0.0
 
 
 def test_main_writes_json_output(tmp_path: Path) -> None:

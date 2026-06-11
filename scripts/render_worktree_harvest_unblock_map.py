@@ -19,11 +19,18 @@ def _utc_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _size_bytes(candidate: dict[str, Any]) -> int:
-    try:
-        return int(candidate.get("size_bytes") or 0)
-    except (TypeError, ValueError):
+def _coerce_size_bytes(value: Any, *, field_name: str) -> int:
+    if value is None:
         return 0
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{field_name} must be a non-negative integer byte count")
+    if value < 0:
+        raise ValueError(f"{field_name} must be a non-negative integer byte count")
+    return value
+
+
+def _size_bytes(candidate: dict[str, Any]) -> int:
+    return _coerce_size_bytes(candidate.get("size_bytes"), field_name="candidate.size_bytes")
 
 
 def _size_gib(size_bytes: int) -> float:
@@ -115,8 +122,17 @@ def render_unblock_map(inventory: dict[str, Any], *, limit: int = DEFAULT_LIMIT)
     candidates = [
         candidate for candidate in inventory.get("candidates", []) if isinstance(candidate, dict)
     ]
+    for index, candidate in enumerate(candidates):
+        _coerce_size_bytes(
+            candidate.get("size_bytes"),
+            field_name=f"candidates[{index}].size_bytes",
+        )
     raw_summary = inventory.get("summary")
     summary: dict[str, Any] = raw_summary if isinstance(raw_summary, dict) else {}
+    known_size_bytes = _coerce_size_bytes(
+        summary.get("known_size_bytes"),
+        field_name="summary.known_size_bytes",
+    )
     family_counts: Counter[str] = Counter()
     family_bytes: defaultdict[str, int] = defaultdict(int)
     for candidate in candidates:
@@ -158,7 +174,7 @@ def render_unblock_map(inventory: dict[str, Any], *, limit: int = DEFAULT_LIMIT)
             ),
             "harvest_candidate_count": summary.get("harvest_candidate_count"),
             "known_size_bytes": summary.get("known_size_bytes"),
-            "known_size_gib": _size_gib(int(summary.get("known_size_bytes") or 0)),
+            "known_size_gib": _size_gib(known_size_bytes),
         },
         "blocker_families": blocker_families,
         "top_cleanup_candidates": _top(cleanup_candidates, limit=limit),
