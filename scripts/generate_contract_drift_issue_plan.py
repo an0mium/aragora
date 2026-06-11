@@ -11,10 +11,20 @@ from pathlib import Path
 from typing import Any
 
 
+class BacklogJsonError(RuntimeError):
+    """Raised when the contract drift backlog cannot be trusted."""
+
+
 def _load(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
-    return json.loads(path.read_text())
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise BacklogJsonError(f"Cannot load contract drift backlog {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise BacklogJsonError(f"Contract drift backlog must be a JSON object: {path}")
+    return payload
 
 
 def _issue_title(ticket: dict[str, Any]) -> str:
@@ -165,7 +175,10 @@ def main() -> int:
     parser.add_argument("--max-tickets", type=int, default=40, help="Maximum issue seeds")
     args = parser.parse_args()
 
-    backlog = _load(Path(args.backlog_json))
+    try:
+        backlog = _load(Path(args.backlog_json))
+    except BacklogJsonError as exc:
+        raise SystemExit(str(exc)) from None
     if not backlog:
         raise SystemExit(f"Backlog file missing or empty: {args.backlog_json}")
 

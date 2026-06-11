@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -85,3 +86,60 @@ def test_generates_issue_plan_outputs(monkeypatch, tmp_path: Path):
     assert plan["waves"]
     first_ticket = plan["waves"][0]["tickets"][0]
     assert "Contract drift:" in first_ticket["issue_title"]
+
+
+def test_load_rejects_malformed_backlog_json(tmp_path: Path) -> None:
+    backlog_path = tmp_path / "backlog.json"
+    backlog_path.write_text("{not json}\n", encoding="utf-8")
+
+    try:
+        issue_plan._load(backlog_path)
+    except issue_plan.BacklogJsonError as exc:
+        assert "Cannot load contract drift backlog" in str(exc)
+        assert str(backlog_path) in str(exc)
+        assert "line 1 column 2" in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("malformed backlog JSON should fail closed")
+
+
+def test_load_rejects_non_object_backlog_json(tmp_path: Path) -> None:
+    backlog_path = tmp_path / "backlog.json"
+    backlog_path.write_text(json.dumps(["CD-001"]) + "\n", encoding="utf-8")
+
+    try:
+        issue_plan._load(backlog_path)
+    except issue_plan.BacklogJsonError as exc:
+        assert "must be a JSON object" in str(exc)
+        assert str(backlog_path) in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("non-object backlog JSON should fail closed")
+
+
+def test_main_reports_malformed_backlog_without_writing_outputs(tmp_path: Path) -> None:
+    backlog_path = tmp_path / "backlog.json"
+    md_out = tmp_path / "issue_plan.md"
+    json_out = tmp_path / "issue_plan.json"
+    backlog_path.write_text("{not json}\n", encoding="utf-8")
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(Path("scripts/generate_contract_drift_issue_plan.py")),
+            "--backlog-json",
+            str(backlog_path),
+            "--markdown-out",
+            str(md_out),
+            "--json-out",
+            str(json_out),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 1
+    assert "Cannot load contract drift backlog" in proc.stderr
+    assert "line 1 column 2" in proc.stderr
+    assert "Traceback" not in proc.stderr
+    assert not md_out.exists()
+    assert not json_out.exists()
