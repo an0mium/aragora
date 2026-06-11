@@ -429,13 +429,18 @@ LOOP_SPECS: dict[LoopKind, LoopSpec] = {
         guards=HaltGuards(
             max_iteration=True,
             no_progress=True,
-            no_progress_distinguishes_fault=False,
+            no_progress_distinguishes_fault=True,
             budget_ceiling=False,
-            code_ref="aragora/swarm/merge_arbiter.py MergeArbiterConfig (max_runtime_hours=12, max_consecutive_failures=3)",
+            code_ref=(
+                "aragora/swarm/merge_arbiter.py ArbiterOperationalError + MergeArbiter.run "
+                "(max_runtime_hours=12, max_consecutive_failures=3)"
+            ),
             notes=(
-                "circuit breaker trips on failure-only polls without separating an operational "
-                "fault from not-ready PRs (the #7879 bug class); eval/merge fault path still "
-                "bypasses the breaker",
+                "breaker trips only on systemic operational faults: a candidate list-fetch "
+                "fault, or every evaluation in a poll faulting; not-ready PRs and a single "
+                "poison-pill PR never trip it (#7879, PR #8125). Residual: merge-API failures "
+                "during a merge attempt are recorded as results, not faults, and are bounded "
+                "by max_runtime_hours",
             ),
         ),
         feedback_kind="quorum",

@@ -44,9 +44,18 @@ audits each loop's guards against them (`audit_halt_readiness`):
 2. **No-progress detection that distinguishes fault from waiting.** The loop
    must notice it is not advancing **and** correctly separate an *operational
    fault* (halt, fail closed) from *normal waiting on not-ready work*
-   (keep waiting). Getting this wrong is the live `merge_arbiter` defect (§4).
+   (keep waiting). Getting this wrong was the `merge_arbiter` defect (§4),
+   fixed by PR #8125.
 3. **Budget ceiling.** A spend ceiling so a stuck-but-busy loop cannot run up an
-   unbounded bill. This is the article's headline risk.
+   unbounded bill. This is the article's headline risk. v2 ships the rails:
+   per-loop ceilings come from the operator policy file
+   `.aragora/loop_budgets.json` (`{"default_ceiling_usd": ..., "loops":
+   {"<loop_id>": {"ceiling_usd": ...}}}`, with `ARAGORA_LOOP_BUDGET_USD` as the
+   v1 fleet-default fallback), and per-loop spend comes from the spend ledger
+   `.aragora/loop_spend/<loop_id>.json`, written by each loop via
+   `aragora.swarm.loop_budget.record_loop_spend`. A loop's `budget_ceiling`
+   guard flips to `True` only when that loop both writes its spend and
+   enforces its ceiling in-loop (or is wrapped by an enforcement point).
 
 The audit verdict per loop is:
 
@@ -56,13 +65,24 @@ The audit verdict per loop is:
 
 ### Current findings (curated; see §6)
 
-Every standing loop is currently `incomplete`. Two systemic gaps dominate:
+Every standing loop is currently `incomplete`. One systemic gap dominates:
 
-- **No loop has a dollar/budget ceiling.** They are bounded by time/iterations
-  only. Wiring real per-loop budgets is the highest-value follow-up.
-- **`merge_arbiter`'s no-progress detection does not distinguish an operational
-  fault from not-ready PRs** (the #7879 bug class), so its circuit breaker can
-  trip on benign waiting and/or spin to `max_runtime` on a real fault.
+- **No loop enforces a dollar/budget ceiling in-loop.** They are bounded by
+  time/iterations only. The control plane now resolves real per-loop ceilings
+  and spend (policy file + spend ledger, §3) and classifies a non-positive
+  remainder as `budget_exhausted -> halt`, but no standing loop writes its
+  spend or checks its ceiling yet, so every `budget_ceiling` guard honestly
+  stays `False`. Adopting the ledger in the expensive loops (boss loop,
+  proof-first, nomic) is the highest-value follow-up.
+
+Retired findings:
+
+- **`merge_arbiter` fault-vs-waiting (the #7879 bug class): fixed by PR #8125.**
+  The breaker now trips only on systemic operational faults
+  (`ArbiterOperationalError` on candidate list fetch, or every evaluation in a
+  poll faulting); not-ready PRs and a single poison-pill PR never trip it.
+  Residual, recorded in the spec notes: merge-API failures during a merge
+  attempt are reported as results, not faults, bounded by `max_runtime_hours`.
 
 These are honest, code-referenced findings, not fabricated alarms.
 
@@ -125,9 +145,11 @@ Control Plane encodes the correct distinction directly in `classify_loop`:
 - an unreadable loop -> state `unknown`, next action `report_only` (never an
   implied "continue").
 
-`audit_halt_readiness` then flags `merge_arbiter` as `incomplete` precisely
-because its *guard* does not yet make this distinction, so the gap is visible at
-the fleet level until the loop itself is fixed.
+The loop itself now makes the same distinction (PR #8125): `merge_arbiter`
+raises `ArbiterOperationalError` for genuine faults and its breaker counts only
+systemic ones, so `audit_halt_readiness` no longer flags the fault-vs-waiting
+gap. The arbiter stays `incomplete` solely for the missing budget ceiling, and
+that residual is visible at the fleet level until budgets are wired.
 
 ---
 
@@ -147,11 +169,14 @@ The stable, machine-readable fields:
   "ticks": null, "max_ticks": 3,
   "runtime_s": null, "max_runtime_s": 43200.0,
   "last_progress_at": null, "no_progress_ticks": null,
-  "budget": {"spend_usd": null, "ceiling_usd": null, "remaining_usd": null,
-             "source": "none", "source_status": "unavailable"},
+  "budget": {"spend_usd": null, "ceiling_usd": 5.0, "remaining_usd": null,
+             "source": "policy:.aragora/loop_budgets.json#loops.merge_arbiter + ledger:absent",
+             "source_status": "degraded"},  // ok only with ceiling + fresh ledger spend;
+                                            // remaining_usd <= 0 => budget_exhausted/halt;
+                                            // unknown/stale spend never halts
   "feedback_gate": {"kind": "quorum", "status": "quorum"},
   "halt_readiness": {"max_iteration": true, "no_progress": true,
-                     "no_progress_distinguishes_fault": false,
+                     "no_progress_distinguishes_fault": true,
                      "budget_ceiling": false,
                      "verdict": "incomplete", "gaps": ["..."], "notes": ["..."]},
   "durability": {"state_path": null, "restart_safe": false},
@@ -189,8 +214,11 @@ python3 scripts/loop_control_status.py --exit-nonzero-on-halt
 **Read-only guarantee.** The IO layer (`aragora/swarm/loop_control_io.py`) is the
 only part that touches the world, and it only ever *reads*: `launchctl print`,
 `git worktree list --porcelain`, `scripts/publisher_freshness_check.py --json`,
-`scripts/agent_bridge.py operator-snapshot --json`, and a file read of
-`.aragora/proof_first_shift/runtime_state.json`. It never merges, comments,
+`scripts/agent_bridge.py operator-snapshot --json`, and file reads of
+`.aragora/proof_first_shift/runtime_state.json`, `.aragora/loop_budgets.json`,
+and `.aragora/loop_spend/<loop_id>.json` (the spend-ledger *writer*,
+`aragora.swarm.loop_budget.record_loop_spend`, is called by loops, never by
+collectors). It never merges, comments,
 reruns, pushes, or passes `--apply`, and it writes nothing. Collectors degrade to
 `degraded`/`unavailable` on missing files, rate limits, timeouts, or non-POSIX
 hosts rather than raising. The classifier (`loop_control.py`) is pure - no IO at

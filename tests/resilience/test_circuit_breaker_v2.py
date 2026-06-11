@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.resilience.circuit_breaker_v2 import (
+from aragora.resilience.simple_circuit_breaker import (
     BaseCircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
@@ -268,7 +268,7 @@ class TestStateTransitions:
         assert low_threshold_cb.state == CircuitState.OPEN
 
         # Simulate time passing beyond cooldown
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             mock_time.time.return_value = (
                 low_threshold_cb._opened_at + low_threshold_cb.config.cooldown_seconds + 1
             )
@@ -288,7 +288,7 @@ class TestStateTransitions:
         opened_at = low_threshold_cb._opened_at
         fake_time = opened_at + low_threshold_cb.config.cooldown_seconds + 1
 
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             mock_time.time.return_value = fake_time
             # Trigger state check
             assert low_threshold_cb.can_execute() is True  # transitions to HALF_OPEN
@@ -309,7 +309,7 @@ class TestStateTransitions:
         opened_at = low_threshold_cb._opened_at
         fake_time = opened_at + low_threshold_cb.config.cooldown_seconds + 1
 
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             mock_time.time.return_value = fake_time
             assert low_threshold_cb.can_execute() is True  # HALF_OPEN
 
@@ -364,7 +364,7 @@ class TestCanExecute:
         opened_at = low_threshold_cb._opened_at
         fake_time = opened_at + low_threshold_cb.config.cooldown_seconds + 1
 
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             mock_time.time.return_value = fake_time
             # First request transitions to HALF_OPEN and is allowed
             assert low_threshold_cb.can_execute() is True
@@ -402,7 +402,7 @@ class TestRecordSuccess:
         opened_at = low_threshold_cb._opened_at
         fake_time = opened_at + low_threshold_cb.config.cooldown_seconds + 1
 
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             mock_time.time.return_value = fake_time
             low_threshold_cb.can_execute()  # transition to HALF_OPEN
 
@@ -557,7 +557,7 @@ class TestSlidingWindow:
 
         base_time = 1000.0
 
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             # Record 3 failures at base_time
             mock_time.time.return_value = base_time
             cb.record_failure(RuntimeError("old1"))
@@ -570,7 +570,7 @@ class TestSlidingWindow:
         # Reset for a clean test of pruning
         cb.reset()
 
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             # Record 2 failures at base_time
             mock_time.time.return_value = base_time
             cb.record_failure(RuntimeError("old1"))
@@ -580,7 +580,7 @@ class TestSlidingWindow:
 
         cb.reset()
 
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             # Record 1 failure at base_time (old, will be pruned)
             mock_time.time.return_value = base_time
             cb.record_failure(RuntimeError("old"))
@@ -697,7 +697,7 @@ class TestGetStats:
         opened_at = cb._opened_at
         fake_time = opened_at + 10.0  # 10 seconds elapsed
 
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             mock_time.time.return_value = fake_time
             stats = cb.get_stats()
             assert stats.cooldown_remaining is not None
@@ -741,7 +741,7 @@ class TestStateChangeCallback:
         callback.reset_mock()
 
         opened_at = cb._opened_at
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             mock_time.time.return_value = opened_at + 6.0
             _ = cb.state  # triggers transition
 
@@ -761,7 +761,7 @@ class TestStateChangeCallback:
         cb.record_failure(RuntimeError("f2"))
 
         opened_at = cb._opened_at
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             mock_time.time.return_value = opened_at + 6.0
             cb.can_execute()  # HALF_OPEN
 
@@ -1153,6 +1153,6 @@ class TestEdgeCases:
         cb.record_failure(RuntimeError("f2"))
 
         opened_at = cb._opened_at
-        with patch("aragora.resilience.circuit_breaker_v2.time") as mock_time:
+        with patch("aragora.resilience.simple_circuit_breaker.time") as mock_time:
             mock_time.time.return_value = opened_at + 6.0
             assert cb.get_status() == "half_open"

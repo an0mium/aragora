@@ -1527,6 +1527,25 @@ def summary_only_payload(
     return compact
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     summary = payload["summary"]
     print("# Codex Branch Backlog Audit\n")
@@ -1754,11 +1773,14 @@ def main(argv: list[str] | None = None) -> int:
                 DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY if args.examples is None else args.examples
             ),
         )
-    if args.markdown:
-        print_markdown(payload, examples=10 if args.examples is None else args.examples)
-    else:
-        # JSON is the default to make automation consumption explicit.
-        print(json.dumps(payload, indent=2 if args.json else None))
+    try:
+        if args.markdown:
+            print_markdown(payload, examples=10 if args.examples is None else args.examples)
+        else:
+            # JSON is the default to make automation consumption explicit.
+            _emit_output(json.dumps(payload, indent=2 if args.json else None))
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
     return 0
 
 

@@ -1453,7 +1453,7 @@ def build_prompt(
         "",
         "Run read-only live truth first:",
         "git status --short --branch --untracked-files=all",
-        "python3 scripts/agent_bridge.py --json health || true",
+        "python3 scripts/agent_bridge.py health --json || true",
         "python3 scripts/agent_bridge.py operator-snapshot --json --summary-only || true",
         "python3 scripts/list_active_agent_sessions.py --json --codex-session-scan-limit 120",
     ]

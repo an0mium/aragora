@@ -1,7 +1,22 @@
 from __future__ import annotations
 
+import pytest
+
 from aragora.prompt_engine.timing import OperationTiming, PipelineTiming
 from scripts.profile_prompt_engine import build_profile_report
+
+
+def test_build_profile_report_rejects_empty_timing_samples() -> None:
+    with pytest.raises(ValueError, match="requires at least one timing sample"):
+        build_profile_report(
+            prompt="Profile the prompt engine",
+            timings=[],
+            profile="founder",
+            depth="quick",
+            skip_research=False,
+            skip_interrogation=False,
+            mode="mock-agent",
+        )
 
 
 def test_build_profile_report_aggregates_stage_and_operation_baselines() -> None:

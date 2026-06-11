@@ -12,6 +12,9 @@ the Loop Control Plane that touches the world, and it only ever reads:
   operator-snapshot --json`` (themselves read-only)
 * ``.aragora/proof_first_shift/runtime_state.json`` (file read)
 * ``.aragora/docs_drift_status.json`` (file read)
+* ``.aragora/loop_budgets.json`` + ``.aragora/loop_spend/<loop_id>.json`` (file
+  reads; the spend-ledger *writer* lives in ``aragora.swarm.loop_budget`` and is
+  called by loops, never by collectors)
 
 It never merges, comments, reruns, pushes, or passes an ``--apply`` flag, and it
 writes nothing. Collectors degrade gracefully (``source_status`` of ``degraded``
@@ -31,6 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from aragora.swarm.loop_budget import BudgetPolicy, resolve_loop_budget
 from aragora.swarm.loop_control import LOOP_SPECS, LoopKind, LoopRecord, classify_loop
 
 LAUNCHD_LABELS: dict[LoopKind, str] = {
@@ -291,37 +295,6 @@ def collect_docs_sync_drift(
     }
 
 
-def collect_budget(repo_root: Path, *, timeout: float = 5.0) -> dict[str, Any]:
-    """Side-effect-free budget read.
-
-    v1 does not wire per-loop dollar ceilings into the standing loops, so this
-    reports ``unavailable`` unless ``ARAGORA_LOOP_BUDGET_USD`` is set. The gap is
-    carried by each loop's halt-readiness (``budget_ceiling=False``) rather than
-    fabricated here.
-    """
-    raw = os.environ.get("ARAGORA_LOOP_BUDGET_USD")
-    if raw:
-        try:
-            remaining = float(raw)
-        except ValueError:
-            remaining = None
-        if remaining is not None:
-            return {
-                "source": "env:ARAGORA_LOOP_BUDGET_USD",
-                "source_status": "ok",
-                "remaining_usd": remaining,
-                "ceiling_usd": remaining,
-                "spend_usd": None,
-            }
-    return {
-        "source": "none",
-        "source_status": "unavailable",
-        "remaining_usd": None,
-        "ceiling_usd": None,
-        "spend_usd": None,
-    }
-
-
 _COLLECTORS: dict[LoopKind, Callable[..., dict[str, Any]]] = {
     LoopKind.BOSS_LOOP: collect_boss_loop,
     LoopKind.MERGE_ARBITER: collect_merge_arbiter,
@@ -349,10 +322,16 @@ def collect_all(
     allow_network: bool = True,
     kinds: list[LoopKind] | None = None,
 ) -> dict[LoopKind, dict[str, Any]]:
-    """Collect raw signals for the selected loops, concurrently and read-only."""
+    """Collect raw signals for the selected loops, concurrently and read-only.
+
+    Each loop's raw dict carries a per-loop ``budget`` resolved from the
+    operator policy file plus that loop's spend-ledger snapshot (see
+    ``aragora.swarm.loop_budget``); loops without a ceiling or written spend
+    are reported ``degraded``/``unavailable`` rather than fabricated.
+    """
     root = Path(repo_root)
     selected = list(kinds) if kinds else list(_COLLECTORS)
-    budget = collect_budget(root)
+    policy = BudgetPolicy.load(root)
     out: dict[LoopKind, dict[str, Any]] = {}
 
     pending: list[LoopKind] = []
@@ -361,7 +340,7 @@ def collect_all(
             out[kind] = {
                 "source_status": "unavailable",
                 "error": "skipped: --no-network",
-                "budget": budget,
+                "budget": resolve_loop_budget(root, kind.value, policy),
             }
             continue
         pending.append(kind)
@@ -375,7 +354,8 @@ def collect_all(
             for future in as_completed(futures):
                 kind = futures[future]
                 raw = future.result()
-                raw.setdefault("budget", budget)
+                if "budget" not in raw:
+                    raw["budget"] = resolve_loop_budget(root, kind.value, policy)
                 out[kind] = raw
     return out
 
