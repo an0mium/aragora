@@ -2221,6 +2221,21 @@ class TestHasBlockingOrNegativeVerdict:
     def test_word_boundary_does_not_flag_blockchain_verdict(self) -> None:
         assert not _has_blocking_or_negative_verdict("Verdict: blockchain summary attached")
 
+    def test_inline_empty_markers_never_consume_the_next_section(self) -> None:
+        # "Blockers: []" is an explicit empty list; the following unrelated
+        # section must not be read as a blocker entry.
+        assert not _has_blocking_or_negative_verdict("Blockers: []\nVerdict: PASS")
+        assert not _has_blocking_or_negative_verdict("Blockers: -\nScope reviewed: full diff")
+        assert not _has_blocking_or_negative_verdict("Blocking findings: [ ]\n\nVerdict: passed")
+
+    def test_empty_blockers_followed_by_new_section_or_heading_is_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers:\nVerdict: PASS")
+        assert not _has_blocking_or_negative_verdict("Blockers:\n### Validation notes")
+
+    def test_lookahead_still_catches_list_items_with_colons(self) -> None:
+        assert _has_blocking_or_negative_verdict("Blockers:\n- crash: stack overflow in parser")
+        assert _has_blocking_or_negative_verdict("Blockers:\n1. regression: settle gate bypassed")
+
     def test_non_blocking_values_remain_countable(self) -> None:
         assert not _has_blocking_or_negative_verdict("Blockers: none")
         assert not _has_blocking_or_negative_verdict("Blocking findings: no blocking findings")

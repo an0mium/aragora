@@ -3677,11 +3677,24 @@ def _has_blocking_or_negative_verdict(body: str) -> bool:
             return True
         if normalized_label in {"blocking finding", "blocking findings", "blocker", "blockers"}:
             candidate = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", normalized_value)
-            if candidate in {"", "-", "*", "[]", "[ ]"}:
+            if candidate in {"-", "*", "[]", "[ ]", "—", "–"}:
+                # An inline empty marker ("Blockers: []", "Blockers: -") is an
+                # explicit "no blockers"; never read the next line as a blocker.
+                continue
+            if not candidate:
                 # The blockers may be listed on the following lines:
                 # "Blocking findings:\n- crash on startup" must stay blocking,
                 # while "Blockers:\nNone found." must stay countable.
                 follow = next((entry for entry in lines[idx + 1 :] if entry), "")
+                is_list_item = bool(re.match(r"^(?:[-*+]\s+|\d+[.)]\s+)", follow))
+                if not is_list_item:
+                    if follow.startswith("#"):
+                        # An empty blockers section followed by a heading.
+                        continue
+                    if re.match(r"^[^:]+?:\s+\S", follow):
+                        # An empty blockers section followed by a new labeled
+                        # section ("Verdict: PASS") is not a blocker entry.
+                        continue
                 candidate = _normalize_value(_strip_decoration(follow))
             if not candidate or _starts_with_phrase(candidate, non_blocking_prefixes):
                 continue
