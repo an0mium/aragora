@@ -2197,6 +2197,27 @@ class TestHasBlockingOrNegativeVerdict:
         assert _has_blocking_or_negative_verdict("Verdict - FAIL")
         assert _has_blocking_or_negative_verdict("Blocking findings — found stale evidence")
 
+    def test_multi_line_blocker_lists_are_blocking(self) -> None:
+        assert _has_blocking_or_negative_verdict("Blocking findings:\n- Crash on startup")
+        assert _has_blocking_or_negative_verdict("Blockers:\n\n1. Stale exact-head evidence")
+
+    def test_multi_line_non_blocking_values_remain_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers:\nNone found.")
+        assert not _has_blocking_or_negative_verdict("Blocking findings:")
+
+    def test_decorated_and_numbered_labels_are_recognized(self) -> None:
+        assert _has_blocking_or_negative_verdict("1. Verdict: FAIL")
+        assert _has_blocking_or_negative_verdict("*Verdict*: FAIL")
+        assert _has_blocking_or_negative_verdict("__Verdict__: FAIL")
+
+    def test_failure_verdict_and_inline_list_blockers_are_negative(self) -> None:
+        assert _has_blocking_or_negative_verdict("Verdict: Failure")
+        assert _has_blocking_or_negative_verdict("Blockers: - broken auth flow")
+
+    def test_boolean_and_zero_values_remain_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers: false")
+        assert not _has_blocking_or_negative_verdict("Blocking findings: zero")
+
     def test_word_boundary_does_not_flag_blockchain_verdict(self) -> None:
         assert not _has_blocking_or_negative_verdict("Verdict: blockchain summary attached")
 

@@ -3616,6 +3616,8 @@ def _has_blocking_or_negative_verdict(body: str) -> bool:
         "fail",
         "failed",
         "failing",
+        "fails",
+        "failure",
         "block",
         "blocked",
         "blocking",
@@ -3635,6 +3637,8 @@ def _has_blocking_or_negative_verdict(body: str) -> bool:
         "no blocking findings",
         "not found",
         "0",
+        "zero",
+        "false",
         "n/a",
         "not applicable",
         "[]",
@@ -3646,27 +3650,40 @@ def _has_blocking_or_negative_verdict(body: str) -> bool:
         # "block" must never cover "blockchain".
         return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
 
-    for raw_line in str(body or "").splitlines():
-        line = raw_line.strip()
-        if not line:
+    def _strip_decoration(text: str) -> str:
+        # Markdown list/heading/quote decoration and numbered-list markers:
+        # "### Verdict", "1. Verdict", "> **Verdict**" all expose the label.
+        return re.sub(r"^(?:[#>\-*+\s]+|\d+[.)]\s+)+", "", text.strip())
+
+    def _normalize_value(text: str) -> str:
+        text = text.replace("**", "").replace("__", "")
+        return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
+
+    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    for idx, stripped in enumerate(lines):
+        if not stripped:
             continue
-        # Strip markdown list/heading/quote decoration so "### Verdict: FAIL"
-        # and "> **Verdict:** FAIL" still expose the label.
-        line = line.lstrip("#>-* ").strip()
-        line = line.replace("**", "")
+        line = _strip_decoration(stripped)
+        line = line.replace("**", "").replace("__", "")
         match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
         if not match:
             continue
         normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
-        normalized_value = re.sub(
-            r"\s+", " ", match.group("value").strip().strip("*").strip().lower()
-        )
+        normalized_label = normalized_label.strip("*_ ")
+        normalized_value = _normalize_value(match.group("value"))
         if normalized_label in {"verdict", "decision", "recommendation"} and _starts_with_phrase(
             normalized_value, negative_verdict_prefixes
         ):
             return True
         if normalized_label in {"blocking finding", "blocking findings", "blocker", "blockers"}:
-            if not normalized_value or _starts_with_phrase(normalized_value, non_blocking_prefixes):
+            candidate = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", normalized_value)
+            if candidate in {"", "-", "*", "[]", "[ ]"}:
+                # The blockers may be listed on the following lines:
+                # "Blocking findings:\n- crash on startup" must stay blocking,
+                # while "Blockers:\nNone found." must stay countable.
+                follow = next((entry for entry in lines[idx + 1 :] if entry), "")
+                candidate = _normalize_value(_strip_decoration(follow))
+            if not candidate or _starts_with_phrase(candidate, non_blocking_prefixes):
                 continue
             return True
     return False
