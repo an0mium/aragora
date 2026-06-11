@@ -44,7 +44,8 @@ audits each loop's guards against them (`audit_halt_readiness`):
 2. **No-progress detection that distinguishes fault from waiting.** The loop
    must notice it is not advancing **and** correctly separate an *operational
    fault* (halt, fail closed) from *normal waiting on not-ready work*
-   (keep waiting). Getting this wrong is the live `merge_arbiter` defect (§4).
+   (keep waiting). Getting this wrong was the `merge_arbiter` defect (§4),
+   fixed by PR #8125.
 3. **Budget ceiling.** A spend ceiling so a stuck-but-busy loop cannot run up an
    unbounded bill. This is the article's headline risk.
 
@@ -56,13 +57,19 @@ The audit verdict per loop is:
 
 ### Current findings (curated; see §6)
 
-Every standing loop is currently `incomplete`. Two systemic gaps dominate:
+Every standing loop is currently `incomplete`. One systemic gap dominates:
 
 - **No loop has a dollar/budget ceiling.** They are bounded by time/iterations
   only. Wiring real per-loop budgets is the highest-value follow-up.
-- **`merge_arbiter`'s no-progress detection does not distinguish an operational
-  fault from not-ready PRs** (the #7879 bug class), so its circuit breaker can
-  trip on benign waiting and/or spin to `max_runtime` on a real fault.
+
+Retired findings:
+
+- **`merge_arbiter` fault-vs-waiting (the #7879 bug class): fixed by PR #8125.**
+  The breaker now trips only on systemic operational faults
+  (`ArbiterOperationalError` on candidate list fetch, or every evaluation in a
+  poll faulting); not-ready PRs and a single poison-pill PR never trip it.
+  Residual, recorded in the spec notes: merge-API failures during a merge
+  attempt are reported as results, not faults, bounded by `max_runtime_hours`.
 
 These are honest, code-referenced findings, not fabricated alarms.
 
@@ -125,9 +132,11 @@ Control Plane encodes the correct distinction directly in `classify_loop`:
 - an unreadable loop -> state `unknown`, next action `report_only` (never an
   implied "continue").
 
-`audit_halt_readiness` then flags `merge_arbiter` as `incomplete` precisely
-because its *guard* does not yet make this distinction, so the gap is visible at
-the fleet level until the loop itself is fixed.
+The loop itself now makes the same distinction (PR #8125): `merge_arbiter`
+raises `ArbiterOperationalError` for genuine faults and its breaker counts only
+systemic ones, so `audit_halt_readiness` no longer flags the fault-vs-waiting
+gap. The arbiter stays `incomplete` solely for the missing budget ceiling, and
+that residual is visible at the fleet level until budgets are wired.
 
 ---
 
@@ -151,7 +160,7 @@ The stable, machine-readable fields:
              "source": "none", "source_status": "unavailable"},
   "feedback_gate": {"kind": "quorum", "status": "quorum"},
   "halt_readiness": {"max_iteration": true, "no_progress": true,
-                     "no_progress_distinguishes_fault": false,
+                     "no_progress_distinguishes_fault": true,
                      "budget_ceiling": false,
                      "verdict": "incomplete", "gaps": ["..."], "notes": ["..."]},
   "durability": {"state_path": null, "restart_safe": false},
