@@ -145,22 +145,27 @@ def ahead_behind(repo_root: Path) -> tuple[int, int]:
     missing ``origin/main`` ref). Callers should already have detected
     that case via :func:`origin_main_sha`.
     """
+    ahead, behind, _reason = _ahead_behind_probe(repo_root)
+    return ahead, behind
+
+
+def _ahead_behind_probe(repo_root: Path) -> tuple[int, int, str | None]:
     try:
         result = _run_git(
             ["rev-list", "--left-right", "--count", "origin/main...HEAD"],
             repo_root=repo_root,
         )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-        return (0, 0)
+        return (0, 0, "ahead_behind_probe_failed")
     parts = result.stdout.split()
     if len(parts) != 2:
-        return (0, 0)
+        return (0, 0, "ahead_behind_probe_failed")
     try:
         behind = int(parts[0])
         ahead = int(parts[1])
     except ValueError:
-        return (0, 0)
-    return ahead, behind
+        return (0, 0, "ahead_behind_probe_failed")
+    return ahead, behind, None
 
 
 def untracked_files(repo_root: Path) -> list[str]:
@@ -265,9 +270,10 @@ def probe(
         reasons.append("origin_main_unavailable")
 
     if head and origin:
-        ahead, behind = ahead_behind(repo_root)
+        ahead, behind, ahead_behind_probe_reason = _ahead_behind_probe(repo_root)
     else:
         ahead, behind = (0, 0)
+        ahead_behind_probe_reason = None
 
     untracked, untracked_probe_reason = _untracked_files_probe(repo_root)
     uncommitted, uncommitted_probe_reason = _uncommitted_modified_files_probe(repo_root)
@@ -282,6 +288,7 @@ def probe(
     status_probe_reasons = [
         reason
         for reason in (
+            ahead_behind_probe_reason,
             untracked_probe_reason,
             uncommitted_probe_reason,
             submodule_probe_reason,

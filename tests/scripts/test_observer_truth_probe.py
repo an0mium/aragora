@@ -311,3 +311,77 @@ def test_probe_fails_closed_when_submodule_status_unavailable(
     assert result["clean"] is False
     assert result["submodule_dirty"] is False
     assert "submodule_status_probe_failed" in result["reasons"]
+
+
+def test_probe_fails_closed_when_ahead_behind_status_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import observer_truth_probe as mod
+
+    sha = "d" * 40
+
+    def fake_run_git(
+        args: list[str],
+        *,
+        repo_root: Path,
+        check: bool = True,
+        timeout: float = mod.GIT_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "HEAD"] or args == ["rev-parse", "origin/main"]:
+            return subprocess.CompletedProcess(args, 0, stdout=f"{sha}\n", stderr="")
+        if args == ["rev-list", "--left-right", "--count", "origin/main...HEAD"]:
+            raise subprocess.TimeoutExpired(args, timeout=timeout)
+        if args == ["ls-files", "--others", "--exclude-standard"]:
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+        if args[0] == "diff":
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+        if args == ["submodule", "status", "--recursive"]:
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+        raise AssertionError(f"unexpected git args: {args!r}")
+
+    monkeypatch.setattr(mod, "_run_git", fake_run_git)
+
+    result = mod.probe(tmp_path, fetch=False)
+
+    assert result["clean"] is False
+    assert result["ahead"] == 0
+    assert result["behind"] == 0
+    assert "ahead_behind_probe_failed" in result["reasons"]
+
+
+def test_probe_fails_closed_when_ahead_behind_output_is_malformed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import observer_truth_probe as mod
+
+    sha = "e" * 40
+
+    def fake_run_git(
+        args: list[str],
+        *,
+        repo_root: Path,
+        check: bool = True,
+        timeout: float = mod.GIT_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "HEAD"] or args == ["rev-parse", "origin/main"]:
+            return subprocess.CompletedProcess(args, 0, stdout=f"{sha}\n", stderr="")
+        if args == ["rev-list", "--left-right", "--count", "origin/main...HEAD"]:
+            return subprocess.CompletedProcess(args, 0, stdout="0 nope\n", stderr="")
+        if args == ["ls-files", "--others", "--exclude-standard"]:
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+        if args[0] == "diff":
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+        if args == ["submodule", "status", "--recursive"]:
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+        raise AssertionError(f"unexpected git args: {args!r}")
+
+    monkeypatch.setattr(mod, "_run_git", fake_run_git)
+
+    result = mod.probe(tmp_path, fetch=False)
+
+    assert result["clean"] is False
+    assert result["ahead"] == 0
+    assert result["behind"] == 0
+    assert "ahead_behind_probe_failed" in result["reasons"]
