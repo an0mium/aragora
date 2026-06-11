@@ -682,6 +682,7 @@ def unresolved_outbox_handoff_branches(
     *,
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
+    open_pr_only: bool = False,
 ) -> set[str]:
     """Return branch names that already have unresolved automation outbox handoffs."""
 
@@ -698,6 +699,8 @@ def unresolved_outbox_handoff_branches(
             continue
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
         if not idempotency_key or idempotency_key in terminal_keys:
+            continue
+        if open_pr_only and not idempotency_key.startswith("open-pr-"):
             continue
         branches.update(_outbox_payload_branches(payload))
     return branches
@@ -1173,6 +1176,12 @@ def audit(
         outbox_dir=resolved_outbox_dir,
         receipt_dir=resolved_receipt_dir,
     )
+    open_pr_handoff_outbox_branches = unresolved_outbox_handoff_branches(
+        root,
+        outbox_dir=resolved_outbox_dir,
+        receipt_dir=resolved_receipt_dir,
+        open_pr_only=True,
+    )
     patch_deadline = _patch_budget_deadline(patch_equivalence_time_budget_seconds)
     handoff_receipted_patch_ids: set[str] | None = None
     handoff_outbox_patch_ids: set[str] | None = None
@@ -1432,9 +1441,15 @@ def audit(
     direct_handoff_outbox_branches = sum(
         1 for record in records if record.name in handoff_outbox_branches
     )
+    direct_open_pr_handoff_outbox_branches = sum(
+        1 for record in records if record.name in open_pr_handoff_outbox_branches
+    )
     audited_branch_names = {record.name for record in records}
     unresolved_handoff_outbox_refs_outside_audit = len(
         handoff_outbox_branches - audited_branch_names
+    )
+    unresolved_open_pr_handoff_outbox_refs_outside_audit = len(
+        open_pr_handoff_outbox_branches - audited_branch_names
     )
     patch_equivalent_handoff_outbox_branches = sum(
         1
@@ -1477,6 +1492,11 @@ def audit(
             "direct_handoff_outbox_branches": direct_handoff_outbox_branches,
             "unresolved_handoff_outbox_refs_outside_audit": (
                 unresolved_handoff_outbox_refs_outside_audit
+            ),
+            "unresolved_open_pr_handoff_outbox_branch_refs": (len(open_pr_handoff_outbox_branches)),
+            "direct_open_pr_handoff_outbox_branches": direct_open_pr_handoff_outbox_branches,
+            "unresolved_open_pr_handoff_outbox_refs_outside_audit": (
+                unresolved_open_pr_handoff_outbox_refs_outside_audit
             ),
             "patch_equivalent_handoff_outbox_branches": (patch_equivalent_handoff_outbox_branches),
             "writer_should_pause_for_branch_backlog": (
