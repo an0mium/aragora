@@ -113,6 +113,22 @@ def test_run_reports_timeout_and_terminates_process_group(monkeypatch) -> None:
     assert killed == [(4242, settle_one_pr.signal.SIGKILL)]
 
 
+def test_run_reports_process_start_oserror(monkeypatch) -> None:
+    def fake_popen(*args, **kwargs):
+        assert args[0] == ["missing-helper"]
+        assert kwargs["start_new_session"] is True
+        raise OSError("helper unavailable")
+
+    monkeypatch.setattr(settle_one_pr.subprocess, "Popen", fake_popen)
+
+    result = settle_one_pr._run(["missing-helper"], cwd=Path.cwd(), timeout=7)
+
+    assert result["returncode"] == 127
+    assert result["stdout"] == ""
+    assert "failed to start command" in result["stderr"]
+    assert "helper unavailable" in result["stderr"]
+
+
 def test_run_json_with_gh_retries_retries_transient_connection_error(monkeypatch) -> None:
     calls: list[list[str]] = []
 

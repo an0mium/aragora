@@ -97,14 +97,23 @@ def _state_repo_root(cwd: Path) -> Path:
 
 
 def _run(args: list[str], *, cwd: Path, timeout: int = 120) -> dict[str, Any]:
-    proc = subprocess.Popen(
-        args,
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-    )
+    try:
+        proc = subprocess.Popen(
+            args,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        return {
+            "command": " ".join(args),
+            "returncode": 127,
+            "stdout": "",
+            "stderr": f"failed to start command: {exc}",
+            "start_failed": True,
+        }
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
