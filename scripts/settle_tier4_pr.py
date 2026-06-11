@@ -33,6 +33,7 @@ REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER = "trusted operator allowlist is required for --settle-only"
 SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
+COMMAND_FAILURE_DETAIL_LIMIT = 1000
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
 ALLOWED_TIER4_NOT_READY = {
@@ -671,7 +672,7 @@ def evaluate_tier4_settlement_preconditions(
 def _run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
     result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
     if result.returncode != 0:
-        raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
+        raise RuntimeError(f"{' '.join(command)} failed: {_command_failure_detail(result)}")
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
@@ -684,11 +685,42 @@ def _run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
 def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
     result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
     if result.returncode != 0:
-        raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
+        raise RuntimeError(f"{' '.join(command)} failed: {_command_failure_detail(result)}")
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"{' '.join(command)} did not emit JSON") from exc
+
+
+def _bounded_detail(value: str, *, limit: int = COMMAND_FAILURE_DETAIL_LIMIT) -> str:
+    value = value.strip()
+    if len(value) <= limit:
+        return value
+    return f"{value[:limit]}... [truncated {len(value) - limit} chars]"
+
+
+def _json_stdout_error(stdout: str) -> str:
+    try:
+        payload = json.loads(stdout)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    for key in ("error", "message", "detail"):
+        value = payload.get(key)
+        if value:
+            return _bounded_detail(str(value))
+    return ""
+
+
+def _command_failure_detail(result: subprocess.CompletedProcess[str]) -> str:
+    stderr = str(result.stderr or "").strip()
+    if stderr:
+        return _bounded_detail(stderr)
+    stdout = str(result.stdout or "").strip()
+    if stdout:
+        return _json_stdout_error(stdout) or _bounded_detail(stdout)
+    return f"exit code {result.returncode}"
 
 
 def _required_status_check_specs(payload: dict[str, Any]) -> list[dict[str, Any]]:

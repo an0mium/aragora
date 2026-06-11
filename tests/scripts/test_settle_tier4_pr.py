@@ -111,6 +111,34 @@ def _valid_checks() -> list[dict[str, str]]:
     ]
 
 
+def test_run_json_includes_stdout_json_error_when_command_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    command = [
+        sys.executable,
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "merge-packet",
+        "--json",
+    ]
+
+    def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        assert args[0] == command
+        assert kwargs["cwd"] == tmp_path
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout='{"ok": false, "error": "merge-packet transport blocked"}\n',
+            stderr="",
+        )
+
+    monkeypatch.setattr(settler.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="merge-packet transport blocked"):
+        settler._run_json(command, cwd=tmp_path)
+
+
 def test_load_live_inputs_uses_direct_required_check_runs_when_required_rows_empty(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
