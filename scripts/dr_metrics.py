@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 import sqlite3
 import sys
 import tempfile
@@ -80,6 +81,22 @@ class DRMetrics:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
+
+
+def _valid_seconds(value: float) -> float | None:
+    """Return a finite, non-negative second value, or None for invalid metrics."""
+    if isinstance(value, bool):
+        return None
+
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(seconds) or seconds < 0:
+        return None
+
+    return seconds
 
 
 async def create_test_database(db_path: Path, num_records: int = 1000) -> None:
@@ -250,12 +267,18 @@ def calculate_compliance(
     Returns:
         Tuple of (rto_compliance, rpo_compliance) dicts
     """
+    restore_seconds = _valid_seconds(restore_time)
+    backup_age_seconds = _valid_seconds(backup_age)
     rto_compliance = {}
     rpo_compliance = {}
 
     for tier, targets in SLA_TARGETS.items():
-        rto_compliance[tier] = restore_time <= targets.rto_seconds
-        rpo_compliance[tier] = backup_age <= targets.rpo_seconds
+        rto_compliance[tier] = (
+            restore_seconds is not None and restore_seconds <= targets.rto_seconds
+        )
+        rpo_compliance[tier] = (
+            backup_age_seconds is not None and backup_age_seconds <= targets.rpo_seconds
+        )
 
     return rto_compliance, rpo_compliance
 
