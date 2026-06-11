@@ -127,3 +127,72 @@ def test_build_scorecard_rejects_out_of_range_rate_values(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="no_rescue_truth_success_rate.*between 0.0 and 1.0"):
         mod.build_scorecard([report_path], corpus_path=corpus_path)
+
+
+def test_build_scorecard_accepts_integral_string_count_values(tmp_path: Path) -> None:
+    corpus_path = _write_corpus(tmp_path / "corpus.json")
+    report_path = _write_json(
+        tmp_path / "truth-artifact.json",
+        {
+            "generated_at": "2026-04-15T23:05:32Z",
+            "coverage": {"attempted_issue_count": "3"},
+            "primary_metrics": {
+                "truth_success_rate": 0.75,
+                "no_rescue_truth_success_rate": 0.5,
+                "merged_only_rate": 0.25,
+            },
+            "rescue_counts_by_type": {"rescue_worker_crash": "2"},
+        },
+    )
+
+    run = mod.build_scorecard([report_path], corpus_path=corpus_path)["runs"][0]
+
+    assert run["attempted_issue_count"] == 3
+    assert run["rescue_count"] == 2
+
+
+@pytest.mark.parametrize("attempted_count", ["unknown", -1, 1.25, True])
+def test_build_scorecard_rejects_invalid_attempted_count_values(
+    tmp_path: Path,
+    attempted_count: object,
+) -> None:
+    corpus_path = _write_corpus(tmp_path / "corpus.json")
+    report_path = _write_json(
+        tmp_path / "truth-artifact.json",
+        {
+            "generated_at": "2026-04-15T23:05:32Z",
+            "coverage": {"attempted_issue_count": attempted_count},
+            "primary_metrics": {
+                "truth_success_rate": 0.75,
+                "no_rescue_truth_success_rate": 0.5,
+                "merged_only_rate": 0.25,
+            },
+        },
+    )
+
+    with pytest.raises(ValueError, match="attempted_issue_count.*non-negative integer count"):
+        mod.build_scorecard([report_path], corpus_path=corpus_path)
+
+
+@pytest.mark.parametrize("rescue_count", ["unknown", -1, 1.25, False])
+def test_build_scorecard_rejects_invalid_rescue_count_values(
+    tmp_path: Path,
+    rescue_count: object,
+) -> None:
+    corpus_path = _write_corpus(tmp_path / "corpus.json")
+    report_path = _write_json(
+        tmp_path / "truth-artifact.json",
+        {
+            "generated_at": "2026-04-15T23:05:32Z",
+            "coverage": {"attempted_issue_count": 1},
+            "primary_metrics": {
+                "truth_success_rate": 0.75,
+                "no_rescue_truth_success_rate": 0.5,
+                "merged_only_rate": 0.25,
+            },
+            "rescue_counts_by_type": {"rescue_worker_crash": rescue_count},
+        },
+    )
+
+    with pytest.raises(ValueError, match="rescue_worker_crash.*non-negative integer count"):
+        mod.build_scorecard([report_path], corpus_path=corpus_path)

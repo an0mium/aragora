@@ -37,10 +37,31 @@ def _pct(summary: dict[str, Any], key: str) -> float:
 
 
 def _int(summary: dict[str, Any], key: str) -> int:
-    try:
-        return int(summary.get(key, 0) or 0)
-    except (TypeError, ValueError):
+    raw_value = summary.get(key, 0)
+    if raw_value in (None, ""):
         return 0
+    if isinstance(raw_value, bool):
+        raise ValueError(f"benchmark report field `{key}` must be a non-negative integer count")
+    if isinstance(raw_value, int):
+        value = raw_value
+    elif isinstance(raw_value, float):
+        if not math.isfinite(raw_value) or not raw_value.is_integer():
+            raise ValueError(
+                f"benchmark report field `{key}` must be a non-negative integer count"
+            )
+        value = int(raw_value)
+    elif isinstance(raw_value, str):
+        try:
+            value = int(raw_value)
+        except ValueError:
+            raise ValueError(
+                f"benchmark report field `{key}` must be a non-negative integer count"
+            ) from None
+    else:
+        raise ValueError(f"benchmark report field `{key}` must be a non-negative integer count")
+    if value < 0:
+        raise ValueError(f"benchmark report field `{key}` must be a non-negative integer count")
+    return value
 
 
 def _nested_dict(payload: dict[str, Any], key: str) -> dict[str, Any]:
