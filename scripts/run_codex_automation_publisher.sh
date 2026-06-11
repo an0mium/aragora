@@ -50,6 +50,29 @@ trap cleanup EXIT
 
 cd "$REPO_ROOT"
 
+# Opt-in GitHub App auth for this pass's shell-level `gh` calls (run-20260610
+# lane Z). Minted fresh here because installation tokens expire after one
+# hour and this script is exactly one publish pass per invocation (launchd
+# re-invokes it, so every pass gets a fresh token). Default off until the
+# operator flips ARAGORA_GH_APP_AUTH=1 (mirrors the ARAGORA_AUTO_EVIDENCE /
+# ARAGORA_QUORUM_RECONCILER wiring pattern). Fail-safe: gh_app_env.py prints
+# nothing when App config is absent or the mint fails, so the pass degrades
+# to the operator's existing gh auth instead of crashing. The token value is
+# never echoed. ARAGORA_GITHUB_AUTH_SOURCE tags the token so
+# aragora.swarm.github_app_auth can drop it for write ops (narrow App scopes).
+if [[ "${ARAGORA_GH_APP_AUTH:-0}" == "1" ]]; then
+  tok="$("${PYTHON_BIN}" scripts/gh_app_env.py --print-token --quiet 2>/dev/null || true)"
+  if [[ -n "${tok}" ]]; then
+    export GH_TOKEN="${tok}"
+    export GITHUB_TOKEN="${tok}"
+    export ARAGORA_GITHUB_AUTH_SOURCE="github_app_installation"
+    echo "$(STAMP) [codex-automation-publisher] gh auth: GitHub App installation token (per-pass mint)"
+  else
+    echo "$(STAMP) [codex-automation-publisher] gh auth: App token unavailable; using existing gh auth"
+  fi
+  unset tok
+fi
+
 echo "$(STAMP) [codex-automation-publisher] checking GitHub CLI health"
 HEALTH_JSON="$(python3 scripts/github_cli_health.py --repo "${REPO_ROOT}" --json 2>/dev/null || true)"
 if python3 scripts/cache_codex_automation_github_status.py \
