@@ -1,5 +1,6 @@
 import asyncio
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -25,6 +26,41 @@ def test_run_benchmark_rejects_empty_case_collection() -> None:
 
     with pytest.raises(ValueError, match="requires at least one test case"):
         asyncio.run(module.run_benchmark([], rounds=2, seed=42))
+
+
+def test_run_benchmark_rejects_non_positive_round_count() -> None:
+    module = _load_module()
+    test_case = module.TestCase(
+        question="Should we use a simple benchmark guard?",
+        category=module.CATEGORY_CLEAR,
+    )
+
+    with pytest.raises(ValueError, match="rounds must be a positive integer"):
+        asyncio.run(module.run_benchmark([test_case], rounds=0, seed=42))
+
+
+def test_run_benchmark_rejects_boolean_round_count() -> None:
+    module = _load_module()
+    test_case = module.TestCase(
+        question="Should we use a simple benchmark guard?",
+        category=module.CATEGORY_CLEAR,
+    )
+
+    with pytest.raises(ValueError, match="rounds must be a positive integer"):
+        asyncio.run(module.run_benchmark([test_case], rounds=True, seed=42))
+
+
+def test_cli_rejects_non_positive_round_count_before_running() -> None:
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), "--rounds", "0", "--quick"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "must be a positive integer" in result.stderr
+    assert "Trickster A/B Benchmark" not in result.stdout
 
 
 def test_generate_report_rejects_empty_results() -> None:

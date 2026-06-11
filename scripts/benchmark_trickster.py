@@ -234,6 +234,21 @@ def create_agents(seed: int, *, hollow: bool = False) -> list[StyledMockAgent]:
     ]
 
 
+def _positive_int(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return value
+
+
+def _require_positive_int(value: int, *, label: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{label} must be a positive integer")
+
+
 # ---------------------------------------------------------------------------
 # Single debate runner
 # ---------------------------------------------------------------------------
@@ -309,6 +324,7 @@ async def run_benchmark(
     """Run the full A/B benchmark across all test cases."""
     if not test_cases:
         raise ValueError("trickster benchmark requires at least one test case")
+    _require_positive_int(rounds, label="rounds")
 
     results: list[ABResult] = []
 
@@ -645,7 +661,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--rounds",
-        type=int,
+        type=_positive_int,
         default=2,
         help="Number of debate rounds per run (default: 2).",
     )
