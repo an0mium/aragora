@@ -60,6 +60,14 @@ SUPERSEDED_CANCELLED_CHECKS = {
         "typecheck-run": "typecheck",
     },
 }
+READY_BOUNDARY_WATCHED_WORKFLOWS = (
+    "Tests",
+    "Security Gate",
+    "Release Readiness",
+    "Aragora Code Review",
+    "Core Suites",
+    "Smoke Tests",
+)
 
 PR_LIST_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,state,mergeable,mergeStateStatus,updatedAt"
@@ -179,6 +187,9 @@ def render_queue_conductor_packet(packet: dict[str, Any]) -> str:
                     ready_boundary.get("eligible_for_mark_ready_authorization"),
                 )
             )
+            watched_rollup = ready_boundary.get("watched_rollup")
+            if isinstance(watched_rollup, dict) and watched_rollup.get("summary"):
+                lines.append(f"  watched-rollup: {watched_rollup.get('summary')}")
     lines.extend(["", "Best next prompt:", str(packet.get("next_prompt") or "")])
     return "\n".join(lines)
 
@@ -585,7 +596,78 @@ def _rollup_summary(items: list[Any]) -> dict[str, Any]:
         "non_actionable_cancelled": non_actionable,
         "actionable_rows": [*pending, *failing, *actionable_cancelled],
         "actionable_non_green": actionable,
+        "watched": _watched_rollup_summary(descriptors),
     }
+
+
+def _watched_rollup_summary(
+    descriptors: list[tuple[str, dict[str, str]]],
+) -> dict[str, Any]:
+    pending: list[dict[str, str]] = []
+    failing: list[dict[str, str]] = []
+    cancelled: list[dict[str, str]] = []
+    counts_by_workflow: dict[str, dict[str, int]] = {}
+    watched_workflows = list(READY_BOUNDARY_WATCHED_WORKFLOWS)
+
+    for bucket, descriptor in descriptors:
+        workflow = _watched_workflow_name(descriptor)
+        if workflow is None or bucket not in {"pending", "fail", "cancel"}:
+            continue
+        counts = counts_by_workflow.setdefault(
+            workflow,
+            {"pending": 0, "fail": 0, "cancel": 0},
+        )
+        counts[bucket] += 1
+        if bucket == "pending":
+            pending.append(descriptor)
+        elif bucket == "fail":
+            failing.append(descriptor)
+        elif bucket == "cancel":
+            cancelled.append(descriptor)
+
+    actionable_rows = [*pending, *failing, *cancelled]
+    return {
+        "workflows": watched_workflows,
+        "pending": pending,
+        "failing": failing,
+        "cancelled": cancelled,
+        "actionable_rows": actionable_rows,
+        "counts_by_workflow": counts_by_workflow,
+        "actionable_non_green": bool(actionable_rows),
+        "summary": _format_watched_rollup_summary(counts_by_workflow),
+    }
+
+
+def _watched_workflow_name(descriptor: dict[str, str]) -> str | None:
+    workflow = str(descriptor.get("workflow") or "").strip().lower()
+    name = str(descriptor.get("name") or "").strip().lower()
+    for watched in READY_BOUNDARY_WATCHED_WORKFLOWS:
+        watched_lower = watched.lower()
+        if workflow.startswith(watched_lower) or name.startswith(watched_lower):
+            return watched
+    return None
+
+
+def _format_watched_rollup_summary(counts_by_workflow: dict[str, dict[str, int]]) -> str:
+    if not counts_by_workflow:
+        return "no watched gate rows pending or failing"
+    parts: list[str] = []
+    for workflow in READY_BOUNDARY_WATCHED_WORKFLOWS:
+        counts = counts_by_workflow.get(workflow)
+        if not counts:
+            continue
+        fragments = [
+            f"{counts[key]} {label}"
+            for key, label in (
+                ("pending", "pending"),
+                ("fail", "failed"),
+                ("cancel", "cancelled"),
+            )
+            if counts.get(key)
+        ]
+        if fragments:
+            parts.append(f"{workflow}: {', '.join(fragments)}")
+    return "; ".join(parts) if parts else "no watched gate rows pending or failing"
 
 
 def _is_non_actionable_cancelled_descriptor(
@@ -707,6 +789,7 @@ def _ready_boundary_summary(
     reasons = [str(reason) for reason in merge_packet.get("reasons") or []]
     reasons_text = " ".join(reason.lower() for reason in reasons)
     actionable_rows = list(rollup.get("actionable_rows") or [])
+    watched_rollup = rollup.get("watched") if isinstance(rollup.get("watched"), dict) else {}
     blockers: list[str] = []
     post_ready_blockers: list[str] = []
 
@@ -769,6 +852,7 @@ def _ready_boundary_summary(
         "post_ready_blockers": post_ready_blockers,
         "required_checks_summary": required.get("summary"),
         "actionable_rollup_rows": actionable_rows,
+        "watched_rollup": watched_rollup,
         "evidence_status": {
             "tier": tier,
             "counted_model_families": families,

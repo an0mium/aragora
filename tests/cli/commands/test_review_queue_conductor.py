@@ -490,6 +490,82 @@ def test_ready_boundary_mode_blocks_missing_evidence() -> None:
     assert "re-run review-queue conductor in ready-boundary mode" in packet["next_prompt"]
 
 
+def test_ready_boundary_mode_emits_watched_rollup_summary() -> None:
+    view = _view(7885, head="exact-head", draft=False, merge_state="BLOCKED")
+    view["statusCheckRollup"] = [
+        {
+            "name": "test-fast (infra, tests/nomic tests/control_plane)",
+            "workflowName": "Tests",
+            "status": "IN_PROGRESS",
+            "conclusion": "",
+        },
+        {
+            "name": "Mac TypeScript SDK Shadow",
+            "workflowName": "Self-Hosted Shadow CI",
+            "status": "QUEUED",
+            "conclusion": "",
+        },
+        {
+            "name": "Generate Capability Gap Report",
+            "workflowName": "Capability Surface Report",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+        },
+        {
+            "name": "Docs Consistency",
+            "workflowName": "Docs Consistency",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+        },
+        {
+            "name": "aragora-merge-quorum",
+            "workflowName": "Aragora Merge Quorum",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+        },
+    ]
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7885"],
+        mode="ready-boundary",
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=lambda _pr_number, _repo: {
+                "available": True,
+                "error": "",
+                "checks": [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "state": "FAILURE",
+                        "bucket": "fail",
+                    }
+                ],
+            },
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7885,
+                head="exact-head",
+                not_ready=[7885],
+                counted_model_families=[],
+                focused_dogfood_present=False,
+                reasons=[
+                    "checks are failing; repair before settlement",
+                    "model quorum incomplete: 0/2 signal(s)",
+                    "focused adversarial dogfood evidence is required",
+                ],
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+        ),
+    )
+
+    watched = packet["candidates"][0]["ready_boundary"]["watched_rollup"]
+    assert watched["actionable_non_green"] is True
+    assert watched["summary"] == "Tests: 1 pending"
+    assert watched["counts_by_workflow"] == {"Tests": {"pending": 1, "fail": 0, "cancel": 0}}
+    assert [row["workflow"] for row in watched["actionable_rows"]] == ["Tests"]
+
+
 def test_steering_no_lane_match_is_empty_for_boundary_checks() -> None:
     view = _view(7885, head="exact-head", draft=True)
 
