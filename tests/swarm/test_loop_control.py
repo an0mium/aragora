@@ -196,11 +196,15 @@ def test_record_is_json_serializable() -> None:
     assert "loop-control/v1" in json.dumps(rec.to_dict())
 
 
-def test_registry_complete_and_merge_arbiter_flagged() -> None:
+def test_registry_complete_and_merge_arbiter_fault_distinction_retired() -> None:
     for kind in LoopKind:
         assert kind in LOOP_SPECS
-    # The #7879 lesson is encoded as a curated gap on the merge arbiter.
-    assert LOOP_SPECS[LoopKind.MERGE_ARBITER].guards.no_progress_distinguishes_fault is False
+    # The #7879 curated gap was retired by PR #8125: the arbiter breaker now
+    # trips only on systemic operational faults, never on not-ready PRs.
+    assert LOOP_SPECS[LoopKind.MERGE_ARBITER].guards.no_progress_distinguishes_fault is True
+    arbiter_audit = audit_halt_readiness(LOOP_SPECS[LoopKind.MERGE_ARBITER].guards)
+    assert arbiter_audit.verdict == "incomplete"  # budget ceiling still missing
+    assert arbiter_audit.gaps == ["no dollar/budget ceiling (bounded by time/iterations only)"]
 
 
 def test_source_paths_and_status_propagated() -> None:
