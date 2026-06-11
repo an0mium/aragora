@@ -8,13 +8,12 @@ Live incidents this file guards against regressing:
 
 * 2026-06-10: under launchd's minimal default environment the sentinel's
   ``gh_auth`` check raised ``FileNotFoundError('gh')`` -> exit 2, because
-  the rendered plist carried no PATH.  The live plist was hand-patched the
-  same day; a reinstall from this script must not regress that patch, so
-  the render now bakes ``EnvironmentVariables.PATH`` in.
-* Breaches were silent: the unit had no notification channel.  The render
-  now wires a default macOS ``osascript`` notification through the
-  sentinel's ``--notify-cmd`` ``{summary}`` template (disable with
-  ``--notify-cmd ''``).
+  the rendered plist carried no PATH. A reinstall from this script must not
+  regress the hand-patched live plist, so the render bakes
+  ``EnvironmentVariables.PATH`` in.
+* Breaches were silent: the unit had no notification channel. The render now
+  wires a default macOS ``osascript`` notification through the sentinel's
+  ``--notify-cmd`` ``{summary}`` template (disable with ``--notify-cmd ''``).
 """
 
 from __future__ import annotations
@@ -24,17 +23,14 @@ import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+INSTALLER = REPO_ROOT / "scripts" / "install_fleet_sentinel_launchd.sh"
 
 EXPECTED_PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 
-def _installer_path() -> Path:
-    return REPO_ROOT / "scripts" / "install_fleet_sentinel_launchd.sh"
-
-
 def _dry_run(*extra_args: str) -> str:
     proc = subprocess.run(
-        ["bash", str(_installer_path()), "--dry-run", *extra_args],
+        ["/bin/bash", str(INSTALLER), "--dry-run", *extra_args],
         capture_output=True,
         text=True,
         cwd=str(REPO_ROOT),
@@ -44,7 +40,7 @@ def _dry_run(*extra_args: str) -> str:
 
 
 def test_installer_bash_syntax_clean() -> None:
-    proc = subprocess.run(["bash", "-n", str(_installer_path())], capture_output=True, text=True)
+    proc = subprocess.run(["/bin/bash", "-n", str(INSTALLER)], capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
 
 
@@ -60,18 +56,17 @@ def test_installer_dry_run_output_is_parseable_plist() -> None:
     payload = plistlib.loads(_dry_run().encode())
     assert payload["Label"] == "com.aragora.fleet-sentinel"
     assert payload["StartInterval"] == 600
+    assert payload["RunAtLoad"] is True
+    assert payload["WorkingDirectory"] == str(REPO_ROOT)
+    assert "--json" in payload["ProgramArguments"]
 
 
 def test_installer_renders_path_environment_variable() -> None:
-    """Regression guard for the 2026-06-10 launchd FileNotFoundError('gh').
-
-    launchd jobs get a minimal PATH; without homebrew dirs the gh_auth
-    check goes blind (exit 2).  The render must bake the full PATH in.
-    """
-    payload = plistlib.loads(_dry_run().encode())
+    """Regression guard for the 2026-06-10 launchd FileNotFoundError('gh')."""
+    out = _dry_run()
+    payload = plistlib.loads(out.encode())
     assert payload["EnvironmentVariables"]["PATH"] == EXPECTED_PATH
-    # And the raw output carries it too (cheap grep for humans/CI logs).
-    assert EXPECTED_PATH in _dry_run()
+    assert EXPECTED_PATH in out
 
 
 def test_installer_default_notify_cmd_wired() -> None:
@@ -104,8 +99,7 @@ def test_installer_notify_cmd_custom_override() -> None:
 
 
 def test_installer_notify_cmd_xml_escaped() -> None:
-    """Custom notify commands with XML-significant chars must not corrupt
-    the plist render."""
+    """Custom notify commands with XML-significant chars keep plist output valid."""
     out = _dry_run("--notify-cmd", "notifier --and=a&b --lt=<x> {summary}")
     payload = plistlib.loads(out.encode())
     args = payload["ProgramArguments"]
@@ -114,7 +108,7 @@ def test_installer_notify_cmd_xml_escaped() -> None:
 
 def test_installer_rejects_unknown_args() -> None:
     proc = subprocess.run(
-        ["bash", str(_installer_path()), "--bogus"],
+        ["/bin/bash", str(INSTALLER), "--bogus"],
         capture_output=True,
         text=True,
         cwd=str(REPO_ROOT),
@@ -125,7 +119,7 @@ def test_installer_rejects_unknown_args() -> None:
 
 def test_installer_requires_a_mode() -> None:
     proc = subprocess.run(
-        ["bash", str(_installer_path()), "--notify-cmd", "x"],
+        ["/bin/bash", str(INSTALLER), "--notify-cmd", "x"],
         capture_output=True,
         text=True,
         cwd=str(REPO_ROOT),
