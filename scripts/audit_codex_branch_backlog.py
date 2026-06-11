@@ -498,6 +498,40 @@ def _outbox_payload_branch_heads(payload: dict[str, Any]) -> dict[str, set[str |
     return refs
 
 
+OPEN_PR_ACTION_VALUES: frozenset[str] = frozenset(
+    {
+        "create_pr",
+        "create_pull_request",
+        "open_pr",
+        "open_pull_request",
+        "pull_request",
+    }
+)
+
+
+def _normalise_action_value(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    return value.strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _is_open_pr_handoff_payload(payload: Mapping[str, Any]) -> bool:
+    idempotency_key = str(payload.get("idempotency_key") or "").strip()
+    if idempotency_key.startswith("open-pr-"):
+        return True
+
+    requested_action = payload.get("requested_action")
+    action_values: list[Any] = [requested_action]
+    structured = _structured_action(requested_action)
+    if structured is not None:
+        action_values.extend(
+            structured.get(key) for key in ("action", "kind", "requested_action", "type")
+        )
+    action_values.extend(payload.get(key) for key in ("action", "kind", "type"))
+
+    return any(_normalise_action_value(value) in OPEN_PR_ACTION_VALUES for value in action_values)
+
+
 def terminal_receipt_branches(receipt_root: Path) -> set[str]:
     """Return branch references stored directly in terminal receipt payloads."""
 
@@ -682,6 +716,7 @@ def unresolved_outbox_handoff_branches(
     *,
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
+    open_pr_only: bool = False,
 ) -> set[str]:
     """Return branch names that already have unresolved automation outbox handoffs."""
 
@@ -698,6 +733,8 @@ def unresolved_outbox_handoff_branches(
             continue
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
         if not idempotency_key or idempotency_key in terminal_keys:
+            continue
+        if open_pr_only and not _is_open_pr_handoff_payload(payload):
             continue
         branches.update(_outbox_payload_branches(payload))
     return branches
@@ -1173,6 +1210,12 @@ def audit(
         outbox_dir=resolved_outbox_dir,
         receipt_dir=resolved_receipt_dir,
     )
+    open_pr_handoff_outbox_branches = unresolved_outbox_handoff_branches(
+        root,
+        outbox_dir=resolved_outbox_dir,
+        receipt_dir=resolved_receipt_dir,
+        open_pr_only=True,
+    )
     patch_deadline = _patch_budget_deadline(patch_equivalence_time_budget_seconds)
     handoff_receipted_patch_ids: set[str] | None = None
     handoff_outbox_patch_ids: set[str] | None = None
@@ -1432,9 +1475,15 @@ def audit(
     direct_handoff_outbox_branches = sum(
         1 for record in records if record.name in handoff_outbox_branches
     )
+    direct_open_pr_handoff_outbox_branches = sum(
+        1 for record in records if record.name in open_pr_handoff_outbox_branches
+    )
     audited_branch_names = {record.name for record in records}
     unresolved_handoff_outbox_refs_outside_audit = len(
         handoff_outbox_branches - audited_branch_names
+    )
+    unresolved_open_pr_handoff_outbox_refs_outside_audit = len(
+        open_pr_handoff_outbox_branches - audited_branch_names
     )
     patch_equivalent_handoff_outbox_branches = sum(
         1
@@ -1477,6 +1526,11 @@ def audit(
             "direct_handoff_outbox_branches": direct_handoff_outbox_branches,
             "unresolved_handoff_outbox_refs_outside_audit": (
                 unresolved_handoff_outbox_refs_outside_audit
+            ),
+            "unresolved_open_pr_handoff_outbox_branch_refs": (len(open_pr_handoff_outbox_branches)),
+            "direct_open_pr_handoff_outbox_branches": direct_open_pr_handoff_outbox_branches,
+            "unresolved_open_pr_handoff_outbox_refs_outside_audit": (
+                unresolved_open_pr_handoff_outbox_refs_outside_audit
             ),
             "patch_equivalent_handoff_outbox_branches": (patch_equivalent_handoff_outbox_branches),
             "writer_should_pause_for_branch_backlog": (
@@ -1573,6 +1627,19 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
         print(
             "- Patch-equivalent handoff-outbox branches: "
             f"`{summary['patch_equivalent_handoff_outbox_branches']}`"
+        )
+    if "unresolved_open_pr_handoff_outbox_branch_refs" in summary:
+        print(
+            "- Open-PR handoff-outbox branch refs: "
+            f"`{summary['unresolved_open_pr_handoff_outbox_branch_refs']}`"
+        )
+        print(
+            "- Direct open-PR handoff-outbox branches: "
+            f"`{summary['direct_open_pr_handoff_outbox_branches']}`"
+        )
+        print(
+            "- Open-PR handoff-outbox refs outside audit: "
+            f"`{summary['unresolved_open_pr_handoff_outbox_refs_outside_audit']}`"
         )
     print(
         f"- Patch-equivalence budget exhausted: `{payload['patch_equivalence_budget_exhausted']}`"

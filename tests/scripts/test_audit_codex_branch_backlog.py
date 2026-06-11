@@ -379,6 +379,13 @@ def test_print_markdown_includes_revision_metadata(tmp_path: Path, capsys: Any) 
             "diverged_salvage_candidates": 0,
             "handoff_receipted_branches": 0,
             "handoff_outbox_branches": 0,
+            "unresolved_handoff_outbox_branch_refs": 0,
+            "direct_handoff_outbox_branches": 0,
+            "unresolved_handoff_outbox_refs_outside_audit": 0,
+            "patch_equivalent_handoff_outbox_branches": 0,
+            "unresolved_open_pr_handoff_outbox_branch_refs": 2,
+            "direct_open_pr_handoff_outbox_branches": 1,
+            "unresolved_open_pr_handoff_outbox_refs_outside_audit": 1,
             "writer_should_pause_for_branch_backlog": False,
             "protected": 0,
             "by_category": {},
@@ -391,6 +398,9 @@ def test_print_markdown_includes_revision_metadata(tmp_path: Path, capsys: Any) 
 
     assert "- Worktree HEAD: `1111111111111111111111111111111111111111`" in out
     assert "- Base SHA: `2222222222222222222222222222222222222222`" in out
+    assert "- Open-PR handoff-outbox branch refs: `2`" in out
+    assert "- Direct open-PR handoff-outbox branches: `1`" in out
+    assert "- Open-PR handoff-outbox refs outside audit: `1`" in out
 
 
 def test_audit_skips_open_pr_lookup_when_github_health_degraded(
@@ -1531,6 +1541,78 @@ def test_audit_excludes_unresolved_outbox_handoffs_from_publishable_backlog(
     assert handed_off["category"] == "protected_handoff_outbox"
 
 
+def test_audit_counts_open_pr_handoff_refs_separately_from_other_outbox(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    now = datetime.now(timezone.utc)
+    rows = [
+        _branch_row("codex/open-pr", committed_at=now),
+        _branch_row("codex/non-pr", committed_at=now),
+        _branch_row("codex/new-work", committed_at=now),
+    ]
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "open-pr.json").write_text(
+        json.dumps(
+            {
+                "task": "Publish open-pr branch",
+                "requires_github": True,
+                "requested_action": "open_pr",
+                "repo": "synaptent/aragora",
+                "local_evidence": {"branch": "codex/open-pr", "head": "abc123"},
+                "idempotency_key": "publish-codex-open-pr-abc123",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (outbox / "non-pr.json").write_text(
+        json.dumps(
+            {
+                "task": "Notify about non-PR branch",
+                "requested_action": "notify_operator",
+                "repo": "synaptent/aragora",
+                "local_evidence": {"branch": "codex/non-pr", "head": "def456"},
+                "idempotency_key": "notify-codex-non-pr-def456",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: rows)
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(mod, "merged_branch_names", lambda _root, _base, _prefix: set())
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {})
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=2,
+    )
+
+    assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 2
+    assert payload["summary"]["direct_handoff_outbox_branches"] == 2
+    assert payload["summary"]["unresolved_open_pr_handoff_outbox_branch_refs"] == 1
+    assert payload["summary"]["direct_open_pr_handoff_outbox_branches"] == 1
+    assert payload["summary"]["unresolved_open_pr_handoff_outbox_refs_outside_audit"] == 0
+    assert payload["summary"]["publishable_branch_backlog"] == 1
+
+
 def test_audit_protects_list_local_evidence_branch_handoffs(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
@@ -2041,6 +2123,9 @@ def test_audit_treats_superseded_branch_as_unresolved_handoff(
     assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 2
     assert payload["summary"]["direct_handoff_outbox_branches"] == 1
     assert payload["summary"]["unresolved_handoff_outbox_refs_outside_audit"] == 1
+    assert payload["summary"]["unresolved_open_pr_handoff_outbox_branch_refs"] == 2
+    assert payload["summary"]["direct_open_pr_handoff_outbox_branches"] == 1
+    assert payload["summary"]["unresolved_open_pr_handoff_outbox_refs_outside_audit"] == 1
     assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 0
     assert payload["summary"]["publishable_branch_backlog"] == 1
     original = next(
@@ -2109,6 +2194,9 @@ def test_audit_counts_direct_outbox_refs_even_when_active_worktree_wins_category
     assert payload["summary"]["unresolved_handoff_outbox_branch_refs"] == 1
     assert payload["summary"]["direct_handoff_outbox_branches"] == 1
     assert payload["summary"]["unresolved_handoff_outbox_refs_outside_audit"] == 0
+    assert payload["summary"]["unresolved_open_pr_handoff_outbox_branch_refs"] == 1
+    assert payload["summary"]["direct_open_pr_handoff_outbox_branches"] == 1
+    assert payload["summary"]["unresolved_open_pr_handoff_outbox_refs_outside_audit"] == 0
     assert payload["summary"]["patch_equivalent_handoff_outbox_branches"] == 0
 
 
