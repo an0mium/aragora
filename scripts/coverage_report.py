@@ -39,6 +39,24 @@ COVERAGE_THRESHOLDS = {
 }
 
 
+class CoverageJsonError(RuntimeError):
+    """Raised when coverage.json cannot be trusted."""
+
+
+def load_coverage_json(path: Path) -> dict:
+    """Load a coverage.py JSON report or raise a bounded input error."""
+    try:
+        with path.open(encoding="utf-8") as f:
+            payload = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CoverageJsonError(
+            f"Error: coverage JSON at {path} could not be loaded: {exc}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise CoverageJsonError(f"Error: coverage JSON at {path} must be an object.")
+    return payload
+
+
 def run_coverage() -> dict:
     """Run pytest with coverage and return results."""
     cmd = [
@@ -64,8 +82,7 @@ def run_coverage() -> dict:
         print("Error: coverage.json not found. Run pytest with --cov first.")
         sys.exit(1)
 
-    with open(coverage_file) as f:
-        return json.load(f)
+    return load_coverage_json(coverage_file)
 
 
 def analyze_coverage(coverage_data: dict) -> dict:
@@ -239,10 +256,17 @@ def main():
         if not coverage_file.exists():
             print("Error: coverage.json not found. Run without --no-run first.")
             sys.exit(1)
-        with open(coverage_file) as f:
-            coverage_data = json.load(f)
+        try:
+            coverage_data = load_coverage_json(coverage_file)
+        except CoverageJsonError as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
     else:
-        coverage_data = run_coverage()
+        try:
+            coverage_data = run_coverage()
+        except CoverageJsonError as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
 
     module_coverage = analyze_coverage(coverage_data)
     overall_coverage = get_overall_coverage(coverage_data)
