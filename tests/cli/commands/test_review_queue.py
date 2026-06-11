@@ -26,6 +26,7 @@ from aragora.cli.commands.review_queue import (
     _classify_pr,
     _classify_model_review_tier,
     _dogfood_evidence_from_comments,
+    _has_blocking_or_negative_verdict,
     _extract_validation_commands,
     _effective_required_pr_check_count,
     _filter_lanes,
@@ -2179,6 +2180,27 @@ class TestModelReviewQuorum:
         ]
 
         assert _dogfood_evidence_from_comments(comments, head_sha=head) == []
+
+
+class TestHasBlockingOrNegativeVerdict:
+    def test_blocker_value_starting_with_no_letters_is_still_blocking(self) -> None:
+        # Word-boundary regression: "node"/"not working" must not be swallowed
+        # by the non-blocking prefix "no".
+        assert _has_blocking_or_negative_verdict("Blockers: node crashes on startup")
+        assert _has_blocking_or_negative_verdict("Blocking findings: not working under load")
+
+    def test_markdown_heading_labels_are_recognized(self) -> None:
+        assert _has_blocking_or_negative_verdict("### Verdict: FAIL")
+        assert _has_blocking_or_negative_verdict("> **Verdict:** blocked on stale evidence")
+
+    def test_word_boundary_does_not_flag_blockchain_verdict(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Verdict: blockchain summary attached")
+
+    def test_non_blocking_values_remain_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers: none")
+        assert not _has_blocking_or_negative_verdict("Blocking findings: no blocking findings")
+        assert not _has_blocking_or_negative_verdict("#### Blockers: N/A")
+        assert not _has_blocking_or_negative_verdict("Verdict: **passed**, zero findings.")
 
 
 # --- parenthetical model-family disclosure ---------------------------------

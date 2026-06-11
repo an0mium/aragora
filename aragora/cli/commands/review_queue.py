@@ -3640,25 +3640,31 @@ def _has_blocking_or_negative_verdict(body: str) -> bool:
         "[]",
     )
 
+    def _starts_with_phrase(value: str, phrases: tuple[str, ...]) -> bool:
+        # Word-boundary matching, not raw prefixes: "no" must cover "no" /
+        # "no blockers" but never "node crashes" or "not working", and
+        # "block" must never cover "blockchain".
+        return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
+
     for raw_line in str(body or "").splitlines():
         line = raw_line.strip()
         if not line:
             continue
-        line = line.lstrip("-").strip().strip("*").strip()
+        # Strip markdown list/heading/quote decoration so "### Verdict: FAIL"
+        # and "> **Verdict:** FAIL" still expose the label.
+        line = line.lstrip("#>-* ").strip()
         line = line.replace("**", "")
         label, sep, value = line.partition(":")
         if not sep:
             continue
         normalized_label = re.sub(r"\s+", " ", label.strip().lower())
         normalized_value = re.sub(r"\s+", " ", value.strip().strip("*").strip().lower())
-        if normalized_label in {"verdict", "decision", "recommendation"} and any(
-            normalized_value.startswith(prefix) for prefix in negative_verdict_prefixes
+        if normalized_label in {"verdict", "decision", "recommendation"} and _starts_with_phrase(
+            normalized_value, negative_verdict_prefixes
         ):
             return True
         if normalized_label in {"blocking finding", "blocking findings", "blocker", "blockers"}:
-            if not normalized_value or any(
-                normalized_value.startswith(value) for value in non_blocking_prefixes
-            ):
+            if not normalized_value or _starts_with_phrase(normalized_value, non_blocking_prefixes):
                 continue
             return True
     return False
