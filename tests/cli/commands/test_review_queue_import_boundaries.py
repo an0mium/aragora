@@ -22,7 +22,9 @@ def test_review_queue_module_import_does_not_eager_load_heavy_helpers() -> None:
         import sys
 
         BLOCKED = (
+            "aragora.review.reviewer_output",
             "aragora.swarm.pr_review_protocol",
+            "aragora.triage.auto_handle_calibration",
             "aragora.worktree",
             "scripts.post_merge_lane_audit",
         )
@@ -120,3 +122,36 @@ def test_review_queue_merge_packet_help_uses_lightweight_cli_path() -> None:
 
     assert proc.returncode == 0, proc.stderr
     assert "merge-packet" in proc.stdout
+
+
+def test_review_queue_record_settlement_help_uses_lightweight_cli_path() -> None:
+    proc = _run_isolated_python(
+        """
+        import importlib.abc
+        import sys
+
+        BLOCKED = (
+            "aragora.cli.parser",
+            "aragora.config.secrets",
+            "aragora.modes",
+            "aragora.review.reviewer_output",
+            "aragora.triage.auto_handle_calibration",
+        )
+
+        class Blocker(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path=None, target=None):
+                if fullname.startswith(BLOCKED):
+                    raise RuntimeError(f"blocked eager startup import: {fullname}")
+                return None
+
+        sys.meta_path.insert(0, Blocker())
+
+        import aragora.cli.main as main
+
+        sys.argv = ["aragora", "review-queue", "record-settlement", "--help"]
+        raise SystemExit(main.main())
+        """
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert "record-settlement" in proc.stdout

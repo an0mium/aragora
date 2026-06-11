@@ -36,10 +36,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote, urlparse
 
-from aragora.review.reviewer_output import ReviewerOutput
-
 if TYPE_CHECKING:
     from aragora.review.invalidation import BaselineMeasurement, ThresholdProposal
+    from aragora.review.reviewer_output import ReviewerOutput
 
 UTC = timezone.utc
 PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
@@ -417,6 +416,70 @@ class RecordedSettlementResult:
 # --- Parser registration ---------------------------------------------------
 
 
+def _add_observe_outcomes_parser(sub: argparse._SubParsersAction) -> None:
+    """Register observe-outcomes without importing its heavy implementation.
+
+    The implementation module imports review outcome/event-source helpers that
+    are only needed when the subcommand actually runs. Keeping parser
+    registration local preserves the public CLI surface while allowing unrelated
+    review-queue help and readiness helpers to start quickly.
+    """
+
+    p = sub.add_parser(
+        "observe-outcomes",
+        help=(
+            "Observe post-settlement invalidation signals from GitHub "
+            "timeline events and (optionally) write them back into v2 "
+            "outcome fields on settlement receipts. Dry-run by default."
+        ),
+        description=(
+            "Round 30g phase A. Iterates settled receipts in a bounded\n"
+            "window, fetches GitHub timeline events for each PR with\n"
+            "bounded fanout, and computes the five canonical v2 outcome\n"
+            "signals via aragora.review.settlement_outcome.observe_outcome.\n\n"
+            "Default mode is read-only: nothing is written. Pass --write\n"
+            "to mutate receipt JSON files in place. The CLI never invokes\n"
+            "git or gh write operations and never edits docs/THESIS.md."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "--window-days",
+        type=int,
+        default=14,
+        help="Observation window in days (default: 14).",
+    )
+    p.add_argument(
+        "--max-receipts",
+        type=int,
+        default=20,
+        help="Maximum receipts to inspect in this run (default: 20). Bounds the GitHub fanout.",
+    )
+    p.add_argument(
+        "--per-receipt-event-cap",
+        type=int,
+        default=100,
+        help="Maximum timeline events fetched per receipt (default: 100).",
+    )
+    p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help=(
+            "Override the review-queue store root used for settlement "
+            "receipts. Defaults to <repo>/.aragora/review-queue."
+        ),
+    )
+    p.add_argument(
+        "--write",
+        action="store_true",
+        help=(
+            "OPT-IN: actually write v2 outcome fields back into receipt "
+            "JSON files. Default is dry-run preview only."
+        ),
+    )
+    p.add_argument("--json", action="store_true", help="Output the run summary as JSON.")
+
+
 def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     """Register review-queue build/packet/run/act sub-actions."""
     parser = subparsers.add_parser(
@@ -777,9 +840,7 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Output the BaselineMeasurement + ThresholdProposal as JSON.",
     )
 
-    from aragora.review.observe_outcomes_cli import add_observe_outcomes_subparser
-
-    add_observe_outcomes_subparser(sub)
+    _add_observe_outcomes_parser(sub)
 
     health_p = sub.add_parser(
         "health",
