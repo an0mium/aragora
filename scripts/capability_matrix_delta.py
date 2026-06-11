@@ -6,11 +6,16 @@ from __future__ import annotations
 import argparse
 import re
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = Path("docs/CAPABILITY_MATRIX.md")
+
+
+class MatrixParseError(RuntimeError):
+    """Raised when capability matrix metrics cannot be trusted."""
 
 
 def _extract(pattern: str, text: str) -> tuple[int, ...] | None:
@@ -33,8 +38,16 @@ def _parse_matrix(text: str) -> dict[str, tuple[int, ...]]:
     for key, pattern in patterns.items():
         vals = _extract(pattern, text)
         if vals is None:
-            raise ValueError(f"Could not parse metric '{key}' from capability matrix")
+            raise MatrixParseError(f"Could not parse metric '{key}' from capability matrix")
         parsed[key] = vals
+
+    mapped, total = parsed["catalog"]
+    if total <= 0:
+        raise MatrixParseError("Capability Catalog total must be greater than zero")
+    if mapped > total:
+        raise MatrixParseError(
+            f"Capability Catalog mapped count {mapped} exceeds total count {total}"
+        )
 
     return parsed
 
@@ -85,8 +98,12 @@ def main() -> int:
     current_path = repo_root / MATRIX_PATH
     out_path = Path(args.out)
 
-    current_text = _load_text(current_path)
-    current = _parse_matrix(current_text)
+    try:
+        current_text = _load_text(current_path)
+        current = _parse_matrix(current_text)
+    except (OSError, MatrixParseError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
 
     base: dict[str, tuple[int, ...]] | None = None
     base_note = ""
@@ -94,7 +111,11 @@ def main() -> int:
     if args.base_ref:
         base_text = _load_base_text(repo_root, args.base_ref)
         if base_text:
-            base = _parse_matrix(base_text)
+            try:
+                base = _parse_matrix(base_text)
+            except MatrixParseError as exc:
+                print(f"Error: base capability matrix is invalid: {exc}", file=sys.stderr)
+                return 2
         else:
             base_note = (
                 f"Base matrix unavailable for ref `{args.base_ref}`; showing head snapshot only."
