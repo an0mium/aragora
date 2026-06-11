@@ -38,20 +38,25 @@ _PYTHON_TO_JSON_TYPE: dict[str, str | list[str]] = {
 def _python_type_to_json(annotation: str) -> str | list[str]:
     """Map a simplified Python type annotation to a JSON Schema type string."""
     clean = annotation.replace("typing.", "").strip()
+    is_optional = "None" in clean
+
     # Handle Optional / union with None
-    if "None" in clean:
-        base = (
+    if is_optional:
+        clean = (
             clean.replace("| None", "")
             .replace("None |", "")
             .replace("Optional[", "")
             .rstrip("]")
             .strip()
         )
-        json_type = _PYTHON_TO_JSON_TYPE.get(base, "string")
+
+    base = clean.split("[", 1)[0].strip()
+    json_type = _PYTHON_TO_JSON_TYPE.get(base, "string")
+    if is_optional:
         if isinstance(json_type, list):
             return [*json_type, "null"]
         return [json_type, "null"]
-    return _PYTHON_TO_JSON_TYPE.get(clean, "string")
+    return json_type
 
 
 def _field_schema(f: dataclasses.Field[Any]) -> dict[str, Any]:
