@@ -5,7 +5,7 @@ description: Next Steps (Canonical)
 
 # Next Steps (Canonical)
 
-Last updated: 2026-06-05
+Last updated: 2026-06-08
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](./canonical-goals) defines what Aragora is and why.
@@ -17,7 +17,7 @@ This is the single source of truth for short-horizon execution priorities.
 
 The immediate gate is operating the proof loop that already exists: keep recurring benchmark truth publication complete, fresh, and trustworthy on current `main`; keep `CS-01..03` narrower than measured proof; and do not expand the `B2` guard until repeated runs support it. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop, not adding new roadmap scope.
 
-Current proof-loop state for `CS-01..03` reconciliation:
+Current proof-loop state for `CS-01..03` reconciliation is delegated to live recurring proof surfaces:
 
 - `docs/THESIS.md` is v4 canonical.
 - H1-01 rev-4 was promoted into the canonical corpus and rev-5 now graduates the first five strict linked successes.
