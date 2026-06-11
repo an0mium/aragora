@@ -33,6 +33,11 @@ VERSION = "settle_one_steward.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
 BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
+PYTHON_EXECUTABLE = sys.executable or "python3"
+
+
+def _python_command(*args: str) -> list[str]:
+    return [PYTHON_EXECUTABLE, *args]
 
 
 def _env_timeout_seconds(name: str, default: int) -> int:
@@ -88,14 +93,23 @@ def _state_repo_root(cwd: Path) -> Path:
 
 
 def _run(args: list[str], *, cwd: Path, timeout: int = 120) -> dict[str, Any]:
-    proc = subprocess.Popen(
-        args,
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-    )
+    try:
+        proc = subprocess.Popen(
+            args,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        return {
+            "command": " ".join(args),
+            "returncode": 127,
+            "stdout": "",
+            "stderr": f"command failed to start: {exc}",
+            "start_failed": True,
+        }
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -1075,7 +1089,7 @@ def _has_policy_file_scope(metadata: dict[str, Any]) -> bool:
 
 def load_active_owned_prs(cwd: Path) -> tuple[set[int], dict[str, Any]]:
     payload, command = _run_json(
-        ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json"],
+        _python_command("scripts/agent_bridge.py", "operator-snapshot", "--json"),
         cwd=cwd,
         timeout=OPERATOR_SNAPSHOT_TIMEOUT_SECONDS,
     )
@@ -1317,8 +1331,11 @@ def build_report(
             if snapshot_blocker:
                 preselection_blockers.append(snapshot_blocker)
         elif snapshot_preblocked:
+            snapshot_command = _python_command(
+                "scripts/agent_bridge.py", "operator-snapshot", "--json"
+            )
             active_owned_command = {
-                "command": "python3 scripts/agent_bridge.py operator-snapshot --json",
+                "command": " ".join(snapshot_command),
                 "returncode": None,
                 "skipped": True,
                 "reason": "operator-snapshot failure already carried by packet load_blockers",
@@ -1416,8 +1433,7 @@ def build_report(
         registry_path = state_root / ".aragora" / "agent-bridge" / "lanes.json"
         steering_root = state_root / ".aragora" / "operator-steering"
         owner_payload, owner_cmd = _run_json(
-            [
-                "python3",
+            _python_command(
                 "scripts/identify_lane_owner.py",
                 "--pr",
                 str(pr_number),
@@ -1426,15 +1442,14 @@ def build_report(
                 str(registry_path),
                 "--steering-inbox-root",
                 str(steering_root),
-            ],
+            ),
             cwd=cwd,
         )
         report["owner_check"] = owner_cmd
         blockers.extend(owner_blockers(owner_payload))
 
         steering_payload, steering_cmd = _run_json(
-            [
-                "python3",
+            _python_command(
                 "scripts/read_operator_steering.py",
                 "--pr",
                 str(pr_number),
@@ -1447,7 +1462,7 @@ def build_report(
                 str(registry_path),
                 "--steering-inbox-root",
                 str(steering_root),
-            ],
+            ),
             cwd=cwd,
         )
         report["mailbox_check"] = steering_cmd
@@ -1561,8 +1576,7 @@ def build_report(
 
 
 def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str, Any]:
-    command = [
-        "python3",
+    command = _python_command(
         "-m",
         "aragora.cli.main",
         "review-queue",
@@ -1570,7 +1584,7 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
         "--json",
         "--pr",
         str(pr),
-    ]
+    )
     if repo:
         command.extend(["--repo", repo])
     payload, result = _run_json(command, cwd=cwd, timeout=SINGLE_PACKET_TIMEOUT_SECONDS)
@@ -1582,8 +1596,7 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
 
 
 def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[str, Any]:
-    command = [
-        "python3",
+    command = _python_command(
         "-m",
         "aragora.cli.main",
         "review-queue",
@@ -1591,7 +1604,7 @@ def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[
         "--json",
         "--limit",
         str(limit),
-    ]
+    )
     if repo:
         command.extend(["--repo", repo])
     payload, result = _run_json(command, cwd=cwd, timeout=BROAD_PACKET_TIMEOUT_SECONDS)
