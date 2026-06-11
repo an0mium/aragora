@@ -260,6 +260,25 @@ class TestClassification:
         assert record.state == LoopState.RUNNING.value
         assert record.next_action == NextAction.CONTINUE.value
 
+    def test_collect_all_degrades_on_corrupt_policy_and_ledger(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Loops write the ledger concurrently with collection; a torn or
+        # corrupt file must degrade the budget, never raise into the fleet.
+        monkeypatch.delenv("ARAGORA_LOOP_BUDGET_USD", raising=False)
+        policy_file = tmp_path / ".aragora" / "loop_budgets.json"
+        policy_file.parent.mkdir(parents=True, exist_ok=True)
+        policy_file.write_text('{"default_ceiling_usd": 9.0, "loops": {tor')
+        ledger = spend_path(tmp_path, "merge_arbiter")
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        ledger.write_text('{"spend_usd": 1.')
+        raw = collect_all(
+            tmp_path, timeout=0.5, allow_network=False, kinds=[LoopKind.MERGE_ARBITER]
+        )
+        budget = raw[LoopKind.MERGE_ARBITER]["budget"]
+        assert budget["source_status"] == "unavailable"  # corrupt policy + corrupt ledger
+        assert budget["remaining_usd"] is None
+
     def test_collect_all_attaches_per_loop_budgets(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

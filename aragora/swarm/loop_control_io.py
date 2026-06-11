@@ -354,7 +354,8 @@ def collect_all(
             for future in as_completed(futures):
                 kind = futures[future]
                 raw = future.result()
-                raw.setdefault("budget", resolve_loop_budget(root, kind.value, policy))
+                if "budget" not in raw:
+                    raw["budget"] = resolve_loop_budget(root, kind.value, policy)
                 out[kind] = raw
     return out
 
