@@ -114,6 +114,8 @@ def test_prompt_starts_with_mailbox_and_owner_verification(tmp_path: Path) -> No
 
     assert prompt.startswith("Start from live repo truth")
     assert "Before lane work, check your Aragora operator-steering mailbox" in prompt
+    assert "python3 scripts/agent_bridge.py health --json || true" in prompt
+    assert "python3 scripts/agent_bridge.py --json health || true" not in prompt
     assert (
         "python3 scripts/read_operator_steering.py --lane-id P106-merge-gate-settlement" in prompt
     )

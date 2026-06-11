@@ -9,7 +9,8 @@ This package provides production-ready resilience patterns:
 | Pattern | Module | Purpose |
 |---------|--------|---------|
 | Circuit Breaker | `circuit_breaker.py` | Prevent cascading failures |
-| Circuit Breaker v2 | `circuit_breaker_v2.py` | Async-first with advanced config |
+| Simple / Configurable CB | `simple_circuit_breaker.py` | Thread-safe sync core: `SimpleCircuitBreaker` + configurable `BaseCircuitBreaker` (advanced config, async/sync decorators, named registry) |
+| Circuit Breaker v2 (deprecated) | `circuit_breaker_v2.py` | Deprecation shim re-exporting from `simple_circuit_breaker.py` |
 | Retry | `retry.py` | Exponential backoff with jitter |
 | Timeout | `timeout.py` | Bound execution time |
 | Health | `health.py` | Liveness and readiness probes |

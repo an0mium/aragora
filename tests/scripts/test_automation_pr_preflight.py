@@ -118,6 +118,32 @@ def test_automation_pr_preflight_json_suggests_validation_for_source_without_tes
     ]
 
 
+def test_automation_pr_preflight_json_suggests_publisher_startup_smoke(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/publisher-startup-json"], cwd=repo)
+    source = repo / "scripts" / "publish_codex_automation_branches.py"
+    source.parent.mkdir()
+    source.write_text("print('publisher')\n", encoding="utf-8")
+    _run(["git", "add", "scripts/publish_codex_automation_branches.py"], cwd=repo)
+    _run(["git", "commit", "-m", "fix: update publisher startup"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "ok"
+    startup_command = next(
+        command
+        for command in payload["suggested_validation_commands"]
+        if command.startswith('python3 -c "import importlib;')
+    )
+    assert "scripts.publish_codex_automation_branches" in startup_command
+    assert "scripts.github_cli_health" in startup_command
+    assert "'scripts.github_cli_health'" in startup_command
+
+
 def test_automation_pr_preflight_rejects_synthetic_preflight_commit_subject(
     tmp_path: Path,
 ) -> None:

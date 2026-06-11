@@ -27,13 +27,16 @@ Contract:
 from __future__ import annotations
 
 import argparse
+import glob as glob_module
 import json
 import plistlib
+import re
 import shlex
 import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Callable
 
@@ -47,7 +50,14 @@ ALL_CHECKS = (
     "checkout_invariant",
     "outbox_depth",
     "disk_free",
+    "lane_liveness",
+    "github_api_health",
 )
+
+# Branch namespaces owned by autonomous lanes; only these are eligible for the
+# ledger-less orphan-branch sweep (failure class A, 2026-06-10/11: coordinator
+# lanes died at setup leaving empty elves/run-* branches nobody noticed).
+ORPHAN_BRANCH_PATTERNS = ("elves/*", "aragora/boss*")
 
 
 def parse_iso(value: str) -> datetime:
@@ -226,6 +236,260 @@ def check_disk_free(
 
 
 # ---------------------------------------------------------------------------
+# lane_liveness (failure class A — silent lane death, 2026-06-10/11)
+# ---------------------------------------------------------------------------
+
+
+def _default_remote_heads(repo: Path) -> dict[str, str]:
+    """``git ls-remote --heads origin`` → ``{branch: sha}``."""
+    proc = subprocess.run(  # noqa: S603
+        ["git", "-C", str(repo), "ls-remote", "--heads", "origin"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=True,
+    )
+    heads: dict[str, str] = {}
+    for line in proc.stdout.splitlines():
+        sha, _, ref = line.partition("\t")
+        prefix = "refs/heads/"
+        if ref.startswith(prefix):
+            heads[ref[len(prefix) :].strip()] = sha.strip()
+    return heads
+
+
+def _default_ahead_counter(repo: Path) -> Callable[[str], int | None]:
+    """Commits ahead of origin/main for a sha; None when unresolvable.
+
+    A zero-ahead branch tip is by definition an ancestor of origin/main and
+    therefore present locally once origin/main is fetched.  An unresolvable
+    sha thus means the branch carries unfetched unique commits — callers must
+    treat None as "has commits" (never as empty).
+    """
+
+    def count(sha: str) -> int | None:
+        proc = subprocess.run(  # noqa: S603
+            ["git", "-C", str(repo), "rev-list", "--count", f"origin/main..{sha}"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if proc.returncode != 0:
+            return None
+        try:
+            return int(proc.stdout.strip())
+        except ValueError:
+            return None
+
+    return count
+
+
+def _default_commit_dater(repo: Path) -> Callable[[str], datetime | None]:
+    def commit_date(sha: str) -> datetime | None:
+        proc = subprocess.run(  # noqa: S603
+            ["git", "-C", str(repo), "log", "-1", "--format=%cI", sha],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        out = proc.stdout.strip()
+        if proc.returncode != 0 or not out:
+            return None
+        try:
+            return parse_iso(out)
+        except ValueError:
+            return None
+
+    return commit_date
+
+
+def check_lane_liveness(
+    lanes_glob: str,
+    *,
+    lane_max_age_hours: float,
+    orphan_age_hours: float,
+    now: datetime,
+    remote_heads: Callable[[], dict[str, str]],
+    ahead_counter: Callable[[str], int | None],
+    commit_dater: Callable[[str], datetime | None],
+) -> CheckResult:
+    """Detect silently dead lanes and ledger-less orphan branches.
+
+    Rule 1 (ledger): a lane-ledger entry (``.aragora/run-*/lanes/<lane>.json``)
+    with ``status=in_progress``, ``launched_at`` older than
+    ``lane_max_age_hours``, whose branch has zero commits ahead of origin/main
+    (or is absent from origin entirely) is a dead lane — it burned its setup
+    window and produced nothing durable.
+
+    Rule 2 (orphan sweep): any origin branch matching
+    ``ORPHAN_BRANCH_PATTERNS`` with zero commits ahead of origin/main whose
+    tip commit is older than ``orphan_age_hours`` is an orphan — a lane died
+    before its first commit and left no ledger to read.
+    """
+    name = "lane_liveness"
+    try:
+        heads = remote_heads()
+    except Exception as exc:  # noqa: BLE001 - git failure means we are blind
+        return _result(
+            name, "unknown", f"could not list origin heads: {exc.__class__.__name__}: {exc}"
+        )
+    unreadable: list[str] = []
+    problems: list[str] = []
+    in_progress = 0
+    ledger_files = sorted(glob_module.glob(str(Path(lanes_glob) / "*.json")))
+    for ledger_file in ledger_files:
+        try:
+            entry = json.loads(Path(ledger_file).read_text())
+            lane = str(entry["lane"])
+            status = str(entry.get("status", ""))
+            launched_at = parse_iso(str(entry["launched_at"]))
+        except (OSError, json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
+            unreadable.append(f"{ledger_file} ({exc.__class__.__name__})")
+            continue
+        if status != "in_progress":
+            continue
+        in_progress += 1
+        age_hours = (now - launched_at).total_seconds() / 3600.0
+        if age_hours <= lane_max_age_hours:
+            continue
+        branch = str(entry.get("branch", ""))
+        sha = heads.get(branch)
+        if sha is None:
+            problems.append(
+                f"lane {lane}: in_progress {age_hours:.1f}h (max {lane_max_age_hours}h), "
+                f"branch {branch} absent from origin"
+            )
+            continue
+        if ahead_counter(sha) == 0:
+            problems.append(
+                f"lane {lane}: in_progress {age_hours:.1f}h (max {lane_max_age_hours}h), "
+                f"branch {branch} has zero commits ahead of origin/main"
+            )
+    if unreadable:
+        return _result(name, "unknown", "unreadable lane ledger(s): " + "; ".join(unreadable))
+    pattern_branches = 0
+    for branch in sorted(heads):
+        if not any(fnmatch(branch, pat) for pat in ORPHAN_BRANCH_PATTERNS):
+            continue
+        pattern_branches += 1
+        if ahead_counter(heads[branch]) != 0:
+            continue
+        tip_date = commit_dater(heads[branch])
+        if tip_date is None:
+            continue
+        tip_age_hours = (now - tip_date).total_seconds() / 3600.0
+        if tip_age_hours > orphan_age_hours:
+            problems.append(
+                f"orphan branch {branch}: zero commits ahead of origin/main, "
+                f"tip {tip_age_hours / 24:.1f}d old (max {orphan_age_hours}h) — "
+                "lane likely died at setup; no ledger claims it"
+            )
+    if problems:
+        return _result(name, "breach", "; ".join(problems))
+    return _result(
+        name,
+        "ok",
+        f"{in_progress} in_progress lane(s) live; "
+        f"{pattern_branches} lane-pattern branch(es) on origin, no orphans",
+    )
+
+
+# ---------------------------------------------------------------------------
+# github_api_health (failure class B — external API degradation, 2026-06-10/11)
+# ---------------------------------------------------------------------------
+
+
+def _read_tail_lines(path: Path, max_lines: int) -> list[str]:
+    """Read up to the last ``max_lines`` lines without loading the whole file."""
+    step = 1 << 16
+    with path.open("rb") as fh:
+        fh.seek(0, 2)
+        pos = fh.tell()
+        data = b""
+        while pos > 0 and data.count(b"\n") <= max_lines:
+            read = min(step, pos)
+            pos -= read
+            fh.seek(pos)
+            data = fh.read(read) + data
+            step = min(step * 2, 1 << 22)
+    return data.decode("utf-8", errors="replace").splitlines()[-max_lines:]
+
+
+def publisher_failure_streak(lines: list[str]) -> tuple[int, str]:
+    """Trailing consecutive failed branch-publish passes + last error class.
+
+    Counts ``branch publish pass failed`` markers backwards from the end of
+    the log, stopping at the first ``branch publish pass complete`` marker.
+    Per-attempt retry lines (``branch publish pass attempt N/M failed``) are
+    NOT pass failures and are not counted.  The error class is the most
+    recent ``HTTP <code>`` (or ``connectivity_failed``) seen in the window.
+    """
+    streak = 0
+    for line in reversed(lines):
+        if "branch publish pass failed" in line:
+            streak += 1
+        elif "branch publish pass complete" in line:
+            break
+    last_error = "none"
+    for line in reversed(lines):
+        match = re.search(r"HTTP (\d{3})", line)
+        if match:
+            last_error = f"HTTP {match.group(1)}"
+            break
+        if "connectivity_failed" in line:
+            last_error = "connectivity_failed"
+            break
+    return streak, last_error
+
+
+def check_github_api_health(
+    log_path: Path,
+    *,
+    persist_threshold: int,
+    tail_lines: int,
+    probe_runner: Callable[[list[str]], int],
+    probe_cmd: list[str] | None = None,
+) -> CheckResult:
+    """Distinguish persistent GitHub API degradation from transient blips.
+
+    A cheap live probe (``gh api rate_limit``) plus the publisher log's
+    failed-pass streak.  Breach ONLY when both agree the degradation is
+    persistent: probe fails AND streak >= ``persist_threshold``.  Transient
+    blips (short streak, or probe already recovered) stay visible-but-quiet:
+    recorded in the detail/ledger, exit stays green.
+    """
+    name = "github_api_health"
+    command = probe_cmd or ["gh", "api", "rate_limit"]
+    probe_error = ""
+    probe_ok: bool | None
+    try:
+        probe_ok = probe_runner(command) == 0
+    except Exception as exc:  # noqa: BLE001 - a probe we cannot run is a blind spot
+        probe_ok = None
+        probe_error = f"{exc.__class__.__name__}: {exc}"
+    if not log_path.exists():
+        return _result(name, "unknown", f"publisher log missing: {log_path}")
+    try:
+        lines = _read_tail_lines(log_path, tail_lines)
+    except OSError as exc:
+        return _result(
+            name, "unknown", f"publisher log unreadable: {exc.__class__.__name__}: {exc}"
+        )
+    streak, last_error = publisher_failure_streak(lines)
+    base = (
+        f"failed-pass streak={streak} (persist-threshold {persist_threshold}); "
+        f"last_error={last_error}"
+    )
+    if probe_ok is None:
+        return _result(name, "unknown", f"probe could not run ({probe_error}); {base}")
+    if probe_ok:
+        return _result(name, "ok", f"probe ok; {base}")
+    if streak >= persist_threshold:
+        return _result(name, "breach", f"persistent degradation: probe failed and {base}")
+    return _result(name, "ok", f"transient degradation (no breach): probe failed but {base}")
+
+
+# ---------------------------------------------------------------------------
 # Report, exit contract, ledger, notification
 # ---------------------------------------------------------------------------
 
@@ -319,6 +583,29 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                 results.append(
                     check_disk_free(Path(args.repo_root), min_free_gib=args.min_free_gib)
                 )
+            elif name == "lane_liveness":
+                repo = Path(args.repo_root)
+                results.append(
+                    check_lane_liveness(
+                        args.lanes_glob,
+                        lane_max_age_hours=args.lane_max_age_hours,
+                        orphan_age_hours=args.orphan_branch_age_hours,
+                        now=now,
+                        remote_heads=lambda repo=repo: _default_remote_heads(repo),
+                        ahead_counter=_default_ahead_counter(repo),
+                        commit_dater=_default_commit_dater(repo),
+                    )
+                )
+            elif name == "github_api_health":
+                results.append(
+                    check_github_api_health(
+                        Path(args.publisher_log),
+                        persist_threshold=args.persist_threshold,
+                        tail_lines=args.publisher_log_tail_lines,
+                        probe_runner=_default_command_runner,
+                        probe_cmd=shlex.split(args.rate_limit_cmd),
+                    )
+                )
         except Exception as exc:  # noqa: BLE001 - a crashed check is a blind spot, not success
             results.append(
                 _result(name, "unknown", f"check crashed: {exc.__class__.__name__}: {exc}")
@@ -353,6 +640,26 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--outbox-max", type=int, default=50)
     parser.add_argument("--outbox-max-age-days", type=float, default=7.0)
     parser.add_argument("--min-free-gib", type=float, default=25.0)
+    parser.add_argument(
+        "--lanes-glob",
+        # Lane-ledger convention: .aragora/run-*/lanes/<lane>.json
+        default=str(repo_root / ".aragora" / "run-*" / "lanes"),
+        help="glob for lane-ledger directories (entries are <lane>.json inside)",
+    )
+    parser.add_argument("--lane-max-age-hours", type=float, default=3.0)
+    parser.add_argument("--orphan-branch-age-hours", type=float, default=24.0)
+    parser.add_argument(
+        "--publisher-log",
+        default=str(repo_root / ".aragora" / "overnight" / "codex-automation-publisher.log"),
+    )
+    parser.add_argument("--publisher-log-tail-lines", type=int, default=2000)
+    parser.add_argument(
+        "--persist-threshold",
+        type=int,
+        default=3,
+        help="consecutive failed publisher passes before degradation counts as persistent",
+    )
+    parser.add_argument("--rate-limit-cmd", default="gh api rate_limit")
     parser.add_argument(
         "--ledger",
         default=str(repo_root / ".aragora" / "fleet-sentinel" / "ledger.jsonl"),

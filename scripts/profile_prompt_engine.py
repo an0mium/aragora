@@ -197,6 +197,9 @@ def build_profile_report(
     mode: str,
 ) -> dict[str, Any]:
     """Aggregate one or more prompt-engine timing samples."""
+    if not timings:
+        raise ValueError("prompt engine profile report requires at least one timing sample")
+
     stage_samples: dict[str, list[float]] = defaultdict(list)
     operation_samples: dict[str, list[float]] = defaultdict(list)
     operation_meta: dict[str, dict[str, str]] = {}
