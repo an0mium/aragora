@@ -415,6 +415,45 @@ def test_parse_collect_output_garbage_is_failure() -> None:
     assert result["error"]
 
 
+# --- Singleton lock (double-post guard) --------------------------------------------
+
+
+def test_cycle_lock_blocks_second_acquirer(tmp_path: Any) -> None:
+    lock = str(tmp_path / "cycle.lock")
+    release = cycle.acquire_cycle_lock(lock)
+    try:
+        try:
+            cycle.acquire_cycle_lock(lock)
+        except cycle.CycleLockHeld:
+            pass
+        else:
+            raise AssertionError("expected CycleLockHeld")
+    finally:
+        release()
+    # After release the lock is acquirable again.
+    cycle.acquire_cycle_lock(lock)()
+
+
+def test_cycle_lock_reclaims_stale_lock(tmp_path: Any) -> None:
+    lock = str(tmp_path / "cycle.lock")
+    cycle.acquire_cycle_lock(lock)  # crashed invocation: never released
+    fake_now = __import__("os").path.getmtime(lock) + 7201.0
+    release = cycle.acquire_cycle_lock(lock, now=lambda: fake_now)
+    release()
+
+
+def test_cycle_lock_fresh_lock_is_not_reclaimed(tmp_path: Any) -> None:
+    lock = str(tmp_path / "cycle.lock")
+    cycle.acquire_cycle_lock(lock)
+    fake_now = __import__("os").path.getmtime(lock) + 60.0
+    try:
+        cycle.acquire_cycle_lock(lock, now=lambda: fake_now)
+    except cycle.CycleLockHeld:
+        pass
+    else:
+        raise AssertionError("expected CycleLockHeld")
+
+
 # --- Listing degradation ----------------------------------------------------------
 
 

@@ -322,6 +322,54 @@ def default_run_reconciler(repo: str) -> int:
     return proc.returncode
 
 
+# --- Singleton lock -------------------------------------------------------------
+
+
+class CycleLockHeld(RuntimeError):
+    """Another auto-evidence cycle currently holds the singleton lock."""
+
+
+def acquire_cycle_lock(
+    lock_path: str,
+    *,
+    stale_after_seconds: float = 7200.0,
+    now: Callable[[], float] = time.time,
+) -> Callable[[], None]:
+    """Take an exclusive advisory lock for apply mode; return a release callable.
+
+    Two concurrent ``--apply`` invocations (e.g. the merge-arbiter wiring racing
+    a manual run) could both pass selection before either posts, double-posting
+    evidence. ``O_CREAT | O_EXCL`` makes acquisition atomic; a lock older than
+    ``stale_after_seconds`` (default 2h — well past any sane ``--budget-seconds``)
+    is treated as a crash leftover and reclaimed. Raises :class:`CycleLockHeld`
+    when a live lock exists (caller fails closed without posting anything).
+    """
+    try:
+        age = now() - os.path.getmtime(lock_path)
+        if age > stale_after_seconds:
+            os.unlink(lock_path)
+    except OSError:
+        pass  # no lock file (common case) or it vanished between checks
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        raise CycleLockHeld(f"lock {lock_path} is held by another invocation") from None
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(f"pid={os.getpid()}\n")
+
+    def release() -> None:
+        try:
+            os.unlink(lock_path)
+        except OSError:
+            pass
+
+    return release
+
+
+def default_lock_path() -> str:
+    return os.path.join(os.path.expanduser("~"), ".aragora", "auto_evidence_cycle.lock")
+
+
 # --- Orchestrator --------------------------------------------------------------
 
 
@@ -478,6 +526,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: need >= {REQUIRED_FAMILIES} reviewer families", file=sys.stderr)
         return EXIT_FAILURES
 
+    release: Callable[[], None] = lambda: None
+    if args.apply:
+        # Mutations require the singleton lock: two racing --apply invocations
+        # could both pass selection and double-post evidence on the same PR.
+        lock_dir = os.path.dirname(default_lock_path())
+        try:
+            os.makedirs(lock_dir, exist_ok=True)
+            release = acquire_cycle_lock(default_lock_path())
+        except CycleLockHeld as exc:
+            print(f"error: {exc}; refusing to run concurrently", file=sys.stderr)
+            return EXIT_FAILURES
+        except OSError as exc:
+            print(f"error: could not take cycle lock: {exc}", file=sys.stderr)
+            return EXIT_FAILURES
+
     try:
         summary = run_cycle(
             list_prs=lambda: default_list_prs(args.repo),
@@ -493,6 +556,8 @@ def main(argv: list[str] | None = None) -> int:
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILURES
+    finally:
+        release()
     print(
         json.dumps(
             {key: value for key, value in summary.items() if key != "plan"}
