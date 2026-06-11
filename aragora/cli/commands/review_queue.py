@@ -33,34 +33,40 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote, urlparse
 
-from aragora.review.invalidation import (
-    BaselineMeasurement,
-    DEFAULT_BASELINE_WINDOW_DAYS,
-    DEFAULT_MIN_BASELINE_SAMPLES,
-    DEFAULT_MINIMUM_MEANINGFUL_RATE,
-    DEFAULT_SAFETY_MARGIN,
-    ThresholdProposal,
-    derive_threshold,
-)
-from aragora.review.invalidation_event_source import measure_baseline_from_stores
 from aragora.review.reviewer_output import ReviewerOutput
-from aragora.swarm.pr_review_protocol import (
-    PRReviewerExecutionFailure,
-    default_pr_review_protocol,
-)
-from aragora.triage.auto_handle_calibration import AutoHandleCalibrationStore
-from aragora.worktree.fleet import resolve_repo_root
-from scripts.post_merge_lane_audit import (
-    post_merge_lane_audit_failed,
-    post_merge_lane_audit_failure_reason,
-    run_post_merge_lane_audit,
-)
+
+if TYPE_CHECKING:
+    from aragora.review.invalidation import BaselineMeasurement, ThresholdProposal
 
 UTC = timezone.utc
 PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
+DEFAULT_BASELINE_WINDOW_DAYS = 30
+DEFAULT_MIN_BASELINE_SAMPLES = 50
+DEFAULT_SAFETY_MARGIN = 0.5
+DEFAULT_MINIMUM_MEANINGFUL_RATE = 0.01
+
+
+class AutoHandleCalibrationStore:
+    """Lazy proxy for the calibration store used by review-queue rendering.
+
+    The module-level name is a historical monkeypatch seam in tests. Delegating
+    from methods rather than replacing __new__ keeps that seam available without
+    importing the calibration stack during merge-packet startup.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        from aragora.triage.auto_handle_calibration import (
+            AutoHandleCalibrationStore as _AutoHandleCalibrationStore,
+        )
+
+        self._impl = _AutoHandleCalibrationStore(*args, **kwargs)
+
+    def list_active_alerts(self, *args: Any, **kwargs: Any) -> Any:
+        return self._impl.list_active_alerts(*args, **kwargs)
+
 
 # Lane classification thresholds and risk-path catalog.
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
@@ -206,6 +212,45 @@ CHECK_SURFACE_DIAGNOSTIC_LIMIT = 12
 OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS = 60 * 60
 GH_COMMAND_TIMEOUT_SECONDS = 30
 GIT_STATUS_TIMEOUT_SECONDS = 10
+
+
+def resolve_repo_root(path_hint: Path) -> Path:
+    """Resolve git repo root without importing the full worktree package."""
+    proc = subprocess.run(
+        ["git", "-C", str(path_hint), "rev-parse", "--show-toplevel"],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=GIT_STATUS_TIMEOUT_SECONDS,
+    )
+    if proc.returncode == 0 and proc.stdout.strip():
+        return Path(proc.stdout.strip()).resolve()
+    return path_hint.resolve()
+
+
+def default_pr_review_protocol() -> Any:
+    from aragora.swarm.pr_review_protocol import default_pr_review_protocol as _impl
+
+    return _impl()
+
+
+def run_post_merge_lane_audit(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    from scripts.post_merge_lane_audit import run_post_merge_lane_audit as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def post_merge_lane_audit_failed(*args: Any, **kwargs: Any) -> bool:
+    from scripts.post_merge_lane_audit import post_merge_lane_audit_failed as _impl
+
+    return bool(_impl(*args, **kwargs))
+
+
+def post_merge_lane_audit_failure_reason(*args: Any, **kwargs: Any) -> str:
+    from scripts.post_merge_lane_audit import post_merge_lane_audit_failure_reason as _impl
+
+    return str(_impl(*args, **kwargs))
+
 
 LANE_ORDER: dict[str, int] = {
     "ready_now": 0,
@@ -1240,6 +1285,10 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
         return 2
 
     json_output = bool(getattr(args, "json", False))
+
+    from aragora.review.invalidation import derive_threshold
+    from aragora.review.invalidation_event_source import measure_baseline_from_stores
+    from aragora.triage.auto_handle_calibration import AutoHandleCalibrationStore
 
     try:
         store = AutoHandleCalibrationStore(db_path=args.calibration_db)
@@ -2758,7 +2807,7 @@ def _build_packet(
     repo = _repo_from_url(str(pr.get("url", "")).strip())
     protocol_runner = default_pr_review_protocol()
     reviewer_outputs: list[ReviewerOutput] = []
-    execution_failures: list[PRReviewerExecutionFailure] = []
+    execution_failures: list[Any] = []
     if execute_reviewers:
         diff_args = ["pr", "diff", str(number)]
         if repo_override:
