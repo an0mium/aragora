@@ -347,7 +347,7 @@ requires-dist = [
     { name = "pydantic-settings", marker = "extra == 'test'", specifier = ">=2.14.1,<3.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=9.0.3,<10.0" },
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=1.3.0,<2.0" },
-    { name = "python-dateutil", specifier = ">=2.8.2" },
+    { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "python3-saml", marker = "extra == 'all'", specifier = ">=1.16.0,<2.0" },
     { name = "python3-saml", marker = "extra == 'enterprise'", specifier = ">=1.16.0,<2.0" },
     { name = "pyyaml", marker = "extra == 'test'", specifier = ">=6.0.3,<7.0" },
