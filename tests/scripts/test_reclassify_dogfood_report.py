@@ -20,6 +20,19 @@ def test_reclassify_report_rejects_empty_runs() -> None:
         reclassify_dogfood_report.reclassify_report({"runs": []})
 
 
+def test_reclassify_report_rejects_non_object_report() -> None:
+    with pytest.raises(ValueError, match="JSON object"):
+        reclassify_dogfood_report.reclassify_report(["not-a-report"])  # type: ignore[arg-type]
+
+
+def test_load_json_rejects_non_object_report(tmp_path: Path) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text('["not-a-report"]', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="JSON object"):
+        reclassify_dogfood_report._load_json(report_path)
+
+
 def test_reclassify_report_rejects_non_object_run_before_mutation() -> None:
     report = {"runs": ["not-a-run"]}
 

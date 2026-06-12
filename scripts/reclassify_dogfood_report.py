@@ -11,8 +11,14 @@ from typing import Any
 from aragora.debate.runtime_blockers import classify_stderr_signals
 
 
+def _require_report_object(data: Any) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ValueError("Report must be a JSON object.")
+    return data
+
+
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return _require_report_object(json.loads(path.read_text(encoding="utf-8")))
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
@@ -20,6 +26,7 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
 
 
 def reclassify_report(data: dict[str, Any]) -> dict[str, Any]:
+    data = _require_report_object(data)
     runs = data.get("runs")
     if not isinstance(runs, list):
         raise ValueError("Report must contain runs list.")
