@@ -58,6 +58,14 @@ class TestEnvHelpers:
         with patch.dict(os.environ, {"TEST_FLOAT": "not_a_float"}):
             assert env_float("TEST_FLOAT", 2.5) == 2.5
 
+    @pytest.mark.parametrize("value", ["nan", "NaN", "inf", "-inf", "Infinity"])
+    def test_env_float_returns_default_on_non_finite(self, value):
+        """Test env_float returns default for non-finite values."""
+        from aragora.config.env_helpers import env_float
+
+        with patch.dict(os.environ, {"TEST_FLOAT": value}):
+            assert env_float("TEST_FLOAT", 2.5) == 2.5
+
     def test_env_bool_true_values(self):
         """Test env_bool recognizes true values."""
         from aragora.config.env_helpers import env_bool

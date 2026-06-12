@@ -7,6 +7,7 @@ from environment variables with type conversion and fallback defaults.
 These helpers are used across multiple config modules to avoid duplication.
 """
 
+import math
 import os
 
 
@@ -50,9 +51,12 @@ def env_float(key: str, default: float) -> float:
         Float value from environment or default
     """
     try:
-        return float(os.environ.get(key, str(default)))
+        value = float(os.environ.get(key, str(default)))
     except ValueError:
         return default
+    if not math.isfinite(value):
+        return default
+    return value
 
 
 def env_bool(key: str, default: bool) -> bool:
