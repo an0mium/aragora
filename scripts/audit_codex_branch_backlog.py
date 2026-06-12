@@ -986,14 +986,13 @@ def is_patch_equivalent(
     if diff_proc.returncode != 1:
         return False
 
-    if has_empty_changed_file_diff(root, base, branch, timeout=timeout):
-        return True
-
     proc = run_git(["cherry", base, branch], root, timeout=timeout)
-    if proc.returncode != 0:
-        return False
-    statuses = [line[:1] for line in proc.stdout.splitlines() if line.strip()]
-    return bool(statuses) and all(status == "-" for status in statuses)
+    if proc.returncode == 0:
+        statuses = [line[:1] for line in proc.stdout.splitlines() if line.strip()]
+        if statuses and all(status == "-" for status in statuses):
+            return True
+
+    return has_empty_changed_file_diff(root, base, branch, timeout=timeout)
 
 
 def branch_patch_id(
