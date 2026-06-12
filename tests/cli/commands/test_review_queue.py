@@ -48,6 +48,7 @@ from aragora.cli.commands.review_queue import (
     add_review_queue_parser,
     cmd_review_queue,
 )
+from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.review import (
     EvidenceKind,
     EvidenceRef,
@@ -2962,6 +2963,112 @@ class TestBuildQueueAndPacket:
         assert direct["required_contexts_satisfied"] is True
         assert packet.model_review_quorum["counted_model_families"] == ["grok"]
         assert packet.model_review_quorum["admin_squash_allowed"] is True
+
+    def test_rest_fallback_paginates_rest_surfaces(self) -> None:
+        head = "f" * 40
+        calls: list[str] = []
+
+        def page_payload(prefix: str, page: int) -> list[dict[str, Any]]:
+            if prefix == "files":
+                return [{"filename": f"docs/page-{page}-{index}.md"} for index in range(100)]
+            if prefix == "comments":
+                return [
+                    {"user": {"login": "an0mium"}, "body": f"comment {page}-{index}"}
+                    for index in range(100)
+                ]
+            if prefix == "reviews":
+                return [{"user": {"login": "reviewer"}, "state": "APPROVED"}]
+            if prefix == "commits":
+                return [
+                    {
+                        "sha": f"{page:02d}{index:038d}",
+                        "commit": {"author": {"date": "2026-06-12T00:00:00Z"}},
+                    }
+                    for index in range(100)
+                ]
+            if prefix == "statuses":
+                return [
+                    {"context": f"legacy/{page}-{index}", "state": "success"}
+                    for index in range(100)
+                ]
+            raise AssertionError(prefix)
+
+        def fake_gh_json(args: list[str]) -> Any:
+            assert args[:1] == ["api"]
+            endpoint = args[1]
+            calls.append(endpoint)
+            if endpoint == "repos/synaptent/aragora/pulls/7466":
+                return {
+                    "number": 7466,
+                    "title": "rest fallback",
+                    "html_url": "https://github.com/synaptent/aragora/pull/7466",
+                    "state": "open",
+                    "draft": False,
+                    "mergeable": True,
+                    "mergeable_state": "clean",
+                    "user": {"login": "an0mium"},
+                    "head": {"ref": "codex/rest-fallback-test", "sha": head},
+                    "base": {"ref": "main", "sha": "basesha0001"},
+                    "labels": [],
+                    "additions": 1,
+                    "deletions": 0,
+                    "changed_files": 101,
+                    "body": "",
+                }
+            if endpoint.endswith("/files?per_page=100"):
+                return page_payload("files", 1)
+            if endpoint.endswith("/files?per_page=100&page=2"):
+                return [{"filename": "docs/page-2-final.md"}]
+            if endpoint.endswith("/comments?per_page=100"):
+                return page_payload("comments", 1)
+            if endpoint.endswith("/comments?per_page=100&page=2"):
+                return [{"user": {"login": "an0mium"}, "body": "comment page 2"}]
+            if endpoint.endswith("/reviews?per_page=100"):
+                return page_payload("reviews", 1)
+            if endpoint.endswith("/commits?per_page=100"):
+                return page_payload("commits", 1)
+            if endpoint.endswith("/commits?per_page=100&page=2"):
+                return [{"sha": head, "commit": {"author": {"date": "2026-06-12T00:00:00Z"}}}]
+            if endpoint.endswith(f"/commits/{head}/statuses?per_page=100"):
+                return page_payload("statuses", 1)
+            if endpoint.endswith(f"/commits/{head}/statuses?per_page=100&page=2"):
+                return [{"context": "legacy/final", "state": "success"}]
+            if endpoint.endswith(f"/commits/{head}/check-runs?per_page=100"):
+                return {
+                    "total_count": 101,
+                    "check_runs": [
+                        {"name": f"check-{index}", "status": "completed", "conclusion": "success"}
+                        for index in range(100)
+                    ],
+                }
+            if endpoint.endswith(f"/commits/{head}/check-runs?per_page=100&page=2"):
+                return {
+                    "total_count": 101,
+                    "check_runs": [
+                        {"name": "check-final", "status": "completed", "conclusion": "success"}
+                    ],
+                }
+            raise AssertionError(f"unexpected endpoint: {endpoint}")
+
+        pr = rest_fallback._hydrate_pr_with_rest_fallback(
+            number=7466,
+            repo_slug="synaptent/aragora",
+            source_error="GraphQL rate limit",
+            gh_json=fake_gh_json,
+        )
+        check_runs = rest_fallback._fetch_direct_commit_check_runs(
+            "synaptent/aragora", head, gh_json=fake_gh_json
+        )
+
+        assert len(pr["files"]) == 101
+        assert len(pr["comments"]) == 101
+        assert len(pr["reviews"]) == 1
+        assert len(pr["commits"]) == 101
+        assert len(pr["commitStatuses"]) == 101
+        assert len(check_runs) == 101
+        assert "repos/synaptent/aragora/pulls/7466/files?per_page=100&page=2" in calls
+        assert "repos/synaptent/aragora/issues/7466/comments?per_page=100&page=2" in calls
+        assert f"repos/synaptent/aragora/commits/{head}/check-runs?per_page=100&page=2" in calls
 
     def test_non_required_rollup_failures_use_required_pr_checks_gate(
         self, monkeypatch: pytest.MonkeyPatch

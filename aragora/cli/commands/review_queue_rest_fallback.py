@@ -9,6 +9,14 @@ from urllib.parse import quote, urlparse
 from aragora.cli.commands.review_queue_transport import _GhError, _gh_json
 
 GhJson = Callable[[list[str]], Any]
+_REST_PAGE_SIZE = 100
+_REST_MAX_PAGES = 100
+
+
+def _paged_endpoint(endpoint: str, page: int) -> str:
+    """Append a REST page parameter while preserving existing query args."""
+    separator = "&" if "?" in endpoint else "?"
+    return f"{endpoint}{separator}page={page}"
 
 
 def _repo_slug_from_pr_payload(pr: dict[str, Any], repo_override: str | None) -> str:
@@ -37,23 +45,29 @@ def _rest_list(
     required: bool = False,
     gh_json: GhJson = _gh_json,
 ) -> list[dict[str, Any]]:
-    """Fetch one REST list page through ``gh api``.
+    """Fetch a paginated REST list through ``gh api``.
 
     The fallback is deliberately conservative: if a surface is unavailable, the
     caller gets an empty list and the existing packet logic fails closed on
     missing checks/evidence instead of inventing readiness.
     """
-    try:
-        payload = gh_json(["api", endpoint])
-    except _GhError:
-        if required:
-            raise
-        return []
-    if not isinstance(payload, list):
-        if required:
-            raise _GhError(f"REST endpoint {endpoint} returned a non-list payload")
-        return []
-    return [item for item in payload if isinstance(item, dict)]
+    items: list[dict[str, Any]] = []
+    for page in range(1, _REST_MAX_PAGES + 1):
+        current_endpoint = endpoint if page == 1 else _paged_endpoint(endpoint, page)
+        try:
+            payload = gh_json(["api", current_endpoint])
+        except _GhError:
+            if required:
+                raise
+            return items
+        if not isinstance(payload, list):
+            if required:
+                raise _GhError(f"REST endpoint {current_endpoint} returned a non-list payload")
+            return items
+        items.extend(item for item in payload if isinstance(item, dict))
+        if len(payload) < _REST_PAGE_SIZE:
+            break
+    return items
 
 
 def _rest_pr_state(rest_pr: dict[str, Any]) -> str:
@@ -128,6 +142,15 @@ def _fetch_direct_commit_statuses(
     """Best-effort direct commit statuses for REST fallback diagnostics."""
     if not repo_slug or not head_sha:
         return []
+    try:
+        statuses = _rest_list(
+            f"repos/{repo_slug}/commits/{head_sha}/statuses?per_page={_REST_PAGE_SIZE}",
+            gh_json=gh_json,
+        )
+        if statuses:
+            return [_normalize_rest_status(status) for status in statuses]
+    except Exception:
+        pass
     try:
         payload = gh_json(["api", f"repos/{repo_slug}/commits/{head_sha}/status"])
     except Exception:
@@ -281,19 +304,24 @@ def _fetch_direct_commit_check_runs(
     """Best-effort direct commit check-runs for diagnostics only."""
     if not repo_slug or not head_sha:
         return []
-    try:
-        payload = gh_json(
-            [
-                "api",
-                f"repos/{repo_slug}/commits/{head_sha}/check-runs?per_page=100",
-            ]
-        )
-    except Exception:
-        return []
-    if not isinstance(payload, dict):
-        return []
-    runs = payload.get("check_runs") or []
-    return [run for run in runs if isinstance(run, dict)]
+    runs: list[dict[str, Any]] = []
+    endpoint = f"repos/{repo_slug}/commits/{head_sha}/check-runs?per_page={_REST_PAGE_SIZE}"
+    for page in range(1, _REST_MAX_PAGES + 1):
+        current_endpoint = endpoint if page == 1 else _paged_endpoint(endpoint, page)
+        try:
+            payload = gh_json(["api", current_endpoint])
+        except Exception:
+            return runs
+        if not isinstance(payload, dict):
+            return runs
+        page_runs = [run for run in payload.get("check_runs") or [] if isinstance(run, dict)]
+        runs.extend(page_runs)
+        total_count = payload.get("total_count")
+        if isinstance(total_count, int) and len(runs) >= total_count:
+            break
+        if len(page_runs) < _REST_PAGE_SIZE:
+            break
+    return runs
 
 
 def _direct_check_run_name(run: dict[str, Any]) -> str:
