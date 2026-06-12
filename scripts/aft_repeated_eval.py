@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import statistics
 import subprocess
 import sys
@@ -98,6 +99,27 @@ def run_harness(
     return json.loads(summaries[0].read_text())
 
 
+def _finite_float(value: object, *, context: str) -> float | None:
+    """Return finite numeric values and fail closed on NaN/Infinity."""
+    if not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"non-finite AFT repeated aggregate value for {context}: {value!r}")
+    return number
+
+
+def _finite_p_value(stats: dict, *, pair: str) -> float:
+    value = stats.get("p_value_bonferroni", 1.0)
+    number = _finite_float(value, context=f"pairwise_significance.{pair}.p_value_bonferroni")
+    if number is None:
+        raise ValueError(
+            f"AFT repeated pairwise significance {pair!r} has non-numeric p_value_bonferroni: "
+            f"{value!r}"
+        )
+    return number
+
+
 def aggregate(summaries: list[dict]) -> dict:
     """Aggregate per-condition mean ± stddev across N seeded runs."""
     metrics = ("accuracy", "brier", "cost_usd_total", "latency_ms_mean")
@@ -119,9 +141,9 @@ def aggregate(summaries: list[dict]) -> dict:
             if not stats:
                 continue
             for m in metrics:
-                v = stats.get(m)
-                if isinstance(v, (int, float)):
-                    values[m].append(float(v))
+                v = _finite_float(stats.get(m), context=f"conditions.{name}.{m}")
+                if v is not None:
+                    values[m].append(v)
         per_condition: dict = {}
         for m, vs in values.items():
             if not vs:
@@ -141,10 +163,11 @@ def aggregate(summaries: list[dict]) -> dict:
     pair_p_values: dict = {}
     for s in summaries:
         for pair, stats in s.get("pairwise_significance", {}).items():
+            p_value = _finite_p_value(stats, pair=pair)
             pair_counts.setdefault(pair, {"significant_at_0.05": 0, "n": 0})
             pair_counts[pair]["n"] += 1
-            pair_p_values.setdefault(pair, []).append(stats.get("p_value_bonferroni", 1.0))
-            if stats.get("p_value_bonferroni", 1.0) < 0.05:
+            pair_p_values.setdefault(pair, []).append(p_value)
+            if p_value < 0.05:
                 pair_counts[pair]["significant_at_0.05"] += 1
     for pair, counts in pair_counts.items():
         ps = pair_p_values[pair]
