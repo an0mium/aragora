@@ -142,9 +142,7 @@ def _args_write(
     return ns
 
 
-def test_write_flag_creates_report_file(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_write_flag_creates_report_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """--write persists a timestamped JSON report to the output directory."""
     monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
     out_dir = tmp_path / "coherence_reports"
@@ -155,9 +153,7 @@ def test_write_flag_creates_report_file(
     assert len(reports) == 1, f"expected 1 report file, found: {reports}"
 
 
-def test_write_flag_report_json_is_valid(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_write_flag_report_json_is_valid(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Report written to disk is valid JSON with expected top-level keys."""
     monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
     out_dir = tmp_path / "reports"
@@ -185,9 +181,7 @@ def test_write_flag_creates_output_dir_if_absent(
     assert nested.is_dir()
 
 
-def test_write_flag_off_leaves_no_file(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_write_flag_off_leaves_no_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Without --write, no report file is created."""
     monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
     out_dir = tmp_path / "reports"
