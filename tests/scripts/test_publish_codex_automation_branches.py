@@ -147,6 +147,48 @@ def test_parser_defaults_match_publisher_budget_constants() -> None:
     assert args.draft is False
 
 
+def test_related_work_lookup_stops_when_budget_exhausts(monkeypatch: Any, tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+    monotonic_values = iter([0.0, 0.0, 0.0, 0.0, 0.0, 2.0])
+
+    monkeypatch.setenv(mod.RELATED_WORK_LOOKUP_BUDGET_ENV, "1")
+    monkeypatch.setattr(mod.time, "monotonic", lambda: next(monotonic_values, 2.0))
+
+    def fake_run(args: list[str], *, cwd: Path, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    resolved = mod._branches_with_resolved_related_work(
+        tmp_path,
+        "synaptent/aragora",
+        [_branch("codex/first"), _branch("codex/second")],
+    )
+
+    assert resolved == set()
+    assert mod._LAST_RELATED_WORK_LOOKUP_BUDGET_EXHAUSTED is True
+    assert calls
+    assert not any("codex/second" in " ".join(call) for call in calls)
+
+
+def test_run_returns_completed_process_for_gh_timeout(monkeypatch: Any, tmp_path: Path) -> None:
+    def fake_gh_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(
+            cmd=["gh", *list(args[0])],
+            timeout=kwargs["timeout"],
+        )
+
+    monkeypatch.setenv("ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS", "2")
+    monkeypatch.setattr(mod, "gh_subprocess_run", fake_gh_run)
+
+    proc = mod._run(["gh", "pr", "list"], cwd=tmp_path)
+
+    assert proc.returncode == 124
+    assert proc.stdout == ""
+    assert proc.stderr == "command timed out after 2s: gh pr list"
+
+
 def test_create_pr_adds_draft_flag_when_requested(monkeypatch: Any, tmp_path: Path) -> None:
     commands: list[list[str]] = []
 

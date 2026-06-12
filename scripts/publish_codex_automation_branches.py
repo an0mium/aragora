@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from collections.abc import Callable, Mapping, Sequence
@@ -33,6 +34,7 @@ DEFAULT_PUBLISH_LIMIT = 2
 DEFAULT_MAX_OPEN_PRS = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
 DEFAULT_GIT_TIMEOUT_SECONDS = 60
+DEFAULT_RELATED_WORK_LOOKUP_BUDGET_SECONDS = 20.0
 DEFAULT_SCAN_LIMIT = 12
 DEFAULT_MIN_FREE_GIB = 50.0
 DEFAULT_CODEX_RSS_MAX_GIB = 25.0
@@ -46,6 +48,7 @@ DEFAULT_GITHUB_STATUS_CACHE = Path(".aragora/automation-github-status/latest.jso
 DEFAULT_GITHUB_STATUS_CACHE_MAX_AGE_SECONDS = 1800
 DEFAULT_SPEND_LEDGER_DIR = Path(".aragora/spend-ledger")
 VERIFY_AUTOMATION_GIT_PUSH_ENV = "ARAGORA_AUTOMATION_GIT_PUSH_VERIFY"
+RELATED_WORK_LOOKUP_BUDGET_ENV = "ARAGORA_AUTOMATION_RELATED_WORK_LOOKUP_BUDGET_SECONDS"
 MIN_FREE_GIB_ENV = "ARAGORA_AUTOMATION_MIN_FREE_GIB"
 CODEX_RSS_MAX_GIB_ENV = "ARAGORA_AUTOMATION_CODEX_RSS_MAX_GIB"
 SPEND_DAILY_CAP_ENV = "ARAGORA_AUTOMATION_SPEND_DAILY_CAP_USD"
@@ -99,6 +102,7 @@ ACTIVE_SESSION_FILES = (
     ".codex_session_active",
     ".nomic-session-active",
 )
+_LAST_RELATED_WORK_LOOKUP_BUDGET_EXHAUSTED = False
 
 
 class OpenCodexPrLookupError(RuntimeError):
@@ -190,6 +194,17 @@ def _gh_write_op(args: list[str]) -> bool:
     }
 
 
+def _timeout_completed_process(
+    args: list[str],
+    timeout: int,
+    exc: subprocess.TimeoutExpired,
+) -> subprocess.CompletedProcess[str]:
+    stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+    stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+    message = stderr or f"command timed out after {timeout}s: {' '.join(args)}"
+    return subprocess.CompletedProcess(args=args, returncode=124, stdout=stdout, stderr=message)
+
+
 def _run(
     args: list[str],
     *,
@@ -208,14 +223,17 @@ def _run(
                 str(DEFAULT_COMMAND_TIMEOUT_SECONDS),
             )
         )
-        return gh_subprocess_run(
-            args[1:],
-            timeout=timeout,
-            prefer_app=True,
-            write_op=_gh_write_op(args[1:]),
-            env=dict(os.environ if env is None else env),
-            max_retries=0,
-        )
+        try:
+            return gh_subprocess_run(
+                args[1:],
+                timeout=timeout,
+                prefer_app=True,
+                write_op=_gh_write_op(args[1:]),
+                env=dict(os.environ if env is None else env),
+                max_retries=0,
+            )
+        except subprocess.TimeoutExpired as exc:
+            return _timeout_completed_process(args, timeout, exc)
     else:
         timeout = int(
             os.environ.get(
@@ -234,10 +252,7 @@ def _run(
             env=env,
         )
     except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
-        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
-        message = stderr or f"command timed out after {timeout}s: {' '.join(args)}"
-        return subprocess.CompletedProcess(args=args, returncode=124, stdout=stdout, stderr=message)
+        return _timeout_completed_process(args, timeout, exc)
 
 
 def _parse_git_dt(value: str) -> datetime:
@@ -1056,14 +1071,40 @@ def _related_search_queries(subject: str) -> list[str]:
     return list(dict.fromkeys(query for query in queries if query.strip()))
 
 
+def _related_work_lookup_budget_seconds() -> float:
+    raw = os.environ.get(
+        RELATED_WORK_LOOKUP_BUDGET_ENV,
+        str(DEFAULT_RELATED_WORK_LOOKUP_BUDGET_SECONDS),
+    )
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_RELATED_WORK_LOOKUP_BUDGET_SECONDS
+
+
+def _related_work_lookup_deadline_expired(deadline: float | None) -> bool:
+    return deadline is not None and time.monotonic() >= deadline
+
+
 def _branches_with_resolved_related_work(
     repo_root: Path,
     repo: str,
     branches: list[BranchSnapshot],
 ) -> set[str]:
+    global _LAST_RELATED_WORK_LOOKUP_BUDGET_EXHAUSTED
+
+    _LAST_RELATED_WORK_LOOKUP_BUDGET_EXHAUSTED = False
+    budget_seconds = _related_work_lookup_budget_seconds()
+    deadline = None if budget_seconds <= 0 else time.monotonic() + budget_seconds
     resolved: set[str] = set()
     for branch in branches:
+        if _related_work_lookup_deadline_expired(deadline):
+            _LAST_RELATED_WORK_LOOKUP_BUDGET_EXHAUSTED = True
+            return resolved
         for query in _related_search_queries(branch.subject):
+            if _related_work_lookup_deadline_expired(deadline):
+                _LAST_RELATED_WORK_LOOKUP_BUDGET_EXHAUSTED = True
+                return resolved
             for command in (
                 [
                     "gh",
@@ -1096,6 +1137,9 @@ def _branches_with_resolved_related_work(
                     "20",
                 ],
             ):
+                if _related_work_lookup_deadline_expired(deadline):
+                    _LAST_RELATED_WORK_LOOKUP_BUDGET_EXHAUSTED = True
+                    return resolved
                 proc = _run(command, cwd=repo_root)
                 if proc.returncode != 0:
                     continue
@@ -1799,6 +1843,10 @@ def main(argv: list[str] | None = None) -> int:
         },
         "open_pr_lookup": {
             key: value for key, value in open_pr_lookup.items() if key != "cache_queue_health"
+        },
+        "related_work_lookup": {
+            "budget_seconds": _related_work_lookup_budget_seconds(),
+            "budget_exhausted": _LAST_RELATED_WORK_LOOKUP_BUDGET_EXHAUSTED,
         },
         "automation_guardrails": asdict(guardrail_report),
         "github_health": github_health.to_dict(),
