@@ -2866,6 +2866,103 @@ class TestBuildQueueAndPacket:
         assert "diagnosis:" in rendered_packet
         assert "remediation:" in rendered_packet
 
+    def test_build_packet_uses_rest_fallback_when_pr_view_transport_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = "abc1234567890abcdef"
+        rest_pr = {
+            "number": 7466,
+            "title": "docs status fallback",
+            "html_url": "https://github.com/synaptent/aragora/pull/7466",
+            "state": "open",
+            "merged_at": None,
+            "merge_commit_sha": "",
+            "draft": False,
+            "mergeable": True,
+            "mergeable_state": "clean",
+            "user": {"login": "an0mium"},
+            "head": {"ref": "codex/rest-fallback-test", "sha": head},
+            "base": {"ref": "main", "sha": "basesha0001"},
+            "labels": [],
+            "additions": 1,
+            "deletions": 0,
+            "changed_files": 1,
+            "body": "",
+        }
+        comment_body = (
+            "## Grok independent model review\n\n"
+            f"Head: abc1234 ({head}).\n"
+            "PR: #7466.\n"
+            "Model family: grok\n\n"
+            "Verdict: PASS\n"
+            "- adversarial dogfood recheck found no blocker.\n"
+            "dogfood: yes\n"
+        )
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                raise _GhError("GraphQL: API rate limit already exceeded")
+            if args[:1] != ["api"]:
+                raise AssertionError(f"unexpected gh call: {args}")
+            endpoint = args[1]
+            if endpoint == "repos/synaptent/aragora/pulls/7466":
+                return rest_pr
+            if endpoint == "repos/synaptent/aragora/pulls/7466/files?per_page=100":
+                return [{"filename": "docs/status/fallback.md"}]
+            if endpoint == "repos/synaptent/aragora/issues/7466/comments?per_page=100":
+                return [
+                    {
+                        "user": {"login": "an0mium"},
+                        "body": comment_body,
+                        "created_at": "2026-06-12T00:01:00Z",
+                    }
+                ]
+            if endpoint == "repos/synaptent/aragora/pulls/7466/reviews?per_page=100":
+                return []
+            if endpoint == "repos/synaptent/aragora/pulls/7466/commits?per_page=100":
+                return [
+                    {
+                        "sha": head,
+                        "commit": {"author": {"date": "2026-06-12T00:00:00Z"}},
+                    }
+                ]
+            if endpoint == f"repos/synaptent/aragora/commits/{head}/status":
+                return {
+                    "statuses": [
+                        {
+                            "context": "legacy/status",
+                            "state": "success",
+                            "created_at": "2026-06-12T00:02:00Z",
+                            "updated_at": "2026-06-12T00:02:00Z",
+                        }
+                    ]
+                }
+            if (
+                endpoint
+                == "repos/synaptent/aragora/branches/main/protection/required_status_checks"
+            ):
+                return {"contexts": ["legacy/status"], "checks": [], "strict": False}
+            if endpoint == f"repos/synaptent/aragora/commits/{head}/check-runs?per_page=100":
+                return {"check_runs": []}
+            raise AssertionError(f"unexpected gh api endpoint: {endpoint}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7466", repo_override="synaptent/aragora")
+        direct = packet.check_surfaces["direct_commit_check_runs"]
+
+        assert packet.head_sha == head
+        assert packet.touched_subsystems == ["docs"]
+        assert packet.check_surfaces["metadata_transport_fallback"]["enabled"] is True
+        assert packet.check_surfaces["metadata_transport_fallback"]["repo"] == "synaptent/aragora"
+        assert packet.checks_summary == "1/1 required green (direct check-runs fallback)"
+        assert direct["total"] == 0
+        assert direct["statuses_total"] == 1
+        assert direct["successful_required_contexts"] == ["legacy/status"]
+        assert direct["required_contexts_satisfied"] is True
+        assert packet.model_review_quorum["counted_model_families"] == ["grok"]
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+
     def test_non_required_rollup_failures_use_required_pr_checks_gate(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

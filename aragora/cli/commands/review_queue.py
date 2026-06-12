@@ -1245,6 +1245,37 @@ def _resolve_repo_slug(explicit: str) -> str:
     return (proc.stdout or "").strip() if proc.returncode == 0 else ""
 
 
+def _repo_slug_from_git_remote() -> str:
+    """Best-effort owner/name from ``origin`` without using GitHub APIs."""
+    try:
+        proc = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GIT_STATUS_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    url = (proc.stdout or "").strip()
+    if not url:
+        return ""
+    if url.startswith("git@github.com:"):
+        slug = url.removeprefix("git@github.com:").removesuffix(".git").strip("/")
+        return slug if "/" in slug else ""
+    parsed = urlparse(url)
+    if parsed.netloc.lower() == "github.com":
+        parts = [part for part in parsed.path.strip("/").split("/") if part]
+        if len(parts) >= 2:
+            return f"{parts[0]}/{parts[1].removesuffix('.git')}"
+    return ""
+
+
+def _resolve_repo_slug_for_rest_fallback(repo_override: str | None) -> str:
+    """Resolve owner/name for REST fallback when GraphQL-backed ``gh`` is degraded."""
+    return _resolve_repo_slug(str(repo_override or "")) or _repo_slug_from_git_remote()
+
+
 def _cmd_collect_evidence(args: argparse.Namespace) -> int:
     from aragora.swarm.quorum_evidence import run_collect_cli
 
@@ -2042,6 +2073,177 @@ def _repo_slug_from_pr_payload(pr: dict[str, Any], repo_override: str | None) ->
     return ""
 
 
+def _rest_list(endpoint: str, *, required: bool = False) -> list[dict[str, Any]]:
+    """Fetch one REST list page through ``gh api``.
+
+    The fallback is deliberately conservative: if a surface is unavailable, the
+    caller gets an empty list and the existing packet logic fails closed on
+    missing checks/evidence instead of inventing readiness.
+    """
+    try:
+        payload = _gh_json(["api", endpoint])
+    except _GhError:
+        if required:
+            raise
+        return []
+    if not isinstance(payload, list):
+        if required:
+            raise _GhError(f"REST endpoint {endpoint} returned a non-list payload")
+        return []
+    return [item for item in payload if isinstance(item, dict)]
+
+
+def _rest_pr_state(rest_pr: dict[str, Any]) -> str:
+    if rest_pr.get("merged_at"):
+        return "MERGED"
+    return str(rest_pr.get("state") or "").strip().upper()
+
+
+def _rest_pr_mergeable(rest_pr: dict[str, Any]) -> str:
+    mergeable = rest_pr.get("mergeable")
+    if mergeable is True:
+        return "MERGEABLE"
+    if mergeable is False:
+        state = str(rest_pr.get("mergeable_state") or "").strip().lower()
+        return "CONFLICTING" if state == "dirty" else "UNKNOWN"
+    return "UNKNOWN"
+
+
+def _normalize_rest_issue_comment(comment: dict[str, Any]) -> dict[str, Any]:
+    user = comment.get("user") if isinstance(comment.get("user"), dict) else {}
+    return {
+        "author": {"login": str(user.get("login") or "").strip()},
+        "body": str(comment.get("body") or ""),
+        "createdAt": str(comment.get("created_at") or ""),
+        "url": str(comment.get("html_url") or ""),
+    }
+
+
+def _normalize_rest_review(review: dict[str, Any]) -> dict[str, Any]:
+    user = review.get("user") if isinstance(review.get("user"), dict) else {}
+    commit_id = str(review.get("commit_id") or "").strip()
+    return {
+        "author": {"login": str(user.get("login") or "").strip()},
+        "body": str(review.get("body") or ""),
+        "state": str(review.get("state") or "").strip().upper(),
+        "submittedAt": str(review.get("submitted_at") or ""),
+        "commit": {"oid": commit_id} if commit_id else {},
+    }
+
+
+def _normalize_rest_commit(commit: dict[str, Any]) -> dict[str, Any]:
+    commit_payload = commit.get("commit") if isinstance(commit.get("commit"), dict) else {}
+    author = commit_payload.get("author") if isinstance(commit_payload.get("author"), dict) else {}
+    return {
+        "oid": str(commit.get("sha") or "").strip(),
+        "committedDate": str(author.get("date") or "").strip(),
+    }
+
+
+def _normalize_rest_status(status: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "context": str(status.get("context") or "").strip(),
+        "state": str(status.get("state") or "").strip().upper(),
+        "targetUrl": str(status.get("target_url") or "").strip(),
+        "updatedAt": str(status.get("updated_at") or "").strip(),
+        "createdAt": str(status.get("created_at") or "").strip(),
+    }
+
+
+def _fetch_direct_commit_statuses(repo_slug: str, head_sha: str) -> list[dict[str, Any]]:
+    """Best-effort direct commit statuses for REST fallback diagnostics."""
+    if not repo_slug or not head_sha:
+        return []
+    try:
+        payload = _gh_json(["api", f"repos/{repo_slug}/commits/{head_sha}/status"])
+    except Exception:
+        return []
+    if not isinstance(payload, dict):
+        return []
+    statuses = payload.get("statuses") or []
+    return [_normalize_rest_status(status) for status in statuses if isinstance(status, dict)]
+
+
+def _hydrate_pr_with_rest_fallback(
+    *,
+    number: int,
+    repo_override: str | None,
+    source_error: str,
+) -> dict[str, Any]:
+    """Hydrate PR metadata via REST when GraphQL-backed ``gh pr view`` is blocked."""
+    repo_slug = _resolve_repo_slug_for_rest_fallback(repo_override)
+    if not repo_slug:
+        raise _GhError(
+            "could not resolve repo slug for REST fallback after GraphQL PR fetch failed: "
+            f"{source_error}"
+        )
+    rest_pr = _gh_json(["api", f"repos/{repo_slug}/pulls/{number}"])
+    if not isinstance(rest_pr, dict):
+        raise _GhError(f"REST fallback PR #{number} not found after GraphQL failure")
+
+    head = rest_pr.get("head") if isinstance(rest_pr.get("head"), dict) else {}
+    base = rest_pr.get("base") if isinstance(rest_pr.get("base"), dict) else {}
+    user = rest_pr.get("user") if isinstance(rest_pr.get("user"), dict) else {}
+    head_sha = str(head.get("sha") or "").strip()
+    files = _rest_list(f"repos/{repo_slug}/pulls/{number}/files?per_page=100", required=True)
+    comments = _rest_list(f"repos/{repo_slug}/issues/{number}/comments?per_page=100")
+    reviews = _rest_list(f"repos/{repo_slug}/pulls/{number}/reviews?per_page=100")
+    commits = _rest_list(f"repos/{repo_slug}/pulls/{number}/commits?per_page=100")
+
+    return {
+        "number": int(rest_pr.get("number") or number),
+        "title": str(rest_pr.get("title") or "").strip(),
+        "url": str(rest_pr.get("html_url") or "").strip(),
+        "headRefName": str(head.get("ref") or "").strip(),
+        "headRefOid": head_sha,
+        "baseRefName": str(base.get("ref") or "").strip(),
+        "baseRefOid": str(base.get("sha") or "").strip(),
+        "state": _rest_pr_state(rest_pr),
+        "mergedAt": str(rest_pr.get("merged_at") or "").strip(),
+        "mergeCommit": {"oid": str(rest_pr.get("merge_commit_sha") or "").strip()},
+        "isDraft": bool(rest_pr.get("draft")),
+        "mergeable": _rest_pr_mergeable(rest_pr),
+        "reviewDecision": "",
+        "labels": [
+            {"name": str(label.get("name") or "").strip()}
+            for label in rest_pr.get("labels") or []
+            if isinstance(label, dict) and label.get("name")
+        ],
+        "author": {"login": str(user.get("login") or "").strip()},
+        "additions": int(rest_pr.get("additions") or 0),
+        "deletions": int(rest_pr.get("deletions") or 0),
+        "changedFiles": int(rest_pr.get("changed_files") or 0),
+        "files": [
+            {"path": str(item.get("filename") or "").strip()}
+            for item in files
+            if str(item.get("filename") or "").strip()
+        ],
+        "body": str(rest_pr.get("body") or ""),
+        # Keep the PR rollup unavailable so the existing direct required-check
+        # fallback gates on branch-protection contexts instead of treating a
+        # best-effort REST check list as the PR-facing rollup.
+        "statusCheckRollup": [],
+        "comments": [_normalize_rest_issue_comment(comment) for comment in comments],
+        "reviews": [_normalize_rest_review(review) for review in reviews],
+        "commits": [_normalize_rest_commit(commit) for commit in commits],
+        "commitStatuses": _fetch_direct_commit_statuses(repo_slug, head_sha),
+        "_rest_fallback": {
+            "enabled": True,
+            "repo": repo_slug,
+            "source_error": source_error,
+            "surfaces": [
+                "pull",
+                "files",
+                "issue_comments",
+                "reviews",
+                "commits",
+                "commit_statuses",
+                "check_runs",
+            ],
+        },
+    }
+
+
 def _fetch_required_status_check_protection(
     repo_slug: str,
     base_ref: str,
@@ -2197,6 +2399,61 @@ def _latest_direct_check_run_for_required(
     return latest[2] if latest else None
 
 
+def _direct_status_context(status: dict[str, Any]) -> str:
+    return str(status.get("context") or status.get("name") or "").strip()
+
+
+def _direct_status_is_success(status: dict[str, Any]) -> bool:
+    return str(status.get("state") or "").strip().upper() == "SUCCESS"
+
+
+def _direct_status_is_non_green(status: dict[str, Any]) -> bool:
+    state = str(status.get("state") or "").strip().upper()
+    if state == "SUCCESS":
+        return False
+    return bool(state)
+
+
+def _latest_direct_statuses_by_context(
+    statuses: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    latest: dict[str, tuple[str, int, dict[str, Any]]] = {}
+    for index, status in enumerate(statuses):
+        context = _direct_status_context(status)
+        if not context:
+            continue
+        timestamp = str(
+            status.get("updatedAt")
+            or status.get("updated_at")
+            or status.get("createdAt")
+            or status.get("created_at")
+            or ""
+        )
+        previous = latest.get(context)
+        if (
+            previous is None
+            or timestamp > previous[0]
+            or (timestamp == previous[0] and index < previous[1])
+        ):
+            latest[context] = (timestamp, index, status)
+    return {context: item[2] for context, item in latest.items()}
+
+
+def _latest_direct_status_for_required(
+    statuses: list[dict[str, Any]],
+    required: dict[str, Any],
+) -> dict[str, Any] | None:
+    # GitHub branch-protection ``checks`` entries with an app id refer to
+    # check-runs, not legacy commit statuses. Only app-less contexts can be
+    # satisfied by the statuses endpoint.
+    if required.get("app_id") is not None:
+        return None
+    context = str(required.get("context") or "").strip()
+    if not context:
+        return None
+    return _latest_direct_statuses_by_context(statuses).get(context)
+
+
 def _build_check_surface_diagnostics(
     pr: dict[str, Any],
     *,
@@ -2236,9 +2493,18 @@ def _build_check_surface_diagnostics(
     required_check_specs = required_status_checks.get("checks") or []
     strict_required = bool(required_status_checks["strict"])
     direct_runs = _fetch_direct_commit_check_runs(repo_slug, head_sha)
+    direct_statuses = pr.get("commitStatuses") if isinstance(pr.get("commitStatuses"), list) else []
+    if not direct_statuses:
+        direct_statuses = _fetch_direct_commit_statuses(repo_slug, head_sha)
     latest_direct_runs = _latest_direct_check_runs_by_name(direct_runs)
     non_green = [
         name for name, run in latest_direct_runs.items() if _direct_check_run_is_non_green(run)
+    ]
+    latest_direct_statuses = _latest_direct_statuses_by_context(direct_statuses)
+    non_green_statuses = [
+        context
+        for context, status in latest_direct_statuses.items()
+        if _direct_status_is_non_green(status)
     ]
     missing_required_contexts: list[str] = []
     successful_required_contexts: list[str] = []
@@ -2248,8 +2514,18 @@ def _build_check_surface_diagnostics(
         if not context:
             continue
         run = _latest_direct_check_run_for_required(direct_runs, required)
+        status = (
+            None
+            if run is not None
+            else _latest_direct_status_for_required(direct_statuses, required)
+        )
         if run is None:
-            missing_required_contexts.append(context)
+            if status is None:
+                missing_required_contexts.append(context)
+            elif _direct_status_is_success(status):
+                successful_required_contexts.append(context)
+            else:
+                non_success_required_contexts.append(context)
         elif _direct_check_run_is_success(run):
             successful_required_contexts.append(context)
         else:
@@ -2260,8 +2536,10 @@ def _build_check_surface_diagnostics(
         and not (missing_required_contexts or non_success_required_contexts)
     )
     direct_summary = {
-        "available": bool(direct_runs),
+        "available": bool(direct_runs or direct_statuses),
+        "statuses_available": bool(direct_statuses),
         "total": len(direct_runs),
+        "statuses_total": len(direct_statuses),
         "branch_protection_required_status_checks_available": bool(
             required_status_checks["available"]
         ),
@@ -2272,8 +2550,8 @@ def _build_check_surface_diagnostics(
         "missing_required_contexts": missing_required_contexts,
         "non_success_required_contexts": non_success_required_contexts,
         "required_contexts_satisfied": required_contexts_satisfied,
-        "non_green_sample": non_green[:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
-        "non_green_count": len(non_green),
+        "non_green_sample": [*non_green, *non_green_statuses][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+        "non_green_count": len(non_green) + len(non_green_statuses),
     }
     diagnostics["direct_commit_check_runs"] = direct_summary
     if required_contexts_satisfied:
@@ -2286,23 +2564,23 @@ def _build_check_surface_diagnostics(
             "No check-rollup nudge is required for settlement; continue gating on "
             "exact-head branch-protection required check-runs."
         )
-    elif direct_runs:
+    elif direct_runs or direct_statuses:
         if strict_required:
             diagnostics["diagnosis"] = (
                 "GitHub PR statusCheckRollup is empty while exact-head direct commit "
-                "check-runs exist, but branch protection requires strict base freshness; "
-                "merge-packet fails closed because direct commit check-runs alone do "
+                "check-runs/statuses exist, but branch protection requires strict base freshness; "
+                "merge-packet fails closed because direct commit checks alone do "
                 "not prove the PR is up to date with base."
             )
             diagnostics["remediation_prompt"] = (
                 "Refresh the PR-facing check rollup after the branch is current with "
                 "base, or keep the PR blocked. Do not settle from direct commit "
-                "check-runs alone when branch protection is strict."
+                "checks alone when branch protection is strict."
             )
         else:
             diagnostics["diagnosis"] = (
                 "GitHub PR statusCheckRollup is empty while direct commit check-runs "
-                "exist at the head; merge-packet fails closed because direct checks "
+                "or statuses exist at the head; merge-packet fails closed because direct checks "
                 "do not satisfy all branch-protection required contexts."
             )
             diagnostics["remediation_prompt"] = (
@@ -2471,15 +2749,33 @@ def _build_packet(
     args = ["pr", "view", str(number), "--json", ",".join(light_fields)]
     if repo_override:
         args.extend(["--repo", repo_override])
-    pr = _gh_json(args)
+    try:
+        pr = _gh_json(args)
+    except _GhError as exc:
+        if not _is_github_transport_error(exc):
+            raise
+        pr = _hydrate_pr_with_rest_fallback(
+            number=number,
+            repo_override=repo_override,
+            source_error=str(exc),
+        )
     if pr is None or not isinstance(pr, dict):
         raise _GhError(f"PR #{number} not found")
     settlement_state_block = _settlement_state_block_reason(pr)
-    if not settlement_state_block:
+    if not settlement_state_block and not pr.get("_rest_fallback"):
         args = ["pr", "view", str(number), "--json", ",".join([*light_fields, *heavy_fields])]
         if repo_override:
             args.extend(["--repo", repo_override])
-        pr = _gh_json(args)
+        try:
+            pr = _gh_json(args)
+        except _GhError as exc:
+            if not _is_github_transport_error(exc):
+                raise
+            pr = _hydrate_pr_with_rest_fallback(
+                number=number,
+                repo_override=repo_override,
+                source_error=str(exc),
+            )
         if pr is None or not isinstance(pr, dict):
             raise _GhError(f"PR #{number} not found")
         settlement_state_block = _settlement_state_block_reason(pr)
@@ -2527,6 +2823,9 @@ def _build_packet(
             checks_summary=checks_summary,
             checks_unavailable=checks_unavailable,
         )
+    rest_fallback = pr.get("_rest_fallback")
+    if isinstance(rest_fallback, dict):
+        check_surfaces["metadata_transport_fallback"] = rest_fallback
     required_pr_check_gate_satisfied = False
     if not settlement_state_block and not checks_unavailable and (has_failures or has_pending):
         required_surface = _fetch_required_pr_check_surface(number, repo_override)
@@ -3023,7 +3322,16 @@ def _explicit_merged_pr_merge_packet_entry(
     args = ["pr", "view", str(number), "--json", fields]
     if repo_override:
         args.extend(["--repo", repo_override])
-    pr = _gh_json(args)
+    try:
+        pr = _gh_json(args)
+    except _GhError as exc:
+        if not _is_github_transport_error(exc):
+            raise
+        pr = _hydrate_pr_with_rest_fallback(
+            number=number,
+            repo_override=repo_override,
+            source_error=str(exc),
+        )
     if pr is None or not isinstance(pr, dict):
         raise _GhError(f"PR #{number} not found")
     state = str(pr.get("state") or "").strip().upper()
@@ -3402,6 +3710,10 @@ def _has_successful_status_context(pr: dict[str, Any], context: str) -> bool:
         state = str(check.get("state") or check.get("status") or "").upper()
         conclusion = str(check.get("conclusion") or "").upper()
         return conclusion == "SUCCESS" or state == "SUCCESS"
+    for status in _latest_direct_statuses_by_context(pr.get("commitStatuses") or []).values():
+        if _direct_status_context(status) != expected:
+            continue
+        return _direct_status_is_success(status)
     return False
 
 
