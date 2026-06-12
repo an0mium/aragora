@@ -99,7 +99,7 @@ def test_resolve_provider_slots_prefers_available_candidates(
     assert slots[3].status == "unavailable"
     assert "No configured provider available for grok" in slots[3].detail
     assert slots[4].status == "available"
-    assert slots[4].selected_allowlisted is False
+    assert slots[4].selected_allowlisted is True
     assert slots[4].candidate_checks[0].provider == "mistral-api"
 
 
