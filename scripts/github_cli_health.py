@@ -43,6 +43,13 @@ CONNECTIVITY_ERROR_TOKENS = (
     "no route to host",
     "proxyconnect tcp",
 )
+RATE_LIMIT_ERROR_TOKENS = (
+    "api rate limit already exceeded",
+    "secondary rate limit",
+    "rate limit exceeded",
+    "rate limited",
+)
+GRAPHQL_HEALTH_QUERY = "query { viewer { login } }"
 
 
 @dataclass(frozen=True)
@@ -61,6 +68,11 @@ class GitHubCLIHealth:
 def is_github_connectivity_error(message: str) -> bool:
     lowered = str(message or "").strip().lower()
     return any(token in lowered for token in CONNECTIVITY_ERROR_TOKENS)
+
+
+def is_github_rate_limit_error(message: str) -> bool:
+    lowered = str(message or "").strip().lower()
+    return any(token in lowered for token in RATE_LIMIT_ERROR_TOKENS)
 
 
 def _command_error(proc: subprocess.CompletedProcess[str], fallback: str) -> str:
@@ -132,6 +144,28 @@ def check_github_cli_health(
         prefer_app=prefer_app,
     )
     if api_proc.returncode == 0:
+        graphql_proc = _run(
+            ["gh", "api", "graphql", "-f", f"query={GRAPHQL_HEALTH_QUERY}"],
+            cwd=repo_root,
+            timeout_seconds=timeout_seconds,
+            prefer_app=prefer_app,
+        )
+        if graphql_proc.returncode != 0:
+            graphql_error = _command_error(graphql_proc, "gh api graphql health probe failed")
+            if is_github_connectivity_error(graphql_error):
+                mode = "connectivity_failed"
+            elif is_github_rate_limit_error(graphql_error):
+                mode = "api_rate_limited"
+            else:
+                mode = "api_failed"
+            return GitHubCLIHealth(
+                ready=False,
+                auth_ok=True,
+                api_ok=False,
+                mode=mode,
+                error=graphql_error,
+                repo=repo_label,
+            )
         return GitHubCLIHealth(
             ready=True,
             auth_ok=True,
@@ -196,6 +230,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true", help="Print machine-readable output")
     parser.add_argument("--quiet", action="store_true", help="Suppress normal output")
+    parser.add_argument(
+        "--prefer-app-auth",
+        action="store_true",
+        help=(
+            "Prefer GitHub App installation-token auth. By default this CLI stays "
+            "diagnostic-only and checks the ambient gh auth surface used by gh pr commands."
+        ),
+    )
     return parser
 
 
@@ -205,6 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     health = check_github_cli_health(
         Path(args.repo),
         timeout_seconds=int(args.timeout_seconds),
+        prefer_app=bool(args.prefer_app_auth),
     )
 
     if args.json:

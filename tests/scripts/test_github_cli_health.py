@@ -75,6 +75,8 @@ def test_run_can_skip_app_env_for_diagnostic_health(monkeypatch) -> None:
 def test_check_github_cli_health_ready(monkeypatch) -> None:
     monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
 
+    calls: list[list[str]] = []
+
     def fake_run(
         args: list[str],
         *,
@@ -82,6 +84,7 @@ def test_check_github_cli_health_ready(monkeypatch) -> None:
         timeout_seconds: int,
         prefer_app: bool = True,
     ) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
         return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok", stderr="")
 
     monkeypatch.setattr(mod, "_run", fake_run)
@@ -92,6 +95,10 @@ def test_check_github_cli_health_ready(monkeypatch) -> None:
     assert health.mode == "ready"
     assert health.auth_ok is True
     assert health.api_ok is True
+    assert calls == [
+        ["gh", "api", "rate_limit"],
+        ["gh", "api", "graphql", "-f", "query=query { viewer { login } }"],
+    ]
 
 
 def test_check_github_cli_health_ready_with_app_env_auth_even_if_auth_status_is_stale(
@@ -111,6 +118,8 @@ def test_check_github_cli_health_ready_with_app_env_auth_even_if_auth_status_is_
         calls.append(args)
         if args[:3] == ["gh", "api", "rate_limit"]:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok", stderr="")
+        if args[:3] == ["gh", "api", "graphql"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok", stderr="")
         return subprocess.CompletedProcess(
             args=args,
             returncode=1,
@@ -126,7 +135,49 @@ def test_check_github_cli_health_ready_with_app_env_auth_even_if_auth_status_is_
     assert health.mode == "ready"
     assert health.auth_ok is True
     assert health.api_ok is True
-    assert calls == [["gh", "api", "rate_limit"]]
+    assert calls == [
+        ["gh", "api", "rate_limit"],
+        ["gh", "api", "graphql", "-f", "query=query { viewer { login } }"],
+    ]
+
+
+def test_github_rate_limit_error_detects_graphql_limits() -> None:
+    assert mod.is_github_rate_limit_error(
+        "GraphQL: API rate limit already exceeded for user ID 33477136."
+    )
+    assert mod.is_github_rate_limit_error("secondary rate limit")
+
+
+def test_check_github_cli_health_detects_graphql_rate_limit(monkeypatch) -> None:
+    monkeypatch.setattr(mod.shutil, "which", lambda name: "/usr/bin/gh")
+
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout_seconds: int,
+        prefer_app: bool = True,
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "api", "rate_limit"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="ok", stderr="")
+        if args[:3] == ["gh", "api", "graphql"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="GraphQL: API rate limit already exceeded for user ID 33477136.",
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    health = mod.check_github_cli_health(Path("."))
+
+    assert health.ready is False
+    assert health.mode == "api_rate_limited"
+    assert health.auth_ok is True
+    assert health.api_ok is False
+    assert "GraphQL" in health.error
 
 
 def test_check_github_cli_health_detects_connectivity_failure(monkeypatch) -> None:
@@ -338,11 +389,61 @@ def test_check_github_cli_health_detects_auth_failure(monkeypatch) -> None:
     assert health.api_ok is False
 
 
+def test_main_uses_diagnostic_mode_without_app_auth_by_default(monkeypatch) -> None:
+    calls: list[bool] = []
+
+    def fake_check(
+        repo_root,
+        timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS,
+        prefer_app=True,
+    ) -> mod.GitHubCLIHealth:
+        calls.append(prefer_app)
+        return mod.GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(Path(repo_root).resolve()),
+        )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fake_check)
+
+    assert mod.main(["--quiet"]) == 0
+    assert calls == [False]
+
+
+def test_main_can_opt_into_app_auth(monkeypatch) -> None:
+    calls: list[bool] = []
+
+    def fake_check(
+        repo_root,
+        timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS,
+        prefer_app=True,
+    ) -> mod.GitHubCLIHealth:
+        calls.append(prefer_app)
+        return mod.GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(Path(repo_root).resolve()),
+        )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fake_check)
+
+    assert mod.main(["--quiet", "--prefer-app-auth"]) == 0
+    assert calls == [True]
+
+
 def test_main_json_reports_unavailable_state(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root, timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS: mod.GitHubCLIHealth(
+        lambda repo_root,
+        timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS,
+        prefer_app=True: mod.GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
