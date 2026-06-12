@@ -72,6 +72,18 @@ class CalibrationHandler(SecureHandler):
         "/api/calibration/visualization",
     ]
 
+    @staticmethod
+    def _is_calibration_report_path(path: str) -> bool:
+        """Match exactly /api/agents/{id}/calibration-report (version-stripped)."""
+        parts = path.split("/")
+        return (
+            len(parts) == 5
+            and parts[1] == "api"
+            and parts[2] == "agents"
+            and bool(parts[3])
+            and parts[4] == "calibration-report"
+        )
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         path = strip_version_prefix(path)
@@ -79,7 +91,7 @@ class CalibrationHandler(SecureHandler):
             path.endswith("/calibration-curve") or path.endswith("/calibration-summary")
         ):
             return True
-        if path.startswith("/api/agents/") and path.endswith("/calibration-report"):
+        if self._is_calibration_report_path(path):
             return True
         if path in ("/api/calibration/leaderboard", "/api/calibration/visualization"):
             return True
@@ -121,7 +133,7 @@ class CalibrationHandler(SecureHandler):
             return self._get_calibration_visualization(limit)
 
         # Handle auditable calibration report: /api/agents/{id}/calibration-report
-        if path.startswith("/api/agents/") and path.endswith("/calibration-report"):
+        if self._is_calibration_report_path(path):
             agent, err = self.extract_path_param(path, 3, "agent", SAFE_AGENT_PATTERN)
             if err:
                 return err

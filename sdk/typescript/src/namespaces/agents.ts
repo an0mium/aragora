@@ -242,7 +242,11 @@ export class AgentsAPI {
    * no calibration data return an explicit `{ status: 'absent', reason }`.
    */
   async getCalibrationReport(name: string, params?: { domain?: string }): Promise<Record<string, unknown>> {
-    return this.client.getAgentCalibrationReport(name, params);
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/agents/${encodeURIComponent(name)}/calibration-report`,
+      { params }
+    );
   }
 
   /**
