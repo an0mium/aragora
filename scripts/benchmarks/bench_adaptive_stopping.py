@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import math
 import random
 import statistics
 import time
@@ -54,6 +55,16 @@ def _require_positive_int(value: int, *, label: str) -> None:
         raise ValueError(f"{label} must be a positive integer")
 
 
+def _require_stability_score(value: float, *, label: str) -> float:
+    try:
+        score = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{label} must be a finite score between 0 and 1") from exc
+    if not math.isfinite(score) or score < 0 or score > 1:
+        raise ValueError(f"{label} must be a finite score between 0 and 1")
+    return score
+
+
 def run_benchmark(iterations: int, votes_per_round: int) -> StabilityBenchmarkResult:
     _require_positive_int(iterations, label="iterations")
     _require_positive_int(votes_per_round, label="votes_per_round")
@@ -75,6 +86,7 @@ def run_benchmark(iterations: int, votes_per_round: int) -> StabilityBenchmarkRe
             )
         else:
             stability = agreement
+        stability = _require_stability_score(stability, label="stability")
         elapsed = (time.perf_counter() - start) * 1000
         result.times_ms.append(elapsed)
         result.stability_scores.append(stability)

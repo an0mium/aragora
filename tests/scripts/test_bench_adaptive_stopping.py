@@ -55,3 +55,38 @@ def test_run_benchmark_records_one_score_per_iteration(
     assert result.iterations == 3
     assert len(result.stability_scores) == 3
     assert len(result.times_ms) == 3
+
+
+def test_run_benchmark_accepts_detector_score_object(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+
+    class Detector:
+        def calculate_stability(self, values):
+            assert values
+            return type("Score", (), {"stability": 0.75})()
+
+    monkeypatch.setattr(module, "_get_detector", lambda: Detector())
+
+    result = module.run_benchmark(1, 3)
+
+    assert result.stability_scores == [0.75]
+
+
+@pytest.mark.parametrize("bad_score", [float("nan"), float("inf"), -0.1, 1.1])
+def test_run_benchmark_rejects_invalid_detector_scores(
+    bad_score: float,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+
+    class Detector:
+        def calculate_stability(self, values):
+            assert values
+            return bad_score
+
+    monkeypatch.setattr(module, "_get_detector", lambda: Detector())
+
+    with pytest.raises(ValueError, match="stability must be a finite score between 0 and 1"):
+        module.run_benchmark(1, 3)
