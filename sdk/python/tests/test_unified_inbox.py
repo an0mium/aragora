@@ -175,6 +175,23 @@ class TestUnifiedInboxNvAliases:
             mock_request.assert_called_once_with("GET", "/api/v1/inbox/trends", params={"days": 14})
             client.close()
 
+    def test_reply_uses_versioned_route(self) -> None:
+        """reply() targets POST /api/v1/inbox/messages/{id}/reply (email_actions handler)."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"success": True}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+
+            client.unified_inbox.reply(
+                "msg-1", "Thanks!", provider="outlook", cc=["peer@example.com"]
+            )
+
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/inbox/messages/msg-1/reply",
+                json={"provider": "outlook", "body": "Thanks!", "cc": ["peer@example.com"]},
+            )
+            client.close()
+
     def test_no_non_versioned_paths_remain(self) -> None:
         """Regression guard: no SDK call may target a bare /inbox/* path."""
         import inspect
@@ -324,3 +341,17 @@ class TestAsyncUnifiedInboxNvAliases:
             await client.unified_inbox.nv_get_trends()
 
             mock_request.assert_called_once_with("GET", "/api/v1/inbox/trends", params={"days": 7})
+
+    @pytest.mark.asyncio
+    async def test_reply_uses_versioned_route(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"success": True}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+
+            await client.unified_inbox.reply("msg-2", "Done.")
+
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/v1/inbox/messages/msg-2/reply",
+                json={"provider": "gmail", "body": "Done."},
+            )
