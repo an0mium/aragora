@@ -75,9 +75,14 @@ def _secret_configured(name: str) -> bool:
     return get_secret_presence(name).source in {"aws", "env"}
 
 
-# Check if official RLM is available
+# Check if official RLM is available.
+# preserve_environ: importing rlm triggers a load_dotenv() side effect that
+# can inject a repository .env into os.environ process-wide (#8277).
+from aragora.utils.env import preserve_environ
+
 try:
-    from rlm import RLM as OfficialRLM
+    with preserve_environ():
+        from rlm import RLM as OfficialRLM
 
     HAS_OFFICIAL_RLM = True
 except ImportError:
