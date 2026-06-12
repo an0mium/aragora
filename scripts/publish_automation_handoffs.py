@@ -36,6 +36,7 @@ DEFAULT_LABELS = ("boss-ready",)
 DEFAULT_LIMIT = 2
 DEFAULT_MAX_OPEN_ISSUES = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
+GIT_PROBE_TIMEOUT_SECONDS = 5
 MAX_ISSUE_BODY_CHARS = 60_000
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
@@ -676,23 +677,56 @@ def _outbox_desired_head(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _outbox_git_candidates(payload: dict[str, Any]) -> list[str]:
+    exact_refs = [
+        _outbox_evidence_value(payload, "head"),
+        _outbox_evidence_value(payload, "head_sha"),
+        _outbox_evidence_value(payload, "commit"),
+    ]
+    candidates = list(dict.fromkeys(item for item in exact_refs if item))
+    if not candidates:
+        branch = _outbox_evidence_value(payload, "branch")
+        if branch:
+            candidates.append(branch)
+    return candidates
+
+
+def _run_git_probe(repo_root: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            args,
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=GIT_PROBE_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=124,
+            stdout=exc.stdout if isinstance(exc.stdout, str) else "",
+            stderr=exc.stderr if isinstance(exc.stderr, str) else "",
+        )
+
+
 def _git_is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
-    proc = _run(["git", "merge-base", "--is-ancestor", ancestor, descendant], cwd=repo_root)
+    proc = _run_git_probe(
+        repo_root,
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+    )
     return proc.returncode == 0
 
 
 def _git_patch_equivalent(repo_root: Path, base: str, candidate: str) -> bool:
-    diff_proc = _run(["git", "diff", "--quiet", f"{base}...{candidate}"], cwd=repo_root)
-    if diff_proc.returncode == 0:
+    tree_proc = _run_git_probe(repo_root, ["git", "diff", "--quiet", base, candidate])
+    if tree_proc.returncode == 0:
         return True
-    if diff_proc.returncode != 1:
+    if tree_proc.returncode != 1:
         return False
 
-    proc = _run(["git", "cherry", base, candidate], cwd=repo_root)
-    if proc.returncode != 0:
-        return False
-    statuses = [line[:1] for line in proc.stdout.splitlines() if line.strip()]
-    return bool(statuses) and all(status == "-" for status in statuses)
+    diff_proc = _run_git_probe(repo_root, ["git", "diff", "--quiet", f"{base}...{candidate}"])
+    return diff_proc.returncode == 0
 
 
 def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> bool:
@@ -703,13 +737,7 @@ def _outbox_branch_already_merged(repo_root: Path, payload: dict[str, Any]) -> b
     if not base_ref:
         return False
 
-    candidates = [
-        _outbox_evidence_value(payload, "head"),
-        _outbox_evidence_value(payload, "head_sha"),
-        _outbox_evidence_value(payload, "commit"),
-        _outbox_evidence_value(payload, "branch"),
-    ]
-    for candidate in dict.fromkeys(item for item in candidates if item):
+    for candidate in _outbox_git_candidates(payload):
         if _git_is_ancestor(repo_root, candidate, base_ref):
             return True
     return False
@@ -723,13 +751,7 @@ def _outbox_branch_patch_equivalent(repo_root: Path, payload: dict[str, Any]) ->
     if not base_ref:
         return False
 
-    candidates = [
-        _outbox_evidence_value(payload, "branch"),
-        _outbox_evidence_value(payload, "head"),
-        _outbox_evidence_value(payload, "head_sha"),
-        _outbox_evidence_value(payload, "commit"),
-    ]
-    for candidate in dict.fromkeys(item for item in candidates if item):
+    for candidate in _outbox_git_candidates(payload):
         if _git_patch_equivalent(repo_root, base_ref, candidate):
             return True
     return False

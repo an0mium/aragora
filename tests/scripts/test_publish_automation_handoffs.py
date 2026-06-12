@@ -762,6 +762,57 @@ def test_load_outbox_handoffs_skips_already_merged_top_level_head(tmp_path: Path
     assert mod.load_outbox_handoffs(repo) == []
 
 
+def test_git_is_ancestor_times_out_as_not_merged(monkeypatch: Any, tmp_path: Path) -> None:
+    calls: list[tuple[list[str], float | None]] = []
+
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        text: bool,
+        capture_output: bool,
+        check: bool,
+        timeout: float | None,
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append((args, timeout))
+        raise subprocess.TimeoutExpired(args, timeout)
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    assert mod._git_is_ancestor(tmp_path, "slow-ref", "origin/main") is False
+    assert calls == [
+        (
+            ["git", "merge-base", "--is-ancestor", "slow-ref", "origin/main"],
+            mod.GIT_PROBE_TIMEOUT_SECONDS,
+        )
+    ]
+
+
+def test_outbox_git_candidates_prefer_exact_head_over_branch() -> None:
+    payload = _outbox_payload(
+        branch="codex/example",
+        head_sha="0123456789abcdef0123456789abcdef01234567",
+    )
+
+    assert mod._outbox_git_candidates(payload) == ["0123456789abcdef0123456789abcdef01234567"]
+
+
+def test_git_patch_equivalent_does_not_run_cherry(monkeypatch: Any, tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    def fake_probe(repo_root: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 1, "", "")
+
+    monkeypatch.setattr(mod, "_run_git_probe", fake_probe)
+
+    assert mod._git_patch_equivalent(tmp_path, "origin/main", "abc1234") is False
+    assert calls == [
+        ["git", "diff", "--quiet", "origin/main", "abc1234"],
+        ["git", "diff", "--quiet", "origin/main...abc1234"],
+    ]
+
+
 def test_load_outbox_handoffs_skips_patch_equivalent_branch(tmp_path: Path) -> None:
     repo, head = _repo_with_patch_equivalent_codex_branch(tmp_path)
     outbox = repo / ".aragora" / "automation-outbox"
