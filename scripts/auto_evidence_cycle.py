@@ -387,6 +387,27 @@ def default_run_dogfood(
     }
 
 
+def default_record_trail(repo: str, pr: int, posted_families: list[str]) -> None:
+    """Record a tamper-evident-trail intent for posted quorum evidence.
+
+    TET T1 example call site (docs/specs/TAMPER_EVIDENT_TRAIL.md Component 2,
+    step 3): evidence posting is a settlement-advancing repo mutation, so it
+    lands on the intent chain as an ``agent-app``/``settle_pr`` intent.
+    ``record_intent`` is a no-op unless ``ARAGORA_TRAIL=1`` and never raises;
+    the lazy import keeps this wiring non-fatal everywhere.
+    """
+    try:
+        from aragora.trail import record_intent
+    except ImportError:
+        return
+    record_intent(
+        actor_class="agent-app",
+        intent_type="settle_pr",
+        target={"repo": repo, "pr": pr},
+        payload={"action": "post_quorum_evidence", "posted_families": list(posted_families)},
+    )
+
+
 def default_run_reconciler(repo: str) -> int:
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "quorum_rerun_reconciler.py")
     try:
@@ -456,6 +477,7 @@ def run_cycle(
     fetch_packet: Callable[[int], dict[str, Any]],
     run_collect: Callable[[int, bool], dict[str, Any]],
     run_reconciler: Callable[[], int],
+    record_trail: Callable[[int, list[str]], None] | None = None,
     apply: bool,
     max_prs: int,
     max_scan: int,
@@ -559,6 +581,8 @@ def run_cycle(
         ok = bool(result.get("ok")) and len(posted) >= REQUIRED_FAMILIES
         if ok:
             summary["posted_prs"].append(item["pr"])
+            if record_trail is not None:
+                record_trail(item["pr"], posted)
             identical_errors = 0
             last_error = None
             log(json.dumps({"pr": item["pr"], "posted_families": posted, "result": "posted"}))
@@ -723,6 +747,7 @@ def main(argv: list[str] | None = None) -> int:
             fetch_packet=lambda pr: default_fetch_packet(args.repo, pr),
             run_collect=lambda pr, apply: default_run_collect(args.repo, families, pr, apply),
             run_reconciler=lambda: default_run_reconciler(args.repo),
+            record_trail=lambda pr, posted: default_record_trail(args.repo, pr, posted),
             run_dogfood=run_dogfood,
             max_dogfood=max(0, args.max_dogfood),
             apply=args.apply,
