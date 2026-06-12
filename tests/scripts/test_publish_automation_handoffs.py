@@ -1197,9 +1197,9 @@ def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
     def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, json.dumps([{"number": 1}]), "")
-        if args[:3] == ["gh", "issue", "list"]:
-            return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["gh", "pr", "list"] and "--head" in args:
+            raise AssertionError(f"unexpected per-branch PR lookup: {args}")
+        if args[:3] == ["gh", "pr", "list"]:
             return subprocess.CompletedProcess(
                 args,
                 0,
@@ -1217,7 +1217,7 @@ def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
                 ),
                 "",
             )
-        if args[:3] == ["gh", "pr", "list"]:
+        if args[:3] == ["gh", "issue", "list"]:
             return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["git", "rev-parse", "--verify"]:
             return subprocess.CompletedProcess(args, 1, "", "unknown ref")
@@ -1263,6 +1263,10 @@ def test_decide_handoffs_keeps_branch_update_actionable_when_pr_head_is_stale(
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["gh", "pr", "list"] and "--head" in args:
+            raise AssertionError(f"unexpected per-branch PR lookup: {args}")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "pr", "list"] and "--search" not in args:
             return subprocess.CompletedProcess(
                 args,
                 0,
@@ -1282,8 +1286,6 @@ def test_decide_handoffs_keeps_branch_update_actionable_when_pr_head_is_stale(
                 ),
                 "",
             )
-        if args[:3] == ["gh", "issue", "list"]:
-            return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["gh", "pr", "list"]:
             return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["git", "rev-parse", "--verify"]:
@@ -1375,22 +1377,7 @@ def test_decide_handoffs_prefers_branch_pr_over_duplicate_issue(
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["gh", "pr", "list"] and "--head" in args:
-            return subprocess.CompletedProcess(
-                args,
-                0,
-                json.dumps(
-                    [
-                        {
-                            "number": 7024,
-                            "title": "fix(ci): scope test workflow changes to frontend e2e",
-                            "url": "https://github.com/synaptent/aragora/pull/7024",
-                            "state": "OPEN",
-                            "headRefName": "codex/frontend-e2e-test-workflow-scope",
-                        }
-                    ]
-                ),
-                "",
-            )
+            raise AssertionError(f"unexpected per-branch PR lookup: {args}")
         if args[:3] == ["gh", "issue", "list"]:
             return subprocess.CompletedProcess(
                 args,
@@ -1410,7 +1397,22 @@ def test_decide_handoffs_prefers_branch_pr_over_duplicate_issue(
                 "",
             )
         if args[:3] == ["gh", "pr", "list"]:
-            return subprocess.CompletedProcess(args, 0, "[]", "")
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 7024,
+                            "title": "fix(ci): scope test workflow changes to frontend e2e",
+                            "url": "https://github.com/synaptent/aragora/pull/7024",
+                            "state": "OPEN",
+                            "headRefName": "codex/frontend-e2e-test-workflow-scope",
+                        }
+                    ]
+                ),
+                "",
+            )
         raise AssertionError(f"unexpected args: {args}")
 
     monkeypatch.setattr(mod, "_run", fake_run)
@@ -1432,6 +1434,66 @@ def test_decide_handoffs_prefers_branch_pr_over_duplicate_issue(
             existing_pr_url="https://github.com/synaptent/aragora/pull/7024",
         )
     ]
+
+
+def test_decide_handoffs_uses_one_bulk_branch_pr_lookup_for_existing_issues(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoffs = [
+        Handoff(
+            source_file=str(tmp_path / f"outbox-{index}.json"),
+            task_title=f"Open PR for existing repair handoff {index}",
+            priority="MEDIUM",
+            body="body",
+            labels={},
+            expires_at=None,
+            source_kind="outbox",
+            branch=f"codex/existing-repair-{index}",
+        )
+        for index in range(2)
+    ]
+    bulk_pr_calls = 0
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        nonlocal bulk_pr_calls
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "pr", "list"] and "--head" in args:
+            raise AssertionError(f"unexpected per-branch PR lookup: {args}")
+        if args[:3] == ["gh", "pr", "list"] and "--search" not in args:
+            bulk_pr_calls += 1
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "list"]:
+            title = args[args.index("--search") + 1]
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "number": 6495,
+                            "title": title,
+                            "url": "https://github.com/synaptent/aragora/issues/6495",
+                            "state": "OPEN",
+                        }
+                    ]
+                ),
+                "",
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        handoffs,
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert bulk_pr_calls == 1
+    assert [decision.reason for decision in decisions] == ["existing_issue", "existing_issue"]
 
 
 def test_decide_handoffs_respects_open_issue_cap(monkeypatch: Any, tmp_path: Path) -> None:

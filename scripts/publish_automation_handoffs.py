@@ -1151,9 +1151,50 @@ def _pr_by_number(repo_root: Path, repo: str, number: int) -> dict[str, Any] | N
     return payload if isinstance(payload, dict) else None
 
 
-def _open_pr_by_branch(repo_root: Path, repo: str, branch: str | None) -> dict[str, Any] | None:
+def _open_prs_by_branch(repo_root: Path, repo: str) -> dict[str, dict[str, Any]]:
+    proc = _run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--json",
+            "number,title,url,state,headRefName,headRefOid",
+            "--limit",
+            "200",
+        ],
+        cwd=repo_root,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "failed to list PRs")
+    payload = json.loads(proc.stdout or "[]")
+    if not isinstance(payload, list):
+        return {}
+    by_branch: dict[str, dict[str, Any]] = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        branch = str(item.get("headRefName") or "").strip()
+        if branch and branch not in by_branch:
+            by_branch[branch] = item
+    return by_branch
+
+
+def _open_pr_by_branch(
+    repo_root: Path,
+    repo: str,
+    branch: str | None,
+    *,
+    open_prs_by_branch: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, Any] | None:
     if not branch:
         return None
+    if open_prs_by_branch is not None:
+        pr = open_prs_by_branch.get(branch)
+        return dict(pr) if isinstance(pr, Mapping) else None
     proc = _run(
         [
             "gh",
@@ -1198,8 +1239,19 @@ def _pr_head_satisfies_handoff(handoff: Handoff, pr: Mapping[str, Any]) -> bool:
     return bool(actual_head) and _head_matches(handoff.desired_head, actual_head)
 
 
-def _target_open_pr(repo_root: Path, repo: str, handoff: Handoff) -> dict[str, Any] | None:
-    branch_pr = _open_pr_by_branch(repo_root, repo, handoff.branch)
+def _target_open_pr(
+    repo_root: Path,
+    repo: str,
+    handoff: Handoff,
+    *,
+    open_prs_by_branch: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, Any] | None:
+    branch_pr = _open_pr_by_branch(
+        repo_root,
+        repo,
+        handoff.branch,
+        open_prs_by_branch=open_prs_by_branch,
+    )
     if branch_pr and _pr_head_satisfies_handoff(handoff, branch_pr):
         return branch_pr
     for number in _referenced_pr_numbers(handoff):
@@ -1313,13 +1365,21 @@ def decide_handoffs(
     max_open_issues: int,
 ) -> list[PublishDecision]:
     open_issue_count = _open_boss_ready_count(repo_root, repo, labels)
+    open_prs_by_branch: dict[str, dict[str, Any]] | None = None
     decisions: list[PublishDecision] = []
     for handoff in handoffs:
         local_blocker = _local_handoff_blocker(repo_root, handoff)
         if local_blocker is not None:
             decisions.append(local_blocker)
             continue
-        target_pr = _target_open_pr(repo_root, repo, handoff)
+        if handoff.branch and open_prs_by_branch is None:
+            open_prs_by_branch = _open_prs_by_branch(repo_root, repo)
+        target_pr = _target_open_pr(
+            repo_root,
+            repo,
+            handoff,
+            open_prs_by_branch=open_prs_by_branch,
+        )
         if target_pr:
             decisions.append(
                 PublishDecision(
