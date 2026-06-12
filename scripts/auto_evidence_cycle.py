@@ -48,6 +48,7 @@ when ``ARAGORA_AUTO_EVIDENCE=1`` (default off, non-fatal for the arbiter).
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import subprocess
@@ -64,6 +65,21 @@ GH_TIMEOUT_SECONDS = 120
 PACKET_TIMEOUT_SECONDS = 300
 COLLECT_TIMEOUT_SECONDS = 1200
 RECONCILER_TIMEOUT_SECONDS = 600
+DEFAULT_DOGFOOD_TIMEOUT = 600
+DEFAULT_DOGFOOD_FAMILY = os.environ.get("ARAGORA_DOGFOOD_FAMILY", "claude").strip() or "claude"
+
+
+def _load_dogfood_module() -> Any:
+    """Load the sibling ``dogfood_evidence`` helper (script, not a package)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dogfood_evidence.py")
+    spec = importlib.util.spec_from_file_location("aragora_dogfood_evidence", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load dogfood_evidence from {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
 
 EXIT_OK = 0
 EXIT_FAILURES = 1
@@ -142,6 +158,35 @@ def needs_evidence(entry: dict[str, Any]) -> bool:
     if families is None:
         families = entry.get("counted_reviewer_ids") or []
     return len(families) < REQUIRED_FAMILIES
+
+
+def needs_dogfood(entry: dict[str, Any]) -> bool:
+    """Whether a merge-packet entry needs a dogfood-evidence step.
+
+    A Tier-1+ code PR is dogfood-blocked when the packet declares
+    ``requires_adversarial_dogfood`` but carries no counted dogfood evidence
+    yet. We still only act inside the auto-postable tier band (0-2) and never on
+    PRs gated on human risk settlement or with unresolved dissent — the cycle's
+    existing safety envelope. (Tier 0 never requires dogfood, so it is filtered
+    naturally by the ``requires_adversarial_dogfood`` flag.)
+    """
+    if not entry:
+        return False
+    if not entry.get("requires_adversarial_dogfood"):
+        return False
+    if entry.get("dogfood_evidence"):
+        return False
+    try:
+        tier = int(entry.get("tier"))
+    except (TypeError, ValueError):
+        return False
+    if tier not in AUTO_POSTABLE_TIERS:
+        return False
+    if entry.get("requires_human_risk_settlement"):
+        return False
+    if entry.get("unresolved_dissent"):
+        return False
+    return True
 
 
 def parse_collect_output(returncode: int, stdout: str, stderr: str) -> dict[str, Any]:
@@ -310,6 +355,38 @@ def default_run_collect(
     return parse_collect_output(proc.returncode, proc.stdout, proc.stderr)
 
 
+def default_run_dogfood(
+    repo: str, pr: int, *, model_family: str, timeout: int, apply: bool
+) -> dict[str, Any]:
+    """Run the bounded dogfood step for one PR via the sibling helper.
+
+    Returns a normalized dict: ``{"status": ..., "reason": ..., "posted": bool}``.
+    All git/gh/subprocess work happens inside the helper's injected defaults.
+    """
+    df = _load_dogfood_module()
+    outcome = df.dogfood_pr(
+        repo=repo,
+        pr=pr,
+        model_family=model_family,
+        timeout=timeout,
+        apply=apply,
+        fetch_head=df.default_fetch_pr_head,
+        changed_files=df.default_changed_files,
+        checkout=df.default_checkout_worktree,
+        remove_worktree=df.default_remove_worktree,
+        run_validation=df.default_run_validation,
+        lint_evidence=df.default_lint_evidence,
+        post_comment=df.default_post_comment,
+    )
+    return {
+        "status": outcome.status,
+        "reason": outcome.reason,
+        "posted": outcome.status == "posted",
+        "command": outcome.command,
+        "would_count": outcome.would_count,
+    }
+
+
 def default_run_reconciler(repo: str) -> int:
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "quorum_rerun_reconciler.py")
     try:
@@ -384,10 +461,24 @@ def run_cycle(
     max_scan: int,
     budget_seconds: float,
     breaker_threshold: int,
+    run_dogfood: Callable[[int, bool], dict[str, Any]] | None = None,
+    max_dogfood: int = 3,
     clock: Callable[[], float] = time.monotonic,
     log: Callable[[str], None] = print,
 ) -> dict[str, Any]:
-    """Plan and (with ``apply``) execute one bounded auto-evidence cycle."""
+    """Plan and (with ``apply``) execute one bounded auto-evidence cycle.
+
+    Two complementary passes share the candidate scan:
+
+    - **Model-quorum** (existing): PRs at ``needs_model_review_quorum`` with <2
+      counted families get two-family evidence minted via collect-evidence.
+    - **Dogfood** (#8219, when ``run_dogfood`` is supplied): Tier-1+ code PRs
+      whose packet ``requires_adversarial_dogfood`` but carries no dogfood
+      evidence get a bounded, fail-closed dogfood run; a passing run posts a
+      counting dogfood-evidence comment so the gate's dogfood requirement is
+      satisfied. Together the two passes let the cycle settle code PRs
+      end-to-end, not just docs.
+    """
     started = clock()
 
     def over_budget() -> bool:
@@ -396,8 +487,12 @@ def run_cycle(
     summary: dict[str, Any] = {
         "mode": "apply" if apply else "dry-run",
         "plan": [],
+        "dogfood_plan": [],
         "posted_prs": [],
         "failed_prs": [],
+        "dogfood_posted_prs": [],
+        "dogfood_failed_prs": [],
+        "dogfood_skipped_prs": [],
         "breaker_tripped": False,
         "budget_exhausted": False,
         "reconciler_exit": None,
@@ -407,28 +502,47 @@ def run_cycle(
     candidates = stage1_candidates(list_prs())
     probes = 0
     for number in candidates:
-        if len(summary["plan"]) >= max_prs or probes >= max_scan:
+        scan_full = len(summary["plan"]) >= max_prs and (
+            run_dogfood is None or len(summary["dogfood_plan"]) >= max_dogfood
+        )
+        if scan_full or probes >= max_scan:
             break
         if over_budget():
             summary["budget_exhausted"] = True
             break
         probes += 1
         entry = fetch_packet(number)
-        if not needs_evidence(entry):
-            continue
-        families = entry.get("counted_model_families") or entry.get("counted_reviewer_ids") or []
-        summary["plan"].append(
-            {
-                "pr": number,
-                "tier": entry.get("tier"),
-                "status": entry.get("status"),
-                "counted_families": list(families),
-            }
-        )
+        if needs_evidence(entry) and len(summary["plan"]) < max_prs:
+            families = (
+                entry.get("counted_model_families") or entry.get("counted_reviewer_ids") or []
+            )
+            summary["plan"].append(
+                {
+                    "pr": number,
+                    "tier": entry.get("tier"),
+                    "status": entry.get("status"),
+                    "counted_families": list(families),
+                }
+            )
+        if (
+            run_dogfood is not None
+            and needs_dogfood(entry)
+            and len(summary["dogfood_plan"]) < max_dogfood
+        ):
+            summary["dogfood_plan"].append(
+                {
+                    "pr": number,
+                    "tier": entry.get("tier"),
+                    "status": entry.get("status"),
+                    "requires_adversarial_dogfood": True,
+                }
+            )
 
     for item in summary["plan"]:
         log(json.dumps({**item, "mode": summary["mode"]}))
-    if not summary["plan"]:
+    for item in summary["dogfood_plan"]:
+        log(json.dumps({**item, "mode": summary["mode"], "step": "dogfood"}))
+    if not summary["plan"] and not summary["dogfood_plan"]:
         log(json.dumps({"plan": "empty", "mode": summary["mode"]}))
 
     if not apply:
@@ -471,7 +585,35 @@ def run_cycle(
             )
             break
 
-    if summary["posted_prs"]:
+    # Dogfood pass: bounded, fail-closed. A failing dogfood posts nothing and is
+    # recorded as a real not-ready signal (not a cycle failure that should trip
+    # the breaker — the breaker is for systemic faults, which the dogfood helper
+    # surfaces as "skipped" with a reason, not a passing/failing validation).
+    if run_dogfood is not None and not summary["breaker_tripped"]:
+        for item in summary["dogfood_plan"]:
+            if over_budget():
+                summary["budget_exhausted"] = True
+                break
+            result = run_dogfood(item["pr"], True)
+            status = str(result.get("status") or "")
+            log(
+                json.dumps(
+                    {
+                        "pr": item["pr"],
+                        "step": "dogfood",
+                        "result": status,
+                        "reason": str(result.get("reason") or "")[:200],
+                    }
+                )
+            )
+            if status == "posted":
+                summary["dogfood_posted_prs"].append(item["pr"])
+            elif status == "failed":
+                summary["dogfood_failed_prs"].append(item["pr"])
+            else:
+                summary["dogfood_skipped_prs"].append(item["pr"])
+
+    if summary["posted_prs"] or summary["dogfood_posted_prs"]:
         summary["reconciler_exit"] = run_reconciler()
         log(json.dumps({"reconciler_exit": summary["reconciler_exit"]}))
 
@@ -519,6 +661,30 @@ def main(argv: list[str] | None = None) -> int:
         default=",".join(DEFAULT_FAMILIES),
         help="Comma-separated reviewer model families (default: claude,grok)",
     )
+    parser.add_argument(
+        "--dogfood",
+        action="store_true",
+        help="Also run the bounded dogfood-evidence step for Tier-1+ code PRs that "
+        "require adversarial dogfood but have none (#8219). Fail-closed: a failing "
+        "dogfood posts nothing.",
+    )
+    parser.add_argument(
+        "--max-dogfood",
+        type=int,
+        default=3,
+        help="Maximum PRs to dogfood per invocation (default: 3)",
+    )
+    parser.add_argument(
+        "--dogfood-timeout",
+        type=int,
+        default=DEFAULT_DOGFOOD_TIMEOUT,
+        help="Per-PR dogfood validation wall-clock timeout in seconds (default: 600)",
+    )
+    parser.add_argument(
+        "--dogfood-family",
+        default=DEFAULT_DOGFOOD_FAMILY,
+        help="Model family disclosed as the dogfooder (default: claude or $ARAGORA_DOGFOOD_FAMILY)",
+    )
     args = parser.parse_args(argv)
 
     families = tuple(f.strip() for f in str(args.families).split(",") if f.strip())
@@ -541,12 +707,24 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: could not take cycle lock: {exc}", file=sys.stderr)
             return EXIT_FAILURES
 
+    run_dogfood: Callable[[int, bool], dict[str, Any]] | None = None
+    if args.dogfood:
+        run_dogfood = lambda pr, apply: default_run_dogfood(
+            args.repo,
+            pr,
+            model_family=str(args.dogfood_family),
+            timeout=max(1, int(args.dogfood_timeout)),
+            apply=apply,
+        )
+
     try:
         summary = run_cycle(
             list_prs=lambda: default_list_prs(args.repo),
             fetch_packet=lambda pr: default_fetch_packet(args.repo, pr),
             run_collect=lambda pr, apply: default_run_collect(args.repo, families, pr, apply),
             run_reconciler=lambda: default_run_reconciler(args.repo),
+            run_dogfood=run_dogfood,
+            max_dogfood=max(0, args.max_dogfood),
             apply=args.apply,
             max_prs=max(0, args.max_prs),
             max_scan=max(0, args.max_scan),

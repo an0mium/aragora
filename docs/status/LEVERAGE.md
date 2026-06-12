@@ -82,3 +82,65 @@ touches text outside the managed region above.
   254 triaged items. The instrumented numbers above scan a wider corpus
   (live + nested archive + archive dirs, 869 items) and so differ from the
   harvest snapshot.
+
+## Queue Composition (substrate cap)
+
+Sprint 4 goal 4 acceptance: the before/after queue-composition measurement of
+the substrate cap (cap shipped in #8095; default `ARAGORA_SUBSTRATE_CAP=0.3`
+live in `scripts/run_boss_cycle.sh`). The cap is the substrate-cap pattern
+applied to the issue generator: it bounds substrate/tooling candidates to at
+most `int(max_issues * cap)` per refill so product-surface work is never
+crowded out by self-referential loop tooling.
+
+### Measurement basis — SYNTHETIC (live generator yields 0 under proof-first filter)
+
+**Honesty caveat (required reading).** A live before/after composition from
+real candidates was **not obtainable** in this window. Running the generator in
+dry-run over the real candidate set on 2026-06-11 yields **0 valid candidates**
+at *both* cap settings, because the proof-first canonical-priority filter blocks
+the queue upstream of the cap:
+
+```
+$ python scripts/generate_boss_issues.py --repo synaptent/aragora \
+        --dry-run --max-issues 20 --substrate-cap {1.0,0.3}
+  Found 75 candidates across 4 categories
+Filtered to 0 valid candidates
+  Skipped: 0 duplicates, 3 PR conflicts, 72 canonical priority blocks, 0 validation failures
+DRY RUN — would create 0 issues:
+```
+
+The cap operates *after* this filter, so with 0 candidates reaching it the cap
+has nothing to compose either way — identical (empty) output at cap 1.0 and cap
+0.3. This is the same condition observed 2026-06-10. The numbers below are
+therefore **synthetic**: they are the cap's *mathematical effect* on a
+controlled candidate set, taken directly from the proven unit behavior
+(`tests/scripts/test_generate_boss_issues.py::TestSubstrateCap`,
+`select_with_substrate_cap`), **not** a live composition of real candidates.
+
+### Before / after composition (synthetic; candidate set = 10 substrate + 10 product, max_issues=10)
+
+| Setting | Substrate selected | Product selected | Substrate skipped | Queue composition |
+| --- | --- | --- | --- | --- |
+| Cap **disabled** (`--substrate-cap 1.0`) | 10 | 0 | 0 | 100% substrate / 0% product |
+| Cap **active** (`--substrate-cap 0.3`) | 3 | 7 | 7 | 30% substrate / 70% product |
+
+Reading: under the same candidate pressure, the default cap converts a queue
+that *would* be 100% substrate (substrate candidates listed first, filling all
+10 slots) into a 30/70 substrate:product split — the `int(10 * 0.3) = 3`
+substrate budget, with the 7 freed slots filled by product work and the 7
+excess substrate candidates reported as skipped (never silently dropped).
+
+Verified by unit (7/7 passing, 2026-06-11):
+`pytest tests/scripts/test_generate_boss_issues.py -k "cap or substrate"`
+- `test_cap_limits_substrate_and_product_fills_rest`: 10s+10p @ cap 0.3 → 3 substrate / 7 product, 7 skipped.
+- `test_only_substrate_candidates_respects_budget_and_reports_skips`: 10s @ cap 0.3 → 3 selected, 7 skipped.
+- `test_cap_of_one_disables`: cap 1.0 → no skips (cap off).
+- `test_product_never_skipped_by_cap`: product candidates are never capped.
+
+**What this measurement claims, and what it does not.** It claims the cap's
+selection logic produces the stated 30/70 composition under controlled
+candidate pressure, proven by unit. It does **not** claim a live refill was
+observed composing real candidates this way — none occurred, because the
+proof-first filter currently empties the queue before the cap runs. When a real
+refill next reaches the cap with mixed candidates, this section should be
+updated with the observed live composition replacing the synthetic basis.

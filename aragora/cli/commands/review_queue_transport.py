@@ -15,6 +15,7 @@ GH_COMMAND_TIMEOUT_SECONDS = 30
 GITHUB_TRANSPORT_ERROR_KIND = "github_transport"
 GITHUB_TRANSPORT_BLOCKED_STATUS = "transport_blocked"
 _GITHUB_TRANSPORT_ERROR_MARKERS = (
+    "api rate limit already exceeded",
     "check your internet connection",
     "client.timeout exceeded",
     "connection refused",
@@ -31,6 +32,7 @@ _GITHUB_TRANSPORT_ERROR_MARKERS = (
     "net/http",
     "no such host",
     "operation timed out",
+    "rate limit exceeded",
     "temporary failure in name resolution",
     "timeout awaiting response headers",
     "tls handshake timeout",
