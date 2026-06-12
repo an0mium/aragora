@@ -74,7 +74,18 @@ def _validate_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     cases = manifest.get("smoke_cases")
     if not isinstance(cases, list) or not cases:
         raise ValueError("manifest must include a non-empty smoke_cases list")
-    return [_validate_case(row, index) for index, row in enumerate(cases)]
+    validated = [_validate_case(row, index) for index, row in enumerate(cases)]
+    seen_case_ids: dict[str, int] = {}
+    for index, case in enumerate(validated):
+        case_id = str(case["case_id"])
+        first_index = seen_case_ids.get(case_id)
+        if first_index is not None:
+            raise ValueError(
+                f"smoke_cases[{index}].case_id duplicates smoke_cases[{first_index}].case_id: "
+                f"{case_id}"
+            )
+        seen_case_ids[case_id] = index
+    return validated
 
 
 def _artifact_dir(artifact_root: Path, case: dict[str, Any]) -> Path:

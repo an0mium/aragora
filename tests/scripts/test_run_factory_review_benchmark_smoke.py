@@ -94,6 +94,27 @@ def test_manifest_rejects_malformed_case() -> None:
         raise AssertionError("malformed case should fail")
 
 
+def test_manifest_rejects_duplicate_case_ids() -> None:
+    manifest = _manifest()
+    first_case = dict(manifest["smoke_cases"][0])
+    duplicate_case = {
+        **first_case,
+        "pr_number": 7,
+        "pr_url": "https://github.com/droid-code-review-evals/droid-sentry/pull/7",
+        "head_sha": "f" * 40,
+    }
+    manifest["smoke_cases"] = [first_case, duplicate_case]
+
+    try:
+        smoke.build_run_plan(manifest)
+    except ValueError as exc:
+        assert (
+            "smoke_cases[1].case_id duplicates smoke_cases[0].case_id: droid-sentry-pr-6"
+        ) in str(exc)
+    else:
+        raise AssertionError("duplicate case_id should fail closed")
+
+
 def test_verify_case_head_rejects_head_drift(monkeypatch: object) -> None:
     manifest = _manifest()
     plan = smoke.build_run_plan(manifest)
