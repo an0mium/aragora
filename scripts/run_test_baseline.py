@@ -26,7 +26,24 @@ def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True)
 
 
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def _require_positive_int(value: int, *, label: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{label} must be a positive integer")
+
+
 def _build_pytest_command(args: argparse.Namespace) -> list[str]:
+    _require_positive_int(args.timeout, label="timeout")
+    _require_positive_int(args.maxfail, label="maxfail")
     pytest_cmd = [
         sys.executable,
         "-m",
@@ -69,13 +86,13 @@ def main() -> int:
     )
     parser.add_argument(
         "--timeout",
-        type=int,
+        type=_positive_int,
         default=120,
         help="Per-test timeout in seconds",
     )
     parser.add_argument(
         "--maxfail",
-        type=int,
+        type=_positive_int,
         default=1,
         help="Stop after this many failures",
     )
