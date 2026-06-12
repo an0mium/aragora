@@ -47,8 +47,10 @@ def test_provider_slot_resolver_reports_candidate_checks(
     assert resolutions[0].candidate_checks[0].provider == "claude"
     assert resolutions[0].candidate_checks[0].available is True
     assert resolutions[1].status == "available"
-    assert resolutions[1].candidate_checks[0].allowlisted is False
-    assert "not allowlisted by default" in resolutions[1].detail
+    # mistral-api was added to ALLOWED_AGENT_TYPES in d4f488de28 (#7479)
+    assert resolutions[1].candidate_checks[0].allowlisted is True
+    assert "MISTRAL_API_KEY configured" in resolutions[1].detail
+    assert "not allowlisted by default" not in resolutions[1].detail
 
 
 def test_provider_slot_resolver_explains_unavailable_slot(
