@@ -168,7 +168,7 @@ def _default_http(method: str, url: str, body: bytes | None) -> tuple[int, bytes
         },
     )
     try:
-        with urllib.request.urlopen(  # noqa: S310 - scheme pinned to https above
+        with urllib.request.urlopen(  # noqa: S310  # nosec B310 - scheme pinned to https above
             request, timeout=HTTP_TIMEOUT_SECONDS
         ) as response:
             return int(response.status), response.read()
