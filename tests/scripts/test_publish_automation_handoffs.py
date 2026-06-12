@@ -1244,6 +1244,40 @@ def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
     ]
 
 
+def test_decide_handoffs_can_skip_branch_pr_lookup_when_issue_cap_reached(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "outbox.json"),
+        task_title="Open PR for already validated branch",
+        priority="HIGH",
+        body="body",
+        labels={},
+        expires_at=None,
+        source_kind="outbox",
+        branch="codex/already-validated-branch",
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, json.dumps([{"number": 1}]), "")
+        raise AssertionError(f"unexpected capped-queue lookup: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=1,
+        capped_branch_pr_lookup_limit=0,
+    )
+
+    assert decisions[0].eligible is False
+    assert decisions[0].reason == "open_issue_cap"
+
+
 def test_decide_handoffs_keeps_branch_update_actionable_when_pr_head_is_stale(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
@@ -2106,7 +2140,9 @@ def test_main_summary_only_limits_github_ready_decision_preview(
         repo: str,
         labels: list[str],
         max_open_issues: int,
+        capped_branch_pr_lookup_limit: int | None = None,
     ) -> list[PublishDecision]:
+        assert capped_branch_pr_lookup_limit == 0
         captured["count"] = len(preview_handoffs)
         return [
             PublishDecision(

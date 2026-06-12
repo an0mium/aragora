@@ -1198,10 +1198,17 @@ def _pr_head_satisfies_handoff(handoff: Handoff, pr: Mapping[str, Any]) -> bool:
     return bool(actual_head) and _head_matches(handoff.desired_head, actual_head)
 
 
-def _target_open_pr(repo_root: Path, repo: str, handoff: Handoff) -> dict[str, Any] | None:
-    branch_pr = _open_pr_by_branch(repo_root, repo, handoff.branch)
-    if branch_pr and _pr_head_satisfies_handoff(handoff, branch_pr):
-        return branch_pr
+def _target_open_pr(
+    repo_root: Path,
+    repo: str,
+    handoff: Handoff,
+    *,
+    include_branch_lookup: bool = True,
+) -> dict[str, Any] | None:
+    if include_branch_lookup:
+        branch_pr = _open_pr_by_branch(repo_root, repo, handoff.branch)
+        if branch_pr and _pr_head_satisfies_handoff(handoff, branch_pr):
+            return branch_pr
     for number in _referenced_pr_numbers(handoff):
         pr = _pr_by_number(repo_root, repo, number)
         if (
@@ -1311,15 +1318,28 @@ def decide_handoffs(
     repo: str,
     labels: list[str],
     max_open_issues: int,
+    capped_branch_pr_lookup_limit: int | None = None,
 ) -> list[PublishDecision]:
     open_issue_count = _open_boss_ready_count(repo_root, repo, labels)
+    open_issue_cap_reached = open_issue_count >= max_open_issues
     decisions: list[PublishDecision] = []
+    capped_branch_pr_lookups = 0
     for handoff in handoffs:
         local_blocker = _local_handoff_blocker(repo_root, handoff)
         if local_blocker is not None:
             decisions.append(local_blocker)
             continue
-        target_pr = _target_open_pr(repo_root, repo, handoff)
+        include_branch_lookup = True
+        if open_issue_cap_reached and handoff.branch and capped_branch_pr_lookup_limit is not None:
+            include_branch_lookup = capped_branch_pr_lookups < capped_branch_pr_lookup_limit
+            if include_branch_lookup:
+                capped_branch_pr_lookups += 1
+        target_pr = _target_open_pr(
+            repo_root,
+            repo,
+            handoff,
+            include_branch_lookup=include_branch_lookup,
+        )
         if target_pr:
             decisions.append(
                 PublishDecision(
@@ -1328,6 +1348,16 @@ def decide_handoffs(
                     eligible=False,
                     reason="target_open_pr",
                     existing_pr_url=str(target_pr.get("url") or ""),
+                )
+            )
+            continue
+        if open_issue_cap_reached:
+            decisions.append(
+                PublishDecision(
+                    task_title=handoff.task_title,
+                    source_file=handoff.source_file,
+                    eligible=False,
+                    reason="open_issue_cap",
                 )
             )
             continue
@@ -1364,16 +1394,6 @@ def decide_handoffs(
                     eligible=False,
                     reason="existing_pr",
                     existing_pr_url=str(existing_pr.get("url") or ""),
-                )
-            )
-            continue
-        if open_issue_count >= max_open_issues:
-            decisions.append(
-                PublishDecision(
-                    task_title=handoff.task_title,
-                    source_file=handoff.source_file,
-                    eligible=False,
-                    reason="open_issue_cap",
                 )
             )
             continue
@@ -1636,6 +1656,7 @@ def main(argv: list[str] | None = None) -> int:
         repo=args.github_repo,
         labels=labels,
         max_open_issues=args.max_open_issues,
+        capped_branch_pr_lookup_limit=0 if args.summary_only and not args.apply else None,
     )
     results = (
         publish_handoffs(
