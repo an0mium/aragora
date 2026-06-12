@@ -7,6 +7,8 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+import pytest
+
 import scripts.check_contract_drift_ratchet as ratchet
 
 
@@ -111,3 +113,65 @@ def test_strict_fails_when_above_target(monkeypatch, tmp_path: Path):
     )
 
     assert ratchet.main() == 1
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("start_total_items", "10"),
+        ("start_total_items", True),
+        ("start_total_items", -1),
+        ("grace_weeks", "0"),
+        ("grace_weeks", False),
+        ("grace_weeks", -1),
+    ],
+)
+def test_build_ratchet_result_rejects_invalid_program_integers(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    verify, routes, parity, program = _seed_files(tmp_path)
+    payload: dict[str, object] = {
+        "start_date": date.today().isoformat(),
+        "start_total_items": 10,
+        "weekly_reduction": 0.1,
+        "grace_weeks": 0,
+    }
+    payload[field] = value
+    _write_json(program, payload)
+
+    with pytest.raises(ValueError, match=f"invalid '{field}'"):
+        ratchet.build_ratchet_result(
+            program_baseline=program,
+            verify_baseline=verify,
+            routes_baseline=routes,
+            parity_baseline=parity,
+            as_of=date.today(),
+        )
+
+
+def test_build_ratchet_result_allows_zero_program_integers(tmp_path: Path) -> None:
+    verify, routes, parity, program = _seed_files(tmp_path)
+    today = date.today()
+    _write_json(
+        program,
+        {
+            "start_date": today.isoformat(),
+            "start_total_items": 0,
+            "weekly_reduction": 0.1,
+            "grace_weeks": 0,
+        },
+    )
+
+    result = ratchet.build_ratchet_result(
+        program_baseline=program,
+        verify_baseline=verify,
+        routes_baseline=routes,
+        parity_baseline=parity,
+        as_of=today,
+    )
+
+    assert result["program"]["start_total_items"] == 0
+    assert result["program"]["grace_weeks"] == 0
+    assert result["target"]["max_open_items"] == 0

@@ -44,6 +44,13 @@ def _target_after_weeks(start_total: int, weekly_reduction: float, weeks: int) -
     return current
 
 
+def _require_non_negative_int(program: dict[str, Any], field: str) -> int:
+    value = program.get(field)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"Program baseline has invalid '{field}'")
+    return value
+
+
 def build_ratchet_result(
     *,
     program_baseline: Path,
@@ -60,14 +67,12 @@ def build_ratchet_result(
         )
 
     start_date_raw = program.get("start_date")
-    start_total = int(program.get("start_total_items", 0))
+    start_total = _require_non_negative_int(program, "start_total_items")
     weekly_reduction = float(program.get("weekly_reduction", 0.1))
-    grace_weeks = int(program.get("grace_weeks", 0))
+    grace_weeks = _require_non_negative_int(program, "grace_weeks")
 
     if not start_date_raw:
         raise ValueError("Program baseline must include 'start_date'")
-    if start_total < 0:
-        raise ValueError("Program baseline has invalid 'start_total_items'")
     if not (0.0 < weekly_reduction < 1.0):
         raise ValueError("Program baseline 'weekly_reduction' must be between 0 and 1")
 
