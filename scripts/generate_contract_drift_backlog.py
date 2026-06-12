@@ -41,10 +41,36 @@ OWNER_MAP = {
 }
 
 
+class BacklogSourceError(RuntimeError):
+    """Raised when contract drift source baselines cannot be trusted."""
+
+
 def _load(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
-    return json.loads(path.read_text())
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise BacklogSourceError(f"Cannot load contract drift baseline {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise BacklogSourceError(f"Contract drift baseline must be a JSON object: {path}")
+    return payload
+
+
+def _source_list(payload: dict[str, Any], key: str, *, path: Path) -> list[str]:
+    value = payload.get(key, [])
+    if not isinstance(value, list):
+        raise BacklogSourceError(f"Contract drift baseline field {key!r} must be a list: {path}")
+
+    items: list[str] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, str) or not item.strip():
+            raise BacklogSourceError(
+                f"Contract drift baseline field {key!r} item {index} "
+                f"must be a non-empty string: {path}"
+            )
+        items.append(item)
+    return items
 
 
 def _route_domain(path: str) -> str:
@@ -87,16 +113,22 @@ def _targets(
 
 
 def build_backlog() -> dict[str, Any]:
-    verify = _load(PROJECT_ROOT / "scripts/baselines/verify_sdk_contracts.json")
-    routes = _load(PROJECT_ROOT / "scripts/baselines/validate_openapi_routes.json")
-    parity = _load(PROJECT_ROOT / "scripts/baselines/check_sdk_parity.json")
+    verify_path = PROJECT_ROOT / "scripts/baselines/verify_sdk_contracts.json"
+    routes_path = PROJECT_ROOT / "scripts/baselines/validate_openapi_routes.json"
+    parity_path = PROJECT_ROOT / "scripts/baselines/check_sdk_parity.json"
+
+    verify = _load(verify_path)
+    routes = _load(routes_path)
+    parity = _load(parity_path)
 
     items_by_source: dict[str, list[str]] = {
-        "verify_python_sdk_drift": list(verify.get("python_sdk_drift", [])),
-        "verify_typescript_sdk_drift": list(verify.get("typescript_sdk_drift", [])),
-        "routes_missing_in_spec": list(routes.get("missing_in_spec", [])),
-        "routes_orphaned_in_spec": list(routes.get("orphaned_in_spec", [])),
-        "sdk_missing_from_both": list(parity.get("missing_from_both_sdks", [])),
+        "verify_python_sdk_drift": _source_list(verify, "python_sdk_drift", path=verify_path),
+        "verify_typescript_sdk_drift": _source_list(
+            verify, "typescript_sdk_drift", path=verify_path
+        ),
+        "routes_missing_in_spec": _source_list(routes, "missing_in_spec", path=routes_path),
+        "routes_orphaned_in_spec": _source_list(routes, "orphaned_in_spec", path=routes_path),
+        "sdk_missing_from_both": _source_list(parity, "missing_from_both_sdks", path=parity_path),
     }
 
     domain_counts: dict[str, Counter[str]] = {}
@@ -192,7 +224,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    data = build_backlog()
+    try:
+        data = build_backlog()
+    except BacklogSourceError as exc:
+        raise SystemExit(str(exc)) from None
     md = to_markdown(data)
 
     md_path = PROJECT_ROOT / args.markdown_out
