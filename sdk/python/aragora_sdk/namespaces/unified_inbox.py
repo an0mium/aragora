@@ -296,34 +296,6 @@ class UnifiedInboxAPI:
             data["subject"] = subject
         return self._client.request("POST", "/api/v1/inbox/messages/send", json=data)
 
-    def reply(
-        self,
-        message_id: str,
-        body: str,
-        provider: str = "gmail",
-        cc: list[str] | None = None,
-        html_body: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Reply to an email message.
-
-        Args:
-            message_id: ID of the message to reply to.
-            body: Plain-text reply body.
-            provider: Email provider ("gmail" or "outlook").
-            cc: Optional list of CC recipients.
-            html_body: Optional HTML reply body.
-
-        Returns:
-            Reply result from the email actions service.
-        """
-        data: dict[str, Any] = {"provider": provider, "body": body}
-        if cc:
-            data["cc"] = cc
-        if html_body:
-            data["html_body"] = html_body
-        return self._client.request("POST", f"/api/v1/inbox/messages/{message_id}/reply", json=data)
-
     # =========================================================================
     # Triage
     # =========================================================================
@@ -713,24 +685,6 @@ class AsyncUnifiedInboxAPI:
         if subject:
             data["subject"] = subject
         return await self._client.request("POST", "/api/v1/inbox/messages/send", json=data)
-
-    async def reply(
-        self,
-        message_id: str,
-        body: str,
-        provider: str = "gmail",
-        cc: list[str] | None = None,
-        html_body: str | None = None,
-    ) -> dict[str, Any]:
-        """Reply to an email message."""
-        data: dict[str, Any] = {"provider": provider, "body": body}
-        if cc:
-            data["cc"] = cc
-        if html_body:
-            data["html_body"] = html_body
-        return await self._client.request(
-            "POST", f"/api/v1/inbox/messages/{message_id}/reply", json=data
-        )
 
     # =========================================================================
     # Triage
