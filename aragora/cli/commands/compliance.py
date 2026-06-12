@@ -205,6 +205,77 @@ def add_compliance_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Output format (default: all)",
     )
 
+    # -- aragora compliance oversight-pack --
+    oversight_p = sub.add_parser(
+        "oversight-pack",
+        help=(
+            "Generate an EU AI Act Art. 14 / NIST AI 600-1 human-oversight "
+            "evidence pack from real settlement artifacts"
+        ),
+        description=(
+            "Assemble the settled decisions of a time window — local settlement "
+            "receipts and (optionally) merged PRs classified via the gate-trusted "
+            "'aragora/human-settlement' status — into a human-oversight evidence "
+            "bundle (JSON + Markdown) with machine-readable attestation records, "
+            "explicit 'autonomous' dispositions for unsupervised merges, trail "
+            "anchor references when present, and the canonical EU AI Act "
+            "Article 14 / NIST AI 600-1 crosswalk from the ODR content profile. "
+            "Missing data is recorded as explicit absences, never fabricated."
+        ),
+    )
+    oversight_p.add_argument(
+        "--window",
+        type=int,
+        default=30,
+        help="Window in days (default: 30)",
+    )
+    oversight_p.add_argument(
+        "--output",
+        "-o",
+        default="./oversight-pack",
+        help="Output directory for the evidence pack (default: ./oversight-pack/)",
+    )
+    oversight_p.add_argument(
+        "--repo",
+        default="",
+        help=(
+            "GitHub repo slug (owner/name) to classify merged PRs via the 'gh' "
+            "CLI; omit to use the local settlement-receipt store only"
+        ),
+    )
+    oversight_p.add_argument(
+        "--receipts-dir",
+        default="",
+        help=(
+            "Override the local settlement receipt directory "
+            "(default: .aragora/review-queue/receipts)"
+        ),
+    )
+    oversight_p.add_argument(
+        "--trail-chain",
+        default="",
+        help=("Override the intent-chain path (default: .aragora/trail/intent-chain.jsonl)"),
+    )
+    oversight_p.add_argument(
+        "--github-limit",
+        type=int,
+        default=100,
+        help="Max merged PRs to classify from GitHub (default: 100)",
+    )
+    oversight_p.add_argument(
+        "--format",
+        choices=["json", "markdown", "all"],
+        default="all",
+        dest="output_format",
+        help="Output format (default: all)",
+    )
+    oversight_p.add_argument(
+        "--json",
+        "-j",
+        action="store_true",
+        help="Print the pack summary as JSON to stdout",
+    )
+
     # -- aragora compliance eu-ai-act generate --
     eu_p = sub.add_parser(
         "eu-ai-act",
@@ -303,6 +374,8 @@ def cmd_compliance(args: argparse.Namespace) -> None:
         cmd_compliance_export(args)
     elif command == "evidence":
         _cmd_evidence(args)
+    elif command == "oversight-pack":
+        _cmd_oversight_pack(args)
     elif command == "eu-ai-act":
         eu_command = getattr(args, "eu_ai_act_command", None)
         if eu_command == "generate":
@@ -317,7 +390,8 @@ def cmd_compliance(args: argparse.Namespace) -> None:
             sys.exit(1)
     else:
         print(
-            "Usage: aragora compliance {status,report,check,audit,classify,export,evidence,eu-ai-act}"
+            "Usage: aragora compliance "
+            "{status,report,check,audit,classify,export,evidence,oversight-pack,eu-ai-act}"
         )
         print()
         print("  Framework commands (offline):")
@@ -330,6 +404,7 @@ def cmd_compliance(args: argparse.Namespace) -> None:
         print("    classify   Classify a use case by EU AI Act risk level")
         print("    export     Export structured compliance bundle for a debate")
         print("    evidence   Generate data classification audit evidence bundle")
+        print("    oversight-pack  Generate Art. 14 / NIST human-oversight evidence pack")
         print("    eu-ai-act  Generate compliance artifact bundles (Articles 9/12/13/14/15)")
         sys.exit(1)
 
@@ -765,6 +840,81 @@ def _cmd_eu_ai_act_generate(args: argparse.Namespace) -> None:
         print("Recommendations:")
         for i, rec in enumerate(bundle.conformity_report.recommendations, 1):
             print(f"  {i}. {rec}")
+
+
+def _gh_json(cmd_args: list[str]):
+    """Run a ``gh`` CLI invocation and parse its JSON output.
+
+    Raises RuntimeError on a non-zero exit so the pack builder can degrade to
+    an explicit note instead of fabricating data.
+    """
+    import subprocess
+
+    result = subprocess.run(
+        ["gh", *cmd_args],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"gh {cmd_args[0]} failed: {result.stderr.strip()[:200]}")
+    return json.loads(result.stdout or "null")
+
+
+def _cmd_oversight_pack(args: argparse.Namespace) -> None:
+    """Generate the EU AI Act Art. 14 / NIST AI 600-1 oversight evidence pack."""
+    from aragora.compliance.oversight_pack import build_oversight_pack
+
+    window = max(1, int(getattr(args, "window", 30)))
+    repo = (getattr(args, "repo", "") or "").strip() or None
+    receipts_dir = (getattr(args, "receipts_dir", "") or "").strip() or None
+    trail_chain = (getattr(args, "trail_chain", "") or "").strip() or None
+    output_dir = getattr(args, "output", "./oversight-pack")
+    output_format = getattr(args, "output_format", "all")
+
+    pack = build_oversight_pack(
+        window_days=window,
+        repo=repo,
+        receipts_dir=receipts_dir,
+        trail_chain_path=trail_chain,
+        gh_json=_gh_json if repo else None,
+        github_limit=int(getattr(args, "github_limit", 100)),
+    )
+
+    os.makedirs(output_dir, exist_ok=True)
+    written: list[str] = []
+    if output_format in ("json", "all"):
+        json_path = os.path.join(output_dir, "oversight_pack.json")
+        with open(json_path, "w") as f:
+            f.write(pack.to_json())
+        written.append("oversight_pack.json     Machine-readable evidence pack")
+    if output_format in ("markdown", "all"):
+        md_path = os.path.join(output_dir, "oversight_pack.md")
+        with open(md_path, "w") as f:
+            f.write(pack.to_markdown())
+        written.append("oversight_pack.md       Human-readable evidence pack")
+
+    summary = pack.summary()
+    if getattr(args, "json", False):
+        print(json.dumps({"summary": summary, "output_dir": output_dir}, indent=2))
+        return
+
+    print()
+    print("Human-Oversight Evidence Pack (EU AI Act Art. 14 / NIST AI 600-1)")
+    print("=" * 60)
+    print(f"  Window:           last {window} days")
+    print(f"  Repo:             {repo or '(local settlement receipts only)'}")
+    print(f"  Decisions:        {summary['decisions']}")
+    print(f"  Human-attested:   {summary['human_attested']}")
+    print(f"  Autonomous:       {summary['autonomous']}")
+    print(f"  Recorded absences: {summary['recorded_absences']}")
+    print(f"  Trail anchors:    {'present' if summary['trail_anchors_present'] else 'absent'}")
+    print()
+    print(f"  Output: {output_dir}/")
+    for line in written:
+        print(f"    {line}")
+    print()
 
 
 def _synthetic_receipt() -> dict:

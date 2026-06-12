@@ -343,9 +343,15 @@ def _map_cruxes(crux_set: list[dict[str, Any]] | None) -> dict[str, Any]:
     )
 
 
-def _map_attestation(attestation: dict[str, Any] | None) -> dict[str, Any]:
+def _map_attestation(attestation: Any | None) -> dict[str, Any]:
     if attestation is None:
         return {"disposition": "autonomous"}
+    # Additive (#8230): accept richer attestation records (e.g.
+    # aragora.compliance.oversight_attestation.OversightAttestationRecord)
+    # that know how to project themselves onto the schema-conformant block.
+    to_odr = getattr(attestation, "to_odr_attestation", None)
+    if callable(to_odr):
+        attestation = to_odr()
     block = dict(attestation)
     block.setdefault("disposition", "human_attested")
     return block
@@ -355,7 +361,7 @@ def decision_receipt_to_odr(
     receipt: DecisionReceipt,
     *,
     crux_set: list[dict[str, Any]] | None = None,
-    attestation: dict[str, Any] | None = None,
+    attestation: Any | None = None,
 ) -> dict[str, Any]:
     """Map a :class:`DecisionReceipt` onto the ODR v0.1 content profile.
 
@@ -363,8 +369,11 @@ def decision_receipt_to_odr(
         receipt: The source receipt. Fields are copied, never invented.
         crux_set: Optional crux items (e.g. from a ``CruxReceipt``) to include;
             when omitted, the ``cruxes`` block carries an absent marker.
-        attestation: Optional human-attestation block. When omitted, the
-            decision is honestly recorded with the ``autonomous`` disposition.
+        attestation: Optional human-attestation block — either the dict shape
+            of the profile's section 4.7, or any object exposing
+            ``to_odr_attestation()`` (e.g. an extracted
+            ``OversightAttestationRecord``). When omitted, the decision is
+            honestly recorded with the ``autonomous`` disposition.
 
     Returns:
         A JSON-serializable dict conforming to ``aragora/gauntlet/odr_schema.json``.
