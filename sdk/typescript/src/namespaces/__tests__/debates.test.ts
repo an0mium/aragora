@@ -386,6 +386,39 @@ describe('DebatesAPI Namespace', () => {
       expect(result.claims_verified).toBe(8);
     });
 
+    it('should get debate cruxes when present', async () => {
+      mockClient.request.mockResolvedValue({
+        debate_id: 'debate-123',
+        cruxes: {
+          status: 'present',
+          items: [{ statement: 'The cache strategy is sound', crux_score: 0.8 }],
+        },
+        crux_count: 1,
+        convergence_barrier: 0.42,
+      });
+
+      const result = await api.getCruxes('debate-123');
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/debates/debate-123/cruxes');
+      expect(result.crux_count).toBe(1);
+      expect(result.cruxes.status).toBe('present');
+    });
+
+    it('should surface honest absent marker when crux mode was not enabled', async () => {
+      mockClient.request.mockResolvedValue({
+        debate_id: 'debate-123',
+        cruxes: { status: 'absent', reason: 'crux mode was not enabled for this debate' },
+        crux_count: 0,
+      });
+
+      const result = await api.getCruxes('debate-123');
+
+      expect(result.cruxes.status).toBe('absent');
+      if (result.cruxes.status === 'absent') {
+        expect(result.cruxes.reason).toContain('not enabled');
+      }
+    });
+
     it('should verify a specific claim', async () => {
       mockClient.request.mockResolvedValue({
         claim_id: 'claim-456',
