@@ -232,7 +232,16 @@ def _load_open_prs(
     health_payload = health.to_dict()
     if not health.ready:
         return {}, health_payload, True
-    return open_pr_heads(root, repo_name, prefix), health_payload, False
+
+    open_prs = open_pr_heads(root, repo_name, prefix)
+    if open_prs is None:
+        degraded_health = dict(health_payload)
+        degraded_health["open_pr_lookup_error"] = (
+            "open PR lookup returned no data after GitHub health probe succeeded"
+        )
+        return {}, degraded_health, True
+
+    return open_prs, health_payload, False
 
 
 def main(argv: list[str] | None = None) -> int:

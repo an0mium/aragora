@@ -134,6 +134,34 @@ def test_load_open_prs_uses_bulk_lookup_when_github_health_is_ready(
     assert health["mode"] == "ready"
 
 
+def test_load_open_prs_skips_lookup_when_bulk_pr_query_fails(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root: SimpleNamespace(
+            ready=True,
+            to_dict=lambda: {
+                "ready": True,
+                "auth_ok": True,
+                "api_ok": True,
+                "mode": "ready",
+                "error": "",
+                "repo": str(tmp_path),
+            },
+        ),
+    )
+    monkeypatch.setattr(mod, "open_pr_heads", lambda _root, _repo, _prefix: None)
+
+    open_prs, health, skipped = mod._load_open_prs(tmp_path, "synaptent/aragora", "codex/")
+
+    assert open_prs == {}
+    assert skipped is True
+    assert health["mode"] == "ready"
+    assert health["open_pr_lookup_error"]
+
+
 def test_classify_one_protects_status_failed_worktree(tmp_path: Path, monkeypatch: Any) -> None:
     branch = "codex/status-failed"
     worktree = tmp_path / "worktree"
