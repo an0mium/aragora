@@ -49,6 +49,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -173,9 +174,10 @@ def run_gate(
             log(json.dumps(payload, sort_keys=True))
 
     try:
+        raw_prs = list_prs()
         prs = [
             pr
-            for pr in list_prs()
+            for pr in raw_prs
             if isinstance(pr, dict)
             and any(
                 str(pr.get("headRefName") or "").startswith(prefix) for prefix in branch_prefixes
@@ -219,6 +221,14 @@ def run_gate(
     annotations: list[str] = []
     if outbox_missing:
         annotations.append(f"outbox_dir_missing:{outbox_dir}")
+    # Fail closed on a truncated listing: ``gh pr list`` truncates BEFORE the
+    # branch-prefix filter, so when the raw payload hits the list limit the
+    # counts above are floors and in-scope PRs may have been silently dropped.
+    # A gate that cannot see the whole backlog must never green-light more
+    # generation, regardless of how small the visible counts look.
+    if len(raw_prs) >= GH_LIST_LIMIT:
+        reasons.append(f"list_truncated:>={GH_LIST_LIMIT}")
+        annotations.append(f"list_truncated:>={GH_LIST_LIMIT}")
 
     mode = MODE_SHEPHERD if reasons else MODE_GENERATE
     payload = {
@@ -249,6 +259,16 @@ def run_gate(
     return EXIT_GENERATE if mode == MODE_GENERATE else EXIT_SHEPHERD
 
 
+_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
+
+def repo_arg(value: str) -> str:
+    """Argparse type: validate ``owner/name`` at parse time, before any gh call."""
+    if not _REPO_RE.match(value):
+        raise argparse.ArgumentTypeError(f"--repo must look like owner/name, got {value!r}")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -259,7 +279,9 @@ def main(argv: list[str] | None = None) -> int:
             "except its own --signal-file."
         )
     )
-    parser.add_argument("--repo", default=DEFAULT_REPO, help="GitHub repo (owner/name)")
+    parser.add_argument(
+        "--repo", default=DEFAULT_REPO, type=repo_arg, help="GitHub repo (owner/name)"
+    )
     parser.add_argument(
         "--branch-prefix",
         action="append",

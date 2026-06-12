@@ -206,6 +206,49 @@ def test_never_promote_survives_perfect_packet() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Unicode evasion of the never-promote markers (NFKC + zero-width stripping)
+# ---------------------------------------------------------------------------
+
+
+def test_fullwidth_tier4_marker_blocked() -> None:
+    # NFKC folds fullwidth compatibility forms back to ASCII "Tier 4".
+    summary, ready, packet_calls = _run(
+        [_pr(1, body="Ｔｉｅｒ ４ settlement record.")],
+        {1: _entry(1)},
+        apply=True,
+    )
+    assert summary["plan"] == []
+    assert packet_calls == []
+    assert ready.calls == []
+
+
+def test_zero_width_split_tier4_marker_blocked() -> None:
+    summary, _, packet_calls = _run(
+        [_pr(1, body="context: tier\N{ZERO WIDTH SPACE}4 change")],
+        {1: _entry(1)},
+    )
+    assert summary["plan"] == []
+    assert packet_calls == []
+
+
+def test_zero_width_mixed_case_scarmani_blocked() -> None:
+    for zw in ("\N{ZERO WIDTH NON-JOINER}", "\N{ZERO WIDTH JOINER}", "\N{WORD JOINER}"):
+        summary, _, _ = _run(
+            [_pr(1, body=f"Escalated via SCAR{zw}MANI track.")],
+            {1: _entry(1)},
+        )
+        assert summary["plan"] == [], f"zero-width {zw!r} must not split the marker"
+
+
+def test_benign_text_passes_marker_normalization() -> None:
+    summary, _, _ = _run(
+        [_pr(1, title="codex: tidy cache tiers", body="Routine 4-step refactor of tiering.")],
+        {1: _entry(1)},
+    )
+    assert _planned(summary) == [1]
+
+
+# ---------------------------------------------------------------------------
 # Stage-1 pruning: checks, mergeability, prefix, age
 # ---------------------------------------------------------------------------
 
@@ -489,6 +532,17 @@ def test_main_listing_failure_fails_closed(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(triage, "default_list_draft_prs", boom)
     assert triage.main(["--repo", "synaptent/aragora"]) == 1
+
+
+@pytest.mark.parametrize("repo", ["not-a-repo", "owner/name/extra", "owner/", "owner/na me"])
+def test_malformed_repo_rejected_at_parse_time(repo: str) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        triage.main(["--repo", repo])
+    assert excinfo.value.code == 2, "argparse must reject before any gh call"
+
+
+def test_well_formed_repo_accepted_by_validator() -> None:
+    assert triage.repo_arg("synaptent/aragora") == "synaptent/aragora"
 
 
 if __name__ == "__main__":

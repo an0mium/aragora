@@ -43,6 +43,7 @@ import argparse
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -244,15 +245,20 @@ def run_snapshot(
     annotations: list[str] = []
 
     try:
+        raw_open = list_open_prs()
         open_prs = [
-            pr
-            for pr in list_open_prs()
-            if isinstance(pr, dict) and _matches_prefix(pr, branch_prefixes)
+            pr for pr in raw_open if isinstance(pr, dict) and _matches_prefix(pr, branch_prefixes)
         ]
         outbox_depth, outbox_missing = count_outbox_depth(outbox_dir)
     except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as exc:
         print(json.dumps({"action": "error", "error": str(exc)[:500]}), file=sys.stderr)
         return EXIT_FAILURE
+
+    # ``gh pr list`` truncates BEFORE the prefix filter, so a raw payload at
+    # the limit makes every count derived from it a floor, not a total.
+    open_truncated = len(raw_open) >= OPEN_LIST_LIMIT
+    if open_truncated:
+        annotations.append(f"list_truncated_open:>={OPEN_LIST_LIMIT}")
 
     if outbox_missing:
         annotations.append(f"outbox_dir_missing:{outbox_dir}")
@@ -262,13 +268,20 @@ def run_snapshot(
     merged_24h: int | None
     try:
         merged = list_merged_prs(since)
-        merged_24h = 0
-        for pr in merged:
-            if not isinstance(pr, dict) or not _matches_prefix(pr, branch_prefixes):
-                continue
-            merged_at = _parse_iso(pr.get("mergedAt"))
-            if merged_at is not None and merged_at >= since:
-                merged_24h += 1
+        if len(merged) >= MERGED_LIST_LIMIT:
+            # Truncation happens before the prefix filter, so the filtered
+            # count would be a misleading undercount; degrade to null like
+            # the failed-search path instead of reporting it.
+            merged_24h = None
+            annotations.append(f"list_truncated_merged:>={MERGED_LIST_LIMIT}")
+        else:
+            merged_24h = 0
+            for pr in merged:
+                if not isinstance(pr, dict) or not _matches_prefix(pr, branch_prefixes):
+                    continue
+                merged_at = _parse_iso(pr.get("mergedAt"))
+                if merged_at is not None and merged_at >= since:
+                    merged_24h += 1
     except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as exc:
         merged_24h = None
         annotations.append(f"merged_search_failed:{str(exc)[:200]}")
@@ -308,6 +321,11 @@ def run_snapshot(
         )
     if stale_tail > max_stale_tail:
         thresholds_breached.append(f"stale_tail:{stale_tail}>max_stale_tail:{max_stale_tail}")
+    if open_truncated:
+        # Stage counts and stale_tail are unreliable floors when the open
+        # listing is truncated; the snapshot exists to surface breaches, and
+        # unknown-because-truncated is breach-worthy.
+        thresholds_breached.append("open_list_truncated")
 
     payload = {
         "generated_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -339,6 +357,16 @@ def run_snapshot(
     return EXIT_BREACH if thresholds_breached else EXIT_OK
 
 
+_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
+
+def repo_arg(value: str) -> str:
+    """Argparse type: validate ``owner/name`` at parse time, before any gh call."""
+    if not _REPO_RE.match(value):
+        raise argparse.ArgumentTypeError(f"--repo must look like owner/name, got {value!r}")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -347,7 +375,9 @@ def main(argv: list[str] | None = None) -> int:
             "tail. Exits 0 normally, 3 if a threshold is breached, 1 on failure."
         )
     )
-    parser.add_argument("--repo", default=DEFAULT_REPO, help="GitHub repo (owner/name)")
+    parser.add_argument(
+        "--repo", default=DEFAULT_REPO, type=repo_arg, help="GitHub repo (owner/name)"
+    )
     parser.add_argument(
         "--branch-prefix",
         action="append",

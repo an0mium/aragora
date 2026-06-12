@@ -246,6 +246,34 @@ def test_gh_failure_with_unwritable_signal_still_exits_one(
 
 
 # ---------------------------------------------------------------------------
+# Fail closed: truncated listing forces shepherd
+# ---------------------------------------------------------------------------
+
+
+def test_truncated_listing_forces_shepherd_even_with_small_counts(tmp_path: Path) -> None:
+    # gh truncates BEFORE the prefix filter: a limit-sized payload with few
+    # matching branches means in-scope PRs may have been silently dropped.
+    prs = [_pr(n, head="other/branch") for n in range(gate.GH_LIST_LIMIT - 1)] + [_pr(999)]
+    exit_code, payload, _ = _run(tmp_path, prs)
+    assert exit_code == 3
+    assert payload is not None
+    assert payload["mode"] == "shepherd"
+    assert payload["open_prs"] == 1, "visible in-scope count stays small"
+    assert f"list_truncated:>={gate.GH_LIST_LIMIT}" in payload["reasons"]
+    assert f"list_truncated:>={gate.GH_LIST_LIMIT}" in payload["annotations"]
+
+
+def test_listing_just_below_limit_is_unaffected(tmp_path: Path) -> None:
+    prs = [_pr(n, head="other/branch") for n in range(gate.GH_LIST_LIMIT - 2)] + [_pr(999)]
+    exit_code, payload, _ = _run(tmp_path, prs)
+    assert exit_code == 0
+    assert payload is not None
+    assert payload["mode"] == "generate"
+    assert not any("list_truncated" in r for r in payload["reasons"])
+    assert not any("list_truncated" in a for a in payload["annotations"])
+
+
+# ---------------------------------------------------------------------------
 # Atomic signal writes
 # ---------------------------------------------------------------------------
 
@@ -384,6 +412,17 @@ def test_main_dry_by_default_invokes_no_subprocess_with_mocked_listing(
         )
         == 0
     )
+
+
+@pytest.mark.parametrize("repo", ["not-a-repo", "owner/name/extra", "owner/", "owner/na me"])
+def test_malformed_repo_rejected_at_parse_time(repo: str) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        gate.main(["--repo", repo, "--quiet"])
+    assert excinfo.value.code == 2, "argparse must reject before any gh call"
+
+
+def test_well_formed_repo_accepted_by_validator() -> None:
+    assert gate.repo_arg("synaptent/aragora") == "synaptent/aragora"
 
 
 def test_exit_code_constants_documented_contract() -> None:

@@ -217,6 +217,51 @@ def test_merged_search_failure_degrades_to_null_with_annotation(tmp_path: Path) 
 
 
 # ---------------------------------------------------------------------------
+# Truncated listings: counts are floors, not totals
+# ---------------------------------------------------------------------------
+
+
+def test_open_list_truncation_annotated_and_breach(tmp_path: Path) -> None:
+    # gh truncates BEFORE the prefix filter, so a limit-sized payload makes
+    # every derived count an unreliable floor — that itself is a breach.
+    prs = [_open_pr(n, head="other/branch") for n in range(metrics.OPEN_LIST_LIMIT - 1)]
+    exit_code, payload, _ = _run(tmp_path, prs + [_open_pr(999)])
+    assert exit_code == 3
+    assert payload is not None
+    assert "open_list_truncated" in payload["thresholds_breached"]
+    assert f"list_truncated_open:>={metrics.OPEN_LIST_LIMIT}" in payload["annotations"]
+
+
+def test_open_list_just_below_limit_is_unaffected(tmp_path: Path) -> None:
+    prs = [_open_pr(n, head="other/branch") for n in range(metrics.OPEN_LIST_LIMIT - 2)]
+    exit_code, payload, _ = _run(tmp_path, prs + [_open_pr(999)])
+    assert exit_code == 0
+    assert payload is not None
+    assert payload["thresholds_breached"] == []
+    assert not any("list_truncated_open" in a for a in payload["annotations"])
+
+
+def test_merged_list_truncation_nulls_merged_24h_with_annotation(tmp_path: Path) -> None:
+    # A truncated merged list would yield a misleading prefix-filtered
+    # undercount; degrade to null like the failed-search path instead.
+    merged = [_merged_pr(n) for n in range(metrics.MERGED_LIST_LIMIT)]
+    exit_code, payload, _ = _run(tmp_path, [], merged)
+    assert exit_code == 0, "merged-list truncation must not breach or fail the snapshot"
+    assert payload is not None
+    assert payload["merged_24h"] is None
+    assert f"list_truncated_merged:>={metrics.MERGED_LIST_LIMIT}" in payload["annotations"]
+
+
+def test_merged_list_just_below_limit_counts_normally(tmp_path: Path) -> None:
+    merged = [_merged_pr(n) for n in range(metrics.MERGED_LIST_LIMIT - 1)]
+    exit_code, payload, _ = _run(tmp_path, [], merged)
+    assert exit_code == 0
+    assert payload is not None
+    assert payload["merged_24h"] == metrics.MERGED_LIST_LIMIT - 1
+    assert not any("list_truncated_merged" in a for a in payload["annotations"])
+
+
+# ---------------------------------------------------------------------------
 # Outbox depth
 # ---------------------------------------------------------------------------
 
@@ -376,6 +421,17 @@ def test_main_invokes_no_subprocess_with_mocked_runners(
     monkeypatch.setattr(metrics, "default_list_merged_prs", lambda repo, since: [])
     monkeypatch.setattr(metrics.subprocess, "run", forbidden_run)
     assert metrics.main(["--outbox-dir", str(tmp_path / "outbox")]) == 0
+
+
+@pytest.mark.parametrize("repo", ["not-a-repo", "owner/name/extra", "owner/", "owner/na me"])
+def test_malformed_repo_rejected_at_parse_time(repo: str) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        metrics.main(["--repo", repo])
+    assert excinfo.value.code == 2, "argparse must reject before any gh call"
+
+
+def test_well_formed_repo_accepted_by_validator() -> None:
+    assert metrics.repo_arg("synaptent/aragora") == "synaptent/aragora"
 
 
 def test_exit_code_constants_documented_contract() -> None:

@@ -55,6 +55,7 @@ import json
 import re
 import subprocess
 import sys
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
@@ -84,6 +85,13 @@ BLOCKING_LABELS = frozenset({"merge:manual", "do-not-promote", "held"})
 NEVER_PROMOTE_RE = re.compile(
     r"tier\s*4|draft by design|do not mark ready|operator settlement required|scarmani",
     re.IGNORECASE,
+)
+
+# Zero-width characters stripped before the never-promote match so markers
+# can't be split invisibly (ZWSP, ZWNJ, ZWJ, BOM/ZWNBSP, word joiner).
+_ZERO_WIDTH_RE = re.compile(
+    "[\N{ZERO WIDTH SPACE}\N{ZERO WIDTH NON-JOINER}\N{ZERO WIDTH JOINER}"
+    "\N{ZERO WIDTH NO-BREAK SPACE}\N{WORD JOINER}]"
 )
 
 # Check states/conclusions that disqualify a draft (same set as
@@ -133,9 +141,19 @@ def has_failing_checks(pr: dict[str, Any]) -> bool:
     return False
 
 
+def _normalize_marker_text(text: str) -> str:
+    """Normalize against Unicode evasion before the never-promote match.
+
+    NFKC folds fullwidth/compatibility forms (``Ｔｉｅｒ ４`` -> ``Tier 4``),
+    zero-width characters are stripped so markers can't be split invisibly,
+    and ``casefold`` handles aggressive case mappings beyond IGNORECASE.
+    """
+    return _ZERO_WIDTH_RE.sub("", unicodedata.normalize("NFKC", text)).casefold()
+
+
 def is_draft_by_design(pr: dict[str, Any]) -> bool:
     """Hard never-promote: governance markers in title or body."""
-    text = f"{pr.get('title') or ''}\n{pr.get('body') or ''}"
+    text = _normalize_marker_text(f"{pr.get('title') or ''}\n{pr.get('body') or ''}")
     return NEVER_PROMOTE_RE.search(text) is not None
 
 
@@ -224,6 +242,9 @@ def packet_blocker(entry: dict[str, Any]) -> str | None:
     """
     if not entry:
         return "empty merge packet (fail closed)"
+    # AUTHORITATIVE gate: the merge-packet tier decides promotability. The
+    # stage-1 NEVER_PROMOTE_RE text match is advisory defense-in-depth only —
+    # do not weaken this check on the assumption that the regex backstops it.
     raw_tier = entry.get("tier")
     if not isinstance(raw_tier, (int, str)):
         return f"unknown tier {raw_tier!r} (fail closed)"
@@ -452,6 +473,16 @@ def run_triage(
     return summary
 
 
+_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
+
+def repo_arg(value: str) -> str:
+    """Argparse type: validate ``owner/name`` at parse time, before any gh call."""
+    if not _REPO_RE.match(value):
+        raise argparse.ArgumentTypeError(f"--repo must look like owner/name, got {value!r}")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -459,7 +490,9 @@ def main(argv: list[str] | None = None) -> int:
             "default; --apply gates the only mutation (gh pr ready)."
         )
     )
-    parser.add_argument("--repo", default=DEFAULT_REPO, help="GitHub repo (owner/name)")
+    parser.add_argument(
+        "--repo", default=DEFAULT_REPO, type=repo_arg, help="GitHub repo (owner/name)"
+    )
     parser.add_argument(
         "--branch-prefix",
         action="append",
