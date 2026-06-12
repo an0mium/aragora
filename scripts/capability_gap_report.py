@@ -68,8 +68,21 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
-        return {}
+        raise ValueError(f"{path} must contain a YAML mapping")
     return data
+
+
+def _require_mapping(value: Any, *, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must be a mapping")
+    return value
+
+
+def _optional_mapping(container: dict[str, Any], key: str, *, label: str) -> dict[str, Any]:
+    value = container.get(key)
+    if value is None:
+        return {}
+    return _require_mapping(value, label=label)
 
 
 def _as_list(value: Any) -> list[str]:
@@ -83,9 +96,9 @@ def _as_list(value: Any) -> list[str]:
 
 
 def _parse_surface_entry(entry: dict[str, Any]) -> SurfaceCoverage:
+    entry = _require_mapping(entry, label="capability surface entry")
     sdk = entry.get("sdk") or {}
-    if not isinstance(sdk, dict):
-        sdk = {}
+    sdk = _require_mapping(sdk, label="capability surface sdk entry")
     return SurfaceCoverage(
         cli=_as_list(entry.get("cli")),
         api=_as_list(entry.get("api")),
@@ -103,20 +116,23 @@ def build_report(repo_root: Path, *, include_unmapped: bool = True) -> dict[str,
     base_data = _load_yaml(base_path)
     surface_data = _load_yaml(surfaces_path)
 
-    base_caps = base_data.get("capabilities") or {}
-    if not isinstance(base_caps, dict):
-        base_caps = {}
+    base_caps = _optional_mapping(
+        base_data,
+        "capabilities",
+        label="capabilities catalog",
+    )
 
-    surface_caps = surface_data.get("capabilities") or {}
-    if not isinstance(surface_caps, dict):
-        surface_caps = {}
+    surface_caps = _optional_mapping(
+        surface_data,
+        "capabilities",
+        label="capability surface map",
+    )
 
     report_items: dict[str, Any] = {}
     unmapped: list[str] = []
 
     for key, payload in base_caps.items():
-        if not isinstance(payload, dict):
-            payload = {}
+        payload = _require_mapping(payload, label=f"capability catalog entry {key}")
         name = payload.get("name", key)
         category = payload.get("category", "unknown")
         status = payload.get("status", "unknown")
