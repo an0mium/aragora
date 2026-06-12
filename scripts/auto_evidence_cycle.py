@@ -43,6 +43,14 @@ Safety model (mirrors ``quorum_rerun_reconciler.py``):
 
 Opt-in wiring: ``scripts/run_merge_arbiter.sh`` runs this before the arbiter
 when ``ARAGORA_AUTO_EVIDENCE=1`` (default off, non-fatal for the arbiter).
+
+Routing-rationale records (#8233 phase 1): each applied collect run also writes
+a standalone JSON artifact (``--routing-records-dir``, default
+``.aragora/automation-receipts/routing``) recording which model families were
+requested/counted/posted and why that selection was in effect. Honest fields
+only: cost is recorded as absent (this pipeline cannot observe it) and the
+Pareto optimizer is disclosed as not consulted. Recording never blocks the
+cycle; live tier-driven model switching is explicitly out of scope (#8234).
 """
 
 from __future__ import annotations
@@ -51,13 +59,17 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_FAMILIES = ("claude", "grok")
+DEFAULT_ROUTING_RECORDS_DIR = os.path.join(".aragora", "automation-receipts", "routing")
+ROUTING_RECORD_SCHEMA = "aragora.routing_rationale/v1"
 SELECTABLE_STATUS = "needs_model_review_quorum"
 AUTO_POSTABLE_TIERS = {0, 1, 2}
 REQUIRED_FAMILIES = 2
@@ -200,11 +212,20 @@ def parse_collect_output(returncode: int, stdout: str, stderr: str) -> dict[str,
             "ok": False,
             "counting_families": [],
             "posted_families": [],
+            "head_sha": "",
+            "tier": None,
             "error": f"unparseable collect-evidence output (exit {returncode}): "
             f"{(stderr or stdout or '').strip()[:200]}",
         }
     counting = list(payload.get("counting_families") or [])
     posted = list(payload.get("posted_families") or [])
+    head_sha = str(payload.get("head_sha") or "")
+    raw_tier = payload.get("tier")
+    tier: int | None
+    try:
+        tier = int(raw_tier) if raw_tier is not None else None
+    except (TypeError, ValueError):
+        tier = None
     error = str(payload.get("error") or "")
     post_errors = list(payload.get("post_errors") or [])
     ok = returncode == 0 and len(counting) >= REQUIRED_FAMILIES and not error
@@ -220,7 +241,111 @@ def parse_collect_output(returncode: int, stdout: str, stderr: str) -> dict[str,
             if isinstance(item, dict)
         ]
         error = "; ".join(["<2 counting families"] + failures + problems + post_errors)
-    return {"ok": ok, "counting_families": counting, "posted_families": posted, "error": error}
+    return {
+        "ok": ok,
+        "counting_families": counting,
+        "posted_families": posted,
+        "head_sha": head_sha,
+        "tier": tier,
+        "error": error,
+    }
+
+
+# --- Routing-rationale records (#8233 phase 1: instrument + recording only) ----
+#
+# Phase boundary: this module records WHICH models reviewed a PR and WHY that
+# selection was in effect; it never performs live model switching. Live
+# tier-driven routing (wiring aragora/routing/cost_quality_optimizer.py into
+# the selection itself) is phase 2 (#8234).
+
+
+def build_routing_record(
+    *,
+    repo: str,
+    pr: int,
+    tier: int | None,
+    families_requested: tuple[str, ...],
+    collect_result: dict[str, Any],
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Build one honest routing-rationale record for an applied collect run.
+
+    Honest-fields contract:
+
+    - ``models.*`` lists only families that were actually requested / counted /
+      posted by the collect-evidence run (taken from its own JSON output).
+    - ``selection_rationale`` states the real selector: a static family
+      configuration constrained by the merge-quorum gate's heterogeneity rule.
+      The Pareto optimizer is disclosed as NOT consulted — recording a
+      ``pareto_optimizer_consulted: true`` here without wiring it would be a
+      fabricated rationale.
+    - ``cost.recorded`` is ``False`` with ``total_usd: None`` because the
+      collect-evidence pipeline (claude CLI + API agents) does not surface
+      per-call usage or pricing. Cost is recorded as absent, never estimated.
+    """
+    when = generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    tier_value: int | None = tier
+    if tier_value is None:
+        result_tier = collect_result.get("tier")
+        tier_value = result_tier if isinstance(result_tier, int) else None
+    return {
+        "record_type": "routing_rationale",
+        "schema": ROUTING_RECORD_SCHEMA,
+        "generated_at": when,
+        "repo": repo,
+        "pr": pr,
+        "head_sha": str(collect_result.get("head_sha") or ""),
+        "decision_tier": tier_value,
+        "phase_boundary": (
+            "instrument-only: routing recorded, never switched live "
+            "(#8233 phase 1; live switching is #8234)"
+        ),
+        "models": {
+            "families_requested": list(families_requested),
+            "families_counted": list(collect_result.get("counting_families") or []),
+            "families_posted": list(collect_result.get("posted_families") or []),
+        },
+        "selection_rationale": {
+            "selector": "static_configuration",
+            "inputs": {
+                "decision_tier": tier_value,
+                "required_model_families": REQUIRED_FAMILIES,
+                "heterogeneity_rule": (
+                    "merge-quorum gate counts >=2 distinct model families; "
+                    "families come from --families / DEFAULT_FAMILIES"
+                ),
+                "pareto_optimizer_consulted": False,
+                "pareto_optimizer_note": (
+                    "aragora.routing.cost_quality_optimizer.CostQualityOptimizer "
+                    "is not wired into this path yet (#8234)"
+                ),
+            },
+        },
+        "cost": {
+            "recorded": False,
+            "total_usd": None,
+            "absent_reason": (
+                "collect-evidence reviewers (claude CLI, API agents) do not "
+                "surface per-call usage or cost; recorded as absent, never estimated"
+            ),
+        },
+        "outcome": {
+            "ok": bool(collect_result.get("ok")),
+            "error": str(collect_result.get("error") or ""),
+        },
+    }
+
+
+def default_write_routing_record(record: dict[str, Any], records_dir: str) -> str:
+    """Write a routing record as a standalone JSON artifact; return its path."""
+    os.makedirs(records_dir, exist_ok=True)
+    stamp = re.sub(r"[^0-9TZ]", "", str(record.get("generated_at") or ""))
+    name = f"routing_pr{record.get('pr')}_{stamp or 'unknown'}.json"
+    path = os.path.join(records_dir, name)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(record, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+    return path
 
 
 # --- Default (real) I/O callables --------------------------------------------
@@ -463,6 +588,9 @@ def run_cycle(
     breaker_threshold: int,
     run_dogfood: Callable[[int, bool], dict[str, Any]] | None = None,
     max_dogfood: int = 3,
+    write_routing_record: Callable[[dict[str, Any]], str] | None = None,
+    repo: str = DEFAULT_REPO,
+    families: tuple[str, ...] = DEFAULT_FAMILIES,
     clock: Callable[[], float] = time.monotonic,
     log: Callable[[str], None] = print,
 ) -> dict[str, Any]:
@@ -493,6 +621,8 @@ def run_cycle(
         "dogfood_posted_prs": [],
         "dogfood_failed_prs": [],
         "dogfood_skipped_prs": [],
+        "routing_records": [],
+        "routing_record_errors": [],
         "breaker_tripped": False,
         "budget_exhausted": False,
         "reconciler_exit": None,
@@ -513,15 +643,15 @@ def run_cycle(
         probes += 1
         entry = fetch_packet(number)
         if needs_evidence(entry) and len(summary["plan"]) < max_prs:
-            families = (
-                entry.get("counted_model_families") or entry.get("counted_reviewer_ids") or []
-            )
+            # NB: keep this local distinct from the ``families`` parameter
+            # (requested reviewer families) used by routing records below.
+            counted = entry.get("counted_model_families") or entry.get("counted_reviewer_ids") or []
             summary["plan"].append(
                 {
                     "pr": number,
                     "tier": entry.get("tier"),
                     "status": entry.get("status"),
-                    "counted_families": list(families),
+                    "counted_families": list(counted),
                 }
             )
         if (
@@ -555,6 +685,20 @@ def run_cycle(
             summary["budget_exhausted"] = True
             break
         result = run_collect(item["pr"], True)
+        if write_routing_record is not None:
+            # Recording is additive instrumentation: a failed record write is
+            # surfaced in the summary but never blocks or fails the cycle.
+            record = build_routing_record(
+                repo=repo,
+                pr=item["pr"],
+                tier=item.get("tier") if isinstance(item.get("tier"), int) else None,
+                families_requested=families,
+                collect_result=result,
+            )
+            try:
+                summary["routing_records"].append(write_routing_record(record))
+            except OSError as exc:
+                summary["routing_record_errors"].append(f"pr {item['pr']}: {str(exc)[:200]}")
         posted = list(result.get("posted_families") or [])
         ok = bool(result.get("ok")) and len(posted) >= REQUIRED_FAMILIES
         if ok:
@@ -685,6 +829,17 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_DOGFOOD_FAMILY,
         help="Model family disclosed as the dogfooder (default: claude or $ARAGORA_DOGFOOD_FAMILY)",
     )
+    parser.add_argument(
+        "--routing-records-dir",
+        default=DEFAULT_ROUTING_RECORDS_DIR,
+        help="Directory for routing-rationale record artifacts written per applied "
+        f"collect run (#8233 phase 1; default: {DEFAULT_ROUTING_RECORDS_DIR})",
+    )
+    parser.add_argument(
+        "--no-routing-records",
+        action="store_true",
+        help="Disable writing routing-rationale records in apply mode",
+    )
     args = parser.parse_args(argv)
 
     families = tuple(f.strip() for f in str(args.families).split(",") if f.strip())
@@ -717,6 +872,10 @@ def main(argv: list[str] | None = None) -> int:
             apply=apply,
         )
 
+    write_record: Callable[[dict[str, Any]], str] | None = None
+    if args.apply and not args.no_routing_records:
+        write_record = lambda record: default_write_routing_record(record, args.routing_records_dir)
+
     try:
         summary = run_cycle(
             list_prs=lambda: default_list_prs(args.repo),
@@ -725,6 +884,9 @@ def main(argv: list[str] | None = None) -> int:
             run_reconciler=lambda: default_run_reconciler(args.repo),
             run_dogfood=run_dogfood,
             max_dogfood=max(0, args.max_dogfood),
+            write_routing_record=write_record,
+            repo=args.repo,
+            families=families,
             apply=args.apply,
             max_prs=max(0, args.max_prs),
             max_scan=max(0, args.max_scan),
