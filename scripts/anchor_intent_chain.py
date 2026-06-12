@@ -16,9 +16,16 @@ installation path (``aragora.swarm.github_app_auth.github_cli_env``) and
 falls back to ambient ``gh`` auth.
 
 Optional anchor: ``--rekor`` additionally submits the head hash to the
-Sigstore Rekor public transparency log when a ``rekor-cli`` or ``cosign``
-binary is present — and degrades SILENTLY to commit-status-only when neither
-is installed (noted in output; no hard dependency, per spec).
+Sigstore Rekor public transparency log (issue #8231) via the in-tree API
+client ``aragora.trail.rekor`` — a ``hashedrekord`` entry signed with an
+ephemeral throwaway key (no managed secrets, no external binary). On
+success the ``{log_index, uuid, integrated_time}`` triple is recorded in
+the anchor output; on ANY failure (network, missing ``cryptography``
+library, log rejection) it degrades gracefully: the failure is logged, the
+commit-status anchor stands alone, the exit code stays 0, and no Rekor
+record is ever fabricated. See the verification-scope honesty note in
+``aragora/trail/rekor.py`` — inclusion-proof/SET verification is ODR-3
+verifier territory, not this script's.
 
 Safety model (mirrors the run's other bounded scripts):
 
@@ -34,10 +41,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Callable
 
@@ -45,6 +50,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:  # direct script invocation
     sys.path.insert(0, str(_REPO_ROOT))
 
+from aragora.trail import rekor as rekor_client  # noqa: E402
 from aragora.trail.intent_chain import (  # noqa: E402
     chain_head_hash,
     default_chain_path,
@@ -55,7 +61,6 @@ from aragora.trail.intent_chain import (  # noqa: E402
 DEFAULT_REPO = "synaptent/aragora"
 ANCHOR_CONTEXT = "aragora/trail-anchor"
 GH_TIMEOUT_SECONDS = 60
-REKOR_TIMEOUT_SECONDS = 120
 
 EXIT_OK = 0
 EXIT_FAILURE = 1
@@ -112,50 +117,41 @@ def build_status_args(repo: str, sha: str, seq: int, head_hash: str) -> list[str
     ]
 
 
-def find_rekor_backend() -> list[str] | None:
-    """Argv prefix for an available Rekor uploader, or ``None``."""
-    if shutil.which("rekor-cli"):
-        return ["rekor-cli", "upload", "--artifact"]
-    if shutil.which("cosign"):
-        return ["cosign", "upload-blob"]  # placeholder; cosign needs a registry ref
-    return None
+def submit_rekor(
+    head_hash: str,
+    *,
+    apply: bool,
+    log: Callable[[str], None],
+    submit: Callable[[str], "rekor_client.RekorEntry"] | None = None,
+) -> dict[str, object] | None:
+    """Best-effort Rekor anchor via the ``aragora.trail.rekor`` API client.
 
-
-def submit_rekor(head_hash: str, *, apply: bool, log: Callable[[str], None]) -> bool:
-    """Best-effort Rekor anchor; ``False`` only on an *attempted* failure.
-
-    Absence of any Rekor-capable binary is a SILENT degrade (spec): the run
-    still succeeds on the commit-status anchor alone, with a note in output.
+    Returns the ``{log_index, uuid, integrated_time}`` record on a confirmed
+    submission, ``None`` otherwise. Failure is a GRACEFUL DEGRADE by contract
+    (issue #8231: "never block the loop"): it is logged with the error, the
+    commit-status anchor stands on its own, and no record is ever fabricated
+    — a rekor record in the output always means the log accepted the entry.
     """
-    backend = find_rekor_backend()
-    if backend is None or backend[0] == "cosign":
-        # cosign's blob upload targets an OCI registry, not Rekor directly —
-        # treat it as unavailable rather than half-anchor somewhere else.
-        log(json.dumps({"rekor": "unavailable", "note": "commit-status anchor only"}))
-        return True
     if not apply:
-        log(json.dumps({"rekor": "dry-run", "cmd": [*backend, "<head-hash-artifact>"]}))
-        return True
-    with tempfile.NamedTemporaryFile("w", suffix=".trail-head", delete=False) as fh:
-        fh.write(head_hash + "\n")
-        artifact = fh.name
-    try:
-        proc = subprocess.run(
-            [*backend, artifact],
-            capture_output=True,
-            text=True,
-            timeout=REKOR_TIMEOUT_SECONDS,
+        log(
+            json.dumps(
+                {
+                    "rekor": "dry-run",
+                    "url": rekor_client.DEFAULT_REKOR_URL + rekor_client.ENTRIES_PATH,
+                    "head": head_hash,
+                }
+            )
         )
-    except (OSError, subprocess.SubprocessError) as exc:
-        log(json.dumps({"rekor": "failed", "error": str(exc)[:200]}))
-        return False
-    finally:
-        Path(artifact).unlink(missing_ok=True)
-    if proc.returncode != 0:
-        log(json.dumps({"rekor": "failed", "error": (proc.stderr or proc.stdout)[:200]}))
-        return False
-    log(json.dumps({"rekor": "anchored", "head": head_hash[:12]}))
-    return True
+        return None
+    submitter = submit if submit is not None else rekor_client.submit_hash
+    try:
+        entry = submitter(head_hash)
+    except rekor_client.RekorError as exc:
+        log(json.dumps({"rekor": "degraded", "error": str(exc)[:200]}))
+        return None
+    record = entry.as_anchor_record()
+    log(json.dumps({"rekor": "anchored", "head": head_hash[:12], **record}))
+    return record
 
 
 def run_anchor(
@@ -167,6 +163,7 @@ def run_anchor(
     max_anchors: int,
     run_gh: Callable[[list[str]], tuple[int, str]],
     log: Callable[[str], None] = print,
+    rekor_submit: Callable[[str], "rekor_client.RekorEntry"] | None = None,
 ) -> int:
     """One bounded anchor pass. Returns a process exit code."""
     records = read_records(chain_path)
@@ -232,8 +229,9 @@ def run_anchor(
         else:
             if apply:
                 anchors_remaining -= 1
-            if not submit_rekor(head_hash, apply=apply, log=log):
-                return EXIT_FAILURE
+            # Graceful degrade by contract: a Rekor failure never fails the
+            # run — the commit-status anchor above already succeeded.
+            submit_rekor(head_hash, apply=apply, log=log, submit=rekor_submit)
 
     return EXIT_OK
 
@@ -256,8 +254,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--rekor",
         action="store_true",
-        help="Additionally anchor to Sigstore Rekor when a rekor-cli binary exists "
-        "(silently degrades to commit-status-only otherwise)",
+        help="Additionally anchor to the Sigstore Rekor public transparency log via "
+        "aragora.trail.rekor (failures degrade gracefully to commit-status-only)",
     )
     parser.add_argument(
         "--max-anchors",

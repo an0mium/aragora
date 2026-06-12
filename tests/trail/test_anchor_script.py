@@ -1,7 +1,7 @@
 """Tests for ``scripts/anchor_intent_chain.py`` (TET phase T2 external anchor).
 
-All network boundaries (gh runner, rekor binary discovery) are injected or
-monkeypatched; no test touches the network.
+All network boundaries (gh runner, rekor submission) are injected fakes;
+no test touches the network.
 """
 
 from __future__ import annotations
@@ -165,35 +165,92 @@ class TestApply:
         assert json.loads(logs[-1])["result"] == "anchored"
 
 
-class TestRekor:
-    def test_rekor_absent_degrades_silently(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(anchor.shutil, "which", lambda _name: None)
-        chain = _chain_with_records(tmp_path)
-        logs: list[str] = []
-        gh = FakeGh()
-        rc = _run(chain, gh, logs, apply=True, rekor=True)
-        assert rc == anchor.EXIT_OK  # commit-status anchor alone still succeeds
-        notes = [json.loads(line) for line in logs if "rekor" in line]
-        assert notes and notes[-1]["rekor"] == "unavailable"
+class RecordingRekorSubmit:
+    """Injected stand-in for ``aragora.trail.rekor.submit_hash``."""
 
-    def test_rekor_dry_run_plans_upload(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(
-            anchor.shutil,
-            "which",
-            lambda name: "/usr/bin/rekor-cli" if name == "rekor-cli" else None,
-        )
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.calls: list[str] = []
+
+    def __call__(self, head_hash: str) -> Any:
+        from aragora.trail.rekor import RekorEntry, RekorError
+
+        self.calls.append(head_hash)
+        if self.fail:
+            raise RekorError("rekor submission failed: HTTP 503")
+        return RekorEntry(uuid="c" * 64, log_index=777, integrated_time=1760000099)
+
+
+class TestRekor:
+    def test_rekor_success_records_log_index_uuid_time(self, tmp_path: Path) -> None:
         chain = _chain_with_records(tmp_path)
         logs: list[str] = []
         gh = FakeGh()
-        rc = _run(chain, gh, logs, rekor=True)
+        submit = RecordingRekorSubmit()
+        rc = _run(chain, gh, logs, apply=True, rekor=True, rekor_submit=submit)
         assert rc == anchor.EXIT_OK
-        notes = [json.loads(line) for line in logs if "rekor" in line]
-        assert notes and notes[-1]["rekor"] == "dry-run"
-        assert notes[-1]["cmd"][0] == "rekor-cli"
+        notes = [json.loads(line) for line in logs if '"rekor"' in line]
+        assert notes[-1]["rekor"] == "anchored"
+        assert notes[-1]["log_index"] == 777
+        assert notes[-1]["uuid"] == "c" * 64
+        assert notes[-1]["integrated_time"] == 1760000099
+        # The submitted hash is the verified chain head, never anything else.
+        plan = json.loads(logs[0])
+        assert submit.calls == [plan["head"]]
+
+    def test_rekor_failure_degrades_without_fabricating_a_record(self, tmp_path: Path) -> None:
+        chain = _chain_with_records(tmp_path)
+        logs: list[str] = []
+        gh = FakeGh()
+        submit = RecordingRekorSubmit(fail=True)
+        rc = _run(chain, gh, logs, apply=True, rekor=True, rekor_submit=submit)
+        # Never blocks: the commit-status anchor stands, exit stays OK.
+        assert rc == anchor.EXIT_OK
+        assert any(json.loads(line).get("result") == "anchored" for line in logs)
+        notes = [json.loads(line) for line in logs if '"rekor"' in line]
+        assert notes[-1]["rekor"] == "degraded"
+        # No fabricated anchor fields on failure.
+        assert "log_index" not in notes[-1]
+        assert "uuid" not in notes[-1]
+        assert "integrated_time" not in notes[-1]
+
+    def test_rekor_dry_run_plans_submission_without_network(self, tmp_path: Path) -> None:
+        chain = _chain_with_records(tmp_path)
+        logs: list[str] = []
+        gh = FakeGh()
+        submit = RecordingRekorSubmit()
+        rc = _run(chain, gh, logs, rekor=True, rekor_submit=submit)
+        assert rc == anchor.EXIT_OK
+        assert submit.calls == []  # dry run: nothing leaves the machine
+        notes = [json.loads(line) for line in logs if '"rekor"' in line]
+        assert notes[-1]["rekor"] == "dry-run"
+        assert notes[-1]["url"].startswith("https://rekor.sigstore.dev")
+
+    def test_broken_chain_is_never_submitted_to_rekor(self, tmp_path: Path) -> None:
+        chain = _chain_with_records(tmp_path, 3)
+        lines = chain.read_text().splitlines()
+        tampered = json.loads(lines[1])
+        tampered["payload"]["n"] = 999
+        lines[1] = json.dumps(tampered)
+        chain.write_text("\n".join(lines) + "\n")
+        logs: list[str] = []
+        gh = FakeGh()
+        submit = RecordingRekorSubmit()
+        rc = _run(chain, gh, logs, apply=True, rekor=True, rekor_submit=submit)
+        assert rc == anchor.EXIT_FAILURE
+        assert submit.calls == []  # fail-closed gate fires before any anchor
+        assert gh.calls == []
+
+    def test_rekor_skipped_when_max_anchors_exhausted(self, tmp_path: Path) -> None:
+        chain = _chain_with_records(tmp_path)
+        logs: list[str] = []
+        gh = FakeGh()
+        submit = RecordingRekorSubmit()
+        rc = _run(chain, gh, logs, apply=True, rekor=True, max_anchors=1, rekor_submit=submit)
+        assert rc == anchor.EXIT_OK
+        assert submit.calls == []
+        notes = [json.loads(line) for line in logs if '"rekor"' in line]
+        assert notes[-1]["rekor"] == "skipped"
 
 
 class TestCli:
