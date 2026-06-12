@@ -516,16 +516,25 @@ _EVENT_CLASS_KEYS: tuple[tuple[tuple[str, ...], str, str, frozenset[str], bool],
         frozenset({"branch_deletion", "branch_delete", "janitor"}),
         False,
     ),
-    (("push",), "push", "high", frozenset({"push", "publish"}), False),
-    (("merge",), "merge", "high", frozenset({"merge", "settle"}), False),
+    # Intent-type vocabularies include aragora.trail.intent_chain.INTENT_TYPES
+    # (publish_pr/merge_pr/settle_pr — TET phase T1, PR #8251).
+    (("push",), "push", "high", frozenset({"push", "publish", "publish_pr"}), False),
+    (("merge",), "merge", "high", frozenset({"merge", "settle", "merge_pr", "settle_pr"}), False),
 )
 
 # Actor classification for the interim GitHub witness.  Unknown actors match
 # no intent — exactly the May-incident shape (action from an unknown context).
+# Intent actor_class values align with aragora.trail.intent_chain.ACTOR_CLASSES
+# (human, agent-claude, agent-codex, agent-app, daemon-*); legacy bare labels
+# are kept for tolerance.
 KNOWN_AGENT_ACTORS = frozenset({"an0mium"})
 KNOWN_HUMAN_ACTORS = frozenset({"scarmani"})
 HUMAN_ACTOR_CLASSES = frozenset({"scarmani", "human", "operator"})
 AGENT_ACTOR_CLASSES = frozenset({"agent", "automation", "loop", "lane"})
+
+
+def _intent_class_is_agent(record_class: str) -> bool:
+    return record_class in AGENT_ACTOR_CLASSES or record_class.startswith(("agent-", "daemon-"))
 
 
 def classify_witness_actor(actor: str) -> str:
@@ -549,22 +558,37 @@ def classify_witness_event(event_type: str) -> tuple[str, str, frozenset[str], b
     return None
 
 
-def _parse_target(target: str) -> tuple[str, str, str]:
-    """Canonical intent target ``<repo>[@<ref>][#<sha>]`` -> parts."""
-    head, _, sha = target.partition("#")
+def _parse_target(target: Any) -> tuple[str, str, str, str]:
+    """Intent target -> (repo, ref, sha, pr).
+
+    Dict form is the intent_chain contract (``{"repo", "ref"|"branch",
+    "sha", "pr"}`` — e.g. the auto-evidence cycle records
+    ``{"repo": ..., "pr": N}``); the string form ``<repo>[@<ref>][#<sha>]``
+    is kept for hand-written replicas and replay fixtures.
+    """
+    if isinstance(target, dict):
+        return (
+            str(target.get("repo") or "").strip(),
+            str(target.get("ref") or target.get("branch") or "").strip(),
+            str(target.get("sha") or "").strip(),
+            str(target.get("pr") or "").strip(),
+        )
+    head, _, sha = str(target).partition("#")
     repo, _, ref = head.partition("@")
-    return repo.strip(), ref.strip(), sha.strip()
+    return repo.strip(), ref.strip(), sha.strip(), ""
 
 
-def _target_matches(target: str, repo: str, ref: str, sha: str) -> bool:
-    t_repo, t_ref, t_sha = _parse_target(target)
+def _target_matches(target: Any, repo: str, ref: str, sha: str, pr: str) -> bool:
+    t_repo, t_ref, t_sha, t_pr = _parse_target(target)
     if repo and t_repo and t_repo != repo:
         return False
-    if not (ref or sha):
+    if not (ref or sha or pr):
         return True  # repo-scoped event (e.g. credential change)
     if t_ref and ref and t_ref == ref:
         return True
     if t_sha and sha and (sha.startswith(t_sha) or t_sha.startswith(sha)):
+        return True
+    if t_pr and pr and t_pr == pr:
         return True
     return False
 
@@ -584,7 +608,14 @@ def _normalize_verify(verdict: Any) -> tuple[bool, str]:
     if isinstance(verdict, bool):
         return verdict, ""
     if isinstance(verdict, tuple) and verdict:
-        return bool(verdict[0]), str(verdict[1]) if len(verdict) > 1 else ""
+        # aragora.trail.intent_chain.verify_chain returns (ok, first_broken_seq).
+        ok = bool(verdict[0])
+        extra = verdict[1] if len(verdict) > 1 else None
+        if extra is None:
+            return ok, ""
+        if isinstance(extra, int):
+            return ok, f"broken at seq {extra}"
+        return ok, str(extra)
     if isinstance(verdict, dict):
         ok = bool(verdict.get("ok", verdict.get("valid", False)))
         detail = str(verdict.get("detail", verdict.get("error", "")) or "")
@@ -646,10 +677,11 @@ def _match_intent(
         if str(record.get("intent_type", "")).lower() not in allowed_intent_types:
             continue
         if not _target_matches(
-            str(record.get("target", "")),
+            record.get("target", ""),
             str(event.get("repo", "") or ""),
             str(event.get("ref", "") or ""),
             str(event.get("sha", "") or ""),
+            str(event.get("pr", "") or ""),
         ):
             continue
         record_class = str(record.get("actor_class", "")).lower()
@@ -660,7 +692,7 @@ def _match_intent(
             if record_class not in HUMAN_ACTOR_CLASSES:
                 continue
         elif actor_class == "agent":
-            if record_class not in AGENT_ACTOR_CLASSES:
+            if not _intent_class_is_agent(record_class):
                 continue
         else:  # unknown actors match nothing
             continue
@@ -889,6 +921,7 @@ def _github_witness_events(
                         "event_type": "merge",
                         "ref": str((pr.get("base") or {}).get("ref", "")),
                         "sha": str(pr.get("merge_commit_sha", "") or ""),
+                        "pr": str(pr.get("number", "") or ""),
                         **base,
                     }
                 )

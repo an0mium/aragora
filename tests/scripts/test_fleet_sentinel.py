@@ -1317,3 +1317,84 @@ def test_trail_reconcile_full_coverage_witness_has_no_gap_note() -> None:
     result = _reconcile([_witness_event("merge")], records=[_intent("merge")])
     assert result["status"] == "ok"
     assert "coverage limited" not in result["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Live-module integration: reconcile against a REAL intent chain written by
+# aragora.trail.intent_chain (TET T1, PR #8251) through the default reader.
+# ---------------------------------------------------------------------------
+
+
+def _real_chain(tmp_path: Path) -> tuple[Any, Path]:
+    intent_chain = __import__("pytest").importorskip("aragora.trail.intent_chain")
+    return intent_chain, tmp_path / "intent-chain.jsonl"
+
+
+def test_trail_reconcile_real_chain_settle_intent_matches_merge(tmp_path: Path) -> None:
+    """End-to-end on the production read path: a settle_pr intent recorded by
+    the real chain writer (target {repo, pr}) reconciles a merge witness
+    event carrying that PR number; verify_chain runs for real."""
+    intent_chain, chain = _real_chain(tmp_path)
+    intent_chain.append_intent(
+        chain,
+        actor_class="agent-app",
+        intent_type="settle_pr",
+        target={"repo": REPO, "pr": 8250},
+        now=lambda: "2026-06-11T11:52:00+00:00",
+    )
+    event = _witness_event("merge", ref="main", sha="", age_minutes=5.0)
+    event["pr"] = "8250"
+    result = sentinel.check_trail_reconcile(
+        witness_events=lambda: [event],
+        chain_path=chain,
+        now=T_NOW,
+    )
+    assert result["status"] == "ok", result["detail"]
+    assert "chain ok (1 record(s))" in result["detail"]
+
+
+def test_breach_replay_may_incident_against_real_chain(tmp_path: Path) -> None:
+    """T5 on the production read path: the May-incident credential events find
+    no excuse in a real, hash-valid chain of normal agent intents."""
+    intent_chain, chain = _real_chain(tmp_path)
+    intent_chain.append_intent(
+        chain,
+        actor_class="agent-claude",
+        intent_type="publish_pr",
+        target={"repo": REPO, "ref": "main"},
+        now=lambda: "2026-06-11T11:40:00+00:00",
+    )
+    incident = _witness_event("token_created", actor="unknown-ctx-7", ref="", sha="")
+    result = sentinel.check_trail_reconcile(
+        witness_events=lambda: [incident],
+        chain_path=chain,
+        now=T_NOW,
+    )
+    assert result["status"] == "breach"
+    assert "critical" in result["detail"]
+    assert "token_created" in result["detail"]
+
+
+def test_trail_reconcile_real_chain_tamper_detected(tmp_path: Path) -> None:
+    """A record edited after the fact breaks verify_chain -> critical breach."""
+    intent_chain, chain = _real_chain(tmp_path)
+    for i in range(2):
+        intent_chain.append_intent(
+            chain,
+            actor_class="agent-claude",
+            intent_type="merge_pr",
+            target={"repo": REPO, "ref": "main"},
+            now=lambda i=i: f"2026-06-11T11:4{i}:00+00:00",
+        )
+    lines = chain.read_text().splitlines()
+    doctored = json.loads(lines[0])
+    doctored["target"] = {"repo": "attacker/elsewhere"}
+    chain.write_text("\n".join([json.dumps(doctored), *lines[1:]]) + "\n")
+    result = sentinel.check_trail_reconcile(
+        witness_events=lambda: [_witness_event("issue_comment")],
+        chain_path=chain,
+        now=T_NOW,
+    )
+    assert result["status"] == "breach"
+    assert "tampered" in result["detail"]
+    assert "seq 0" in result["detail"]
