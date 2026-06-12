@@ -771,9 +771,14 @@ class RLMHandler(BaseHandler):
         }
         """
         try:
-            # Check if official RLM is available
+            # Check if official RLM is available.
+            # preserve_environ: importing rlm triggers a load_dotenv() side
+            # effect that can inject a repository .env process-wide (#8277).
             try:
-                import rlm
+                from aragora.utils.env import preserve_environ
+
+                with preserve_environ():
+                    import rlm
 
                 provider = "rlm-library"
                 version = getattr(rlm, "__version__", "unknown")
