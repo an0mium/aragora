@@ -87,6 +87,56 @@ def test_build_boss_loop_command_uses_explicit_issue_list_contract() -> None:
     assert command[command.index("--autonomy") + 1] == "fire_and_forget"
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({"max_ticks": 0}, "max_ticks must be a positive integer"),
+        ({"interval_seconds": 0.0}, "interval_seconds must be a positive finite number"),
+        (
+            {"max_consecutive_failures": 0},
+            "max_consecutive_failures must be a positive integer",
+        ),
+        ({"max_hours": float("inf")}, "max_hours must be a positive finite number"),
+    ],
+)
+def test_build_boss_loop_command_rejects_invalid_schedule_options(
+    kwargs: dict[str, object],
+    match: str,
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        mod.build_boss_loop_command(
+            repo="synaptent/aragora",
+            issue_numbers=[2712],
+            **kwargs,
+        )
+
+
+def test_run_recurrence_rejects_invalid_schedule_options_without_dispatch(
+    tmp_path: Path,
+) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 10,
+            "recorded_on": "2026-04-18",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Closed issue"}],
+        },
+    )
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+
+    with pytest.raises(ValueError, match="interval_seconds must be a positive finite number"):
+        mod.run_recurrence(
+            corpus_path=corpus_path,
+            repo="synaptent/aragora",
+            metrics_file=metrics_path,
+            interval_seconds=-1.0,
+        )
+
+    assert not metrics_path.exists()
+
+
 def test_run_recurrence_rotates_metrics_appends_closed_rows_and_dispatches_open_issue(
     tmp_path: Path,
     monkeypatch,

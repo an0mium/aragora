@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -197,6 +198,38 @@ def append_skipped_open_issue_rows(
     return appended
 
 
+def _positive_int_option(value: int | None, *, label: str, allow_none: bool = False) -> int | None:
+    if value is None and allow_none:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{label} must be a positive integer")
+    return value
+
+
+def _positive_finite_float_option(value: float, *, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label} must be a positive finite number")
+    numeric = float(value)
+    if not math.isfinite(numeric) or numeric <= 0:
+        raise ValueError(f"{label} must be a positive finite number")
+    return numeric
+
+
+def validate_recurrence_options(
+    *,
+    max_ticks: int | None,
+    interval_seconds: float,
+    max_consecutive_failures: int,
+    max_hours: float,
+) -> tuple[int | None, float, int, float]:
+    return (
+        _positive_int_option(max_ticks, label="max_ticks", allow_none=True),
+        _positive_finite_float_option(interval_seconds, label="interval_seconds"),
+        _positive_int_option(max_consecutive_failures, label="max_consecutive_failures"),
+        _positive_finite_float_option(max_hours, label="max_hours"),
+    )
+
+
 def build_boss_loop_command(
     *,
     repo: str,
@@ -209,6 +242,12 @@ def build_boss_loop_command(
 ) -> list[str]:
     if not issue_numbers:
         raise ValueError("issue_numbers must not be empty")
+    max_ticks, interval_seconds, max_consecutive_failures, max_hours = validate_recurrence_options(
+        max_ticks=max_ticks,
+        interval_seconds=interval_seconds,
+        max_consecutive_failures=max_consecutive_failures,
+        max_hours=max_hours,
+    )
     # BossLoop can consume one initial attempt plus two repair attempts before
     # recording a terminal class for one issue. Budget for that full envelope so
     # later corpus issues are not omitted from the publication window.
@@ -270,6 +309,12 @@ def run_recurrence(
     dry_run: bool = False,
     runner: Any = subprocess.run,
 ) -> dict[str, Any]:
+    max_ticks, interval_seconds, max_consecutive_failures, max_hours = validate_recurrence_options(
+        max_ticks=max_ticks,
+        interval_seconds=interval_seconds,
+        max_consecutive_failures=max_consecutive_failures,
+        max_hours=max_hours,
+    )
     corpus = load_corpus(corpus_path)
     issue_numbers = corpus_issue_numbers(corpus)
     issue_titles = corpus_issue_titles(corpus)
