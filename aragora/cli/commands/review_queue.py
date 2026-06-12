@@ -40,6 +40,15 @@ from aragora.cli.commands.review_queue_parsers import (
     add_observe_outcomes_parser,
     add_record_settlement_parser,
 )
+from aragora.cli.commands.review_queue_transport import (
+    _GhError,
+    _gh_error_kind,
+    _gh_json,
+    _gh_text,
+    _is_github_transport_error,
+    _merge_packet_transport_blocked_envelope,
+    _queue_conductor_transport_blocked_envelope,
+)
 
 if TYPE_CHECKING:
     from aragora.review.invalidation import BaselineMeasurement, ThresholdProposal
@@ -589,6 +598,54 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     merge_packet_p.add_argument("--json", action="store_true", help="Output as JSON")
 
+    conductor_p = sub.add_parser(
+        "conductor",
+        help="Build an owner-aware queue conductor packet and next prompt",
+        description=(
+            "Read-only queue conductor that combines open PR metadata, required checks, "
+            "branch owner lookup, operator steering, merge-packet status, head-change "
+            "detection, and supersession hints into one JSON packet plus one next prompt."
+        ),
+    )
+    conductor_p.add_argument(
+        "--limit",
+        type=int,
+        default=30,
+        help="Max open PRs to inspect when --pr is not supplied (default: 30)",
+    )
+    conductor_p.add_argument(
+        "--pr",
+        action="append",
+        default=[],
+        help="Specific PR number/ref to include. Repeatable. Defaults to open queue.",
+    )
+    conductor_p.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    conductor_p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root used for settlement receipt lookups.",
+    )
+    conductor_p.add_argument(
+        "--owner-timeout-seconds",
+        type=float,
+        default=8.0,
+        help="Timeout for owner and steering helper lookup. Timeout means preserve/no-mutate.",
+    )
+    conductor_p.add_argument(
+        "--mode",
+        choices=("queue", "ready-boundary"),
+        default="queue",
+        help=(
+            "Conductor routing mode. ready-boundary emits mark-ready authorization "
+            "classification for draft PRs that are otherwise ready."
+        ),
+    )
+    conductor_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     evidence_lint_p = sub.add_parser(
         "evidence-lint",
         help="Dry-run whether a proposed evidence comment will count for model quorum",
@@ -841,6 +898,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_act(args)
     if command == "record-settlement":
         return _cmd_record_settlement(args)
+    if command == "conductor":
+        return _cmd_conductor(args)
     if command == "merge-packet":
         return _cmd_merge_packet(args)
     if command in {"evidence-lint", "lint-comment"}:
@@ -859,7 +918,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_health_alert(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,lint-comment,"
+        "{build,packet,run,act,record-settlement,conductor,merge-packet,evidence-lint,"
+        "lint-comment,"
         "collect-evidence,"
         "baseline,"
         "observe-outcomes,"
@@ -907,6 +967,42 @@ def _cmd_packet(args: argparse.Namespace) -> int:
         print(json.dumps(packet.to_dict(), indent=2))
     else:
         _render_packet(packet)
+    return 0
+
+
+def _cmd_conductor(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
+    try:
+        from aragora.cli.commands.review_queue_conductor import (
+            build_queue_conductor_packet,
+            render_queue_conductor_packet,
+        )
+
+        packet = build_queue_conductor_packet(
+            pr_refs=list(getattr(args, "pr", []) or []),
+            limit=int(getattr(args, "limit", 30)),
+            repo_override=getattr(args, "repo", None),
+            review_queue_root=getattr(args, "review_queue_root", None),
+            owner_timeout_seconds=float(getattr(args, "owner_timeout_seconds", 8.0)),
+            mode=getattr(args, "mode", "queue"),
+        )
+    except _GhError as exc:
+        if json_output and _is_github_transport_error(exc):
+            packet = _queue_conductor_transport_blocked_envelope(
+                error=str(exc),
+                pr_refs=list(getattr(args, "pr", []) or []),
+                repo_override=getattr(args, "repo", None),
+                limit=int(getattr(args, "limit", 30)),
+                mode=str(getattr(args, "mode", "queue") or "queue"),
+            )
+            print(json.dumps(packet, indent=2, sort_keys=True))
+            return 1
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if json_output:
+        print(json.dumps(packet, indent=2, sort_keys=True))
+    else:
+        print(render_queue_conductor_packet(packet))
     return 0
 
 
@@ -1404,134 +1500,6 @@ def _cmd_health_alert(args: argparse.Namespace) -> int:
 # --- Internals: gh shell, classification, packet building ------------------
 
 
-class _GhError(RuntimeError):
-    """Raised when a 'gh' invocation fails or returns malformed JSON."""
-
-
-def _command_timeout_message(cmd: list[str], timeout_seconds: int) -> str:
-    return f"{' '.join(cmd)} timed out after {timeout_seconds}s"
-
-
-def _gh_text(args: list[str]) -> str:
-    """Run a 'gh' command and return plain stdout."""
-    cmd = ["gh", *args]
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=GH_COMMAND_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise _GhError(
-            _command_timeout_message(cmd, int(exc.timeout or GH_COMMAND_TIMEOUT_SECONDS))
-        ) from exc
-    except OSError as exc:
-        raise _GhError(f"{' '.join(cmd)} failed to start: {exc}") from exc
-    if proc.returncode != 0:
-        stderr = proc.stderr.strip() or "no stderr"
-        raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
-    return proc.stdout.strip()
-
-
-def _gh_json(args: list[str]) -> Any:
-    """Run a 'gh' command and parse JSON output. Returns None for empty stdout."""
-    cmd = ["gh", *args]
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=GH_COMMAND_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise _GhError(
-            _command_timeout_message(cmd, int(exc.timeout or GH_COMMAND_TIMEOUT_SECONDS))
-        ) from exc
-    except OSError as exc:
-        raise _GhError(f"{' '.join(cmd)} failed to start: {exc}") from exc
-    if proc.returncode != 0:
-        stderr = proc.stderr.strip() or "no stderr"
-        raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
-    out = proc.stdout.strip()
-    if not out:
-        return None
-    try:
-        return json.loads(out)
-    except json.JSONDecodeError as exc:
-        raise _GhError(f"gh {' '.join(args)} returned malformed JSON: {exc}") from exc
-
-
-def _gh_error_kind(error: object) -> str:
-    """Return a stable machine-readable kind for GitHub helper failures."""
-    text = str(error or "").lower()
-    if any(marker in text for marker in _GITHUB_TRANSPORT_ERROR_MARKERS):
-        return GITHUB_TRANSPORT_ERROR_KIND
-    return "github_error"
-
-
-def _is_github_transport_error(error: object) -> bool:
-    return _gh_error_kind(error) == GITHUB_TRANSPORT_ERROR_KIND
-
-
-def _numeric_pr_refs(pr_refs: list[str]) -> list[int]:
-    numbers: list[int] = []
-    for ref in pr_refs:
-        try:
-            numbers.append(_parse_pr_number(str(ref)))
-        except Exception:
-            continue
-    return numbers
-
-
-def _transport_blocked_next_prompt(command_name: str, pr_refs: list[str]) -> str:
-    pr_text = ", ".join(f"#{number}" for number in _numeric_pr_refs(pr_refs)) or "the queue"
-    return (
-        "Do not rely on transcript state. Re-check live GitHub/local state first. "
-        f"Retry {command_name} for {pr_text} only after GitHub API transport recovers. "
-        "Treat this packet as preserve/no-mutate: do not mark ready, collect evidence, "
-        "record settlement, merge, close, label, rerun workflows, or touch branch protection "
-        "while transport is blocked."
-    )
-
-
-def _merge_packet_transport_blocked_envelope(
-    *,
-    error: str,
-    pr_refs: list[str],
-    repo_override: str | None,
-    limit: int,
-) -> dict[str, Any]:
-    return {
-        "version": "merge_authorization_packet.v1",
-        "generated_at": datetime.now(UTC).isoformat(),
-        "status": GITHUB_TRANSPORT_BLOCKED_STATUS,
-        "transport_blocked": True,
-        "preserve_no_mutate": True,
-        "retryable": _is_github_transport_error(error),
-        "error_kind": _gh_error_kind(error),
-        "error": error,
-        "command": "review-queue merge-packet",
-        "repo": repo_override or "",
-        "limit": limit,
-        "pr_refs": [str(ref) for ref in pr_refs],
-        "queue_pressure": {
-            "current_open_prs": len(pr_refs),
-            "cap": MODEL_REVIEW_QUEUE_CAP,
-            "active": False,
-            "scope": "explicit_pr_refs" if pr_refs else "open_pr_queue",
-        },
-        "entries": [],
-        "admin_squash_order": [],
-        "human_risk_settlement_required": [],
-        "not_ready": _numeric_pr_refs(pr_refs),
-        "admin_squash_allowed": False,
-        "next_prompt": _transport_blocked_next_prompt("review-queue merge-packet", pr_refs),
-    }
-
-
 def _resolve_settlement_repo_slug(repo_override: str | None) -> str:
     """Return ``owner/name``, preferring an explicit override then ``gh`` context."""
     slug = str(repo_override or "").strip()
@@ -1771,6 +1739,9 @@ def _fetch_required_pr_check_surface(pr_number: int, repo_override: str | None) 
             "available": False,
             "checks": [],
             "error": str(exc),
+            "error_kind": _gh_error_kind(exc),
+            "transport_blocked": _is_github_transport_error(exc),
+            "preserve_no_mutate": _is_github_transport_error(exc),
         }
     if not isinstance(payload, list):
         return {

@@ -2677,7 +2677,7 @@ class TestGhTimeouts:
             captured["kwargs"] = kwargs
             raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
 
-        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+        monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
 
         with pytest.raises(_GhError, match=r"gh pr view 7811 timed out after \d+s"):
             _gh_json(["pr", "view", "7811"])
@@ -2688,7 +2688,7 @@ class TestGhTimeouts:
         def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise OSError("gh executable unavailable")
 
-        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+        monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
 
         with pytest.raises(_GhError) as exc_info:
             _gh_json(["pr", "view", "7811"])
@@ -2700,7 +2700,7 @@ class TestGhTimeouts:
         def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise OSError("permission denied")
 
-        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+        monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
 
         with pytest.raises(_GhError) as exc_info:
             _gh_text(["repo", "view"])
@@ -4801,6 +4801,81 @@ class TestJsonOutput:
         assert roundtrip["advisory_only"] is True
         assert roundtrip["protocol"]["protocol_version"] == "pr_review_protocol.v1"
         assert "model_review_quorum" in roundtrip
+
+    def test_merge_packet_json_transport_blocked_envelope(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def raise_transport(**_kwargs: object) -> dict[str, object]:
+            raise _GhError("gh pr view 7885 failed: TLS handshake timeout")
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            raise_transport,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["7885"],
+            repo="synaptent/aragora",
+            limit=1,
+            review_queue_root=None,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert err_buf.getvalue() == ""
+        payload = json.loads(out_buf.getvalue())
+        assert payload["version"] == "merge_authorization_packet.v1"
+        assert payload["status"] == "transport_blocked"
+        assert payload["transport_blocked"] is True
+        assert payload["preserve_no_mutate"] is True
+        assert payload["error_kind"] == "github_transport"
+        assert payload["not_ready"] == [7885]
+        assert payload["entries"] == []
+        assert payload["admin_squash_allowed"] is False
+
+    def test_conductor_json_transport_blocked_envelope(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import aragora.cli.commands.review_queue_conductor as conductor
+
+        def raise_transport(**_kwargs: object) -> dict[str, object]:
+            raise _GhError("gh pr view 7885 failed: read: connection reset by peer")
+
+        monkeypatch.setattr(conductor, "build_queue_conductor_packet", raise_transport)
+        ns = argparse.Namespace(
+            review_queue_command="conductor",
+            pr=["7885"],
+            repo="synaptent/aragora",
+            limit=1,
+            review_queue_root=None,
+            owner_timeout_seconds=1.0,
+            mode="ready-boundary",
+            json=True,
+        )
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert err_buf.getvalue() == ""
+        payload = json.loads(out_buf.getvalue())
+        assert payload["version"] == "queue_conductor.v1"
+        assert payload["status"] == "transport_blocked"
+        assert payload["transport_blocked"] is True
+        assert payload["preserve_no_mutate"] is True
+        assert payload["error_kind"] == "github_transport"
+        assert payload["mode"] == "ready-boundary"
+        assert payload["not_ready"] == [7885]
+        assert payload["candidates"] == []
 
 
 # --- cmd_review_queue dispatch + parser ------------------------------------

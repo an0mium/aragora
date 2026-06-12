@@ -9,14 +9,19 @@ Endpoints:
 - GET /api/history/summary - Get history summary
 - GET /api/system/maintenance?task=<task> - Run database maintenance
 - GET /api/auth/stats - Get authentication statistics
-- POST /api/auth/revoke - Revoke a token to invalidate it
 - GET /api/circuit-breakers - Circuit breaker metrics
-- GET /metrics - Prometheus metrics
 
-Note: Health, nomic, and docs endpoints have been extracted to separate handlers:
+Note: Health, nomic, docs, metrics, and token-revocation endpoints are
+handled by dedicated handlers:
 - HealthHandler: /healthz, /readyz, /api/health/*
 - NomicHandler: /api/nomic/*, /api/modes
 - DocsHandler: /api/openapi*, /api/docs*, /api/redoc*, /api/postman.json
+- MetricsHandler (aragora/server/handlers/metrics/handler.py): /metrics
+  (public Prometheus scrape target, optional ARAGORA_METRICS_TOKEN gate —
+  see docs/operations/PRODUCTION_RUNBOOK.md)
+- AuthHandler (aragora/server/handlers/auth/handler.py): POST /api/auth/revoke
+  (canonical token-revocation contract: session.revoke permission, see
+  aragora/rbac/middleware.py and aragora/server/openapi/endpoints/auth.py)
 """
 
 from __future__ import annotations
@@ -44,7 +49,6 @@ from ..base import (
     validate_path_segment,
 )
 from ..utils.rate_limit import rate_limit
-from aragora.events.handler_events import emit_handler_event, COMPLETED
 from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -75,11 +79,14 @@ class SystemHandler(BaseHandler):
         "/api/system/maintenance",
         # Auth stats
         "/api/auth/stats",
-        "/api/auth/revoke",
+        # NOTE: /api/auth/revoke is owned by AuthHandler (session.revoke
+        # contract). SystemHandler's legacy admin-gated claim was removed —
+        # it shadowed AuthHandler via first-wins route registration.
         # Resilience monitoring
         "/api/circuit-breakers",
-        # Prometheus metrics
-        "/metrics",
+        # NOTE: /metrics is owned by MetricsHandler (public Prometheus scrape
+        # target with optional ARAGORA_METRICS_TOKEN). SystemHandler's
+        # RBAC-gated claim broke anonymous scrapes (PermissionDeniedError).
         # Diagnostics
         "/api/v1/diagnostics/handlers",
     ]
@@ -152,7 +159,6 @@ class SystemHandler(BaseHandler):
         simple_routes = {
             "/api/debug/test": lambda: self._handle_debug_test(handler),
             "/api/auth/stats": lambda: self._get_auth_stats(handler),
-            "/metrics": lambda: self._get_prometheus_metrics(handler),
             "/api/circuit-breakers": lambda: self._get_circuit_breaker_metrics(handler),
             "/api/v1/diagnostics/handlers": lambda: self._get_handler_diagnostics(handler),
         }
@@ -168,6 +174,12 @@ class SystemHandler(BaseHandler):
         if path in self._HISTORY_CONFIG:
             return self._handle_history_endpoint(path, query_params, handler)
 
+        return None
+
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Preserve legacy POST placeholder inference without claiming POST routes."""
         return None
 
     @require_permission("admin:debug")
@@ -223,17 +235,6 @@ class SystemHandler(BaseHandler):
 
         limit = get_clamped_int_param(query_params, "limit", default_limit, 1, max_limit)
         return method(handler, loop_id, limit)
-
-    @handle_errors("system creation")
-    @require_permission("admin:write")
-    def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
-        """Handle POST requests for auth endpoints."""
-        path = strip_version_prefix(path)
-        if path == "/api/auth/revoke":
-            return self._revoke_token(handler, handler)
-        return None
 
     def _load_filtered_json(
         self, file_path: Path, loop_id: str | None = None, limit: int = 100
@@ -437,89 +438,6 @@ class SystemHandler(BaseHandler):
                 "stats": stats,
             }
         )
-
-    @require_permission("admin:security")
-    def _revoke_token(self, handler: Any, _handler: Any = None, user: Any = None) -> HandlerResult:
-        """Revoke a token to invalidate it immediately.
-
-        Requires admin:security permission.
-
-        POST body:
-            token: The token to revoke (required)
-            reason: Optional reason for revocation
-
-        Returns:
-            success: Whether revocation succeeded
-            revoked_count: Total revoked tokens being tracked
-        """
-        from aragora.server.auth import auth_config
-
-        # Read request body
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
-
-        token = body.get("token")
-        if not isinstance(token, str) or not token.strip():
-            return error_response("Token is required", 400)
-
-        reason = body.get("reason", "")
-        if not isinstance(reason, str):
-            return error_response("Reason must be a string", 400)
-
-        # Revoke the token using both in-memory and persistent backends
-        success = auth_config.revoke_token(token, reason)
-
-        # Also persist revocation for multi-instance consistency
-        try:
-            from aragora.billing.jwt_auth import revoke_token_persistent
-
-            persistent_ok = revoke_token_persistent(token)
-            if not persistent_ok:
-                logger.warning("Token revoked in-memory but persistent revocation failed")
-        except ImportError:
-            logger.debug("Persistent token blacklist not available")
-
-        if success:
-            logger.info("Token revoked: reason=%s", reason or "not specified")
-            emit_handler_event("admin", COMPLETED, {"action": "token_revoked"})
-
-        return json_response(
-            {
-                "success": success,
-                "revoked_count": auth_config.get_revocation_count(),
-            }
-        )
-
-    @require_permission("monitoring:metrics")
-    def _get_prometheus_metrics(self, handler: Any = None, user: Any = None) -> HandlerResult:
-        """Get Prometheus-format metrics.
-
-        Requires monitoring:metrics permission.
-
-        Exposes metrics for:
-        - Subscription events and active subscriptions by tier
-        - Usage (debates, tokens) by tier
-        - API request counts and latency
-        - Agent performance metrics
-
-        Returns:
-            Prometheus text format metrics
-        """
-        try:
-            from aragora.server.metrics import generate_metrics
-
-            metrics_text = generate_metrics()
-            return HandlerResult(
-                status_code=200,
-                content_type="text/plain; version=0.0.4; charset=utf-8",
-                body=metrics_text.encode("utf-8"),
-            )
-        except ImportError:
-            return error_response("Metrics module not available", 503)
-        except (RuntimeError, ValueError, TypeError, OSError) as e:
-            logger.exception("Metrics generation failed: %s", e)
-            return error_response(safe_error_message(e, "metrics"), 500)
 
     @require_permission("monitoring:resilience")
     def _get_circuit_breaker_metrics(self, handler: Any = None, user: Any = None) -> HandlerResult:
