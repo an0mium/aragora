@@ -61,6 +61,16 @@ VALID_CLASSIFICATION_VERDICTS = frozenset(
 )
 
 
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prompt-root", type=Path, default=DEFAULT_PROMPT_ROOT)
@@ -98,7 +108,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "write transcripts. This does not judge responses or claim a verdict."
         ),
     )
-    parser.add_argument("--limit", type=int, default=None, help="Limit selected prompts.")
+    parser.add_argument("--limit", type=_positive_int, default=None, help="Limit selected prompts.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable summary.")
     return parser.parse_args(argv)
 

@@ -82,6 +82,31 @@ def test_probe_script_writes_synthetic_fixture_receipt(tmp_path) -> None:
     assert "synthetic fixture only" in receipt["scope_caveats"][0]
 
 
+def test_probe_script_rejects_zero_limit_before_writing_output(tmp_path) -> None:
+    output_root = tmp_path / "out"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--synthetic-fixture",
+            "--limit",
+            "0",
+            "--output-root",
+            str(output_root),
+            "--run-id",
+            "fixture",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 2
+    assert "must be a positive integer" in proc.stderr
+    assert not output_root.exists()
+
+
 def test_probe_script_writes_receipt_from_classifications_file(tmp_path) -> None:
     fixture = ROOT / "tests" / "heterogeneity" / "fixtures" / "classifications_minimal.json"
     proc = subprocess.run(
