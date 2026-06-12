@@ -270,6 +270,6 @@ export class BeliefNetworkAPI {
     cruxes: Array<Record<string, unknown>>;
     count: number;
   }> {
-    return this.client.request('GET', `/api/v1/debates/${debateId}/cruxes`, { params: options });
+    return this.client.request('GET', `/api/v1/belief-network/${debateId}/crux-analysis`, { params: options });
   }
 }

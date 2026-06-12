@@ -144,7 +144,9 @@ class BeliefAPI:
             Crux analysis with scored and ranked pivotal claims.
         """
         params: dict[str, Any] = {"limit": limit}
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/cruxes", params=params)
+        return self._client.request(
+            "GET", f"/api/v1/belief-network/{debate_id}/crux-analysis", params=params
+        )
 
 
 class AsyncBeliefAPI:
@@ -222,5 +224,5 @@ class AsyncBeliefAPI:
         """Get advanced crux analysis for a debate."""
         params: dict[str, Any] = {"limit": limit}
         return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/cruxes", params=params
+            "GET", f"/api/v1/belief-network/{debate_id}/crux-analysis", params=params
         )

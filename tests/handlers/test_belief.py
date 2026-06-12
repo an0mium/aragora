@@ -8,7 +8,7 @@ Covers all routes and behavior of the BeliefHandler class:
 - GET /api/belief-network/:debate_id/export (json, csv, graphml)
 - GET /api/provenance/:debate_id/claims/:claim_id/support
 - GET /api/debate/:debate_id/graph-stats
-- GET /api/v1/debates/:debate_id/cruxes (versioned SDK alias)
+- GET /api/v1/belief-network/:debate_id/crux-analysis (CruxDetector analysis)
 - Rate limiting
 - RBAC permission checks
 - KM adapter lifecycle
@@ -224,7 +224,7 @@ class TestCanHandle:
         assert handler.can_handle("/api/v1/belief-network/debate-123/export")
 
     def test_versioned_cruxes_sdk_path(self, handler):
-        assert handler.can_handle("/api/v1/debates/debate-123/cruxes")
+        assert handler.can_handle("/api/v1/belief-network/debate-123/crux-analysis")
 
     def test_versioned_cruxes_path(self, handler):
         assert handler.can_handle("/api/v1/belief-network/debate-123/cruxes")
@@ -245,7 +245,7 @@ class TestCanHandle:
         assert not handler.can_handle("/api/belief-network")
 
     def test_accepts_debates_cruxes_unversioned(self, handler):
-        assert handler.can_handle("/api/debates/debate-123/cruxes")
+        assert handler.can_handle("/api/belief-network/debate-123/crux-analysis")
 
 
 # ============================================================================
@@ -276,7 +276,7 @@ class TestInit:
         assert "/api/v1/belief-network/*/graph" in handler.ROUTES
 
     def test_routes_include_sdk_alias(self, handler):
-        assert "/api/v1/debates/*/cruxes" in handler.ROUTES
+        assert "/api/v1/belief-network/*/crux-analysis" in handler.ROUTES
 
 
 # ============================================================================
@@ -1355,27 +1355,33 @@ class TestGetDebateGraphStats:
 
 
 # ============================================================================
-# GET /api/v1/debates/:debate_id/cruxes (SDK alias - crux analysis)
+# GET /api/v1/belief-network/:debate_id/crux-analysis (CruxDetector analysis)
 # ============================================================================
 
 
 class TestGetCruxAnalysis:
-    """Test the /api/debates/:debate_id/cruxes (crux analysis) endpoint."""
+    """Test the /api/belief-network/:debate_id/crux-analysis endpoint."""
 
     def test_belief_network_unavailable(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle("/api/debates/debate-123/cruxes", {}, http_handler)
+            result = handler.handle(
+                "/api/belief-network/debate-123/crux-analysis", {}, http_handler
+            )
             assert _status(result) == 503
 
     def test_no_nomic_dir(self, handler_no_nomic, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
-            result = handler_no_nomic.handle("/api/debates/debate-123/cruxes", {}, http_handler)
+            result = handler_no_nomic.handle(
+                "/api/belief-network/debate-123/crux-analysis", {}, http_handler
+            )
             assert _status(result) == 503
 
     def test_trace_not_found(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
             with patch.object(Path, "exists", return_value=False):
-                result = handler.handle("/api/debates/debate-123/cruxes", {}, http_handler)
+                result = handler.handle(
+                    "/api/belief-network/debate-123/crux-analysis", {}, http_handler
+                )
                 assert _status(result) == 404
 
     def test_successful_crux_analysis(self, handler, http_handler):
@@ -1397,7 +1403,7 @@ class TestGetCruxAnalysis:
                         with patch("aragora.reasoning.crux_detector.CruxDetector") as MockDetector:
                             MockDetector.return_value.detect_cruxes.return_value = mock_analysis
                             result = handler.handle(
-                                "/api/debates/debate-123/cruxes",
+                                "/api/belief-network/debate-123/crux-analysis",
                                 {},
                                 http_handler,
                             )
@@ -1423,7 +1429,7 @@ class TestGetCruxAnalysis:
                         with patch("aragora.reasoning.crux_detector.CruxDetector") as MockDetector:
                             MockDetector.return_value.detect_cruxes.return_value = mock_analysis
                             result = handler.handle(
-                                "/api/debates/debate-123/cruxes",
+                                "/api/belief-network/debate-123/crux-analysis",
                                 {"limit": ["3"]},
                                 http_handler,
                             )
@@ -1432,14 +1438,16 @@ class TestGetCruxAnalysis:
         MockDetector.return_value.detect_cruxes.assert_called_once_with(top_k=3)
 
     def test_crux_analysis_versioned_path(self, handler, http_handler):
-        """Versioned /api/v1/debates/:id/cruxes should work."""
+        """Versioned /api/v1/belief-network/:id/crux-analysis should work."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle("/api/v1/debates/debate-123/cruxes", {}, http_handler)
+            result = handler.handle(
+                "/api/v1/belief-network/debate-123/crux-analysis", {}, http_handler
+            )
             assert _status(result) == 503
 
     def test_crux_analysis_invalid_debate_id(self, handler, http_handler):
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", True):
-            result = handler.handle("/api/debates/../cruxes", {}, http_handler)
+            result = handler.handle("/api/belief-network/../crux-analysis", {}, http_handler)
             assert _status(result) == 400
 
 
@@ -1608,10 +1616,12 @@ class TestHandleRouting:
             assert result is not None
             assert _status(result) == 503
 
-    def test_handle_versioned_debates_cruxes(self, handler, http_handler):
-        """Versioned /api/v1/debates/:id/cruxes routes to crux analysis."""
+    def test_handle_versioned_crux_analysis(self, handler, http_handler):
+        """Versioned /api/v1/belief-network/:id/crux-analysis routes to crux analysis."""
         with patch("aragora.server.handlers.belief.BELIEF_NETWORK_AVAILABLE", False):
-            result = handler.handle("/api/v1/debates/debate-123/cruxes", {}, http_handler)
+            result = handler.handle(
+                "/api/v1/belief-network/debate-123/crux-analysis", {}, http_handler
+            )
             assert result is not None
             assert _status(result) == 503
 

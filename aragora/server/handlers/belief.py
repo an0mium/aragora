@@ -65,6 +65,7 @@ class BeliefHandler(BaseHandler):
 
     ROUTES: list[str] = [
         "/api/belief-network/*/cruxes",
+        "/api/belief-network/*/crux-analysis",
         "/api/belief-network/*/load-bearing-claims",
         "/api/belief-network/*/graph",
         "/api/belief-network/*/export",
@@ -73,7 +74,10 @@ class BeliefHandler(BaseHandler):
         # Versioned aliases for SDK parity
         "/api/v1/belief-network/*/graph",
         "/api/v1/belief-network/*/export",
-        "/api/v1/debates/*/cruxes",
+        "/api/v1/belief-network/*/crux-analysis",
+        # NOTE: /api/v1/debates/*/cruxes belongs to DebatesHandler (recorded
+        # crux map, ODR-4 #8227); the live CruxDetector analysis lives at
+        # /api/belief-network/*/crux-analysis.
     ]
 
     def __init__(self, server_context: dict[str, Any]):
@@ -200,7 +204,7 @@ class BeliefHandler(BaseHandler):
             return True
         if normalized.startswith("/api/debate/") and normalized.endswith("/graph-stats"):
             return True
-        if normalized.startswith("/api/debates/") and normalized.endswith("/cruxes"):
+        if normalized.startswith("/api/belief-network/") and normalized.endswith("/crux-analysis"):
             return True
         return False
 
@@ -319,7 +323,7 @@ class BeliefHandler(BaseHandler):
                 return error_response("Invalid debate_id", 400)
             return self._get_debate_graph_stats(nomic_dir, debate_id)
 
-        if normalized.startswith("/api/debates/") and normalized.endswith("/cruxes"):
+        if normalized.startswith("/api/belief-network/") and normalized.endswith("/crux-analysis"):
             debate_id = self._extract_debate_id(normalized, 3)
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)

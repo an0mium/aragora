@@ -124,7 +124,7 @@ _BELIEF_AVAILABLE_PATCH = "aragora.server.handlers.belief.BELIEF_NETWORK_AVAILAB
 
 
 class TestCruxDetectionAPI:
-    """Tests for GET /api/v1/debates/{debate_id}/cruxes."""
+    """Tests for GET /api/v1/belief-network/{debate_id}/crux-analysis."""
 
     def test_cruxes_sorted_by_score(self, handler, tmp_path):
         handler.ctx["nomic_dir"] = _setup_trace_dir(tmp_path)
@@ -275,7 +275,7 @@ class TestCruxCanHandle:
     """Tests for route matching of versioned crux endpoint."""
 
     def test_can_handle_versioned_cruxes(self, handler):
-        assert handler.can_handle("/api/v1/debates/debate-123/cruxes")
+        assert handler.can_handle("/api/v1/belief-network/debate-123/crux-analysis")
 
     def test_cannot_handle_unrelated(self, handler):
-        assert not handler.can_handle("/api/v1/debates/debate-123/something-else")
+        assert not handler.can_handle("/api/v1/belief-network/debate-123/something-else")
