@@ -120,7 +120,7 @@ A new sentinel check `trail_reconcile` (extends the live fleet sentinel):
 |---|---|---|---|
 | T0 | Operator: enable Enterprise audit streaming → S3 (browser); create Object-Lock bucket + `AragoraTrailWitnessWrite` role (CLI commands provided at build time) | operator | ~30 min |
 | T1 | Intent hash-chain library + wiring into publisher/auto-evidence/janitor/settle intents | 2 | 1 lane |
-| T2 | Anchor publisher (commit-status anchor first; Rekor optional flag) | 2 | 1 lane |
+| T2 | Anchor publisher (commit-status anchor first; Rekor optional flag — made real by #8231: `aragora/trail/rekor.py` submits hashedrekord entries to the public log with ephemeral-key signing; response-consistency checked, full inclusion-proof/SET verification deferred to ODR-3) | 2 | 1 lane |
 | T3 | `trail_reconcile` sentinel check + blind-period accounting | 2 | 1 lane |
 | T4 | H1 CODEOWNERS pin + H2 settlement-creator pin | **4 — scarmani settles** | 1 lane + 1 browser approval |
 | T5 | Incident replay test: re-enact the May incident class (token created from unknown context) against the reconciler; permanent acceptance test | 2 | 1 lane |

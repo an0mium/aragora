@@ -33,34 +33,44 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote, urlparse
 
-from aragora.review.invalidation import (
-    BaselineMeasurement,
-    DEFAULT_BASELINE_WINDOW_DAYS,
-    DEFAULT_MIN_BASELINE_SAMPLES,
-    DEFAULT_MINIMUM_MEANINGFUL_RATE,
-    DEFAULT_SAFETY_MARGIN,
-    ThresholdProposal,
-    derive_threshold,
+from aragora.cli.commands.review_queue_parsers import (
+    add_observe_outcomes_parser,
+    add_record_settlement_parser,
 )
-from aragora.review.invalidation_event_source import measure_baseline_from_stores
-from aragora.review.reviewer_output import ReviewerOutput
-from aragora.swarm.pr_review_protocol import (
-    PRReviewerExecutionFailure,
-    default_pr_review_protocol,
-)
-from aragora.triage.auto_handle_calibration import AutoHandleCalibrationStore
-from aragora.worktree.fleet import resolve_repo_root
-from scripts.post_merge_lane_audit import (
-    post_merge_lane_audit_failed,
-    post_merge_lane_audit_failure_reason,
-    run_post_merge_lane_audit,
-)
+
+if TYPE_CHECKING:
+    from aragora.review.invalidation import BaselineMeasurement, ThresholdProposal
+    from aragora.review.reviewer_output import ReviewerOutput
 
 UTC = timezone.utc
 PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
+DEFAULT_BASELINE_WINDOW_DAYS = 30
+DEFAULT_MIN_BASELINE_SAMPLES = 50
+DEFAULT_SAFETY_MARGIN = 0.5
+DEFAULT_MINIMUM_MEANINGFUL_RATE = 0.01
+
+
+class AutoHandleCalibrationStore:
+    """Lazy proxy for the calibration store used by review-queue rendering.
+
+    The module-level name is a historical monkeypatch seam in tests. Delegating
+    from methods rather than replacing __new__ keeps that seam available without
+    importing the calibration stack during merge-packet startup.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        from aragora.triage.auto_handle_calibration import (
+            AutoHandleCalibrationStore as _AutoHandleCalibrationStore,
+        )
+
+        self._impl = _AutoHandleCalibrationStore(*args, **kwargs)
+
+    def list_active_alerts(self, *args: Any, **kwargs: Any) -> Any:
+        return self._impl.list_active_alerts(*args, **kwargs)
+
 
 # Lane classification thresholds and risk-path catalog.
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
@@ -71,6 +81,7 @@ TIER_FOUR_SETTLEMENT_MARKER = "Tier-4 Human Settlement Authorization"
 GITHUB_TRANSPORT_ERROR_KIND = "github_transport"
 GITHUB_TRANSPORT_BLOCKED_STATUS = "transport_blocked"
 _GITHUB_TRANSPORT_ERROR_MARKERS = (
+    "api rate limit already exceeded",
     "check your internet connection",
     "client.timeout exceeded",
     "connection refused",
@@ -87,6 +98,7 @@ _GITHUB_TRANSPORT_ERROR_MARKERS = (
     "net/http",
     "no such host",
     "operation timed out",
+    "rate limit exceeded",
     "temporary failure in name resolution",
     "timeout awaiting response headers",
     "tls handshake timeout",
@@ -229,6 +241,45 @@ CHECK_SURFACE_DIAGNOSTIC_LIMIT = 12
 OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS = 60 * 60
 GH_COMMAND_TIMEOUT_SECONDS = 30
 GIT_STATUS_TIMEOUT_SECONDS = 10
+
+
+def resolve_repo_root(path_hint: Path) -> Path:
+    """Resolve git repo root without importing the full worktree package."""
+    proc = subprocess.run(
+        ["git", "-C", str(path_hint), "rev-parse", "--show-toplevel"],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=GIT_STATUS_TIMEOUT_SECONDS,
+    )
+    if proc.returncode == 0 and proc.stdout.strip():
+        return Path(proc.stdout.strip()).resolve()
+    return path_hint.resolve()
+
+
+def default_pr_review_protocol() -> Any:
+    from aragora.swarm.pr_review_protocol import default_pr_review_protocol as _impl
+
+    return _impl()
+
+
+def run_post_merge_lane_audit(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    from scripts.post_merge_lane_audit import run_post_merge_lane_audit as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def post_merge_lane_audit_failed(*args: Any, **kwargs: Any) -> bool:
+    from scripts.post_merge_lane_audit import post_merge_lane_audit_failed as _impl
+
+    return bool(_impl(*args, **kwargs))
+
+
+def post_merge_lane_audit_failure_reason(*args: Any, **kwargs: Any) -> str:
+    from scripts.post_merge_lane_audit import post_merge_lane_audit_failure_reason as _impl
+
+    return str(_impl(*args, **kwargs))
+
 
 LANE_ORDER: dict[str, int] = {
     "ready_now": 0,
@@ -483,76 +534,7 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     act_p.add_argument("--json", action="store_true", help="Output settlement receipt as JSON")
 
-    record_p = sub.add_parser(
-        "record-settlement",
-        help="Record an already-authorized PR settlement without mutating GitHub",
-        description=(
-            "Write a local review-queue settlement receipt after an external\n"
-            "operator decision, such as an exact-head admin squash merge. This\n"
-            "is local-only: it verifies the live PR head/state, writes under\n"
-            ".aragora/review-queue/receipts (or --review-queue-root), and does\n"
-            "not approve, comment, merge, or otherwise mutate GitHub."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    record_p.add_argument("pr", help="PR number or URL")
-    record_p.add_argument(
-        "--repo",
-        default=None,
-        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
-    )
-    record_p.add_argument(
-        "--head-sha",
-        required=True,
-        help="Exact PR head SHA that was externally settled.",
-    )
-    record_p.add_argument(
-        "--action",
-        required=True,
-        choices=("approve", "request_changes", "comment", "admin_squash_merge"),
-        help="Externally observed settlement action to record.",
-    )
-    record_p.add_argument(
-        "--reason",
-        required=True,
-        help="One-line operator reason or authorization reference.",
-    )
-    record_p.add_argument(
-        "--review-queue-root",
-        default=None,
-        help=(
-            "Override the review-queue store root used for settlement "
-            "receipts. Defaults to <repo>/.aragora/review-queue."
-        ),
-    )
-    record_p.add_argument(
-        "--apply-post-merge-lane-audit",
-        action="store_true",
-        help=(
-            "For admin_squash_merge records, apply merged-PR lane supersession "
-            "after verifying GitHub reports MERGED and using the live merge "
-            "commit as the exact guard. Default is dry-run/report only."
-        ),
-    )
-    record_p.add_argument(
-        "--post-github-status",
-        action="store_true",
-        help=(
-            "After the local receipt is durably written, atomically POST the "
-            "'aragora/human-settlement'=success commit status for the exact head "
-            "SHA. This is the ONLY GitHub mutation this command performs, and it "
-            "is the safe replacement for running 'gh api ... statuses' as a "
-            "separate command: the status can never be set unless the receipt "
-            "write succeeded first (receipt => status, never status => no "
-            "receipt). If the receipt write fails, the status is never posted."
-        ),
-    )
-    record_p.add_argument(
-        "--github-status-context",
-        default="aragora/human-settlement",
-        help="Commit-status context to post with --post-github-status.",
-    )
-    record_p.add_argument("--json", action="store_true", help="Output local receipt as JSON")
+    add_record_settlement_parser(sub)
 
     merge_packet_p = sub.add_parser(
         "merge-packet",
@@ -755,9 +737,7 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Output the BaselineMeasurement + ThresholdProposal as JSON.",
     )
 
-    from aragora.review.observe_outcomes_cli import add_observe_outcomes_subparser
-
-    add_observe_outcomes_subparser(sub)
+    add_observe_outcomes_parser(sub)
 
     health_p = sub.add_parser(
         "health",
@@ -1272,6 +1252,10 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
         return 2
 
     json_output = bool(getattr(args, "json", False))
+
+    from aragora.review.invalidation import derive_threshold
+    from aragora.review.invalidation_event_source import measure_baseline_from_stores
+    from aragora.triage.auto_handle_calibration import AutoHandleCalibrationStore
 
     try:
         store = AutoHandleCalibrationStore(db_path=args.calibration_db)
@@ -2862,7 +2846,7 @@ def _build_packet(
     repo = _repo_from_url(str(pr.get("url", "")).strip())
     protocol_runner = default_pr_review_protocol()
     reviewer_outputs: list[ReviewerOutput] = []
-    execution_failures: list[PRReviewerExecutionFailure] = []
+    execution_failures: list[Any] = []
     if execute_reviewers:
         diff_args = ["pr", "diff", str(number)]
         if repo_override:

@@ -111,6 +111,7 @@ def _run(
     reconciler: ReconcilerRecorder | None = None,
     clock: Any = None,
     breaker_threshold: int = 3,
+    write_routing_record: Any = None,
 ) -> tuple[dict[str, Any], CollectRecorder, ReconcilerRecorder]:
     collect = collect or CollectRecorder()
     reconciler = reconciler or ReconcilerRecorder()
@@ -131,6 +132,7 @@ def _run(
         max_scan=max_scan,
         budget_seconds=budget_seconds,
         breaker_threshold=breaker_threshold,
+        write_routing_record=write_routing_record,
         clock=(lambda: next(ticks) * 0.001) if clock is None else clock,
     )
     summary["_packet_calls"] = packet_calls
@@ -659,3 +661,171 @@ def test_no_dogfood_runner_means_no_dogfood_plan() -> None:
     # Backward compat: without run_dogfood the cycle ignores dogfood entirely.
     summary, _collect, _recon = _run([_pr(5)], {5: _dogfood_entry(5)})
     assert summary["dogfood_plan"] == []
+
+
+# --- Routing-rationale records (#8233 phase 1) --------------------------------
+
+
+class RecordRecorder:
+    """Injected routing-record writer that records (or rejects) writes."""
+
+    def __init__(self, fail: bool = False) -> None:
+        self.records: list[dict[str, Any]] = []
+        self.fail = fail
+
+    def __call__(self, record: dict[str, Any]) -> str:
+        if self.fail:
+            raise OSError("disk full")
+        self.records.append(record)
+        return f"/tmp/routing_pr{record['pr']}.json"
+
+
+def test_apply_writes_one_routing_record_per_collected_pr() -> None:
+    writer = RecordRecorder()
+    summary, _, _ = _run(
+        [_pr(1), _pr(2)],
+        {1: _entry(1), 2: _entry(2)},
+        apply=True,
+        write_routing_record=writer,
+    )
+    assert [r["pr"] for r in writer.records] == [1, 2]
+    assert len(summary["routing_records"]) == 2
+    assert summary["routing_record_errors"] == []
+    assert summary["exit_code"] == 0
+
+
+def test_routing_record_fields_are_honest() -> None:
+    writer = RecordRecorder()
+    collect = CollectRecorder(
+        results={
+            1: {
+                "ok": True,
+                "counting_families": ["claude", "grok"],
+                "posted_families": ["claude", "grok"],
+                "head_sha": "a" * 40,
+                "tier": 1,
+                "error": "",
+            }
+        }
+    )
+    _run([_pr(1)], {1: _entry(1, tier=1)}, apply=True, collect=collect, write_routing_record=writer)
+    (record,) = writer.records
+    assert record["record_type"] == "routing_rationale"
+    assert record["schema"] == cycle.ROUTING_RECORD_SCHEMA
+    assert record["decision_tier"] == 1
+    assert record["head_sha"] == "a" * 40
+    # families_requested comes from the cycle's configuration, never from the
+    # packet scan (regression guard: a scan-loop local must not shadow it).
+    assert record["models"]["families_requested"] == ["claude", "grok"]
+    assert record["models"]["families_counted"] == ["claude", "grok"]
+    assert record["models"]["families_posted"] == ["claude", "grok"]
+    # Honest-fields contract: cost is absent (never estimated), and the Pareto
+    # optimizer is disclosed as NOT consulted (phase 2 / #8234 territory).
+    assert record["cost"]["recorded"] is False
+    assert record["cost"]["total_usd"] is None
+    assert record["cost"]["absent_reason"]
+    assert record["selection_rationale"]["inputs"]["pareto_optimizer_consulted"] is False
+
+
+def test_routing_record_written_even_for_failed_collect() -> None:
+    # A failed collect run is still a routing event worth auditing.
+    writer = RecordRecorder()
+    collect = CollectRecorder(
+        results={
+            1: {
+                "ok": False,
+                "counting_families": [],
+                "posted_families": [],
+                "error": "reviewer died",
+            }
+        }
+    )
+    summary, _, _ = _run(
+        [_pr(1)], {1: _entry(1)}, apply=True, collect=collect, write_routing_record=writer
+    )
+    (record,) = writer.records
+    assert record["outcome"]["ok"] is False
+    assert "reviewer died" in record["outcome"]["error"]
+    assert summary["failed_prs"] == [1]
+
+
+def test_routing_record_write_failure_never_fails_the_cycle() -> None:
+    writer = RecordRecorder(fail=True)
+    summary, _, reconciler = _run([_pr(1)], {1: _entry(1)}, apply=True, write_routing_record=writer)
+    assert summary["exit_code"] == 0
+    assert summary["posted_prs"] == [1]
+    assert reconciler.calls == 1
+    assert len(summary["routing_record_errors"]) == 1
+    assert "disk full" in summary["routing_record_errors"][0]
+
+
+def test_dry_run_writes_no_routing_records() -> None:
+    writer = RecordRecorder()
+    summary, _, _ = _run([_pr(1)], {1: _entry(1)}, apply=False, write_routing_record=writer)
+    assert writer.records == []
+    assert summary["routing_records"] == []
+
+
+def test_no_writer_means_no_records_backward_compat() -> None:
+    summary, _, _ = _run([_pr(1)], {1: _entry(1)}, apply=True)
+    assert summary["routing_records"] == []
+    assert summary["routing_record_errors"] == []
+
+
+def test_default_write_routing_record_round_trips(tmp_path: Any) -> None:
+    import json as _json
+
+    record = cycle.build_routing_record(
+        repo="synaptent/aragora",
+        pr=42,
+        tier=2,
+        families_requested=("claude", "grok"),
+        collect_result={
+            "ok": True,
+            "counting_families": ["claude", "grok"],
+            "posted_families": ["claude"],
+            "head_sha": "b" * 40,
+            "tier": 2,
+            "error": "",
+        },
+        generated_at="2026-06-12T00:00:00Z",
+    )
+    path = cycle.default_write_routing_record(record, str(tmp_path / "routing"))
+    on_disk = _json.loads(Path(path).read_text())
+    assert on_disk == record
+    assert "pr42" in Path(path).name
+
+
+def test_build_routing_record_tier_falls_back_to_collect_result() -> None:
+    record = cycle.build_routing_record(
+        repo="synaptent/aragora",
+        pr=7,
+        tier=None,
+        families_requested=("claude", "grok"),
+        collect_result={"ok": True, "tier": 0, "head_sha": "", "error": ""},
+    )
+    assert record["decision_tier"] == 0
+
+
+def test_parse_collect_output_carries_head_and_tier() -> None:
+    import json as _json
+
+    payload = {
+        "mode": "collect_evidence",
+        "counting_families": ["claude", "grok"],
+        "posted_families": ["claude", "grok"],
+        "head_sha": "c" * 40,
+        "tier": 2,
+    }
+    result = cycle.parse_collect_output(0, _json.dumps(payload), "")
+    assert result["head_sha"] == "c" * 40
+    assert result["tier"] == 2
+
+
+def test_parse_collect_output_missing_head_and_tier_are_absent_not_invented() -> None:
+    import json as _json
+
+    payload = {"mode": "collect_evidence", "counting_families": [], "posted_families": []}
+    result = cycle.parse_collect_output(1, _json.dumps(payload), "")
+    assert result["head_sha"] == ""
+    assert result["tier"] is None

@@ -33,6 +33,11 @@ VERSION = "settle_one_steward.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
 BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
+PYTHON_EXECUTABLE = sys.executable or "python3"
+
+
+def _python_command(*args: str) -> list[str]:
+    return [PYTHON_EXECUTABLE, *args]
 
 
 def _env_timeout_seconds(name: str, default: int) -> int:
@@ -51,6 +56,7 @@ OPERATOR_SNAPSHOT_TIMEOUT_SECONDS = _env_timeout_seconds(
 )
 BROAD_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_BROAD_PACKET_TIMEOUT_SECONDS", 90)
 SINGLE_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_SINGLE_PACKET_TIMEOUT_SECONDS", 90)
+COMMAND_OUTPUT_REPORT_LIMIT = 4096
 OPEN_PR_LIGHT_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,mergeable,mergeStateStatus,"
     "reviewDecision,labels,author,additions,deletions,changedFiles"
@@ -87,14 +93,23 @@ def _state_repo_root(cwd: Path) -> Path:
 
 
 def _run(args: list[str], *, cwd: Path, timeout: int = 120) -> dict[str, Any]:
-    proc = subprocess.Popen(
-        args,
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-    )
+    try:
+        proc = subprocess.Popen(
+            args,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        return {
+            "command": " ".join(args),
+            "returncode": 127,
+            "stdout": "",
+            "stderr": f"command failed to start: {exc}",
+            "start_failed": True,
+        }
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -132,6 +147,73 @@ def _run_json(
     except json.JSONDecodeError as exc:
         result["json_error"] = str(exc)
         return None, result
+
+
+def _truncate_command_output_for_report(value: str) -> tuple[str, bool]:
+    if len(value) <= COMMAND_OUTPUT_REPORT_LIMIT:
+        return value, False
+    omitted = len(value) - COMMAND_OUTPUT_REPORT_LIMIT
+    marker = f"\n... [truncated {omitted} bytes from settle_one_pr report output]"
+    return f"{value[:COMMAND_OUTPUT_REPORT_LIMIT]}{marker}", True
+
+
+def _command_result_for_report(command: dict[str, Any] | None) -> dict[str, Any] | None:
+    if command is None:
+        return None
+    report_command = dict(command)
+    for field in ("stdout", "stderr"):
+        value = report_command.get(field)
+        if not isinstance(value, str):
+            continue
+        report_command[f"{field}_length"] = len(value)
+        report_command[field], report_command[f"{field}_truncated"] = (
+            _truncate_command_output_for_report(value)
+        )
+    return report_command
+
+
+def _command_results_for_report(commands: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        sanitized
+        for command in commands
+        if (sanitized := _command_result_for_report(command)) is not None
+    ]
+
+
+def _merge_packet_failure_message(result: dict[str, Any]) -> str:
+    stderr = str(result.get("stderr") or "").strip()
+    stdout = str(result.get("stdout") or "").strip()
+    if stdout:
+        try:
+            payload = json.loads(stdout)
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, dict):
+            error = str(payload.get("error") or "").strip()
+            if payload.get("transport_blocked") or payload.get("status") == "transport_blocked":
+                detail = error or "GitHub transport unavailable"
+                return f"merge-packet transport blocked: {detail}"
+            if error:
+                return f"merge-packet failed: {error}"
+    return stderr or stdout or "merge-packet failed"
+
+
+def _policy_context_for_report(policy_context: dict[str, Any]) -> dict[str, Any]:
+    if not policy_context:
+        return {}
+    report_context = dict(policy_context)
+    commands = report_context.get("policy_metadata_commands")
+    if isinstance(commands, list):
+        report_context["policy_metadata_commands"] = _command_results_for_report(
+            [command for command in commands if isinstance(command, dict)]
+        )
+    operator_command = report_context.get("operator_snapshot_command")
+    if isinstance(operator_command, dict) or operator_command is None:
+        report_context["operator_snapshot_command"] = _command_result_for_report(operator_command)
+    cwd_repo_command = report_context.get("cwd_repo_command")
+    if isinstance(cwd_repo_command, dict) or cwd_repo_command is None:
+        report_context["cwd_repo_command"] = _command_result_for_report(cwd_repo_command)
+    return report_context
 
 
 def _with_repo(args: list[str], repo: str | None) -> list[str]:
@@ -1043,7 +1125,7 @@ def _has_policy_file_scope(metadata: dict[str, Any]) -> bool:
 
 def load_active_owned_prs(cwd: Path) -> tuple[set[int], dict[str, Any]]:
     payload, command = _run_json(
-        ["python3", "scripts/agent_bridge.py", "operator-snapshot", "--json"],
+        _python_command("scripts/agent_bridge.py", "operator-snapshot", "--json"),
         cwd=cwd,
         timeout=OPERATOR_SNAPSHOT_TIMEOUT_SECONDS,
     )
@@ -1285,8 +1367,11 @@ def build_report(
             if snapshot_blocker:
                 preselection_blockers.append(snapshot_blocker)
         elif snapshot_preblocked:
+            snapshot_command = _python_command(
+                "scripts/agent_bridge.py", "operator-snapshot", "--json"
+            )
             active_owned_command = {
-                "command": "python3 scripts/agent_bridge.py operator-snapshot --json",
+                "command": " ".join(snapshot_command),
                 "returncode": None,
                 "skipped": True,
                 "reason": "operator-snapshot failure already carried by packet load_blockers",
@@ -1346,7 +1431,7 @@ def build_report(
         "blockers": selection_blockers,
         "evidence": {},
         "checks": {},
-        "policy_context": policy_context,
+        "policy_context": _policy_context_for_report(policy_context),
         "load_warnings": load_warnings,
         "policy_exclusions": policy_exclusions,
         "validation": [],
@@ -1384,8 +1469,7 @@ def build_report(
         registry_path = state_root / ".aragora" / "agent-bridge" / "lanes.json"
         steering_root = state_root / ".aragora" / "operator-steering"
         owner_payload, owner_cmd = _run_json(
-            [
-                "python3",
+            _python_command(
                 "scripts/identify_lane_owner.py",
                 "--pr",
                 str(pr_number),
@@ -1394,15 +1478,14 @@ def build_report(
                 str(registry_path),
                 "--steering-inbox-root",
                 str(steering_root),
-            ],
+            ),
             cwd=cwd,
         )
         report["owner_check"] = owner_cmd
         blockers.extend(owner_blockers(owner_payload))
 
         steering_payload, steering_cmd = _run_json(
-            [
-                "python3",
+            _python_command(
                 "scripts/read_operator_steering.py",
                 "--pr",
                 str(pr_number),
@@ -1415,7 +1498,7 @@ def build_report(
                 str(registry_path),
                 "--steering-inbox-root",
                 str(steering_root),
-            ],
+            ),
             cwd=cwd,
         )
         report["mailbox_check"] = steering_cmd
@@ -1529,8 +1612,7 @@ def build_report(
 
 
 def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str, Any]:
-    command = [
-        "python3",
+    command = _python_command(
         "-m",
         "aragora.cli.main",
         "review-queue",
@@ -1538,20 +1620,19 @@ def _load_single_pr_packet(*, cwd: Path, pr: int, repo: str | None) -> dict[str,
         "--json",
         "--pr",
         str(pr),
-    ]
+    )
     if repo:
         command.extend(["--repo", repo])
     payload, result = _run_json(command, cwd=cwd, timeout=SINGLE_PACKET_TIMEOUT_SECONDS)
     if result["returncode"] != 0:
-        raise RuntimeError(result["stderr"] or result["stdout"] or "merge-packet failed")
+        raise RuntimeError(_merge_packet_failure_message(result))
     if not isinstance(payload, dict):
         raise RuntimeError("merge-packet did not return a JSON object")
     return payload
 
 
 def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[str, Any]:
-    command = [
-        "python3",
+    command = _python_command(
         "-m",
         "aragora.cli.main",
         "review-queue",
@@ -1559,12 +1640,12 @@ def _load_broad_packet_bulk(*, cwd: Path, limit: int, repo: str | None) -> dict[
         "--json",
         "--limit",
         str(limit),
-    ]
+    )
     if repo:
         command.extend(["--repo", repo])
     payload, result = _run_json(command, cwd=cwd, timeout=BROAD_PACKET_TIMEOUT_SECONDS)
     if result["returncode"] != 0:
-        raise RuntimeError(result["stderr"] or result["stdout"] or "merge-packet failed")
+        raise RuntimeError(_merge_packet_failure_message(result))
     if not isinstance(payload, dict):
         raise RuntimeError("merge-packet did not return a JSON object")
     return payload

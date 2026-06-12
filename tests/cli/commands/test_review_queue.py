@@ -5786,6 +5786,45 @@ class TestSettlementHelpers:
         assert payload["admin_squash_order"] == []
         assert "do not mark ready" in payload["next_prompt"]
 
+    def test_merge_packet_json_reports_graphql_rate_limit_blocked(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_rate_limit(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError(
+                "gh pr view 7841 --json number failed: GraphQL: "
+                "API rate limit already exceeded for user ID 33477136."
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_rate_limit,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["7841"],
+            repo=None,
+            review_queue_root=None,
+            limit=30,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stderr.getvalue() == ""
+        payload = json.loads(stdout.getvalue())
+        assert payload["status"] == "transport_blocked"
+        assert payload["error_kind"] == "github_transport"
+        assert payload["retryable"] is True
+        assert payload["pr_refs"] == ["7841"]
+        assert payload["not_ready"] == [7841]
+        assert "API rate limit already exceeded" in payload["error"]
+
     def test_merge_packet_json_keeps_non_transport_errors_on_stderr(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

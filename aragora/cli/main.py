@@ -40,11 +40,10 @@ DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 # ---------------------------------------------------------------------------
 # Re-exports for backwards compatibility
 #
-# Heavy imports (debate engine, agents, memory) are deferred via __getattr__
-# to avoid loading scipy/numpy (~13s) on every CLI invocation.
-# Lightweight parser/config imports remain eager.
+# Heavy imports (debate engine, agents, memory, full parser construction) are
+# deferred via __getattr__ to avoid loading unrelated stacks on every CLI
+# invocation.
 # ---------------------------------------------------------------------------
-from aragora.cli.parser import get_version, build_parser  # noqa: E402, F401
 
 _STARTUP_SECRET_HYDRATION_EXEMPTIONS = frozenset(
     {
@@ -54,6 +53,8 @@ _STARTUP_SECRET_HYDRATION_EXEMPTIONS = frozenset(
 
 # Lazy re-export mapping: name -> (module, attr)
 _LAZY_REEXPORTS: dict[str, tuple[str, str]] = {
+    "build_parser": ("aragora.cli.parser", "build_parser"),
+    "get_version": ("aragora.cli.parser", "get_version"),
     # From aragora.cli.commands.debate
     "get_event_emitter_if_available": (
         "aragora.cli.commands.debate",
@@ -153,9 +154,40 @@ def _hydrate_startup_secrets() -> None:
         logger.warning("Could not hydrate stored API keys: %s", exc)
 
 
+def _try_review_queue_fast_path(argv: list[str]) -> int | None:
+    """Run review-queue commands without initializing the full CLI surface."""
+    if not argv or argv[0] != "review-queue":
+        return None
+
+    import argparse
+
+    from aragora.cli.commands.review_queue import add_review_queue_parser
+
+    parser = argparse.ArgumentParser(prog="aragora")
+    subparsers = parser.add_subparsers(dest="command")
+    add_review_queue_parser(subparsers)
+    args = parser.parse_args(argv)
+    if getattr(args, "command", None) is None:
+        parser.print_help()
+        return 0
+
+    log_level = logging.DEBUG if getattr(args, "verbose", False) else logging.WARNING
+    logging.basicConfig(level=log_level, format="%(levelname)s %(name)s: %(message)s")
+
+    result = args.func(args)
+    if isinstance(result, int):
+        return result
+    return 0
+
+
 def main() -> int:
+    fast_result = _try_review_queue_fast_path(sys.argv[1:])
+    if fast_result is not None:
+        return fast_result
+
     # Register built-in modes here (not at module level) to avoid import-time cost
     from aragora.modes import register_all_builtins
+    from aragora.cli.parser import build_parser
 
     register_all_builtins()
 

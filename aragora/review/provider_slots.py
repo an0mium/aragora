@@ -4,9 +4,6 @@ import shutil
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from aragora.agents.credential_validator import get_credential_status
-from aragora.agents.registry import AgentRegistry, register_all_agents
-
 _CLI_TO_BINARY: dict[str, str] = {
     "claude": "claude",
     "codex": "codex",
@@ -102,6 +99,8 @@ class ProviderSlotResolver:
     """Resolve provider slots to available candidates and summarize readiness."""
 
     def __init__(self) -> None:
+        from aragora.agents.registry import register_all_agents
+
         register_all_agents()
 
     def resolve_slots(
@@ -167,6 +166,9 @@ class ProviderSlotResolver:
         )
 
     def _evaluate_candidate(self, provider: str) -> ProviderCandidateCheck:
+        from aragora.agents.credential_validator import get_credential_status
+        from aragora.agents.registry import AgentRegistry
+
         spec = AgentRegistry.get_spec(provider)
         if spec is None:
             return ProviderCandidateCheck(

@@ -144,3 +144,30 @@ observed composing real candidates this way — none occurred, because the
 proof-first filter currently empties the queue before the cap runs. When a real
 refill next reaches the cap with mixed candidates, this section should be
 updated with the observed live composition replacing the synthetic basis.
+
+<!-- cost-per-settled-pr:begin -->
+## Cost per settled PR (#8233 phase 1)
+
+Last updated: 2026-06-12T02:15:35Z
+
+| Metric | Value |
+| --- | --- |
+| Window | 2026-06-05T02:15:35Z -> 2026-06-12T02:15:35Z (7d) |
+| Settled (merged) PRs in window | 154 |
+| Settled PRs with attributed cost record | 0 (0% coverage) |
+| Attributed recorded cost (USD) | 0.0000 |
+| Unattributed recorded cost (USD, receipts) | 0.0000 |
+| Total recorded model cost (USD) | 0.0000 |
+| Recorded cost per settled PR | $0.0000 (lower bound; see coverage) |
+| Routing records in window (with / without cost) | 0 (0 / 0) |
+| Receipts scanned (with cost / without / no timestamp) | 120 (0 / 120 / 0) |
+| Methodology version | 1 |
+
+**Coverage caveat (required reading).** Only *recorded* model cost is summed —
+routing-rationale records with `cost.recorded: true` and receipts carrying a
+`cost_summary`. Settled PRs without any cost record are NOT estimated; they are
+counted in the denominator and disclosed as uncovered, so the ratio is a lower
+bound on true cost. Unattributed receipt costs (receipts do not carry PR
+numbers) are included in the total and disclosed separately. Recording starts
+with #8233 phase 1; coverage is expected to grow from near zero.
+<!-- cost-per-settled-pr:end -->
