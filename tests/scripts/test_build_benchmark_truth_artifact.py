@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
@@ -53,6 +55,52 @@ def test_repo_stable_path_relativizes_git_common_root(tmp_path: Path, monkeypatc
     monkeypatch.setattr(mod, "git_common_repo_root", lambda _repo_root: shared_root)
 
     assert mod._repo_stable_path(metrics_path) == ".aragora/overnight/boss_metrics.jsonl"
+
+
+@pytest.mark.parametrize("schema_version", [0, -1, True, "1"])
+def test_load_corpus_freshness_map_rejects_invalid_schema_version(
+    tmp_path: Path,
+    schema_version: object,
+) -> None:
+    freshness_map_path = tmp_path / "benchmark_corpus_freshness.json"
+    freshness_map_path.write_text(
+        json.dumps({"schema_version": schema_version, "entries": []}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="schema_version must be a positive integer"):
+        mod.load_corpus_freshness_map_payload(freshness_map_path)
+
+
+def test_write_corpus_freshness_map_rejects_invalid_schema_version(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="schema_version must be a positive integer"):
+        mod.write_corpus_freshness_map_payload(
+            tmp_path / "benchmark_corpus_freshness.json",
+            {"schema_version": False, "entries": []},
+        )
+
+
+def test_write_corpus_freshness_map_preserves_valid_schema_version(tmp_path: Path) -> None:
+    freshness_map_path = tmp_path / "benchmark_corpus_freshness.json"
+
+    mod.write_corpus_freshness_map_payload(
+        freshness_map_path,
+        {
+            "schema_version": 2,
+            "entries": [
+                {
+                    "corpus_id": "tw-01-bounded-execution-v1",
+                    "revision": 4,
+                    "target": "#6001",
+                    "title": "[TW-02] Restock stale issues",
+                }
+            ],
+        },
+    )
+
+    payload = json.loads(freshness_map_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == 2
+    assert len(payload["entries"]) == 1
 
 
 def test_build_benchmark_truth_artifact_links_corpus_revision_and_truth_metrics(

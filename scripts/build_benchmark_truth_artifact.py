@@ -288,16 +288,32 @@ def load_corpus_freshness_map_payload(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"Corpus freshness map at {path} must be a JSON object")
+    schema_version = _validate_corpus_freshness_map_schema_version(
+        path,
+        payload.get("schema_version", 1),
+    )
     entries = payload.get("entries")
     if not isinstance(entries, list):
         raise ValueError(f"Corpus freshness map at {path} must contain an 'entries' list")
     return {
-        "schema_version": int(payload.get("schema_version", 1) or 1),
+        "schema_version": schema_version,
         "entries": entries,
     }
 
 
+def _validate_corpus_freshness_map_schema_version(path: Path, value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(
+            f"Corpus freshness map at {path} schema_version must be a positive integer"
+        )
+    return value
+
+
 def write_corpus_freshness_map_payload(path: Path, payload: dict[str, Any]) -> Path:
+    schema_version = _validate_corpus_freshness_map_schema_version(
+        path,
+        payload.get("schema_version", 1),
+    )
     entries = [
         entry
         for entry in list(payload.get("entries") or [])
@@ -313,7 +329,7 @@ def write_corpus_freshness_map_payload(path: Path, payload: dict[str, Any]) -> P
         )
     )
     normalized = {
-        "schema_version": int(payload.get("schema_version", 1) or 1),
+        "schema_version": schema_version,
         "entries": entries,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
