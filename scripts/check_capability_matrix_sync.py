@@ -36,6 +36,33 @@ def _diff(a: Path, b: Path, *, label_a: str, label_b: str) -> str:
     )
 
 
+def _generate_matrix(target: Path, generated_tmp: Path) -> bool:
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(GEN_SCRIPT),
+            "--root",
+            str(REPO_ROOT),
+            "--out",
+            str(generated_tmp),
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode == 0:
+        return True
+
+    rel_label = str(target.relative_to(REPO_ROOT))
+    print(f"ERROR: Could not regenerate capability matrix target: {rel_label}", file=sys.stderr)
+    if proc.stderr.strip():
+        print(proc.stderr.strip(), file=sys.stderr)
+    if proc.stdout.strip():
+        print(proc.stdout.strip(), file=sys.stderr)
+    return False
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="aragora-capability-matrix-") as tmp:
         tmp_path = Path(tmp)
@@ -47,20 +74,8 @@ def main() -> int:
                 return 1
 
             generated_tmp = tmp_path / target.name
-            subprocess.run(
-                [
-                    sys.executable,
-                    str(GEN_SCRIPT),
-                    "--root",
-                    str(REPO_ROOT),
-                    "--out",
-                    str(generated_tmp),
-                ],
-                cwd=REPO_ROOT,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+            if not _generate_matrix(target, generated_tmp):
+                return 1
 
             rel_label = str(target.relative_to(REPO_ROOT))
             diff = _diff(
