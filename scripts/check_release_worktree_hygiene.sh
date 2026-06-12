@@ -6,6 +6,25 @@ set -euo pipefail
 # - synchronized with origin/main (no ahead/behind drift)
 # - running from main branch or detached HEAD
 
+usage() {
+  cat <<'EOF'
+Usage: scripts/check_release_worktree_hygiene.sh [base-branch]
+
+Validate release-ops worktree hygiene against origin/<base-branch>.
+Defaults to base branch "main".
+EOF
+}
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  usage
+  exit 0
+fi
+
+if [ "$#" -gt 1 ]; then
+  usage >&2
+  exit 2
+fi
+
 BASE_BRANCH="${1:-main}"
 UPSTREAM="origin/${BASE_BRANCH}"
 
