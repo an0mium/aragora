@@ -238,6 +238,26 @@ class TestLoadOutboxItems:
 
 
 class TestMainJson:
+    def test_refuses_non_positive_window_days_before_loading_inputs(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        with pytest.raises(SystemExit) as exc:
+            main(["--window-days", "0", "--json"])
+
+        assert exc.value.code == 2
+        err = capsys.readouterr().err
+        assert "argument --window-days: must be a positive integer" in err
+
+    def test_refuses_negative_window_days_before_loading_inputs(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
+        with pytest.raises(SystemExit) as exc:
+            main(["--window-days", "-3", "--json"])
+
+        assert exc.value.code == 2
+        err = capsys.readouterr().err
+        assert "argument --window-days: must be a positive integer" in err
+
     def test_end_to_end_with_injected_files(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:

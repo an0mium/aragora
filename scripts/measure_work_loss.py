@@ -125,6 +125,16 @@ def parse_ls_remote(text: str) -> set[str]:
     return heads
 
 
+def _positive_int(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return value
+
+
 def load_outbox_items(dirs: Sequence[Path]) -> tuple[list[dict], int]:
     """Load outbox item JSON files; unreadable files are counted, not hidden."""
     items: list[dict] = []
@@ -304,7 +314,7 @@ def render_waste_block(result: dict) -> str:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--window-days", type=int, default=7)
+    parser.add_argument("--window-days", type=_positive_int, default=7)
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument(
         "--outbox-dir",
