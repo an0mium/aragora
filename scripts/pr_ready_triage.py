@@ -89,10 +89,14 @@ NEVER_PROMOTE_RE = re.compile(
 
 # Zero-width characters stripped before the never-promote match so markers
 # can't be split invisibly (ZWSP, ZWNJ, ZWJ, BOM/ZWNBSP, word joiner).
-_ZERO_WIDTH_RE = re.compile(
-    "[\N{ZERO WIDTH SPACE}\N{ZERO WIDTH NON-JOINER}\N{ZERO WIDTH JOINER}"
-    "\N{ZERO WIDTH NO-BREAK SPACE}\N{WORD JOINER}]"
+# All Unicode format chars (category Cf: zero-widths, soft hyphen, BOM, ...)
+# are stripped, and every separator (category Zs, incl. the one space NFKC
+# does not fold, U+1680 OGHAM SPACE MARK) maps to a plain ASCII space.
+_FORMAT_CHARS_RE = re.compile(
+    r"[\u00ad\u0600-\u0605\u061c\u06dd\u070f\u08e2\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff\ufff9-\ufffb]"
 )
+_SPACE_SEPARATORS_RE = re.compile(r"[\u1680\u2000-\u200a\u202f\u205f\u3000\u00a0]")
+_MULTI_SPACE_RE = re.compile(r"[ \t]+")
 
 # Check states/conclusions that disqualify a draft (same set as
 # boss_pr_janitor._FAILING_STATES).
@@ -144,11 +148,20 @@ def has_failing_checks(pr: dict[str, Any]) -> bool:
 def _normalize_marker_text(text: str) -> str:
     """Normalize against Unicode evasion before the never-promote match.
 
-    NFKC folds fullwidth/compatibility forms (``Ｔｉｅｒ ４`` -> ``Tier 4``),
-    zero-width characters are stripped so markers can't be split invisibly,
-    and ``casefold`` handles aggressive case mappings beyond IGNORECASE.
+    NFKC folds fullwidth/compatibility forms (``Ｔｉｅｒ ４`` -> ``Tier 4``)
+    and most exotic spaces; format characters (zero-widths, soft hyphen) are
+    stripped so markers can't be split invisibly; remaining separators map to
+    ASCII space and runs collapse so literal-space markers still match; and
+    ``casefold`` handles aggressive case mappings beyond IGNORECASE.
+
+    This guard is best-effort by nature (an intra-word split like
+    ``settle ment`` still evades it); the merge-packet tier check in
+    ``packet_blocker`` is the sole authority — this layer only adds friction.
     """
-    return _ZERO_WIDTH_RE.sub("", unicodedata.normalize("NFKC", text)).casefold()
+    text = unicodedata.normalize("NFKC", text)
+    text = _FORMAT_CHARS_RE.sub("", text)
+    text = _SPACE_SEPARATORS_RE.sub(" ", text)
+    return _MULTI_SPACE_RE.sub(" ", text).casefold()
 
 
 def is_draft_by_design(pr: dict[str, Any]) -> bool:

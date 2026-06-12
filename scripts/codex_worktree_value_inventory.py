@@ -217,6 +217,9 @@ def _kill_process_tree(proc: subprocess.Popen) -> None:
     drain blocks forever -- the observed "hung inside candidate git status"
     failure. Killing the whole session and bounding the drain guarantees
     run_cmd always returns.
+
+    ``os.killpg``/``start_new_session`` are POSIX-only; on platforms without
+    them the AttributeError/OSError fallback kills the direct child only.
     """
     try:
         os.killpg(proc.pid, signal.SIGKILL)
@@ -232,6 +235,10 @@ def _kill_process_tree(proc: subprocess.Popen) -> None:
                     stream.close()
                 except OSError:
                     pass
+        try:
+            proc.wait(timeout=5)  # reap; SIGKILL was already sent above
+        except (subprocess.TimeoutExpired, OSError):
+            pass
 
 
 def run_cmd(args: list[str], cwd: Path, *, timeout: int) -> subprocess.CompletedProcess[str]:
@@ -1180,6 +1187,9 @@ def candidate_roots(root: Path, limit: int | None = None) -> list[Path]:
 
 def _git_common_dir(repo: Path) -> Path | None:
     """Return the git common dir for ``repo`` without raising on non-repos."""
+    # cwd="." is deliberate: ``repo`` may be a deleted/broken worktree path,
+    # and Popen(cwd=<missing dir>) raises before git can answer; ``git -C``
+    # reports the failure gracefully instead.
     result = run_cmd(
         ["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
         Path("."),

@@ -240,6 +240,22 @@ def test_zero_width_mixed_case_scarmani_blocked() -> None:
         assert summary["plan"] == [], f"zero-width {zw!r} must not split the marker"
 
 
+def test_separator_and_format_char_evasions_blocked() -> None:
+    # Round-2 skeptical-review gaps: soft hyphen (Cf, not zero-width), OGHAM
+    # SPACE MARK (the one Zs char NFKC does not fold), and multi-space runs
+    # against the literal-space markers.
+    bodies = {
+        "soft-hyphen": "scar\u00admani settlement",
+        "ogham-space": "draft\u1680by\u1680design",
+        "nbsp": "draft\u00a0by\u00a0design",
+        "multi-space": "draft  by   design",
+    }
+    for name, body in bodies.items():
+        summary, _, packet_calls = _run([_pr(1, body=body)], {1: _entry(1)})
+        assert summary["plan"] == [], f"{name} evasion must be blocked"
+        assert packet_calls == []
+
+
 def test_benign_text_passes_marker_normalization() -> None:
     summary, _, _ = _run(
         [_pr(1, title="codex: tidy cache tiers", body="Routine 4-step refactor of tiering.")],

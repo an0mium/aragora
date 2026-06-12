@@ -214,7 +214,7 @@ def atomic_write_json(path: str, payload: dict[str, Any]) -> None:
     finally:
         try:
             os.unlink(tmp)
-        except FileNotFoundError:
+        except OSError:  # never mask the primary error with a cleanup failure
             pass
 
 
