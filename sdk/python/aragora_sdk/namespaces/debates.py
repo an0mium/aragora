@@ -256,6 +256,16 @@ class DebatesAPI:
         """Get the verification report for debate conclusions."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/verification-report")
 
+    def get_cruxes(self, debate_id: str) -> dict[str, Any]:
+        """Get the crux map recorded for a debate (crux_finder consensus mode).
+
+        Cruxes are the load-bearing disagreements the verdict turns on. The
+        response is honest about absence: when crux mode was not enabled for
+        the debate, ``cruxes`` carries ``{"status": "absent", "reason": ...}``
+        instead of fabricated data.
+        """
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/cruxes")
+
     # ========== Follow-up & Continuation ==========
 
     def get_followup_suggestions(self, debate_id: str) -> dict[str, Any]:
@@ -1243,6 +1253,16 @@ class AsyncDebatesAPI:
     async def get_verification_report(self, debate_id: str) -> dict[str, Any]:
         """Get the verification report for debate conclusions."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/verification-report")
+
+    async def get_cruxes(self, debate_id: str) -> dict[str, Any]:
+        """Get the crux map recorded for a debate (crux_finder consensus mode).
+
+        Cruxes are the load-bearing disagreements the verdict turns on. The
+        response is honest about absence: when crux mode was not enabled for
+        the debate, ``cruxes`` carries ``{"status": "absent", "reason": ...}``
+        instead of fabricated data.
+        """
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/cruxes")
 
     # ========== Follow-up & Continuation ==========
 

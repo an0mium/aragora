@@ -720,12 +720,24 @@ def _resolve_receipt_data(receipt_ref: str) -> dict[str, Any] | None:
 
 
 def _export_odr(data: dict[str, Any]) -> str:
-    """Render a receipt dict as a JCS-canonical Open Decision Receipt document."""
+    """Render a receipt dict as a JCS-canonical Open Decision Receipt document.
+
+    When the stored receipt carries a recorded crux set (``crux_set``, written
+    by crux-finder debate runs, #8227), it is passed through to populate the
+    ODR profile's ``cruxes`` field; otherwise the exporter emits its explicit
+    absent marker. Never fabricated.
+    """
     from aragora.gauntlet.odr_export import decision_receipt_to_odr, jcs_canonicalize
     from aragora.gauntlet.receipt_models import DecisionReceipt
 
     receipt = DecisionReceipt.from_dict(data)
-    odr = decision_receipt_to_odr(receipt)
+    crux_set_raw = data.get("crux_set")
+    crux_set = (
+        [dict(item) for item in crux_set_raw if isinstance(item, dict)]
+        if isinstance(crux_set_raw, list)
+        else None
+    )
+    odr = decision_receipt_to_odr(receipt, crux_set=crux_set or None)
     return jcs_canonicalize(odr).decode("utf-8")
 
 

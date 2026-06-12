@@ -134,8 +134,95 @@ def build_crux_finder_result(
     )
 
 
+def extract_crux_payload(source: Any) -> dict[str, Any] | None:
+    """Extract the recorded crux map from a debate result or stored debate dict.
+
+    A ``crux_finder`` run records its full crux map on
+    ``ConsensusProof.metadata`` (see :func:`aragora.debate.consensus.build_proof_from_crux_finder`).
+    This helper reads that record back from either:
+
+    - a live ``DebateResult`` (``consensus_proof`` is an object), or
+    - a stored debate artifact dict (``consensus_proof`` is a serialized dict,
+      possibly nested under a ``result`` key).
+
+    Returns:
+        A dict with ``cruxes``, ``crux_count``, ``convergence_barrier``,
+        ``counterfactuals`` and ``recommended_focus`` when crux data was
+        recorded, or ``None`` when the debate has no crux record (crux mode
+        not enabled, or it fell back to another consensus). Never fabricates.
+    """
+    if source is None:
+        return None
+
+    candidates: list[Any] = [source]
+    if isinstance(source, dict):
+        nested = source.get("result")
+        if isinstance(nested, dict):
+            candidates.append(nested)
+
+    for candidate in candidates:
+        if isinstance(candidate, dict):
+            proof = candidate.get("consensus_proof")
+        else:
+            proof = getattr(candidate, "consensus_proof", None)
+        if proof is None:
+            continue
+
+        if isinstance(proof, dict):
+            metadata = proof.get("metadata")
+        else:
+            metadata = getattr(proof, "metadata", None)
+        if not isinstance(metadata, dict):
+            continue
+
+        # The crux map is only trustworthy when the crux_finder mode actually
+        # recorded it; "cruxes" present in metadata is that record.
+        if "cruxes" not in metadata:
+            continue
+
+        cruxes_raw = metadata.get("cruxes") or []
+        cruxes = [dict(c) for c in cruxes_raw if isinstance(c, dict)]
+        barrier = metadata.get("convergence_barrier")
+        return {
+            "consensus_mode": str(metadata.get("consensus_mode") or "crux_finder"),
+            "cruxes": cruxes,
+            "crux_count": int(metadata.get("crux_count", len(cruxes)) or 0),
+            "convergence_barrier": float(barrier) if barrier is not None else None,
+            "counterfactuals": [
+                dict(c) for c in (metadata.get("counterfactuals") or []) if isinstance(c, dict)
+            ],
+            "recommended_focus": [str(f) for f in (metadata.get("recommended_focus") or [])],
+        }
+
+    return None
+
+
+def extract_crux_skip_reason(source: Any) -> str | None:
+    """Return the recorded reason a crux_finder run fell back, if any.
+
+    The consensus phase records ``crux_finder_skipped_reason`` on the debate
+    result metadata when crux mode was requested but could not run (e.g. no
+    belief network). Returns ``None`` when no skip was recorded.
+    """
+    if source is None:
+        return None
+    if isinstance(source, dict):
+        metadata = source.get("metadata")
+        if not isinstance(metadata, dict):
+            nested = source.get("result")
+            metadata = nested.get("metadata") if isinstance(nested, dict) else None
+    else:
+        metadata = getattr(source, "metadata", None)
+    if not isinstance(metadata, dict):
+        return None
+    reason = metadata.get("crux_finder_skipped_reason")
+    return str(reason) if reason else None
+
+
 __all__ = [
     "CRUX_MAP_SENTINEL",
     "CruxFinderResult",
     "build_crux_finder_result",
+    "extract_crux_payload",
+    "extract_crux_skip_reason",
 ]

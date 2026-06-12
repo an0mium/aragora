@@ -318,6 +318,25 @@ export interface VerificationReport {
 }
 
 /**
+ * Crux map recorded for a debate run with the crux_finder consensus mode.
+ *
+ * The `cruxes` block is honest about absence: when crux mode was not enabled
+ * for the debate, it carries `{ status: 'absent', reason: ... }` instead of
+ * fabricated data (mirrors the Open Decision Receipt profile semantics).
+ */
+export interface DebateCruxes {
+  debate_id: string;
+  cruxes:
+    | { status: 'present'; items: Array<Record<string, unknown>> }
+    | { status: 'absent'; reason: string };
+  crux_count: number;
+  convergence_barrier?: number | null;
+  counterfactuals?: Array<Record<string, unknown>>;
+  recommended_focus?: string[];
+  consensus_mode?: string;
+}
+
+/**
  * Claim verification result
  */
 export interface ClaimVerification {
@@ -918,6 +937,32 @@ export class DebatesAPI {
    */
   async getVerificationReport(debateId: string): Promise<VerificationReport> {
     return this.client.request('GET', `/api/v1/debates/${debateId}/verification-report`);
+  }
+
+  /**
+   * Get the crux map recorded for a debate (crux_finder consensus mode).
+   *
+   * Cruxes are the load-bearing disagreements the verdict turns on. The
+   * response is honest about absence: when crux mode was not enabled for the
+   * debate, `cruxes` carries `{ status: 'absent', reason: ... }` instead of
+   * fabricated data.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const report = await client.debates.getCruxes('debate-123');
+   * if (report.cruxes.status === 'present') {
+   *   for (const crux of report.cruxes.items) {
+   *     console.log(crux.statement, crux.crux_score);
+   *   }
+   * } else {
+   *   console.log(`No crux set: ${report.cruxes.reason}`);
+   * }
+   * ```
+   */
+  async getCruxes(debateId: string): Promise<DebateCruxes> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/cruxes`);
   }
 
   /**

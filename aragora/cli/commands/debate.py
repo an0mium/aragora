@@ -893,6 +893,24 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         if isinstance(model_comparison, dict):
             receipt["model_comparison"] = model_comparison
 
+        # Crux-finder runs (#8227): persist the recorded crux set so the ODR
+        # exporter can populate the profile's cruxes field. Only written when
+        # the debate actually recorded cruxes — never fabricated.
+        from aragora.debate.crux_mode import extract_crux_payload
+
+        crux_payload = extract_crux_payload(result)
+        if crux_payload and crux_payload["cruxes"]:
+            receipt["crux_set"] = crux_payload["cruxes"]
+            receipt["crux_metadata"] = {
+                "consensus_mode": crux_payload["consensus_mode"],
+                "crux_count": crux_payload["crux_count"],
+                "convergence_barrier": crux_payload["convergence_barrier"],
+                "recommended_focus": crux_payload["recommended_focus"],
+            }
+            consensus_proof_block = receipt.get("consensus_proof")
+            if isinstance(consensus_proof_block, dict):
+                consensus_proof_block["method"] = crux_payload["consensus_mode"]
+
         receipt["artifact_hash"] = DecisionReceipt.from_dict(receipt).artifact_hash
         receipt["checksum"] = receipt["artifact_hash"]
         content_hash = hashlib.sha256(
@@ -913,6 +931,77 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         if verbose:
             print(f"[receipt] failed to persist: {e}", file=sys.stderr)
         return None
+
+
+def _print_crux_report(report: dict[str, Any], verbose: bool = False) -> None:
+    """Print a crux report in the ``GET /api/v1/debates/{id}/cruxes`` shape.
+
+    The block is honest about absence: when no crux set was recorded, the
+    absent-marker reason is shown instead of a fabricated or empty map.
+    """
+    print("\n" + "=" * 60)
+    print("CRUXES (load-bearing disagreements):")
+    print("=" * 60)
+
+    cruxes_block = report.get("cruxes")
+    if not isinstance(cruxes_block, dict) or cruxes_block.get("status") != "present":
+        reason = ""
+        if isinstance(cruxes_block, dict):
+            reason = str(cruxes_block.get("reason") or "")
+        print(f"No crux set recorded: {reason or 'no crux data available for this debate'}")
+        return
+
+    barrier = report.get("convergence_barrier")
+    if barrier is not None:
+        print(f"Convergence barrier: {float(barrier):.2f} (0=easy consensus, 1=blocked)")
+
+    for idx, crux in enumerate(cruxes_block.get("items") or [], 1):
+        if not isinstance(crux, dict):
+            continue
+        statement = str(crux.get("statement", "")).strip()
+        score = crux.get("crux_score")
+        score_text = f"{float(score):.2f}" if score is not None else "n/a"
+        contesting = ", ".join(str(a) for a in (crux.get("contesting_agents") or [])) or "n/a"
+        print(f"\n{idx}. {statement}")
+        print(f"   crux_score={score_text} contested_by={contesting}")
+        if verbose:
+            impact = crux.get("resolution_impact")
+            if impact is not None:
+                print(f"   resolution_impact={float(impact):.3f}")
+
+    focus = [str(f) for f in (report.get("recommended_focus") or [])]
+    if focus:
+        print(f"\nRecommended focus order: {', '.join(focus[:5])}")
+
+
+def _crux_report_from_result(result: Any) -> dict[str, Any]:
+    """Build a crux report (endpoint response shape) from a local DebateResult."""
+    from aragora.debate.crux_mode import extract_crux_payload, extract_crux_skip_reason
+
+    debate_id = str(getattr(result, "debate_id", "") or "")
+    payload = extract_crux_payload(result)
+    if payload is None or not payload["cruxes"]:
+        skip = extract_crux_skip_reason(result)
+        if skip:
+            reason = f"crux finder was requested but skipped ({skip})"
+        elif payload is not None:
+            reason = "crux finder ran but identified no cruxes above the configured threshold"
+        else:
+            reason = "no crux data recorded for this debate"
+        return {
+            "debate_id": debate_id,
+            "cruxes": {"status": "absent", "reason": reason},
+            "crux_count": 0,
+        }
+    return {
+        "debate_id": debate_id,
+        "cruxes": {"status": "present", "items": payload["cruxes"]},
+        "crux_count": payload["crux_count"],
+        "convergence_barrier": payload["convergence_barrier"],
+        "counterfactuals": payload["counterfactuals"],
+        "recommended_focus": payload["recommended_focus"],
+        "consensus_mode": payload["consensus_mode"],
+    }
 
 
 def _print_debate_result(debate: Any, verbose: bool = False) -> None:
@@ -1463,6 +1552,8 @@ async def run_debate(
             "supermajority",
             "any",
             "byzantine",
+            "prover_estimator",
+            "crux_finder",
         ],
         consensus,
     )
@@ -1560,6 +1651,13 @@ def cmd_ask(args: argparse.Namespace) -> None:
     task = args.task
     raw_task = task
     context = args.context or ""
+
+    # Crux-finder mode (#8227): the deliverable is a map of load-bearing
+    # disagreements, not a verdict. It is implemented as a consensus mode,
+    # so --crux simply selects it (overriding any --consensus value).
+    crux_mode = bool(getattr(args, "crux", False))
+    if crux_mode:
+        args.consensus = "crux_finder"
 
     # Ambiguity handling
     if len(task.split()) < 3:
@@ -2068,6 +2166,13 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 timeout_seconds=debate_timeout,
             )
             _print_debate_result(result, verbose=args.verbose)
+            if crux_mode:
+                try:
+                    crux_client = _build_api_client(server_url, api_key)
+                    crux_report = crux_client.debates.get_cruxes(result.debate_id)
+                    _print_crux_report(dict(crux_report), verbose=args.verbose)
+                except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
+                    print(f"[crux] could not fetch cruxes from API: {e}", file=sys.stderr)
             if codebase_context_requested or grounding_fail_closed:
                 final_answer = getattr(result, "final_answer", None)
                 if not final_answer:
@@ -2897,6 +3002,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
     print("FINAL ANSWER:")
     print("=" * 60)
     print(result.final_answer)
+    if crux_mode:
+        _print_crux_report(_crux_report_from_result(result), verbose=args.verbose)
     if codebase_context_requested or grounding_fail_closed:
         _assess_and_enforce_grounding(str(getattr(result, "final_answer", "") or ""))
 

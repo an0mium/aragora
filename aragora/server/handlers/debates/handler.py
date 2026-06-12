@@ -61,6 +61,7 @@ from .batch import BatchOperationsMixin
 from .costs import CostsMixin
 from .create import CreateOperationsMixin
 from .crud import CrudOperationsMixin
+from .cruxes import CruxOperationsMixin
 from .diagnostics import DiagnosticsMixin
 from .evidence import EvidenceOperationsMixin
 from .export import ExportOperationsMixin
@@ -87,6 +88,7 @@ class DebatesHandler(
     CostsMixin,
     CreateOperationsMixin,
     CrudOperationsMixin,
+    CruxOperationsMixin,
     DebateControllerMixin,
     DiagnosticsMixin,
     EvidenceOperationsMixin,
@@ -105,6 +107,7 @@ class DebatesHandler(
     - Batch: Batch submission and processing
     - Create: Debate creation and cancellation
     - CRUD: List, get, update, delete
+    - Cruxes: Crux map recorded by crux_finder consensus mode
     - Diagnostics: Self-service debugging reports
     - Evidence: Citations and verification reports
     - Export: Export in various formats

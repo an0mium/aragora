@@ -775,6 +775,33 @@ class DebatesAPI:
         response = await self._client._get_async(f"/api/v1/debates/{debate_id}/verification-report")
         return VerificationReport(**response)
 
+    def get_cruxes(self, debate_id: str) -> dict[str, Any]:
+        """
+        Get the crux map recorded for a debate (crux_finder consensus mode).
+
+        Cruxes are the load-bearing disagreements the verdict turns on. The
+        response is honest about absence: when crux mode was not enabled for
+        the debate, ``cruxes`` carries ``{"status": "absent", "reason": ...}``
+        instead of fabricated data.
+
+        Args:
+            debate_id: The debate ID.
+
+        Returns:
+            Dict with ``debate_id``, ``cruxes`` (present items or absent
+            marker), ``crux_count``, and when present ``convergence_barrier``,
+            ``counterfactuals`` and ``recommended_focus``.
+        """
+        response: dict[str, Any] = self._client._get(f"/api/v1/debates/{debate_id}/cruxes")
+        return response
+
+    async def get_cruxes_async(self, debate_id: str) -> dict[str, Any]:
+        """Async version of get_cruxes()."""
+        response: dict[str, Any] = await self._client._get_async(
+            f"/api/v1/debates/{debate_id}/cruxes"
+        )
+        return response
+
     def search(
         self,
         query: str,

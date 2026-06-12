@@ -62,6 +62,7 @@ ROUTES = [
     "/api/v1/debates/*/positions",  # GET - position evolution per agent
     "/api/v1/debates/*/diagnostics",  # GET - debug report for failed debates
     "/api/v1/debates/*/costs",  # GET - per-debate cost breakdown
+    "/api/v1/debates/*/cruxes",  # GET - crux map recorded by crux_finder mode
     "/api/v1/debate-this",  # POST - one-click debate launcher
     "/api/v1/search",  # Cross-debate search
     # Analytics and management endpoints
@@ -135,6 +136,7 @@ def build_suffix_routes() -> list[SuffixRouteEntry]:
         ("/positions", "_get_positions", True, None),
         ("/diagnostics", "_get_diagnostics", True, None),
         ("/costs", "_get_debate_costs", True, None),
+        ("/cruxes", "_get_cruxes", True, None),
         (
             "/events",
             "_get_debate_events",
@@ -160,6 +162,7 @@ ID_ONLY_METHODS = {
     "_get_positions",
     "_get_diagnostics",
     "_get_debate_costs",
+    "_get_cruxes",
 }
 
 
