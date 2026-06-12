@@ -8,6 +8,7 @@ per-provider defaults and environment variable overrides.
 from __future__ import annotations
 
 import os
+import math
 from dataclasses import dataclass
 
 
@@ -49,6 +50,8 @@ class CircuitBreakerConfig:
             raise ValueError("failure_threshold must be at least 1")
         if self.success_threshold < 1:
             raise ValueError("success_threshold must be at least 1")
+        if not math.isfinite(self.timeout_seconds):
+            raise ValueError("timeout_seconds must be finite and positive")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
         if self.half_open_max_calls < 1:
@@ -167,9 +170,12 @@ def _get_env_float(name: str) -> float | None:
     if value is None:
         return None
     try:
-        return float(value)
+        parsed = float(value)
     except ValueError:
         return None
+    if not math.isfinite(parsed):
+        return None
+    return parsed
 
 
 def get_circuit_breaker_config(

@@ -61,6 +61,12 @@ class TestCircuitBreakerConfig:
         with pytest.raises(ValueError, match="timeout_seconds must be positive"):
             CircuitBreakerConfig(timeout_seconds=-10)
 
+        with pytest.raises(ValueError, match="timeout_seconds must be finite and positive"):
+            CircuitBreakerConfig(timeout_seconds=float("nan"))
+
+        with pytest.raises(ValueError, match="timeout_seconds must be finite and positive"):
+            CircuitBreakerConfig(timeout_seconds=float("inf"))
+
     def test_validation_half_open_max_calls(self):
         """Validates half_open_max_calls >= 1."""
         with pytest.raises(ValueError, match="half_open_max_calls must be at least 1"):
@@ -188,6 +194,14 @@ class TestGetCircuitBreakerConfig:
         config = get_circuit_breaker_config()
 
         assert config.timeout_seconds == 120.5
+
+    @pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
+    def test_env_override_nonfinite_timeout_ignored(self, value):
+        """Non-finite timeout env overrides are ignored."""
+        os.environ["ARAGORA_CB_TIMEOUT_SECONDS"] = value
+        config = get_circuit_breaker_config(provider="anthropic")
+
+        assert config.timeout_seconds == PROVIDER_CONFIGS["anthropic"].timeout_seconds
 
     def test_env_override_success_threshold(self):
         """Environment variable overrides success_threshold."""
