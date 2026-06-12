@@ -896,6 +896,11 @@ def _is_repo_root_path(path: str) -> bool:
         return False
 
 
+def _is_preflight_temp_worktree_path(path: str) -> bool:
+    worktree = Path(path)
+    return worktree.name.startswith("preflight-preflight-") and worktree.parent.name == ".worktrees"
+
+
 def _lane_identity_values(record: "LaneRecord") -> list[tuple[str, str]]:
     values: list[tuple[str, str]] = []
     if record.pr_number is not None:
@@ -982,6 +987,8 @@ def _collect_health_issues(
             continue
         if not worktree_exists:
             if lifecycle == "historical" and s.name not in active_lane_owners:
+                continue
+            if s.name not in active_lane_owners and _is_preflight_temp_worktree_path(s.worktree):
                 continue
             issues.append(
                 {

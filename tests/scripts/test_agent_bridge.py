@@ -2494,6 +2494,70 @@ def test_health_ignores_dead_session_with_removed_worktree(
     assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": []}
 
 
+def test_health_ignores_unclaimed_preflight_temp_missing_worktree(
+    tmp_path: Path,
+) -> None:
+    import agent_bridge as mod
+
+    removed_worktree = tmp_path / ".worktrees" / "preflight-preflight-20260612-061500"
+
+    issues = mod._collect_health_issues(
+        [
+            mod.Session(
+                name="codex-019eba4f",
+                agent="codex",
+                status="alive",
+                lifecycle="live",
+                worktree=str(removed_worktree),
+            )
+        ],
+        [],
+    )
+
+    assert issues == []
+
+
+def test_health_reports_claimed_preflight_temp_missing_worktree(
+    tmp_path: Path,
+) -> None:
+    import agent_bridge as mod
+
+    removed_worktree = tmp_path / ".worktrees" / "preflight-preflight-20260612-061500"
+
+    issues = mod._collect_health_issues(
+        [
+            mod.Session(
+                name="codex-019eba4f",
+                agent="codex",
+                status="alive",
+                lifecycle="live",
+                worktree=str(removed_worktree),
+            )
+        ],
+        [
+            mod.LaneRecord(
+                lane_id="preflight",
+                owner_session="codex-019eba4f",
+                status="active",
+                next_action="finish preflight",
+                last_steering_outcome="obeyed",
+                last_heartbeat_at="2026-06-12T06:15:00Z",
+            )
+        ],
+    )
+
+    assert len(issues) == 1
+    issue = issues[0]
+    assert issue["type"] == "stale_worktree"
+    assert issue["session"] == "codex-019eba4f"
+    assert issue["detail"] == f"worktree path missing: {removed_worktree}"
+    assert issue["owner_state"] == "active_or_current_session"
+    assert issue["worktree"] == str(removed_worktree)
+    assert issue["worktree_exists"] is False
+    assert issue["cleanup_state"] == "missing_path_metadata"
+    assert issue["recommended_operator_action"] == "verify lane ownership before pruning metadata"
+
+
 def test_cmd_health_summary_only_json_counts_issue_types(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
