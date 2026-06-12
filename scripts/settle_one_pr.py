@@ -164,9 +164,20 @@ def _bounded_command_result(result: dict[str, Any]) -> dict[str, Any]:
     bounded = dict(result)
     for key in ("stdout", "stderr"):
         value = bounded.get(key)
-        if isinstance(value, str) and len(value) > COMMAND_OUTPUT_CHAR_LIMIT:
+        if isinstance(value, str):
+            original_chars = bounded.get(f"{key}_original_chars")
+            if isinstance(original_chars, int):
+                bounded[f"{key}_length"] = original_chars
+            else:
+                bounded.setdefault(f"{key}_length", len(value))
+        if (
+            isinstance(value, str)
+            and len(value) > COMMAND_OUTPUT_CHAR_LIMIT
+            and not bounded.get(f"{key}_truncated")
+        ):
             bounded[f"{key}_truncated"] = True
             bounded[f"{key}_original_chars"] = len(value)
+            bounded[f"{key}_length"] = len(value)
             bounded[key] = _truncate_text(value, limit=COMMAND_OUTPUT_CHAR_LIMIT)
     return bounded
 
