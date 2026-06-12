@@ -123,3 +123,74 @@ def test_load_entries_accepts_single_object(tmp_path: Path) -> None:
     p.write_text(json.dumps(raw), encoding="utf-8")
     entries = _load_entries(p)
     assert len(entries) == 1 and entries[0].belief_id == "singleton"
+
+
+# ---------------------------------------------------------------------------
+# --write flag: report persistence (DIC-26 acceptance criterion)
+# ---------------------------------------------------------------------------
+
+
+def _args_write(
+    input_path: str,
+    output_dir: str,
+    *,
+    json_output: bool = False,
+) -> argparse.Namespace:
+    ns = _args(input_path, json_output=json_output)
+    ns.write = True
+    ns.output_dir = output_dir
+    return ns
+
+
+def test_write_flag_creates_report_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """--write persists a timestamped JSON report to the output directory."""
+    monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
+    out_dir = tmp_path / "coherence_reports"
+    input_file = _write(tmp_path, [])
+    rc = cmd_coherence_scan(_args_write(str(input_file), str(out_dir)))
+    assert rc == 0
+    reports = list(out_dir.glob("coherence_report_*.json"))
+    assert len(reports) == 1, f"expected 1 report file, found: {reports}"
+
+
+def test_write_flag_report_json_is_valid(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Report written to disk is valid JSON with expected top-level keys."""
+    monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
+    out_dir = tmp_path / "reports"
+    entries = [
+        {"belief_id": "b1", "subject": "claim.rate_limit", "confidence": 0.9, "status": "pass"}
+    ]
+    rc = cmd_coherence_scan(_args_write(str(_write(tmp_path, entries)), str(out_dir)))
+    assert rc == 0
+    report_file = next(out_dir.glob("coherence_report_*.json"))
+    data = json.loads(report_file.read_text(encoding="utf-8"))
+    for key in ("scanned", "coherent", "issue_count", "contradiction_count"):
+        assert key in data, f"missing key {key!r} in written report"
+    assert data["scanned"] == 1
+
+
+def test_write_flag_creates_output_dir_if_absent(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """--write creates the output directory tree when it does not exist."""
+    monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
+    nested = tmp_path / "deep" / "nested" / "coherence_reports"
+    assert not nested.exists()
+    rc = cmd_coherence_scan(_args_write(str(_write(tmp_path, [])), str(nested)))
+    assert rc == 0
+    assert nested.is_dir()
+
+
+def test_write_flag_off_leaves_no_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Without --write, no report file is created."""
+    monkeypatch.setenv("ARAGORA_COHERENCE_MONITOR_ENABLED", "1")
+    out_dir = tmp_path / "reports"
+    rc = cmd_coherence_scan(_args(str(_write(tmp_path, []))))
+    assert rc == 0
+    assert not out_dir.exists()

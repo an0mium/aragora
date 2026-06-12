@@ -726,6 +726,25 @@ def _add_coherence_scan_parser(subparsers) -> None:
         help="Minimum confidence threshold for rot detection (default: 0.3)",
     )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.add_argument(
+        "--write",
+        action="store_true",
+        default=False,
+        help=(
+            "Persist a timestamped JSON report to --output-dir "
+            "(default: docs/status/generated/coherence_reports/)"
+        ),
+    )
+    p.add_argument(
+        "--output-dir",
+        dest="output_dir",
+        default=None,
+        metavar="DIR",
+        help=(
+            "Directory for written reports when --write is set "
+            "(default: docs/status/generated/coherence_reports/)"
+        ),
+    )
     p.set_defaults(func=_lazy("aragora.cli.commands.dic26_coherence", "cmd_coherence_scan"))
 
 
