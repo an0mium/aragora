@@ -147,13 +147,17 @@ Examples:
         "export",
         help="Export receipt to different formats",
     )
-    export_parser.add_argument("receipt", help="Path to receipt JSON file")
+    export_parser.add_argument(
+        "receipt",
+        help="Path to receipt JSON file, or a receipt/gauntlet ID to load from the store",
+    )
     export_parser.add_argument(
         "--format",
         "-f",
-        choices=["json", "html", "md", "markdown", "sarif", "pdf", "csv"],
+        choices=["json", "html", "md", "markdown", "sarif", "pdf", "csv", "odr"],
         default="html",
-        help="Output format (default: html)",
+        help="Output format (default: html). 'odr' emits the JCS-canonical "
+        "Open Decision Receipt profile (docs/specs/OPEN_DECISION_RECEIPT.md)",
     )
     export_parser.add_argument(
         "--output", "-o", help="Output file path (default: prints to stdout for text formats)"
@@ -682,6 +686,49 @@ def cmd_receipt_inspect(args: argparse.Namespace) -> None:
     print("\n" + "=" * 60)
 
 
+def _resolve_receipt_data(receipt_ref: str) -> dict[str, Any] | None:
+    """Resolve a receipt argument that may be a file path or a stored receipt ID."""
+    path = Path(receipt_ref)
+    if path.exists():
+        return _load_receipt_json(path)
+
+    # Not a file on disk — try the durable store, then the legacy store.
+    # Store access errors are surfaced (not silently treated as "not found")
+    # so a broken store is distinguishable from a genuinely missing ID.
+    data: dict[str, Any] | None = None
+    store_errors: list[str] = []
+    try:
+        data = _load_storage_receipt(receipt_ref)
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
+        logger.warning("Durable receipt store lookup failed: %s", e)
+        store_errors.append(f"durable store: {e.__class__.__name__}")
+        data = None
+    if data is None:
+        try:
+            data = _load_legacy_receipt(receipt_ref, org_id=None)
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
+            logger.warning("Legacy receipt store lookup failed: %s", e)
+            store_errors.append(f"legacy store: {e.__class__.__name__}")
+            data = None
+    if data is None:
+        detail = f" (store errors: {'; '.join(store_errors)})" if store_errors else ""
+        print(
+            f"Error: Receipt not found as file or stored ID: {receipt_ref}{detail}",
+            file=sys.stderr,
+        )
+    return data
+
+
+def _export_odr(data: dict[str, Any]) -> str:
+    """Render a receipt dict as a JCS-canonical Open Decision Receipt document."""
+    from aragora.gauntlet.odr_export import decision_receipt_to_odr, jcs_canonicalize
+    from aragora.gauntlet.receipt_models import DecisionReceipt
+
+    receipt = DecisionReceipt.from_dict(data)
+    odr = decision_receipt_to_odr(receipt)
+    return jcs_canonicalize(odr).decode("utf-8")
+
+
 def cmd_receipt_export(args: argparse.Namespace) -> None:
     """Export receipt to different formats."""
     from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
@@ -691,11 +738,10 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
     output_path = getattr(args, "output", None)
 
     if not receipt_path:
-        print("Error: Receipt file path required", file=sys.stderr)
+        print("Error: Receipt file path or ID required", file=sys.stderr)
         sys.exit(1)
 
-    path = Path(receipt_path)
-    data = _load_receipt_json(path)
+    data = _resolve_receipt_data(receipt_path)
     if data is None:
         sys.exit(1)
 
@@ -703,6 +749,13 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
 
     if output_format in ("json",):
         content = json.dumps(data, indent=2, default=str)
+    elif output_format == "odr":
+        try:
+            content = _export_odr(data)
+        except (ImportError, KeyError, TypeError, ValueError) as e:
+            logger.warning("ODR export failed: %s", e)
+            print("Error: Could not export receipt as ODR profile", file=sys.stderr)
+            sys.exit(1)
     else:
         # Try the full DecisionReceipt for richer output
         try:

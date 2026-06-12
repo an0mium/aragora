@@ -118,3 +118,27 @@ sequence plus P6/P7, justified line-by-line by the audit. FOCUS.md remains the s
 contract; the operator chooses what enters Sprint 4. Suggested Sprint 4 candidates, in order:
 Phase 0 items 1-4 (they are small, Tier 1-2, and every one of them would have caught a real
 incident from the last two weeks).
+
+---
+
+## Pillar → implementation crosswalk, P1–P7 (added 2026-06-11, issue #8232)
+
+What each pillar's implementing artifact actually is on `main` as of 2026-06-11 — or an honest
+"not started" — so no pillar is re-specced from scratch by a future agent. Statuses verified
+against the codebase (paths cited) and merged PRs, not asserted from memory.
+
+| Pillar | Implementing artifact(s) | Status (verified 2026-06-11) |
+|--------|--------------------------|------------------------------|
+| P1 Attention Exchange | — | **Not started.** No `aragora attention` CLI surface exists in `aragora/cli/parser.py`; the operator queue is still rendered by hand. |
+| P2 Crux Cards | Engine: `aragora/reasoning/crux_detector.py`, `aragora/debate/crux_mode.py`; operator CLI (DIC tranche): `aragora crux`/`cruxset`/`crux-arbitrate`/`crux-garden`; external exposure: ODR-4 ([#8227](https://github.com/synaptent/aragora/issues/8227)) | **Engine built; card format not started.** #8227 covers API/CLI-flag/SDK exposure and crux sets in receipts; the crux-card mandatory-escalation format (Phase 2 here) remains unimplemented. |
+| P3 Standing Intents | TET intent chain (in build): spec at `docs/specs/TAMPER_EVIDENT_TRAIL.md` (Tier-2 build spec, operator-requested 2026-06-11) | **In build via TET.** TET's anchored intent records + witness/intent reconciliation implement the durable-steering-contract core; `aragora intent set/compile/status`, receipt intent-compliance sections, and the weekly drift debate are not started. |
+| P4 Calibrated Delegation Ledger | Calibration exposure: ODR-5 ([#8229](https://github.com/synaptent/aragora/issues/8229)); decision-stakes routing with receipt-recorded rationale: [#8233](https://github.com/synaptent/aragora/issues/8233); adjacent: jury composition optimizer ([#8234](https://github.com/synaptent/aragora/issues/8234)) | **Data collected, ledger not started.** ELO/calibration/outcome stores exist; no `aragora trust` report, no auto-narrowing rule, no spot-audit gauntlet lane. #8229/#8233 build the measurement-and-exposure half this pillar needs first. |
+| P5 Open Receipt Standard | ODR epic [#8223](https://github.com/synaptent/aragora/issues/8223): spine #8224 (content profile, JSON Schema + JCS) → #8225 (Ed25519 signing) → #8226 (standalone offline verifier); enrichment #8230 (human-oversight attestation + Art. 14 evidence pack), #8231 (Sigstore Rekor anchoring) | **In flight as the ODR tranche — the program's active direction.** The ODR epic supersedes the v1 MVP sketch: the standard is decision-semantics (rationale, quorum, calibrated confidence, crux, attestation), not just schema extraction. |
+| P6 Dead Man's Signals | `scripts/fleet_sentinel.py` + `aragora fleet status`; shipped [#8147](https://github.com/synaptent/aragora/pull/8147), extended with lane-liveness + api-degradation checks, lane janitor, publisher retry in [#8176](https://github.com/synaptent/aragora/pull/8176) | **Shipped.** Sentinel runs with contracted readers; falsification clause (next incident discovered by a human first ⇒ extend or kill) remains standing. |
+| P7 Work-Loss Accounting | `scripts/measure_work_loss.py`; waste ratio published beside LR in `docs/status/LEVERAGE.md` (first publication 2026-06-10: 623 lost units / 32 produced, ratio 19.47) | **Shipped (instrument).** Salvage-drain runbook and the ~1.9k local-only-branch audit remain open follow-ups. |
+
+Phase 0 instruments status (all four shipped): `scripts/measure_leverage_ratio.py` publishing
+real LR (1.16 on the 2026-06-10 baseline) with SI honestly `null`; the waste instrument per P7
+above; net-closure floor live (`apply_net_closure_floor` in `scripts/generate_boss_issues.py`);
+main-checkout invariant live as a sentinel check in `scripts/fleet_sentinel.py`. Substrate cap
+also live (#8095, composition measured in `docs/status/LEVERAGE.md`).

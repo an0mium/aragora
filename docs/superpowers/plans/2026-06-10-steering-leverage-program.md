@@ -209,3 +209,26 @@ owner; (c) **worth existing** — each one moves the same number: more verified 
 minute *with* the human's hand still meaningfully on the wheel. Features that failed the
 filter (deliberately excluded): more chat connectors, more verticals, frontend breadth,
 blockchain expansion, generic workflow tooling — all breadth, no steering.
+
+---
+
+## Pillar → implementation crosswalk (added 2026-06-11, issue #8232)
+
+Reconciliation of each pillar against what actually exists on `main` as of 2026-06-11, so no
+pillar gets re-specced from scratch by a future agent. P6/P7 live in the v2 operating plan
+(`2026-06-10-steering-leverage-operating-plan-v2.md`), which carries the full P1–P7 table.
+Statuses below were verified against the codebase (paths cited), not asserted from memory.
+
+| Pillar | Implementing artifact(s) | Status (verified 2026-06-11) |
+|--------|--------------------------|------------------------------|
+| P1 Attention Exchange | — | **Not started.** No `aragora attention` CLI surface exists in `aragora/cli/parser.py`. |
+| P2 Crux Cards | Engine: `aragora/reasoning/crux_detector.py`, `aragora/debate/crux_mode.py`; operator CLI (DIC tranche): `aragora crux`/`cruxset`/`crux-arbitrate`/`crux-garden`. External exposure: ODR-4 ([#8227](https://github.com/synaptent/aragora/issues/8227)) | **Engine built; card format not started.** #8227 covers API/CLI-flag/SDK exposure and crux sets in receipts; the crux-card escalation format for Tier-3/4 settlement remains unimplemented. |
+| P3 Standing Intents | TET intent chain (in build): spec at `docs/specs/TAMPER_EVIDENT_TRAIL.md` (Tier-2 build spec, operator-requested 2026-06-11) | **In build via TET.** The anchored-intent-record + reconciliation half is TET's core; `aragora intent set/compile/status` and receipt intent-compliance sections are not started. |
+| P4 Calibrated Delegation Ledger | Calibration exposure: ODR-5 ([#8229](https://github.com/synaptent/aragora/issues/8229)); decision-stakes routing: [#8233](https://github.com/synaptent/aragora/issues/8233); adjacent: jury composition optimizer ([#8234](https://github.com/synaptent/aragora/issues/8234)) | **Data collected, ledger not started.** ELO/calibration stores exist; no `aragora trust` report, no auto-narrowing rule, no spot-audit lane. #8229/#8233 implement the measurement-and-exposure half. |
+| P5 Open Receipt Standard | ODR epic [#8223](https://github.com/synaptent/aragora/issues/8223): spine #8224 (schema/JCS) → #8225 (Ed25519) → #8226 (offline verifier); enrichment #8230 (oversight attestation), #8231 (Rekor anchoring) | **In flight as the ODR tranche.** This pillar is the program's active direction; the ODR epic supersedes the MVP sketch above (content profile is decision-semantics, not just schema extraction). |
+
+Supporting Phase-0 instruments (prerequisites this crosswalk relies on): `scripts/measure_leverage_ratio.py`
+shipped and publishing real LR to `docs/status/LEVERAGE.md` (SI honestly `null` until instrumented);
+`scripts/fleet_sentinel.py` shipped ([#8147](https://github.com/synaptent/aragora/pull/8147),
+extended [#8176](https://github.com/synaptent/aragora/pull/8176)); `scripts/measure_work_loss.py`
+shipped with the waste ratio published alongside LR.
