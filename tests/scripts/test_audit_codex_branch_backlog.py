@@ -786,7 +786,11 @@ def test_audit_uses_open_pr_lookup_when_github_health_is_ready(
             repo=str(tmp_path),
         ),
     )
-    monkeypatch.setattr(mod, "open_pr_heads", lambda _root, _repo, _prefix: {"codex/has-pr": 6500})
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda _root, _repo, _prefix, **_kwargs: {"codex/has-pr": 6500},
+    )
 
     payload = mod.audit(
         root=tmp_path,
@@ -803,6 +807,48 @@ def test_audit_uses_open_pr_lookup_when_github_health_is_ready(
     assert payload["open_pr_lookup_skipped"] is False
     assert payload["records"][0]["open_pr"] == 6500
     assert payload["records"][0]["category"] == "protected_open_pr"
+
+
+def test_audit_passes_bounded_timeout_to_open_pr_lookup(tmp_path: Path, monkeypatch: Any) -> None:
+    row = _branch_row("codex/has-pr")
+    _stub_git_inventory(monkeypatch, row)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    observed_timeouts: list[int] = []
+
+    def fake_open_pr_heads(
+        _root: Path, _repo: str, _prefix: str, *, timeout: int
+    ) -> dict[str, int]:
+        observed_timeouts.append(timeout)
+        return {"codex/has-pr": 6500}
+
+    monkeypatch.setattr(mod, "open_pr_heads", fake_open_pr_heads)
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=12,
+        github_health_timeout_seconds=3,
+    )
+
+    assert observed_timeouts == [3]
+    assert payload["open_pr_lookup_skipped"] is False
+    assert payload["records"][0]["open_pr"] == 6500
 
 
 def test_open_pr_heads_treats_gh_timeout_as_unknown(tmp_path: Path, monkeypatch: Any) -> None:
@@ -829,7 +875,7 @@ def test_audit_fails_closed_when_open_pr_lookup_times_out(tmp_path: Path, monkey
             repo=str(tmp_path),
         ),
     )
-    monkeypatch.setattr(mod, "open_pr_heads", lambda _root, _repo, _prefix: None)
+    monkeypatch.setattr(mod, "open_pr_heads", lambda _root, _repo, _prefix, **_kwargs: None)
 
     payload = mod.audit(
         root=tmp_path,
@@ -985,7 +1031,7 @@ def test_audit_publishable_backlog_excludes_stale_local_only_branches(
             repo=str(tmp_path),
         ),
     )
-    monkeypatch.setattr(mod, "open_pr_heads", lambda _root, _repo, _prefix: {})
+    monkeypatch.setattr(mod, "open_pr_heads", lambda _root, _repo, _prefix, **_kwargs: {})
 
     payload = mod.audit(
         root=tmp_path,

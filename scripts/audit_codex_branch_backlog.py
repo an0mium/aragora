@@ -703,7 +703,13 @@ def unresolved_outbox_handoff_branches(
     return branches
 
 
-def open_pr_heads(root: Path, repo: str, prefix: str) -> dict[str, int] | None:
+def open_pr_heads(
+    root: Path,
+    repo: str,
+    prefix: str,
+    *,
+    timeout: int = 45,
+) -> dict[str, int] | None:
     proc = run_gh(
         [
             "pr",
@@ -718,6 +724,7 @@ def open_pr_heads(root: Path, repo: str, prefix: str) -> dict[str, int] | None:
             "number,headRefName",
         ],
         root,
+        timeout=timeout,
     )
     if proc.returncode != 0:
         return None
@@ -1127,7 +1134,12 @@ def audit(
     )
     open_pr_lookup_failed = False
     if github_health.ready:
-        open_pr_result = open_pr_heads(root, repo, prefix)
+        open_pr_result = open_pr_heads(
+            root,
+            repo,
+            prefix,
+            timeout=github_health_timeout_seconds,
+        )
         if open_pr_result is None:
             prs: dict[str, int] = {}
             open_pr_lookup_skipped = True
@@ -1691,7 +1703,8 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS,
         help=(
-            "Timeout for each GitHub CLI health probe before skipping open PR lookup "
+            "Timeout for each GitHub CLI health and open PR probe "
+            "before skipping open PR lookup "
             f"(default: {DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS})."
         ),
     )
