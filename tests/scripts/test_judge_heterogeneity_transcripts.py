@@ -298,3 +298,57 @@ def test_judge_bridge_rejects_missing_transcript(tmp_path: Path) -> None:
 
     assert proc.returncode == 1
     assert "expected exactly one transcript" in proc.stderr
+
+
+def test_judge_bridge_rejects_zero_limit_before_output(tmp_path: Path) -> None:
+    transcript_dir = tmp_path / "transcripts"
+    transcript_dir.mkdir()
+    output = tmp_path / "classifications.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--transcript-dir",
+            str(transcript_dir),
+            "--limit",
+            "0",
+            "--output",
+            str(output),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 2
+    assert "must be a positive integer" in proc.stderr
+    assert not output.exists()
+
+
+def test_judge_bridge_rejects_zero_timeout_before_output(tmp_path: Path) -> None:
+    transcript_dir = tmp_path / "transcripts"
+    transcript_dir.mkdir()
+    output = tmp_path / "classifications.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--transcript-dir",
+            str(transcript_dir),
+            "--limit",
+            "1",
+            "--timeout-seconds",
+            "0",
+            "--output",
+            str(output),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 2
+    assert "must be a positive integer" in proc.stderr
+    assert not output.exists()

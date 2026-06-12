@@ -35,6 +35,16 @@ DISPATCH_FAILED_VERDICT = "dispatch_failed"
 VALID_OUTPUT_VERDICTS = VALID_JUDGE_VERDICTS | frozenset({DISPATCH_FAILED_VERDICT})
 
 
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--transcript-dir", type=Path, required=True)
@@ -45,8 +55,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--raw-output-dir", type=Path, default=None)
     parser.add_argument("--reuse-raw", action="store_true")
     parser.add_argument("--all-prompts", action="store_true")
-    parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--timeout-seconds", type=int, default=240)
+    parser.add_argument("--limit", type=_positive_int, default=None)
+    parser.add_argument("--timeout-seconds", type=_positive_int, default=240)
     parser.add_argument("--json", action="store_true")
     return parser.parse_args(argv)
 
