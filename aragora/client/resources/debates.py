@@ -71,8 +71,8 @@ class DebatesAPI:
         Returns:
             DebateCreateResponse with debate_id and status.
         """
-        metadata_payload = dict(metadata or {})
-        if kwargs:
+        metadata_payload: dict[str, Any] | None = dict(metadata or {})
+        if kwargs and metadata_payload is not None:
             metadata_payload.update(kwargs)
         if not metadata_payload:
             metadata_payload = None
@@ -121,8 +121,8 @@ class DebatesAPI:
         **kwargs: Any,
     ) -> DebateCreateResponse:
         """Async version of create()."""
-        metadata_payload = dict(metadata or {})
-        if kwargs:
+        metadata_payload: dict[str, Any] | None = dict(metadata or {})
+        if kwargs and metadata_payload is not None:
             metadata_payload.update(kwargs)
         if not metadata_payload:
             metadata_payload = None
