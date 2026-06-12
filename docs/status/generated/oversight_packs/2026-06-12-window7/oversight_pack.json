@@ -1,0 +1,2820 @@
+{
+  "schema_version": "1.0",
+  "kind": "aragora.oversight_evidence_pack",
+  "generated_at": "2026-06-12T16:18:45.857930+00:00",
+  "window_days": 7,
+  "window_start": "2026-06-05T16:18:45.857930+00:00",
+  "repo": "synaptent/aragora",
+  "summary": {
+    "decisions": 74,
+    "human_attested": 22,
+    "autonomous": 52,
+    "recorded_absences": 8,
+    "trail_anchors_present": false
+  },
+  "decisions": [
+    {
+      "label": "PR #7770",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7770,
+          "head_sha": "d3eb4d872bf4bf5192858c07a90d7ba607350bc0",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7770"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-06T16:59:48+00:00",
+        "observed": {
+          "head_sha": "d3eb4d872bf4bf5192858c07a90d7ba607350bc0",
+          "evidence_digest": "sha256:a3a37b102cf96e922b66cb1fba4a86fbb92c5ca81cca38dee0d7d35ebeb04e51",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "GitHub reports PR #7770 already merged at d3eb4d872bf4bf5192858c07a90d7ba607350bc0 with merge commit dd892d6868e01d0d8c5928d5756464e48022f216; reconcile local post-merge settlement receipt."
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7770-d3eb4d872bf4-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7770-recorded-7770-d3eb4d872bf4-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "d3eb4d872bf4bf5192858c07a90d7ba607350bc0",
+          "observed_evidence_digest": "sha256:a3a37b102cf96e922b66cb1fba4a86fbb92c5ca81cca38dee0d7d35ebeb04e51"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-06T16:59:48+00:00"
+      }
+    },
+    {
+      "label": "PR #7773",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7773,
+          "head_sha": "2e73dd360e62dc0eaa3e68f255a30ef694be41a2",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7773"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-06T16:57:36+00:00",
+        "observed": {
+          "head_sha": "2e73dd360e62dc0eaa3e68f255a30ef694be41a2",
+          "evidence_digest": "sha256:3c934ccf1be63655f48289d45665a1eb1a28077e68ad67fcfd09fe1fe7ee303f",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "GitHub reports PR #7773 already merged at 2e73dd360e62dc0eaa3e68f255a30ef694be41a2 with merge commit d75b6383036c8340c8626f37812415ef0da30c47; reconcile local post-merge settlement receipt."
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7773-2e73dd360e62-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7773-recorded-7773-2e73dd360e62-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "2e73dd360e62dc0eaa3e68f255a30ef694be41a2",
+          "observed_evidence_digest": "sha256:3c934ccf1be63655f48289d45665a1eb1a28077e68ad67fcfd09fe1fe7ee303f"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-06T16:57:36+00:00"
+      }
+    },
+    {
+      "label": "PR #7776",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7776,
+          "head_sha": "fd468cca06efe919b4d4205a3a7374cd22217317",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7776"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-06T04:39:42+00:00",
+        "observed": {
+          "head_sha": "fd468cca06efe919b4d4205a3a7374cd22217317",
+          "evidence_digest": "sha256:425dac7f19c561eb17b0765fd784591f58b8d976ed858bc25796b17615b3e321",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "Operator authorized exact-head admin squash; GitHub reports PR #7776 merged at fd468cca06efe919b4d4205a3a7374cd22217317 with merge commit 3888cf427ceea7e453e216263baa6df5bf9a30ce."
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7776-fd468cca06ef-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7776-recorded-7776-fd468cca06ef-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "fd468cca06efe919b4d4205a3a7374cd22217317",
+          "observed_evidence_digest": "sha256:425dac7f19c561eb17b0765fd784591f58b8d976ed858bc25796b17615b3e321"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-06T04:39:42+00:00"
+      }
+    },
+    {
+      "label": "PR #7777",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7777,
+          "head_sha": "2186484b1f51973a8faf8b653af8bc1e2352d211",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7777"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-06T16:36:13+00:00",
+        "observed": {
+          "head_sha": "2186484b1f51973a8faf8b653af8bc1e2352d211",
+          "evidence_digest": "sha256:4297c069d8becf01c3fb59288fe8f29854b77c1284661ff4946f7a719a794545",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "Operator authorized exact-head admin squash; GitHub reports PR #7777 merged at 2186484b1f51973a8faf8b653af8bc1e2352d211 with merge commit 711c57f938a39566050609c1ba9438b2a08b86ab."
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7777-2186484b1f51-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7777-recorded-7777-2186484b1f51-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "2186484b1f51973a8faf8b653af8bc1e2352d211",
+          "observed_evidence_digest": "sha256:4297c069d8becf01c3fb59288fe8f29854b77c1284661ff4946f7a719a794545"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-06T16:36:13+00:00"
+      }
+    },
+    {
+      "label": "PR #7781",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7781,
+          "head_sha": "41bef21bec242a7dbcace81a97f16346db1498b2",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7781"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-06T16:53:28+00:00",
+        "observed": {
+          "head_sha": "41bef21bec242a7dbcace81a97f16346db1498b2",
+          "evidence_digest": "sha256:d6416a6e51b9958c53565ab86d066ab590d19ec5e93f18dbb7175782903abac4",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "Operator authorized exact-head admin squash; GitHub reports PR #7781 merged at 41bef21bec242a7dbcace81a97f16346db1498b2 with merge commit ee5847730d7935d2055dc72aa0046b1dbc12f627."
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7781-41bef21bec24-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7781-recorded-7781-41bef21bec24-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "41bef21bec242a7dbcace81a97f16346db1498b2",
+          "observed_evidence_digest": "sha256:d6416a6e51b9958c53565ab86d066ab590d19ec5e93f18dbb7175782903abac4"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-06T16:53:28+00:00"
+      }
+    },
+    {
+      "label": "PR #7796",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7796,
+          "head_sha": "75cb8be74e3335b5c8f64fafc546708b2a69c0ce",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7796"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-06T02:59:17+00:00",
+        "observed": {
+          "head_sha": "75cb8be74e3335b5c8f64fafc546708b2a69c0ce",
+          "evidence_digest": "sha256:161194ed3d10d4ab8ae17e52e357a67634bdcda40b5fa820555c8c577070a24d",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "exact-head admin squash observed for PR #7796 at merge commit 75c1fcb6035d86b4162e2b1f4982b82b23e77d87 after green branch-protection required checks and counted grok evidence; recording post-merge settlement receipt only"
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7796-75cb8be74e33-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7796-recorded-7796-75cb8be74e33-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "75cb8be74e3335b5c8f64fafc546708b2a69c0ce",
+          "observed_evidence_digest": "sha256:161194ed3d10d4ab8ae17e52e357a67634bdcda40b5fa820555c8c577070a24d"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-06T02:59:17+00:00"
+      }
+    },
+    {
+      "label": "PR #7811",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7811,
+          "head_sha": "65e33395165ebc2c0cb51f0c75d38d6d91111571",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7811"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-06T05:00:26+00:00",
+        "observed": {
+          "head_sha": "65e33395165ebc2c0cb51f0c75d38d6d91111571",
+          "evidence_digest": "sha256:1f73ee6bf283d87adcb614d92c040e85796a9161743e4799c6edbde316f0f801",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "Operator authorized exact-head admin squash; GitHub reports PR #7811 merged at 65e33395165ebc2c0cb51f0c75d38d6d91111571 with merge commit 0cc00d4af390048e60d1532d5dd176a958e39119."
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7811-65e33395165e-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7811-recorded-7811-65e33395165e-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "65e33395165ebc2c0cb51f0c75d38d6d91111571",
+          "observed_evidence_digest": "sha256:1f73ee6bf283d87adcb614d92c040e85796a9161743e4799c6edbde316f0f801"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-06T05:00:26+00:00"
+      }
+    },
+    {
+      "label": "PR #7823",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7823,
+          "head_sha": "c102001cde9093f143fd40752cbfe9a7487d1955",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7823"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-06T16:39:31+00:00",
+        "observed": {
+          "head_sha": "c102001cde9093f143fd40752cbfe9a7487d1955",
+          "evidence_digest": "sha256:5906aa6444267ee818e407430016faa1e3b89a57eb4b71ebff90e8b4464182be",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "Operator authorized exact-head admin squash; GitHub reports PR #7823 merged at c102001cde9093f143fd40752cbfe9a7487d1955 with merge commit c04b7316dc5280532b83ea5219c0699433de0029."
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7823-c102001cde90-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7823-recorded-7823-c102001cde90-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "c102001cde9093f143fd40752cbfe9a7487d1955",
+          "observed_evidence_digest": "sha256:5906aa6444267ee818e407430016faa1e3b89a57eb4b71ebff90e8b4464182be"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-06T16:39:31+00:00"
+      }
+    },
+    {
+      "label": "PR #7824",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7824,
+          "head_sha": "4bdddeb2c0d0b57292f8fa748313e9fafc0b471e",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7824"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-06T16:37:25+00:00",
+        "observed": {
+          "head_sha": "4bdddeb2c0d0b57292f8fa748313e9fafc0b471e",
+          "evidence_digest": "sha256:636e166ad0f580b0f20a7b033aba136528941ebe310a4d9078def7bc7cb5eb01",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "external exact-head admin squash observed for PR #7824 at merge commit 077226cf08329d06c1d85e869c41bfd4e887d19d after green branch-protection required checks and counted claude,grok evidence; recording post-merge settlement receipt only"
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7824-4bdddeb2c0d0-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7824-recorded-7824-4bdddeb2c0d0-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "4bdddeb2c0d0b57292f8fa748313e9fafc0b471e",
+          "observed_evidence_digest": "sha256:636e166ad0f580b0f20a7b033aba136528941ebe310a4d9078def7bc7cb5eb01"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-06T16:37:25+00:00"
+      }
+    },
+    {
+      "label": "PR #7928",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7928,
+          "head_sha": "51ebc13a0c63af058d08c9d12c3cc46d8516b69f",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7928"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-07T04:30:30+00:00",
+        "observed": {
+          "head_sha": "51ebc13a0c63af058d08c9d12c3cc46d8516b69f",
+          "evidence_digest": "sha256:e9dcc40f0af1351edb916083c891661a9d53dfb563380079a0902d4447fbeea7",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "external exact-head admin squash observed for PR #7928 at merge commit 4067a4500af64363a15558b34f50c879e76aab6b after green branch-protection required checks and counted claude,grok evidence; recording post-merge settlement receipt only"
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7928-51ebc13a0c63-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7928-recorded-7928-51ebc13a0c63-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "51ebc13a0c63af058d08c9d12c3cc46d8516b69f",
+          "observed_evidence_digest": "sha256:e9dcc40f0af1351edb916083c891661a9d53dfb563380079a0902d4447fbeea7"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-07T04:30:30+00:00"
+      }
+    },
+    {
+      "label": "PR #7996",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 7996,
+          "head_sha": "4fef6f0e4928de5e1e30dbf58b94f7701f708e41",
+          "pr_url": "https://github.com/synaptent/aragora/pull/7996"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-11T04:19:52+00:00",
+        "observed": {
+          "head_sha": "4fef6f0e4928de5e1e30dbf58b94f7701f708e41",
+          "evidence_digest": "sha256:251ae895891589701d68fac0cf0b35e00ed323b6dc0d1b00cb2782673199fa9a",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "exact-head admin squash merge executed for PR #7996 at merge commit 043b444f9d894219e615d2af6cf85f6d19ccf6a4 after green branch-protection required checks and counted grok,openai evidence; recording post-merge settlement receipt only"
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-7996-4fef6f0e4928-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-7996-recorded-7996-4fef6f0e4928-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "4fef6f0e4928de5e1e30dbf58b94f7701f708e41",
+          "observed_evidence_digest": "sha256:251ae895891589701d68fac0cf0b35e00ed323b6dc0d1b00cb2782673199fa9a"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-11T04:19:52+00:00"
+      }
+    },
+    {
+      "label": "PR #8089",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 8089,
+          "head_sha": "11bd6050c9186976c43cbc357228459523a5d3a0",
+          "pr_url": "https://github.com/synaptent/aragora/pull/8089"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-10T14:17:20+00:00",
+        "observed": {
+          "head_sha": "11bd6050c9186976c43cbc357228459523a5d3a0",
+          "evidence_digest": "sha256:97add5bb7b76ffe40fbd367cd9c3d14f90e8e3871f3068e9d47d51f80124a73e",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "Tier 2 quorum satisfied (gemini+grok, gate run 27281412692); externally settled via admin squash by an0mium at 2026-06-10T14:17:20Z, merge commit a35bcca6c4b34d01c5f9673b35426b9dc1de4f6b."
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-8089-11bd6050c918-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-8089-recorded-8089-11bd6050c918-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "11bd6050c9186976c43cbc357228459523a5d3a0",
+          "observed_evidence_digest": "sha256:97add5bb7b76ffe40fbd367cd9c3d14f90e8e3871f3068e9d47d51f80124a73e"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-10T14:17:20+00:00"
+      }
+    },
+    {
+      "label": "PR #8089",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 8089,
+          "head_sha": "11bd6050c9186976c43cbc357228459523a5d3a0",
+          "pr_url": "https://github.com/synaptent/aragora/pull/8089"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-10T14:16:18.697954+00:00",
+        "observed": {
+          "head_sha": "11bd6050c9186976c43cbc357228459523a5d3a0",
+          "evidence_digest": "sha256:50df7939ebbeea8bb8541635635ebdb519da6b187a6f75f867052122f03d4356",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "comment"
+          },
+          {
+            "type": "github_event",
+            "ref": "RECORDED_EXTERNAL_COMMENT"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "Tier 2 model quorum satisfied on exact head (gemini+grok via aragora review-local, evidence-linted, gate run 27281412692 green); merge intentionally deferred to operator per session scope (no merge)."
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-8089-11bd6050c918-comment"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-8089-recorded-8089-11bd6050c918-comment-comment.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "11bd6050c9186976c43cbc357228459523a5d3a0",
+          "observed_evidence_digest": "sha256:50df7939ebbeea8bb8541635635ebdb519da6b187a6f75f867052122f03d4356"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-10T14:16:18.697954+00:00"
+      }
+    },
+    {
+      "label": "PR #8104",
+      "source": "local_settlement_receipt",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "local_settlement_receipt",
+        "subject": {
+          "pr_number": 8104,
+          "head_sha": "d15e48449907baa8bfd87799370cc65f3b6041b9",
+          "pr_url": "https://github.com/synaptent/aragora/pull/8104"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_receipt_actor",
+        "attested_at": "2026-06-10T21:01:48+00:00",
+        "observed": {
+          "head_sha": "d15e48449907baa8bfd87799370cc65f3b6041b9",
+          "evidence_digest": "sha256:b412af1ad68e2f9b3ddb277347c7a6dedcd91da1721c8f1a3b7cb12476383106",
+          "evidence_digest_source": "merge_packet_sha"
+        },
+        "references": [
+          {
+            "type": "settlement_action",
+            "ref": "admin_squash_merge"
+          },
+          {
+            "type": "github_event",
+            "ref": "ADMIN_SQUASH_MERGE"
+          },
+          {
+            "type": "settlement_reason",
+            "ref": "Operator-authorized Tier 2 admin squash on green model-quorum packet (grok+gemini counted on exact head; 6/6 required checks green; gemini dissent remediated and re-approved)"
+          },
+          {
+            "type": "settlement_session_id",
+            "ref": "recorded-8104-d15e48449907-admin_squash_merge"
+          },
+          {
+            "type": "settlement_receipt_path",
+            "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-8104-recorded-8104-d15e48449907-admin_squash_merge-admin_squash_merge.json"
+          }
+        ],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_receipt_actor",
+          "observed_head_sha": "d15e48449907baa8bfd87799370cc65f3b6041b9",
+          "observed_evidence_digest": "sha256:b412af1ad68e2f9b3ddb277347c7a6dedcd91da1721c8f1a3b7cb12476383106"
+        },
+        "method": "local_settlement_receipt",
+        "attested_at": "2026-06-10T21:01:48+00:00"
+      }
+    },
+    {
+      "label": "PR #8107",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] AFT seeded MLX split guard branch is validated and ready for draft PR publication.",
+      "url": "https://github.com/synaptent/aragora/pull/8107",
+      "merged_at": "2026-06-10T20:00:16Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8107,
+          "head_sha": "d3744c441a5da03b4ddae261186a8b12ecb963c2"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "d3744c441a5da03b4ddae261186a8b12ecb963c2"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8111",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Open a draft PR for the Improver Writer agent heartbeat BrokenPipe fix.",
+      "url": "https://github.com/synaptent/aragora/pull/8111",
+      "merged_at": "2026-06-11T05:06:36Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8111,
+          "head_sha": "a5d53dcb5ab0cb6042b3883bf0fd5d973bacc00c"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "a5d53dcb5ab0cb6042b3883bf0fd5d973bacc00c"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8112",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Backlog audit JSON output now suppresses downstream broken pipes.",
+      "url": "https://github.com/synaptent/aragora/pull/8112",
+      "merged_at": "2026-06-11T05:06:39Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8112,
+          "head_sha": "c1d685d9f1374eb91aaf0f01dc60e183ad419a2b"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "c1d685d9f1374eb91aaf0f01dc60e183ad419a2b"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8113",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] B0 progress metrics now fail closed on malformed boss metrics JSONL rows.",
+      "url": "https://github.com/synaptent/aragora/pull/8113",
+      "merged_at": "2026-06-10T19:16:09Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8113,
+          "head_sha": "6a5b3a43b83ff627201f7e6a48049c511fa0bb08"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "6a5b3a43b83ff627201f7e6a48049c511fa0bb08"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8114",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] B0 scorecard reporting now rejects invalid benchmark rate fields instead of rendering them as valid outputs.",
+      "url": "https://github.com/synaptent/aragora/pull/8114",
+      "merged_at": "2026-06-10T19:23:08Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8114,
+          "head_sha": "c0dabf9fec2a3b06fa6c3a61ce7360cf28d4d091"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "c0dabf9fec2a3b06fa6c3a61ce7360cf28d4d091"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8117",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Benchmark truth latest pointer parity guard is validated, pushed, and ready for draft PR publication.",
+      "url": "https://github.com/synaptent/aragora/pull/8117",
+      "merged_at": "2026-06-10T19:42:20Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8117,
+          "head_sha": "d5b4f1880758a2c94a3c2873ba0f734eb2dcbd6c"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "d5b4f1880758a2c94a3c2873ba0f734eb2dcbd6c"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8118",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Boss metrics health scorecards now reject invalid top-N and stale-loop thresholds.",
+      "url": "https://github.com/synaptent/aragora/pull/8118",
+      "merged_at": "2026-06-10T19:49:44Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8118,
+          "head_sha": "7c7bfaa8733c11e9a39f9cf375005f73f2e5a082"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "7c7bfaa8733c11e9a39f9cf375005f73f2e5a082"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8119",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Prompt builder live-truth instructions now use canonical agent_bridge health JSON ordering.",
+      "url": "https://github.com/synaptent/aragora/pull/8119",
+      "merged_at": "2026-06-11T05:06:42Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8119,
+          "head_sha": "960111fb8dbff9fa7570e01b7a8e0a9af0d0af86"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "960111fb8dbff9fa7570e01b7a8e0a9af0d0af86"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8120",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Dogfood A/B pair-count guard branch is validated and ready for draft PR publication.",
+      "url": "https://github.com/synaptent/aragora/pull/8120",
+      "merged_at": "2026-06-11T05:07:39Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8120,
+          "head_sha": "55842cc9e1374d8025486350c84c449513ac197c"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "55842cc9e1374d8025486350c84c449513ac197c"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8121",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Dogfood report malformed-run guard branch is validated and ready for draft PR publication.",
+      "url": "https://github.com/synaptent/aragora/pull/8121",
+      "merged_at": "2026-06-10T19:38:52Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8121,
+          "head_sha": "1aa64f4318be7d1a8597cad765747ee4a4339c6e"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "1aa64f4318be7d1a8597cad765747ee4a4339c6e"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8122",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] review-queue evidence lint now rejects wrong-PR and negative evidence.",
+      "url": "https://github.com/synaptent/aragora/pull/8122",
+      "merged_at": "2026-06-11T17:00:59Z",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "github_settlement_status",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8122,
+          "head_sha": "53316b2f7029208e2d1bf6ae454d208e2febe0dc"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_status_creator",
+        "attested_at": "2026-06-11T16:55:23Z",
+        "observed": {
+          "head_sha": "53316b2f7029208e2d1bf6ae454d208e2febe0dc"
+        },
+        "references": [
+          {
+            "type": "github_status_context",
+            "ref": "aragora/human-settlement"
+          },
+          {
+            "type": "github_status_target_url",
+            "ref": "https://github.com/synaptent/aragora/pull/8122#issuecomment-4682949724"
+          },
+          {
+            "type": "github_status_description",
+            "ref": "Tier 4 exact-head human-risk settlement recorded for PR #8122"
+          }
+        ],
+        "absences": [
+          {
+            "field": "observed.evidence_digest",
+            "reason": "no counted evidence artifacts were supplied; digest of what the overseer saw cannot be computed"
+          }
+        ]
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_status_creator",
+          "observed_head_sha": "53316b2f7029208e2d1bf6ae454d208e2febe0dc"
+        },
+        "method": "github_settlement_status",
+        "attested_at": "2026-06-11T16:55:23Z"
+      }
+    },
+    {
+      "label": "PR #8124",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Mandatory synthesis now guards empty LLM outputs without discarding valid fallbacks.",
+      "url": "https://github.com/synaptent/aragora/pull/8124",
+      "merged_at": "2026-06-10T19:00:27Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8124,
+          "head_sha": "769ce1d519f3c01c775e2659c0c682db16d4aeea"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "769ce1d519f3c01c775e2659c0c682db16d4aeea"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8125",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Clean merge-arbiter breaker restack is validated, pushed, and ready for draft PR publication.",
+      "url": "https://github.com/synaptent/aragora/pull/8125",
+      "merged_at": "2026-06-11T04:23:23Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8125,
+          "head_sha": "f2c0ce514e380a6a80760c8fad8a276a42b14a31"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "f2c0ce514e380a6a80760c8fad8a276a42b14a31"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8126",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] review-queue merge-packet --json now emits transport_blocked preserve/no-mutate JSON for GitHub transport outages.",
+      "url": "https://github.com/synaptent/aragora/pull/8126",
+      "merged_at": "2026-06-11T17:04:38Z",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "github_settlement_status",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8126,
+          "head_sha": "1624390088ad54d74cf56bedf701eb32bd08f095"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_status_creator",
+        "attested_at": "2026-06-11T17:03:08Z",
+        "observed": {
+          "head_sha": "1624390088ad54d74cf56bedf701eb32bd08f095"
+        },
+        "references": [
+          {
+            "type": "github_status_context",
+            "ref": "aragora/human-settlement"
+          },
+          {
+            "type": "github_status_target_url",
+            "ref": "https://github.com/synaptent/aragora/pull/8126#issuecomment-4683007155"
+          },
+          {
+            "type": "github_status_description",
+            "ref": "Tier 4 exact-head human-risk settlement recorded for PR #8126"
+          }
+        ],
+        "absences": [
+          {
+            "field": "observed.evidence_digest",
+            "reason": "no counted evidence artifacts were supplied; digest of what the overseer saw cannot be computed"
+          }
+        ]
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_status_creator",
+          "observed_head_sha": "1624390088ad54d74cf56bedf701eb32bd08f095"
+        },
+        "method": "github_settlement_status",
+        "attested_at": "2026-06-11T17:03:08Z"
+      }
+    },
+    {
+      "label": "PR #8127",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Validated and pushed docs-only canonical proof-surface delegation refresh; PR creation is blocked by gh auth / connector permissions.",
+      "url": "https://github.com/synaptent/aragora/pull/8127",
+      "merged_at": "2026-06-11T16:03:43Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8127,
+          "head_sha": "35b03beee69aedea64bb39b6919a559347e62650"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "35b03beee69aedea64bb39b6919a559347e62650"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8129",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Validated and pushed draft-default open_pr helper fix; PR creation is blocked by gh auth / connector permissions.",
+      "url": "https://github.com/synaptent/aragora/pull/8129",
+      "merged_at": "2026-06-11T16:01:14Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8129,
+          "head_sha": "02767c6ce1cc68e8e2ff8436b64e10f1e7b12323"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "02767c6ce1cc68e8e2ff8436b64e10f1e7b12323"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8132",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] operator snapshots now reject non-finite and out-of-range success rates.",
+      "url": "https://github.com/synaptent/aragora/pull/8132",
+      "merged_at": "2026-06-10T19:53:09Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8132,
+          "head_sha": "f81183aa5022cb11f5e9f0cdeea98d5193b19718"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "f81183aa5022cb11f5e9f0cdeea98d5193b19718"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8133",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Phase0B benchmark result capture now rejects malformed existing results files instead of resetting history.",
+      "url": "https://github.com/synaptent/aragora/pull/8133",
+      "merged_at": "2026-06-10T19:25:56Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8133,
+          "head_sha": "420a309ba90327b2c79e3065efd9a8e74e73dd2e"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "420a309ba90327b2c79e3065efd9a8e74e73dd2e"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8134",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Preflight JSON now suggests publisher startup import smokes for publisher helper changes.",
+      "url": "https://github.com/synaptent/aragora/pull/8134",
+      "merged_at": "2026-06-11T15:19:46Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8134,
+          "head_sha": "7db9e0d560d1ccd0ba585febb1bc9651b4a8758f"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "7db9e0d560d1ccd0ba585febb1bc9651b4a8758f"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8135",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Prompt-engine profile guard branch is validated and ready for draft PR publication.",
+      "url": "https://github.com/synaptent/aragora/pull/8135",
+      "merged_at": "2026-06-11T14:42:33Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8135,
+          "head_sha": "a35cd3b6bd67aaa878f440a992305de1f9b6240d"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "a35cd3b6bd67aaa878f440a992305de1f9b6240d"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8136",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Publisher planning no longer crashes on vanished worktree metadata.",
+      "url": "https://github.com/synaptent/aragora/pull/8136",
+      "merged_at": "2026-06-10T19:45:48Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8136,
+          "head_sha": "b9dc7afe28a65bc90af298a9ecbe427a4a7f03e1"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "b9dc7afe28a65bc90af298a9ecbe427a4a7f03e1"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8138",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Rescue productization map loading and writing now reject invalid schema versions and malformed entries.",
+      "url": "https://github.com/synaptent/aragora/pull/8138",
+      "merged_at": "2026-06-10T20:03:52Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8138,
+          "head_sha": "2b67d64f1486e8feb017f8f4282aed8ee9b7be75"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "2b67d64f1486e8feb017f8f4282aed8ee9b7be75"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8140",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] settle_one_pr now respects the effective required-check gate.",
+      "url": "https://github.com/synaptent/aragora/pull/8140",
+      "merged_at": "2026-06-11T16:47:54Z",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "github_settlement_status",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8140,
+          "head_sha": "61495b241b634ce95ac84b7098395ef521433884"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_status_creator",
+        "attested_at": "2026-06-11T16:45:58Z",
+        "observed": {
+          "head_sha": "61495b241b634ce95ac84b7098395ef521433884"
+        },
+        "references": [
+          {
+            "type": "github_status_context",
+            "ref": "aragora/human-settlement"
+          },
+          {
+            "type": "github_status_target_url",
+            "ref": "https://github.com/synaptent/aragora/pull/8140#issuecomment-4682865749"
+          },
+          {
+            "type": "github_status_description",
+            "ref": "Tier 4 exact-head human-risk settlement recorded for PR #8140"
+          }
+        ],
+        "absences": [
+          {
+            "field": "observed.evidence_digest",
+            "reason": "no counted evidence artifacts were supplied; digest of what the overseer saw cannot be computed"
+          }
+        ]
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_status_creator",
+          "observed_head_sha": "61495b241b634ce95ac84b7098395ef521433884"
+        },
+        "method": "github_settlement_status",
+        "attested_at": "2026-06-11T16:45:58Z"
+      }
+    },
+    {
+      "label": "PR #8141",
+      "source": "github_merged_pr",
+      "title": "[outbox-harvest] Trickster benchmark empty-input guard branch is validated and ready for draft PR publication.",
+      "url": "https://github.com/synaptent/aragora/pull/8141",
+      "merged_at": "2026-06-10T19:57:19Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8141,
+          "head_sha": "0482c206d381826b13e57bdd3fd1ce49a0e7a27c"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "0482c206d381826b13e57bdd3fd1ce49a0e7a27c"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8144",
+      "source": "github_merged_pr",
+      "title": "chore(deps): bump shell-quote from 1.8.3 to 1.8.4 in /docs-site",
+      "url": "https://github.com/synaptent/aragora/pull/8144",
+      "merged_at": "2026-06-11T04:56:08Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8144,
+          "head_sha": "83e6065123b6c590f80129f0b0c0ca36aea77215"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "83e6065123b6c590f80129f0b0c0ca36aea77215"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8145",
+      "source": "github_merged_pr",
+      "title": "docs(plans): steering leverage operating plan v2 (sentinel + work-loss pillars)",
+      "url": "https://github.com/synaptent/aragora/pull/8145",
+      "merged_at": "2026-06-10T20:17:54Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8145,
+          "head_sha": "6d15ff54c7b2ba5d6cbd4ecca748fbc9628e29b7"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "6d15ff54c7b2ba5d6cbd4ecca748fbc9628e29b7"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8146",
+      "source": "github_merged_pr",
+      "title": "docs(focus): close sprint 3 (same-day terminal), open sprint 4 = phase 0 instruments",
+      "url": "https://github.com/synaptent/aragora/pull/8146",
+      "merged_at": "2026-06-10T21:12:47Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8146,
+          "head_sha": "6ce112b15a6133f3448c7cca03324dbb6d939744"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "6ce112b15a6133f3448c7cca03324dbb6d939744"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8147",
+      "source": "github_merged_pr",
+      "title": "feat(ops): fleet sentinel \u2014 dead man's signals (sprint 4 goal 1)",
+      "url": "https://github.com/synaptent/aragora/pull/8147",
+      "merged_at": "2026-06-10T21:24:15Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8147,
+          "head_sha": "98044958b768c09073315bb054fb426b13b18e8f"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "98044958b768c09073315bb054fb426b13b18e8f"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8148",
+      "source": "github_merged_pr",
+      "title": "feat(swarm): net-closure floor throttles issue generation (Sprint 4 goal 3)",
+      "url": "https://github.com/synaptent/aragora/pull/8148",
+      "merged_at": "2026-06-10T21:42:53Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8148,
+          "head_sha": "532e8d6201d48f431ecce4b15adc1092728693bd"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "532e8d6201d48f431ecce4b15adc1092728693bd"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8150",
+      "source": "github_merged_pr",
+      "title": "feat(metrics): leverage + waste instruments (sprint 4 goal 2)",
+      "url": "https://github.com/synaptent/aragora/pull/8150",
+      "merged_at": "2026-06-10T21:53:19Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8150,
+          "head_sha": "b27b3db3ef8d3f5253f08bdbaf97edb1e07ba1e8"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "b27b3db3ef8d3f5253f08bdbaf97edb1e07ba1e8"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8152",
+      "source": "github_merged_pr",
+      "title": "fix(ops): fleet sentinel launchd installer renders PATH (gh_auth FileNotFoundError under launchd)",
+      "url": "https://github.com/synaptent/aragora/pull/8152",
+      "merged_at": "2026-06-10T23:01:01Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8152,
+          "head_sha": "7454ca2676aeddd8d70f91d9fd3473238d4c8e89"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "7454ca2676aeddd8d70f91d9fd3473238d4c8e89"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8154",
+      "source": "github_merged_pr",
+      "title": "fix(ops): fleet sentinel \u2014 live status path, installer PATH, notify channel",
+      "url": "https://github.com/synaptent/aragora/pull/8154",
+      "merged_at": "2026-06-11T04:34:42Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8154,
+          "head_sha": "5af592dd619c02c023088a0625ff70f2a3c1d5c6"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "5af592dd619c02c023088a0625ff70f2a3c1d5c6"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      },
+      "corroborating_sources": [
+        {
+          "type": "local_settlement_receipt",
+          "attestation": {
+            "disposition": "human_attested",
+            "mechanism": "local_settlement_receipt",
+            "subject": {
+              "pr_number": 8154,
+              "head_sha": "5af592dd619c02c023088a0625ff70f2a3c1d5c6",
+              "pr_url": "https://github.com/synaptent/aragora/pull/8154"
+            },
+            "attestor_id": "an0mium",
+            "attestor_role": "settlement_receipt_actor",
+            "attested_at": "2026-06-11T04:34:42+00:00",
+            "observed": {
+              "head_sha": "5af592dd619c02c023088a0625ff70f2a3c1d5c6",
+              "evidence_digest": "sha256:f887561b04a7ec0bb5ff841654c2434f7b41a871d0a7997df894aca1fdf3e7d3",
+              "evidence_digest_source": "merge_packet_sha"
+            },
+            "references": [
+              {
+                "type": "settlement_action",
+                "ref": "admin_squash_merge"
+              },
+              {
+                "type": "github_event",
+                "ref": "ADMIN_SQUASH_MERGE"
+              },
+              {
+                "type": "settlement_reason",
+                "ref": "external exact-head admin squash observed for PR #8154 at merge commit 96d4b78be000a474546f86a1b38d9d7098baa993 after green branch-protection required checks and counted grok,mistral evidence; recording post-merge settlement receipt only"
+              },
+              {
+                "type": "settlement_session_id",
+                "ref": "recorded-8154-5af592dd619c-admin_squash_merge"
+              },
+              {
+                "type": "settlement_receipt_path",
+                "ref": "~/Development/aragora/.aragora/review-queue/receipts/pr-8154-recorded-8154-5af592dd619c-admin_squash_merge-admin_squash_merge.json"
+              }
+            ],
+            "absences": []
+          }
+        }
+      ]
+    },
+    {
+      "label": "PR #8162",
+      "source": "github_merged_pr",
+      "title": "refactor(resilience): consolidate circuit breakers; deprecate v2 via shim (5.2)",
+      "url": "https://github.com/synaptent/aragora/pull/8162",
+      "merged_at": "2026-06-11T17:11:37Z",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "github_settlement_status",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8162,
+          "head_sha": "b918ae275b72d2aa6800a8625417a068b1c0e774"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_status_creator",
+        "attested_at": "2026-06-11T17:10:06Z",
+        "observed": {
+          "head_sha": "b918ae275b72d2aa6800a8625417a068b1c0e774"
+        },
+        "references": [
+          {
+            "type": "github_status_context",
+            "ref": "aragora/human-settlement"
+          },
+          {
+            "type": "github_status_target_url",
+            "ref": "https://github.com/synaptent/aragora/pull/8162#issuecomment-4683062237"
+          },
+          {
+            "type": "github_status_description",
+            "ref": "Tier 4 exact-head human-risk settlement recorded for PR #8162"
+          }
+        ],
+        "absences": [
+          {
+            "field": "observed.evidence_digest",
+            "reason": "no counted evidence artifacts were supplied; digest of what the overseer saw cannot be computed"
+          }
+        ]
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_status_creator",
+          "observed_head_sha": "b918ae275b72d2aa6800a8625417a068b1c0e774"
+        },
+        "method": "github_settlement_status",
+        "attested_at": "2026-06-11T17:10:06Z"
+      }
+    },
+    {
+      "label": "PR #8163",
+      "source": "github_merged_pr",
+      "title": "fix(server): resolve health/metrics/auth-revoke route collisions (cluster 1, #8098 baseline)",
+      "url": "https://github.com/synaptent/aragora/pull/8163",
+      "merged_at": "2026-06-12T13:23:30Z",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "github_settlement_status",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8163,
+          "head_sha": "23ceaa8830084ac5d2b23bca61bb2ba9a368aa85"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_status_creator",
+        "attested_at": "2026-06-12T13:17:49Z",
+        "observed": {
+          "head_sha": "23ceaa8830084ac5d2b23bca61bb2ba9a368aa85"
+        },
+        "references": [
+          {
+            "type": "github_status_context",
+            "ref": "aragora/human-settlement"
+          },
+          {
+            "type": "github_status_target_url",
+            "ref": "https://github.com/synaptent/aragora/pull/8163#issuecomment-4691619329"
+          },
+          {
+            "type": "github_status_description",
+            "ref": "Tier 4 exact-head human-risk settlement recorded for PR #8163"
+          }
+        ],
+        "absences": [
+          {
+            "field": "observed.evidence_digest",
+            "reason": "no counted evidence artifacts were supplied; digest of what the overseer saw cannot be computed"
+          }
+        ]
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_status_creator",
+          "observed_head_sha": "23ceaa8830084ac5d2b23bca61bb2ba9a368aa85"
+        },
+        "method": "github_settlement_status",
+        "attested_at": "2026-06-12T13:17:49Z"
+      }
+    },
+    {
+      "label": "PR #8166",
+      "source": "github_merged_pr",
+      "title": "feat(loop-control): retire merge-arbiter fault-vs-waiting curated gap",
+      "url": "https://github.com/synaptent/aragora/pull/8166",
+      "merged_at": "2026-06-11T14:44:07Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8166,
+          "head_sha": "b12cc7305bb20ffc613dd762161d1de0f1a96429"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "b12cc7305bb20ffc613dd762161d1de0f1a96429"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8169",
+      "source": "github_merged_pr",
+      "title": "[Tier 4 \u2014 operator settlement required] feat(ci): re-evaluate merge quorum on evidence comments (B1)",
+      "url": "https://github.com/synaptent/aragora/pull/8169",
+      "merged_at": "2026-06-11T19:39:26Z",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "github_settlement_status",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8169,
+          "head_sha": "bdb4ee5b9c9f4d7c130ef75cb01cd0530a62f241"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_status_creator",
+        "attested_at": "2026-06-11T18:14:09Z",
+        "observed": {
+          "head_sha": "bdb4ee5b9c9f4d7c130ef75cb01cd0530a62f241"
+        },
+        "references": [
+          {
+            "type": "github_status_context",
+            "ref": "aragora/human-settlement"
+          },
+          {
+            "type": "github_status_target_url",
+            "ref": "https://github.com/synaptent/aragora/pull/8169#issuecomment-4683612872"
+          },
+          {
+            "type": "github_status_description",
+            "ref": "Tier 4 exact-head human-risk settlement recorded for PR #8169"
+          }
+        ],
+        "absences": [
+          {
+            "field": "observed.evidence_digest",
+            "reason": "no counted evidence artifacts were supplied; digest of what the overseer saw cannot be computed"
+          }
+        ]
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_status_creator",
+          "observed_head_sha": "bdb4ee5b9c9f4d7c130ef75cb01cd0530a62f241"
+        },
+        "method": "github_settlement_status",
+        "attested_at": "2026-06-11T18:14:09Z"
+      }
+    },
+    {
+      "label": "PR #8171",
+      "source": "github_merged_pr",
+      "title": "feat(automation): bounded auto-evidence cycle for ready PRs (throughput lever 1)",
+      "url": "https://github.com/synaptent/aragora/pull/8171",
+      "merged_at": "2026-06-11T15:10:43Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8171,
+          "head_sha": "4288651561c6c084820e6e96e01edc1450567267"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "4288651561c6c084820e6e96e01edc1450567267"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8172",
+      "source": "github_merged_pr",
+      "title": "fix(skills): elves-aragora v0.2.1 \u2014 lanes finish synchronously (no background watchers)",
+      "url": "https://github.com/synaptent/aragora/pull/8172",
+      "merged_at": "2026-06-11T14:43:27Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8172,
+          "head_sha": "f8792ffe61c3383ae0f275333dd75da55524f0ed"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "f8792ffe61c3383ae0f275333dd75da55524f0ed"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8175",
+      "source": "github_merged_pr",
+      "title": "fix(debate): record all participating agents; guard context-init provider; consistent strict-secrets",
+      "url": "https://github.com/synaptent/aragora/pull/8175",
+      "merged_at": "2026-06-11T15:06:04Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8175,
+          "head_sha": "004642dd0cb348061ed28f032ee81c48f8e86d9a"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "004642dd0cb348061ed28f032ee81c48f8e86d9a"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8176",
+      "source": "github_merged_pr",
+      "title": "feat(ops): lane-liveness + api-degradation sentinel checks, lane janitor, publisher retry",
+      "url": "https://github.com/synaptent/aragora/pull/8176",
+      "merged_at": "2026-06-11T15:10:29Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8176,
+          "head_sha": "2c204982b16d06992cdd157fc1a441b0fbbc8ee3"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "2c204982b16d06992cdd157fc1a441b0fbbc8ee3"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8185",
+      "source": "github_merged_pr",
+      "title": "fix(review-queue): avoid merge-packet startup hangs",
+      "url": "https://github.com/synaptent/aragora/pull/8185",
+      "merged_at": "2026-06-12T02:05:46Z",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "github_settlement_status",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8185,
+          "head_sha": "09b6a6d737e048d8378f7216fe0a9a9448f7e9fe"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_status_creator",
+        "attested_at": "2026-06-12T01:46:30Z",
+        "observed": {
+          "head_sha": "09b6a6d737e048d8378f7216fe0a9a9448f7e9fe"
+        },
+        "references": [
+          {
+            "type": "github_status_context",
+            "ref": "aragora/human-settlement"
+          },
+          {
+            "type": "github_status_target_url",
+            "ref": "https://github.com/synaptent/aragora/pull/8185#issuecomment-4686597770"
+          },
+          {
+            "type": "github_status_description",
+            "ref": "Tier 4 exact-head human-risk settlement recorded for PR #8185"
+          }
+        ],
+        "absences": [
+          {
+            "field": "observed.evidence_digest",
+            "reason": "no counted evidence artifacts were supplied; digest of what the overseer saw cannot be computed"
+          }
+        ]
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_status_creator",
+          "observed_head_sha": "09b6a6d737e048d8378f7216fe0a9a9448f7e9fe"
+        },
+        "method": "github_settlement_status",
+        "attested_at": "2026-06-12T01:46:30Z"
+      }
+    },
+    {
+      "label": "PR #8193",
+      "source": "github_merged_pr",
+      "title": "feat(loop-control): per-loop dollar budgets \u2014 policy file, spend ledger, truthful resolution",
+      "url": "https://github.com/synaptent/aragora/pull/8193",
+      "merged_at": "2026-06-11T20:45:02Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8193,
+          "head_sha": "7a1e30e2640a09d874f35cbcc6283c28a4263ce6"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "7a1e30e2640a09d874f35cbcc6283c28a4263ce6"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8203",
+      "source": "github_merged_pr",
+      "title": "fix(inventory): preserve branchless receipt-backed worktrees",
+      "url": "https://github.com/synaptent/aragora/pull/8203",
+      "merged_at": "2026-06-11T21:53:46Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8203,
+          "head_sha": "2dfc0a986fbbcb4402fe6a3267b6168be7222066"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "2dfc0a986fbbcb4402fe6a3267b6168be7222066"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8204",
+      "source": "github_merged_pr",
+      "title": "docs(specs): add tamper-evident audit trail spec",
+      "url": "https://github.com/synaptent/aragora/pull/8204",
+      "merged_at": "2026-06-11T20:09:18Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8204,
+          "head_sha": "a85055b5ee70dba659c6bb898df600c51b02f832"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "a85055b5ee70dba659c6bb898df600c51b02f832"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8208",
+      "source": "github_merged_pr",
+      "title": "feat(ops): per-pass GitHub App token routing for daemon gh calls",
+      "url": "https://github.com/synaptent/aragora/pull/8208",
+      "merged_at": "2026-06-11T20:40:56Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8208,
+          "head_sha": "3168d1adb5d6d054039e1f2a47b5702902e66070"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "3168d1adb5d6d054039e1f2a47b5702902e66070"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8210",
+      "source": "github_merged_pr",
+      "title": "fix(tests): defuse v1-sunset calendar time-bomb in deprecation warning test",
+      "url": "https://github.com/synaptent/aragora/pull/8210",
+      "merged_at": "2026-06-11T20:48:27Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8210,
+          "head_sha": "89f3fd0f7745ae545a3ddc65e3c9d8b41185b3f1"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "89f3fd0f7745ae545a3ddc65e3c9d8b41185b3f1"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8212",
+      "source": "github_merged_pr",
+      "title": "chore(docs): regenerate synced next-steps-canonical (pre-existing docs-sync drift on main)",
+      "url": "https://github.com/synaptent/aragora/pull/8212",
+      "merged_at": "2026-06-11T22:06:03Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8212,
+          "head_sha": "248cc3866a580f2b36055f271ec1a631fb8633fc"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "248cc3866a580f2b36055f271ec1a631fb8633fc"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8216",
+      "source": "github_merged_pr",
+      "title": "docs(focus,status): close sprint 4 goal 4 \u2014 substrate-cap composition measurement",
+      "url": "https://github.com/synaptent/aragora/pull/8216",
+      "merged_at": "2026-06-11T22:24:30Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8216,
+          "head_sha": "cda25b39936cc7861d0c0250a5a445f5c1399178"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "cda25b39936cc7861d0c0250a5a445f5c1399178"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8220",
+      "source": "github_merged_pr",
+      "title": "fix(server): resolve 2 route collisions (debates-summary, notifications-history) + shrink baseline 50\u219248",
+      "url": "https://github.com/synaptent/aragora/pull/8220",
+      "merged_at": "2026-06-12T13:23:45Z",
+      "attestation": {
+        "disposition": "human_attested",
+        "mechanism": "github_settlement_status",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8220,
+          "head_sha": "1b93e43926ddb0fa8b9f17e90c2488d37ca4f6d2"
+        },
+        "attestor_id": "an0mium",
+        "attestor_role": "settlement_status_creator",
+        "attested_at": "2026-06-12T13:17:56Z",
+        "observed": {
+          "head_sha": "1b93e43926ddb0fa8b9f17e90c2488d37ca4f6d2"
+        },
+        "references": [
+          {
+            "type": "github_status_context",
+            "ref": "aragora/human-settlement"
+          },
+          {
+            "type": "github_status_target_url",
+            "ref": "https://github.com/synaptent/aragora/pull/8220#issuecomment-4691620349"
+          },
+          {
+            "type": "github_status_description",
+            "ref": "Tier 4 exact-head human-risk settlement recorded for PR #8220"
+          }
+        ],
+        "absences": [
+          {
+            "field": "observed.evidence_digest",
+            "reason": "no counted evidence artifacts were supplied; digest of what the overseer saw cannot be computed"
+          }
+        ]
+      },
+      "odr_attestation": {
+        "disposition": "human_attested",
+        "attestor": {
+          "id": "an0mium",
+          "role": "settlement_status_creator",
+          "observed_head_sha": "1b93e43926ddb0fa8b9f17e90c2488d37ca4f6d2"
+        },
+        "method": "github_settlement_status",
+        "attested_at": "2026-06-12T13:17:56Z"
+      }
+    },
+    {
+      "label": "PR #8222",
+      "source": "github_merged_pr",
+      "title": "feat(automation): dogfood-evidence step so auto-evidence settles code PRs (closes #8219)",
+      "url": "https://github.com/synaptent/aragora/pull/8222",
+      "merged_at": "2026-06-11T23:05:29Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8222,
+          "head_sha": "71edc7cbdccce043dd48dee3eef496bd6d064129"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "71edc7cbdccce043dd48dee3eef496bd6d064129"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8236",
+      "source": "github_merged_pr",
+      "title": "fix(metrics): reject empty prompt-engine profiles",
+      "url": "https://github.com/synaptent/aragora/pull/8236",
+      "merged_at": "2026-06-12T02:42:28Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8236,
+          "head_sha": "c919355e133bab9e5c883c7b9871c712c3e7852b"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "c919355e133bab9e5c883c7b9871c712c3e7852b"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8237",
+      "source": "github_merged_pr",
+      "title": "docs: FEATURE_GAP_LIST refresh + steering-pillar implementation crosswalk (#8232)",
+      "url": "https://github.com/synaptent/aragora/pull/8237",
+      "merged_at": "2026-06-11T23:11:51Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8237,
+          "head_sha": "e269eb2a0397f066c45b3b2e4778b122bf88e1c6"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "e269eb2a0397f066c45b3b2e4778b122bf88e1c6"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8239",
+      "source": "github_merged_pr",
+      "title": "feat(gauntlet): Open Decision Receipt content profile \u2014 spec, schema, exporter (#8224)",
+      "url": "https://github.com/synaptent/aragora/pull/8239",
+      "merged_at": "2026-06-11T23:42:51Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8239,
+          "head_sha": "c9d5d48701021e9f330cbe26f2c8573289cd34ba"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "c9d5d48701021e9f330cbe26f2c8573289cd34ba"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8247",
+      "source": "github_merged_pr",
+      "title": "docs(specs): ODR honesty deltas \u2014 source.artifact_hash subset-coverage note + verifier consistency cross-check",
+      "url": "https://github.com/synaptent/aragora/pull/8247",
+      "merged_at": "2026-06-12T04:48:50Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8247,
+          "head_sha": "9f6599b38a30f758dc06823ff1a51f5cd6832c13"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "9f6599b38a30f758dc06823ff1a51f5cd6832c13"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8250",
+      "source": "github_merged_pr",
+      "title": "feat(ops): trail_reconcile sentinel check + incident-replay acceptance (TET T3/T5)",
+      "url": "https://github.com/synaptent/aragora/pull/8250",
+      "merged_at": "2026-06-12T02:44:16Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8250,
+          "head_sha": "6555890619c536826c955ce3b9ab83ad3dd58f08"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "6555890619c536826c955ce3b9ab83ad3dd58f08"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8251",
+      "source": "github_merged_pr",
+      "title": "feat(trail): intent hash-chain + external anchor (TET T1/T2)",
+      "url": "https://github.com/synaptent/aragora/pull/8251",
+      "merged_at": "2026-06-12T02:28:55Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8251,
+          "head_sha": "b0845645fdbabe181d238f8d2d14fac322ec0932"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "b0845645fdbabe181d238f8d2d14fac322ec0932"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8252",
+      "source": "github_merged_pr",
+      "title": "feat(automation): routing-rationale records in evidence receipts + cost-per-settled-PR instrument (#8233 phase 1)",
+      "url": "https://github.com/synaptent/aragora/pull/8252",
+      "merged_at": "2026-06-12T02:29:32Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8252,
+          "head_sha": "411eb5dc0ba77a8f998cc1ad5f723e4635e6bf9d"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "411eb5dc0ba77a8f998cc1ad5f723e4635e6bf9d"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8267",
+      "source": "github_merged_pr",
+      "title": "feat(trail): Sigstore Rekor anchoring backend for intent-chain heads (#8231)",
+      "url": "https://github.com/synaptent/aragora/pull/8267",
+      "merged_at": "2026-06-12T03:47:58Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8267,
+          "head_sha": "4855f53f47df75409bfc22399275369f3172824d"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "4855f53f47df75409bfc22399275369f3172824d"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8268",
+      "source": "github_merged_pr",
+      "title": "docs(audits): codebase-health audit + shrink-only baseline + remediation program (epic #8257)",
+      "url": "https://github.com/synaptent/aragora/pull/8268",
+      "merged_at": "2026-06-12T13:13:03Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8268,
+          "head_sha": "08c943df3d7b7086a103514e0df9f8ecb0c743e2"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "08c943df3d7b7086a103514e0df9f8ecb0c743e2"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    },
+    {
+      "label": "PR #8272",
+      "source": "github_merged_pr",
+      "title": "fix(ci): unbreak Skip Marker Audit + Security Scan on all PRs (baseline 62\u219265, rekor nosec)",
+      "url": "https://github.com/synaptent/aragora/pull/8272",
+      "merged_at": "2026-06-12T06:16:49Z",
+      "attestation": {
+        "disposition": "autonomous",
+        "mechanism": "model_quorum_autonomous",
+        "subject": {
+          "repo": "synaptent/aragora",
+          "pr_number": 8272,
+          "head_sha": "256d8222cd096410f9006c447cd4b57c4ff3adf9"
+        },
+        "attestor_id": null,
+        "attestor_role": null,
+        "attested_at": null,
+        "observed": {
+          "non_intervention_reason": "settled via the model-quorum merge gate; no 'aragora/human-settlement' status and no exact-head Tier-4 preapproval comment present",
+          "head_sha": "256d8222cd096410f9006c447cd4b57c4ff3adf9"
+        },
+        "references": [],
+        "absences": []
+      },
+      "odr_attestation": {
+        "disposition": "autonomous",
+        "method": "model_quorum_autonomous"
+      }
+    }
+  ],
+  "trail": {
+    "path": "~/Development/aragora/.aragora/trail/intent-chain.jsonl",
+    "records": [],
+    "note": "intent chain not present at this path yet (TET T1 chain file absent); no trail anchors to reference"
+  },
+  "regulatory_crosswalk": {
+    "source": "docs/specs/OPEN_DECISION_RECEIPT.md section 7 (canonical; copied verbatim, maps evidence availability, not legal conformity \u2014 conformity assessment remains the deployer's process)",
+    "eu_ai_act_article": "Article 14 (Human oversight)",
+    "nist_profile": "NIST AI 600-1 (Generative AI Profile)",
+    "rows": [
+      {
+        "odr_field": "subject (binding + digest)",
+        "eu_ai_act_art14": "14(4)(a) \u2014 enables the overseer to \"duly monitor\" exactly which input the decision concerns",
+        "nist_ai_600_1": "GV-1.2 / MP-2: documented system context and provenance of inputs"
+      },
+      {
+        "odr_field": "claim.verdict",
+        "eu_ai_act_art14": "14(4)(c) \u2014 output the human must be able to correctly interpret",
+        "nist_ai_600_1": "MS-2.5: traceable system outputs"
+      },
+      {
+        "odr_field": "reasoning.summary",
+        "eu_ai_act_art14": "14(4)(c)/(d) \u2014 interpretation aids; basis for deciding \"not to use\" the output",
+        "nist_ai_600_1": "MS-2.8: documented rationale supporting explanation"
+      },
+      {
+        "odr_field": "quorum.participants + independence",
+        "eu_ai_act_art14": "14(4)(b) \u2014 awareness of automation bias is operationalized by disclosing model-family homogeneity",
+        "nist_ai_600_1": "GV-6.1 / MP-5.1: third-party/model diversity and provenance disclosure"
+      },
+      {
+        "odr_field": "quorum.dissent",
+        "eu_ai_act_art14": "14(4)(d) \u2014 preserved dissent gives the overseer concrete grounds to disregard the output",
+        "nist_ai_600_1": "MS-3.3: capture of disagreement/uncertainty in evaluation"
+      },
+      {
+        "odr_field": "confidence + calibration",
+        "eu_ai_act_art14": "14(4)(b)/(c) \u2014 calibrated (or honestly uncalibrated) confidence counters over-reliance",
+        "nist_ai_600_1": "MS-2.3 / MS-4: measured, documented confidence with provenance"
+      },
+      {
+        "odr_field": "cruxes",
+        "eu_ai_act_art14": "14(4)(d) \u2014 identifies the load-bearing points a human should probe before overriding or accepting",
+        "nist_ai_600_1": "MP-2.3: identification of decision-critical assumptions"
+      },
+      {
+        "odr_field": "attestation",
+        "eu_ai_act_art14": "14(4)(e) \u2014 records whether a human exercised the ability to intervene; `autonomous` makes non-intervention auditable",
+        "nist_ai_600_1": "GV-3.2: human oversight roles and responsibilities are recorded per decision"
+      },
+      {
+        "odr_field": "signatures / JCS digest (section 5-6)",
+        "eu_ai_act_art14": "14(1) \u2014 effective oversight presupposes the record itself is trustworthy",
+        "nist_ai_600_1": "MS-2.7: integrity/verifiability of AI system records"
+      },
+      {
+        "odr_field": "source",
+        "eu_ai_act_art14": "14(4)(a) \u2014 path back to full-fidelity native record for deeper monitoring",
+        "nist_ai_600_1": "GV-1.5: auditability via linked provenance"
+      }
+    ]
+  },
+  "notes": [],
+  "integrity_hash": "16c7cabc7a620d5e0d4d6870a0e82e0ed9358f8144e268ce7d01b8186904315b"
+}

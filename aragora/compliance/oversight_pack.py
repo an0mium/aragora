@@ -142,6 +142,18 @@ ART14_NIST_CROSSWALK: list[dict[str, str]] = [
 ]
 
 
+def _portable_path(path: Path) -> str:
+    """Render a path with the user's home directory abbreviated to ``~``.
+
+    Evidence packs are committed/shared artifacts; absolute home-rooted paths
+    are both non-portable and leak local layout.
+    """
+    try:
+        return "~/" + path.resolve().relative_to(Path.home()).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def _parse_iso(value: str) -> datetime | None:
     text = str(value or "").strip()
     if not text:
@@ -366,7 +378,9 @@ def collect_local_settlements(
         reviewed_at = _parse_iso(str(payload.get("reviewed_at") or ""))
         if reviewed_at is None or reviewed_at < window_start:
             continue
-        record = attestation_from_local_settlement_receipt(payload, receipt_path=str(path))
+        record = attestation_from_local_settlement_receipt(
+            payload, receipt_path=_portable_path(path)
+        )
         pr_number = payload.get("pr_number")
         decisions.append(
             {
@@ -493,7 +507,7 @@ def collect_trail_anchors(
     path = Path(chain_path)
     if not path.is_file():
         return {
-            "path": str(path),
+            "path": _portable_path(path),
             "records": [],
             "note": (
                 "intent chain not present at this path yet (TET T1 chain file "
@@ -509,7 +523,7 @@ def collect_trail_anchors(
     except (OSError, ValueError) as exc:
         logger.warning("Intent chain read failed for %s: %s", path, exc)
         return {
-            "path": str(path),
+            "path": _portable_path(path),
             "records": [],
             "note": "intent chain exists but could not be read/verified; see logs",
         }
@@ -528,7 +542,7 @@ def collect_trail_anchors(
             }
         )
     result: dict[str, Any] = {
-        "path": str(path),
+        "path": _portable_path(path),
         "records": windowed,
         "head_hash": head_hash,
         "verified": bool(verified),
