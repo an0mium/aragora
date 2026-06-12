@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import random
 import statistics
 import subprocess
@@ -199,6 +200,33 @@ def run_harness(
     return json.loads(summaries[0].read_text())
 
 
+def _finite_metric_value(stats: dict, metric: str, *, condition: str) -> float | None:
+    if metric not in stats or stats[metric] is None:
+        return None
+
+    value = stats[metric]
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"AFT seeded summary field {condition}.{metric} must be a finite number")
+
+    result = float(value)
+    if not math.isfinite(result):
+        raise ValueError(f"AFT seeded summary field {condition}.{metric} must be finite")
+    return result
+
+
+def _bonferroni_p_value(stats: dict, *, pair: str) -> float:
+    value = stats.get("p_value_bonferroni", 1.0)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"AFT seeded pair {pair} p_value_bonferroni must be a number")
+
+    result = float(value)
+    if not math.isfinite(result) or not 0.0 <= result <= 1.0:
+        raise ValueError(
+            f"AFT seeded pair {pair} p_value_bonferroni must be finite and between 0 and 1"
+        )
+    return result
+
+
 def aggregate(summaries: list[dict], extra: dict) -> dict:
     metrics = ("accuracy", "brier", "cost_usd_total", "latency_ms_mean")
     agg: dict = {
@@ -222,9 +250,9 @@ def aggregate(summaries: list[dict], extra: dict) -> dict:
             if not stats:
                 continue
             for m in metrics:
-                v = stats.get(m)
-                if isinstance(v, (int, float)):
-                    values[m].append(float(v))
+                value = _finite_metric_value(stats, m, condition=name)
+                if value is not None:
+                    values[m].append(value)
         for m, vs in values.items():
             if not vs:
                 per[m] = {"mean": None, "stddev": None, "n": 0}
@@ -242,10 +270,11 @@ def aggregate(summaries: list[dict], extra: dict) -> dict:
     pair_p_values: dict = {}
     for s in summaries:
         for pair, stats in s.get("pairwise_significance", {}).items():
+            p_value = _bonferroni_p_value(stats, pair=pair)
             pair_counts.setdefault(pair, {"significant_at_0.05": 0, "n": 0})
             pair_counts[pair]["n"] += 1
-            pair_p_values.setdefault(pair, []).append(stats.get("p_value_bonferroni", 1.0))
-            if stats.get("p_value_bonferroni", 1.0) < 0.05:
+            pair_p_values.setdefault(pair, []).append(p_value)
+            if p_value < 0.05:
                 pair_counts[pair]["significant_at_0.05"] += 1
     for pair, counts in pair_counts.items():
         ps = pair_p_values[pair]

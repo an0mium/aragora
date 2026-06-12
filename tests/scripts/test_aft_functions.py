@@ -413,6 +413,65 @@ class TestSeededTrainEvalMlxSplit:
         assert len((out_dir / "valid.jsonl").read_text(encoding="utf-8").splitlines()) == 2
 
 
+# ----- aft_seeded_train_eval::aggregate ------------------------------------
+
+
+class TestSeededTrainEvalAggregate:
+    def _summary(self, *, metric_value: object = 0.8, p_value: object = 0.04) -> dict:
+        return {
+            "conditions": {
+                "local_advocate": {
+                    "accuracy": metric_value,
+                    "brier": 0.2,
+                    "cost_usd_total": 0.0,
+                    "latency_ms_mean": 12.5,
+                }
+            },
+            "pairwise_significance": {
+                "local_vs_rules": {"p_value_bonferroni": p_value},
+            },
+        }
+
+    def test_seeded_aggregate_accepts_finite_metrics_and_p_values(self) -> None:
+        result = aft_seeded_train_eval.aggregate(
+            [self._summary(metric_value=0.8), self._summary(metric_value=0.6)],
+            {"model": "test-model"},
+        )
+
+        accuracy = result["conditions"]["local_advocate"]["accuracy"]
+        assert accuracy["mean"] == pytest.approx(0.7, abs=1e-9)
+        assert accuracy["values"] == [0.8, 0.6]
+        pair = result["pairwise_significance"]["local_vs_rules"]
+        assert pair["significant_at_0.05"] == 2
+        assert pair["p_bonferroni_mean"] == pytest.approx(0.04, abs=1e-9)
+
+    @pytest.mark.parametrize("metric_value", [float("nan"), float("inf"), -float("inf")])
+    def test_seeded_aggregate_rejects_non_finite_metric_values(self, metric_value: float) -> None:
+        with pytest.raises(ValueError, match="local_advocate.accuracy must be finite"):
+            aft_seeded_train_eval.aggregate([self._summary(metric_value=metric_value)], {})
+
+    @pytest.mark.parametrize("metric_value", [True, "0.8"])
+    def test_seeded_aggregate_rejects_non_numeric_metric_values(self, metric_value: object) -> None:
+        with pytest.raises(ValueError, match="local_advocate.accuracy must be a finite number"):
+            aft_seeded_train_eval.aggregate([self._summary(metric_value=metric_value)], {})
+
+    @pytest.mark.parametrize("p_value", [float("nan"), float("inf"), -0.1, 1.1])
+    def test_seeded_aggregate_rejects_invalid_pairwise_p_values(self, p_value: float) -> None:
+        with pytest.raises(
+            ValueError,
+            match="local_vs_rules p_value_bonferroni must be finite and between 0 and 1",
+        ):
+            aft_seeded_train_eval.aggregate([self._summary(p_value=p_value)], {})
+
+    @pytest.mark.parametrize("p_value", [False, "0.04"])
+    def test_seeded_aggregate_rejects_non_numeric_pairwise_p_values(self, p_value: object) -> None:
+        with pytest.raises(
+            ValueError,
+            match="local_vs_rules p_value_bonferroni must be a number",
+        ):
+            aft_seeded_train_eval.aggregate([self._summary(p_value=p_value)], {})
+
+
 # ----- aggregate (repeated-seed summary) -----------------------------------
 
 
