@@ -49,7 +49,7 @@
 - **Settlement:**
   - Tier 0-2 → [marked ready; protected squash (never --admin); settlement recorded]
   - Tier 3 → [PAUSED — awaiting `aragora/human-settlement`; packet prepared at <path>; PR kept draft]
-  - Tier 4 → [pre-approved before impl; PAUSED for human merge approval; `settle_tier4_pr.py --check` <result>]
+  - Tier 4 → [pre-approved before impl; PAUSED for human merge approval; `settle_tier4_pr.py --check` <result>; `settle_tier4_pr.py --settle-only` only after exact-head operator signal; `settle_tier4_pr.py --merge-apply` not run autonomously]
 - **Commit:** [SHA] (`Co-authored-by: codex[bot]`) — pushed: [yes]
 - **Decisions made:** [durable notes worth keeping]
 - **Docs touched:** [files / "none needed"]

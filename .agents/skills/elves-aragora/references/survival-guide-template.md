@@ -180,10 +180,12 @@ merge-quorum-workflow: aragora-merge-quorum.yml    # enforcing, required check o
 receipt-verify: aragora verify <receipt.json>      # --format json available
 receipt-dir: .aragora/receipts
 
-# --- Authorization surfaces (read-only; neither merges) ---
+# --- Authorization surfaces and Tier 4 commands ---
 merge-packet: aragora review-queue merge-packet --pr <pr> --json
 settle-dry-run: python3 scripts/settle_one_pr.py --pr <pr> --json   # expect blockers == ['PR is draft']
-settle-tier4: python3 scripts/settle_tier4_pr.py --check --pr <pr> --head <sha>   # Tier 4 only, after operator signal
+settle-tier4-check: python3 scripts/settle_tier4_pr.py --check --pr <pr> --head <sha>   # Tier 4 readiness only
+settle-tier4-record: python3 scripts/settle_tier4_pr.py --settle-only --pr <pr> --head <sha>   # after exact-head operator signal; never merges
+settle-tier4-apply: python3 scripts/settle_tier4_pr.py --merge-apply --pr <pr> --head <sha>   # approval-required final action; never autonomous
 record-settlement: aragora review-queue record-settlement   # or: aragora review-queue act <pr> --approve|--defer
 
 # --- Settlement / tiers ---
