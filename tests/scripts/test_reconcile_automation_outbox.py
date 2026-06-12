@@ -1012,6 +1012,34 @@ def test_apply_preserves_missing_branch_when_open_pr_state_unavailable(
     assert not list((tmp_path / ".aragora" / "automation-outbox-archive").glob("*.json"))
 
 
+def test_preserves_missing_branch_when_open_pr_lookup_returns_none(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-missing-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/missing", key=key)
+
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: None)
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git"], returncode=128, stdout="", stderr="missing ref"
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["blocked_missing_branch_open_pr_unknown"] == 1
+    assert payload["counts"]["missing_branch"] == 0
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "open PR state is unavailable" in payload["actions"][0]["reason"]
+
+
 def test_missing_branch_archives_when_open_pr_state_is_available(
     tmp_path: Path,
     monkeypatch: Any,
