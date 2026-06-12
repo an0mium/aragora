@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import pytest
+
 from scripts.benchmark_publication_run_followup import (
     _branch_heads_for_runs,
     classify_publication_runs,
+    main,
 )
 
 
@@ -137,6 +140,30 @@ def test_classify_publication_runs_can_explicitly_cancel_unknown_branch() -> Non
     assert actions[0]["action"] == "cancel"
     assert actions[0]["reason"] == "unknown-branch-head"
     assert actions[0]["run_id"] == 42
+
+
+def test_classify_publication_runs_rejects_non_positive_stale_window() -> None:
+    with pytest.raises(ValueError, match="stale_after_minutes must be >= 1"):
+        classify_publication_runs(
+            [],
+            branch_heads={},
+            now="2026-06-03T00:54:00Z",
+            stale_after_minutes=0,
+        )
+
+
+def test_main_rejects_non_positive_stale_window_before_token_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+
+    assert main(["--stale-after-minutes", "0"]) == 1
+
+    captured = capsys.readouterr()
+    assert "--stale-after-minutes must be >= 1" in captured.err
+    assert "GITHUB_TOKEN" not in captured.err
 
 
 def test_branch_heads_for_runs_url_encodes_branch_names() -> None:

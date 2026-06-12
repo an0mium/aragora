@@ -89,6 +89,9 @@ def classify_publication_runs(
     lookup. Apply mode should only cancel when live branch truth proves staleness
     unless the operator explicitly opts into unknown-branch cancellation.
     """
+    if stale_after_minutes < 1:
+        raise ValueError("stale_after_minutes must be >= 1")
+
     now_dt = _parse_timestamp(now) if now is not None else datetime.now(UTC)
     if now_dt is None:
         now_dt = datetime.now(UTC)
@@ -213,6 +216,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.max_runs < 1:
         print("--max-runs must be >= 1", file=sys.stderr)
+        return 1
+    if args.stale_after_minutes < 1:
+        print("--stale-after-minutes must be >= 1", file=sys.stderr)
         return 1
     token = os.environ.get("GITHUB_TOKEN", "").strip() or os.environ.get("GH_TOKEN", "").strip()
     if not token:
