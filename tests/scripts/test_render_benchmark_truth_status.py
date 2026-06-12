@@ -151,6 +151,10 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
     assert "B0 Benchmark Truth Status" in markdown
     assert f"`{latest_paths['truth_corpus_latest']}`" in markdown
     assert f"`{latest_paths['scorecard_corpus_latest']}`" in markdown
+    assert "- Corpus-scoped truth pointer:" in markdown
+    assert "- Corpus-scoped scorecard pointer:" in markdown
+    assert "- Latest truth artifact:" not in markdown
+    assert "- Latest scorecard:" not in markdown
     assert "Verified expected issues: `1`" in markdown
     assert "In-progress expected issues: `0`" in markdown
     assert "| Verified truth success rate (primary) | 100.0% |" in markdown
