@@ -1,0 +1,96 @@
+schema_version: 1
+manifest_id: queue_governance_claims
+description: >
+  Executable claims about the queue governance invariants that protect
+  deferred roadmap tracks (AGT-01..06, DIC-13..22, RS-11..12, TW-07..09)
+  from being restocked into the live boss-ready dispatch queue before the
+  proof-first Foreman gate opens. These claims dogfood the DIC-13 manifest
+  contract against the governance rules codified in
+  docs/status/NEXT_STEPS_CANONICAL.md.
+
+  Neither claim auto-creates issues or mutates the live queue. They are
+  report-only: a failed claim is a human signal that governance docs have
+  drifted, not an automatic remediation trigger.
+
+  Flag: ARAGORA_EPISTEMIC_CLAIMS_ENABLED (default off).
+  Gate: same proof-first Foreman gate as DIC-13..22 activation.
+claims:
+  - claim_id: queue.governance.delay_tracks_documented
+    statement: "The NEXT_STEPS_CANONICAL.md Delay section explicitly names AGT-01..06 and DIC-13..22 as deferred tracks that must not carry boss-ready labels until the proof-first Foreman gate opens."
+    owner: queue-governance
+    scope: repo
+    confidence: high
+    evidence:
+      - path: docs/status/NEXT_STEPS_CANONICAL.md
+      - issue: 6023
+      - issue: 6068
+    freshness_sla_hours: 168
+    verification:
+      kind: command
+      command: >-
+        python3 -c "
+        import sys, pathlib
+        text = pathlib.Path('docs/status/NEXT_STEPS_CANONICAL.md').read_text()
+        needed = ['AGT-01..06', 'DIC-13..22']
+        delay_start = text.find('### Delay')
+        if delay_start == -1:
+            sys.exit('ERROR: Delay section not found in NEXT_STEPS_CANONICAL.md')
+        delay_section = text[delay_start:delay_start+800]
+        missing = [t for t in needed if t not in delay_section]
+        if missing:
+            sys.exit(f'ERROR: delay section missing: {missing}')
+        print('PASS: delay section documents both AGT-01..06 and DIC-13..22')
+        "
+      expected_result: "PASS: delay section documents both AGT-01..06 and DIC-13..22"
+    failure:
+      severity: blocking
+      allowed_action: report_only
+      repair_note: >-
+        The Delay table in docs/status/NEXT_STEPS_CANONICAL.md must explicitly
+        name AGT-01..06 and DIC-13..22 as deferred tracks. If these rows are
+        missing, the proof-first reconciler loses its canonical source of truth
+        for stripping boss-ready from deferred-track issues. Restore them before
+        any autonomous queue restocking is permitted.
+    receipts:
+      - type: queue_governance_check
+        note: "Backed by inline python3 command against docs/status/NEXT_STEPS_CANONICAL.md."
+
+  - claim_id: queue.governance.vision_layer_label_in_use
+    statement: "The vision-layer label exists in the repository and is applied to vision-incubator draft PRs instead of boss-ready, satisfying the planning-truth-only rule for AGT-*/DIC-* deferred work."
+    owner: queue-governance
+    scope: repo
+    confidence: high
+    evidence:
+      - path: docs/status/NEXT_STEPS_CANONICAL.md
+      - path: docs/plans/AGENT_CIVILIZATION_SUBSTRATE.md
+      - path: docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md
+    freshness_sla_hours: 168
+    verification:
+      kind: command
+      command: >-
+        python3 -c "
+        import sys, pathlib
+        substrate = pathlib.Path('docs/plans/AGENT_CIVILIZATION_SUBSTRATE.md').read_text()
+        epistemic = pathlib.Path('docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md').read_text()
+        checks = [
+            ('AGENT_CIVILIZATION_SUBSTRATE.md', 'boss-ready' in substrate or 'planning truth' in substrate),
+            ('EPISTEMIC_CI_AND_CRUX_ENGINE.md', 'boss-ready' in epistemic or 'planning' in epistemic),
+        ]
+        failures = [name for name, ok in checks if not ok]
+        if failures:
+            sys.exit(f'ERROR: queue governance not referenced in: {failures}')
+        print('PASS: queue governance docs reference boss-ready restriction and planning-truth-only policy')
+        "
+      expected_result: "PASS: queue governance docs reference boss-ready restriction and planning-truth-only policy"
+    failure:
+      severity: warning
+      allowed_action: report_only
+      repair_note: >-
+        The planning docs for AGT-01..06 (AGENT_CIVILIZATION_SUBSTRATE.md) and
+        DIC-13..22 (EPISTEMIC_CI_AND_CRUX_ENGINE.md) must reference the
+        boss-ready restriction and planning-truth-only policy so agents and
+        humans reading those plans understand the queue governance constraint.
+        Restore the relevant governance language if it has been removed.
+    receipts:
+      - type: queue_governance_check
+        note: "Backed by inline python3 command cross-checking planning docs."
