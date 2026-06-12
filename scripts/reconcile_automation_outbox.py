@@ -47,6 +47,17 @@ DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 
+# Bounded terminal-archive policy for the existing_issue deadlock:
+# the publisher refuses to open a duplicate PR because a GitHub issue already
+# tracks the task (receipt reason "existing_issue"), while the reconciler
+# refuses to archive PR-intent handoffs satisfied only by an issue receipt.
+# Neither side ever clears the handoff. The escape valve below archives such
+# handoffs with an explicit terminal receipt, but only when ALL gates hold:
+# verified issue state, minimum item age, and a per-pass archive cap.
+DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
+DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
+TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
+
 
 def _load_json(path: Path) -> dict[str, Any] | None:
     try:
@@ -389,6 +400,213 @@ def _issue_only_pr_receipt_keep_reason(
     return None
 
 
+def _issue_url_from_receipt(receipt: Mapping[str, Any]) -> str:
+    for key in ("existing_issue_url", "created_issue_url", "issue_url"):
+        url = str(receipt.get(key) or "").strip()
+        if url:
+            return url
+    return ""
+
+
+def _issue_number_from_url(url: str) -> int | None:
+    text = str(url or "").strip().rstrip("/")
+    marker = "/issues/"
+    if marker not in text:
+        return None
+    candidate = text.rsplit(marker, 1)[1].split("/", 1)[0]
+    return int(candidate) if candidate.isdigit() else None
+
+
+def _parse_timestamp(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _outbox_item_age_days(path: Path, payload: Mapping[str, Any], now: datetime) -> float | None:
+    """Age of an outbox handoff, preferring payload timestamps over file mtime."""
+    for key in ("created_at", "updated_at"):
+        timestamp = _parse_timestamp(payload.get(key))
+        if timestamp is not None:
+            return (now - timestamp).total_seconds() / 86400.0
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return None
+    return (now - datetime.fromtimestamp(mtime, tz=UTC)).total_seconds() / 86400.0
+
+
+class _IssueStateChecker:
+    """Verify linked GitHub issue state via gh, with caching and a failure circuit.
+
+    After MAX_CONSECUTIVE_FAILURES consecutive gh errors the checker stops
+    issuing new calls and reports issues as unverifiable, so a GitHub outage
+    cannot turn one reconcile pass into hundreds of 20s timeouts.
+    """
+
+    MAX_CONSECUTIVE_FAILURES = 3
+
+    def __init__(self, root: Path, default_repo: str) -> None:
+        self._root = root
+        self._default_repo = default_repo
+        self._cache: dict[tuple[str, int], tuple[Mapping[str, Any] | None, str | None]] = {}
+        self._consecutive_failures = 0
+
+    def state(
+        self, issue_url: str, receipt: Mapping[str, Any]
+    ) -> tuple[Mapping[str, Any] | None, str | None]:
+        """Return (issue_state, error). issue_state is None when unverifiable."""
+        number = _issue_number_from_url(issue_url)
+        if number is None:
+            return None, f"could not parse issue number from {issue_url!r}"
+        repo = str(receipt.get("repo") or self._default_repo).strip() or self._default_repo
+        cache_key = (repo, number)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+        if self._consecutive_failures >= self.MAX_CONSECUTIVE_FAILURES:
+            return None, "issue state lookups disabled after repeated gh failures"
+        result = self._fetch(repo, number)
+        if result[0] is None:
+            self._consecutive_failures += 1
+        else:
+            self._consecutive_failures = 0
+        self._cache[cache_key] = result
+        return result
+
+    def _fetch(self, repo: str, number: int) -> tuple[Mapping[str, Any] | None, str | None]:
+        try:
+            proc = subprocess.run(
+                [
+                    "gh",
+                    "issue",
+                    "view",
+                    str(number),
+                    "--repo",
+                    repo,
+                    "--json",
+                    "number,state,stateReason,url",
+                ],
+                cwd=self._root,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=20,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return None, f"gh issue view failed ({exc.__class__.__name__})"
+        if proc.returncode != 0:
+            detail = (proc.stderr or "").strip().splitlines()
+            return None, f"gh issue view exited {proc.returncode}: {detail[0] if detail else ''}"
+        try:
+            payload = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            return None, "gh issue view returned unparseable JSON"
+        if not isinstance(payload, Mapping):
+            return None, "gh issue view returned non-mapping JSON"
+        return payload, None
+
+
+def _existing_issue_terminal_candidate(
+    *,
+    path: Path,
+    payload: Mapping[str, Any],
+    receipt: Mapping[str, Any],
+    min_age_days: float,
+    cap: int,
+    archived_so_far: int,
+    issue_checker: _IssueStateChecker,
+    now: datetime | None = None,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Evaluate the bounded existing_issue terminal-archive escape valve.
+
+    Returns (terminal_info, gate_detail):
+      (info, None)    -- ALL gates hold; archive with this terminal receipt.
+      (None, detail)  -- in scope but a gate blocked it; keep, annotated.
+      (None, None)    -- out of scope; the normal issue-only keep applies.
+    """
+    if not _is_pr_publication_request(payload):
+        return None, None
+    status = str(receipt.get("status") or "").strip().lower()
+    reason = str(receipt.get("reason") or "").strip().lower()
+    if status != "already_satisfied" or reason != "existing_issue":
+        return None, None
+    if _receipt_has_pr_reference(receipt):
+        return None, None
+    issue_url = _issue_url_from_receipt(receipt)
+    if not issue_url:
+        return None, None
+
+    now_value = now or datetime.now(UTC)
+    age_days = _outbox_item_age_days(path, payload, now_value)
+    if age_days is None:
+        return None, "terminal-archive gate: item age unknown"
+    if age_days < min_age_days:
+        return None, (f"terminal-archive gate: item age {age_days:.1f}d < min {min_age_days:.1f}d")
+    if archived_so_far >= cap:
+        return None, f"terminal-archive gate: per-pass archive cap {cap} reached"
+
+    issue_state, error = issue_checker.state(issue_url, receipt)
+    if issue_state is None:
+        return None, f"terminal-archive gate: issue state unverified ({error})"
+    state = str(issue_state.get("state") or "").strip().upper()
+    state_reason = str(issue_state.get("stateReason") or "").strip().upper()
+    if state != "OPEN" and not (state == "CLOSED" and state_reason == "COMPLETED"):
+        return None, (
+            f"terminal-archive gate: issue {issue_url} is "
+            f"{state or 'UNKNOWN'}/{state_reason or 'unknown'}, not open or closed-completed"
+        )
+
+    terminal_info: dict[str, Any] = {
+        "disposition": TERMINAL_DISPOSITION_EXISTING_ISSUE,
+        "issue_url": str(issue_state.get("url") or issue_url),
+        "issue_number": issue_state.get("number"),
+        "issue_state": state,
+        "issue_state_reason": state_reason or None,
+        "issue_state_checked_at": now_value.isoformat(),
+        "decision_evidence": {
+            "publisher_decision": "existing_issue",
+            "receipt_status": status,
+            "receipt_reason": reason,
+            "receipt_recorded_at": receipt.get("recorded_at"),
+            "receipt_idempotency_key": receipt.get("idempotency_key"),
+        },
+        "item_age_days": round(age_days, 2),
+        "min_age_days": min_age_days,
+        "per_pass_archive_cap": cap,
+        "archived_by": "scripts/reconcile_automation_outbox.py",
+    }
+    return terminal_info, None
+
+
+def _archive_with_terminal_disposition(
+    path: Path,
+    archive_dir: Path,
+    payload: Mapping[str, Any],
+    terminal_info: Mapping[str, Any],
+) -> Path:
+    """Archive an outbox handoff with an explicit terminal receipt embedded.
+
+    The archived copy is written first (with terminal_disposition populated)
+    and only then is the live outbox file removed, so a failure can never
+    delete a handoff without its terminal receipt landing in the archive.
+    """
+    archived = {key: value for key, value in payload.items() if key != "__source_file"}
+    archived["terminal_disposition"] = dict(terminal_info)
+    destination = archive_dir / path.name
+    destination.write_text(json.dumps(archived, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.unlink()
+    return destination
+
+
 def _heads_match(expected: str, actual: str) -> bool:
     expected_value = expected.strip().lower()
     actual_value = actual.strip().lower()
@@ -628,6 +846,25 @@ def main(argv: list[str] | None = None) -> int:
             "the selected outbox directory; repeat to target multiple handoffs."
         ),
     )
+    parser.add_argument(
+        "--existing-issue-min-age-days",
+        type=float,
+        default=DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS,
+        help=(
+            "Minimum handoff age (days) before an open-PR handoff whose publisher "
+            "decision was existing_issue may be archived with a terminal receipt "
+            f"(default: {DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS})."
+        ),
+    )
+    parser.add_argument(
+        "--existing-issue-archive-cap",
+        type=int,
+        default=DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP,
+        help=(
+            "Maximum existing_issue terminal archives per reconcile pass "
+            f"(default: {DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP})."
+        ),
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--apply",
@@ -775,6 +1012,7 @@ def main(argv: list[str] | None = None) -> int:
 
     counts = {
         "satisfied_by_existing_receipt": 0,
+        "archived_superseded_by_existing_issue": 0,
         "blocked_receipt_pr_head_mismatch": 0,
         "blocked_receipt_issue_only": 0,
         "satisfied_by_superseded_handoff": 0,
@@ -785,6 +1023,9 @@ def main(argv: list[str] | None = None) -> int:
         "blocked_missing_branch_open_pr_unknown": 0,
         "skipped_unparseable": 0,
     }
+
+    issue_checker = _IssueStateChecker(root, args.repo_name)
+    existing_issue_archived = 0
 
     actions: list[dict[str, Any]] = []
     for path in outbox_files:
@@ -804,6 +1045,41 @@ def main(argv: list[str] | None = None) -> int:
         if receipt is not None:
             issue_only_keep_reason = _issue_only_pr_receipt_keep_reason(payload, receipt)
             if issue_only_keep_reason is not None:
+                terminal_info, gate_detail = _existing_issue_terminal_candidate(
+                    path=path,
+                    payload=payload,
+                    receipt=receipt,
+                    min_age_days=args.existing_issue_min_age_days,
+                    cap=args.existing_issue_archive_cap,
+                    archived_so_far=existing_issue_archived,
+                    issue_checker=issue_checker,
+                )
+                if terminal_info is not None:
+                    existing_issue_archived += 1
+                    counts["archived_superseded_by_existing_issue"] += 1
+                    actions.append(
+                        {
+                            "path": str(path),
+                            "branch": branch,
+                            "decision": "archive",
+                            "reason": (
+                                "superseded by existing issue "
+                                f"{terminal_info['issue_url']} (terminal receipt)"
+                            ),
+                            "terminal_disposition": terminal_info,
+                            "synthetic_receipt": False,
+                        }
+                    )
+                    if args.apply:
+                        _archive_with_terminal_disposition(
+                            path, archive_dir, payload, terminal_info
+                        )
+                    continue
+                issue_only_kept_reason = (
+                    issue_only_keep_reason
+                    if gate_detail is None
+                    else f"{issue_only_keep_reason} ({gate_detail})"
+                )
                 counts["blocked_receipt_issue_only"] += 1
                 counts["still_protecting_active_work"] += 1
                 actions.append(
@@ -811,7 +1087,7 @@ def main(argv: list[str] | None = None) -> int:
                         "path": str(path),
                         "branch": branch,
                         "decision": "keep",
-                        "reason": issue_only_keep_reason,
+                        "reason": issue_only_kept_reason,
                         "synthetic_receipt": False,
                     }
                 )
@@ -1125,6 +1401,12 @@ def main(argv: list[str] | None = None) -> int:
             "base": args.base,
             "counts": counts,
             "dry_run": not args.apply,
+            "existing_issue_policy": {
+                "archive_cap": args.existing_issue_archive_cap,
+                "archived_this_pass": existing_issue_archived,
+                "min_age_days": args.existing_issue_min_age_days,
+                "terminal_disposition": TERMINAL_DISPOSITION_EXISTING_ISSUE,
+            },
             "kept": kept,
             "outbox_count": len(outbox_files),
             "outbox_dir": str(outbox_dir),
