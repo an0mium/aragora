@@ -22,12 +22,14 @@ from aragora.cli.commands.review_queue import (
     _GhError,
     _build_merge_authorization_packet,
     _fetch_required_pr_check_surface,
+    _required_pr_check_bucket,
+    _summarize_required_pr_checks,
+)
+from aragora.cli.commands.review_queue_transport import (
     _gh_error_kind,
     _gh_json,
     _gh_json_with_transport_retries,
     _is_github_transport_error,
-    _required_pr_check_bucket,
-    _summarize_required_pr_checks,
 )
 from aragora.worktree.fleet import resolve_repo_root
 

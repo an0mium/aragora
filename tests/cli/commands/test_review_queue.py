@@ -2453,7 +2453,7 @@ class TestGhTimeouts:
             captured["kwargs"] = kwargs
             raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
 
-        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+        monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
 
         with pytest.raises(_GhError, match=r"gh pr view 7811 timed out after \d+s"):
             _gh_json(["pr", "view", "7811"])
@@ -2464,7 +2464,7 @@ class TestGhTimeouts:
         def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise OSError("gh executable unavailable")
 
-        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+        monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
 
         with pytest.raises(_GhError) as exc_info:
             _gh_json(["pr", "view", "7811"])
@@ -2476,7 +2476,7 @@ class TestGhTimeouts:
         def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
             raise OSError("permission denied")
 
-        monkeypatch.setattr("aragora.cli.commands.review_queue.subprocess.run", fake_run)
+        monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
 
         with pytest.raises(_GhError) as exc_info:
             _gh_text(["repo", "view"])
