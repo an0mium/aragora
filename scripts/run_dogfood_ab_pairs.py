@@ -371,7 +371,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--timeout-seconds",
-        type=int,
+        type=_positive_int,
         default=960,
         help="Debate timeout per run (default: 960).",
     )
@@ -416,7 +416,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--codebase-context-timeout-seconds",
-        type=int,
+        type=_positive_int,
         default=120,
         help="Timeout for engineered codebase context generation.",
     )

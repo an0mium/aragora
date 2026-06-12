@@ -37,3 +37,30 @@ def test_main_rejects_negative_pairs_before_writing_output(tmp_path: Path) -> No
         run_dogfood_ab_pairs.main(["--pairs", "-2", "--output-root", str(output_root)])
 
     assert not output_root.exists()
+
+
+def test_main_rejects_zero_timeout_before_writing_output(tmp_path: Path) -> None:
+    output_root = tmp_path / "dogfood-ab-output"
+
+    with pytest.raises(SystemExit):
+        run_dogfood_ab_pairs.main(["--timeout-seconds", "0", "--output-root", str(output_root)])
+
+    assert not output_root.exists()
+
+
+def test_main_rejects_zero_codebase_timeout_before_writing_output(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "dogfood-ab-output"
+
+    with pytest.raises(SystemExit):
+        run_dogfood_ab_pairs.main(
+            [
+                "--codebase-context-timeout-seconds",
+                "0",
+                "--output-root",
+                str(output_root),
+            ]
+        )
+
+    assert not output_root.exists()
