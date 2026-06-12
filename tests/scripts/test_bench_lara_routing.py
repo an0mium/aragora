@@ -54,7 +54,7 @@ def test_run_benchmark_records_one_route_per_iteration(monkeypatch: pytest.Monke
 
     class _Router:
         def route(self, *_args, **_kwargs):
-            return SimpleNamespace(route="mock-route")
+            return SimpleNamespace(route="semantic")
 
     monkeypatch.setattr(module, "LaRARouter", _Router)
 
@@ -62,4 +62,22 @@ def test_run_benchmark_records_one_route_per_iteration(monkeypatch: pytest.Monke
 
     assert result.iterations == 3
     assert len(result.times_ms) == 3
-    assert result.route_counts == {"mock-route": 3}
+    assert result.route_counts == {"semantic": 3}
+
+
+@pytest.mark.parametrize("route", [None, "", "mock-route"])
+def test_run_benchmark_rejects_invalid_route_labels(
+    route: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+
+    class _Router:
+        def route(self, *_args, **_kwargs):
+            return SimpleNamespace(route=route)
+
+    monkeypatch.setattr(module, "LaRARouter", _Router)
+
+    expected = "unsupported" if route == "mock-route" else "non-empty string"
+    with pytest.raises(ValueError, match=expected):
+        module.run_benchmark(1, 0, 0)

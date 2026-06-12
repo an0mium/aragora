@@ -13,8 +13,12 @@ import random
 import statistics
 import time
 from dataclasses import dataclass, field
+from typing import get_args
 
-from aragora.knowledge.mound.api.router import DocumentFeatures, LaRARouter
+from aragora.knowledge.mound.api.router import DocumentFeatures, LaRARouter, RouteType
+
+
+ALLOWED_ROUTES = set(get_args(RouteType))
 
 
 @dataclass
@@ -65,6 +69,14 @@ def _validate_benchmark_inputs(iterations: int, min_nodes: int, max_nodes: int) 
         raise ValueError("min_nodes must be less than or equal to max_nodes")
 
 
+def _require_route_name(route: object) -> str:
+    if not isinstance(route, str) or not route:
+        raise ValueError("LaRA routing benchmark route must be a non-empty string")
+    if route not in ALLOWED_ROUTES:
+        raise ValueError(f"LaRA routing benchmark route is unsupported: {route}")
+    return route
+
+
 def run_benchmark(iterations: int, min_nodes: int, max_nodes: int) -> RoutingBenchmarkResult:
     _validate_benchmark_inputs(iterations, min_nodes, max_nodes)
 
@@ -83,8 +95,9 @@ def run_benchmark(iterations: int, min_nodes: int, max_nodes: int) -> RoutingBen
             supports_rlm=True,
         )
         elapsed = (time.perf_counter() - start) * 1000
+        route = _require_route_name(decision.route)
         result.times_ms.append(elapsed)
-        result.route_counts[decision.route] = result.route_counts.get(decision.route, 0) + 1
+        result.route_counts[route] = result.route_counts.get(route, 0) + 1
 
     return result
 
