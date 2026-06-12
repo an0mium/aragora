@@ -2110,7 +2110,8 @@ def _rest_pr_mergeable(rest_pr: dict[str, Any]) -> str:
 
 
 def _normalize_rest_issue_comment(comment: dict[str, Any]) -> dict[str, Any]:
-    user = comment.get("user") if isinstance(comment.get("user"), dict) else {}
+    user_payload = comment.get("user")
+    user: dict[str, Any] = user_payload if isinstance(user_payload, dict) else {}
     return {
         "author": {"login": str(user.get("login") or "").strip()},
         "body": str(comment.get("body") or ""),
@@ -2120,7 +2121,8 @@ def _normalize_rest_issue_comment(comment: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_rest_review(review: dict[str, Any]) -> dict[str, Any]:
-    user = review.get("user") if isinstance(review.get("user"), dict) else {}
+    user_payload = review.get("user")
+    user: dict[str, Any] = user_payload if isinstance(user_payload, dict) else {}
     commit_id = str(review.get("commit_id") or "").strip()
     return {
         "author": {"login": str(user.get("login") or "").strip()},
@@ -2132,8 +2134,12 @@ def _normalize_rest_review(review: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_rest_commit(commit: dict[str, Any]) -> dict[str, Any]:
-    commit_payload = commit.get("commit") if isinstance(commit.get("commit"), dict) else {}
-    author = commit_payload.get("author") if isinstance(commit_payload.get("author"), dict) else {}
+    raw_commit_payload = commit.get("commit")
+    commit_payload: dict[str, Any] = (
+        raw_commit_payload if isinstance(raw_commit_payload, dict) else {}
+    )
+    raw_author = commit_payload.get("author")
+    author: dict[str, Any] = raw_author if isinstance(raw_author, dict) else {}
     return {
         "oid": str(commit.get("sha") or "").strip(),
         "committedDate": str(author.get("date") or "").strip(),
@@ -2181,9 +2187,12 @@ def _hydrate_pr_with_rest_fallback(
     if not isinstance(rest_pr, dict):
         raise _GhError(f"REST fallback PR #{number} not found after GraphQL failure")
 
-    head = rest_pr.get("head") if isinstance(rest_pr.get("head"), dict) else {}
-    base = rest_pr.get("base") if isinstance(rest_pr.get("base"), dict) else {}
-    user = rest_pr.get("user") if isinstance(rest_pr.get("user"), dict) else {}
+    raw_head = rest_pr.get("head")
+    raw_base = rest_pr.get("base")
+    raw_user = rest_pr.get("user")
+    head: dict[str, Any] = raw_head if isinstance(raw_head, dict) else {}
+    base: dict[str, Any] = raw_base if isinstance(raw_base, dict) else {}
+    user: dict[str, Any] = raw_user if isinstance(raw_user, dict) else {}
     head_sha = str(head.get("sha") or "").strip()
     files = _rest_list(f"repos/{repo_slug}/pulls/{number}/files?per_page=100", required=True)
     comments = _rest_list(f"repos/{repo_slug}/issues/{number}/comments?per_page=100")
