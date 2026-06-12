@@ -23,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import hashlib
+import math
 import sys
 import time
 import uuid
@@ -560,12 +561,56 @@ def run_benchmark() -> BenchmarkResults:
 
 
 _REPORT_DECISION_CATEGORIES = {"strong", "weak"}
+_REPORT_VERDICTS = {"pass", "conditional", "fail"}
+
+
+def _validate_non_negative_int(value: int, *, label: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise ValueError(f"gauntlet benchmark report field {label} must be a non-negative integer")
+
+
+def _validate_unit_interval(value: float, *, label: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"gauntlet benchmark report field {label} must be a finite rate")
+    numeric = float(value)
+    if not math.isfinite(numeric):
+        raise ValueError(f"gauntlet benchmark report field {label} must be finite")
+    if not 0.0 <= numeric <= 1.0:
+        raise ValueError(f"gauntlet benchmark report field {label} must be between 0.0 and 1.0")
+
+
+def _validate_decision_report_metrics(decision: DecisionResult, *, index: int) -> None:
+    label = f"decisions[{index}]"
+    if decision.expected_verdict not in _REPORT_VERDICTS:
+        raise ValueError(f"gauntlet benchmark report field {label}.expected_verdict is unsupported")
+    if decision.actual_verdict not in _REPORT_VERDICTS:
+        raise ValueError(f"gauntlet benchmark report field {label}.actual_verdict is unsupported")
+    for field_name in (
+        "findings_count",
+        "critical_count",
+        "high_count",
+        "medium_count",
+        "low_count",
+    ):
+        _validate_non_negative_int(getattr(decision, field_name), label=f"{label}.{field_name}")
+    severity_total = (
+        decision.critical_count + decision.high_count + decision.medium_count + decision.low_count
+    )
+    if severity_total != decision.findings_count:
+        raise ValueError(
+            f"gauntlet benchmark report field {label}.findings_count must match severity totals"
+        )
+    _validate_unit_interval(decision.robustness_score, label=f"{label}.robustness_score")
+    _validate_unit_interval(decision.confidence, label=f"{label}.confidence")
 
 
 def _validate_report_corpus(results: BenchmarkResults) -> None:
     """Fail closed before computing report percentages from an invalid corpus."""
     if not results.decisions:
         raise ValueError("gauntlet benchmark report requires at least one decision")
+
+    for index, decision in enumerate(results.decisions):
+        _validate_decision_report_metrics(decision, index=index)
 
     categories = {decision.category for decision in results.decisions}
     unsupported = categories - _REPORT_DECISION_CATEGORIES

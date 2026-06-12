@@ -23,22 +23,24 @@ def _load_module():
     return module
 
 
-def _decision(module, *, name: str, category: str, actual_verdict: str):
-    return module.DecisionResult(
-        name=name,
-        category=category,
-        expected_verdict=actual_verdict,
-        actual_verdict=actual_verdict,
-        verdict_correct=True,
-        findings_count=0,
-        critical_count=0,
-        high_count=0,
-        medium_count=0,
-        low_count=0,
-        robustness_score=1.0,
-        confidence=0.95,
-        verdict_reasoning="fixture verdict",
-    )
+def _decision(module, *, name: str, category: str, actual_verdict: str, **overrides):
+    payload = {
+        "name": name,
+        "category": category,
+        "expected_verdict": actual_verdict,
+        "actual_verdict": actual_verdict,
+        "verdict_correct": True,
+        "findings_count": 0,
+        "critical_count": 0,
+        "high_count": 0,
+        "medium_count": 0,
+        "low_count": 0,
+        "robustness_score": 1.0,
+        "confidence": 0.95,
+        "verdict_reasoning": "fixture verdict",
+    }
+    payload.update(overrides)
+    return module.DecisionResult(**payload)
 
 
 def test_generate_report_rejects_empty_decision_corpus() -> None:
@@ -91,6 +93,43 @@ def test_generate_report_rejects_unsupported_decision_categories() -> None:
     )
 
     with pytest.raises(ValueError, match="unsupported: neutral"):
+        module.generate_report(results)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "match"),
+    [
+        ({"findings_count": -1}, r"decisions\[0\]\.findings_count"),
+        (
+            {"findings_count": 2, "critical_count": 1},
+            r"decisions\[0\]\.findings_count must match severity totals",
+        ),
+        ({"robustness_score": 1.2}, r"decisions\[0\]\.robustness_score"),
+        ({"confidence": float("nan")}, r"decisions\[0\]\.confidence"),
+        ({"expected_verdict": "maybe"}, r"decisions\[0\]\.expected_verdict is unsupported"),
+    ],
+)
+def test_generate_report_rejects_invalid_decision_metrics(overrides, match: str) -> None:
+    module = _load_module()
+    results = module.BenchmarkResults(
+        decisions=[
+            _decision(
+                module,
+                name="Strong",
+                category="strong",
+                actual_verdict="pass",
+                **overrides,
+            ),
+            _decision(
+                module,
+                name="Weak",
+                category="weak",
+                actual_verdict="fail",
+            ),
+        ]
+    )
+
+    with pytest.raises(ValueError, match=match):
         module.generate_report(results)
 
 
