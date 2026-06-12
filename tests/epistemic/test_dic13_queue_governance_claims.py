@@ -251,9 +251,7 @@ def test_vision_label_claim_dryrun_unsupported(verifier: ClaimVerifier) -> None:
 def test_all_claims_dryrun_not_error(verifier: ClaimVerifier) -> None:
     results = [verifier.verify_claim(c) for c in _MANIFEST_DICT["claims"]]
     for r in results:
-        assert r.status != ClaimStatus.ERROR, (
-            f"unexpected ERROR for {r.claim_id}: {r.message}"
-        )
+        assert r.status != ClaimStatus.ERROR, f"unexpected ERROR for {r.claim_id}: {r.message}"
 
 
 def test_all_claims_dryrun_count(verifier: ClaimVerifier) -> None:
@@ -282,6 +280,7 @@ def test_boss_ready_never_in_dryrun_messages(verifier: ClaimVerifier) -> None:
 
 def test_claim_ids_match_expected_pattern() -> None:
     import re
+
     pattern = re.compile(r"^[a-z][a-z0-9._-]*$")
     for claim in _MANIFEST_DICT["claims"]:
         assert pattern.match(claim["claim_id"]), (
@@ -290,7 +289,15 @@ def test_claim_ids_match_expected_pattern() -> None:
 
 
 def test_claim_statements_reference_governance_terms() -> None:
-    governance_terms = {"boss-ready", "deferred", "queue", "foreman", "delay", "label", "vision-layer"}
+    governance_terms = {
+        "boss-ready",
+        "deferred",
+        "queue",
+        "foreman",
+        "delay",
+        "label",
+        "vision-layer",
+    }
     for claim in _MANIFEST_DICT["claims"]:
         stmt_lower = claim["statement"].lower()
         found = any(t in stmt_lower for t in governance_terms)
