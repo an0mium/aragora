@@ -307,6 +307,16 @@ class ReceiptsAPI:
             f"/api/v2/receipts/{receipt_id}/verify-signature",
         )
 
+    def get_signing_key(self) -> dict[str, Any]:
+        """
+        Get the ODR Ed25519 public signing key for offline verification.
+
+        Returns:
+            Key info: alg, key_id, base64 raw public key, and the digest
+            construction the signatures cover.
+        """
+        return self._client.request("GET", "/api/v2/receipts/signing-key")
+
     # =========================================================================
     # Gauntlet Receipts (v1 API)
     # =========================================================================
@@ -774,6 +784,10 @@ class AsyncReceiptsAPI:
             "POST",
             f"/api/v2/receipts/{receipt_id}/verify-signature",
         )
+
+    async def get_signing_key(self) -> dict[str, Any]:
+        """Get the ODR Ed25519 public signing key for offline verification."""
+        return await self._client.request("GET", "/api/v2/receipts/signing-key")
 
     # =========================================================================
     # Gauntlet Receipts (v1 API)

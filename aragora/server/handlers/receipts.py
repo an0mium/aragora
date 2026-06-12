@@ -369,8 +369,10 @@ class ReceiptsHandler(BaseHandler):
         "/api/v2/receipts/*",
         "/api/v2/receipts/search",
         "/api/v2/receipts/stats",
+        "/api/v2/receipts/signing-key",
         "/api/v1/receipts/deliveries",
         "/api/v1/receipts/*/deliver",
+        "/.well-known/aragora-odr-signing-key",
     ]
 
     def __init__(self, server_context: dict[str, Any]):
@@ -407,6 +409,8 @@ class ReceiptsHandler(BaseHandler):
         """Check if this handler can process the request."""
         if path.startswith("/api/v2/receipts"):
             return method in ("GET", "POST")
+        if path == "/.well-known/aragora-odr-signing-key":
+            return method == "GET"
         if path == "/api/v1/receipts/deliveries":
             return method == "GET"
         # v1 delivery bridge for frontend DeliveryModal
@@ -482,6 +486,13 @@ class ReceiptsHandler(BaseHandler):
             # Stats endpoint
             if path == "/api/v2/receipts/stats" and method == "GET":
                 return await self._get_stats()
+
+            # ODR Ed25519 public signing key (offline verification, #8225)
+            if (
+                path in ("/api/v2/receipts/signing-key", "/.well-known/aragora-odr-signing-key")
+                and method == "GET"
+            ):
+                return self._get_signing_key()
 
             # Retention status endpoint (GDPR compliance)
             if path == "/api/v2/receipts/retention-status" and method == "GET":
@@ -1125,6 +1136,36 @@ class ReceiptsHandler(BaseHandler):
         },
     )
     @require_permission("receipts:read")
+    def _get_signing_key(self) -> HandlerResult:
+        """Publish the ODR Ed25519 public signing key (#8225).
+
+        Public keys are not secret: this endpoint lets any third party fetch
+        the key needed to verify ODR receipt signatures offline. Returns 404
+        until the operator provisions ARAGORA_ODR_SIGNING_KEY.
+        """
+        try:
+            from aragora.gauntlet.odr_export import ODR_PROFILE_URI
+            from aragora.gauntlet.odr_signing import load_odr_signer, public_key_b64
+
+            signer = load_odr_signer()
+        except (ImportError, ValueError) as exc:
+            logger.warning("ODR signing key unavailable: %s", exc)
+            return error_response("ODR signing key unavailable", 503)
+
+        if signer is None:
+            return error_response("ODR signing key not configured", 404)
+
+        return json_response(
+            {
+                "alg": "Ed25519",
+                "key_id": signer.key_id,
+                "public_key": public_key_b64(signer),
+                "encoding": "base64-raw-32-bytes",
+                "profile": ODR_PROFILE_URI,
+                "covers": "sha256(jcs(odr-without-signatures))",
+            }
+        )
+
     async def _get_stats(self) -> HandlerResult:
         """Get receipt statistics."""
         store = self._get_store()
@@ -1634,6 +1675,8 @@ class ReceiptsHandler(BaseHandler):
             return error_response("Share link has expired", 410)
         if share_status == "limit_reached":
             return error_response("Share link access limit reached", 410)
+        if share_info is None:
+            return error_response("Share link not found", 404)
 
         # Get receipt
         store = self._get_store()

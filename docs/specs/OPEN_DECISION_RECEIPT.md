@@ -216,8 +216,23 @@ ODR intentionally defines **no envelope**. Deployment guidance:
 - **COSE / detached signature:** sign `odr_digest` (§5) as a COSE_Sign1
   detached payload, or place Ed25519 signatures in the reserved
   `signatures[]` array (schema shape: `alg`, `key_id`, `signature`,
-  `signed_at`). Implementation is issue **#8225** and is out of scope for
-  v0.1 — emitters MUST emit `signatures: []`.
+  `signed_at`). In-array signatures use the construction implemented by
+  `aragora.gauntlet.odr_signing` (#8225):
+
+  ```
+  message    = odr_digest as raw bytes            (§5; 32 bytes)
+  signature  = base64( Ed25519-sign(seed, message) )
+  key_id     = "ed25519-" + first 16 hex chars of SHA-256(raw public key)
+  ```
+
+  Verification needs only the receipt JSON and the 32-byte public key
+  (`base64`): recompute `odr_digest`, match `key_id`, Ed25519-verify.
+  Emitters without a configured key MUST emit `signatures: []` rather than
+  an unverifiable placeholder. Key publication and rotation: a deployment
+  publishes its public keys out-of-band (for Aragora:
+  `docs/keys/README.md`, `GET /api/v2/receipts/signing-key`, and
+  `GET /.well-known/aragora-odr-signing-key`); rotation is append-only —
+  old public keys remain published so old receipts verify forever.
 - **in-toto:** the ODR document can serve as the predicate of an attestation
   whose subject duplicates `subject.digest`.
 

@@ -564,6 +564,51 @@ class TestGetStats:
 
 
 # ===========================================================================
+# Test ODR Signing Key Endpoint
+# ===========================================================================
+
+
+class TestGetSigningKey:
+    """Tests for the ODR public signing-key endpoint (#8225)."""
+
+    def test_returns_404_when_unconfigured(self, handler):
+        with patch(
+            "aragora.gauntlet.odr_signing.load_odr_signer",
+            return_value=None,
+        ):
+            result = handler._get_signing_key()
+        assert result.status_code == 404
+
+    def test_returns_public_key_when_configured(self, handler):
+        pytest.importorskip("cryptography")
+        from aragora.gauntlet.odr_signing import generate_odr_keypair, public_key_b64
+
+        signer = generate_odr_keypair()
+        with patch(
+            "aragora.gauntlet.odr_signing.load_odr_signer",
+            return_value=signer,
+        ):
+            result = handler._get_signing_key()
+        assert result.status_code == 200
+        data = _parse_body(result)
+        assert data["alg"] == "Ed25519"
+        assert data["key_id"] == signer.key_id
+        assert data["public_key"] == public_key_b64(signer)
+
+    def test_returns_503_on_bad_key_material(self, handler):
+        with patch(
+            "aragora.gauntlet.odr_signing.load_odr_signer",
+            side_effect=ValueError("bad key"),
+        ):
+            result = handler._get_signing_key()
+        assert result.status_code == 503
+
+    def test_can_handle_well_known_path(self, handler):
+        assert handler.can_handle("/.well-known/aragora-odr-signing-key", "GET")
+        assert not handler.can_handle("/.well-known/aragora-odr-signing-key", "POST")
+
+
+# ===========================================================================
 # Test Async Safety
 # ===========================================================================
 

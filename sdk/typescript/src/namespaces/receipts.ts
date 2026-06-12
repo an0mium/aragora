@@ -270,6 +270,15 @@ export class ReceiptsAPI {
     return this.client.request('POST', `/api/v2/receipts/${encodeURIComponent(receiptId)}/verify-signature`);
   }
 
+  /**
+   * Get the ODR Ed25519 public signing key for offline verification.
+   *
+   * @returns Key info: alg, key_id, base64 raw public key
+   */
+  async getSigningKey(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v2/receipts/signing-key');
+  }
+
   // ===========================================================================
   // v1 Gauntlet Receipt Methods
   // ===========================================================================

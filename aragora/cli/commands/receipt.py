@@ -162,6 +162,12 @@ Examples:
     export_parser.add_argument(
         "--output", "-o", help="Output file path (default: prints to stdout for text formats)"
     )
+    export_parser.add_argument(
+        "--sign",
+        action="store_true",
+        help="ODR format only: attach a detached Ed25519 signature using the "
+        "key configured in ARAGORA_ODR_SIGNING_KEY (via the secrets layer)",
+    )
     export_parser.set_defaults(func=cmd_receipt_export)
 
     # Default when just 'aragora receipt' is called
@@ -719,13 +725,29 @@ def _resolve_receipt_data(receipt_ref: str) -> dict[str, Any] | None:
     return data
 
 
-def _export_odr(data: dict[str, Any]) -> str:
-    """Render a receipt dict as a JCS-canonical Open Decision Receipt document."""
+def _export_odr(data: dict[str, Any], sign: bool = False) -> str:
+    """Render a receipt dict as a JCS-canonical Open Decision Receipt document.
+
+    With ``sign=True``, attaches a detached Ed25519 signature using the key
+    configured in ARAGORA_ODR_SIGNING_KEY (#8225). Fails loudly when signing
+    is requested but no key is configured — a silently unsigned receipt is
+    worse than an error.
+    """
     from aragora.gauntlet.odr_export import decision_receipt_to_odr, jcs_canonicalize
     from aragora.gauntlet.receipt_models import DecisionReceipt
 
     receipt = DecisionReceipt.from_dict(data)
     odr = decision_receipt_to_odr(receipt)
+    if sign:
+        from aragora.gauntlet.odr_signing import ODR_SIGNING_KEY_SECRET, load_odr_signer, sign_odr
+
+        signer = load_odr_signer()
+        if signer is None:
+            raise ValueError(
+                f"--sign requested but {ODR_SIGNING_KEY_SECRET} is not configured "
+                "in the secrets layer"
+            )
+        odr = sign_odr(odr, signer=signer)
     return jcs_canonicalize(odr).decode("utf-8")
 
 
@@ -751,10 +773,10 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
         content = json.dumps(data, indent=2, default=str)
     elif output_format == "odr":
         try:
-            content = _export_odr(data)
+            content = _export_odr(data, sign=getattr(args, "sign", False))
         except (ImportError, KeyError, TypeError, ValueError) as e:
             logger.warning("ODR export failed: %s", e)
-            print("Error: Could not export receipt as ODR profile", file=sys.stderr)
+            print(f"Error: Could not export receipt as ODR profile: {e}", file=sys.stderr)
             sys.exit(1)
     else:
         # Try the full DecisionReceipt for richer output
