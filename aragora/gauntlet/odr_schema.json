@@ -1,0 +1,294 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aragora.ai/schemas/odr/0.1/odr_schema.json",
+  "title": "Open Decision Receipt (ODR) v0.1",
+  "description": "Vendor-neutral decision-semantics receipt content profile. Canonicalization is RFC 8785 (JCS); the artifact digest is SHA-256 over the canonical bytes and is conveyed in external envelopes, never embedded. See docs/specs/OPEN_DECISION_RECEIPT.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "odr_version",
+    "receipt_id",
+    "issued_at",
+    "generator",
+    "subject",
+    "claim",
+    "quorum",
+    "confidence",
+    "adversarial_assessment",
+    "cruxes",
+    "calibration",
+    "human_attestation",
+    "routing",
+    "provenance"
+  ],
+  "properties": {
+    "odr_version": {
+      "const": "0.1",
+      "description": "Profile version this document conforms to."
+    },
+    "receipt_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier of this receipt in the producing system."
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "description": "Issuance time, ISO-8601 UTC with mandatory Z suffix."
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1}
+      },
+      "description": "Producing software, for provenance and bug forensics."
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "identifier"],
+      "properties": {
+        "type": {
+          "enum": ["git_commit", "pull_request", "document", "action", "decision", "other"]
+        },
+        "identifier": {"type": "string", "minLength": 1},
+        "digest": {"$ref": "#/$defs/digest"},
+        "binding": {
+          "type": "string",
+          "description": "Prose statement of how the digest/identifier binds the subject."
+        }
+      },
+      "description": "What was decided about."
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "verdict", "reasoning_summary"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1},
+        "verdict": {"enum": ["PASS", "CONDITIONAL", "FAIL"]},
+        "reasoning_summary": {
+          "type": "string",
+          "description": "Verdict rationale. Empty string means the source recorded none; values are never fabricated."
+        }
+      },
+      "description": "What was decided."
+    },
+    "quorum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "reached", "participants", "supporting", "dissenting", "independence"],
+      "properties": {
+        "method": {"type": "string", "minLength": 1},
+        "reached": {"type": "boolean"},
+        "participants": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/participant"}
+        },
+        "supporting": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "dissenting": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "dissent_summaries": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Preserved dissent content. Unattributed by the source model; v0.1 never pairs summaries to agents."
+        },
+        "independence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["distinct_model_families"],
+          "properties": {
+            "distinct_model_families": {"type": "integer", "minimum": 1}
+          }
+        },
+        "taint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tainted_proposals", "trust_score"],
+          "properties": {
+            "tainted_proposals": {"type": "array", "items": {"type": "string"}},
+            "trust_score": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      },
+      "description": "Who deliberated and how independent they were."
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "description": "Stated confidence in the verdict; calibration evidence lives in the calibration block."
+    },
+    "adversarial_assessment": {
+      "oneOf": [
+        {"$ref": "#/$defs/absentBlock"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "attacks_attempted",
+            "attacks_successful",
+            "probes_run",
+            "vulnerabilities_found",
+            "robustness_score",
+            "risk_summary"
+          ],
+          "properties": {
+            "status": {"const": "present"},
+            "attacks_attempted": {"type": "integer", "minimum": 0},
+            "attacks_successful": {"type": "integer", "minimum": 0},
+            "probes_run": {"type": "integer", "minimum": 0},
+            "vulnerabilities_found": {"type": "integer", "minimum": 0},
+            "robustness_score": {"type": "number", "minimum": 0, "maximum": 1},
+            "risk_summary": {
+              "type": "object",
+              "additionalProperties": {"type": "integer", "minimum": 0}
+            }
+          }
+        }
+      ],
+      "description": "How hard the decision was stress-tested."
+    },
+    "cruxes": {
+      "$ref": "#/$defs/enrichmentBlock",
+      "description": "Load-bearing disagreements. Inline present payload arrives with ODR-4 (v0.2)."
+    },
+    "calibration": {
+      "$ref": "#/$defs/enrichmentBlock",
+      "description": "Historical reliability of confidence.value. Inline present payload arrives with ODR-5 (v0.2)."
+    },
+    "human_attestation": {
+      "$ref": "#/$defs/enrichmentBlock",
+      "description": "Proof an accountable human governed the outcome. Inline present payload arrives with ODR-6 (v0.2)."
+    },
+    "routing": {
+      "$ref": "#/$defs/enrichmentBlock",
+      "description": "Why these models were trusted with this decision, at what cost. Inline present payload arrives with the routing child (v0.2)."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["system", "receipt_id", "artifact_hash", "schema_version"],
+          "properties": {
+            "system": {"type": "string", "minLength": 1},
+            "receipt_id": {"type": "string", "minLength": 1},
+            "artifact_hash": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Link to the source receipt. NOTE: the source system's artifact_hash covers only a subset of source fields; this is a link, not a full-receipt integrity proof. The ODR digest (SHA-256 over JCS bytes) covers the entire ODR payload."
+            },
+            "schema_version": {"type": "string", "minLength": 1},
+            "gauntlet_id": {"type": "string"},
+            "raw_verdict": {
+              "type": "string",
+              "description": "Original producer verdict when it differs from the mapped PASS/CONDITIONAL/FAIL."
+            }
+          }
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["timestamp", "event_type"],
+            "properties": {
+              "timestamp": {"type": "string", "minLength": 1},
+              "event_type": {"type": "string", "minLength": 1},
+              "agent": {"type": ["string", "null"]},
+              "description": {"type": "string"},
+              "evidence_hash": {"type": "string"}
+            }
+          }
+        },
+        "costs": {
+          "type": "object",
+          "description": "Free-form cost summary (informational)."
+        }
+      },
+      "description": "Link back to the source system and its event chain."
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alg", "value"],
+      "properties": {
+        "alg": {
+          "enum": ["sha256", "sha1", "sha256-trunc16"],
+          "description": "sha256-trunc16 is link-strength only, never integrity proof."
+        },
+        "value": {"type": "string", "pattern": "^[0-9a-f]{16,128}$"}
+      }
+    },
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "model_family"],
+      "properties": {
+        "agent": {"type": "string", "minLength": 1},
+        "model_family": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Independent provider lineage. \"unknown\" allowed; all unknown participants count as a single family for independence."
+        },
+        "role": {"type": "string"},
+        "provider": {"type": "string"},
+        "model": {"type": "string"}
+      }
+    },
+    "absentBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"const": "absent"}
+      }
+    },
+    "referencedBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "ref"],
+      "properties": {
+        "status": {"const": "referenced"},
+        "ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_type", "artifact_id"],
+          "properties": {
+            "artifact_type": {"type": "string", "minLength": 1},
+            "artifact_id": {"type": "string", "minLength": 1},
+            "digest": {"$ref": "#/$defs/digest"}
+          }
+        }
+      }
+    },
+    "enrichmentBlock": {
+      "oneOf": [
+        {"$ref": "#/$defs/absentBlock"},
+        {"$ref": "#/$defs/referencedBlock"}
+      ]
+    }
+  }
+}
