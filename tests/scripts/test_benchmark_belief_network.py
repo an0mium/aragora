@@ -38,9 +38,8 @@ def test_generate_report_rejects_crux_count_without_details() -> None:
         module.generate_report(results)
 
 
-def test_generate_report_accepts_minimal_valid_results() -> None:
-    module = _load_module()
-    results = module.BenchmarkResults(
+def _minimal_valid_results(module):
+    return module.BenchmarkResults(
         total_claims=2,
         total_relations=1,
         graph_density=0.5,
@@ -62,6 +61,38 @@ def test_generate_report_accepts_minimal_valid_results() -> None:
         consensus_probability=0.7,
         contested_claims=1,
     )
+
+
+def test_generate_report_rejects_impossible_probability_fields() -> None:
+    module = _load_module()
+    results = _minimal_valid_results(module)
+    results.consensus_probability = 1.5
+
+    with pytest.raises(ValueError, match="consensus_probability must be between 0 and 1"):
+        module.generate_report(results)
+
+
+def test_generate_report_rejects_non_finite_rate_fields() -> None:
+    module = _load_module()
+    results = _minimal_valid_results(module)
+    results.graph_density = float("nan")
+
+    with pytest.raises(ValueError, match="graph_density must be a finite non-negative value"):
+        module.generate_report(results)
+
+
+def test_generate_report_rejects_contested_count_above_total_claims() -> None:
+    module = _load_module()
+    results = _minimal_valid_results(module)
+    results.contested_claims = 3
+
+    with pytest.raises(ValueError, match="contested_claims cannot exceed total_claims"):
+        module.generate_report(results)
+
+
+def test_generate_report_accepts_minimal_valid_results() -> None:
+    module = _load_module()
+    results = _minimal_valid_results(module)
 
     report = module.generate_report(results)
 
