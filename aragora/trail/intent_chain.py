@@ -203,6 +203,13 @@ def append_intent(
     with a single ``write`` on an ``O_APPEND`` descriptor and fsync'd; prior
     lines are never modified.
 
+    No stale-lock recovery is needed: ``flock`` is a kernel advisory lock
+    released automatically when the holder's descriptor closes (including
+    process crash), unlike ``O_EXCL`` lockfile schemes. A waiting appender
+    blocks until the lock is free rather than timing out — appends are
+    sub-millisecond, and a daemon that must not block can wrap the call
+    (``record_intent`` already isolates callers from failures).
+
     Returns:
         The appended record, including ``record_hash``.
     """

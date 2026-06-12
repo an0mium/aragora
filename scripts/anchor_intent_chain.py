@@ -192,7 +192,6 @@ def run_anchor(
     if head_hash is None:  # unreachable after verify, kept fail-closed
         return EXIT_FAILURE
 
-    anchors_used = 0
     try:
         sha = resolve_main_head(repo, run_gh)
     except RuntimeError as exc:
@@ -210,24 +209,31 @@ def run_anchor(
     }
     log(json.dumps(plan))
 
+    # Mutation budget: a single sequential pass, decremented before each
+    # external write. This is a per-invocation cap (the singleton-cadence
+    # caller owns cross-invocation bounding); there is no shared state to
+    # race — one process, one pass, no loops.
+    anchors_remaining = max_anchors
+
     if apply:
-        if anchors_used >= max_anchors:
+        if anchors_remaining <= 0:
             log(json.dumps({"result": "fail-closed", "reason": "max-anchors exhausted"}))
             return EXIT_FAILURE
+        anchors_remaining -= 1
         rc, out = run_gh(status_args)
-        anchors_used += 1
         if rc != 0:
             log(json.dumps({"result": "fail-closed", "reason": f"status post failed: {out[:200]}"}))
             return EXIT_FAILURE
         log(json.dumps({"result": "anchored", "seq": seq, "head": head_hash[:12]}))
 
     if rekor:
-        if apply and anchors_used >= max_anchors:
+        if apply and anchors_remaining <= 0:
             log(json.dumps({"rekor": "skipped", "reason": "max-anchors exhausted"}))
-        elif not submit_rekor(head_hash, apply=apply, log=log):
-            return EXIT_FAILURE
-        elif apply:
-            anchors_used += 1
+        else:
+            if apply:
+                anchors_remaining -= 1
+            if not submit_rekor(head_hash, apply=apply, log=log):
+                return EXIT_FAILURE
 
     return EXIT_OK
 

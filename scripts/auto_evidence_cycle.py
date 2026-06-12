@@ -395,6 +395,12 @@ def default_record_trail(repo: str, pr: int, posted_families: list[str]) -> None
     lands on the intent chain as an ``agent-app``/``settle_pr`` intent.
     ``record_intent`` is a no-op unless ``ARAGORA_TRAIL=1`` and never raises;
     the lazy import keeps this wiring non-fatal everywhere.
+
+    Hook contract: ``run_cycle`` deals in ``(pr, posted_families)`` only —
+    ``main()`` binds ``repo`` into the injected closure
+    (``lambda pr, posted: default_record_trail(args.repo, pr, posted)``), the
+    same partial-application pattern every other ``run_cycle`` boundary here
+    uses (``run_collect``, ``fetch_packet``). ``repo`` is not dropped.
     """
     try:
         from aragora.trail import record_intent
