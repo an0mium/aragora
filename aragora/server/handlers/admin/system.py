@@ -176,12 +176,6 @@ class SystemHandler(BaseHandler):
 
         return None
 
-    def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
-        """Preserve legacy POST placeholder inference without claiming POST routes."""
-        return None
-
     @require_permission("admin:debug")
     def _handle_debug_test(self, handler: Any = None, user: Any = None) -> HandlerResult:
         """Handle debug test endpoint.
