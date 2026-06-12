@@ -1,46 +1,51 @@
-import os
 import re
+from pathlib import Path
 
 
-def update_adapter_count():
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def get_adapter_count() -> int:
+    """Return the product's canonical Knowledge Mound adapter count."""
+    from aragora.knowledge.mound.adapters.factory import ADAPTER_SPECS
+
+    return len(ADAPTER_SPECS)
+
+
+def _replace_adapter_count(content: str, adapter_count: int) -> str | None:
+    pattern = r"(<!-- adpt-count -->)\d+(<!-- /adpt-count -->)"
+    new_text = rf"\g<1>{adapter_count}\g<2>"
+    if not re.search(pattern, content):
+        return None
+    return re.sub(pattern, new_text, content)
+
+
+def update_adapter_count(
+    *,
+    project_root: Path = PROJECT_ROOT,
+    adapter_count: int | None = None,
+) -> None:
     """
-    Counts the number of adapters in the knowledge mound and updates the README.md.
+    Counts canonical Knowledge Mound adapters and updates the README.md.
     """
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    adapters_dir = os.path.join(project_root, "aragora", "knowledge", "mound", "adapters")
-    readme_path = os.path.join(project_root, "README.md")
+    readme_path = project_root / "README.md"
+    adapter_count = get_adapter_count() if adapter_count is None else adapter_count
 
     try:
-        # Count the number of files in the adapters directory
-        adapter_files = os.listdir(adapters_dir)
-        # Filter out any hidden files like .DS_Store
-        adapter_count = len([f for f in adapter_files if not f.startswith(".")])
-    except FileNotFoundError:
-        print(f"Error: Adapters directory not found at {adapters_dir}")
-        return
-
-    try:
-        with open(readme_path, "r") as f:
-            content = f.read()
+        content = readme_path.read_text(encoding="utf-8")
     except FileNotFoundError:
         print(f"Error: README.md not found at {readme_path}")
         return
 
-    # Use a regex to find and replace the adapter count within the HTML comments
-    pattern = r"(<!-- adpt-count -->)\d+(<!-- /adpt-count -->)"
-    new_text = rf"\g<1>{adapter_count}\g<2>"
-
-    if re.search(pattern, content):
-        updated_content = re.sub(pattern, new_text, content)
-    else:
+    updated_content = _replace_adapter_count(content, adapter_count)
+    if updated_content is None:
         print("Error: Could not find the adapter count placeholder in README.md")
         print("Please add '<!-- adpt-count -->...<!-- /adpt-count -->' to the README.")
         return
 
     if content != updated_content:
         try:
-            with open(readme_path, "w") as f:
-                f.write(updated_content)
+            readme_path.write_text(updated_content, encoding="utf-8")
             print(f"Successfully updated README.md with adapter count: {adapter_count}")
         except IOError as e:
             print(f"Error writing to README.md: {e}")
