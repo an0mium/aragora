@@ -174,7 +174,18 @@ metadata (channels, jurisdictional residency) in a later minor version.
 Links the neutral profile back to the emitting system's native record
 (`system`, `schema`, `schema_version`, `receipt_id`, `artifact_hash`) so an
 auditor can pull the full-fidelity original. Aragora populates it with the
-`DecisionReceipt` id and its content-addressable `artifact_hash`.
+`DecisionReceipt` id and its `artifact_hash`.
+
+**Honest-linkage note:** `DecisionReceipt.artifact_hash` is computed over a
+six-field subset of the native record (`receipt_id`, `gauntlet_id`,
+`input_hash`, `risk_summary`, `verdict`, `confidence`; see
+`DecisionReceipt._calculate_hash`). Fields such as `verdict_reasoning`,
+`dissenting_views`, and `agent_responses` can change without changing it.
+Consumers MUST treat `source.artifact_hash` as a stable locator plus an
+integrity check on those six fields, not as a content digest of the full
+original. Full-payload integrity for the *neutral* artifact is exactly what
+`odr_digest` (§5) provides; widening the native hash's coverage would re-hash
+every stored receipt and is out of scope for v0.1.
 
 ## 5. Canonicalization and hashing — RFC 8785 (JCS)
 
@@ -257,6 +268,11 @@ An emitter conforms to ODR v0.1 iff:
 A verifier conforms iff it validates the schema, recomputes `odr_digest` from
 JCS bytes, and treats `"undisclosed"`/absent markers as *weakening* rather
 than failing the receipt (policy thresholds are the verifier's choice).
+
+A verifier SHOULD additionally cross-check internal consistency: every name
+in `quorum.supporting_agents` and `quorum.dissent.dissenting_agents` should
+appear among `quorum.participants[].agent`. A mismatch is a malformed-receipt
+signal (emitter bug or tampering), not a mere weakening.
 
 ## 9. Versioning
 
