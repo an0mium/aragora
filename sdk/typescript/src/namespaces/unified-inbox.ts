@@ -396,23 +396,6 @@ export class UnifiedInboxAPI {
   }
 
   /**
-   * Reply to a message.
-   */
-  async reply(
-    messageId: string,
-    request: { content: string }
-  ): Promise<{
-    message_id: string;
-    in_reply_to: string;
-    channel: string;
-    status: string;
-  }> {
-    return this.client.request('POST', `/api/v1/inbox/messages/${messageId}/reply`, {
-      json: request,
-    });
-  }
-
-  /**
    * Start a debate on a message — trigger multi-agent analysis.
    */
   async debateMessage(
