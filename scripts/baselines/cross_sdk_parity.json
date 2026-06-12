@@ -125,9 +125,6 @@
     "/api/workspaces/{param}/settings",
     "/api/workspaces/{param}/settings/features",
     "/api/workspaces/{param}/settings/features/{param}",
-    "/api/workspaces/{param}/settings/reset",
-    "/inbox/accounts/{param}",
-    "/inbox/messages/{param}",
-    "/inbox/messages/{param}/reply"
+    "/api/workspaces/{param}/settings/reset"
   ]
 }
