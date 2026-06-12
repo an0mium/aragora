@@ -46,6 +46,10 @@ class _DebatesHandlerProtocol(Protocol):
         """Get nomic directory path."""
         ...
 
+    def _load_crux_source_from_trace(self, debate_id: str) -> Any | None:
+        """Load a debate result from the nomic trace store."""
+        ...
+
 
 def _absent(reason: str) -> dict[str, str]:
     """ODR-profile absent marker: honest absence, never fabrication."""
@@ -139,8 +143,7 @@ class CruxOperationsMixin:
                 )
             elif payload is not None:
                 reason = (
-                    "crux finder ran but identified no cruxes above the configured "
-                    "score threshold"
+                    "crux finder ran but identified no cruxes above the configured score threshold"
                 )
             else:
                 reason = (
