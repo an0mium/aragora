@@ -1205,3 +1205,260 @@ def test_patch_equivalent_target_pr_receipt_archives_before_remote_check(
     assert (
         payload["actions"][0]["reason"] == "branch work landed on main (merge or patch-equivalent)"
     )
+
+
+def _write_existing_issue_deadlock_fixture(
+    tmp_path: Path,
+    *,
+    key: str = "open-pr-codex-existing-issue-deadlock-abc123",
+    branch: str = "codex/existing-issue-deadlock",
+    created_at: str = "2026-06-01T00:00:00+00:00",
+    issue_url: str = "https://github.com/synaptent/aragora/issues/7808",
+    receipt_reason: str = "existing_issue",
+    receipt_status: str = "already_satisfied",
+) -> tuple[Path, Path]:
+    """Write an outbox handoff + receipt pair representing the archival deadlock."""
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    handoff = _write_outbox_handoff(outbox_dir, branch=branch, key=key)
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload["requested_action"] = {
+        "type": "open_or_update_pr",
+        "base": "main",
+        "branch": branch,
+        "desired_head_sha": "abcdef1234567890abcdef1234567890abcdef12",
+    }
+    payload["created_at"] = created_at
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+    receipt_dir.mkdir(parents=True, exist_ok=True)
+    receipt_path = receipt_dir / f"{key}.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": receipt_status,
+                "reason": receipt_reason,
+                "existing_issue_url": issue_url,
+                "existing_pr_url": None,
+                "recorded_at": "2026-06-12T02:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    return handoff, receipt_path
+
+
+def _issue_state_response(
+    *,
+    number: int = 7808,
+    state: str = "OPEN",
+    state_reason: str = "",
+    url: str = "https://github.com/synaptent/aragora/issues/7808",
+) -> dict[str, Any]:
+    return {"number": number, "state": state, "stateReason": state_reason, "url": url}
+
+
+def _patch_issue_state(monkeypatch: Any, response: dict[str, Any] | None) -> list[Any]:
+    """Patch the gh-backed issue lookup; record calls. None simulates gh failure."""
+    calls: list[Any] = []
+
+    def fake_fetch(self: Any, repo: str, number: int) -> tuple[dict[str, Any] | None, str | None]:
+        calls.append((repo, number))
+        if response is None:
+            return None, "gh issue view exited 1: connectivity failed"
+        return response, None
+
+    monkeypatch.setattr(mod._IssueStateChecker, "_fetch", fake_fetch)
+    return calls
+
+
+def test_existing_issue_deadlock_archives_with_terminal_receipt(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    handoff, _receipt = _write_existing_issue_deadlock_fixture(tmp_path)
+    calls = _patch_issue_state(monkeypatch, _issue_state_response())
+    archive_dir = tmp_path / ".aragora" / "automation-outbox-archive"
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["archived_superseded_by_existing_issue"] == 1
+    assert result["counts"]["blocked_receipt_issue_only"] == 0
+    assert calls == [("synaptent/aragora", 7808)]
+    assert not handoff.exists()
+
+    archived = json.loads((archive_dir / handoff.name).read_text(encoding="utf-8"))
+    disposition = archived["terminal_disposition"]
+    assert disposition["disposition"] == "superseded_by_existing_issue"
+    assert disposition["issue_url"] == "https://github.com/synaptent/aragora/issues/7808"
+    assert disposition["issue_state"] == "OPEN"
+    assert disposition["decision_evidence"]["publisher_decision"] == "existing_issue"
+    assert disposition["decision_evidence"]["receipt_reason"] == "existing_issue"
+    assert disposition["item_age_days"] >= 3.0
+    assert disposition["issue_state_checked_at"]
+    assert "__source_file" not in archived
+
+
+def test_existing_issue_archive_accepts_closed_completed_issue(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    handoff, _receipt = _write_existing_issue_deadlock_fixture(tmp_path)
+    _patch_issue_state(monkeypatch, _issue_state_response(state="CLOSED", state_reason="COMPLETED"))
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["archived_superseded_by_existing_issue"] == 1
+    assert not handoff.exists()
+
+
+def test_existing_issue_archive_refuses_not_planned_issue(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    handoff, _receipt = _write_existing_issue_deadlock_fixture(tmp_path)
+    _patch_issue_state(
+        monkeypatch, _issue_state_response(state="CLOSED", state_reason="NOT_PLANNED")
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["archived_superseded_by_existing_issue"] == 0
+    assert result["counts"]["blocked_receipt_issue_only"] == 1
+    assert result["counts"]["still_protecting_active_work"] == 1
+    assert handoff.exists()
+    assert "CLOSED/NOT_PLANNED" in result["actions"][0]["reason"]
+
+
+def test_existing_issue_archive_refuses_when_issue_state_unverifiable(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    handoff, _receipt = _write_existing_issue_deadlock_fixture(tmp_path)
+    _patch_issue_state(monkeypatch, None)
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["archived_superseded_by_existing_issue"] == 0
+    assert result["counts"]["blocked_receipt_issue_only"] == 1
+    assert handoff.exists()
+    assert "issue state unverified" in result["actions"][0]["reason"]
+
+
+def test_existing_issue_archive_refuses_young_items(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    from datetime import datetime, timedelta
+
+    recent = (datetime.now(mod.UTC) - timedelta(hours=6)).isoformat()
+    handoff, _receipt = _write_existing_issue_deadlock_fixture(tmp_path, created_at=recent)
+    calls = _patch_issue_state(monkeypatch, _issue_state_response())
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["archived_superseded_by_existing_issue"] == 0
+    assert result["counts"]["blocked_receipt_issue_only"] == 1
+    assert handoff.exists()
+    assert calls == []  # age gate blocks before any gh call
+    assert "item age" in result["actions"][0]["reason"]
+
+
+def test_existing_issue_archive_honors_per_pass_cap(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    handoffs = []
+    for index in range(3):
+        handoff, _receipt = _write_existing_issue_deadlock_fixture(
+            tmp_path,
+            key=f"open-pr-codex-existing-issue-cap-{index:02d}",
+            branch=f"codex/existing-issue-cap-{index}",
+        )
+        handoffs.append(handoff)
+    _patch_issue_state(monkeypatch, _issue_state_response())
+
+    assert (
+        mod.main(
+            [
+                "--repo",
+                str(tmp_path),
+                "--apply",
+                "--json",
+                "--existing-issue-archive-cap",
+                "2",
+            ]
+        )
+        == 0
+    )
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["archived_superseded_by_existing_issue"] == 2
+    assert result["counts"]["blocked_receipt_issue_only"] == 1
+    assert result["existing_issue_policy"]["archived_this_pass"] == 2
+    assert sum(1 for h in handoffs if h.exists()) == 1
+    capped = [a for a in result["actions"] if "per-pass archive cap 2 reached" in a["reason"]]
+    assert len(capped) == 1 and capped[0]["decision"] == "keep"
+
+
+def test_existing_issue_dry_run_lists_would_archive_without_moving(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    handoff, _receipt = _write_existing_issue_deadlock_fixture(tmp_path)
+    _patch_issue_state(monkeypatch, _issue_state_response())
+    archive_dir = tmp_path / ".aragora" / "automation-outbox-archive"
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["dry_run"] is True
+    assert result["counts"]["archived_superseded_by_existing_issue"] == 1
+    action = result["actions"][0]
+    assert action["decision"] == "archive"
+    assert action["terminal_disposition"]["disposition"] == "superseded_by_existing_issue"
+    assert handoff.exists()
+    assert not archive_dir.exists() or not list(archive_dir.iterdir())
+
+
+def test_existing_issue_valve_ignores_non_existing_issue_receipts(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    """The new path must never archive an item whose decision is not existing_issue."""
+    handoff, _receipt = _write_existing_issue_deadlock_fixture(
+        tmp_path, receipt_reason="created_issue"
+    )
+    calls = _patch_issue_state(monkeypatch, _issue_state_response())
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["archived_superseded_by_existing_issue"] == 0
+    assert result["counts"]["blocked_receipt_issue_only"] == 1
+    assert handoff.exists()
+    assert calls == []
+
+
+def test_issue_state_checker_circuit_stops_after_repeated_failures(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    checker = mod._IssueStateChecker(tmp_path, "synaptent/aragora")
+    attempts: list[int] = []
+
+    def failing_fetch(
+        self: Any, repo: str, number: int
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        attempts.append(number)
+        return None, "boom"
+
+    monkeypatch.setattr(mod._IssueStateChecker, "_fetch", failing_fetch)
+    for number in range(1, 6):
+        state, error = checker.state(f"https://github.com/synaptent/aragora/issues/{number}", {})
+        assert state is None
+        assert error
+    assert attempts == [1, 2, 3]
+
+
+def test_issue_number_from_url_parsing() -> None:
+    assert mod._issue_number_from_url("https://github.com/o/r/issues/123") == 123
+    assert mod._issue_number_from_url("https://github.com/o/r/issues/123/") == 123
+    assert mod._issue_number_from_url("https://github.com/o/r/pull/123") is None
+    assert mod._issue_number_from_url("") is None

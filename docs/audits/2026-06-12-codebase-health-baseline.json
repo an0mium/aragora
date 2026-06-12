@@ -1,0 +1,155 @@
+{
+  "$comment": "Machine-readable baseline for the 2026-06-12 codebase-health audit (docs/audits/2026-06-12-codebase-health-audit.md). Each metric pins the exact command that produced it; re-run the command from the repo root to re-measure. direction=shrink means the value may only decrease (route-collision frozen-baseline pattern, tests/server/test_route_collisions.py precedent); direction=grow means only increase; informational metrics carry no gate. Program plan: docs/superpowers/plans/2026-06-12-codebase-health-program.md. Epic: #8257.",
+  "generated_at": "2026-06-12",
+  "head": "a5cf5fc70b",
+  "repo": "synaptent/aragora",
+  "metrics": [
+    {
+      "key": "server_import_outside",
+      "value": 180,
+      "direction": "shrink",
+      "command": "rg -l \"from aragora\\.server|import aragora\\.server\" aragora --type py | grep -v \"^aragora/server/\" | wc -l",
+      "issue": 8259,
+      "note": "Files outside aragora/server/ importing the delivery layer. Worst case: aragora/debate/orchestrator.py:40 imports server.metrics at module level."
+    },
+    {
+      "key": "type_checking_files",
+      "value": 910,
+      "direction": "shrink",
+      "command": "rg -l \"if TYPE_CHECKING:\" aragora --type py | wc -l",
+      "issue": 8259,
+      "note": "Circular-import pressure proxy (~22% of package files)."
+    },
+    {
+      "key": "circular_mention_files",
+      "value": 155,
+      "direction": "shrink",
+      "command": "rg -l -i \"circular\" aragora --type py | wc -l",
+      "issue": 8259,
+      "note": "Files carrying explicit circular-import workarounds or comments."
+    },
+    {
+      "key": "loc_server",
+      "value": 475621,
+      "direction": "informational",
+      "command": "git ls-files 'aragora/server/**/*.py' | xargs wc -l | tail -1 | awk '{print $1}'",
+      "issue": 8259,
+      "note": "24.4% of loc_total at baseline; hub-coupling magnitude."
+    },
+    {
+      "key": "loc_total",
+      "value": 1949824,
+      "direction": "informational",
+      "command": "git ls-files 'aragora/**/*.py' | xargs wc -l | tail -1 | awk '{print $1}'",
+      "issue": null
+    },
+    {
+      "key": "aragora_py_files",
+      "value": 4147,
+      "direction": "informational",
+      "command": "git ls-files 'aragora/**/*.py' | wc -l",
+      "issue": null
+    },
+    {
+      "key": "root_clutter",
+      "value": 11,
+      "direction": "shrink",
+      "command": "ls *.png *.docx 2>/dev/null | wc -l",
+      "issue": 8258,
+      "note": "Target 0: screenshots and .docx do not belong at repo root."
+    },
+    {
+      "key": "workflows",
+      "value": 86,
+      "direction": "shrink",
+      "command": "ls .github/workflows/*.yml | wc -l",
+      "issue": 8265,
+      "note": "Target <=73 (>=15% reduction) per HEALTH-8."
+    },
+    {
+      "key": "cancel_in_progress_workflows",
+      "value": 9,
+      "direction": "informational",
+      "command": "rg -l \"cancel-in-progress: true\" .github/workflows | wc -l",
+      "issue": 8265,
+      "note": "Cancellation groups implicated in masking real failures (PR #8220 case, 2026-06-12)."
+    },
+    {
+      "key": "docs_md",
+      "value": 925,
+      "direction": "informational",
+      "command": "git ls-files 'docs/**/*.md' | wc -l",
+      "issue": 8262
+    },
+    {
+      "key": "selfhost_guides",
+      "value": 5,
+      "direction": "shrink",
+      "command": "ls docs/SELF_HOSTING.md docs/deployment/SELF_HOSTED* docs/guides/SELF_HOSTED_* 2>/dev/null | wc -l",
+      "issue": 8262,
+      "note": "Target 1 canonical guide outside docs/archive/."
+    },
+    {
+      "key": "todo_total",
+      "value": 65,
+      "direction": "informational",
+      "command": "rg \"TODO|FIXME|HACK\" aragora --type py | wc -l",
+      "issue": null,
+      "note": "Implausibly low for ~2M LOC; debt likely scrubbed rather than absent."
+    },
+    {
+      "key": "test_files_py",
+      "value": 5808,
+      "direction": "informational",
+      "command": "git ls-files 'tests' | grep -c '\\.py$'",
+      "issue": null,
+      "note": "All .py under tests/ incl. conftest/helpers; docs/METRICS.md counts test_*.py only (5,313 at audit time)."
+    },
+    {
+      "key": "test_fns",
+      "value": 220821,
+      "direction": "informational",
+      "command": "rg -c '^\\s*(async )?def test_' tests/ | awk -F: '{s+=$2} END {print s}'",
+      "issue": null,
+      "note": "Verifies docs/METRICS.md claim within 0.2%."
+    },
+    {
+      "key": "mock_test_files",
+      "value": 4214,
+      "direction": "informational",
+      "command": "rg -l 'MagicMock|AsyncMock|unittest\\.mock|monkeypatch' tests/ | wc -l",
+      "issue": null,
+      "note": "~73% of test files are mock-reliant; depth caveat on the headline function count."
+    },
+    {
+      "key": "pypi_names",
+      "value": 3,
+      "direction": "shrink",
+      "command": "manual: root pyproject [project].name + README badge target + sdk/python/pyproject.toml name",
+      "issue": 8263,
+      "note": "aragora (badge), aragora-debate (root build), aragora-sdk (sdk/python)."
+    },
+    {
+      "key": "console_entry_points",
+      "value": 0,
+      "direction": "grow",
+      "command": "rg -c \"\\[project\\.scripts\\]\" pyproject.toml || echo 0",
+      "issue": 8263,
+      "note": "Root package ships no CLI entry point while INSTALL.md documents `aragora serve`."
+    },
+    {
+      "key": "mypy_check_untyped_defs_packages",
+      "value": 0,
+      "direction": "grow",
+      "command": "per-package enrollment list introduced by #8261 (pyproject [tool.mypy] overrides)",
+      "issue": 8261
+    },
+    {
+      "key": "ruff_strict_enrolled_packages",
+      "value": 0,
+      "direction": "grow",
+      "command": "per-package BLE001/G004 carve-outs from [tool.ruff.lint.per-file-ignores] introduced by #8261",
+      "issue": 8261
+    }
+  ]
+}

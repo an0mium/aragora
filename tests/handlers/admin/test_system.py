@@ -8,13 +8,16 @@ Comprehensive coverage of all endpoints:
 - GET /api/history/summary       (_get_history_summary)
 - GET /api/system/maintenance    (_handle_maintenance)
 - GET /api/auth/stats            (_get_auth_stats)
-- POST /api/auth/revoke          (_revoke_token)
 - GET /api/circuit-breakers      (_get_circuit_breaker_metrics)
-- GET /metrics                   (_get_prometheus_metrics)
 - GET /api/v1/diagnostics/handlers (_get_handler_diagnostics)
 
+Removed legacy routes (now owned by dedicated handlers; see
+tests/server/test_route_ownership.py):
+- POST /api/auth/revoke -> AuthHandler
+- GET /metrics -> MetricsHandler
+
 Also covers:
-- Routing via handle() and handle_post()
+- Routing via handle()
 - Version prefix stripping (/api/v1/... -> /api/...)
 - can_handle() path matching
 - History auth checks
@@ -134,14 +137,16 @@ class TestCanHandle:
     def test_can_handle_auth_stats(self, handler):
         assert handler.can_handle("/api/auth/stats") is True
 
-    def test_can_handle_auth_revoke(self, handler):
-        assert handler.can_handle("/api/auth/revoke") is True
+    def test_does_not_handle_auth_revoke(self, handler):
+        """Owned by AuthHandler; legacy SystemHandler claim removed."""
+        assert handler.can_handle("/api/auth/revoke") is False
 
     def test_can_handle_circuit_breakers(self, handler):
         assert handler.can_handle("/api/circuit-breakers") is True
 
-    def test_can_handle_metrics(self, handler):
-        assert handler.can_handle("/metrics") is True
+    def test_does_not_handle_metrics(self, handler):
+        """Owned by MetricsHandler; legacy SystemHandler claim removed."""
+        assert handler.can_handle("/metrics") is False
 
     def test_can_handle_diagnostics_in_routes(self, handler):
         """Diagnostics path is in ROUTES list."""
@@ -668,165 +673,36 @@ class TestAuthStats:
 
 
 # ===========================================================================
-# Tests: Token revocation (POST)
+# Tests: Removed legacy routes (moved to dedicated handlers)
 # ===========================================================================
 
 
-class TestRevokeToken:
-    """Tests for POST /api/auth/revoke endpoint."""
+class TestRemovedLegacyRoutes:
+    """SystemHandler no longer claims /api/auth/revoke or /metrics.
 
-    def test_revoke_missing_body(self, handler, mock_http):
-        """Invalid JSON body returns 400."""
-        mock_http.headers = {"Content-Length": "5"}
-        mock_http.rfile.read.return_value = b"xxxxx"
-        result = handler.handle_post("/api/auth/revoke", {}, mock_http)
-        assert _status(result) == 400
-        assert "Invalid JSON" in _body(result)["error"]
+    POST /api/auth/revoke is owned by AuthHandler (session.revoke contract;
+    see aragora/rbac/middleware.py and tests/server/test_route_ownership.py).
+    /metrics is owned by MetricsHandler (public Prometheus scrape contract).
+    SystemHandler's legacy claims shadowed those handlers via the registry's
+    first-wins route insertion and were removed on 2026-06-10.
+    """
 
-    def test_revoke_missing_token(self, handler):
-        """Body without token field returns 400."""
-        h = _make_http_handler(body={"reason": "test"})
-        result = handler.handle_post("/api/auth/revoke", {}, h)
-        assert _status(result) == 400
-        assert "Token is required" in _body(result)["error"]
+    def test_revoke_route_not_claimed(self, handler):
+        assert handler.can_handle("/api/auth/revoke") is False
+        assert "/api/auth/revoke" not in handler.ROUTES
 
-    def test_revoke_success(self, handler):
-        h = _make_http_handler(body={"token": "abc123", "reason": "compromised"})
-        mock_config = MagicMock()
-        mock_config.revoke_token.return_value = True
-        mock_config.get_revocation_count.return_value = 5
-        with patch("aragora.server.auth.auth_config", mock_config):
-            with patch(
-                "aragora.billing.jwt_auth.revoke_token_persistent",
-                return_value=True,
-            ):
-                result = handler.handle_post("/api/auth/revoke", {}, h)
-                assert _status(result) == 200
-                body = _body(result)
-                assert body["success"] is True
-                assert body["revoked_count"] == 5
+    def test_metrics_route_not_claimed(self, handler):
+        assert handler.can_handle("/metrics") is False
+        assert "/metrics" not in handler.ROUTES
 
-    def test_revoke_failure(self, handler):
-        h = _make_http_handler(body={"token": "bad-token"})
-        mock_config = MagicMock()
-        mock_config.revoke_token.return_value = False
-        mock_config.get_revocation_count.return_value = 0
-        with patch("aragora.server.auth.auth_config", mock_config):
-            result = handler.handle_post("/api/auth/revoke", {}, h)
-            assert _status(result) == 200
-            body = _body(result)
-            assert body["success"] is False
+    def test_no_post_handler_remains(self):
+        """SystemHandler defines no handle_post after revoke removal."""
+        assert "handle_post" not in SystemHandler.__dict__
 
-    def test_revoke_persistent_import_error(self, handler):
-        """When persistent revocation module unavailable, still succeeds in-memory."""
-        h = _make_http_handler(body={"token": "tok123"})
-        mock_config = MagicMock()
-        mock_config.revoke_token.return_value = True
-        mock_config.get_revocation_count.return_value = 1
-        with patch("aragora.server.auth.auth_config", mock_config):
-            with patch.dict("sys.modules", {"aragora.billing.jwt_auth": None}):
-                # Force re-import to hit ImportError
-                result = handler.handle_post("/api/auth/revoke", {}, h)
-                # May succeed or fail depending on import caching; check status is 200
-                assert _status(result) == 200
-                assert _body(result)["success"] is True
-
-    def test_revoke_persistent_failure(self, handler):
-        """When persistent revocation returns False, token is still revoked in-memory."""
-        h = _make_http_handler(body={"token": "tok456", "reason": "test"})
-        mock_config = MagicMock()
-        mock_config.revoke_token.return_value = True
-        mock_config.get_revocation_count.return_value = 2
-        with patch("aragora.server.auth.auth_config", mock_config):
-            with patch(
-                "aragora.billing.jwt_auth.revoke_token_persistent",
-                return_value=False,
-            ):
-                result = handler.handle_post("/api/auth/revoke", {}, h)
-                assert _status(result) == 200
-                assert _body(result)["success"] is True
-
-    def test_revoke_with_empty_token(self, handler):
-        """Empty string token is rejected."""
-        h = _make_http_handler(body={"token": ""})
-        result = handler.handle_post("/api/auth/revoke", {}, h)
-        assert _status(result) == 400
-        assert "Token is required" in _body(result)["error"]
-
-    def test_handle_post_unknown_path(self, handler, mock_http):
-        """POST to unknown path returns None."""
-        result = handler.handle_post("/api/unknown", {}, mock_http)
+    def test_metrics_dispatch_returns_none(self, handler, mock_http):
+        """handle() no longer dispatches /metrics (falls through to None)."""
+        result = handler.handle("/metrics", {}, mock_http)
         assert result is None
-
-    def test_handle_post_with_version_prefix(self, handler):
-        """POST with /api/v1/ prefix routes correctly."""
-        h = _make_http_handler(body={"token": "tok"})
-        mock_config = MagicMock()
-        mock_config.revoke_token.return_value = True
-        mock_config.get_revocation_count.return_value = 1
-        with patch("aragora.server.auth.auth_config", mock_config):
-            with patch(
-                "aragora.billing.jwt_auth.revoke_token_persistent",
-                return_value=True,
-            ):
-                result = handler.handle_post("/api/v1/auth/revoke", {}, h)
-                assert _status(result) == 200
-
-    def test_revoke_no_reason(self, handler):
-        """Revoke without reason field succeeds (reason defaults to empty)."""
-        h = _make_http_handler(body={"token": "abc"})
-        mock_config = MagicMock()
-        mock_config.revoke_token.return_value = True
-        mock_config.get_revocation_count.return_value = 1
-        with patch("aragora.server.auth.auth_config", mock_config):
-            with patch(
-                "aragora.billing.jwt_auth.revoke_token_persistent",
-                return_value=True,
-            ):
-                result = handler.handle_post("/api/auth/revoke", {}, h)
-                assert _status(result) == 200
-                assert _body(result)["success"] is True
-
-
-# ===========================================================================
-# Tests: Prometheus metrics
-# ===========================================================================
-
-
-class TestPrometheusMetrics:
-    """Tests for /metrics endpoint."""
-
-    def test_metrics_success(self, handler, mock_http):
-        with patch(
-            "aragora.server.metrics.generate_metrics",
-            return_value="# HELP test\ntest_metric 42\n",
-        ):
-            result = handler.handle("/metrics", {}, mock_http)
-            assert _status(result) == 200
-            assert result.content_type == "text/plain; version=0.0.4; charset=utf-8"
-            assert b"test_metric 42" in result.body
-
-    def test_metrics_import_error(self, handler, mock_http):
-        with patch.dict("sys.modules", {"aragora.server.metrics": None}):
-            result = handler.handle("/metrics", {}, mock_http)
-            assert _status(result) == 503
-            assert "not available" in _body(result)["error"]
-
-    def test_metrics_runtime_error(self, handler, mock_http):
-        with patch(
-            "aragora.server.metrics.generate_metrics",
-            side_effect=RuntimeError("metrics broke"),
-        ):
-            result = handler.handle("/metrics", {}, mock_http)
-            assert _status(result) == 500
-
-    def test_metrics_type_error(self, handler, mock_http):
-        with patch(
-            "aragora.server.metrics.generate_metrics",
-            side_effect=TypeError("bad type"),
-        ):
-            result = handler.handle("/metrics", {}, mock_http)
-            assert _status(result) == 500
 
 
 # ===========================================================================
@@ -1221,9 +1097,9 @@ class TestHandlerInit:
             "/api/history/summary",
             "/api/system/maintenance",
             "/api/auth/stats",
-            "/api/auth/revoke",
+            # /api/auth/revoke moved to AuthHandler (session.revoke contract)
             "/api/circuit-breakers",
-            "/metrics",
+            # /metrics moved to MetricsHandler (public scrape contract)
             "/api/v1/diagnostics/handlers",
         }
         assert set(SystemHandler.ROUTES) == expected
@@ -1265,14 +1141,10 @@ class TestEdgeCases:
         result = handler.handle("/api/debug/test", {}, mock_http)
         assert result is not None
 
-    def test_metrics_response_is_text_plain(self, handler, mock_http):
-        """Metrics endpoint returns text/plain content type."""
-        with patch(
-            "aragora.server.metrics.generate_metrics",
-            return_value="# test\n",
-        ):
-            result = handler.handle("/metrics", {}, mock_http)
-            assert "text/plain" in result.content_type
+    def test_metrics_not_dispatched(self, handler, mock_http):
+        """/metrics is owned by MetricsHandler; SystemHandler returns None."""
+        result = handler.handle("/metrics", {}, mock_http)
+        assert result is None
 
     def test_json_responses_are_application_json(self, handler, mock_http):
         """Non-metrics endpoints return application/json."""

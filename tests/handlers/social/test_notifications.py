@@ -163,10 +163,9 @@ class TestCanHandle:
         assert not handler.can_handle("/api/v1/integrations/teams")
 
     def test_routes_list_complete(self, handler):
-        assert len(handler.ROUTES) == 8
+        assert len(handler.ROUTES) == 7
         expected = [
             "/api/v1/notifications/status",
-            "/api/v1/notifications/history",
             "/api/v1/notifications/email/recipients",
             "/api/v1/notifications/email/config",
             "/api/v1/notifications/telegram/config",
@@ -176,6 +175,17 @@ class TestCanHandle:
         ]
         for route in expected:
             assert route in handler.ROUTES
+
+    def test_history_route_not_claimed(self, handler):
+        """History is owned by NotificationHistoryHandler, not this handler.
+
+        The social NotificationsHandler previously claimed
+        /api/v1/notifications/history in ROUTES but never served it (handle()
+        has no /history branch), shadowing the real NotificationHistoryHandler
+        and breaking the endpoint. The dead claim was removed (run-20260611
+        PROD route-collision lane).
+        """
+        assert "/api/v1/notifications/history" not in handler.ROUTES
 
     def test_resource_type(self, handler):
         assert handler.RESOURCE_TYPE == "notification"
