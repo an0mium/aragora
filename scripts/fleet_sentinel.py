@@ -685,13 +685,27 @@ def check_trail_reconcile(
     witness_cadence_hours: float = 6.0,
     blind_factor: float = 4.0,
     reconcile_window_hours: float = 24.0,
+    witness_coverage: str = "full",
 ) -> CheckResult:
     """TET Component 3: diff what HAPPENED (witness) against what was INTENDED
     (anchored intent chain).  Every mutating witness event needs a matching
     pre-anchored intent; unmatched events breach at class severity; a broken
     chain is a critical breach; an unreadable witness or absent chain is
-    ``unknown`` (silence is never success)."""
+    ``unknown`` (silence is never success).
+
+    ``witness_coverage="events_api"`` marks the interim GitHub REST witness,
+    which structurally CANNOT see token/deploy-key/member admin events — the
+    exact May-incident class.  Every report then carries a coverage-gap note
+    so an "ok" can never be mistaken for credential-event coverage before the
+    S3 audit-stream witness (TET T0) is live."""
     name = "trail_reconcile"
+    coverage_note = (
+        "coverage limited: interim events-API witness cannot see "
+        "token/deploy-key/member admin events (May-incident class) — "
+        "S3 audit-stream witness (TET T0) required for full coverage"
+        if witness_coverage == "events_api"
+        else ""
+    )
     try:
         events = list(witness_events())
     except Exception as exc:  # noqa: BLE001 - unreadable witness = we are blind
@@ -791,15 +805,22 @@ def check_trail_reconcile(
         detail = "; ".join(problems) + f" | {chain_note}"
         if blind_note:
             detail += f" | {blind_note}"
+        if coverage_note:
+            detail += f" | {coverage_note}"
         return _result(name, "breach", detail)
     if badly_blind:
-        return _result(name, "unknown", f"{blind_note} | {chain_note}")
+        detail = f"{blind_note} | {chain_note}"
+        if coverage_note:
+            detail += f" | {coverage_note}"
+        return _result(name, "unknown", detail)
     detail = (
         f"{matched} matched, 0 unmatched of {considered} mutating witness event(s) "
         f"in {reconcile_window_hours:g}h window; {chain_note}"
     )
     if blind_note:
         detail += f" | {blind_note}"
+    if coverage_note:
+        detail += f" | {coverage_note}"
     return _result(name, "ok", detail)
 
 
@@ -1006,8 +1027,10 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                     fetcher: Callable[[], list[dict[str, Any]]] = (
                         lambda replica=replica: _replica_witness_events(replica)
                     )
+                    coverage = "full"
                 else:
                     fetcher = lambda slug=args.trail_witness_repo: _github_witness_events(slug)  # noqa: E731
+                    coverage = "events_api"
                 results.append(
                     check_trail_reconcile(
                         witness_events=fetcher,
@@ -1020,6 +1043,7 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         skew_minutes=args.trail_match_skew_mins,
                         witness_cadence_hours=args.trail_witness_cadence_hours,
                         reconcile_window_hours=args.trail_window_hours,
+                        witness_coverage=coverage,
                     )
                 )
         except Exception as exc:  # noqa: BLE001 - a crashed check is a blind spot, not success

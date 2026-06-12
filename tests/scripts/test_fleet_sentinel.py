@@ -1293,3 +1293,27 @@ def test_main_trail_reconcile_replica_chain_reader_fallback(tmp_path: Path, caps
     assert check["status"] == "breach"
     assert "critical" in check["detail"]
     assert "unverified" in check["detail"]  # honest about skipping hash checks
+
+
+def test_trail_reconcile_events_api_coverage_gap_always_visible() -> None:
+    """Review finding (grok, PR #8250): the interim GitHub events-API witness
+    structurally cannot see token/deploy-key/member admin events — the exact
+    May-incident class.  An 'ok' from that witness must never be mistakable
+    for credential-event coverage: every report carries the coverage note
+    until the S3 audit-stream witness (TET T0) replaces it."""
+    ok = _reconcile(
+        [_witness_event("merge")],
+        records=[_intent("merge")],
+        witness_coverage="events_api",
+    )
+    assert ok["status"] == "ok"
+    assert "coverage limited" in ok["detail"]
+    breach = _reconcile([_witness_event("push")], records=[], witness_coverage="events_api")
+    assert breach["status"] == "breach"
+    assert "coverage limited" in breach["detail"]
+
+
+def test_trail_reconcile_full_coverage_witness_has_no_gap_note() -> None:
+    result = _reconcile([_witness_event("merge")], records=[_intent("merge")])
+    assert result["status"] == "ok"
+    assert "coverage limited" not in result["detail"]

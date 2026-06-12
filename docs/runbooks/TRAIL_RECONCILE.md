@@ -28,6 +28,7 @@ off the record.
 | **high** | push, merge, branch deletion without anchored intent | Normal agent verbs gone off the record. |
 | **unknown** (exit 2) | witness unreadable, intent-chain module absent/unpopulated, witness silent beyond 4× cadence | Silence is never success; unknown outranks breach in the exit contract. |
 | note (still ok) | witness silence beyond cadence (default 6 h) but under 4× | Blind-period note: visible but quiet. |
+| note (still ok) | `coverage limited` — interim events-API witness in use | The GitHub REST events witness **cannot see token/deploy-key/member admin events** (the May-incident class). Until operator phase T0 (S3 audit stream) is live, an `ok` only covers push/merge/branch-deletion traffic; every report says so. |
 
 ## Operator response to a critical breach
 
