@@ -1518,6 +1518,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="With --json, omit verbose decision and open-PR detail lists.",
     )
     parser.add_argument(
+        "--status-only",
+        action="store_true",
+        help=(
+            "Compatibility alias for automation startup probes: force dry-run mode "
+            "and compact JSON output."
+        ),
+    )
+    parser.add_argument(
         "--draft",
         action="store_true",
         help="Create newly opened PRs as drafts.",
@@ -1566,6 +1574,15 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--state-root",
+        type=Path,
+        default=None,
+        help=(
+            "Shared automation state root. Accepts either the repository root or its "
+            ".aragora directory and supplies default outbox/receipt paths."
+        ),
+    )
+    parser.add_argument(
         "--receipt-dir",
         type=Path,
         default=None,
@@ -1578,11 +1595,73 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _status_only_payload(
+    repo_root: Path,
+    *,
+    state_root: Path | None,
+    outbox_dir: Path | None,
+    receipt_dir: Path | None,
+) -> dict[str, Any]:
+    resolved_state_root = state_root
+    if resolved_state_root is None:
+        resolved_state_root = _automation_state_root(repo_root)
+        if resolved_state_root.name != ".aragora":
+            resolved_state_root = resolved_state_root / ".aragora"
+    resolved_outbox_dir = _automation_state_path(repo_root, outbox_dir, DEFAULT_OUTBOX_DIR)
+    resolved_receipt_dir = _automation_state_path(
+        repo_root,
+        receipt_dir,
+        Path(".aragora/automation-receipts"),
+    )
+    outbox_count = len(_json_files(resolved_outbox_dir))
+    receipt_count = len(_json_files(resolved_receipt_dir))
+    return {
+        "mode": "status_only",
+        "repo": str(repo_root),
+        "state_root": str(resolved_state_root),
+        "outbox_dir": str(resolved_outbox_dir),
+        "receipt_dir": str(resolved_receipt_dir),
+        "outbox_count": outbox_count,
+        "receipt_count": receipt_count,
+        "summary": {
+            "status": "ready",
+            "outbox_count": outbox_count,
+            "receipt_count": receipt_count,
+        },
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.status_only:
+        args.apply = False
+        args.summary_only = True
+    if args.state_root is not None:
+        state_root = args.state_root.expanduser()
+        state_dir = state_root if state_root.name == ".aragora" else state_root / ".aragora"
+        if args.outbox_dir is None:
+            args.outbox_dir = state_dir / "automation-outbox"
+        if args.receipt_dir is None:
+            args.receipt_dir = state_dir / "automation-receipts"
 
     repo_root = _repo_root(Path(args.repo))
+    if args.status_only:
+        payload = _status_only_payload(
+            repo_root,
+            state_root=args.state_root,
+            outbox_dir=args.outbox_dir,
+            receipt_dir=args.receipt_dir,
+        )
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(
+                f"status: {payload['summary']['status']} "
+                f"outbox={payload['outbox_count']} receipts={payload['receipt_count']}"
+            )
+        return 0
+
     cutoff = datetime.now(UTC) - timedelta(hours=args.since_hours)
 
     branches = _local_codex_branches(repo_root)

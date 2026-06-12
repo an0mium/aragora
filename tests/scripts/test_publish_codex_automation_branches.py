@@ -143,7 +143,9 @@ def test_parser_defaults_match_publisher_budget_constants() -> None:
     assert args.outbox_dir is None
     assert args.allow_unhealthy_queue_publish is False
     assert args.receipt_dir is None
+    assert args.state_root is None
     assert args.summary_only is False
+    assert args.status_only is False
     assert args.draft is False
 
 
@@ -248,12 +250,65 @@ def test_main_summary_only_omits_decisions_and_unhealthy_pr_details(
     assert payload["queue_health"]["unhealthy_open_prs_omitted"] == 1
 
 
+def test_main_status_only_reports_shared_state_without_branch_scan(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    repo = tmp_path / "repo"
+    state_root = tmp_path / ".aragora"
+    outbox = state_root / "automation-outbox"
+    receipts = state_root / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir()
+    (outbox / "open-pr-codex-example.json").write_text("{}", encoding="utf-8")
+    (receipts / "open-pr-codex-example.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: repo)
+
+    def fail_branch_scan(*_args: Any, **_kwargs: Any) -> list[BranchSnapshot]:
+        raise AssertionError("status-only should not enumerate local branches")
+
+    monkeypatch.setattr(mod, "_local_codex_branches", fail_branch_scan)
+
+    exit_code = mod.main(
+        ["--repo", str(repo), "--status-only", "--json", "--state-root", str(state_root)]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "status_only"
+    assert payload["state_root"] == str(state_root)
+    assert payload["outbox_dir"] == str(outbox)
+    assert payload["receipt_dir"] == str(receipts)
+    assert payload["outbox_count"] == 1
+    assert payload["receipt_count"] == 1
+    assert payload["summary"] == {
+        "status": "ready",
+        "outbox_count": 1,
+        "receipt_count": 1,
+    }
+
+
 def test_parser_accepts_receipt_dir_for_shared_cli_compatibility(tmp_path: Path) -> None:
     receipt_dir = tmp_path / "automation-receipts"
 
     args = _build_parser().parse_args(["--receipt-dir", str(receipt_dir)])
 
     assert args.receipt_dir == receipt_dir
+
+
+def test_parser_accepts_state_root_for_shared_cli_compatibility(tmp_path: Path) -> None:
+    state_root = tmp_path / ".aragora"
+
+    args = _build_parser().parse_args(["--state-root", str(state_root)])
+
+    assert args.state_root == state_root
+
+
+def test_parser_accepts_status_only_alias_for_compact_dry_run() -> None:
+    args = _build_parser().parse_args(["--status-only"])
+
+    assert args.status_only is True
+    assert args.apply is False
 
 
 def test_parser_accepts_dry_run_alias_for_default_planning_mode() -> None:
