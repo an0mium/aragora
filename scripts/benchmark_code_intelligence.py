@@ -53,6 +53,20 @@ def _positive_int(raw: str) -> int:
     return value
 
 
+def _selected_benchmark_names(
+    requested: list[str] | None,
+    available: dict[str, Callable[[], object]],
+) -> list[str]:
+    if requested is None:
+        return list(available.keys())
+    if not requested:
+        raise ValueError("benchmark selection requires at least one benchmark")
+    unknown = sorted(set(requested) - set(available.keys()))
+    if unknown:
+        raise ValueError(f"unknown benchmark selection: {', '.join(unknown)}")
+    return list(requested)
+
+
 @dataclass
 class BenchmarkResult:
     """Result of a single benchmark run."""
@@ -280,6 +294,14 @@ async def run_benchmarks(
     """Run all benchmarks."""
     _require_positive_int(iterations, label="iterations")
 
+    all_benchmarks = {
+        "indexing": lambda: benchmark_codebase_indexing(path, iterations),
+        "query": lambda: benchmark_understanding_query(path, iterations),
+        "security": lambda: benchmark_security_scan(path, iterations),
+        "review": lambda: benchmark_code_review(iterations),
+    }
+    selected_benchmarks = _selected_benchmark_names(benchmarks, all_benchmarks)
+
     suite = BenchmarkSuite(path=path)
 
     # Count files
@@ -287,20 +309,7 @@ async def run_benchmarks(
     suite.file_count, suite.line_count = count_files_and_lines(path)
     print(f"Found {suite.file_count} source files ({suite.line_count:,} lines)")
 
-    all_benchmarks = {
-        "indexing": lambda: benchmark_codebase_indexing(path, iterations),
-        "query": lambda: benchmark_understanding_query(path, iterations),
-        "security": lambda: benchmark_security_scan(path, iterations),
-        "review": lambda: benchmark_code_review(iterations),
-    }
-
-    benchmarks = benchmarks or list(all_benchmarks.keys())
-
-    for name in benchmarks:
-        if name not in all_benchmarks:
-            print(f"Unknown benchmark: {name}")
-            continue
-
+    for name in selected_benchmarks:
         print(f"\nRunning {name} benchmark ({iterations} iterations)...")
         result = await all_benchmarks[name]()
         suite.results.append(result)

@@ -51,3 +51,25 @@ def test_run_benchmarks_rejects_bool_iterations(tmp_path: Path) -> None:
                 benchmarks=["indexing"],
             )
         )
+
+
+def test_run_benchmarks_rejects_empty_benchmark_selection(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="requires at least one benchmark"):
+        asyncio.run(
+            benchmark_code_intelligence.run_benchmarks(
+                str(tmp_path),
+                iterations=1,
+                benchmarks=[],
+            )
+        )
+
+
+def test_run_benchmarks_rejects_unknown_benchmark_selection(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown benchmark selection: made_up"):
+        asyncio.run(
+            benchmark_code_intelligence.run_benchmarks(
+                str(tmp_path),
+                iterations=1,
+                benchmarks=["made_up"],
+            )
+        )
