@@ -64,13 +64,18 @@ def units_file(tmp_path: Path) -> Path:
 # ── Flag gating ──────────────────────────────────────────────────────────────
 
 
-def test_flag_off_exits_1(monkeypatch: pytest.MonkeyPatch, catalog_file: Path, units_file: Path) -> None:
+def test_flag_off_exits_1(
+    monkeypatch: pytest.MonkeyPatch, catalog_file: Path, units_file: Path
+) -> None:
     monkeypatch.delenv(_FLAG, raising=False)
     assert cmd_stress_test(_ns(str(catalog_file), str(units_file))) == 1
 
 
 def test_flag_off_names_flag_in_stderr(
-    monkeypatch: pytest.MonkeyPatch, catalog_file: Path, units_file: Path, capsys: pytest.CaptureFixture
+    monkeypatch: pytest.MonkeyPatch,
+    catalog_file: Path,
+    units_file: Path,
+    capsys: pytest.CaptureFixture,
 ) -> None:
     monkeypatch.delenv(_FLAG, raising=False)
     cmd_stress_test(_ns(str(catalog_file), str(units_file)))
@@ -106,7 +111,10 @@ def test_missing_units_exits_1(
 
 
 def test_text_output_mentions_counts(
-    monkeypatch: pytest.MonkeyPatch, catalog_file: Path, units_file: Path, capsys: pytest.CaptureFixture
+    monkeypatch: pytest.MonkeyPatch,
+    catalog_file: Path,
+    units_file: Path,
+    capsys: pytest.CaptureFixture,
 ) -> None:
     monkeypatch.setenv(_FLAG, "1")
     cmd_stress_test(_ns(str(catalog_file), str(units_file)))
@@ -121,14 +129,18 @@ def test_high_fragility_appears_in_output(
     monkeypatch.setenv(_FLAG, "1")
     catalog = tmp_path / "catalog_high.json"
     catalog.write_text(
-        json.dumps([{
-            "perturbation_id": "p_high",
-            "kind": "dependency_drop",
-            "description": "Critical dep dropped",
-            "simulated_impact": 0.7,
-            "affected_claim_ids": [],
-            "affected_proof_unit_ids": [],
-        }]),
+        json.dumps(
+            [
+                {
+                    "perturbation_id": "p_high",
+                    "kind": "dependency_drop",
+                    "description": "Critical dep dropped",
+                    "simulated_impact": 0.7,
+                    "affected_claim_ids": [],
+                    "affected_proof_unit_ids": [],
+                }
+            ]
+        ),
         encoding="utf-8",
     )
     assert cmd_stress_test(_ns(str(catalog), str(units_file))) == 0
@@ -141,14 +153,18 @@ def test_no_high_fragility_message(
     monkeypatch.setenv(_FLAG, "1")
     catalog = tmp_path / "catalog_low.json"
     catalog.write_text(
-        json.dumps([{
-            "perturbation_id": "p_low",
-            "kind": "api_rate_limit_shift",
-            "description": "Minor rate limit shift",
-            "simulated_impact": 0.05,
-            "affected_claim_ids": [],
-            "affected_proof_unit_ids": [],
-        }]),
+        json.dumps(
+            [
+                {
+                    "perturbation_id": "p_low",
+                    "kind": "api_rate_limit_shift",
+                    "description": "Minor rate limit shift",
+                    "simulated_impact": 0.05,
+                    "affected_claim_ids": [],
+                    "affected_proof_unit_ids": [],
+                }
+            ]
+        ),
         encoding="utf-8",
     )
     assert cmd_stress_test(_ns(str(catalog), str(units_file))) == 0
@@ -159,7 +175,10 @@ def test_no_high_fragility_message(
 
 
 def test_json_output_is_valid(
-    monkeypatch: pytest.MonkeyPatch, catalog_file: Path, units_file: Path, capsys: pytest.CaptureFixture
+    monkeypatch: pytest.MonkeyPatch,
+    catalog_file: Path,
+    units_file: Path,
+    capsys: pytest.CaptureFixture,
 ) -> None:
     monkeypatch.setenv(_FLAG, "1")
     rc = cmd_stress_test(_ns(str(catalog_file), str(units_file), json_out=True))
@@ -171,7 +190,10 @@ def test_json_output_is_valid(
 
 
 def test_json_report_fields(
-    monkeypatch: pytest.MonkeyPatch, catalog_file: Path, units_file: Path, capsys: pytest.CaptureFixture
+    monkeypatch: pytest.MonkeyPatch,
+    catalog_file: Path,
+    units_file: Path,
+    capsys: pytest.CaptureFixture,
 ) -> None:
     monkeypatch.setenv(_FLAG, "1")
     cmd_stress_test(_ns(str(catalog_file), str(units_file), json_out=True))
@@ -187,7 +209,10 @@ def test_json_report_fields(
 
 
 def test_boss_ready_never_in_output(
-    monkeypatch: pytest.MonkeyPatch, catalog_file: Path, units_file: Path, capsys: pytest.CaptureFixture
+    monkeypatch: pytest.MonkeyPatch,
+    catalog_file: Path,
+    units_file: Path,
+    capsys: pytest.CaptureFixture,
 ) -> None:
     monkeypatch.setenv(_FLAG, "1")
     cmd_stress_test(_ns(str(catalog_file), str(units_file), json_out=True))
@@ -218,14 +243,18 @@ def test_scoped_perturbation_skips_out_of_scope_units(
     monkeypatch.setenv(_FLAG, "1")
     catalog = tmp_path / "scoped.json"
     catalog.write_text(
-        json.dumps([{
-            "perturbation_id": "p_scoped",
-            "kind": "corpus_revision",
-            "description": "Scoped to a unit not in units file",
-            "simulated_impact": 0.8,
-            "affected_claim_ids": [],
-            "affected_proof_unit_ids": ["nonexistent.unit"],
-        }]),
+        json.dumps(
+            [
+                {
+                    "perturbation_id": "p_scoped",
+                    "kind": "corpus_revision",
+                    "description": "Scoped to a unit not in units file",
+                    "simulated_impact": 0.8,
+                    "affected_claim_ids": [],
+                    "affected_proof_unit_ids": ["nonexistent.unit"],
+                }
+            ]
+        ),
         encoding="utf-8",
     )
     rc = cmd_stress_test(_ns(str(catalog), str(units_file), json_out=True))
