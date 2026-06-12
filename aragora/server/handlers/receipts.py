@@ -1125,17 +1125,22 @@ class ReceiptsHandler(BaseHandler):
 
     @api_endpoint(
         method="GET",
-        path="/api/v2/receipts/stats",
-        summary="Get receipt statistics",
-        description="Get aggregated statistics about receipts including counts by verdict and risk level.",
-        tags=["Receipts", "Statistics"],
-        operation_id="get_receipt_stats",
+        path="/api/v2/receipts/signing-key",
+        summary="Get ODR public signing key",
+        description=(
+            "Get the Ed25519 public key for offline verification of Open "
+            "Decision Receipt signatures. Public endpoint: public keys are "
+            "not secret, and third-party verifiers need this without "
+            "credentials. Returns 404 until a signing key is provisioned."
+        ),
+        tags=["Receipts"],
+        operation_id="get_odr_signing_key",
         responses={
-            "200": {"description": "Statistics returned"},
-            "401": {"description": "Unauthorized"},
+            "200": {"description": "Public key returned"},
+            "404": {"description": "No signing key configured"},
+            "503": {"description": "Signing key unavailable"},
         },
     )
-    @require_permission("receipts:read")
     def _get_signing_key(self) -> HandlerResult:
         """Publish the ODR Ed25519 public signing key (#8225).
 
@@ -1166,6 +1171,19 @@ class ReceiptsHandler(BaseHandler):
             }
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v2/receipts/stats",
+        summary="Get receipt statistics",
+        description="Get aggregated statistics about receipts including counts by verdict and risk level.",
+        tags=["Receipts", "Statistics"],
+        operation_id="get_receipt_stats",
+        responses={
+            "200": {"description": "Statistics returned"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
+    @require_permission("receipts:read")
     async def _get_stats(self) -> HandlerResult:
         """Get receipt statistics."""
         store = self._get_store()

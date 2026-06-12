@@ -607,6 +607,30 @@ class TestGetSigningKey:
         assert handler.can_handle("/.well-known/aragora-odr-signing-key", "GET")
         assert not handler.can_handle("/.well-known/aragora-odr-signing-key", "POST")
 
+    @pytest.mark.asyncio
+    async def test_dispatches_through_handle_for_both_routes(self, handler):
+        """The endpoint must be reachable via the actual dispatch path."""
+        pytest.importorskip("cryptography")
+        from aragora.gauntlet.odr_signing import generate_odr_keypair
+
+        signer = generate_odr_keypair()
+        for path in ("/api/v2/receipts/signing-key", "/.well-known/aragora-odr-signing-key"):
+            with patch(
+                "aragora.gauntlet.odr_signing.load_odr_signer",
+                return_value=signer,
+            ):
+                result = await handler.handle(method="GET", path=path)
+            assert result is not None, path
+            assert result.status_code == 200, path
+            assert _parse_body(result)["key_id"] == signer.key_id
+
+    def test_get_stats_keeps_require_permission(self, handler):
+        """Regression guard: inserting the signing-key endpoint above
+        _get_stats must not steal its decorators (caught by independent
+        model review on #8275). require_permission wraps with
+        functools.wraps, so the decorated method carries __wrapped__."""
+        assert hasattr(type(handler)._get_stats, "__wrapped__")
+
 
 # ===========================================================================
 # Test Async Safety
