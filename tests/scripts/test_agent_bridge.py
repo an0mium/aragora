@@ -2831,19 +2831,39 @@ def test_gc_write_preserves_historical_sessions_in_canonical_snapshot(
 
 
 class _FakeTmuxRunner:
-    """Injected tmux runner: scripted capture-pane panes + recorded calls."""
+    """Injected tmux runner: scripted capture-pane panes + recorded calls.
 
-    def __init__(self, panes: list[str], *, panes_after_enter: list[str] | None = None) -> None:
+    ``capture_returncode`` / ``capture_raises`` simulate a failed pane capture
+    (non-zero exit or subprocess error).  ``send_returncode`` simulates tmux
+    rejecting the ``send-keys`` Enter nudge.
+    """
+
+    def __init__(
+        self,
+        panes: list[str],
+        *,
+        panes_after_enter: list[str] | None = None,
+        capture_returncode: int = 0,
+        capture_raises: BaseException | None = None,
+        send_returncode: int = 0,
+    ) -> None:
         self.panes = list(panes)
         self.panes_after_enter = list(panes_after_enter or [])
         self.calls: list[list[str]] = []
         self.enter_sent = False
+        self.capture_returncode = capture_returncode
+        self.capture_raises = capture_raises
+        self.send_returncode = send_returncode
 
     def __call__(self, cmd: list[str]) -> SimpleNamespace:
         self.calls.append(list(cmd))
         if cmd[:2] == ["tmux", "send-keys"]:
             self.enter_sent = True
-            return SimpleNamespace(returncode=0, stdout="")
+            return SimpleNamespace(returncode=self.send_returncode, stdout="")
+        if self.capture_raises is not None:
+            raise self.capture_raises
+        if self.capture_returncode != 0:
+            return SimpleNamespace(returncode=self.capture_returncode, stdout="")
         panes = self.panes_after_enter if self.enter_sent and self.panes_after_enter else self.panes
         pane = panes.pop(0) if len(panes) > 1 else panes[0]
         return SimpleNamespace(returncode=0, stdout=pane)
@@ -2856,8 +2876,13 @@ class _FakeTmuxRunner:
 
 
 _PROMPT = "Fix the flaky lane test.\nReport results when done."
+# Marker-in-tail but NO paste placeholder -> low-confidence staged (no nudge).
 _STAGED_PANE = "Claude Code v2\n> Fix the flaky lane test.\nReport results when done.\n"
-_SUBMITTED_PANE = "Report results when done... ok\nWorking on it\nThinking hard\nRunning tests\nReading files\nEditing now\n"
+# Paste placeholder present -> high-confidence staged (safe to nudge Enter).
+_PLACEHOLDER_PANE = "Claude Code v2\n> [Pasted Content 5120 chars]\n"
+_SUBMITTED_PANE = (
+    "Acknowledged.\nWorking on it\nThinking hard\nRunning tests\nReading files\nEditing now\n"
+)
 
 
 def test_verify_prompt_submission_delivered_first_try_sends_no_enter() -> None:
@@ -2882,10 +2907,11 @@ def test_verify_prompt_submission_delivered_first_try_sends_no_enter() -> None:
     ]
 
 
-def test_verify_prompt_submission_staged_then_enter_then_submitted() -> None:
+def test_verify_prompt_submission_placeholder_then_enter_then_submitted() -> None:
     import agent_bridge as mod
 
-    runner = _FakeTmuxRunner([_STAGED_PANE], panes_after_enter=[_SUBMITTED_PANE])
+    # Paste placeholder -> high-confidence staged, so Enter is nudged.
+    runner = _FakeTmuxRunner([_PLACEHOLDER_PANE], panes_after_enter=[_SUBMITTED_PANE])
     sleeps: list[float] = []
     outcome = mod._verify_prompt_submission(
         "aragora:claude-lane",
@@ -2905,10 +2931,10 @@ def test_verify_prompt_submission_staged_then_enter_then_submitted() -> None:
     assert len(runner.capture_calls()) == 4
 
 
-def test_verify_prompt_submission_still_staged_records_undelivered_one_enter_only() -> None:
+def test_verify_prompt_submission_placeholder_still_staged_one_enter_only() -> None:
     import agent_bridge as mod
 
-    runner = _FakeTmuxRunner([_STAGED_PANE])
+    runner = _FakeTmuxRunner([_PLACEHOLDER_PANE])
     outcome = mod._verify_prompt_submission(
         "aragora:claude-lane",
         _PROMPT,
@@ -2924,14 +2950,113 @@ def test_verify_prompt_submission_still_staged_records_undelivered_one_enter_onl
     assert len(runner.enter_calls()) == 1
 
 
+def test_verify_prompt_submission_marker_only_records_undelivered_without_enter() -> None:
+    import agent_bridge as mod
+
+    # Marker-in-tail but no paste placeholder: low-confidence. Recorded as
+    # undelivered (still-staged) but NO corrective Enter is sent -- blindly
+    # accepting could submit an unrelated harness confirmation prompt.
+    runner = _FakeTmuxRunner([_STAGED_PANE])
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=lambda _s: None,
+    )
+
+    assert outcome["delivered"] is False
+    assert outcome["enter_nudges"] == 0
+    assert runner.enter_calls() == []
+    # 3 polls, no re-verify (no nudge was sent).
+    assert outcome["attempts"] == 3
+
+
+def test_verify_prompt_submission_capture_nonzero_is_unverifiable() -> None:
+    import agent_bridge as mod
+
+    # tmux capture-pane returns non-zero (e.g. dead/missing pane): capture
+    # failed, so submission is UNVERIFIABLE -- not silently delivered=True.
+    runner = _FakeTmuxRunner([""], capture_returncode=1)
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=lambda _s: None,
+    )
+
+    assert outcome["delivered"] is None
+    assert outcome["error"] == "capture-failed"
+    assert outcome["enter_nudges"] == 0
+    # No Enter sent when we cannot even read the pane.
+    assert runner.enter_calls() == []
+
+
+def test_verify_prompt_submission_capture_oserror_is_unverifiable() -> None:
+    import agent_bridge as mod
+
+    runner = _FakeTmuxRunner([""], capture_raises=OSError("tmux not found"))
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=lambda _s: None,
+    )
+
+    assert outcome["delivered"] is None
+    assert outcome["error"] == "capture-failed"
+    assert outcome["enter_nudges"] == 0
+    assert runner.enter_calls() == []
+
+
+def test_verify_prompt_submission_failed_send_keys_not_counted_as_nudge() -> None:
+    import agent_bridge as mod
+
+    # Placeholder staged -> nudge attempted, but tmux rejects send-keys
+    # (returncode != 0).  The receipt must NOT falsely attest an Enter was sent.
+    runner = _FakeTmuxRunner([_PLACEHOLDER_PANE], send_returncode=1)
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=lambda _s: None,
+    )
+
+    assert outcome["delivered"] is False
+    assert outcome["enter_nudges"] == 0
+    assert outcome["nudge_failed"] is True
+    # send-keys was attempted exactly once, but it failed; no re-verify poll.
+    assert len(runner.enter_calls()) == 1
+    assert outcome["attempts"] == 3
+
+
 def test_pane_shows_staged_prompt_detects_paste_placeholder() -> None:
     import agent_bridge as mod
 
     marker = mod._prompt_tail_marker(_PROMPT)
     assert marker == "Report results when done."
-    assert mod._pane_shows_staged_prompt("composer:\n[Pasted Content 5120 chars]\n", marker) is True
-    assert mod._pane_shows_staged_prompt(_STAGED_PANE, marker) is True
-    assert mod._pane_shows_staged_prompt(_SUBMITTED_PANE, marker) is False
+    # (staged, placeholder) tuple: placeholder is the high-confidence positive.
+    assert mod._pane_shows_staged_prompt("composer:\n[Pasted Content 5120 chars]\n", marker) == (
+        True,
+        True,
+    )
+    # Bare marker-in-tail: staged but low-confidence (no placeholder).
+    assert mod._pane_shows_staged_prompt(_STAGED_PANE, marker) == (True, False)
+    assert mod._pane_shows_staged_prompt(_SUBMITTED_PANE, marker) == (False, False)
+
+
+def test_pane_shows_staged_prompt_scans_wider_window() -> None:
+    import agent_bridge as mod
+
+    marker = mod._prompt_tail_marker(_PROMPT)
+    # Staged paste, then a handful of harness chrome lines that would scroll the
+    # marker off a 5-line tail but stay inside the wider (~25-line) window.
+    chrome = "\n".join(f"harness chrome line {i}" for i in range(8))
+    pane = f"{_STAGED_PANE}\n{chrome}\n"
+    assert mod._pane_shows_staged_prompt(pane, marker) == (True, False)
 
 
 def test_record_dispatch_receipt_merges_into_existing_meta(
@@ -3046,7 +3171,8 @@ def test_cmd_launch_undelivered_prompt_returns_nonzero_with_single_enter(
     import agent_bridge as mod
 
     sessions_dir = _setup_launch_repo(mod, tmp_path, monkeypatch)
-    calls = _fake_launch_subprocess(mod, monkeypatch, _STAGED_PANE)
+    # Placeholder pane -> high-confidence staged, so a single Enter is nudged.
+    calls = _fake_launch_subprocess(mod, monkeypatch, _PLACEHOLDER_PANE)
 
     rc = mod.cmd_launch(_launch_namespace(tmp_path))
 
@@ -3061,6 +3187,43 @@ def test_cmd_launch_undelivered_prompt_returns_nonzero_with_single_enter(
     assert meta["dispatch"]["delivered"] is False
     assert meta["dispatch"]["enter_nudges"] == 1
     assert meta["dispatch"]["verified_at"]
+
+
+def test_cmd_launch_unverifiable_capture_returns_nonzero_no_enter(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    sessions_dir = _setup_launch_repo(mod, tmp_path, monkeypatch)
+    calls: list[list[str]] = []
+
+    def _fake_run(cmd, **_kwargs):
+        calls.append(list(cmd))
+        if cmd[0] == "bash":
+            return SimpleNamespace(returncode=0, stdout="launched\n", stderr="")
+        if cmd[:2] == ["tmux", "capture-pane"]:
+            # Capture fails: submission is unverifiable, not delivered.
+            return SimpleNamespace(returncode=1, stdout="", stderr="no such pane")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path))
+
+    # Unverifiable must never be indistinguishable from verified-delivered.
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["returncode"] == 0  # launcher itself succeeded
+    assert payload["dispatch"]["delivered"] is None
+    assert payload["dispatch"]["error"] == "capture-failed"
+    # No Enter sent when the pane could not be read.
+    assert [c for c in calls if c[:2] == ["tmux", "send-keys"]] == []
+    meta = json.loads((sessions_dir / "claude-lane.meta.json").read_text(encoding="utf-8"))
+    assert meta["dispatch"]["delivered"] is None
+    assert meta["dispatch"]["error"] == "capture-failed"
 
 
 def test_cmd_launch_submit_verify_timeout_zero_disables_verification(

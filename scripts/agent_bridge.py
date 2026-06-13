@@ -1503,17 +1503,35 @@ def _prompt_tail_marker(prompt: str, *, max_chars: int = 80) -> str:
     return ""
 
 
-def _pane_shows_staged_prompt(pane_text: str, marker: str, *, tail_lines: int = 5) -> bool:
+def _pane_shows_staged_prompt(
+    pane_text: str, marker: str, *, tail_lines: int = 25
+) -> tuple[bool, bool]:
     """Heuristic: is the pasted prompt still sitting in the composer?
 
-    The prompt is considered *staged* (not submitted) when the tail of the
-    pane -- the last ``tail_lines`` non-empty lines after ANSI cleanup --
-    still contains the pasted prompt's tail marker, or shows a tmux/harness
-    paste placeholder such as ``[Pasted Content N chars]``.  Once a harness
-    accepts a submit it appends output below the echoed prompt, so the pane
-    tail moves past both markers.  Known limitation: a freshly submitted
-    prompt with no harness output yet can look staged; the bounded re-poll
-    plus the single Enter nudge (a no-op on an empty composer) covers that.
+    Returns ``(staged, placeholder)`` where ``staged`` is True when the prompt
+    still appears un-submitted and ``placeholder`` is True only when a tmux/
+    harness paste placeholder such as ``[Pasted Content N chars]`` is present.
+
+    The two signals are deliberately split (review fix #8338 / #8317):
+
+    * **Paste-placeholder detected** -- a high-confidence positive that the
+      prompt is genuinely staged in the composer; safe for the caller to nudge
+      Enter to submit it.
+    * **Bare marker-in-tail (no placeholder)** -- low-confidence.  A harness can
+      echo the prompt back as plain output, so a substring match alone is not
+      proof the composer still holds the prompt.  The prompt is reported as
+      still-staged (undelivered) but the caller MUST NOT blind-send Enter: an
+      unrelated harness confirmation prompt (file-write / plan-ack) could be
+      sitting at the composer and a stray Enter would accept it.
+
+    The tail window scans the last ``tail_lines`` non-empty lines after ANSI
+    cleanup (wider than a handful of lines so a staged paste followed by a few
+    lines of harness chrome does not scroll the marker off the tail).  Once a
+    harness accepts a submit it appends output below the echoed prompt, so the
+    pane tail eventually moves past both markers.  Known limitation: a freshly
+    submitted prompt with no harness output yet can look staged; the bounded
+    re-poll plus the single Enter nudge (a no-op on an empty composer) covers
+    that.
     """
     cleaned_lines = [
         cleaned
@@ -1522,8 +1540,8 @@ def _pane_shows_staged_prompt(pane_text: str, marker: str, *, tail_lines: int = 
     ]
     tail = "\n".join(cleaned_lines[-tail_lines:])
     if _PASTE_PLACEHOLDER_RE.search(tail):
-        return True
-    return bool(marker) and marker in tail
+        return True, True
+    return (bool(marker) and marker in tail), False
 
 
 def _capture_pane_tail(
@@ -1531,15 +1549,23 @@ def _capture_pane_tail(
     runner: Any = None,
     *,
     lines: int = 40,
-) -> str:
-    """Read back the pane contents for submit verification."""
+) -> str | None:
+    """Read back the pane contents for submit verification.
+
+    Returns the captured pane text on success (possibly an empty string for a
+    genuinely empty pane), or ``None`` when the capture itself failed -- a tmux
+    subprocess error, a non-zero returncode (e.g. dead/missing pane), or an
+    OSError.  Callers must treat ``None`` as *unverifiable* and never collapse
+    it into a clean "delivered" outcome (review fix #8338 / #8317): a
+    capture-failure is not evidence the prompt left the composer.
+    """
     run = runner or _default_tmux_runner
     try:
         result = run(["tmux", "capture-pane", "-t", target, "-p", "-S", f"-{lines}"])
     except (subprocess.SubprocessError, OSError):
-        return ""
+        return None
     if getattr(result, "returncode", 1) != 0:
-        return ""
+        return None
     return str(getattr(result, "stdout", "") or "")
 
 
@@ -1554,10 +1580,23 @@ def _verify_prompt_submission(
 ) -> dict[str, Any]:
     """Confirm a pasted prompt left the composer; nudge once if staged.
 
-    Polls the pane up to ``polls`` times within ``timeout_seconds``.  If the
-    prompt still looks staged after the final poll, sends exactly ONE Enter
-    via ``tmux send-keys`` and re-verifies once.  Never sends a second Enter.
-    Returns the dispatch outcome used for the lane's dispatch receipt.
+    Polls the pane up to ``polls`` times within ``timeout_seconds`` and records
+    a tri-state ``delivered`` outcome (review fix #8338 / #8317):
+
+    * ``True``  -- the prompt no longer appears staged (submitted).
+    * ``False`` -- the prompt is still staged (undelivered).
+    * ``None``  -- the pane capture failed, so submission could not be verified
+      either way (``error: "capture-failed"``).  An unverifiable lane is NOT a
+      clean delivery; callers must surface it as such.
+
+    A corrective Enter is sent only on a *positive* paste-placeholder
+    detection -- the high-confidence signal the prompt genuinely sits in the
+    composer.  A bare marker-in-tail match (low confidence) is recorded as
+    still-staged but never auto-submitted, because the composer might instead
+    hold an unrelated harness confirmation prompt that a stray Enter would
+    wrongly accept.  At most ONE Enter is ever sent, and only when ``tmux
+    send-keys`` actually succeeds (returncode 0); a rejected send is recorded
+    rather than falsely attested.
     """
     run = runner or _default_tmux_runner
     if sleep is None:
@@ -1567,32 +1606,62 @@ def _verify_prompt_submission(
     interval = max(0.1, float(timeout_seconds) / polls)
     attempts = 0
     enter_nudges = 0
+    nudge_failed = False
+    capture_failed = False
     staged = True
+    placeholder = False
     for poll_index in range(polls):
         attempts += 1
-        staged = _pane_shows_staged_prompt(_capture_pane_tail(target, run), marker)
+        pane = _capture_pane_tail(target, run)
+        if pane is None:
+            capture_failed = True
+            break
+        capture_failed = False
+        staged, placeholder = _pane_shows_staged_prompt(pane, marker)
         if not staged:
             break
         if poll_index < polls - 1:
             sleep(interval)
-    if staged:
+    # Only nudge on a high-confidence positive (paste placeholder); never on a
+    # bare marker match or when the capture itself failed.
+    if not capture_failed and staged and placeholder:
+        sent = False
         try:
-            run(["tmux", "send-keys", "-t", target, "Enter"])
-            enter_nudges = 1
+            result = run(["tmux", "send-keys", "-t", target, "Enter"])
+            # Only count the nudge when tmux actually accepted the send-keys;
+            # a non-zero returncode (bad target / dead pane) is a failed nudge.
+            sent = getattr(result, "returncode", 1) == 0
         except (subprocess.SubprocessError, OSError):
-            pass
-        if enter_nudges:
+            sent = False
+        if sent:
+            enter_nudges = 1
             sleep(min(interval, 2.0))
             attempts += 1
-            staged = _pane_shows_staged_prompt(_capture_pane_tail(target, run), marker)
-    return {
-        "delivered": not staged,
+            pane = _capture_pane_tail(target, run)
+            if pane is None:
+                capture_failed = True
+            else:
+                capture_failed = False
+                staged, placeholder = _pane_shows_staged_prompt(pane, marker)
+        else:
+            nudge_failed = True
+    if capture_failed:
+        delivered: bool | None = None
+    else:
+        delivered = not staged
+    outcome: dict[str, Any] = {
+        "delivered": delivered,
         "attempts": attempts,
         "enter_nudges": enter_nudges,
         "pane_target": target,
         "verified_at": _now_iso(),
         "method": "pane-tail-heuristic",
     }
+    if delivered is None:
+        outcome["error"] = "capture-failed"
+    if nudge_failed:
+        outcome["nudge_failed"] = True
+    return outcome
 
 
 def _record_dispatch_receipt(name: str, dispatch: dict[str, Any]) -> Path | None:
@@ -1711,10 +1780,12 @@ def cmd_launch(args: argparse.Namespace) -> int:
 
     dispatch = _verify_launch_dispatch(args, agent=agent, launch_ok=result.returncode == 0)
     exit_code = result.returncode
-    if exit_code == 0 and dispatch is not None and not dispatch.get("delivered", False):
-        # Dispatch truth: the lane exists but the prompt never left the
-        # composer.  Surface that as a launch failure so callers do not
-        # treat a staged-but-unsubmitted lane as started.
+    if exit_code == 0 and dispatch is not None and dispatch.get("delivered") is not True:
+        # Dispatch truth: the lane exists but the prompt either never left the
+        # composer (delivered=False) or could not be verified (delivered=None,
+        # capture-failed).  Neither is a clean delivery, so surface both as a
+        # launch failure -- an unverifiable lane must never be indistinguishable
+        # from a verified-delivered one.
         exit_code = 1
 
     # Report writes are wrapped so a consumer closing the pipe early cannot
@@ -1738,13 +1809,22 @@ def cmd_launch(args: argparse.Namespace) -> int:
                 print(result.stdout, end="")
             if result.stderr:
                 print(result.stderr, end="", file=sys.stderr)
-            if dispatch is not None and not dispatch.get("delivered", False):
-                print(
-                    f"Prompt for '{args.name}' still staged in the composer "
-                    f"after {dispatch.get('attempts', 0)} check(s); "
-                    "dispatch receipt records delivered=false.",
-                    file=sys.stderr,
-                )
+            if dispatch is not None and dispatch.get("delivered") is not True:
+                if dispatch.get("delivered") is None:
+                    print(
+                        f"Prompt submission for '{args.name}' could not be "
+                        f"verified after {dispatch.get('attempts', 0)} check(s) "
+                        f"({dispatch.get('error', 'capture-failed')}); "
+                        "dispatch receipt records delivered=null (unverifiable).",
+                        file=sys.stderr,
+                    )
+                else:
+                    print(
+                        f"Prompt for '{args.name}' still staged in the composer "
+                        f"after {dispatch.get('attempts', 0)} check(s); "
+                        "dispatch receipt records delivered=false.",
+                        file=sys.stderr,
+                    )
     except BrokenPipeError:
         _mute_stdout_after_broken_pipe()
 
