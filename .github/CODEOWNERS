@@ -66,3 +66,26 @@
 
 # Project guidelines
 /CLAUDE.md @an0mium
+
+# =============================================================================
+# TET T4 / H1 — scarmani identity pin (Tier 4; docs/specs/TAMPER_EVIDENT_TRAIL.md)
+# =============================================================================
+# These paths are the merge-authority surface: CI workflows, the quorum gate,
+# and the settlement helpers. They are pinned to the human-only oversight
+# identity so gate changes are mechanically impossible without an approval no
+# agent can produce. CODEOWNERS uses last-match-wins semantics, so these rules
+# MUST stay at the bottom of this file (they intentionally supersede the
+# default rule and the /.github/workflows/ rule above).
+#
+# Activation requires an operator browser step (not done by this file alone):
+#   Settings -> Branches -> main protection -> enable "Require review from
+#   Code Owners". @scarmani must have write access for the pin to be
+#   enforceable.
+/.github/workflows/ @scarmani
+/aragora/cli/commands/review_queue*.py @scarmani
+/scripts/settle_one_pr.py @scarmani
+/scripts/settle_status.py @scarmani
+/scripts/settle_tier4_pr.py @scarmani
+
+# Self-protecting: changing ownership rules itself requires the pinned owner.
+/.github/CODEOWNERS @scarmani
