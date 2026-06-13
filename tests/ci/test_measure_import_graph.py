@@ -13,8 +13,9 @@ import importlib.util
 import json
 from pathlib import Path
 
-import grimp
 import pytest
+
+grimp = pytest.importorskip("grimp")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _TOOL_PATH = REPO_ROOT / "scripts" / "ci" / "measure_import_graph.py"
