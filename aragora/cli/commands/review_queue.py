@@ -690,33 +690,22 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
             "Defaults to a dry run that posts nothing."
         ),
     )
-    collect_evidence_p.add_argument(
-        "--pr", required=True, type=int, help="PR number to collect evidence for"
-    )
-    collect_evidence_p.add_argument(
-        "--repo",
-        default="",
-        help="owner/name of the target repo (default: current gh context)",
-    )
-    collect_evidence_p.add_argument(
+    collect_evidence_arg = collect_evidence_p.add_argument
+    collect_evidence_arg("--pr", required=True, type=int, help="PR number to collect evidence for")
+    collect_evidence_arg("--repo", default="", help="owner/name target repo (default: gh context)")
+    collect_evidence_arg(
         "--reviewers",
         nargs="+",
         default=None,
         help="reviewer model families to run (default: claude grok)",
     )
-    collect_evidence_p.add_argument(
-        "--author",
-        default=None,
-        help="GitHub login to simulate for evidence-lint (default: gh authenticated user)",
+    collect_evidence_arg(
+        "--author", default=None, help="GitHub login for evidence-lint (default: gh user)"
     )
-    collect_evidence_p.add_argument(
-        "--apply",
-        action="store_true",
-        help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
+    collect_evidence_arg(
+        "--apply", action="store_true", help="Post Tier 0-2 evidence; Tier 3-4 prepare only."
     )
-    collect_evidence_p.add_argument(
-        "--json", dest="json_output", action="store_true", help="Output as JSON"
-    )
+    collect_evidence_arg("--json", dest="json_output", action="store_true", help="Output as JSON")
 
     lint_comment_p = sub.add_parser(
         "lint-comment",
