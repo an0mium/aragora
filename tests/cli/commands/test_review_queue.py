@@ -4812,6 +4812,10 @@ class TestJsonOutput:
             "aragora.cli.commands.review_queue._build_merge_authorization_packet",
             raise_transport,
         )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: (_ for _ in ()).throw(_GhError("REST fallback unavailable")),
+        )
         ns = argparse.Namespace(
             review_queue_command="merge-packet",
             pr=["7885"],
@@ -4839,6 +4843,7 @@ class TestJsonOutput:
         assert payload["not_ready"] == [7885]
         assert payload["entries"] == []
         assert payload["admin_squash_allowed"] is False
+        assert payload["rest_fallback"]["available"] is False
 
     def test_conductor_json_transport_blocked_envelope(
         self, monkeypatch: pytest.MonkeyPatch
@@ -6054,6 +6059,10 @@ class TestSettlementHelpers:
             "aragora.cli.commands.review_queue._build_merge_authorization_packet",
             fail_transport,
         )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: (_ for _ in ()).throw(_GhError("REST fallback unavailable")),
+        )
         ns = argparse.Namespace(
             review_queue_command="merge-packet",
             pr=["1"],
@@ -6083,6 +6092,7 @@ class TestSettlementHelpers:
         assert payload["not_ready"] == [1]
         assert payload["entries"] == []
         assert payload["admin_squash_order"] == []
+        assert payload["rest_fallback"]["available"] is False
         assert "do not mark ready" in payload["next_prompt"]
 
     def test_merge_packet_json_reports_graphql_rate_limit_blocked(
@@ -6123,6 +6133,101 @@ class TestSettlementHelpers:
         assert payload["pr_refs"] == ["7841"]
         assert payload["not_ready"] == [7841]
         assert "API rate limit already exceeded" in payload["error"]
+
+    def test_merge_packet_transport_blocked_includes_rest_fallback_metadata(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_rate_limit(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError(
+                "gh pr view 8313 --json number failed: GraphQL: "
+                "API rate limit already exceeded for user ID 33477136."
+            )
+
+        def rest_json(args: list[str]) -> dict[str, Any] | list[dict[str, Any]]:
+            if args == ["api", "repos/synaptent/aragora/pulls/8313"]:
+                return {
+                    "number": 8313,
+                    "title": "fix(proof): report capability matrix generator failures",
+                    "html_url": "https://github.com/synaptent/aragora/pull/8313",
+                    "state": "open",
+                    "draft": True,
+                    "head": {"ref": "codex/proof-matrix-failures", "sha": "head8313"},
+                    "base": {"ref": "main", "sha": "base"},
+                    "mergeable": True,
+                    "mergeable_state": "clean",
+                    "updated_at": "2026-06-12T00:00:00Z",
+                    "changed_files": 2,
+                }
+            if args == ["api", "repos/synaptent/aragora/pulls/8313/files?per_page=100"]:
+                return [
+                    {"filename": "scripts/generate_capability_matrix.py"},
+                    {"filename": "tests/scripts/test_generate_capability_matrix.py"},
+                ]
+            if args == [
+                "api",
+                "repos/synaptent/aragora/commits/head8313/check-runs?per_page=100",
+            ]:
+                return {
+                    "check_runs": [
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "success",
+                            "html_url": "https://example.test/lint",
+                            "check_suite": {"app": {"name": "GitHub Actions"}},
+                        },
+                        {
+                            "name": "Tests / test-fast",
+                            "status": "queued",
+                            "conclusion": "",
+                            "html_url": "https://example.test/tests",
+                            "check_suite": {"app": {"name": "GitHub Actions"}},
+                        },
+                    ]
+                }
+            raise AssertionError(args)
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_rate_limit,
+        )
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", rest_json)
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["8313"],
+            repo="synaptent/aragora",
+            review_queue_root=None,
+            limit=1,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stderr.getvalue() == ""
+        payload = json.loads(stdout.getvalue())
+        assert payload["status"] == "transport_blocked"
+        assert payload["transport_blocked"] is True
+        assert payload["preserve_no_mutate"] is True
+        assert payload["entries"] == []
+        fallback = payload["rest_fallback"]
+        assert fallback["available"] is True
+        assert fallback["mutation_forbidden"] is True
+        assert fallback["pr"]["number"] == 8313
+        assert fallback["pr"]["head_sha"] == "head8313"
+        assert fallback["pr"]["merge_state_status"] == "CLEAN"
+        assert fallback["files"] == [
+            "scripts/generate_capability_matrix.py",
+            "tests/scripts/test_generate_capability_matrix.py",
+        ]
+        assert fallback["check_runs_available"] is True
+        assert fallback["check_runs_summary"]["total"] == 2
+        assert fallback["check_runs_summary"]["non_green_count"] == 1
 
     def test_merge_packet_json_keeps_non_transport_errors_on_stderr(
         self, monkeypatch: pytest.MonkeyPatch
