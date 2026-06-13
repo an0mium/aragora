@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -110,6 +111,13 @@ def _compute_metrics(cases: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[
     return model_metrics, case_results
 
 
+def _finite_number(value: Any, label: str) -> float:
+    number = float(value)
+    if not math.isfinite(number):
+        raise RuntimeError(f"{label} must be finite, got {number!r}")
+    return number
+
+
 def _check_thresholds(
     model_metrics: dict[str, Any],
     case_results: dict[str, Any],
@@ -141,25 +149,29 @@ def _check_thresholds(
         for key, threshold in thresholds.items():
             if not isinstance(threshold, (int, float)):
                 continue
+            threshold_value = _finite_number(
+                threshold,
+                f"models.{model_name}.{key} baseline threshold",
+            )
             if key.startswith("min_"):
                 metric_name = key.removeprefix("min_")
                 mapped = metric_key_map.get(metric_name)
                 if mapped is None:
                     continue
-                value = float(metrics.get(mapped, 0.0))
-                if value < float(threshold):
+                value = _finite_number(metrics.get(mapped, 0.0), f"{model_name}.{mapped}")
+                if value < threshold_value:
                     regressions.append(
-                        f"{model_name}.{mapped} below threshold: {value:.4f} < {float(threshold):.4f}"
+                        f"{model_name}.{mapped} below threshold: {value:.4f} < {threshold_value:.4f}"
                     )
             elif key.startswith("max_"):
                 metric_name = key.removeprefix("max_")
                 mapped = metric_key_map.get(metric_name)
                 if mapped is None:
                     continue
-                value = float(metrics.get(mapped, 0.0))
-                if value > float(threshold):
+                value = _finite_number(metrics.get(mapped, 0.0), f"{model_name}.{mapped}")
+                if value > threshold_value:
                     regressions.append(
-                        f"{model_name}.{mapped} above threshold: {value:.4f} > {float(threshold):.4f}"
+                        f"{model_name}.{mapped} above threshold: {value:.4f} > {threshold_value:.4f}"
                     )
 
     for case_id, thresholds in baseline.get("cases", {}).items():
@@ -167,17 +179,27 @@ def _check_thresholds(
         if case_metric is None:
             regressions.append(f"missing case metrics for baseline case: {case_id}")
             continue
-        score = float(case_metric.get("score", 0.0))
+        score = _finite_number(case_metric.get("score", 0.0), f"{case_id}.score")
         max_score = thresholds.get("max_score")
         min_score = thresholds.get("min_score")
-        if isinstance(max_score, (int, float)) and score > float(max_score):
-            regressions.append(
-                f"{case_id}.score above threshold: {score:.4f} > {float(max_score):.4f}"
+        if isinstance(max_score, (int, float)):
+            max_score_value = _finite_number(
+                max_score,
+                f"cases.{case_id}.max_score baseline threshold",
             )
-        if isinstance(min_score, (int, float)) and score < float(min_score):
-            regressions.append(
-                f"{case_id}.score below threshold: {score:.4f} < {float(min_score):.4f}"
+            if score > max_score_value:
+                regressions.append(
+                    f"{case_id}.score above threshold: {score:.4f} > {max_score_value:.4f}"
+                )
+        if isinstance(min_score, (int, float)):
+            min_score_value = _finite_number(
+                min_score,
+                f"cases.{case_id}.min_score baseline threshold",
             )
+            if score < min_score_value:
+                regressions.append(
+                    f"{case_id}.score below threshold: {score:.4f} < {min_score_value:.4f}"
+                )
 
     return regressions
 

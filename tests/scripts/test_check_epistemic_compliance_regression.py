@@ -80,6 +80,71 @@ def test_checker_fails_when_case_threshold_is_too_strict(tmp_path: Path) -> None
     assert "above threshold" in result.stdout
 
 
+def test_checker_rejects_non_finite_baseline_thresholds(tmp_path: Path) -> None:
+    fixtures_path = tmp_path / "fixtures.json"
+    fixtures_path.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": "nan_threshold_case",
+                        "model": "strict_model",
+                        "text": "Confidence: 0.6; alternative: retry with more evidence.",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(
+        json.dumps(
+            {
+                "global": {"min_total_cases": 1},
+                "models": {"strict_model": {"min_avg_score": float("nan")}},
+                "cases": {"nan_threshold_case": {"max_score": 1.0}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run(
+        "--strict",
+        "--fixtures",
+        str(fixtures_path),
+        "--baseline",
+        str(baseline_path),
+    )
+
+    assert result.returncode == 1
+    assert "models.strict_model.min_avg_score" in result.stderr
+    assert "must be finite" in result.stderr
+
+    baseline_path.write_text(
+        json.dumps(
+            {
+                "global": {"min_total_cases": 1},
+                "models": {"strict_model": {"min_avg_score": 0.0}},
+                "cases": {"nan_threshold_case": {"max_score": float("inf")}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run(
+        "--strict",
+        "--fixtures",
+        str(fixtures_path),
+        "--baseline",
+        str(baseline_path),
+    )
+
+    assert result.returncode == 1
+    assert "cases.nan_threshold_case.max_score" in result.stderr
+    assert "must be finite" in result.stderr
+
+
 def test_checker_rejects_duplicate_case_ids_before_scoring(tmp_path: Path) -> None:
     fixtures_path = tmp_path / "fixtures.json"
     fixtures_path.write_text(
