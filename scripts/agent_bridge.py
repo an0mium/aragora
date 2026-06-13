@@ -2870,7 +2870,7 @@ def _mute_stdout_after_broken_pipe() -> None:
 
 def _emit_text(output: str) -> int:
     try:
-        print(output)
+        print(output, flush=True)
     except BrokenPipeError:
         _mute_stdout_after_broken_pipe()
     return 0
