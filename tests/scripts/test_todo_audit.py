@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from scripts.todo_audit import iter_markers, main
@@ -43,3 +44,45 @@ def test_main_list_respects_limit(tmp_path: Path, capsys: object, monkeypatch: o
     lines = [line for line in captured.out.splitlines() if line]
     assert len(lines) == 1
     assert lines[0].endswith(":1:# TODO first")
+
+
+def test_main_count_json_emits_machine_readable_count(
+    tmp_path: Path, capsys: object, monkeypatch: object
+) -> None:
+    root = tmp_path / "aragora"
+    root.mkdir()
+    (root / "a.py").write_text("# TODO first\n", encoding="utf-8")
+    (root / "b.py").write_text("# FIXME second\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["todo_audit.py", "--mode", "count", "--root", str(root), "--json"],
+    )
+
+    assert main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {"root": str(root), "mode": "count", "count": 2}
+
+
+def test_main_list_json_includes_limited_marker_records(
+    tmp_path: Path, capsys: object, monkeypatch: object
+) -> None:
+    root = tmp_path / "aragora"
+    root.mkdir()
+    (root / "a.py").write_text("# TODO first\n", encoding="utf-8")
+    (root / "b.py").write_text("# FIXME second\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["todo_audit.py", "--mode", "list", "--root", str(root), "--limit", "1", "--json"],
+    )
+
+    assert main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["root"] == str(root)
+    assert payload["mode"] == "list"
+    assert payload["count"] == 2
+    assert payload["limit"] == 1
+    assert payload["markers"] == [
+        {"path": "a.py", "line": 1, "tag": "TODO", "content": "# TODO first"}
+    ]
