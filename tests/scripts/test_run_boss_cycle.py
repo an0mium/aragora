@@ -93,6 +93,10 @@ def test_run_boss_cycle_runs_post_loop_refill_after_success(tmp_path: Path) -> N
         "7",
         "--label",
         "lane:test",
+        "--substrate-cap",
+        "0.3",
+        "--closure-floor",
+        "0.25",
         "--dry-run",
     ]
 
