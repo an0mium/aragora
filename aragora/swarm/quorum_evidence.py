@@ -103,6 +103,7 @@ _REVIEWER_TIMEOUT = 300
 _CLAUDE_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS"
 _CODEX_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS"
 _CODEX_MODEL_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODEL"
+_CODEX_DEFAULT_MODEL = "gpt-5.5"
 _REVIEWER_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS"
 _CODEX_OPENAI_HARNESS = "Codex CLI OpenAI harness"
 _REVIEWER_CLEANUP_TIMEOUT = 10
@@ -424,15 +425,14 @@ def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
         cmd = [
             "codex",
             "exec",
+            "--ignore-user-config",
             "--sandbox",
             "read-only",
-            "--ask-for-approval",
-            "never",
             "--ephemeral",
             "--output-last-message",
             output_path,
         ]
-        model = os.environ.get(_CODEX_MODEL_ENV, "").strip()
+        model = os.environ.get(_CODEX_MODEL_ENV, "").strip() or _CODEX_DEFAULT_MODEL
         if model:
             cmd.extend(["--model", model])
         cmd.append("-")

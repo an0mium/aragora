@@ -315,15 +315,17 @@ def test_run_openai_reviewer_without_api_key_uses_codex_cli(
     assert seen["cmd"] == [
         "codex",
         "exec",
+        "--ignore-user-config",
         "--sandbox",
         "read-only",
-        "--ask-for-approval",
-        "never",
         "--ephemeral",
         "--output-last-message",
         str(seen["output_path"]),
+        "--model",
+        qe._CODEX_DEFAULT_MODEL,
         "-",
     ]
+    assert "--ask-for-approval" not in seen["cmd"]
     assert seen["input"] == "review prompt"
     assert seen["capture_output"] is True
     assert seen["text"] is True
