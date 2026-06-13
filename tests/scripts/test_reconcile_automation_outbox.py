@@ -52,6 +52,35 @@ def _write_outbox_handoff(
     return path
 
 
+def _write_lane_record(
+    state_root: Path,
+    *,
+    branch: str,
+    lane_id: str = "Q-owner-protected",
+    owner_session: str = "codex-owner",
+    status: str = "blocked",
+) -> Path:
+    registry = state_root / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True, exist_ok=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "branch": branch,
+                    "lane_id": lane_id,
+                    "owner_session": owner_session,
+                    "status": status,
+                    "updated_at": "2026-06-13T00:00:00Z",
+                    "worktree": str(state_root / "owned-worktree"),
+                    "next_action": "owner still owns cleanup decision",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return registry
+
+
 def test_terminal_receipt_keys_falls_back_to_receipt_filename(tmp_path: Path) -> None:
     receipt_dir = tmp_path / "receipts"
     receipt_dir.mkdir()
@@ -465,7 +494,19 @@ def test_apply_archives_outbox_handoff_superseded_by_active_handoff(
 
     monkeypatch.setattr(mod, "run_git", fake_run_git)
 
-    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+    assert (
+        mod.main(
+            [
+                "--repo",
+                str(tmp_path),
+                "--apply",
+                "--json",
+                "--outbox-file",
+                old_path.name,
+            ]
+        )
+        == 0
+    )
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["counts"]["satisfied_by_superseded_handoff"] == 1
@@ -478,6 +519,66 @@ def test_apply_archives_outbox_handoff_superseded_by_active_handoff(
     receipt_payload = json.loads(receipt.read_text(encoding="utf-8"))
     assert receipt_payload["status"] == "already_satisfied"
     assert receipt_payload["synthetic_reason"] == f"superseded by active handoff {new_key}"
+
+
+def test_superseded_handoff_keeps_active_owner_branch(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    old_key = "open-pr-codex-example-oldaaaa"
+    new_key = "open-pr-codex-example-restack-newbbbb"
+    old_path = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/example",
+        key=old_key,
+        local_evidence={
+            "branch": "codex/example",
+            "head_sha": "oldaaaa1111",
+        },
+    )
+    new_path = _write_outbox_handoff(
+        outbox_dir,
+        branch="codex/example-restack",
+        key=new_key,
+        local_evidence={
+            "branch": "codex/example-restack",
+            "head_sha": "newbbbb2222",
+            "supersedes_branch": "codex/example",
+            "supersedes_head_sha": "oldaaaa1111",
+        },
+    )
+    _write_lane_record(tmp_path, branch="codex/example", lane_id="Q-owned-superseded")
+
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+
+    assert (
+        mod.main(
+            [
+                "--repo",
+                str(tmp_path),
+                "--apply",
+                "--json",
+                "--outbox-file",
+                old_path.name,
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_superseded_handoff"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["archived"] == 0
+    assert old_path.exists()
+    assert new_path.exists()
+    action = payload["actions"][0]
+    assert action["decision"] == "keep"
+    assert action["active_owner"]["lane_id"] == "Q-owned-superseded"
+    assert "branch has active owner Q-owned-superseded" in action["reason"]
+    assert not (tmp_path / ".aragora" / "automation-receipts" / f"{old_key}.json").exists()
 
 
 def test_apply_archives_outbox_handoff_superseded_by_idempotency_key(
@@ -1310,6 +1411,33 @@ def test_existing_issue_deadlock_archives_with_terminal_receipt(
     assert disposition["item_age_days"] >= 3.0
     assert disposition["issue_state_checked_at"]
     assert "__source_file" not in archived
+
+
+def test_existing_issue_archive_keeps_active_owner_branch(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    handoff, _receipt = _write_existing_issue_deadlock_fixture(tmp_path)
+    _write_lane_record(
+        tmp_path,
+        branch="codex/existing-issue-deadlock",
+        lane_id="Q-owned-existing-issue",
+        owner_session="codex-existing-owner",
+    )
+    calls = _patch_issue_state(monkeypatch, _issue_state_response())
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["archived_superseded_by_existing_issue"] == 0
+    assert result["counts"]["blocked_receipt_issue_only"] == 0
+    assert result["counts"]["still_protecting_active_work"] == 1
+    assert result["archived"] == 0
+    assert calls == []
+    assert handoff.exists()
+    action = result["actions"][0]
+    assert action["decision"] == "keep"
+    assert action["active_owner"]["owner_session"] == "codex-existing-owner"
+    assert "branch has active owner Q-owned-existing-issue" in action["reason"]
 
 
 def test_existing_issue_archive_accepts_closed_completed_issue(

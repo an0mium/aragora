@@ -57,6 +57,17 @@ DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
 DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
 TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
+ACTIVE_OWNER_STATUSES = {
+    "active",
+    "running",
+    "pending",
+    "queued",
+    "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
+}
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -93,6 +104,64 @@ def _resolve_path(repo_root: Path, value: Path | None, default: Path) -> Path:
     if expanded.is_absolute():
         return expanded.resolve()
     return (repo_root / expanded).resolve()
+
+
+def _load_lane_records(registry_path: Path) -> list[dict[str, Any]]:
+    if not registry_path.exists():
+        return []
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    return [row for row in data if isinstance(row, dict)] if isinstance(data, list) else []
+
+
+def _lane_updated_at_timestamp(row: Mapping[str, Any]) -> float:
+    text = str(row.get("updated_at") or "").strip()
+    if not text:
+        return 0.0
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return 0.0
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.timestamp()
+
+
+def _active_owner_for_branch(
+    lane_records: Sequence[Mapping[str, Any]],
+    branch: str,
+) -> Mapping[str, Any] | None:
+    matches = [
+        row
+        for row in lane_records
+        if row.get("branch") == branch
+        and str(row.get("status") or "").strip().lower() in ACTIVE_OWNER_STATUSES
+    ]
+    if not matches:
+        return None
+    return max(matches, key=_lane_updated_at_timestamp)
+
+
+def _active_owner_summary(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "lane_id": row.get("lane_id"),
+        "owner_session": row.get("owner_session"),
+        "status": row.get("status"),
+        "updated_at": row.get("updated_at"),
+        "worktree": row.get("worktree"),
+        "next_action": row.get("next_action"),
+    }
+
+
+def _active_owner_keep_reason(row: Mapping[str, Any]) -> str:
+    lane_id = str(row.get("lane_id") or "unknown-lane")
+    owner = str(row.get("owner_session") or "unknown-owner")
+    status = str(row.get("status") or "unknown-status")
+    return f"branch has active owner {lane_id} ({status}); route cleanup to owner_session {owner}"
 
 
 def _branch_has_landed_on_main(root: Path, base: str, branch: str) -> bool:
@@ -830,6 +899,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--lane-registry-path",
+        type=Path,
+        default=None,
+        help=(
+            "Path to .aragora/agent-bridge/lanes.json for active-owner protection. "
+            "Defaults beside the selected shared automation state."
+        ),
+    )
+    parser.add_argument(
         "--idempotency-key",
         action="append",
         default=[],
@@ -915,6 +993,10 @@ def main(argv: list[str] | None = None) -> int:
     receipt_default = _state_default_path(state_root, DEFAULT_RECEIPT_DIR)
     outbox_dir = _resolve_path(root, args.outbox_dir, outbox_default)
     receipt_dir = _resolve_path(root, args.receipt_dir, receipt_default)
+    lane_registry_default = _state_default_path(
+        state_root, Path(".aragora/agent-bridge/lanes.json")
+    )
+    lane_registry_path = _resolve_path(root, args.lane_registry_path, lane_registry_default)
     archive_default = (
         outbox_dir.with_name("automation-outbox-archive")
         if args.outbox_dir is not None
@@ -929,6 +1011,7 @@ def main(argv: list[str] | None = None) -> int:
     emit(f"state_root: {state_root}")
     emit(f"outbox_dir: {outbox_dir}")
     emit(f"receipt_dir: {receipt_dir}")
+    emit(f"lane_registry_path: {lane_registry_path}")
     emit(f"archive_dir: {archive_dir} {'(will create)' if not archive_dir.exists() else ''}")
     emit(f"mode: {'APPLY' if args.apply else 'DRY-RUN'}\n")
 
@@ -1028,6 +1111,7 @@ def main(argv: list[str] | None = None) -> int:
 
     issue_checker = _IssueStateChecker(root, args.repo_name)
     existing_issue_archived = 0
+    lane_records = _load_lane_records(lane_registry_path)
 
     actions: list[dict[str, Any]] = []
     for path in outbox_files:
@@ -1041,6 +1125,21 @@ def main(argv: list[str] | None = None) -> int:
 
         if not idem or not branch:
             counts["skipped_unparseable"] += 1
+            continue
+
+        active_owner = _active_owner_for_branch(lane_records, branch)
+        if active_owner is not None:
+            counts["still_protecting_active_work"] += 1
+            actions.append(
+                {
+                    "path": str(path),
+                    "branch": branch,
+                    "decision": "keep",
+                    "reason": _active_owner_keep_reason(active_owner),
+                    "active_owner": _active_owner_summary(active_owner),
+                    "synthetic_receipt": False,
+                }
+            )
             continue
 
         receipt = receipt_payloads_by_key.get(idem)
@@ -1410,6 +1509,7 @@ def main(argv: list[str] | None = None) -> int:
                 "terminal_disposition": TERMINAL_DISPOSITION_EXISTING_ISSUE,
             },
             "kept": kept,
+            "lane_registry_path": str(lane_registry_path),
             "outbox_count": len(outbox_files),
             "outbox_dir": str(outbox_dir),
             "reason_counts": reason_counts,
