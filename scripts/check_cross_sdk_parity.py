@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 from sdk_path_normalize import normalize_sdk_path
@@ -85,7 +87,27 @@ def _extract_typescript_paths() -> set[str]:
 # ---------------------------------------------------------------------------
 
 
-def main() -> int:
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_text(output: str) -> bool:
+    try:
+        sys.stdout.write(output)
+        if not output.endswith("\n"):
+            sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+        return False
+    return True
+
+
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Cross-language SDK parity check")
     parser.add_argument("--strict", action="store_true", help="Fail on regressions beyond baseline")
     parser.add_argument(
@@ -95,7 +117,7 @@ def main() -> int:
         help="Baseline JSON file for regression gating",
     )
     parser.add_argument("--json", action="store_true", help="JSON output")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     py_paths = _extract_python_paths()
     ts_paths = _extract_typescript_paths()
@@ -112,28 +134,33 @@ def main() -> int:
         "typescript_only": typescript_only,
     }
 
+    lines: list[str] = []
     if args.json:
-        print(json.dumps(report, indent=2))
+        lines.append(json.dumps(report, indent=2))
     else:
-        print(f"Python SDK paths:     {len(py_paths)}")
-        print(f"TypeScript SDK paths: {len(ts_paths)}")
-        print(f"Common:               {len(common)}")
-        print(f"Python-only:          {len(python_only)}")
-        print(f"TypeScript-only:      {len(typescript_only)}")
+        lines.extend(
+            [
+                f"Python SDK paths:     {len(py_paths)}",
+                f"TypeScript SDK paths: {len(ts_paths)}",
+                f"Common:               {len(common)}",
+                f"Python-only:          {len(python_only)}",
+                f"TypeScript-only:      {len(typescript_only)}",
+            ]
+        )
 
         if python_only:
-            print(f"\nPython-only endpoints ({len(python_only)}):")
-            for p in python_only[:20]:
-                print(f"  {p}")
+            lines.append("")
+            lines.append(f"Python-only endpoints ({len(python_only)}):")
+            lines.extend(f"  {p}" for p in python_only[:20])
             if len(python_only) > 20:
-                print(f"  ... and {len(python_only) - 20} more")
+                lines.append(f"  ... and {len(python_only) - 20} more")
 
         if typescript_only:
-            print(f"\nTypeScript-only endpoints ({len(typescript_only)}):")
-            for p in typescript_only[:20]:
-                print(f"  {p}")
+            lines.append("")
+            lines.append(f"TypeScript-only endpoints ({len(typescript_only)}):")
+            lines.extend(f"  {p}" for p in typescript_only[:20])
             if len(typescript_only) > 20:
-                print(f"  ... and {len(typescript_only) - 20} more")
+                lines.append(f"  ... and {len(typescript_only) - 20} more")
 
     # Baseline regression check
     baseline_py_only: set[str] = set()
@@ -148,22 +175,26 @@ def main() -> int:
 
     if not args.json:
         if args.baseline:
-            print(
-                f"\nBaseline regressions: python_only={len(new_py_only)} typescript_only={len(new_ts_only)}"
+            lines.append("")
+            lines.append(
+                f"Baseline regressions: python_only={len(new_py_only)} typescript_only={len(new_ts_only)}"
             )
-            for p in sorted(new_py_only)[:10]:
-                print(f"  NEW PY-ONLY: {p}")
-            for p in sorted(new_ts_only)[:10]:
-                print(f"  NEW TS-ONLY: {p}")
+            lines.extend(f"  NEW PY-ONLY: {p}" for p in sorted(new_py_only)[:10])
+            lines.extend(f"  NEW TS-ONLY: {p}" for p in sorted(new_ts_only)[:10])
 
+    exit_code = 0
     if args.strict:
         if new_py_only or new_ts_only:
-            print("\nFAILED: Cross-SDK parity regression (--strict mode)")
-            return 1
-        if not args.json:
-            print("\nPASS: No new cross-SDK parity regressions")
+            lines.append("")
+            lines.append("FAILED: Cross-SDK parity regression (--strict mode)")
+            exit_code = 1
+        elif not args.json:
+            lines.append("")
+            lines.append("PASS: No new cross-SDK parity regressions")
 
-    return 0
+    if not _emit_text("\n".join(lines)):
+        return 0
+    return exit_code
 
 
 if __name__ == "__main__":
