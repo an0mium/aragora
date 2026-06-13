@@ -46,7 +46,7 @@ from aragora.cli.commands.review_queue_transport import (
     _gh_json,
     _gh_text,
     _is_github_transport_error,
-    _merge_packet_transport_blocked_envelope,
+    _merge_packet_transport_blocked_envelope_with_rest_fallback,
     _queue_conductor_transport_blocked_envelope,
 )
 
@@ -1297,11 +1297,12 @@ def _cmd_merge_packet(args: argparse.Namespace) -> int:
         )
     except _GhError as exc:
         if json_output and _is_github_transport_error(exc):
-            packet = _merge_packet_transport_blocked_envelope(
+            packet = _merge_packet_transport_blocked_envelope_with_rest_fallback(
                 error=str(exc),
                 pr_refs=list(getattr(args, "pr", []) or []),
                 repo_override=getattr(args, "repo", None),
                 limit=int(getattr(args, "limit", 30) or 30),
+                gh_json=_gh_json,
             )
             print(json.dumps(packet, indent=2, sort_keys=True))
             return 1
