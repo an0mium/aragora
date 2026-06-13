@@ -29,6 +29,7 @@ import math
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -1437,6 +1438,205 @@ def cmd_sessions(args: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Launch dispatch verification (issue #8317)
+#
+# A dispatched lane can die silently when the launcher pastes the prompt into
+# the harness composer but the trailing Enter never registers as a submit: the
+# lane registry shows a launched lane while the prompt sits staged in the
+# composer forever.  These helpers read back the pane after launch, confirm
+# the prompt actually left the composer, nudge it with exactly ONE Enter if it
+# is still staged, and persist a "dispatch" receipt into the launcher's lane
+# metadata entry so liveness checks can breach on staged-but-unsubmitted
+# lanes.
+# ---------------------------------------------------------------------------
+
+DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS = 15.0
+SUBMIT_VERIFY_POLLS = 3
+_PASTE_PLACEHOLDER_RE = re.compile(r"\[Pasted (?:Content|text)\b", re.IGNORECASE)
+
+
+def _default_tmux_runner(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run a tmux command with a bounded timeout; injectable for tests."""
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+
+
+def _launch_uses_interactive_paste(agent: str, *, autonomous: bool) -> bool:
+    """True when tmux_session_launcher.sh delivers the prompt via paste.
+
+    Claude lanes are always interactive (prompt pasted after readiness).
+    Codex lanes paste only when not autonomous (autonomous prompted Codex
+    uses ``codex exec`` which consumes the prompt directly).  Droid/Factory
+    prompted lanes always use ``droid exec -f`` -- nothing to verify.
+    """
+    if agent == "claude":
+        return True
+    return agent == "codex" and not autonomous
+
+
+def _launched_pane_target(name: str) -> str:
+    """Resolve the tmux pane target for a freshly launched lane."""
+    meta_path = TMUX_SESSIONS_DIR / f"{name}.meta.json"
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        meta = {}
+    if isinstance(meta, dict):
+        target = str(meta.get("tmux_window_target") or "")
+        if target:
+            return target
+    return f"{TMUX_SESSION}:{name}"
+
+
+def _prompt_tail_marker(prompt: str, *, max_chars: int = 80) -> str:
+    """Last non-empty prompt line (tail-trimmed) used to spot a staged paste."""
+    for line in reversed(prompt.splitlines()):
+        cleaned = line.strip()
+        if cleaned:
+            return cleaned[-max_chars:]
+    return ""
+
+
+def _pane_shows_staged_prompt(pane_text: str, marker: str, *, tail_lines: int = 5) -> bool:
+    """Heuristic: is the pasted prompt still sitting in the composer?
+
+    The prompt is considered *staged* (not submitted) when the tail of the
+    pane -- the last ``tail_lines`` non-empty lines after ANSI cleanup --
+    still contains the pasted prompt's tail marker, or shows a tmux/harness
+    paste placeholder such as ``[Pasted Content N chars]``.  Once a harness
+    accepts a submit it appends output below the echoed prompt, so the pane
+    tail moves past both markers.  Known limitation: a freshly submitted
+    prompt with no harness output yet can look staged; the bounded re-poll
+    plus the single Enter nudge (a no-op on an empty composer) covers that.
+    """
+    cleaned_lines = [
+        cleaned
+        for cleaned in (_ANSI_RE.sub("", line).strip() for line in pane_text.splitlines())
+        if cleaned
+    ]
+    tail = "\n".join(cleaned_lines[-tail_lines:])
+    if _PASTE_PLACEHOLDER_RE.search(tail):
+        return True
+    return bool(marker) and marker in tail
+
+
+def _capture_pane_tail(
+    target: str,
+    runner: Any = None,
+    *,
+    lines: int = 40,
+) -> str:
+    """Read back the pane contents for submit verification."""
+    run = runner or _default_tmux_runner
+    try:
+        result = run(["tmux", "capture-pane", "-t", target, "-p", "-S", f"-{lines}"])
+    except (subprocess.SubprocessError, OSError):
+        return ""
+    if getattr(result, "returncode", 1) != 0:
+        return ""
+    return str(getattr(result, "stdout", "") or "")
+
+
+def _verify_prompt_submission(
+    target: str,
+    prompt: str,
+    *,
+    timeout_seconds: float = DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS,
+    polls: int = SUBMIT_VERIFY_POLLS,
+    runner: Any = None,
+    sleep: Any = None,
+) -> dict[str, Any]:
+    """Confirm a pasted prompt left the composer; nudge once if staged.
+
+    Polls the pane up to ``polls`` times within ``timeout_seconds``.  If the
+    prompt still looks staged after the final poll, sends exactly ONE Enter
+    via ``tmux send-keys`` and re-verifies once.  Never sends a second Enter.
+    Returns the dispatch outcome used for the lane's dispatch receipt.
+    """
+    run = runner or _default_tmux_runner
+    if sleep is None:
+        sleep = time.sleep
+    marker = _prompt_tail_marker(prompt)
+    polls = max(1, int(polls))
+    interval = max(0.1, float(timeout_seconds) / polls)
+    attempts = 0
+    enter_nudges = 0
+    staged = True
+    for poll_index in range(polls):
+        attempts += 1
+        staged = _pane_shows_staged_prompt(_capture_pane_tail(target, run), marker)
+        if not staged:
+            break
+        if poll_index < polls - 1:
+            sleep(interval)
+    if staged:
+        try:
+            run(["tmux", "send-keys", "-t", target, "Enter"])
+            enter_nudges = 1
+        except (subprocess.SubprocessError, OSError):
+            pass
+        if enter_nudges:
+            sleep(min(interval, 2.0))
+            attempts += 1
+            staged = _pane_shows_staged_prompt(_capture_pane_tail(target, run), marker)
+    return {
+        "delivered": not staged,
+        "attempts": attempts,
+        "enter_nudges": enter_nudges,
+        "pane_target": target,
+        "verified_at": _now_iso(),
+        "method": "pane-tail-heuristic",
+    }
+
+
+def _record_dispatch_receipt(name: str, dispatch: dict[str, Any]) -> Path | None:
+    """Additively merge a ``dispatch`` sub-object into the lane meta entry.
+
+    Extends the metadata file tmux_session_launcher.sh already writes at
+    ``~/.aragora/tmux-sessions/<name>.meta.json``; all existing keys are
+    preserved.  Sentinels (e.g. lane_liveness) can breach on
+    ``dispatch.delivered == false`` for staged-but-unsubmitted lanes.
+    """
+    meta_path = TMUX_SESSIONS_DIR / f"{name}.meta.json"
+    payload: dict[str, Any] = {}
+    if meta_path.exists():
+        try:
+            loaded = json.loads(meta_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                payload = loaded
+        except (OSError, json.JSONDecodeError):
+            payload = {}
+    payload.setdefault("name", name)
+    payload["dispatch"] = dispatch
+    try:
+        _atomic_write_json(meta_path, payload)
+    except OSError:
+        return None
+    return meta_path
+
+
+def _install_sigpipe_hygiene() -> None:
+    """Keep dispatch exit codes truthful when a stdout consumer exits early.
+
+    Without this, a downstream reader closing its end of the pipe kills the
+    launcher with SIGPIPE (exit 141) before it can report dispatch truth.
+    With SIGPIPE ignored, writes raise BrokenPipeError instead, which the
+    report paths catch explicitly.  POSIX-only; a no-op elsewhere.
+    """
+    if not hasattr(signal, "SIGPIPE"):
+        return
+    try:
+        signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+    except (OSError, ValueError):
+        pass
+
+
 def cmd_launch(args: argparse.Namespace) -> int:
     """Launch a tmux-managed harness lane, then let send/read manage it."""
     if not args.name:
@@ -1509,28 +1709,88 @@ def cmd_launch(args: argparse.Namespace) -> int:
         print(f"Launch failed: {exc}", file=sys.stderr)
         return 1
 
-    if args.json:
-        print(
-            json.dumps(
-                {
-                    "ok": result.returncode == 0,
-                    "name": args.name,
-                    "agent": agent,
-                    "cwd": str(launch_cwd),
-                    "returncode": result.returncode,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                },
-                indent=2,
-            )
-        )
-    else:
-        if result.stdout:
-            print(result.stdout, end="")
-        if result.stderr:
-            print(result.stderr, end="", file=sys.stderr)
+    dispatch = _verify_launch_dispatch(args, agent=agent, launch_ok=result.returncode == 0)
+    exit_code = result.returncode
+    if exit_code == 0 and dispatch is not None and not dispatch.get("delivered", False):
+        # Dispatch truth: the lane exists but the prompt never left the
+        # composer.  Surface that as a launch failure so callers do not
+        # treat a staged-but-unsubmitted lane as started.
+        exit_code = 1
 
-    return result.returncode
+    # Report writes are wrapped so a consumer closing the pipe early cannot
+    # mask the dispatch outcome (see _install_sigpipe_hygiene / issue #8317).
+    try:
+        if args.json:
+            payload: dict[str, Any] = {
+                "ok": exit_code == 0,
+                "name": args.name,
+                "agent": agent,
+                "cwd": str(launch_cwd),
+                "returncode": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            }
+            if dispatch is not None:
+                payload["dispatch"] = dispatch
+            print(json.dumps(payload, indent=2))
+        else:
+            if result.stdout:
+                print(result.stdout, end="")
+            if result.stderr:
+                print(result.stderr, end="", file=sys.stderr)
+            if dispatch is not None and not dispatch.get("delivered", False):
+                print(
+                    f"Prompt for '{args.name}' still staged in the composer "
+                    f"after {dispatch.get('attempts', 0)} check(s); "
+                    "dispatch receipt records delivered=false.",
+                    file=sys.stderr,
+                )
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+    return exit_code
+
+
+def _verify_launch_dispatch(
+    args: argparse.Namespace,
+    *,
+    agent: str,
+    launch_ok: bool,
+) -> dict[str, Any] | None:
+    """Run post-launch submit verification and persist the dispatch receipt.
+
+    Returns the dispatch outcome dict, or None when verification does not
+    apply (launch failed, no prompt, exec-style delivery, or verification
+    disabled via ``--submit-verify-timeout 0``).
+    """
+    if not launch_ok:
+        return None
+    timeout_seconds = float(
+        getattr(args, "submit_verify_timeout", DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS) or 0.0
+    )
+    if timeout_seconds <= 0:
+        return None
+    if not _launch_uses_interactive_paste(
+        agent, autonomous=bool(getattr(args, "autonomous", False))
+    ):
+        return None
+    prompt = ""
+    if getattr(args, "file", None):
+        try:
+            prompt = Path(args.file).read_text(encoding="utf-8")
+        except OSError:
+            return None
+    elif getattr(args, "prompt", None):
+        prompt = " ".join(args.prompt)
+    if not prompt.strip():
+        return None
+    dispatch = _verify_prompt_submission(
+        _launched_pane_target(args.name),
+        prompt,
+        timeout_seconds=timeout_seconds,
+    )
+    _record_dispatch_receipt(args.name, dispatch)
+    return dispatch
 
 
 def cmd_exec(args: argparse.Namespace) -> int:
@@ -2728,6 +2988,7 @@ def _json_parent() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    _install_sigpipe_hygiene()
     parser = argparse.ArgumentParser(
         description="Agent bridge: send, approve, read, lanes",
     )
@@ -2759,6 +3020,15 @@ def main() -> int:
         "--autonomous", action="store_true", help="Grant launcher autonomy where supported"
     )
     launch_p.add_argument("--timeout-seconds", type=int, default=120)
+    launch_p.add_argument(
+        "--submit-verify-timeout",
+        type=float,
+        default=DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS,
+        help=(
+            "Seconds to spend confirming a pasted prompt left the composer "
+            "after launch (0 disables submit verification)."
+        ),
+    )
 
     exec_p = sub.add_parser(
         "exec",
