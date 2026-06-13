@@ -1647,22 +1647,28 @@ def test_collect_agent_process_census_redacts_commands_and_counts_roles() -> Non
             " 102 00:03:04 python3 scripts/codex_worktree_value_inventory.py --write-ledger",
             " 103 00:00:05 node /opt/homebrew/bin/codex --yolo",
             " 104 00:00:01 python3 scripts/agent_bridge.py processes --json",
+            " 105 00:00:07 python3 scripts/render_benchmark_truth_status.py --output /tmp/status.md",
             "bad-line",
         ]
     )
 
     assert payload["ok"] is True
-    assert payload["total"] == 3
+    assert payload["total"] == 4
     assert payload["by_role"] == {
+        "benchmark_truth": 1,
         "boss_cycle": 1,
         "codex_cli": 1,
         "worktree_inventory": 1,
     }
     assert [record["role"] for record in payload["records"]] == [
+        "benchmark_truth",
         "boss_cycle",
         "codex_cli",
         "worktree_inventory",
     ]
+    assert payload["records"][0]["summary"] == (
+        "benchmark-truth status and latest-pointer guard process"
+    )
     assert all("command" not in record for record in payload["records"])
     assert "sk-secret" not in json.dumps(payload)
 
