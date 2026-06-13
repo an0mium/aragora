@@ -186,6 +186,50 @@ def test_json_summary_only_omits_action_details(
     assert "actions" not in payload
 
 
+def test_json_output_suppresses_flush_time_broken_pipe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FlushBrokenStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    stream = FlushBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    assert stream.writes
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
+def test_emit_output_suppresses_write_time_broken_pipe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class WriteBrokenStdout:
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not run after write failure")
+
+    stream = WriteBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    mod._emit_output("payload")
+
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
 def test_reconcile_automation_handoffs_wrapper_executes_primary_script(tmp_path: Path) -> None:
     result = subprocess.run(
         [
