@@ -316,6 +316,8 @@ def test_run_openai_reviewer_without_api_key_uses_codex_cli(
         "codex",
         "exec",
         "--ignore-user-config",
+        "-c",
+        qe._CODEX_APPROVAL_POLICY_CONFIG,
         "--sandbox",
         "read-only",
         "--ephemeral",
@@ -332,6 +334,69 @@ def test_run_openai_reviewer_without_api_key_uses_codex_cli(
     assert seen["timeout"] == 11.0
     assert seen["check"] is False
     assert not Path(seen["output_path"]).exists()
+
+
+def test_run_openai_reviewer_retries_default_codex_model_selection_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    output_paths: list[Path] = []
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        output_paths.append(Path(cmd[cmd.index("--output-last-message") + 1]))
+        model = cmd[cmd.index("--model") + 1]
+        if model == qe._CODEX_DEFAULT_MODELS[0]:
+            return subprocess.CompletedProcess(
+                cmd,
+                1,
+                stdout="",
+                stderr=f"model {model} is not supported",
+            )
+        output_paths[-1].write_text("Verdict: PASS after fallback", encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv(qe._CODEX_MODEL_ENV, raising=False)
+    monkeypatch.delenv(qe._CODEX_MODELS_ENV, raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "openai",
+        "Verdict: PASS after fallback",
+        True,
+        harness=qe._CODEX_OPENAI_HARNESS,
+    )
+    assert [call[call.index("--model") + 1] for call in calls] == list(qe._CODEX_DEFAULT_MODELS)
+    assert all(not path.exists() for path in output_paths)
+
+
+def test_run_openai_reviewer_respects_pinned_codex_model_without_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd,
+            1,
+            stdout="",
+            stderr="model pinned-model is not supported",
+        )
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "pinned-model")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.ok is False
+    assert "codex CLI exit 1: model pinned-model is not supported" in result.error
+    assert len(calls) == 1
+    assert calls[0][-3:] == ["--model", "pinned-model", "-"]
 
 
 def test_run_openai_reviewer_passes_optional_codex_model(
