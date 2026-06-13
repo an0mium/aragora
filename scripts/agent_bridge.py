@@ -624,6 +624,33 @@ def _head_for_worktree(path: str | Path | None) -> str | None:
     return head or None
 
 
+def _head_for_branch(branch: str | None, repo_root: Path | None = None) -> str | None:
+    if not branch:
+        return None
+    root = repo_root or CANONICAL_REPO_ROOT
+    ref_candidates = [f"refs/heads/{branch}", f"refs/remotes/origin/{branch}"]
+    for ref in ref_candidates:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "--verify", ref],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            return None
+        if result.returncode == 0:
+            head = result.stdout.strip()
+            if head:
+                return head
+    return None
+
+
+def _head_for_owner_record(record: LaneRecord) -> str | None:
+    return _head_for_worktree(record.worktree) or _head_for_branch(record.branch)
+
+
 def _worktree_matches(record_worktree: str, query_worktree: str | None) -> bool:
     if not query_worktree:
         return False
@@ -686,7 +713,7 @@ def _owned_owner_payload(record: LaneRecord) -> dict[str, Any]:
         "pr_number": record.pr_number,
         "branch": record.branch or None,
         "worktree": record.worktree or None,
-        "head": _head_for_worktree(record.worktree),
+        "head": _head_for_owner_record(record),
         "status": record.status,
         "updated_at": record.updated_at or None,
         "recommended_operator_action": _owner_action_for(record),
@@ -702,7 +729,7 @@ def _historical_owner_payload(record: LaneRecord) -> dict[str, Any]:
         "pr_number": record.pr_number,
         "branch": record.branch or None,
         "worktree": record.worktree or None,
-        "head": _head_for_worktree(record.worktree),
+        "head": _head_for_owner_record(record),
         "status": record.status,
         "updated_at": record.updated_at or None,
         "recommended_operator_action": (
@@ -721,7 +748,7 @@ def _conflict_status_owner_payload(record: LaneRecord) -> dict[str, Any]:
         "pr_number": record.pr_number,
         "branch": record.branch or None,
         "worktree": record.worktree or None,
-        "head": _head_for_worktree(record.worktree),
+        "head": _head_for_owner_record(record),
         "status": record.status,
         "updated_at": record.updated_at or None,
         "conflict_session": record.conflict_session or None,
