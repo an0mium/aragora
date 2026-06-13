@@ -29,6 +29,7 @@ import math
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -1437,8 +1438,344 @@ def cmd_sessions(args: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Launch dispatch verification (issue #8317)
+#
+# A dispatched lane can die silently when the launcher pastes the prompt into
+# the harness composer but the trailing Enter never registers as a submit: the
+# lane registry shows a launched lane while the prompt sits staged in the
+# composer forever.  These helpers read back the pane after launch, confirm
+# the prompt actually left the composer, nudge it with exactly ONE Enter if it
+# is still staged, and persist a "dispatch" receipt into the launcher's lane
+# metadata entry so liveness checks can breach on staged-but-unsubmitted
+# lanes.
+# ---------------------------------------------------------------------------
+
+DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS = 5.0
+SUBMIT_VERIFY_POLLS = 3
+# After a confident Enter nudge, give the harness a moment to clear the
+# composer with a short second re-poll instead of a single fixed wait, so a
+# harness that needs a beat is not recorded undelivered prematurely.
+SUBMIT_VERIFY_NUDGE_REPOLLS = 2
+SUBMIT_VERIFY_NUDGE_REPOLL_INTERVAL = 1.5
+_PASTE_PLACEHOLDER_RE = re.compile(r"\[Pasted (?:Content|text)\b", re.IGNORECASE)
+
+
+def _default_tmux_runner(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run a tmux command with a bounded timeout; injectable for tests."""
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+
+
+def _launch_uses_interactive_paste(agent: str, *, autonomous: bool) -> bool:
+    """True when tmux_session_launcher.sh delivers the prompt via paste.
+
+    Claude lanes are always interactive (prompt pasted after readiness).
+    Codex lanes paste only when not autonomous (autonomous prompted Codex
+    uses ``codex exec`` which consumes the prompt directly).  Droid/Factory
+    prompted lanes always use ``droid exec -f`` -- nothing to verify.
+    """
+    if agent == "claude":
+        return True
+    return agent == "codex" and not autonomous
+
+
+def _launched_pane_target(name: str) -> tuple[str | None, str | None]:
+    """Resolve the tmux pane target for a freshly launched lane.
+
+    Returns ``(target, reason)``.  ``reason`` is ``None`` on success; on failure
+    ``target`` is ``None`` and ``reason`` is a short diagnostic.
+
+    The meta file is the source of truth for the launched window target.  A
+    meta file that *exists but cannot be read* (OSError / JSONDecodeError, or a
+    non-dict / missing ``tmux_window_target``) fails CLOSED with
+    ``reason="meta-unreadable"`` (review fix #8338 / #8317): verifying against
+    the documented ``TMUX_SESSION:name`` fallback could capture an unrelated
+    pane and either falsely attest delivery or falsely flag an unrelated lane.
+    When the meta file is *legitimately absent* the documented fallback target
+    is returned (``reason=None``) -- there is no other pane to confuse it with.
+    """
+    meta_path = TMUX_SESSIONS_DIR / f"{name}.meta.json"
+    if meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None, "meta-unreadable"
+        if not isinstance(meta, dict):
+            return None, "meta-unreadable"
+        target = str(meta.get("tmux_window_target") or "")
+        if not target:
+            return None, "meta-unreadable"
+        return target, None
+    return f"{TMUX_SESSION}:{name}", None
+
+
+def _prompt_tail_marker(prompt: str, *, max_chars: int = 80) -> str:
+    """Last non-empty prompt line (tail-trimmed) used to spot a staged paste."""
+    for line in reversed(prompt.splitlines()):
+        cleaned = line.strip()
+        if cleaned:
+            return cleaned[-max_chars:]
+    return ""
+
+
+def _pane_shows_staged_prompt(
+    pane_text: str, marker: str, *, tail_lines: int = 25
+) -> tuple[bool, bool]:
+    """Heuristic: is the pasted prompt still sitting in the composer?
+
+    Returns ``(staged, placeholder)`` where ``staged`` is True when the prompt
+    still appears un-submitted and ``placeholder`` is True only when a tmux/
+    harness paste placeholder such as ``[Pasted Content N chars]`` is present.
+
+    The two signals are deliberately split (review fix #8338 / #8317):
+
+    * **Paste-placeholder detected** -- a high-confidence positive that the
+      prompt is genuinely staged in the composer; this is the ONLY signal the
+      caller acts on (single Enter nudge, then a confident True/False).
+    * **Bare marker-in-tail (no placeholder)** -- low-confidence and too
+      false-positive-prone to act on.  A harness routinely echoes the submitted
+      prompt back as a quoted line *after* submit, so a substring match alone is
+      not proof the composer still holds the prompt.  The verifier treats this
+      as *unverifiable* (``delivered=None``), never as a confident
+      still-staged (``False``) and never as grounds to send Enter.
+
+    The tail window scans the last ``tail_lines`` non-empty lines after ANSI
+    cleanup (wider than a handful of lines so a staged paste followed by a few
+    lines of harness chrome does not scroll the marker off the tail).  Once a
+    harness accepts a submit it appends output below the echoed prompt, so the
+    pane tail eventually moves past both markers.  Known limitation: a freshly
+    submitted prompt with no harness output yet can look staged; the bounded
+    re-poll plus the single Enter nudge (a no-op on an empty composer) covers
+    that.
+    """
+    cleaned_lines = [
+        cleaned
+        for cleaned in (_ANSI_RE.sub("", line).strip() for line in pane_text.splitlines())
+        if cleaned
+    ]
+    tail = "\n".join(cleaned_lines[-tail_lines:])
+    if _PASTE_PLACEHOLDER_RE.search(tail):
+        return True, True
+    return (bool(marker) and marker in tail), False
+
+
+def _capture_pane_tail(
+    target: str,
+    runner: Any = None,
+    *,
+    lines: int = 40,
+) -> str | None:
+    """Read back the pane contents for submit verification.
+
+    Returns the captured pane text on success (possibly an empty string for a
+    genuinely empty pane), or ``None`` when the capture itself failed -- a tmux
+    subprocess error, a non-zero returncode (e.g. dead/missing pane), or an
+    OSError.  Callers must treat ``None`` as *unverifiable* and never collapse
+    it into a clean "delivered" outcome (review fix #8338 / #8317): a
+    capture-failure is not evidence the prompt left the composer.
+    """
+    run = runner or _default_tmux_runner
+    try:
+        result = run(["tmux", "capture-pane", "-t", target, "-p", "-S", f"-{lines}"])
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if getattr(result, "returncode", 1) != 0:
+        return None
+    return str(getattr(result, "stdout", "") or "")
+
+
+def _verify_prompt_submission(
+    target: str,
+    prompt: str,
+    *,
+    timeout_seconds: float = DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS,
+    polls: int = SUBMIT_VERIFY_POLLS,
+    runner: Any = None,
+    sleep: Any = None,
+) -> dict[str, Any]:
+    """Confirm a pasted prompt left the composer; nudge once if confidently staged.
+
+    Polls the pane up to ``polls`` times within ``timeout_seconds`` and records
+    a tri-state ``delivered`` outcome (review fix #8338 / #8317):
+
+    * ``True``  -- a paste placeholder was positively detected and then cleared
+      (submitted), or no staged signal was ever seen.
+    * ``False`` -- a paste placeholder was positively detected and *persisted*
+      through the single Enter nudge and the short re-poll (still staged).
+    * ``None``  -- submission could not be verified either way.  This covers a
+      failed pane capture (``reason: "capture-failed"``), a bare marker-in-tail
+      match with no placeholder (``reason: "marker-only"`` -- too
+      false-positive-prone to act on), and a nudge that ``tmux send-keys``
+      rejected (``reason: "nudge-failed"``).
+
+    A corrective Enter is sent only on a *positive* paste-placeholder
+    detection -- the one high-confidence signal the prompt genuinely sits in
+    the composer.  A bare marker-in-tail match is NEVER auto-submitted (a
+    harness echoes the submitted prompt back as a quoted line, so it is not
+    proof the composer still holds it) and is reported as unverifiable rather
+    than a confident False.  At most ONE Enter is ever sent, and only when
+    ``tmux send-keys`` actually succeeds (returncode 0); a rejected send is
+    recorded as unverifiable rather than falsely attested.
+
+    After a confident nudge the composer is re-polled with a short bounded
+    loop (``SUBMIT_VERIFY_NUDGE_REPOLLS`` polls) so a harness that needs a beat
+    to clear the composer is not recorded undelivered prematurely.
+    """
+    run = runner or _default_tmux_runner
+    if sleep is None:
+        sleep = time.sleep
+    marker = _prompt_tail_marker(prompt)
+    polls = max(1, int(polls))
+    interval = max(0.1, float(timeout_seconds) / polls)
+    attempts = 0
+    enter_nudges = 0
+    capture_failed = False
+    saw_marker_only = False
+    staged = False
+    placeholder = False
+    for poll_index in range(polls):
+        attempts += 1
+        pane = _capture_pane_tail(target, run)
+        if pane is None:
+            capture_failed = True
+            break
+        capture_failed = False
+        marker_staged, placeholder = _pane_shows_staged_prompt(pane, marker)
+        if placeholder:
+            # High-confidence staged: a paste placeholder is in the composer.
+            staged = True
+            break
+        if marker_staged:
+            # Low-confidence: bare marker echo. Record it but keep polling --
+            # the placeholder (if any) may surface, or the echo may scroll off.
+            saw_marker_only = True
+            staged = False
+        else:
+            staged = False
+            saw_marker_only = False
+            break
+        if poll_index < polls - 1:
+            sleep(interval)
+
+    delivered: bool | None
+    reason: str | None = None
+    nudge_failed = False
+
+    if capture_failed:
+        delivered = None
+        reason = "capture-failed"
+    elif placeholder:
+        # Positive staged signal -> send exactly one Enter, then re-poll briefly.
+        sent = False
+        try:
+            result = run(["tmux", "send-keys", "-t", target, "Enter"])
+            sent = getattr(result, "returncode", 1) == 0
+        except (subprocess.SubprocessError, OSError):
+            sent = False
+        if not sent:
+            nudge_failed = True
+            delivered = None
+            reason = "nudge-failed"
+        else:
+            enter_nudges = 1
+            still_placeholder = True
+            for _ in range(max(1, int(SUBMIT_VERIFY_NUDGE_REPOLLS))):
+                sleep(min(interval, SUBMIT_VERIFY_NUDGE_REPOLL_INTERVAL))
+                attempts += 1
+                pane = _capture_pane_tail(target, run)
+                if pane is None:
+                    capture_failed = True
+                    break
+                _marker_staged, still_placeholder = _pane_shows_staged_prompt(pane, marker)
+                if not still_placeholder:
+                    break
+            if capture_failed:
+                delivered = None
+                reason = "capture-failed"
+            elif still_placeholder:
+                # Placeholder positively persisted through the nudge+repoll.
+                delivered = False
+            else:
+                delivered = True
+    elif saw_marker_only:
+        # Bare marker echo, never a placeholder: too false-positive-prone to
+        # call either way. Unverifiable, and no Enter was sent.
+        delivered = None
+        reason = "marker-only"
+    else:
+        # No staged signal at all -> the prompt left the composer.
+        delivered = True
+
+    outcome: dict[str, Any] = {
+        "delivered": delivered,
+        "attempts": attempts,
+        "enter_nudges": enter_nudges,
+        "pane_target": target,
+        "verified_at": _now_iso(),
+        "method": "pane-tail-heuristic",
+    }
+    if reason is not None:
+        outcome["error"] = reason
+    if nudge_failed:
+        outcome["nudge_failed"] = True
+    return outcome
+
+
+def _record_dispatch_receipt(name: str, dispatch: dict[str, Any]) -> Path | None:
+    """Additively merge a ``dispatch`` sub-object into the lane meta entry.
+
+    Extends the metadata file tmux_session_launcher.sh already writes at
+    ``~/.aragora/tmux-sessions/<name>.meta.json``; all existing keys are
+    preserved.  Sentinels (e.g. lane_liveness) can breach on
+    ``dispatch.delivered == false`` for staged-but-unsubmitted lanes.
+    """
+    meta_path = TMUX_SESSIONS_DIR / f"{name}.meta.json"
+    payload: dict[str, Any] = {}
+    if meta_path.exists():
+        try:
+            loaded = json.loads(meta_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                payload = loaded
+        except (OSError, json.JSONDecodeError):
+            payload = {}
+    payload.setdefault("name", name)
+    payload["dispatch"] = dispatch
+    try:
+        _atomic_write_json(meta_path, payload)
+    except OSError:
+        return None
+    return meta_path
+
+
+def _install_sigpipe_hygiene() -> None:
+    """Keep dispatch exit codes truthful when a stdout consumer exits early.
+
+    Without this, a downstream reader closing its end of the pipe kills the
+    launcher with SIGPIPE (exit 141) before it can report dispatch truth.
+    With SIGPIPE ignored, writes raise BrokenPipeError instead, which the
+    report paths catch explicitly.  POSIX-only; a no-op elsewhere.
+    """
+    if not hasattr(signal, "SIGPIPE"):
+        return
+    try:
+        signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+    except (OSError, ValueError):
+        pass
+
+
 def cmd_launch(args: argparse.Namespace) -> int:
     """Launch a tmux-managed harness lane, then let send/read manage it."""
+    # SIGPIPE hygiene is scoped to launch (review fix #8338 / #8317): the
+    # report writes below are wrapped in BrokenPipeError handling so a consumer
+    # closing the pipe early cannot mask the dispatch outcome. Other subcommands
+    # keep their default SIGPIPE behavior.
+    _install_sigpipe_hygiene()
     if not args.name:
         print("No session name. Use --name", file=sys.stderr)
         return 1
@@ -1509,28 +1846,122 @@ def cmd_launch(args: argparse.Namespace) -> int:
         print(f"Launch failed: {exc}", file=sys.stderr)
         return 1
 
-    if args.json:
-        print(
-            json.dumps(
-                {
-                    "ok": result.returncode == 0,
-                    "name": args.name,
-                    "agent": agent,
-                    "cwd": str(launch_cwd),
-                    "returncode": result.returncode,
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                },
-                indent=2,
-            )
-        )
-    else:
-        if result.stdout:
-            print(result.stdout, end="")
-        if result.stderr:
-            print(result.stderr, end="", file=sys.stderr)
+    dispatch = _verify_launch_dispatch(args, agent=agent, launch_ok=result.returncode == 0)
+    exit_code = result.returncode
+    # Verification is OBSERVATIONAL by default (review fix #8338 / #8317): the
+    # tri-state dispatch receipt is ALWAYS written (that is the durable signal
+    # lane_liveness reads), but it does NOT flip cmd_launch's exit code.  A
+    # successful launch returns its normal rc regardless of whether the prompt
+    # was confirmed submitted -- changing the default broke every caller (CI,
+    # retry loops, the funnel automation) that treats rc!=0 as launch failure.
+    # Exit-code enforcement is opt-in via --strict-verify: only then does a
+    # non-delivered (False) or unverifiable (None) dispatch produce rc=1.
+    if (
+        getattr(args, "strict_verify", False)
+        and exit_code == 0
+        and dispatch is not None
+        and dispatch.get("delivered") is not True
+    ):
+        exit_code = 1
 
-    return result.returncode
+    # Report writes are wrapped so a consumer closing the pipe early cannot
+    # mask the dispatch outcome (see _install_sigpipe_hygiene / issue #8317).
+    try:
+        if args.json:
+            payload: dict[str, Any] = {
+                "ok": exit_code == 0,
+                "name": args.name,
+                "agent": agent,
+                "cwd": str(launch_cwd),
+                "returncode": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            }
+            if dispatch is not None:
+                payload["dispatch"] = dispatch
+            print(json.dumps(payload, indent=2))
+        else:
+            if result.stdout:
+                print(result.stdout, end="")
+            if result.stderr:
+                print(result.stderr, end="", file=sys.stderr)
+            if dispatch is not None and dispatch.get("delivered") is not True:
+                if dispatch.get("delivered") is None:
+                    print(
+                        f"Prompt submission for '{args.name}' could not be "
+                        f"verified after {dispatch.get('attempts', 0)} check(s) "
+                        f"({dispatch.get('error', 'capture-failed')}); "
+                        "dispatch receipt records delivered=null (unverifiable).",
+                        file=sys.stderr,
+                    )
+                else:
+                    print(
+                        f"Prompt for '{args.name}' still staged in the composer "
+                        f"after {dispatch.get('attempts', 0)} check(s); "
+                        "dispatch receipt records delivered=false.",
+                        file=sys.stderr,
+                    )
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+    return exit_code
+
+
+def _verify_launch_dispatch(
+    args: argparse.Namespace,
+    *,
+    agent: str,
+    launch_ok: bool,
+) -> dict[str, Any] | None:
+    """Run post-launch submit verification and persist the dispatch receipt.
+
+    Returns the dispatch outcome dict, or None when verification does not
+    apply (launch failed, no prompt, exec-style delivery, or verification
+    disabled via ``--submit-verify-timeout 0``).
+    """
+    if not launch_ok:
+        return None
+    timeout_seconds = float(
+        getattr(args, "submit_verify_timeout", DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS) or 0.0
+    )
+    if timeout_seconds <= 0:
+        return None
+    if not _launch_uses_interactive_paste(
+        agent, autonomous=bool(getattr(args, "autonomous", False))
+    ):
+        return None
+    prompt = ""
+    if getattr(args, "file", None):
+        try:
+            prompt = Path(args.file).read_text(encoding="utf-8")
+        except OSError:
+            return None
+    elif getattr(args, "prompt", None):
+        prompt = " ".join(args.prompt)
+    if not prompt.strip():
+        return None
+    target, target_reason = _launched_pane_target(args.name)
+    if target is None:
+        # The meta file existed but could not be read for a trustworthy pane
+        # target.  Fail CLOSED to unverifiable rather than capturing a possibly
+        # unrelated fallback pane (review fix #8338 / #8317).
+        dispatch: dict[str, Any] = {
+            "delivered": None,
+            "attempts": 0,
+            "enter_nudges": 0,
+            "pane_target": None,
+            "verified_at": _now_iso(),
+            "method": "pane-tail-heuristic",
+            "error": target_reason or "meta-unreadable",
+        }
+    else:
+        dispatch = _verify_prompt_submission(
+            target,
+            prompt,
+            timeout_seconds=timeout_seconds,
+        )
+    _record_dispatch_receipt(args.name, dispatch)
+    return dispatch
 
 
 def cmd_exec(args: argparse.Namespace) -> int:
@@ -2728,6 +3159,9 @@ def _json_parent() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    # SIGPIPE hygiene is scoped to ``launch`` only (review fix #8338 / #8317):
+    # other subcommands (sessions/exec/send/approve/read) keep their prior
+    # clean SIGPIPE-killed behavior under ``| head`` and must not be affected.
     parser = argparse.ArgumentParser(
         description="Agent bridge: send, approve, read, lanes",
     )
@@ -2759,6 +3193,25 @@ def main() -> int:
         "--autonomous", action="store_true", help="Grant launcher autonomy where supported"
     )
     launch_p.add_argument("--timeout-seconds", type=int, default=120)
+    launch_p.add_argument(
+        "--submit-verify-timeout",
+        type=float,
+        default=DEFAULT_SUBMIT_VERIFY_TIMEOUT_SECONDS,
+        help=(
+            "Seconds to spend confirming a pasted prompt left the composer "
+            "after launch (0 disables submit verification)."
+        ),
+    )
+    launch_p.add_argument(
+        "--strict-verify",
+        action="store_true",
+        help=(
+            "Enforce submit verification on the exit code: exit 1 when the "
+            "dispatch is not confirmed delivered (still staged or unverifiable). "
+            "Off by default -- verification is observational and the tri-state "
+            "dispatch receipt is always written regardless of this flag."
+        ),
+    )
 
     exec_p = sub.add_parser(
         "exec",

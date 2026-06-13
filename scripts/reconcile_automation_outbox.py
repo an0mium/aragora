@@ -781,6 +781,8 @@ def _github_open_pr_state(root: Path, repo_name: str) -> tuple[dict[str, int], b
         open_prs = open_pr_heads(root, repo_name, "codex/")
     except Exception as exc:
         return {}, False, f"open PR fetch failed ({exc})"
+    if not isinstance(open_prs, dict):
+        return {}, False, "open PR fetch returned no usable data"
     return open_prs, True, f"{len(open_prs)} open codex/* PRs"
 
 

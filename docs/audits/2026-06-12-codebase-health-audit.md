@@ -29,12 +29,13 @@ Every headline number is reproducible: the exact command for each lives in the b
 
 ## Finding 1 — Layering: the delivery layer is a de facto shared library
 
-**Issue:** #8259 (Wave 1) | **Baseline keys:** `server_import_outside`, `type_checking_files`, `circular_mention_files`, `loc_server`
+**Issue:** #8259 (Wave 1) | **Baseline keys:** `server_import_outside`, `type_checking_files`, `circular_mention_files`, `loc_server`, `mutual_import_cycles`, `server_imported_by`, `handlers_flat_root`
 
 - `aragora/server/` is 475,621 LOC, 24.4% of the package (1,031 files).
 - **180 files outside `server/` import `aragora.server`.** Worst case is top-level in the core engine: `aragora/debate/orchestrator.py:40` does `from aragora.server.metrics import ACTIVE_DEBATES`.
 - `aragora/core/decision_router.py` lazily imports `aragora.server.documents` and `aragora.server.decision_integrity_utils` inside functions as an explicit circular workaround.
 - 910 files (~22%) need `if TYPE_CHECKING:` guards; 155 files carry circular-import mentions. There is no enforced layering: the intended core → debate → delivery direction is violated and nothing stops new violations.
+- **Graph metrics now pinned (P0):** `scripts/ci/measure_import_graph.py` (grimp, with TYPE_CHECKING-guarded imports excluded — they are type-only and not runtime cycles) pins the three previously-unmeasured numbers into the baseline JSON under the update-BOTH rule: mutual import cycles (140; 183 if TYPE_CHECKING imports are included), distinct top-level packages importing `aragora.server` (48), and flat handler files in `aragora/server/handlers/` (187, cross-checked against `ls aragora/server/handlers/*.py | wc -l`). The cycle count is ratcheted shrink-only via `measure_import_graph.py --check` against `scripts/baselines/import_cycles_baseline.json` (any growth fails). Targets: cycles <30, `server` imported-by <=5, handlers flat-root <20 (P4b).
 
 **Remediation:** freeze the offender list as a shrink-only CI baseline (the `tests/server/test_route_collisions.py` pattern: new entries fail, resolved-but-not-removed entries fail). First substantive shrink: move `ACTIVE_DEBATES` and sibling metrics to `aragora/observability/`, re-export from `server.metrics` for compat.
 

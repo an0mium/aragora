@@ -72,6 +72,8 @@ if python_sources:
         f"python3 scripts/nomic_ci_test_selector.py --changed-files {quoted} --dry-run"
     )
     suggested_commands.append(f"python3 -m ruff check {quoted}")
+if "scripts/agent_bridge.py" in source_changes:
+    suggested_commands.append("python3 scripts/agent_bridge.py operator-snapshot --json --summary-only")
 if test_changes:
     quoted_tests = " ".join(shlex.quote(path) for path in test_changes)
     suggested_commands.append(f"python3 -m pytest {quoted_tests} -q")
