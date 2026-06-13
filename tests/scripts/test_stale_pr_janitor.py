@@ -380,6 +380,22 @@ def test_max_comments_caps_posting(tmp_path: Path) -> None:
     assert summary["queued"] == [1, 2, 3, 4, 5]
 
 
+def test_existing_marker_does_not_consume_comment_cap(tmp_path: Path) -> None:
+    prs = [_pr(n, mergeable="CONFLICTING") for n in range(1, 5)]
+    summary, post, fetch_calls = _run(
+        prs,
+        queue_file=tmp_path / "q.json",
+        apply=True,
+        existing_comments={1: [janitor.COMMENT_MARKER]},
+        max_comments=2,
+    )
+    assert fetch_calls == [1, 2, 3]
+    assert [pr for pr, _ in post.calls] == [2, 3]
+    assert summary["comments_skipped_existing"] == [1]
+    assert summary["comments_posted"] == [2, 3]
+    assert summary["queued"] == [1, 2, 3, 4]
+
+
 def test_failed_comment_fails_closed_exit_one(tmp_path: Path) -> None:
     post = CommentRecorder(results={1: (False, "boom")})
     summary, _, _ = _run(

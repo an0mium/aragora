@@ -430,8 +430,11 @@ def run_janitor(
 
     identical_errors = 0
     last_error: str | None = None
-    comment_candidates = queue_entries[: max(0, max_comments)]
-    for entry in comment_candidates:
+    comment_attempts = 0
+    comment_limit = max(0, max_comments)
+    for entry in queue_entries:
+        if comment_attempts >= comment_limit:
+            break
         number = entry["pr"]
         try:
             existing_comments = fetch_comments(number)
@@ -451,8 +454,10 @@ def run_janitor(
             log(json.dumps({"action": "comment_skipped", "pr": number, "reason": "marker exists"}))
             continue
         if not apply:
+            comment_attempts += 1
             log(json.dumps({"action": "comment", "pr": number, "dry_run": True}))
             continue
+        comment_attempts += 1
         ok, error = post_comment(number, comment_body(entry))
         if ok:
             summary["comments_posted"].append(number)
