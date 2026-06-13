@@ -56,6 +56,9 @@ OPERATOR_SNAPSHOT_TIMEOUT_SECONDS = _env_timeout_seconds(
 )
 BROAD_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_BROAD_PACKET_TIMEOUT_SECONDS", 90)
 SINGLE_PACKET_TIMEOUT_SECONDS = _env_timeout_seconds("SETTLE_ONE_SINGLE_PACKET_TIMEOUT_SECONDS", 90)
+BROAD_PACKET_TARGET_ATTEMPT_LIMIT = _env_timeout_seconds(
+    "SETTLE_ONE_BROAD_PACKET_TARGET_ATTEMPT_LIMIT", 8
+)
 COMMAND_OUTPUT_REPORT_LIMIT = 4096
 OPEN_PR_LIGHT_FIELDS = (
     "number,title,url,headRefName,headRefOid,isDraft,mergeable,mergeStateStatus,"
@@ -66,6 +69,7 @@ SURFACE_EXCLUDE_REASON = (
     "security/auth/RBAC/secrets/deploy/workflow/legal/compliance/destructive/"
     "migration/public-API surface"
 )
+DRAFT_EXCLUDE_REASON = "draft/readiness"
 
 
 def _repo_root() -> Path:
@@ -233,6 +237,14 @@ def _coerce_int(value: Any) -> int | None:
         return int(str(value))
     except (TypeError, ValueError):
         return None
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}
 
 
 def _is_green_summary(summary: str) -> bool:
@@ -430,6 +442,26 @@ def policy_exclusion_reasons(
     return list(dict.fromkeys(reasons))
 
 
+def broad_light_exclusion_reasons(
+    entry: dict[str, Any],
+    *,
+    exclude_prs: set[int] | None = None,
+    active_owned_prs: set[int] | None = None,
+    policy_metadata: dict[int, dict[str, Any]] | None = None,
+) -> list[str]:
+    """Cheap broad-mode exclusions before spending targeted packet calls."""
+    reasons = policy_exclusion_reasons(
+        entry,
+        exclude_prs=exclude_prs,
+        active_owned_prs=active_owned_prs,
+        policy_metadata=policy_metadata,
+    )
+    metadata = _metadata_for_entry(entry, policy_metadata)
+    if _coerce_bool(metadata.get("isDraft", entry.get("isDraft"))):
+        reasons.append(DRAFT_EXCLUDE_REASON)
+    return list(dict.fromkeys(reasons))
+
+
 def _exclusion_record(entry: dict[str, Any], reasons: list[str]) -> dict[str, Any]:
     return {
         "pr_number": _entry_pr(entry),
@@ -565,6 +597,7 @@ def no_candidate_diagnostics(
         "top_check_blocked_candidate": check_blocked[0] if check_blocked else None,
         "top_repair_first_candidate": repair_first[0] if repair_first else None,
         "top_conflict_candidate": _first_by_reason(policy_exclusions, "dirty/conflicting PR"),
+        "top_draft_candidate": _first_by_reason(policy_exclusions, DRAFT_EXCLUDE_REASON),
         "top_human_risk_candidate": top_human_risk,
         "top_evidence_blocked_candidate": evidence_not_green[0] if evidence_not_green else None,
         "top_satisfied_not_selected_candidate": (
@@ -612,6 +645,20 @@ def no_candidate_next_action(diagnostics: dict[str, Any]) -> dict[str, Any]:
             "operator_action": (
                 f"Repair conflicts for PR #{pr_number} in a clean disposable worktree, run focused "
                 "tests, push the branch only if validation passes. Do not merge."
+            ),
+        }
+
+    draft = diagnostics.get("top_draft_candidate")
+    if isinstance(draft, dict) and draft.get("pr_number"):
+        pr_number = draft["pr_number"]
+        return {
+            "kind": "wait_for_readiness",
+            "pr_number": pr_number,
+            "reason": "nearest otherwise-light-eligible PR is still draft/not ready",
+            "operator_action": (
+                f"Re-check PR #{pr_number} exact head, readiness, required checks, and "
+                "merge-packet; only collect evidence, mark ready, or merge if a later prompt "
+                "explicitly authorizes that exact action."
             ),
         }
 
@@ -1413,6 +1460,10 @@ def build_report(
                 return_exclusions=True,
             ),
         )
+    packet_policy_exclusions = [
+        item for item in packet.get("light_policy_exclusions") or [] if isinstance(item, dict)
+    ]
+    policy_exclusions = _merge_exclusions(packet_policy_exclusions, policy_exclusions)
     has_preselection_blockers = bool(preselection_blockers)
     selection_blockers = _dedupe_strings([*preselection_blockers, *selection_blockers])
     report: dict[str, Any] = {
@@ -1709,20 +1760,17 @@ def _light_entry_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict[str, Any]:
-    try:
-        return _load_broad_packet_bulk(cwd=cwd, limit=limit, repo=repo)
-    except RuntimeError as bulk_error:
-        load_warnings = [f"bulk merge-packet failed; using fallback: {bulk_error}"]
-        metadata: dict[int, dict[str, Any]] = {}
-        metadata, command = load_open_pr_metadata(cwd, limit=limit, repo=repo)
-        if command.get("returncode") != 0:
-            packet = _empty_packet()
-            packet["load_blockers"] = [
-                str(bulk_error),
-                command.get("stderr") or command.get("stdout") or "gh pr list failed",
-            ]
-            packet["load_warnings"] = load_warnings
-            return packet
+    load_warnings = [
+        "bulk merge-packet skipped; using bounded light metadata scan for broad settle-one"
+    ]
+    metadata, command = load_open_pr_metadata(cwd, limit=limit, repo=repo)
+    if command.get("returncode") != 0:
+        packet = _empty_packet()
+        packet["load_blockers"] = [
+            command.get("stderr") or command.get("stdout") or "gh pr list failed"
+        ]
+        packet["load_warnings"] = load_warnings
+        return packet
 
     active_owned_prs, active_owned_command = load_active_owned_prs(cwd)
     snapshot_blocker = active_owned_snapshot_blocker(active_owned_command)
@@ -1733,28 +1781,31 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
         return packet
     packets: list[dict[str, Any]] = []
     packet_failures: list[str] = []
+    light_policy_exclusions: list[dict[str, Any]] = []
     packet_attempts = 0
-    selected_seen = False
-    packets_after_selected = 0
     for pr_number, item in metadata.items():
-        light_reasons = policy_exclusion_reasons(
-            _light_entry_from_metadata(item),
+        light_entry = _light_entry_from_metadata(item)
+        light_reasons = broad_light_exclusion_reasons(
+            light_entry,
             exclude_prs=HUMAN_RISK_EXCLUDES,
             active_owned_prs=active_owned_prs,
             policy_metadata=metadata,
         )
         if light_reasons:
+            light_policy_exclusions.append(_exclusion_record(light_entry, light_reasons))
             continue
+        if packet_attempts >= BROAD_PACKET_TARGET_ATTEMPT_LIMIT:
+            load_warnings.append(
+                "bounded broad packet window exhausted after "
+                f"{packet_attempts} targeted merge-packet queries "
+                f"(light candidates={len(metadata)}, limit={limit})"
+            )
+            break
         packet_attempts += 1
         try:
             packets.append(_load_single_pr_packet(cwd=cwd, pr=pr_number, repo=repo))
         except RuntimeError as exc:
             packet_failures.append(f"merge-packet for #{pr_number} failed: {exc}")
-            continue
-        if selected_seen:
-            packets_after_selected += 1
-            if packets_after_selected >= BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD:
-                break
             continue
         selected, _blockers, _exclusions = cast(
             SelectionResultWithExclusions,
@@ -1768,14 +1819,20 @@ def load_broad_packet_lazily(*, cwd: Path, limit: int, repo: str | None) -> dict
             ),
         )
         if selected is not None:
-            selected_seen = True
+            break
     packet = _combine_packets(packets) if packets else _empty_packet()
-    if packet_attempts > BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD:
+    if packet_attempts:
         load_warnings.append(
-            "fallback per-PR merge-packet queries: "
+            "bounded per-PR merge-packet queries: "
             f"{packet_attempts} (light candidates={len(metadata)}, limit={limit})"
         )
+    else:
+        load_warnings.append(
+            f"no targeted merge-packet queries after light exclusions (limit={limit})"
+        )
     packet["load_warnings"] = load_warnings
+    if light_policy_exclusions:
+        packet["light_policy_exclusions"] = light_policy_exclusions
     if packet_failures:
         packet["load_blockers"] = packet_failures
     return packet

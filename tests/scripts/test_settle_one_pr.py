@@ -630,40 +630,16 @@ def test_open_pr_metadata_uses_light_list_fields(monkeypatch) -> None:
     assert "statusCheckRollup" not in fields
 
 
-def test_broad_packet_lazy_loader_uses_single_bulk_packet(monkeypatch) -> None:
-    commands: list[list[str]] = []
-
-    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
-        del cwd, timeout
-        commands.append(args)
-        if args[:5] == MERGE_PACKET_PREFIX:
-            assert "--limit" in args
-            assert "--pr" not in args
-            return _packet(_entry(7376), _entry(7449)), {"command": "packet", "returncode": 0}
-        raise AssertionError(args)
-
-    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
-
-    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
-
-    assert [entry["pr_number"] for entry in packet["entries"]] == [7376, 7449]
-    assert len(commands) == 1
-
-
-def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
+def test_broad_packet_lazy_loader_uses_light_metadata_before_targeted_packets(
     monkeypatch,
 ) -> None:
     commands: list[list[str]] = []
-    bulk_calls = 0
 
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
-        nonlocal bulk_calls
         del cwd, timeout
         commands.append(args)
         if args[:5] == MERGE_PACKET_PREFIX:
-            if "--limit" in args:
-                bulk_calls += 1
-                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
+            assert "--limit" not in args
             pr_number = int(args[args.index("--pr") + 1])
             return _packet(_entry(pr_number)), {"command": "packet", "returncode": 0}
         if args[:3] == ["gh", "pr", "list"]:
@@ -671,13 +647,21 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
                 [
                     {
                         "number": 7376,
+                        "title": "fix: draft candidate",
+                        "headRefName": "codex/draft",
+                        "isDraft": True,
+                    },
+                    {
+                        "number": 7377,
                         "title": "docs(governance): ADC follow-on deepening packet",
                         "headRefName": "adc-follow-on",
+                        "isDraft": False,
                     },
                     {
                         "number": 7449,
                         "title": "fix(settlement): exclude unsafe PR surfaces",
                         "headRefName": "codex/settle-one-policy-exclusions-20260523",
+                        "isDraft": False,
                     },
                 ],
                 {"command": "metadata", "returncode": 0},
@@ -690,36 +674,105 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
 
     packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
 
+    assert commands[0][:3] == ["gh", "pr", "list"]
     assert [entry["pr_number"] for entry in packet["entries"]] == [7449]
-    assert packet["load_warnings"] == ["bulk merge-packet failed; using fallback: HTTP 504"]
-    assert bulk_calls == 1
+    assert [
+        command
+        for command in commands
+        if command[:5] == MERGE_PACKET_PREFIX and "--limit" in command
+    ] == []
     targeted = [command for command in commands if "--pr" in command]
     assert len(targeted) == 1
     assert targeted[0][targeted[0].index("--pr") + 1] == "7449"
+    assert packet["light_policy_exclusions"] == [
+        {
+            "pr_number": 7376,
+            "title": "fix: draft candidate",
+            "head_sha": None,
+            "reasons": ["draft/readiness"],
+        },
+        {
+            "pr_number": 7377,
+            "title": "docs(governance): ADC follow-on deepening packet",
+            "head_sha": None,
+            "reasons": ["ADC PR"],
+        },
+    ]
 
 
-def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_times_out(
-    monkeypatch,
-) -> None:
+def test_broad_packet_lazy_loader_caps_targeted_packet_window(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
+        commands.append(args)
         if args[:5] == MERGE_PACKET_PREFIX:
-            if "--limit" in args:
-                return None, {
-                    "command": "bulk-packet",
-                    "returncode": 124,
-                    "stderr": "command timed out after 90s and was terminated",
-                    "timed_out": True,
-                }
             pr_number = int(args[args.index("--pr") + 1])
-            return _packet(_entry(pr_number)), {"command": "packet", "returncode": 0}
+            return (
+                _packet(
+                    _entry(
+                        pr_number,
+                        checks_summary="1/2 failing",
+                        reasons=["docs/tests/status-only"],
+                    )
+                ),
+                {"command": "packet", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "list"]:
+            return (
+                [
+                    {
+                        "number": number,
+                        "title": f"fix {number}",
+                        "headRefName": f"codex/{number}",
+                        "isDraft": False,
+                    }
+                    for number in range(7449, 7459)
+                ],
+                {"command": "metadata", "returncode": 0},
+            )
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+    monkeypatch.setattr(settle_one_pr, "BROAD_PACKET_TARGET_ATTEMPT_LIMIT", 3)
+
+    packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
+
+    assert [entry["pr_number"] for entry in packet["entries"]] == [7449, 7450, 7451]
+    targeted = [command for command in commands if "--pr" in command]
+    assert len(targeted) == 3
+    assert any(
+        "bounded broad packet window exhausted after 3" in warning
+        for warning in packet["load_warnings"]
+    )
+
+
+def test_broad_packet_lazy_loader_skips_all_drafts_without_targeted_packets(
+    monkeypatch,
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        if args[:5] == MERGE_PACKET_PREFIX:
+            raise AssertionError("draft-only broad scan should not call merge-packet")
         if args[:3] == ["gh", "pr", "list"]:
             return (
                 [
                     {
                         "number": 7449,
-                        "title": "fix(settlement): exclude unsafe PR surfaces",
-                        "headRefName": "codex/settle-one-policy-exclusions-20260523",
+                        "title": "draft 7449",
+                        "headRefName": "codex/7449",
+                        "isDraft": True,
+                    },
+                    {
+                        "number": 7450,
+                        "title": "draft 7450",
+                        "headRefName": "codex/7450",
+                        "isDraft": True,
                     },
                 ],
                 {"command": "metadata", "returncode": 0},
@@ -732,19 +785,21 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_times_out(
 
     packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
 
-    assert [entry["pr_number"] for entry in packet["entries"]] == [7449]
-    assert packet["load_warnings"] == [
-        "bulk merge-packet failed; using fallback: command timed out after 90s and was terminated"
-    ]
+    assert packet["entries"] == []
+    assert [item["pr_number"] for item in packet["light_policy_exclusions"]] == [7449, 7450]
+    assert [command for command in commands if "--pr" in command] == []
+    assert packet["load_warnings"][-1] == (
+        "no targeted merge-packet queries after light exclusions (limit=100)"
+    )
 
 
-def test_broad_packet_lazy_loader_returns_empty_when_bulk_and_light_metadata_fail(
+def test_broad_packet_lazy_loader_returns_empty_when_light_metadata_fails(
     monkeypatch,
 ) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
         if args[:5] == MERGE_PACKET_PREFIX:
-            return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
+            raise AssertionError("light metadata failure should not call merge-packet")
         if args[:3] == ["gh", "pr", "list"]:
             return None, {"command": "metadata", "returncode": 1, "stderr": "HTTP 504"}
         raise AssertionError(args)
@@ -754,7 +809,7 @@ def test_broad_packet_lazy_loader_returns_empty_when_bulk_and_light_metadata_fai
     packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
 
     assert packet["entries"] == []
-    assert packet["load_blockers"] == ["HTTP 504", "HTTP 504"]
+    assert packet["load_blockers"] == ["HTTP 504"]
 
 
 def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
@@ -763,8 +818,6 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
         if args[:5] == MERGE_PACKET_PREFIX:
-            if "--limit" in args:
-                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             pr_number = args[args.index("--pr") + 1]
             return None, {
                 "command": f"packet {pr_number}",
@@ -791,7 +844,10 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
     packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
 
     assert packet["entries"] == []
-    assert packet["load_warnings"] == ["bulk merge-packet failed; using fallback: HTTP 504"]
+    assert packet["load_warnings"] == [
+        "bulk merge-packet skipped; using bounded light metadata scan for broad settle-one",
+        "bounded per-PR merge-packet queries: 1 (light candidates=1, limit=100)",
+    ]
     assert packet["load_blockers"] == ["merge-packet for #7449 failed: GraphQL timeout"]
 
 
@@ -801,8 +857,6 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
         if args[:5] == MERGE_PACKET_PREFIX:
-            if "--limit" in args:
-                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             return None, {
                 "command": "packet",
                 "returncode": 124,
@@ -829,18 +883,19 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
     packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
 
     assert packet["entries"] == []
-    assert packet["load_warnings"] == ["bulk merge-packet failed; using fallback: HTTP 504"]
+    assert packet["load_warnings"] == [
+        "bulk merge-packet skipped; using bounded light metadata scan for broad settle-one",
+        "bounded per-PR merge-packet queries: 1 (light candidates=1, limit=100)",
+    ]
     assert packet["load_blockers"] == [
         "merge-packet for #7449 failed: command timed out after 90s and was terminated"
     ]
 
 
-def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) -> None:
+def test_broad_packet_lazy_loader_warns_on_bounded_packet_queries(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
         if args[:5] == MERGE_PACKET_PREFIX:
-            if "--limit" in args:
-                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             pr_number = int(args[args.index("--pr") + 1])
             return (
                 _packet(
@@ -855,7 +910,12 @@ def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) ->
         if args[:3] == ["gh", "pr", "list"]:
             return (
                 [
-                    {"number": number, "title": f"fix {number}", "headRefName": f"codex/{number}"}
+                    {
+                        "number": number,
+                        "title": f"fix {number}",
+                        "headRefName": f"codex/{number}",
+                        "isDraft": False,
+                    }
                     for number in range(7449, 7460)
                 ],
                 {"command": "metadata", "returncode": 0},
@@ -869,7 +929,7 @@ def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) ->
     packet = load_broad_packet_lazily(cwd=Path.cwd(), limit=100, repo=None)
 
     assert any(
-        warning.startswith("fallback per-PR merge-packet queries:")
+        warning.startswith("bounded per-PR merge-packet queries:")
         for warning in packet["load_warnings"]
     )
 
@@ -878,17 +938,32 @@ def test_combine_packets_preserves_source_packet_timestamps(monkeypatch) -> None
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
         if args[:5] == MERGE_PACKET_PREFIX:
-            if "--limit" in args:
-                return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             pr_number = int(args[args.index("--pr") + 1])
-            packet = _packet(_entry(pr_number))
+            entry = _entry(pr_number)
+            if pr_number == 7449:
+                entry = _entry(
+                    pr_number,
+                    checks_summary="1/2 failing",
+                    reasons=["docs/tests/status-only"],
+                )
+            packet = _packet(entry)
             packet["generated_at"] = f"packet-{pr_number}-generated-at"
             return packet, {"command": "packet", "returncode": 0}
         if args[:3] == ["gh", "pr", "list"]:
             return (
                 [
-                    {"number": 7449, "title": "fix(settlement)", "headRefName": "codex/settle"},
-                    {"number": 7450, "title": "fix(next)", "headRefName": "codex/next"},
+                    {
+                        "number": 7449,
+                        "title": "fix(settlement)",
+                        "headRefName": "codex/settle",
+                        "isDraft": False,
+                    },
+                    {
+                        "number": 7450,
+                        "title": "fix(next)",
+                        "headRefName": "codex/next",
+                        "isDraft": False,
+                    },
                 ],
                 {"command": "metadata", "returncode": 0},
             )
