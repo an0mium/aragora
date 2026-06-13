@@ -2797,7 +2797,7 @@ def _build_packet(
             settlement_recorded=settlement_recorded,
             human_risk_settlement_recorded=human_risk_settlement_recorded,
             check_surfaces=check_surfaces,
-            repo_slug=_repo_slug_from_pr_payload(pr, repo_override),
+            repo_slug=rest_fallback._repo_slug_from_pr_payload(pr, repo_override),
         ),
     )
     packet.packet_sha = _packet_sha(packet)
@@ -3060,7 +3060,8 @@ def _build_model_review_quorum(
     )
     if human_preapproval_recorded:
         creator_verified, creator_reason = _human_settlement_status_creator_verified(
-            repo_slug=repo_slug or _repo_slug_from_pr_payload(pr, None), head_sha=head_sha
+            repo_slug=repo_slug or rest_fallback._repo_slug_from_pr_payload(pr, None),
+            head_sha=head_sha,
         )
         settlement_creator_pin["checked"] = True
         settlement_creator_pin["verified"] = creator_verified
