@@ -46,12 +46,6 @@ _ALLOWLIST: dict[str, str] = {
     "aragora/server/handlers/admin/feature_flags.py": (
         "feature flags are env-stored by design; writes are post-validation atomic"
     ),
-    # Context-budget admin endpoint writes two config keys into env;
-    # flagged for a future repair to the non-mutating per-request
-    # pattern established in #6454. Tracked by panel review.
-    "aragora/server/handlers/context_budget.py": (
-        "legacy env-based config write; TODO repair to non-mutating pattern"
-    ),
     # Existing DIC-17 bridge helper writes an opt-in flag globally. New
     # epistemic helpers should follow the non-mutating override/config pattern
     # used by DIC-19 proof-unit scanning instead of adding more entries here.

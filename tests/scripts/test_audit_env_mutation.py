@@ -9,6 +9,14 @@ def test_default_targets_include_epistemic_surface() -> None:
     assert audit.REPO_ROOT / "aragora" / "epistemic" in audit.DEFAULT_TARGETS
 
 
+def test_context_budget_handler_is_no_longer_allowlisted() -> None:
+    path = audit.REPO_ROOT / "aragora" / "server" / "handlers" / "context_budget.py"
+    rel = audit.relative(path)
+
+    assert rel not in audit._ALLOWLIST  # noqa: SLF001
+    assert audit.scan_file(path) == []
+
+
 def test_detects_mutating_environ_methods(tmp_path: Path) -> None:
     path = tmp_path / "module.py"
     path.write_text(
