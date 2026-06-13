@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 
 def _load_module(script_name: str) -> Any:
     here = Path(__file__).resolve()
@@ -116,3 +118,35 @@ def test_apply_mailbox_writes_message_and_receipt(tmp_path: Path) -> None:
     assert message["body"] == "real mailbox delivery"
     assert message["priority"] == "blocking"
     assert Path(result["receipt_path"]).exists()
+
+
+def test_main_suppresses_json_broken_pipe(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    args = [
+        "--to",
+        "codex-owner",
+        "--prompt",
+        "sample through pipe",
+        "--steering-inbox-root",
+        str(tmp_path / "steering"),
+        "--receipt-root",
+        str(tmp_path / "receipts"),
+        "--json",
+        "--no-receipt",
+    ]
+
+    class BrokenStdout:
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+        def close(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    muted = []
+    monkeypatch.setattr(wake.sys, "stdout", BrokenStdout())
+    monkeypatch.setattr(wake, "_mute_stdout_after_broken_pipe", lambda: muted.append(True))
+
+    assert wake.main(args) == 0
+    assert muted

@@ -266,6 +266,31 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _flush_stdout_safely() -> None:
+    try:
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
+def _emit_stdout(text: str) -> None:
+    try:
+        sys.stdout.write(text)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     prompt = _read_prompt(prompt=args.prompt, prompt_file=args.prompt_file)
     owner_session, lane, resolved_via = _resolve_lane(
@@ -338,24 +363,31 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
     try:
-        result = run(args)
-    except WakeError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return exc.exit_code
-    if args.json:
-        print(json.dumps(result, indent=2, sort_keys=True))
-    else:
-        print(
-            f"{result['status']}: owner={result['owner_session']} "
-            f"transport={result['transport']} dry_run={result['dry_run']}"
-        )
-        if result.get("error"):
-            print(f"error: {result['error']}", file=sys.stderr)
-        if result.get("receipt_path"):
-            print(f"receipt: {result['receipt_path']}")
-    return 0 if result.get("ok") else 1
+        args = build_parser().parse_args(argv)
+        try:
+            result = run(args)
+        except WakeError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return exc.exit_code
+        if args.json:
+            _emit_stdout(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            lines = [
+                f"{result['status']}: owner={result['owner_session']} "
+                f"transport={result['transport']} dry_run={result['dry_run']}"
+            ]
+            if result.get("receipt_path"):
+                lines.append(f"receipt: {result['receipt_path']}")
+            _emit_stdout("\n".join(lines))
+            if result.get("error"):
+                print(f"error: {result['error']}", file=sys.stderr)
+        return 0 if result.get("ok") else 1
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+        return 0
+    finally:
+        _flush_stdout_safely()
 
 
 if __name__ == "__main__":
