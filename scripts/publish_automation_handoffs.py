@@ -36,6 +36,7 @@ DEFAULT_LABELS = ("boss-ready",)
 DEFAULT_LIMIT = 2
 DEFAULT_MAX_OPEN_ISSUES = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
+DEFAULT_LOOKUP_TIMEOUT_SECONDS = 8
 MAX_ISSUE_BODY_CHARS = 60_000
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
 DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
@@ -213,6 +214,10 @@ def _decision_for_handoff(
     )
 
 
+def _github_lookup_failed_decision(handoff: Handoff) -> PublishDecision:
+    return _decision_for_handoff(handoff, eligible=False, reason="github_lookup_failed")
+
+
 def summarize_decisions(decisions: Sequence[PublishDecision]) -> dict[str, Any]:
     reason_counts = Counter(item.reason for item in decisions)
     eligible_count = sum(1 for item in decisions if item.eligible)
@@ -250,34 +255,36 @@ def _gh_write_op(args: list[str]) -> bool:
     }
 
 
-def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+def _run(
+    args: list[str],
+    *,
+    cwd: Path,
+    timeout: float | int = DEFAULT_COMMAND_TIMEOUT_SECONDS,
+) -> subprocess.CompletedProcess[str]:
     env = github_cli_env(os.environ) if args and args[0] == "gh" else None
-    if args and args[0] == "gh":
-        return gh_subprocess_run(
-            args[1:],
-            timeout=DEFAULT_COMMAND_TIMEOUT_SECONDS,
-            prefer_app=True,
-            write_op=_gh_write_op(args[1:]),
-            env=dict(os.environ if env is None else env),
-            max_retries=0,
-        )
     try:
+        if args and args[0] == "gh":
+            return gh_subprocess_run(
+                args[1:],
+                timeout=timeout,
+                prefer_app=True,
+                write_op=_gh_write_op(args[1:]),
+                env=dict(os.environ if env is None else env),
+                max_retries=0,
+            )
         return subprocess.run(
             args,
             cwd=cwd,
             text=True,
             capture_output=True,
             check=False,
-            timeout=DEFAULT_COMMAND_TIMEOUT_SECONDS,
+            timeout=timeout,
             env=env,
         )
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout if isinstance(exc.stdout, str) else ""
         stderr = exc.stderr if isinstance(exc.stderr, str) else ""
-        message = (
-            stderr
-            or f"command timed out after {DEFAULT_COMMAND_TIMEOUT_SECONDS}s: {' '.join(args)}"
-        )
+        message = stderr or f"command timed out after {timeout}s: {' '.join(args)}"
         return subprocess.CompletedProcess(args=args, returncode=124, stdout=stdout, stderr=message)
 
 
@@ -1061,6 +1068,7 @@ def _existing_issue(repo_root: Path, repo: str, title: str) -> dict[str, Any] | 
             "50",
         ],
         cwd=repo_root,
+        timeout=DEFAULT_LOOKUP_TIMEOUT_SECONDS,
     )
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "failed to list issues")
@@ -1094,6 +1102,7 @@ def _existing_pr(repo_root: Path, repo: str, title: str) -> dict[str, Any] | Non
             "50",
         ],
         cwd=repo_root,
+        timeout=DEFAULT_LOOKUP_TIMEOUT_SECONDS,
     )
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "failed to list PRs")
@@ -1141,6 +1150,7 @@ def _pr_by_number(repo_root: Path, repo: str, number: int) -> dict[str, Any] | N
             "number,title,url,state,headRefName,headRefOid",
         ],
         cwd=repo_root,
+        timeout=DEFAULT_LOOKUP_TIMEOUT_SECONDS,
     )
     if proc.returncode != 0:
         stderr = (proc.stderr or proc.stdout or "").lower()
@@ -1171,6 +1181,7 @@ def _open_pr_by_branch(repo_root: Path, repo: str, branch: str | None) -> dict[s
             "1",
         ],
         cwd=repo_root,
+        timeout=DEFAULT_LOOKUP_TIMEOUT_SECONDS,
     )
     if proc.returncode != 0:
         raise RuntimeError(
@@ -1237,7 +1248,7 @@ def _open_boss_ready_count(repo_root: Path, repo: str, labels: list[str]) -> int
     ]
     for label in labels:
         args.extend(["--label", label])
-    proc = _run(args, cwd=repo_root)
+    proc = _run(args, cwd=repo_root, timeout=DEFAULT_LOOKUP_TIMEOUT_SECONDS)
     if proc.returncode != 0:
         raise RuntimeError(
             proc.stderr.strip() or proc.stdout.strip() or "failed to count open issues"
@@ -1312,14 +1323,24 @@ def decide_handoffs(
     labels: list[str],
     max_open_issues: int,
 ) -> list[PublishDecision]:
-    open_issue_count = _open_boss_ready_count(repo_root, repo, labels)
+    try:
+        open_issue_count = _open_boss_ready_count(repo_root, repo, labels)
+    except (RuntimeError, json.JSONDecodeError):
+        return [
+            _local_handoff_blocker(repo_root, handoff) or _github_lookup_failed_decision(handoff)
+            for handoff in handoffs
+        ]
     decisions: list[PublishDecision] = []
     for handoff in handoffs:
         local_blocker = _local_handoff_blocker(repo_root, handoff)
         if local_blocker is not None:
             decisions.append(local_blocker)
             continue
-        target_pr = _target_open_pr(repo_root, repo, handoff)
+        try:
+            target_pr = _target_open_pr(repo_root, repo, handoff)
+        except (RuntimeError, json.JSONDecodeError):
+            decisions.append(_github_lookup_failed_decision(handoff))
+            continue
         if target_pr:
             decisions.append(
                 PublishDecision(
@@ -1331,7 +1352,11 @@ def decide_handoffs(
                 )
             )
             continue
-        existing = _existing_issue(repo_root, repo, handoff.task_title)
+        try:
+            existing = _existing_issue(repo_root, repo, handoff.task_title)
+        except (RuntimeError, json.JSONDecodeError):
+            decisions.append(_github_lookup_failed_decision(handoff))
+            continue
         if existing:
             decisions.append(
                 PublishDecision(
@@ -1343,7 +1368,11 @@ def decide_handoffs(
                 )
             )
             continue
-        referenced_pr = _referenced_pr(repo_root, repo, handoff)
+        try:
+            referenced_pr = _referenced_pr(repo_root, repo, handoff)
+        except (RuntimeError, json.JSONDecodeError):
+            decisions.append(_github_lookup_failed_decision(handoff))
+            continue
         if referenced_pr and _pr_head_satisfies_handoff(handoff, referenced_pr):
             decisions.append(
                 PublishDecision(
@@ -1355,7 +1384,11 @@ def decide_handoffs(
                 )
             )
             continue
-        existing_pr = _existing_pr(repo_root, repo, handoff.task_title)
+        try:
+            existing_pr = _existing_pr(repo_root, repo, handoff.task_title)
+        except (RuntimeError, json.JSONDecodeError):
+            decisions.append(_github_lookup_failed_decision(handoff))
+            continue
         if existing_pr and _pr_head_satisfies_handoff(handoff, existing_pr):
             decisions.append(
                 PublishDecision(

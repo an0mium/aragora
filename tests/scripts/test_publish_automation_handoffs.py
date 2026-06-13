@@ -1018,7 +1018,12 @@ def test_decide_handoffs_marks_duplicate_issue(monkeypatch: Any, tmp_path: Path)
         ]
     )
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, "[]", "")
         return subprocess.CompletedProcess(args, 0, issue_payload, "")
@@ -1074,6 +1079,86 @@ def test_run_uses_user_auth_for_issue_create(monkeypatch: Any, tmp_path: Path) -
     assert recorded["max_retries"] == 0
 
 
+def test_run_returns_completed_process_for_gh_timeout(monkeypatch: Any, tmp_path: Path) -> None:
+    def fake_gh_run(
+        args: list[str],
+        *,
+        timeout: float,
+        prefer_app: bool,
+        write_op: bool,
+        env: dict[str, str],
+        max_retries: int,
+    ) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=["gh", *args], timeout=timeout)
+
+    monkeypatch.setattr(mod, "gh_subprocess_run", fake_gh_run)
+
+    result = mod._run(["gh", "issue", "list"], cwd=tmp_path, timeout=3)
+
+    assert result.returncode == 124
+    assert "command timed out after 3s" in result.stderr
+
+
+def test_existing_issue_uses_bounded_lookup_timeout(monkeypatch: Any, tmp_path: Path) -> None:
+    recorded: dict[str, float | int] = {}
+
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
+        recorded["timeout"] = timeout
+        return subprocess.CompletedProcess(args, 0, "[]", "")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    assert mod._existing_issue(tmp_path, "synaptent/aragora", "Slow duplicate lookup") is None
+    assert recorded["timeout"] == mod.DEFAULT_LOOKUP_TIMEOUT_SECONDS
+
+
+def test_decide_handoffs_blocks_lookup_failure(monkeypatch: Any, tmp_path: Path) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "memory.md"),
+        task_title="Publish a handoff while duplicate search is slow",
+        priority="MEDIUM",
+        body="body",
+        labels={},
+        expires_at=None,
+    )
+
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(args, 124, "", "lookup timed out")
+        return subprocess.CompletedProcess(args, 0, "[]", "")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="github_lookup_failed",
+        )
+    ]
+
+
 def test_decide_handoffs_marks_duplicate_pr(monkeypatch: Any, tmp_path: Path) -> None:
     handoff = Handoff(
         source_file=str(tmp_path / "memory.md"),
@@ -1094,7 +1179,12 @@ def test_decide_handoffs_marks_duplicate_pr(monkeypatch: Any, tmp_path: Path) ->
         ]
     )
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["gh", "issue", "list"]:
@@ -1137,7 +1227,12 @@ def test_decide_handoffs_routes_explicit_pr_followup_before_issue_cap(
         expires_at=None,
     )
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, json.dumps([{"number": 1}]), "")
         if args[:3] == ["gh", "issue", "list"]:
@@ -1194,7 +1289,12 @@ def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
         desired_head="abc1234",
     )
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, json.dumps([{"number": 1}]), "")
         if args[:3] == ["gh", "issue", "list"]:
@@ -1259,7 +1359,12 @@ def test_decide_handoffs_keeps_branch_update_actionable_when_pr_head_is_stale(
         desired_head="5091193dfe68d40ead6ac775cd43c507360fa0fe",
     )
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["gh", "pr", "list"] and "--head" in args:
@@ -1327,7 +1432,12 @@ def test_decide_handoffs_blocks_stale_outbox_head_before_pr_lookup(
     )
     real_run = mod._run
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, "[]", "")
         if args and args[0] == "gh":
@@ -1371,7 +1481,12 @@ def test_decide_handoffs_prefers_branch_pr_over_duplicate_issue(
         branch="codex/frontend-e2e-test-workflow-scope",
     )
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["gh", "pr", "list"] and "--head" in args:
@@ -1444,7 +1559,12 @@ def test_decide_handoffs_respects_open_issue_cap(monkeypatch: Any, tmp_path: Pat
         expires_at=None,
     )
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if "--label" in args:
             return subprocess.CompletedProcess(args, 0, json.dumps([{"number": 1}]), "")
         return subprocess.CompletedProcess(args, 0, "[]", "")
@@ -1538,7 +1658,12 @@ def test_decide_handoffs_skips_merged_referenced_pr_slug(monkeypatch: Any, tmp_p
         branch="codex/review-pr6808",
     )
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "list"] and "--label" in args:
             return subprocess.CompletedProcess(args, 0, "[]", "")
         if args[:3] == ["gh", "issue", "list"]:
@@ -1593,7 +1718,12 @@ def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: 
     )
     created: list[list[str]] = []
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         created.append(args)
         return subprocess.CompletedProcess(
             args, 0, "https://github.com/synaptent/aragora/issues/5890\n", ""
@@ -1649,7 +1779,12 @@ def test_publish_handoffs_writes_outbox_receipt(monkeypatch: Any, tmp_path: Path
         source_kind="outbox",
     )
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "create"]:
             return subprocess.CompletedProcess(
                 args, 0, "https://github.com/synaptent/aragora/issues/7000\n", ""
@@ -2586,7 +2721,12 @@ def test_parser_rejects_abbreviated_max_options() -> None:
 def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path) -> None:
     bodies: list[str] = []
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "create"]:
             bodies.append(args[args.index("--body") + 1])
             return subprocess.CompletedProcess(
@@ -2617,7 +2757,12 @@ def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path)
 def test_create_issue_preserves_boundary_sized_body(monkeypatch: Any, tmp_path: Path) -> None:
     bodies: list[str] = []
 
-    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        timeout: float | int = mod.DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
         if args[:3] == ["gh", "issue", "create"]:
             bodies.append(args[args.index("--body") + 1])
             return subprocess.CompletedProcess(
