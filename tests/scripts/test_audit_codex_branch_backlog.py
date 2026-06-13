@@ -379,6 +379,9 @@ def test_print_markdown_includes_revision_metadata(tmp_path: Path, capsys: Any) 
             "diverged_salvage_candidates": 0,
             "handoff_receipted_branches": 0,
             "handoff_outbox_branches": 0,
+            "worktree_base_relation": "behind_base",
+            "worktree_base_ahead_count": 0,
+            "worktree_base_behind_count": 1,
             "writer_should_pause_for_branch_backlog": False,
             "protected": 0,
             "by_category": {},
@@ -391,6 +394,7 @@ def test_print_markdown_includes_revision_metadata(tmp_path: Path, capsys: Any) 
 
     assert "- Worktree HEAD: `1111111111111111111111111111111111111111`" in out
     assert "- Base SHA: `2222222222222222222222222222222222222222`" in out
+    assert "- Worktree/base relation: `behind_base` (ahead `0`, behind `1`)" in out
 
 
 def test_audit_skips_open_pr_lookup_when_github_health_degraded(
@@ -663,6 +667,11 @@ def test_audit_reports_worktree_and_base_revisions(tmp_path: Path, monkeypatch: 
             "origin/main": "2222222222222222222222222222222222222222",
         }[ref],
     )
+    monkeypatch.setattr(
+        mod,
+        "branch_divergence",
+        lambda _root, _base, branch: (0, 5) if branch == "HEAD" else None,
+    )
 
     payload = mod.audit(
         root=tmp_path,
@@ -677,6 +686,59 @@ def test_audit_reports_worktree_and_base_revisions(tmp_path: Path, monkeypatch: 
 
     assert payload["worktree_head_sha"] == "1111111111111111111111111111111111111111"
     assert payload["base_sha"] == "2222222222222222222222222222222222222222"
+    assert payload["worktree_head_matches_base"] is False
+    assert payload["worktree_base_relation"] == "behind_base"
+    assert payload["worktree_base_ahead_count"] == 0
+    assert payload["worktree_base_behind_count"] == 5
+    assert payload["summary"]["worktree_head_matches_base"] is False
+    assert payload["summary"]["worktree_base_relation"] == "behind_base"
+    assert payload["summary"]["worktree_base_ahead_count"] == 0
+    assert payload["summary"]["worktree_base_behind_count"] == 5
+
+
+def test_worktree_base_status_reports_up_to_date_without_rev_list(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    def fail_branch_divergence(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("matching revisions should not need rev-list")
+
+    monkeypatch.setattr(mod, "branch_divergence", fail_branch_divergence)
+
+    status = mod.worktree_base_status(
+        tmp_path,
+        "origin/main",
+        head_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        base_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    )
+
+    assert status == {
+        "worktree_head_matches_base": True,
+        "worktree_base_relation": "up_to_date",
+        "worktree_base_ahead_count": 0,
+        "worktree_base_behind_count": 0,
+    }
+
+
+def test_worktree_base_status_reports_diverged(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setattr(mod, "branch_divergence", lambda *_args, **_kwargs: (2, 3))
+
+    status = mod.worktree_base_status(
+        tmp_path,
+        "origin/main",
+        head_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        base_sha="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    )
+
+    assert status == {
+        "worktree_head_matches_base": False,
+        "worktree_base_relation": "diverged_from_base",
+        "worktree_base_ahead_count": 2,
+        "worktree_base_behind_count": 3,
+    }
 
 
 def test_audit_uses_batched_divergence_before_fallback(tmp_path: Path, monkeypatch: Any) -> None:

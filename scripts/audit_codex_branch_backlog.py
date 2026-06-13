@@ -858,6 +858,59 @@ def branch_divergence(root: Path, base: str, branch: str) -> tuple[int, int] | N
         return None
 
 
+def worktree_base_status(
+    root: Path,
+    base: str,
+    *,
+    head_sha: str | None = None,
+    base_sha: str | None = None,
+) -> dict[str, Any]:
+    """Classify the launcher worktree's HEAD against the branch-audit base."""
+
+    head_sha = head_sha if head_sha is not None else git_revision(root, "HEAD")
+    base_sha = base_sha if base_sha is not None else git_revision(root, base)
+    if not head_sha or not base_sha:
+        return {
+            "worktree_head_matches_base": None,
+            "worktree_base_relation": "unknown",
+            "worktree_base_ahead_count": None,
+            "worktree_base_behind_count": None,
+        }
+
+    if head_sha == base_sha:
+        return {
+            "worktree_head_matches_base": True,
+            "worktree_base_relation": "up_to_date",
+            "worktree_base_ahead_count": 0,
+            "worktree_base_behind_count": 0,
+        }
+
+    divergence = branch_divergence(root, base, "HEAD")
+    if divergence is None:
+        return {
+            "worktree_head_matches_base": False,
+            "worktree_base_relation": "unknown",
+            "worktree_base_ahead_count": None,
+            "worktree_base_behind_count": None,
+        }
+
+    ahead_count, behind_count = divergence
+    if ahead_count == 0 and behind_count == 0:
+        relation = "up_to_date"
+    elif ahead_count == 0:
+        relation = "behind_base"
+    elif behind_count == 0:
+        relation = "ahead_of_base"
+    else:
+        relation = "diverged_from_base"
+    return {
+        "worktree_head_matches_base": relation == "up_to_date",
+        "worktree_base_relation": relation,
+        "worktree_base_ahead_count": ahead_count,
+        "worktree_base_behind_count": behind_count,
+    }
+
+
 def branch_divergence_map(
     root: Path,
     base: str,
@@ -1445,11 +1498,20 @@ def audit(
     skipped_counts = Counter(
         record.category for record in records if record.patch_equivalence_skipped
     )
+    worktree_head_sha = git_revision(root, "HEAD")
+    base_sha = git_revision(root, base)
+    worktree_status = worktree_base_status(
+        root,
+        base,
+        head_sha=worktree_head_sha,
+        base_sha=base_sha,
+    )
     return {
         "repo": str(root),
-        "worktree_head_sha": git_revision(root, "HEAD"),
+        "worktree_head_sha": worktree_head_sha,
         "base": base,
-        "base_sha": git_revision(root, base),
+        "base_sha": base_sha,
+        **worktree_status,
         "prefix": prefix,
         "recent_hours": recent_hours,
         "publisher_backlog_limit": publisher_backlog_limit,
@@ -1479,6 +1541,7 @@ def audit(
                 unresolved_handoff_outbox_refs_outside_audit
             ),
             "patch_equivalent_handoff_outbox_branches": (patch_equivalent_handoff_outbox_branches),
+            **worktree_status,
             "writer_should_pause_for_branch_backlog": (
                 publishable_branch_backlog >= publisher_backlog_limit
             ),
@@ -1553,6 +1616,13 @@ def print_markdown(payload: dict[str, Any], *, examples: int) -> None:
     print(f"- Worktree HEAD: `{payload.get('worktree_head_sha')}`")
     print(f"- Base: `{payload['base']}`")
     print(f"- Base SHA: `{payload.get('base_sha')}`")
+    if "worktree_base_relation" in summary:
+        print(
+            "- Worktree/base relation: "
+            f"`{summary['worktree_base_relation']}` "
+            f"(ahead `{summary.get('worktree_base_ahead_count')}`, "
+            f"behind `{summary.get('worktree_base_behind_count')}`)"
+        )
     print(f"- Branches audited: `{payload['branch_count']}`")
     print(f"- Safe cleanup candidates: `{summary['safe_cleanup_candidates']}`")
     print(f"- Salvage candidates: `{summary['salvage_candidates']}`")
