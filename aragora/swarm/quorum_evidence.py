@@ -444,15 +444,6 @@ def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
             timeout=timeout,
             check=False,
         )
-    except FileNotFoundError:
-        return ReviewerResult("openai", "", False, "codex CLI not found on PATH")
-    except subprocess.TimeoutExpired:
-        return ReviewerResult(
-            "openai", "", False, f"codex CLI timed out after {_format_seconds(timeout)}s"
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        return ReviewerResult("openai", "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
-    try:
         text = ""
         if output_path and os.path.exists(output_path):
             with open(output_path, encoding="utf-8") as fh:
@@ -465,6 +456,14 @@ def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
                 "openai", "", False, f"codex CLI exit {proc.returncode}: {detail}"
             )
         return ReviewerResult("openai", _cap_text(text), True, harness=_CODEX_OPENAI_HARNESS)
+    except FileNotFoundError:
+        return ReviewerResult("openai", "", False, "codex CLI not found on PATH")
+    except subprocess.TimeoutExpired:
+        return ReviewerResult(
+            "openai", "", False, f"codex CLI timed out after {_format_seconds(timeout)}s"
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return ReviewerResult("openai", "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     finally:
         if output_path:
             try:

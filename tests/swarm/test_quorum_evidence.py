@@ -375,6 +375,44 @@ def test_run_openai_reviewer_codex_failure_never_fabricates(
     assert result.harness == ""
 
 
+@pytest.mark.parametrize(
+    ("exc", "expected_error"),
+    [
+        (
+            subprocess.TimeoutExpired(cmd=["codex"], timeout=3),
+            "codex CLI timed out after",
+        ),
+        (FileNotFoundError("missing codex"), "codex CLI not found on PATH"),
+        (OSError("disk full"), "OSError: disk full"),
+        (subprocess.SubprocessError("bad pipe"), "SubprocessError: bad pipe"),
+    ],
+)
+def test_run_openai_reviewer_cleans_codex_output_file_when_subprocess_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    exc: Exception,
+    expected_error: str,
+) -> None:
+    seen: dict[str, Path] = {}
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        output_path = Path(cmd[cmd.index("--output-last-message") + 1])
+        output_path.write_text("partial reviewer output", encoding="utf-8")
+        seen["output_path"] = output_path
+        raise exc
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.family == "openai"
+    assert result.text == ""
+    assert result.ok is False
+    assert expected_error in result.error
+    assert "output_path" in seen
+    assert not seen["output_path"].exists()
+
+
 # --- default API reviewer cleanup ------------------------------------------
 
 
