@@ -171,7 +171,9 @@ def test_cruxes_sorted_by_load_bearing_score_desc(monkeypatch) -> None:
 
 def test_provenance_carries_debate_id_and_mode(monkeypatch) -> None:
     monkeypatch.setenv(mod.CRUXSET_EMISSION_ENV_VAR, "1")
-    cs = mod.maybe_emit_cruxset_from_finder_result(_result(_analysis(_claim("c1", "S", 0.7)), debate_id="debate-xyz-42"))
+    cs = mod.maybe_emit_cruxset_from_finder_result(
+        _result(_analysis(_claim("c1", "S", 0.7)), debate_id="debate-xyz-42")
+    )
     assert cs is not None
     assert cs.provenance.get("debate_id") == "debate-xyz-42"
     assert cs.provenance.get("mode") == "crux_finder"
@@ -222,8 +224,12 @@ def test_checksum_valid_and_schema_version_set(monkeypatch) -> None:
 def test_returns_none_when_analysis_has_no_cruxes(monkeypatch) -> None:
     monkeypatch.setenv(mod.CRUXSET_EMISSION_ENV_VAR, "1")
     empty = CruxAnalysisResult(
-        cruxes=[], total_claims=0, total_disagreements=0,
-        average_uncertainty=0.0, convergence_barrier=0.0, recommended_focus=[],
+        cruxes=[],
+        total_claims=0,
+        total_disagreements=0,
+        average_uncertainty=0.0,
+        convergence_barrier=0.0,
+        recommended_focus=[],
     )
     assert mod.maybe_emit_cruxset_from_finder_result(_result(empty)) is None
 
