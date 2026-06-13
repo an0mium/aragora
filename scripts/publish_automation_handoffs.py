@@ -1451,7 +1451,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--limit",
         type=int,
         default=DEFAULT_LIMIT,
-        help="Maximum number of issues to create in one apply run",
+        help="Maximum number of handoffs to inspect in dry-run or issues to create in apply",
     )
     parser.add_argument(
         "--max-open-issues",
@@ -1627,9 +1627,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         return 1 if handoffs else 0
 
-    decision_handoffs = (
-        handoffs[: max(args.limit, 0)] if args.summary_only and not args.apply else handoffs
-    )
+    decision_handoffs = handoffs if args.apply else handoffs[: max(args.limit, 0)]
     decisions = decide_handoffs(
         decision_handoffs,
         repo_root=repo_root,
