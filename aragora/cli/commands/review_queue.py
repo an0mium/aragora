@@ -40,6 +40,15 @@ from aragora.cli.commands.review_queue_parsers import (
     add_observe_outcomes_parser,
     add_record_settlement_parser,
 )
+from aragora.cli.commands.review_queue_transport import (
+    _GhError,
+    _gh_error_kind,
+    _gh_json,
+    _gh_text,
+    _is_github_transport_error,
+    _merge_packet_transport_blocked_envelope_with_rest_fallback,
+    _queue_conductor_transport_blocked_envelope,
+)
 
 if TYPE_CHECKING:
     from aragora.review.invalidation import BaselineMeasurement, ThresholdProposal
@@ -78,6 +87,8 @@ MODEL_REVIEW_QUEUE_CAP = 6
 MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
 TIER_FOUR_SETTLEMENT_MARKER = "Tier-4 Human Settlement Authorization"
+DEFAULT_TRUSTED_SETTLEMENT_CREATOR = "scarmani"
+SETTLEMENT_CREATOR_ENV_VAR = "ARAGORA_SETTLEMENT_CREATOR"
 GITHUB_TRANSPORT_ERROR_KIND = "github_transport"
 GITHUB_TRANSPORT_BLOCKED_STATUS = "transport_blocked"
 _GITHUB_TRANSPORT_ERROR_MARKERS = (
@@ -587,6 +598,54 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     merge_packet_p.add_argument("--json", action="store_true", help="Output as JSON")
 
+    conductor_p = sub.add_parser(
+        "conductor",
+        help="Build an owner-aware queue conductor packet and next prompt",
+        description=(
+            "Read-only queue conductor that combines open PR metadata, required checks, "
+            "branch owner lookup, operator steering, merge-packet status, head-change "
+            "detection, and supersession hints into one JSON packet plus one next prompt."
+        ),
+    )
+    conductor_p.add_argument(
+        "--limit",
+        type=int,
+        default=30,
+        help="Max open PRs to inspect when --pr is not supplied (default: 30)",
+    )
+    conductor_p.add_argument(
+        "--pr",
+        action="append",
+        default=[],
+        help="Specific PR number/ref to include. Repeatable. Defaults to open queue.",
+    )
+    conductor_p.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    conductor_p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root used for settlement receipt lookups.",
+    )
+    conductor_p.add_argument(
+        "--owner-timeout-seconds",
+        type=float,
+        default=8.0,
+        help="Timeout for owner and steering helper lookup. Timeout means preserve/no-mutate.",
+    )
+    conductor_p.add_argument(
+        "--mode",
+        choices=("queue", "ready-boundary"),
+        default="queue",
+        help=(
+            "Conductor routing mode. ready-boundary emits mark-ready authorization "
+            "classification for draft PRs that are otherwise ready."
+        ),
+    )
+    conductor_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     evidence_lint_p = sub.add_parser(
         "evidence-lint",
         help="Dry-run whether a proposed evidence comment will count for model quorum",
@@ -839,6 +898,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_act(args)
     if command == "record-settlement":
         return _cmd_record_settlement(args)
+    if command == "conductor":
+        return _cmd_conductor(args)
     if command == "merge-packet":
         return _cmd_merge_packet(args)
     if command in {"evidence-lint", "lint-comment"}:
@@ -857,7 +918,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_health_alert(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,lint-comment,"
+        "{build,packet,run,act,record-settlement,conductor,merge-packet,evidence-lint,"
+        "lint-comment,"
         "collect-evidence,"
         "baseline,"
         "observe-outcomes,"
@@ -908,6 +970,42 @@ def _cmd_packet(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_conductor(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
+    try:
+        from aragora.cli.commands.review_queue_conductor import (
+            build_queue_conductor_packet,
+            render_queue_conductor_packet,
+        )
+
+        packet = build_queue_conductor_packet(
+            pr_refs=list(getattr(args, "pr", []) or []),
+            limit=int(getattr(args, "limit", 30)),
+            repo_override=getattr(args, "repo", None),
+            review_queue_root=getattr(args, "review_queue_root", None),
+            owner_timeout_seconds=float(getattr(args, "owner_timeout_seconds", 8.0)),
+            mode=getattr(args, "mode", "queue"),
+        )
+    except _GhError as exc:
+        if json_output and _is_github_transport_error(exc):
+            packet = _queue_conductor_transport_blocked_envelope(
+                error=str(exc),
+                pr_refs=list(getattr(args, "pr", []) or []),
+                repo_override=getattr(args, "repo", None),
+                limit=int(getattr(args, "limit", 30)),
+                mode=str(getattr(args, "mode", "queue") or "queue"),
+            )
+            print(json.dumps(packet, indent=2, sort_keys=True))
+            return 1
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if json_output:
+        print(json.dumps(packet, indent=2, sort_keys=True))
+    else:
+        print(render_queue_conductor_packet(packet))
+    return 0
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     repo_root = resolve_repo_root(Path.cwd())
     try:
@@ -924,7 +1022,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if not items:
         print("(no PRs in scope)")
         return 0
-
     session_id = _session_id()
     started_at = datetime.now(UTC).isoformat()
     session_receipt: dict[str, Any] = {
@@ -938,7 +1035,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     }
     session_path = _session_receipt_path(repo_root, session_id)
     _write_json(session_path, session_receipt)
-
     for index, item in enumerate(items, start=1):
         try:
             packet = _build_packet(str(item.number), repo_override=getattr(args, "repo", None))
@@ -947,7 +1043,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
             continue
         _render_session_packet(packet, item=item, index=index, total=len(items))
         decision_started = time.monotonic()
-
         while True:
             choice = input(
                 "[a]pprove [r]equest-changes [d]efer [o]pen-files [p]acket-json [q]uit: "
@@ -967,7 +1062,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
             if normalized not in {"a", "r", "d"}:
                 print("Choose one of: a, r, d, o, p, q")
                 continue
-
             action = {
                 "a": "approve",
                 "r": "request_changes",
@@ -1000,7 +1094,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 f"(packet {packet.packet_sha}, head {packet.head_sha})"
             )
             break
-
     session_receipt["completed_at"] = datetime.now(UTC).isoformat()
     _write_json(session_path, session_receipt)
     print(f"Session complete: {session_path}")
@@ -1017,7 +1110,6 @@ def _cmd_act(args: argparse.Namespace) -> int:
     if action == "defer" and not reason:
         print(f"error: {DEFER_REASON_REQUIRED}", file=sys.stderr)
         return 2
-
     repo_root = resolve_repo_root(Path.cwd())
     try:
         _require_clean_worktree(repo_root)
@@ -1051,7 +1143,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
     if not head_sha:
         print("error: --head-sha is required", file=sys.stderr)
         return 2
-
     repo_root = resolve_repo_root(Path.cwd())
     try:
         _require_clean_worktree(repo_root)
@@ -1068,7 +1159,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-
     # Atomic settlement signal: the receipt is now durably written. Only here do
     # we publish the gate-trusted 'aragora/human-settlement' commit status, so a
     # green status can never exist without its backing receipt. (Running
@@ -1092,7 +1182,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
         except _GhError as exc:
             status_failed = True
             github_status = {"posted": False, "error": str(exc)}
-
     if json_output:
         payload = result.to_dict()
         if github_status is not None:
@@ -1105,7 +1194,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
                 f"  github-status: {github_status.get('context')}="
                 f"{github_status.get('state')} @ {head_sha[:12]}"
             )
-
     if status_failed:
         print(
             "error: receipt written but GitHub status POST failed "
@@ -1140,7 +1228,6 @@ def _cmd_evidence_lint(args: argparse.Namespace) -> int:
         else:
             print(f"error: could not read --body-file: {exc}", file=sys.stderr)
         return 1
-
     result = _lint_evidence_comment(
         pr=str(getattr(args, "pr", "") or ""),
         head_sha=str(getattr(args, "head_sha", "") or ""),
@@ -1210,11 +1297,12 @@ def _cmd_merge_packet(args: argparse.Namespace) -> int:
         )
     except _GhError as exc:
         if json_output and _is_github_transport_error(exc):
-            packet = _merge_packet_transport_blocked_envelope(
+            packet = _merge_packet_transport_blocked_envelope_with_rest_fallback(
                 error=str(exc),
                 pr_refs=list(getattr(args, "pr", []) or []),
                 repo_override=getattr(args, "repo", None),
                 limit=int(getattr(args, "limit", 30) or 30),
+                gh_json=_gh_json,
             )
             print(json.dumps(packet, indent=2, sort_keys=True))
             return 1
@@ -1411,134 +1499,6 @@ def _cmd_health_alert(args: argparse.Namespace) -> int:
 
 
 # --- Internals: gh shell, classification, packet building ------------------
-
-
-class _GhError(RuntimeError):
-    """Raised when a 'gh' invocation fails or returns malformed JSON."""
-
-
-def _command_timeout_message(cmd: list[str], timeout_seconds: int) -> str:
-    return f"{' '.join(cmd)} timed out after {timeout_seconds}s"
-
-
-def _gh_text(args: list[str]) -> str:
-    """Run a 'gh' command and return plain stdout."""
-    cmd = ["gh", *args]
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=GH_COMMAND_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise _GhError(
-            _command_timeout_message(cmd, int(exc.timeout or GH_COMMAND_TIMEOUT_SECONDS))
-        ) from exc
-    except OSError as exc:
-        raise _GhError(f"{' '.join(cmd)} failed to start: {exc}") from exc
-    if proc.returncode != 0:
-        stderr = proc.stderr.strip() or "no stderr"
-        raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
-    return proc.stdout.strip()
-
-
-def _gh_json(args: list[str]) -> Any:
-    """Run a 'gh' command and parse JSON output. Returns None for empty stdout."""
-    cmd = ["gh", *args]
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=GH_COMMAND_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise _GhError(
-            _command_timeout_message(cmd, int(exc.timeout or GH_COMMAND_TIMEOUT_SECONDS))
-        ) from exc
-    except OSError as exc:
-        raise _GhError(f"{' '.join(cmd)} failed to start: {exc}") from exc
-    if proc.returncode != 0:
-        stderr = proc.stderr.strip() or "no stderr"
-        raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
-    out = proc.stdout.strip()
-    if not out:
-        return None
-    try:
-        return json.loads(out)
-    except json.JSONDecodeError as exc:
-        raise _GhError(f"gh {' '.join(args)} returned malformed JSON: {exc}") from exc
-
-
-def _gh_error_kind(error: object) -> str:
-    """Return a stable machine-readable kind for GitHub helper failures."""
-    text = str(error or "").lower()
-    if any(marker in text for marker in _GITHUB_TRANSPORT_ERROR_MARKERS):
-        return GITHUB_TRANSPORT_ERROR_KIND
-    return "github_error"
-
-
-def _is_github_transport_error(error: object) -> bool:
-    return _gh_error_kind(error) == GITHUB_TRANSPORT_ERROR_KIND
-
-
-def _numeric_pr_refs(pr_refs: list[str]) -> list[int]:
-    numbers: list[int] = []
-    for ref in pr_refs:
-        try:
-            numbers.append(_parse_pr_number(str(ref)))
-        except Exception:
-            continue
-    return numbers
-
-
-def _transport_blocked_next_prompt(command_name: str, pr_refs: list[str]) -> str:
-    pr_text = ", ".join(f"#{number}" for number in _numeric_pr_refs(pr_refs)) or "the queue"
-    return (
-        "Do not rely on transcript state. Re-check live GitHub/local state first. "
-        f"Retry {command_name} for {pr_text} only after GitHub API transport recovers. "
-        "Treat this packet as preserve/no-mutate: do not mark ready, collect evidence, "
-        "record settlement, merge, close, label, rerun workflows, or touch branch protection "
-        "while transport is blocked."
-    )
-
-
-def _merge_packet_transport_blocked_envelope(
-    *,
-    error: str,
-    pr_refs: list[str],
-    repo_override: str | None,
-    limit: int,
-) -> dict[str, Any]:
-    return {
-        "version": "merge_authorization_packet.v1",
-        "generated_at": datetime.now(UTC).isoformat(),
-        "status": GITHUB_TRANSPORT_BLOCKED_STATUS,
-        "transport_blocked": True,
-        "preserve_no_mutate": True,
-        "retryable": _is_github_transport_error(error),
-        "error_kind": _gh_error_kind(error),
-        "error": error,
-        "command": "review-queue merge-packet",
-        "repo": repo_override or "",
-        "limit": limit,
-        "pr_refs": [str(ref) for ref in pr_refs],
-        "queue_pressure": {
-            "current_open_prs": len(pr_refs),
-            "cap": MODEL_REVIEW_QUEUE_CAP,
-            "active": False,
-            "scope": "explicit_pr_refs" if pr_refs else "open_pr_queue",
-        },
-        "entries": [],
-        "admin_squash_order": [],
-        "human_risk_settlement_required": [],
-        "not_ready": _numeric_pr_refs(pr_refs),
-        "admin_squash_allowed": False,
-        "next_prompt": _transport_blocked_next_prompt("review-queue merge-packet", pr_refs),
-    }
 
 
 def _resolve_settlement_repo_slug(repo_override: str | None) -> str:
@@ -1780,6 +1740,9 @@ def _fetch_required_pr_check_surface(pr_number: int, repo_override: str | None) 
             "available": False,
             "checks": [],
             "error": str(exc),
+            "error_kind": _gh_error_kind(exc),
+            "transport_blocked": _is_github_transport_error(exc),
+            "preserve_no_mutate": _is_github_transport_error(exc),
         }
     if not isinstance(payload, list):
         return {
@@ -2921,6 +2884,7 @@ def _build_packet(
             settlement_recorded=settlement_recorded,
             human_risk_settlement_recorded=human_risk_settlement_recorded,
             check_surfaces=check_surfaces,
+            repo_slug=_repo_slug_from_pr_payload(pr, repo_override),
         ),
     )
     packet.packet_sha = _packet_sha(packet)
@@ -2997,6 +2961,7 @@ def _build_merge_authorization_packet(
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
             "requires_human_preapproval": quorum.get("requires_human_preapproval", False),
             "human_preapproval_recorded": quorum.get("human_preapproval_recorded", False),
+            "settlement_creator_pin": quorum.get("settlement_creator_pin", {}),
             "unresolved_dissent": quorum["unresolved_dissent"],
             "reviewer_signals": quorum["reviewer_signals"],
             "dogfood_evidence": quorum["dogfood_evidence"],
@@ -3121,6 +3086,7 @@ def _build_model_review_quorum(
     settlement_recorded: bool = False,
     human_risk_settlement_recorded: bool = False,
     check_surfaces: dict[str, Any] | None = None,
+    repo_slug: str = "",
 ) -> dict[str, Any]:
     tier, tier_name, tier_reason = _classify_model_review_tier(files, pr=pr)
     requirement = _tier_requirement(tier)
@@ -3166,13 +3132,27 @@ def _build_model_review_quorum(
         and _has_successful_status_context(pr, HUMAN_SETTLEMENT_CONTEXT)
         and _has_tier_four_human_preapproval_comment(pr, head_sha=head_sha)
     )
-
+    settlement_creator_pin = dict(
+        trusted_creator=_trusted_settlement_creator(), checked=False, verified=False, reason=""
+    )
+    if human_preapproval_recorded:
+        creator_verified, creator_reason = _human_settlement_status_creator_verified(
+            repo_slug=repo_slug or _repo_slug_from_pr_payload(pr, None), head_sha=head_sha
+        )
+        settlement_creator_pin["checked"] = True
+        settlement_creator_pin["verified"] = creator_verified
+        settlement_creator_pin["reason"] = creator_reason
+        if not creator_verified:
+            human_preapproval_recorded = False
     reasons = [tier_reason]
+    if settlement_creator_pin["checked"] and not settlement_creator_pin["verified"]:
+        reasons.append(str(settlement_creator_pin["reason"]))
     if settlement_recorded:
         reasons.append("exact-head admin_squash_merge settlement receipt recorded")
     elif human_preapproval_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
         reasons.append("exact-head Tier 4 human preapproval verified")
+        reasons.append(str(settlement_creator_pin["reason"]))
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
     if has_failures and not settlement_recorded:
@@ -3200,7 +3180,6 @@ def _build_model_review_quorum(
         if not has_required_dogfood:
             reasons.append("focused adversarial dogfood evidence is required")
         reasons.extend(review_object_warnings)
-
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
     if settlement_recorded:
@@ -3245,7 +3224,6 @@ def _build_model_review_quorum(
         status = "satisfied"
         verdict = "admin_squash_allowed"
         admin_squash_allowed = True
-
     return {
         "version": MODEL_REVIEW_QUORUM_VERSION,
         "head_sha": str(pr.get("headRefOid", "")).strip(),
@@ -3258,6 +3236,7 @@ def _build_model_review_quorum(
         "human_risk_settlement_recorded": human_risk_settlement_recorded,
         "requires_human_preapproval": requires_human_preapproval,
         "human_preapproval_recorded": human_preapproval_recorded,
+        "settlement_creator_pin": settlement_creator_pin,
         "admin_squash_allowed": admin_squash_allowed,
         "status": status,
         "verdict": verdict,
@@ -3457,6 +3436,51 @@ def _has_successful_status_context(pr: dict[str, Any], context: str) -> bool:
         conclusion = str(check.get("conclusion") or "").upper()
         return conclusion == "SUCCESS" or state == "SUCCESS"
     return False
+
+
+def _trusted_settlement_creator() -> str:
+    return (
+        str(os.environ.get(SETTLEMENT_CREATOR_ENV_VAR, "") or "").strip()
+        or DEFAULT_TRUSTED_SETTLEMENT_CREATOR
+    )
+
+
+def _human_settlement_status_creator_verified(
+    *, repo_slug: str, head_sha: str, context: str = HUMAN_SETTLEMENT_CONTEXT
+) -> tuple[bool, str]:
+    trusted = _trusted_settlement_creator()
+
+    def fail(reason: str) -> tuple[bool, str]:
+        return (False, f"settlement-creator pin: {reason}")
+
+    if not repo_slug or not head_sha:
+        return fail("missing repo slug or head sha; failing closed")
+    try:
+        payload = _gh_json(["api", f"repos/{repo_slug}/commits/{head_sha}/statuses?per_page=100"])
+    except _GhError as exc:
+        return fail(f"could not fetch commit statuses ({exc}); failing closed")
+    if not isinstance(payload, list):
+        return fail("unexpected statuses payload shape; failing closed")
+    for status in payload:
+        if not isinstance(status, dict) or str(status.get("context") or "").strip() != context:
+            continue
+        state = str(status.get("state") or "").strip().lower()
+        creator = status.get("creator")
+        login = str(creator.get("login") or "").strip() if isinstance(creator, dict) else ""
+        if state != "success":
+            return fail(f"newest '{context}' status state is '{state}', not success")
+        if not login:
+            return fail(f"newest '{context}' status has no creator login; failing closed")
+        if login.casefold() != trusted.casefold():
+            return fail(
+                f"newest '{context}' status was created by '{login}', "
+                f"not trusted settlement creator '{trusted}'"
+            )
+        return (
+            True,
+            f"settlement-creator pin: '{context}' status created by trusted settlement creator '{trusted}'",
+        )
+    return fail(f"no '{context}' status found on head commit; failing closed")
 
 
 def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: str) -> bool:

@@ -21,6 +21,7 @@ Usage:
 
 from __future__ import annotations
 
+import math
 import sys
 import time
 from dataclasses import dataclass, field
@@ -567,6 +568,31 @@ def validate_benchmark_results(results: BenchmarkResults) -> None:
         raise ValueError("belief network benchmark requires at least one crux claim")
     if len(results.crux_details) != results.cruxes_found:
         raise ValueError("belief network crux count must match crux details")
+    _require_unit_interval(results.graph_density, "graph_density")
+    _require_nonnegative_finite(results.average_uncertainty, "average_uncertainty")
+    _require_unit_interval(results.consensus_probability, "consensus_probability")
+    _require_nonnegative_finite(results.convergence_barrier, "convergence_barrier")
+    _require_nonnegative_finite(results.propagation_max_change, "propagation_max_change")
+    if results.propagation_iterations < 0:
+        raise ValueError("belief network propagation_iterations must be non-negative")
+    if results.contested_claims < 0:
+        raise ValueError("belief network contested_claims must be non-negative")
+    if results.contested_claims > results.total_claims:
+        raise ValueError("belief network contested_claims cannot exceed total_claims")
+
+
+def _require_nonnegative_finite(value: float, field_name: str) -> float:
+    number = float(value)
+    if not math.isfinite(number) or number < 0:
+        raise ValueError(f"belief network {field_name} must be a finite non-negative value")
+    return number
+
+
+def _require_unit_interval(value: float, field_name: str) -> float:
+    number = _require_nonnegative_finite(value, field_name)
+    if number > 1:
+        raise ValueError(f"belief network {field_name} must be between 0 and 1")
+    return number
 
 
 def generate_report(results: BenchmarkResults) -> str:
