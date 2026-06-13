@@ -127,9 +127,65 @@ def maybe_emit_cruxset(
         return None
 
 
+def maybe_emit_cruxset_from_finder_result(
+    result: Any,
+    *,
+    receipt_id: str = "",
+    extra_provenance: dict[str, Any] | None = None,
+) -> CruxSet | None:
+    """Arena-path bridge for DIC-15: CruxFinderResult → CruxSet.
+
+    Converts the output of a ``consensus="crux_finder"`` debate run into the
+    DIC-15 :class:`~aragora.reasoning.cruxset.CruxSet` contract. Returns
+    ``None`` when emission is disabled (the default).
+
+    Call this after :func:`~aragora.debate.crux_mode.build_crux_finder_result`
+    to obtain the ranked, signed CruxSet that downstream receipt ingestion
+    (DIC-16) and the follow-up bridge (DIC-17) consume.
+
+    ``decision`` is always ``None`` — a crux-finder run never produces a
+    verdict by design. Provenance is seeded from ``result.debate_id`` and
+    can be extended via ``extra_provenance``.
+
+    Flag: ``ARAGORA_CRUXSET_EMISSION_ENABLED`` (default ``False``).
+    Live queue effect: none.
+    """
+    if not cruxset_emission_enabled():
+        return None
+
+    from aragora.debate.crux_mode import CruxFinderResult  # lazy — avoids import cycle
+
+    if not isinstance(result, CruxFinderResult):
+        logger.warning(
+            "maybe_emit_cruxset_from_finder_result: expected CruxFinderResult, got %s",
+            type(result).__name__,
+        )
+        return None
+
+    provenance: dict[str, Any] = {
+        "debate_id": result.debate_id,
+        "mode": "crux_finder",
+        "approach": result.metadata.get("approach", "A"),
+        "rounds": result.rounds,
+        "agents": list(result.agents),
+    }
+    if extra_provenance:
+        provenance.update(extra_provenance)
+
+    return maybe_emit_cruxset(
+        question=result.question,
+        analysis_payload=result.analysis.to_dict(),
+        decision=None,  # crux_finder never produces a verdict by design
+        receipt_id=receipt_id,
+        provenance=provenance,
+        top_k=len(result.analysis.cruxes) or 5,
+    )
+
+
 __all__ = [
     "CRUXSET_EMISSION_ENV_VAR",
     "cruxset_emission_enabled",
     "enable_cruxset_emission",
     "maybe_emit_cruxset",
+    "maybe_emit_cruxset_from_finder_result",
 ]
