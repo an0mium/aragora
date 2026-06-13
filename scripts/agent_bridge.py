@@ -2223,7 +2223,8 @@ def cmd_owner(args: argparse.Namespace) -> int:
         include_summaries=False,
         include_historical=False,
     )
-    _enrich_prs(sessions)
+    if pr_number is not None:
+        _enrich_prs(sessions)
     records = _sync_lane_records(_load_lane_registry(), sessions)
     payload = _active_owner_payload(
         records,

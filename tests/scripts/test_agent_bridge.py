@@ -1301,6 +1301,114 @@ def test_cmd_owner_json_reports_active_pr_owner(
     }
 
 
+def test_cmd_owner_branch_lookup_skips_pr_enrichment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    worktree = tmp_path / "owned-worktree"
+    worktree.mkdir()
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "q01-branch-owner",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "branch": "codex/example",
+                    "worktree": str(worktree),
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(
+        mod,
+        "_enrich_prs",
+        lambda _sessions: (_ for _ in ()).throw(
+            AssertionError("branch owner lookup should not call PR enrichment")
+        ),
+    )
+    monkeypatch.setattr(mod, "_head_for_worktree", lambda _path: "b" * 40)
+
+    rc = mod.cmd_owner(
+        argparse.Namespace(json=True, pr=None, branch="codex/example", worktree=None)
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["owner_status"] == "owned"
+    assert payload["lane_id"] == "q01-branch-owner"
+    assert payload["branch"] == "codex/example"
+    assert payload["head"] == "b" * 40
+
+
+def test_cmd_owner_pr_lookup_keeps_pr_enrichment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    worktree = tmp_path / "owned-worktree"
+    worktree.mkdir()
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "q01-pr-owner",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "updated_at": "2026-05-18T17:00:00Z",
+                    "branch": "codex/example",
+                    "worktree": str(worktree),
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        mod,
+        "discover",
+        lambda **_kwargs: [
+            mod.Session(
+                name="codex-owner",
+                agent="codex",
+                status="alive",
+                lifecycle="live",
+                branch="codex/example",
+                worktree=str(worktree),
+            )
+        ],
+    )
+    enriched: list[bool] = []
+
+    def fake_enrich(sessions: list[mod.Session]) -> None:
+        enriched.append(True)
+        sessions[0].pr_number = 7292
+
+    monkeypatch.setattr(mod, "_enrich_prs", fake_enrich)
+    monkeypatch.setattr(mod, "_head_for_worktree", lambda _path: "c" * 40)
+
+    rc = mod.cmd_owner(argparse.Namespace(json=True, pr=7292, branch=None, worktree=None))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert enriched == [True]
+    assert payload["owner_status"] == "owned"
+    assert payload["lane_id"] == "q01-pr-owner"
+    assert payload["pr_number"] == 7292
+    assert payload["branch"] == "codex/example"
+
+
 def test_cmd_owner_preserves_registry_identity_when_live_session_is_sparse(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
