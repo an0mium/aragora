@@ -190,6 +190,41 @@ repos:
         # Run on manual stage to avoid slowing down commits
         stages: [manual]
 
+  # Structural-excellence ratchets (epic #8257, P0). Shrink-only baselines: a
+  # NEW layer violation, a NEW >2,000-line aragora file, or a NEW mutual import
+  # cycle fails the hook. Scoped to aragora/**.py changes and run on pre-push
+  # (they build the full import graph, too slow for every commit). PARKED Tier-4
+  # staging: the operator reviews this draft before it merges.
+  - repo: local
+    hooks:
+      - id: import-contracts-ratchet
+        name: Import-linter layer contracts (shrink-only baseline)
+        entry: python scripts/ci/check_import_contracts.py
+        language: python
+        additional_dependencies:
+          - import-linter
+          - grimp
+        pass_filenames: false
+        files: ^aragora/.*\.py$
+        stages: [pre-push]
+      - id: import-cycles-ratchet
+        name: Mutual import-cycle ratchet (shrink-only)
+        entry: python scripts/ci/measure_import_graph.py --check
+        language: python
+        additional_dependencies:
+          - import-linter
+          - grimp
+        pass_filenames: false
+        files: ^aragora/.*\.py$
+        stages: [pre-push]
+      - id: file-size-ratchet
+        name: Max-file-size ratchet (no new >2,000-line aragora file)
+        entry: python3 scripts/ci/check_file_sizes.py
+        language: system
+        pass_filenames: false
+        files: ^aragora/.*\.py$
+        stages: [pre-push]
+
 # CI-only configuration
 # These checks run in CI but are too slow for every commit
 ci:

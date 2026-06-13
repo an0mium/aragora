@@ -190,6 +190,50 @@ jobs:
           fi
           echo "Lint passed (or skipped — no Python-relevant changes)"
 
+  structural-ratchets:
+    # PARKED Tier-4 staging (epic #8257, P0): advisory wiring of the three
+    # structural-excellence ratchets so the operator can review and optionally
+    # promote them to a required check (branch protection) or fold the steps
+    # into lint-run. Each ratchet is shrink-only against a frozen baseline and
+    # fails ONLY on a NEW layer violation, a NEW >2,000-line aragora file, or a
+    # NEW mutual import cycle.
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: Structural Excellence Ratchets
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python-safe
+        with:
+          python-version: "3.11"
+
+      - name: Install ratchet dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install import-linter grimp
+
+      - name: Import-linter layer contracts (shrink-only baseline)
+        run: python3 scripts/ci/check_import_contracts.py
+
+      - name: Max-file-size ratchet (no new >2,000-line aragora file)
+        run: python3 scripts/ci/check_file_sizes.py
+
+      - name: Mutual import-cycle ratchet (shrink-only)
+        run: python3 scripts/ci/measure_import_graph.py --check
+
+      - name: Ratchet repro hint
+        if: failure()
+        run: |
+          echo "Reproduce locally:"
+          echo "  python3 scripts/ci/check_import_contracts.py"
+          echo "  python3 scripts/ci/check_file_sizes.py"
+          echo "  python3 scripts/ci/measure_import_graph.py --check"
+
   connector-exception-hygiene:
     runs-on: ubuntu-latest
     timeout-minutes: 10
