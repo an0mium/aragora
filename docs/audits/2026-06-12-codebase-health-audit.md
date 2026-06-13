@@ -64,12 +64,13 @@ Every headline number is reproducible: the exact command for each lives in the b
 
 ## Finding 4 — Tests: substance with a depth caveat
 
-**No issue (healthy).** | **Baseline keys:** `test_fns`, `test_files_py`, `mock_test_files`
+**No issue (healthy).** | **Baseline keys:** `test_fns`, `test_files_py`, `mock_test_files`, `tests_collect_total`
 
 - `docs/METRICS.md` claims verified within 0.2% (220,821 measured test functions; metrics pipeline is auto-generated, CI-checked by `metrics-drift.yml`, with anti-self-reference invariant tests).
 - Skip/xfail density ~1% of files. Flaky-retry plugin explicitly disabled (`-p no:rerunfailures`) — an anti-flake-masking choice.
 - Sampled tests assert real semantics: `tests/server/test_route_collisions.py` enumerates the live handler registry with a frozen shrink-only baseline; `tests/debate/test_consensus.py` asserts exact computed values; `tests/gauntlet/test_crux_receipt.py` asserts checksum stability and single-field mutation sensitivity.
 - Caveats: ~73% of test files are mock-reliant; only ~750 parametrize decorators across 220K functions — the headline count overstates depth.
+- **Collection floor pinned (P1):** `tests_collect_total` = 228385 (`PYTHONPATH=.:aragora-debate/src python3 -m pytest --collect-only -q tests/`, measured on origin/main `f9e49d9336`, rc=0, no collection errors) records the pre-migration pytest collection total under the update-BOTH rule. The P1 tests-root→subdir migration is rename-only, so the collect-only total must never drop below this floor (VAL-P1-009 path B).
 
 ## Finding 5 — CI: real governance, real weight, one real bug
 
