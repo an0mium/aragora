@@ -71,6 +71,7 @@ def test_reads_only_selected_owner_and_writes_bound_receipt(tmp_path: Path, caps
 
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is True
     assert out["owner_session"] == "codex-selected"
     assert out["message_count"] == 1
     assert out["receipt_count"] == 1
@@ -197,6 +198,7 @@ def test_resolves_owner_by_lane_id(tmp_path: Path, capsys: Any) -> None:
 
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is True
     assert out["owner_session"] == "codex-lane-owner"
     assert out["resolved_via"] == "lane-id"
     assert out["message_count"] == 1
