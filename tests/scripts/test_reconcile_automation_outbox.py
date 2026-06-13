@@ -116,6 +116,19 @@ def test_explicit_dry_run_flag_keeps_read_only_default(
     assert not (tmp_path / ".aragora" / "cleanup-state").exists()
 
 
+def test_github_open_pr_state_fails_closed_when_open_pr_fetch_returns_none(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda *_args: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: None)
+
+    open_prs, available, message = mod._github_open_pr_state(tmp_path, "synaptent/aragora")
+
+    assert open_prs == {}
+    assert available is False
+    assert message == "open PR fetch returned no usable data"
+
+
 def test_json_output_reports_reconciliation_without_human_preamble(
     tmp_path: Path,
     capsys: Any,

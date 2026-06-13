@@ -1005,3 +1005,139 @@ def test_classify_candidate_marks_open_pr_when_cache_hit(
     assert candidate.links["open_prs"] == [
         {"number": 999, "title": "Open PR for feat/x", "url": "https://example.test/pr/999"}
     ]
+
+
+# ---------------------------------------------------------------------------
+# Git-timeout hardening: a hung `git status` (or any git lookup) must never
+# hang the inventory, and a timed-out candidate must stay protected.
+# ---------------------------------------------------------------------------
+
+
+def test_run_cmd_timeout_returns_124_and_never_hangs(tmp_path: Path) -> None:
+    """A child that would outlive the timeout is killed (whole session) and
+    run_cmd returns promptly with the timeout annotation in stderr."""
+    import subprocess as subprocess_mod
+    import time
+
+    import codex_worktree_value_inventory as mod
+
+    started = time.monotonic()
+    # The backgrounded grandchild inherits the pipes; with plain
+    # subprocess.run(timeout=...) the post-kill drain would block on it.
+    proc = mod.run_cmd(
+        ["/bin/sh", "-c", "sleep 30 & exec sleep 30"],
+        tmp_path,
+        timeout=1,
+    )
+    elapsed = time.monotonic() - started
+
+    assert isinstance(proc, subprocess_mod.CompletedProcess)
+    assert proc.returncode == 124
+    assert "timed out after 1s" in proc.stderr
+    assert elapsed < 15, f"run_cmd must return promptly after a timeout, took {elapsed:.1f}s"
+
+
+def test_run_cmd_missing_binary_still_returns_completed_process(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    proc = mod.run_cmd(["/nonexistent-binary-for-test"], tmp_path, timeout=1)
+
+    assert proc.returncode == 124
+    assert proc.stdout == ""
+
+
+def test_timeout_raising_runner_marks_candidate_inspect_timeout_protected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fake Popen whose communicate raises subprocess.TimeoutExpired: the
+    candidate is annotated inspect_timeout and treated as protected (never
+    safe-to-clean), and classification completes instead of crashing."""
+    import subprocess as subprocess_mod
+
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+
+    class FakeHungPopen:
+        def __init__(self, args: list[str], **_kwargs: Any) -> None:
+            self.args = args
+            self.pid = 999_999_999  # killpg on this raises and falls back to kill()
+            self.returncode: int | None = None
+            self.stdout = None
+            self.stderr = None
+            self._calls = 0
+
+        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
+            self._calls += 1
+            if self._calls == 1:
+                raise subprocess_mod.TimeoutExpired(self.args, timeout or 0)
+            return "", ""
+
+        def kill(self) -> None:
+            self.returncode = -9
+
+    monkeypatch.setattr(mod.subprocess, "Popen", FakeHungPopen)
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.git.inspect_timeout is True
+    assert any("inspect_timeout" in item for item in candidate.proof)
+    assert candidate.classification in mod.PROTECTED_CLASSES
+    assert candidate.cleanup_candidate is False
+    assert candidate.decision == "preserve"
+    assert candidate.cleanup_safety.safe_to_delete is False
+    assert candidate.cleanup_safety.preserve is True
+
+
+def test_status_timeout_protects_candidate_and_run_continues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A candidate whose `git status` timed out is protected; remaining
+    candidates are still classified normally and the summary counts the
+    timeout."""
+    import codex_worktree_value_inventory as mod
+
+    hung_root = _candidate(tmp_path, "hung")
+    clean_root = _candidate(tmp_path, "clean")
+    _stub_clean_git(monkeypatch, ahead=0)
+
+    def fake_status(repo_path: Path, *, timeout: int) -> tuple[bool, bool, str | None]:
+        if "hung" in str(repo_path):
+            return True, True, f"command timed out after {timeout}s: git status --porcelain"
+        return False, False, None
+
+    monkeypatch.setattr(mod, "git_status_dirty", fake_status)
+
+    hung = mod.classify_candidate(
+        hung_root, context=_context(tmp_path), size_bytes=1024, size_lookup_failed=False
+    )
+    clean = mod.classify_candidate(
+        clean_root, context=_context(tmp_path), size_bytes=1024, size_lookup_failed=False
+    )
+
+    assert hung.git.inspect_timeout is True
+    assert hung.classification in mod.PROTECTED_CLASSES
+    assert hung.cleanup_candidate is False
+    assert hung.cleanup_safety.safe_to_delete is False
+    # The run continued: the clean candidate is unaffected.
+    assert clean.git.inspect_timeout is False
+    assert clean.classification == "unregistered_git_residue"
+
+    summary = mod.build_summary([hung, clean])
+    assert summary["inspect_timeouts"] == 1
+
+
+def test_build_parser_git_timeout_seconds_alias() -> None:
+    import codex_worktree_value_inventory as mod
+
+    parser = mod.build_parser()
+
+    assert mod.GIT_TIMEOUT_SECONDS == 30
+    assert parser.parse_args([]).git_timeout == mod.GIT_TIMEOUT_SECONDS
+    assert parser.parse_args(["--git-timeout-seconds", "7"]).git_timeout == 7
+    assert parser.parse_args(["--git-timeout", "9"]).git_timeout == 9

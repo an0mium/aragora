@@ -38,6 +38,17 @@ Lookup sources (read-only, in this precedence):
      steering-message inbox count (Phase B-built dir; Phase A only
      reads).
 
+Owner-lease liveness (issue #8318): when ``--liveness`` is enabled
+(default), the JSON output is additionally enriched with an
+``owner_liveness`` object (lease age, last heartbeat, lane-ledger
+status, assessment) and — only for stale/terminal owners with no
+indication of local unpushed work — a machine-readable
+``stale_claim_advisory`` codifying the manual stale-claim override
+protocol exercised on #8125. This is VISIBILITY + ADVISORY only: it
+never changes a go/no-go decision by itself, and it fails closed
+(``advisory_withheld: "possible_unpushed_work"``) whenever
+uncommitted/unpushed work might exist.
+
 Pure stdlib. No ``aragora.*`` imports. Read-only — never mutates
 GitHub state, lane registry, mailboxes, or any other on-disk file.
 """
@@ -46,6 +57,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import glob
 import json
 import os
 import re
@@ -1182,6 +1194,253 @@ def build_owner_info(
 
 
 # ---------------------------------------------------------------------------
+# Owner-lease liveness + stale-claim advisory (issue #8318)
+# ---------------------------------------------------------------------------
+#
+# Advisory-only by design. Nothing in this section changes a go/no-go
+# decision; it only makes a dead owner lock *visible* and codifies the
+# manual stale-claim protocol (exercised successfully on #8125) as
+# machine-readable output for the operator / conveyor to act on.
+
+STALE_HOURS_DEFAULT = 6.0
+LANE_RUNS_GLOB_DEFAULT = str(STATE_ROOT_DEFAULT / "run-*" / "lanes")
+
+# Lane-ledger statuses meaning the owning lane can no longer be working.
+TERMINAL_LANE_STATUSES = {"completed", "failed", "cancelled", "dead"}
+
+STALE_CLAIM_PROTOCOL = "stale-claim-override"
+ADVISORY_WITHHELD_UNPUSHED = "possible_unpushed_work"
+REQUIRED_LEDGER_RECORD = "overriding lane must write an override entry naming the stale lane id"
+
+# Timestamp fields on the owner (lane-registry) record; newest wins.
+_OWNER_RECORD_TIMESTAMP_KEYS = (
+    "updated_at",
+    "claimed_at",
+    "created_at",
+    "last_heartbeat_at",
+    "last_mailbox_check_at",
+    "last_delivery_at",
+    "last_ack_at",
+)
+
+# Timestamp fields on a lane-ledger entry (.aragora/run-*/lanes/*.json).
+_LEDGER_TIMESTAMP_KEYS = (
+    "updated_at",
+    "launched_at",
+    "detected_at",
+    "completed_at",
+    "finished_at",
+    "heartbeat_at",
+    "last_heartbeat_at",
+)
+
+# Boolean-ish owner/ledger fields that claim local (possibly unpushed) work.
+_LOCAL_WORK_CLAIM_KEYS = (
+    "uncommitted_changes",
+    "has_uncommitted_changes",
+    "uncommitted",
+    "unpushed_commits",
+    "local_changes",
+    "local_work",
+    "dirty",
+)
+
+
+def _ledger_entry_timestamp(entry: dict[str, Any]) -> float:
+    """Most recent parseable timestamp on a lane-ledger entry (0.0 if none)."""
+
+    return max(_updated_at_timestamp(entry.get(key)) for key in _LEDGER_TIMESTAMP_KEYS)
+
+
+def find_lane_ledger_entry(
+    lane: dict[str, Any],
+    *,
+    runs_glob: str = LANE_RUNS_GLOB_DEFAULT,
+) -> dict[str, Any] | None:
+    """Newest lane-ledger entry matching this lane by lane id or branch.
+
+    Lane ledgers live at ``<runs_glob>/*.json`` (the same layout
+    ``scripts/lane_janitor.py`` consumes): one JSON object per lane
+    with ``lane``, ``branch``, ``status``, ``launched_at`` and, when
+    the janitor has acted, ``detected_at``.
+    """
+
+    lane_id = str(lane.get("lane_id") or "")
+    branch = str(lane.get("branch") or "")
+    if not lane_id and not branch:
+        return None
+
+    best: dict[str, Any] | None = None
+    best_ts = float("-inf")
+    for lanes_dir in sorted(glob.glob(runs_glob)):
+        lanes_path = Path(lanes_dir)
+        if not lanes_path.is_dir():
+            continue
+        for ledger_file in sorted(lanes_path.glob("*.json")):
+            try:
+                entry = json.loads(ledger_file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(entry, dict):
+                continue
+            entry_lane = str(entry.get("lane") or entry.get("lane_id") or "")
+            entry_branch = str(entry.get("branch") or "")
+            if not ((lane_id and entry_lane == lane_id) or (branch and entry_branch == branch)):
+                continue
+            ts = _ledger_entry_timestamp(entry)
+            if ts > best_ts:
+                best, best_ts = entry, ts
+    return best
+
+
+def _local_work_indication(lane: dict[str, Any], ledger_entry: dict[str, Any] | None) -> str | None:
+    """Reason to suspect local (possibly unpushed/uncommitted) work, or None.
+
+    Fail closed: a worktree reference alone is enough — metadata cannot
+    prove that work in a worktree was pushed.
+    """
+
+    if lane.get("worktree"):
+        return "owner record references a worktree path"
+    for source_name, record in (("owner record", lane), ("lane ledger", ledger_entry or {})):
+        for key in _LOCAL_WORK_CLAIM_KEYS:
+            if record.get(key):
+                return f"{source_name} claims local work ({key})"
+    if (ledger_entry or {}).get("worktree"):
+        return "lane ledger references a worktree path"
+    return None
+
+
+def assess_owner_liveness(
+    lane: dict[str, Any],
+    *,
+    ledger_entry: dict[str, Any] | None = None,
+    heartbeat: dict[str, Any] | None = None,
+    now: datetime | None = None,
+    stale_hours: float = STALE_HOURS_DEFAULT,
+) -> dict[str, Any]:
+    """Advisory-only owner-lease liveness assessment (issue #8318).
+
+    Returns a dict with ``owner_liveness``, ``stale_claim_advisory``
+    and ``advisory_withheld`` keys, merged additively into the JSON
+    output. Pure visibility: this never changes a go/no-go decision
+    by itself. ``assessed == "unknown"`` NEVER produces an advisory,
+    and any hint of local work withholds it
+    (``advisory_withheld: "possible_unpushed_work"``).
+    """
+
+    now_dt = now or datetime.now(timezone.utc)
+    threshold_seconds = max(0.0, stale_hours) * 3600.0
+
+    # lane_status: the lane ledger's view of the owning lane.
+    lane_status = "unknown"
+    if ledger_entry is not None:
+        lane_status = str(ledger_entry.get("status") or "").strip().lower() or "unknown"
+
+    # last_heartbeat_at: matched heartbeat row first, then owner record,
+    # then ledger heartbeat fields; null when nothing carries one.
+    last_heartbeat_at: str | None = None
+    if heartbeat and heartbeat.get("last_seen_at"):
+        last_heartbeat_at = str(heartbeat["last_seen_at"])
+    elif lane.get("last_heartbeat_at"):
+        last_heartbeat_at = str(lane["last_heartbeat_at"])
+    elif ledger_entry is not None:
+        for key in ("heartbeat_at", "last_heartbeat_at"):
+            if ledger_entry.get(key):
+                last_heartbeat_at = str(ledger_entry[key])
+                break
+
+    # Lease anchor: the most recent timestamp across the owner record,
+    # the matched heartbeat, and the ledger entry. Conservative — any
+    # recent signal keeps the owner "live".
+    candidates = [_updated_at_timestamp(lane.get(key)) for key in _OWNER_RECORD_TIMESTAMP_KEYS]
+    if last_heartbeat_at:
+        candidates.append(_updated_at_timestamp(last_heartbeat_at))
+    if ledger_entry is not None:
+        candidates.append(_ledger_entry_timestamp(ledger_entry))
+    anchor_ts = max(candidates)
+
+    lease_age_seconds: int | None = None
+    if anchor_ts > 0.0:
+        lease_age_seconds = max(0, int(now_dt.timestamp() - anchor_ts))
+
+    heartbeat_recent = False
+    heartbeat_ts = _updated_at_timestamp(last_heartbeat_at) if last_heartbeat_at else 0.0
+    if heartbeat_ts > 0.0:
+        heartbeat_recent = (now_dt.timestamp() - heartbeat_ts) <= threshold_seconds
+
+    if lane_status in TERMINAL_LANE_STATUSES:
+        assessed = "terminal"
+    elif lease_age_seconds is None:
+        assessed = "unknown"
+    elif lease_age_seconds <= threshold_seconds or heartbeat_recent:
+        assessed = "live"
+    else:
+        assessed = "stale"
+
+    owner_liveness = {
+        "lease_age_seconds": lease_age_seconds,
+        "last_heartbeat_at": last_heartbeat_at,
+        "lane_status": lane_status,
+        "assessed": assessed,
+        "stale_threshold_hours": stale_hours,
+    }
+
+    advisory: dict[str, Any] | None = None
+    advisory_withheld: str | None = None
+    if assessed in ("stale", "terminal"):
+        indication = _local_work_indication(lane, ledger_entry)
+        if indication is not None:
+            # Fail closed: possible unpushed/uncommitted work → no
+            # advisory; escalate to an operator instead.
+            advisory_withheld = ADVISORY_WITHHELD_UNPUSHED
+        else:
+            conditions: list[str] = []
+            if assessed == "terminal":
+                conditions.append(f"lane_status={lane_status} is terminal in the lane ledger")
+            else:
+                conditions.append(
+                    f"lease_age_seconds={lease_age_seconds} exceeds stale threshold "
+                    f"of {stale_hours}h"
+                )
+                conditions.append("no heartbeat newer than the stale window")
+            conditions.append("no worktree or local-work claim on the owner record")
+            advisory = {
+                "available": True,
+                "protocol": STALE_CLAIM_PROTOCOL,
+                "conditions_met": conditions,
+                "required_ledger_record": REQUIRED_LEDGER_RECORD,
+            }
+
+    return {
+        "owner_liveness": owner_liveness,
+        "stale_claim_advisory": advisory,
+        "advisory_withheld": advisory_withheld,
+    }
+
+
+def _print_liveness_summary(payload: dict[str, Any]) -> None:
+    """Single plain-text summary line for the liveness assessment."""
+
+    liveness = payload["owner_liveness"]
+    if payload.get("stale_claim_advisory"):
+        advisory = "available"
+    elif payload.get("advisory_withheld"):
+        advisory = f"withheld ({payload['advisory_withheld']})"
+    else:
+        advisory = "none"
+    lease = liveness["lease_age_seconds"]
+    print(
+        "owner_liveness: "
+        f"assessed={liveness['assessed']} "
+        f"lease_age_seconds={lease if lease is not None else '-'} "
+        f"lane_status={liveness['lane_status']} "
+        f"last_heartbeat_at={liveness['last_heartbeat_at'] or '-'} "
+        f"stale_claim_advisory={advisory}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -1293,6 +1552,38 @@ def _build_parser() -> argparse.ArgumentParser:
         default=HEARTBEATS_DEFAULT,
         help="Override path to .aragora/agent-bridge/heartbeats.json (used by tests).",
     )
+    p.add_argument(
+        "--stale-hours",
+        type=float,
+        default=STALE_HOURS_DEFAULT,
+        help=(
+            "Owner-lease age (hours) beyond which a lane with no fresher "
+            f"heartbeat is assessed stale (default {STALE_HOURS_DEFAULT})."
+        ),
+    )
+    p.add_argument(
+        "--liveness",
+        dest="liveness",
+        action="store_true",
+        default=True,
+        help="Include the advisory-only owner_liveness assessment (default).",
+    )
+    p.add_argument(
+        "--no-liveness",
+        dest="liveness",
+        action="store_false",
+        help="Suppress the owner_liveness assessment; output is byte-identical to pre-#8318.",
+    )
+    p.add_argument(
+        "--runs-glob",
+        default=LANE_RUNS_GLOB_DEFAULT,
+        help="Glob for lane-ledger directories (.aragora/run-*/lanes; used by tests).",
+    )
+    p.add_argument(
+        "--now",
+        default=None,
+        help="ISO-8601 'now' override for the liveness assessment (tests/replays).",
+    )
     return p
 
 
@@ -1344,10 +1635,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         heartbeat_path=args.heartbeat_path,
     )
 
+    liveness_payload: dict[str, Any] | None = None
+    if args.liveness:
+        liveness_payload = assess_owner_liveness(
+            lane,
+            ledger_entry=find_lane_ledger_entry(lane, runs_glob=args.runs_glob),
+            heartbeat=info.latest_heartbeat,
+            now=_parse_iso_utc(args.now) if args.now else None,
+            stale_hours=args.stale_hours,
+        )
+
     if args.json:
-        print(json.dumps(dataclasses.asdict(info), indent=2, sort_keys=True))
+        payload = dataclasses.asdict(info)
+        if liveness_payload is not None:
+            payload.update(liveness_payload)
+        print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         _print_human(info)
+        if liveness_payload is not None:
+            _print_liveness_summary(liveness_payload)
 
     return 0
 

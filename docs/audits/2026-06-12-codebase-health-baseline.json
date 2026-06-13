@@ -150,6 +150,30 @@
       "direction": "grow",
       "command": "per-package BLE001/G004 carve-outs from [tool.ruff.lint.per-file-ignores] introduced by #8261",
       "issue": 8261
+    },
+    {
+      "key": "mutual_import_cycles",
+      "value": 140,
+      "direction": "shrink",
+      "command": "python3 scripts/ci/measure_import_graph.py | jq .mutual_import_cycles",
+      "issue": 8259,
+      "note": "Unordered pairs of aragora modules that directly import each other (mutual 2-cycles), with TYPE_CHECKING-guarded imports EXCLUDED (type-only imports are not runtime cycles; including them inflates the count to 183). Pinned by scripts/ci/measure_import_graph.py and ratcheted shrink-only via its --check mode against scripts/baselines/import_cycles_baseline.json. Target <30 (P4b)."
+    },
+    {
+      "key": "server_imported_by",
+      "value": 48,
+      "direction": "shrink",
+      "command": "python3 scripts/ci/measure_import_graph.py | jq .server_imported_by",
+      "issue": 8259,
+      "note": "Distinct top-level aragora packages outside aragora.server that directly import the aragora.server subtree (grimp). Pinned by scripts/ci/measure_import_graph.py. Target <=5 (P4b)."
+    },
+    {
+      "key": "handlers_flat_root",
+      "value": 187,
+      "direction": "shrink",
+      "command": "python3 scripts/ci/measure_import_graph.py | jq .handlers_flat_root",
+      "issue": 8259,
+      "note": "Python files directly in the aragora/server/handlers/ root; equals 'ls aragora/server/handlers/*.py | wc -l'. Pinned by scripts/ci/measure_import_graph.py. Target <20 (P4b)."
     }
   ]
 }

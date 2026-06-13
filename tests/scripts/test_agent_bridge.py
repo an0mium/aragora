@@ -2823,3 +2823,697 @@ def test_gc_write_preserves_historical_sessions_in_canonical_snapshot(
     snapshot = json.loads((bridge_dir / "sessions.json").read_text(encoding="utf-8"))
     assert [session["name"] for session in snapshot] == ["claude-history"]
     assert snapshot[0]["summary"] == "old desktop context"
+
+
+# ---------------------------------------------------------------------------
+# Launch dispatch verification (issue #8317)
+# ---------------------------------------------------------------------------
+
+
+class _FakeTmuxRunner:
+    """Injected tmux runner: scripted capture-pane panes + recorded calls.
+
+    ``capture_returncode`` / ``capture_raises`` simulate a failed pane capture
+    (non-zero exit or subprocess error).  ``send_returncode`` simulates tmux
+    rejecting the ``send-keys`` Enter nudge.
+    """
+
+    def __init__(
+        self,
+        panes: list[str],
+        *,
+        panes_after_enter: list[str] | None = None,
+        capture_returncode: int = 0,
+        capture_raises: BaseException | None = None,
+        send_returncode: int = 0,
+    ) -> None:
+        self.panes = list(panes)
+        self.panes_after_enter = list(panes_after_enter or [])
+        self.calls: list[list[str]] = []
+        self.enter_sent = False
+        self.capture_returncode = capture_returncode
+        self.capture_raises = capture_raises
+        self.send_returncode = send_returncode
+
+    def __call__(self, cmd: list[str]) -> SimpleNamespace:
+        self.calls.append(list(cmd))
+        if cmd[:2] == ["tmux", "send-keys"]:
+            self.enter_sent = True
+            return SimpleNamespace(returncode=self.send_returncode, stdout="")
+        if self.capture_raises is not None:
+            raise self.capture_raises
+        if self.capture_returncode != 0:
+            return SimpleNamespace(returncode=self.capture_returncode, stdout="")
+        panes = self.panes_after_enter if self.enter_sent and self.panes_after_enter else self.panes
+        pane = panes.pop(0) if len(panes) > 1 else panes[0]
+        return SimpleNamespace(returncode=0, stdout=pane)
+
+    def enter_calls(self) -> list[list[str]]:
+        return [c for c in self.calls if c[:2] == ["tmux", "send-keys"]]
+
+    def capture_calls(self) -> list[list[str]]:
+        return [c for c in self.calls if c[:2] == ["tmux", "capture-pane"]]
+
+
+_PROMPT = "Fix the flaky lane test.\nReport results when done."
+# Marker-in-tail but NO paste placeholder -> low-confidence staged (no nudge).
+_STAGED_PANE = "Claude Code v2\n> Fix the flaky lane test.\nReport results when done.\n"
+# Paste placeholder present -> high-confidence staged (safe to nudge Enter).
+_PLACEHOLDER_PANE = "Claude Code v2\n> [Pasted Content 5120 chars]\n"
+_SUBMITTED_PANE = (
+    "Acknowledged.\nWorking on it\nThinking hard\nRunning tests\nReading files\nEditing now\n"
+)
+
+
+def test_verify_prompt_submission_delivered_first_try_sends_no_enter() -> None:
+    import agent_bridge as mod
+
+    runner = _FakeTmuxRunner([_SUBMITTED_PANE])
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=lambda _s: None,
+    )
+
+    assert outcome["delivered"] is True
+    assert outcome["attempts"] == 1
+    assert outcome["enter_nudges"] == 0
+    assert outcome["pane_target"] == "aragora:claude-lane"
+    assert runner.enter_calls() == []
+    assert runner.capture_calls() == [
+        ["tmux", "capture-pane", "-t", "aragora:claude-lane", "-p", "-S", "-40"],
+    ]
+
+
+def test_verify_prompt_submission_placeholder_then_enter_then_submitted() -> None:
+    import agent_bridge as mod
+
+    # Paste placeholder -> high-confidence staged, so Enter is nudged.
+    runner = _FakeTmuxRunner([_PLACEHOLDER_PANE], panes_after_enter=[_SUBMITTED_PANE])
+    sleeps: list[float] = []
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=sleeps.append,
+    )
+
+    assert outcome["delivered"] is True
+    assert outcome["enter_nudges"] == 1
+    assert runner.enter_calls() == [
+        ["tmux", "send-keys", "-t", "aragora:claude-lane", "Enter"],
+    ]
+    # Placeholder is high-confidence, so the initial poll loop breaks at once
+    # (1 capture); the single Enter nudge is followed by a bounded re-poll that
+    # breaks as soon as the placeholder clears (1 more capture) -> 2 captures.
+    assert outcome["attempts"] == 2
+    assert len(runner.capture_calls()) == 2
+
+
+def test_verify_prompt_submission_placeholder_still_staged_one_enter_only() -> None:
+    import agent_bridge as mod
+
+    runner = _FakeTmuxRunner([_PLACEHOLDER_PANE])
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=lambda _s: None,
+    )
+
+    assert outcome["delivered"] is False
+    assert outcome["enter_nudges"] == 1
+    # 1 initial poll (placeholder -> break) + 2 bounded re-polls after the nudge
+    # (placeholder positively persists through both) = 3 captures.
+    assert outcome["attempts"] == 3
+    # Exactly ONE Enter, never a second one.
+    assert len(runner.enter_calls()) == 1
+
+
+def test_verify_prompt_submission_marker_only_is_unverifiable_without_enter() -> None:
+    import agent_bridge as mod
+
+    # Marker-in-tail but no paste placeholder: too false-positive-prone (a
+    # harness echoes the submitted prompt back as a quoted line after submit).
+    # Recorded as UNVERIFIABLE (delivered=None), never a confident False, and
+    # NO corrective Enter is sent -- blindly accepting could submit an unrelated
+    # harness confirmation prompt.
+    runner = _FakeTmuxRunner([_STAGED_PANE])
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=lambda _s: None,
+    )
+
+    assert outcome["delivered"] is None
+    assert outcome["error"] == "marker-only"
+    assert outcome["enter_nudges"] == 0
+    assert runner.enter_calls() == []
+    # 3 polls, no nudge, no re-verify.
+    assert outcome["attempts"] == 3
+
+
+def test_verify_prompt_submission_capture_nonzero_is_unverifiable() -> None:
+    import agent_bridge as mod
+
+    # tmux capture-pane returns non-zero (e.g. dead/missing pane): capture
+    # failed, so submission is UNVERIFIABLE -- not silently delivered=True.
+    runner = _FakeTmuxRunner([""], capture_returncode=1)
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=lambda _s: None,
+    )
+
+    assert outcome["delivered"] is None
+    assert outcome["error"] == "capture-failed"
+    assert outcome["enter_nudges"] == 0
+    # No Enter sent when we cannot even read the pane.
+    assert runner.enter_calls() == []
+
+
+def test_verify_prompt_submission_capture_oserror_is_unverifiable() -> None:
+    import agent_bridge as mod
+
+    runner = _FakeTmuxRunner([""], capture_raises=OSError("tmux not found"))
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=lambda _s: None,
+    )
+
+    assert outcome["delivered"] is None
+    assert outcome["error"] == "capture-failed"
+    assert outcome["enter_nudges"] == 0
+    assert runner.enter_calls() == []
+
+
+def test_verify_prompt_submission_failed_send_keys_not_counted_as_nudge() -> None:
+    import agent_bridge as mod
+
+    # Placeholder staged -> nudge attempted, but tmux rejects send-keys
+    # (returncode != 0).  A rejected nudge means we never confirmed submission,
+    # so the receipt must NOT falsely attest an Enter was sent and the outcome
+    # is UNVERIFIABLE (delivered=None), never a confident False.
+    runner = _FakeTmuxRunner([_PLACEHOLDER_PANE], send_returncode=1)
+    outcome = mod._verify_prompt_submission(
+        "aragora:claude-lane",
+        _PROMPT,
+        timeout_seconds=0.3,
+        runner=runner,
+        sleep=lambda _s: None,
+    )
+
+    assert outcome["delivered"] is None
+    assert outcome["error"] == "nudge-failed"
+    assert outcome["enter_nudges"] == 0
+    assert outcome["nudge_failed"] is True
+    # send-keys was attempted exactly once, but it failed; no re-verify poll.
+    assert len(runner.enter_calls()) == 1
+    # Placeholder breaks the initial loop on the first poll; the rejected nudge
+    # adds no re-verify capture.
+    assert outcome["attempts"] == 1
+
+
+def test_pane_shows_staged_prompt_detects_paste_placeholder() -> None:
+    import agent_bridge as mod
+
+    marker = mod._prompt_tail_marker(_PROMPT)
+    assert marker == "Report results when done."
+    # (staged, placeholder) tuple: placeholder is the high-confidence positive.
+    assert mod._pane_shows_staged_prompt("composer:\n[Pasted Content 5120 chars]\n", marker) == (
+        True,
+        True,
+    )
+    # Bare marker-in-tail: staged but low-confidence (no placeholder).
+    assert mod._pane_shows_staged_prompt(_STAGED_PANE, marker) == (True, False)
+    assert mod._pane_shows_staged_prompt(_SUBMITTED_PANE, marker) == (False, False)
+
+
+def test_pane_shows_staged_prompt_scans_wider_window() -> None:
+    import agent_bridge as mod
+
+    marker = mod._prompt_tail_marker(_PROMPT)
+    # Staged paste, then a handful of harness chrome lines that would scroll the
+    # marker off a 5-line tail but stay inside the wider (~25-line) window.
+    chrome = "\n".join(f"harness chrome line {i}" for i in range(8))
+    pane = f"{_STAGED_PANE}\n{chrome}\n"
+    assert mod._pane_shows_staged_prompt(pane, marker) == (True, False)
+
+
+def test_record_dispatch_receipt_merges_into_existing_meta(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    sessions_dir = tmp_path / "tmux-sessions"
+    sessions_dir.mkdir()
+    meta_path = sessions_dir / "claude-lane.meta.json"
+    meta_path.write_text(
+        json.dumps({"name": "claude-lane", "agent": "claude", "tmux_window_target": "@7"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "TMUX_SESSIONS_DIR", sessions_dir)
+
+    dispatch = {"delivered": False, "attempts": 4, "enter_nudges": 1, "pane_target": "@7"}
+    written = mod._record_dispatch_receipt("claude-lane", dispatch)
+
+    assert written == meta_path
+    payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    # Existing launcher keys preserved; dispatch sub-object added additively.
+    assert payload["agent"] == "claude"
+    assert payload["tmux_window_target"] == "@7"
+    assert payload["dispatch"] == dispatch
+
+
+def test_launched_pane_target_distinguishes_absent_from_unreadable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge as mod
+
+    sessions_dir = tmp_path / "tmux-sessions"
+    sessions_dir.mkdir()
+    monkeypatch.setattr(mod, "TMUX_SESSIONS_DIR", sessions_dir)
+
+    # Absent meta -> documented fallback target, no failure reason.
+    target, reason = mod._launched_pane_target("absent-lane")
+    assert target == f"{mod.TMUX_SESSION}:absent-lane"
+    assert reason is None
+
+    # Readable meta with a target -> that target.
+    (sessions_dir / "good-lane.meta.json").write_text(
+        json.dumps({"tmux_window_target": "@9"}), encoding="utf-8"
+    )
+    target, reason = mod._launched_pane_target("good-lane")
+    assert target == "@9"
+    assert reason is None
+
+    # Present but corrupt meta -> fail CLOSED to unverifiable (no fallback pane).
+    (sessions_dir / "bad-lane.meta.json").write_text("{not json", encoding="utf-8")
+    target, reason = mod._launched_pane_target("bad-lane")
+    assert target is None
+    assert reason == "meta-unreadable"
+
+    # Present meta missing the target key -> also unverifiable.
+    (sessions_dir / "blank-lane.meta.json").write_text(
+        json.dumps({"name": "blank-lane"}), encoding="utf-8"
+    )
+    target, reason = mod._launched_pane_target("blank-lane")
+    assert target is None
+    assert reason == "meta-unreadable"
+
+
+def _launch_namespace(tmp_path: Path, **overrides) -> argparse.Namespace:
+    prompt_file = tmp_path / "prompt.md"
+    if not prompt_file.exists():
+        prompt_file.write_text(_PROMPT, encoding="utf-8")
+    defaults = dict(
+        name="claude-lane",
+        agent="claude",
+        prompt=[],
+        file=str(prompt_file),
+        cwd=str(tmp_path),
+        autonomous=False,
+        timeout_seconds=10,
+        submit_verify_timeout=0.05,
+        strict_verify=False,
+        json=True,
+    )
+    defaults.update(overrides)
+    return argparse.Namespace(**defaults)
+
+
+def _setup_launch_repo(mod, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    repo_root = tmp_path / "repo"
+    (repo_root / "scripts").mkdir(parents=True)
+    (repo_root / "scripts" / "tmux_session_launcher.sh").write_text(
+        "#!/usr/bin/env bash\n", encoding="utf-8"
+    )
+    sessions_dir = tmp_path / "tmux-sessions"
+    sessions_dir.mkdir()
+    monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", repo_root)
+    monkeypatch.setattr(mod, "TMUX_SESSIONS_DIR", sessions_dir)
+    monkeypatch.setattr(mod.time, "sleep", lambda _s: None)
+    return sessions_dir
+
+
+def _fake_launch_subprocess(mod, monkeypatch: pytest.MonkeyPatch, pane: str) -> list[list[str]]:
+    calls: list[list[str]] = []
+
+    def _fake_run(cmd, **_kwargs):
+        calls.append(list(cmd))
+        if cmd[0] == "bash":
+            return SimpleNamespace(returncode=0, stdout="launched\n", stderr="")
+        if cmd[:2] == ["tmux", "capture-pane"]:
+            return SimpleNamespace(returncode=0, stdout=pane, stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    return calls
+
+
+def test_cmd_launch_writes_dispatch_receipt_and_annotates_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    sessions_dir = _setup_launch_repo(mod, tmp_path, monkeypatch)
+    meta_path = sessions_dir / "claude-lane.meta.json"
+    meta_path.write_text(
+        json.dumps({"name": "claude-lane", "agent": "claude", "tmux_window_target": "@7"}),
+        encoding="utf-8",
+    )
+    calls = _fake_launch_subprocess(mod, monkeypatch, _SUBMITTED_PANE)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["dispatch"]["delivered"] is True
+    assert payload["dispatch"]["enter_nudges"] == 0
+    assert payload["dispatch"]["pane_target"] == "@7"
+    # Receipt persisted into the launcher meta entry, existing keys intact.
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["agent"] == "claude"
+    assert meta["dispatch"]["delivered"] is True
+    # Pane was verified against the meta-resolved window target.
+    assert ["tmux", "capture-pane", "-t", "@7", "-p", "-S", "-40"] in calls
+
+
+def test_cmd_launch_undelivered_is_observational_rc0_by_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    sessions_dir = _setup_launch_repo(mod, tmp_path, monkeypatch)
+    # Placeholder pane -> high-confidence staged, persists -> delivered=False.
+    calls = _fake_launch_subprocess(mod, monkeypatch, _PLACEHOLDER_PANE)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path))
+
+    # Default: verification is OBSERVATIONAL. A successful launch keeps rc 0
+    # regardless of the dispatch outcome -- exit-code enforcement is opt-in.
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["returncode"] == 0
+    # The tri-state receipt is ALWAYS written (lane_liveness reads it) and a
+    # single Enter is still nudged on the high-confidence placeholder.
+    assert payload["dispatch"]["delivered"] is False
+    enters = [c for c in calls if c[:2] == ["tmux", "send-keys"]]
+    assert enters == [["tmux", "send-keys", "-t", "aragora:claude-lane", "Enter"]]
+    meta = json.loads((sessions_dir / "claude-lane.meta.json").read_text(encoding="utf-8"))
+    assert meta["dispatch"]["delivered"] is False
+    assert meta["dispatch"]["enter_nudges"] == 1
+    assert meta["dispatch"]["verified_at"]
+
+
+def test_cmd_launch_strict_verify_returns_nonzero_on_undelivered(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    sessions_dir = _setup_launch_repo(mod, tmp_path, monkeypatch)
+    calls = _fake_launch_subprocess(mod, monkeypatch, _PLACEHOLDER_PANE)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path, strict_verify=True))
+
+    # --strict-verify opts in to exit-code enforcement: delivered=False -> rc 1.
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["returncode"] == 0  # launcher itself succeeded
+    assert payload["dispatch"]["delivered"] is False
+    enters = [c for c in calls if c[:2] == ["tmux", "send-keys"]]
+    assert enters == [["tmux", "send-keys", "-t", "aragora:claude-lane", "Enter"]]
+    meta = json.loads((sessions_dir / "claude-lane.meta.json").read_text(encoding="utf-8"))
+    assert meta["dispatch"]["delivered"] is False
+
+
+def test_cmd_launch_unverifiable_capture_is_observational_rc0_by_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    sessions_dir = _setup_launch_repo(mod, tmp_path, monkeypatch)
+    calls: list[list[str]] = []
+
+    def _fake_run(cmd, **_kwargs):
+        calls.append(list(cmd))
+        if cmd[0] == "bash":
+            return SimpleNamespace(returncode=0, stdout="launched\n", stderr="")
+        if cmd[:2] == ["tmux", "capture-pane"]:
+            # Capture fails: submission is unverifiable, not delivered.
+            return SimpleNamespace(returncode=1, stdout="", stderr="no such pane")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path))
+
+    # Default observational: unverifiable does not flip the exit code, but the
+    # tri-state receipt records delivered=None for lane_liveness to read.
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["returncode"] == 0
+    assert payload["dispatch"]["delivered"] is None
+    assert payload["dispatch"]["error"] == "capture-failed"
+    # No Enter sent when the pane could not be read.
+    assert [c for c in calls if c[:2] == ["tmux", "send-keys"]] == []
+    meta = json.loads((sessions_dir / "claude-lane.meta.json").read_text(encoding="utf-8"))
+    assert meta["dispatch"]["delivered"] is None
+    assert meta["dispatch"]["error"] == "capture-failed"
+
+
+def test_cmd_launch_strict_verify_returns_nonzero_on_unverifiable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _setup_launch_repo(mod, tmp_path, monkeypatch)
+
+    def _fake_run(cmd, **_kwargs):
+        if cmd[0] == "bash":
+            return SimpleNamespace(returncode=0, stdout="launched\n", stderr="")
+        if cmd[:2] == ["tmux", "capture-pane"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="no such pane")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path, strict_verify=True))
+
+    # Under --strict-verify, an unverifiable (None) dispatch also fails closed.
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dispatch"]["delivered"] is None
+    assert payload["dispatch"]["error"] == "capture-failed"
+
+
+def test_cmd_launch_marker_only_is_unverifiable_no_enter(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    sessions_dir = _setup_launch_repo(mod, tmp_path, monkeypatch)
+    # Bare marker echo, no placeholder -> unverifiable, never a confident False.
+    calls = _fake_launch_subprocess(mod, monkeypatch, _STAGED_PANE)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path))
+
+    assert rc == 0  # observational default
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dispatch"]["delivered"] is None
+    assert payload["dispatch"]["error"] == "marker-only"
+    # No Enter is ever sent on a bare marker match.
+    assert [c for c in calls if c[:2] == ["tmux", "send-keys"]] == []
+    meta = json.loads((sessions_dir / "claude-lane.meta.json").read_text(encoding="utf-8"))
+    assert meta["dispatch"]["delivered"] is None
+    assert meta["dispatch"]["error"] == "marker-only"
+
+
+def test_cmd_launch_meta_unreadable_is_unverifiable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    sessions_dir = _setup_launch_repo(mod, tmp_path, monkeypatch)
+    # Meta file EXISTS but is corrupt -> cannot trust a pane target. Fail closed
+    # to unverifiable rather than capturing a possibly-unrelated fallback pane.
+    meta_path = sessions_dir / "claude-lane.meta.json"
+    meta_path.write_text("{not valid json", encoding="utf-8")
+    calls = _fake_launch_subprocess(mod, monkeypatch, _SUBMITTED_PANE)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path))
+
+    assert rc == 0  # observational default
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dispatch"]["delivered"] is None
+    assert payload["dispatch"]["error"] == "meta-unreadable"
+    assert payload["dispatch"]["pane_target"] is None
+    # Never captured a fallback pane when the meta target was untrustworthy.
+    assert [c for c in calls if c[:2] == ["tmux", "capture-pane"]] == []
+    meta = json.loads((sessions_dir / "claude-lane.meta.json").read_text(encoding="utf-8"))
+    assert meta["dispatch"]["delivered"] is None
+    assert meta["dispatch"]["error"] == "meta-unreadable"
+
+
+def test_cmd_launch_submit_verify_timeout_zero_disables_verification(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    sessions_dir = _setup_launch_repo(mod, tmp_path, monkeypatch)
+    calls = _fake_launch_subprocess(mod, monkeypatch, _STAGED_PANE)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path, submit_verify_timeout=0))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "dispatch" not in payload
+    assert all(c[0] == "bash" for c in calls)
+    assert not (sessions_dir / "claude-lane.meta.json").exists()
+
+
+def test_cmd_launch_skips_submit_verification_for_droid_exec(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _setup_launch_repo(mod, tmp_path, monkeypatch)
+    calls = _fake_launch_subprocess(mod, monkeypatch, _STAGED_PANE)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path, name="droid-lane", agent="droid"))
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "dispatch" not in payload
+    # droid prompted lanes deliver via `droid exec -f`; no pane verification.
+    assert all(c[0] == "bash" for c in calls)
+
+
+def test_cmd_launch_broken_pipe_on_report_preserves_exit_code(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _setup_launch_repo(mod, tmp_path, monkeypatch)
+    _fake_launch_subprocess(mod, monkeypatch, _SUBMITTED_PANE)
+    muted_stdout: list[bool] = []
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(mod, "_mute_stdout_after_broken_pipe", lambda: muted_stdout.append(True))
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path))
+
+    assert rc == 0
+    assert muted_stdout == [True]
+
+
+def test_cmd_launch_broken_pipe_does_not_mask_undelivered_dispatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _setup_launch_repo(mod, tmp_path, monkeypatch)
+    # Placeholder pane persists -> delivered=False; under --strict-verify this
+    # is an enforced rc 1 that must survive a broken pipe on the report write.
+    _fake_launch_subprocess(mod, monkeypatch, _PLACEHOLDER_PANE)
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(mod, "_mute_stdout_after_broken_pipe", lambda: None)
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path, strict_verify=True))
+
+    assert rc == 1  # dispatch truth survives the broken pipe
+
+
+def test_install_sigpipe_hygiene_ignores_sigpipe_on_posix() -> None:
+    import signal as signal_module
+
+    import agent_bridge as mod
+
+    if not hasattr(signal_module, "SIGPIPE"):
+        pytest.skip("SIGPIPE not available on this platform")
+    previous = signal_module.getsignal(signal_module.SIGPIPE)
+    try:
+        mod._install_sigpipe_hygiene()
+        assert signal_module.getsignal(signal_module.SIGPIPE) is signal_module.SIG_IGN
+    finally:
+        signal_module.signal(signal_module.SIGPIPE, previous)
+
+
+def test_main_does_not_install_sigpipe_for_non_launch_subcommands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    # SIGPIPE hygiene is scoped to launch only; other subcommands must keep
+    # their prior clean SIGPIPE-killed behavior under `| head`.
+    installs: list[bool] = []
+    monkeypatch.setattr(mod, "_install_sigpipe_hygiene", lambda: installs.append(True))
+    monkeypatch.setattr(mod, "cmd_sessions", lambda _args: 0)
+    monkeypatch.setattr(sys, "argv", ["agent_bridge.py", "sessions"])
+
+    rc = mod.main()
+
+    assert rc == 0
+    assert installs == []
+
+
+def test_cmd_launch_installs_sigpipe_hygiene(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _setup_launch_repo(mod, tmp_path, monkeypatch)
+    _fake_launch_subprocess(mod, monkeypatch, _SUBMITTED_PANE)
+    installs: list[bool] = []
+    monkeypatch.setattr(mod, "_install_sigpipe_hygiene", lambda: installs.append(True))
+
+    rc = mod.cmd_launch(_launch_namespace(tmp_path))
+
+    capsys.readouterr()
+    assert rc == 0
+    # SIGPIPE hygiene is installed exactly once, scoped to the launch path.
+    assert installs == [True]
