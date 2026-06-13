@@ -87,6 +87,33 @@ MODEL_REVIEW_QUEUE_CAP = 6
 MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
 TIER_FOUR_SETTLEMENT_MARKER = "Tier-4 Human Settlement Authorization"
+DEFAULT_TRUSTED_SETTLEMENT_CREATOR = "scarmani"
+SETTLEMENT_CREATOR_ENV_VAR = "ARAGORA_SETTLEMENT_CREATOR"
+GITHUB_TRANSPORT_ERROR_KIND = "github_transport"
+GITHUB_TRANSPORT_BLOCKED_STATUS = "transport_blocked"
+_GITHUB_TRANSPORT_ERROR_MARKERS = (
+    "api rate limit already exceeded",
+    "check your internet connection",
+    "client.timeout exceeded",
+    "connection refused",
+    "connection reset",
+    "connection timed out",
+    "context deadline exceeded",
+    "could not resolve host",
+    "error connecting",
+    "failed to start",
+    "http 502",
+    "http 503",
+    "http 504",
+    "i/o timeout",
+    "net/http",
+    "no such host",
+    "operation timed out",
+    "rate limit exceeded",
+    "temporary failure in name resolution",
+    "timeout awaiting response headers",
+    "tls handshake timeout",
+)
 TIER_FOUR_AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "claude",
@@ -995,7 +1022,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if not items:
         print("(no PRs in scope)")
         return 0
-
     session_id = _session_id()
     started_at = datetime.now(UTC).isoformat()
     session_receipt: dict[str, Any] = {
@@ -1009,7 +1035,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     }
     session_path = _session_receipt_path(repo_root, session_id)
     _write_json(session_path, session_receipt)
-
     for index, item in enumerate(items, start=1):
         try:
             packet = _build_packet(str(item.number), repo_override=getattr(args, "repo", None))
@@ -1018,7 +1043,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
             continue
         _render_session_packet(packet, item=item, index=index, total=len(items))
         decision_started = time.monotonic()
-
         while True:
             choice = input(
                 "[a]pprove [r]equest-changes [d]efer [o]pen-files [p]acket-json [q]uit: "
@@ -1038,7 +1062,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
             if normalized not in {"a", "r", "d"}:
                 print("Choose one of: a, r, d, o, p, q")
                 continue
-
             action = {
                 "a": "approve",
                 "r": "request_changes",
@@ -1071,7 +1094,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 f"(packet {packet.packet_sha}, head {packet.head_sha})"
             )
             break
-
     session_receipt["completed_at"] = datetime.now(UTC).isoformat()
     _write_json(session_path, session_receipt)
     print(f"Session complete: {session_path}")
@@ -1088,7 +1110,6 @@ def _cmd_act(args: argparse.Namespace) -> int:
     if action == "defer" and not reason:
         print(f"error: {DEFER_REASON_REQUIRED}", file=sys.stderr)
         return 2
-
     repo_root = resolve_repo_root(Path.cwd())
     try:
         _require_clean_worktree(repo_root)
@@ -1122,7 +1143,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
     if not head_sha:
         print("error: --head-sha is required", file=sys.stderr)
         return 2
-
     repo_root = resolve_repo_root(Path.cwd())
     try:
         _require_clean_worktree(repo_root)
@@ -1139,7 +1159,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-
     # Atomic settlement signal: the receipt is now durably written. Only here do
     # we publish the gate-trusted 'aragora/human-settlement' commit status, so a
     # green status can never exist without its backing receipt. (Running
@@ -1163,7 +1182,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
         except _GhError as exc:
             status_failed = True
             github_status = {"posted": False, "error": str(exc)}
-
     if json_output:
         payload = result.to_dict()
         if github_status is not None:
@@ -1176,7 +1194,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
                 f"  github-status: {github_status.get('context')}="
                 f"{github_status.get('state')} @ {head_sha[:12]}"
             )
-
     if status_failed:
         print(
             "error: receipt written but GitHub status POST failed "
@@ -1211,7 +1228,6 @@ def _cmd_evidence_lint(args: argparse.Namespace) -> int:
         else:
             print(f"error: could not read --body-file: {exc}", file=sys.stderr)
         return 1
-
     result = _lint_evidence_comment(
         pr=str(getattr(args, "pr", "") or ""),
         head_sha=str(getattr(args, "head_sha", "") or ""),
@@ -2867,6 +2883,7 @@ def _build_packet(
             settlement_recorded=settlement_recorded,
             human_risk_settlement_recorded=human_risk_settlement_recorded,
             check_surfaces=check_surfaces,
+            repo_slug=_repo_slug_from_pr_payload(pr, repo_override),
         ),
     )
     packet.packet_sha = _packet_sha(packet)
@@ -2943,6 +2960,7 @@ def _build_merge_authorization_packet(
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
             "requires_human_preapproval": quorum.get("requires_human_preapproval", False),
             "human_preapproval_recorded": quorum.get("human_preapproval_recorded", False),
+            "settlement_creator_pin": quorum.get("settlement_creator_pin", {}),
             "unresolved_dissent": quorum["unresolved_dissent"],
             "reviewer_signals": quorum["reviewer_signals"],
             "dogfood_evidence": quorum["dogfood_evidence"],
@@ -3067,6 +3085,7 @@ def _build_model_review_quorum(
     settlement_recorded: bool = False,
     human_risk_settlement_recorded: bool = False,
     check_surfaces: dict[str, Any] | None = None,
+    repo_slug: str = "",
 ) -> dict[str, Any]:
     tier, tier_name, tier_reason = _classify_model_review_tier(files, pr=pr)
     requirement = _tier_requirement(tier)
@@ -3112,13 +3131,27 @@ def _build_model_review_quorum(
         and _has_successful_status_context(pr, HUMAN_SETTLEMENT_CONTEXT)
         and _has_tier_four_human_preapproval_comment(pr, head_sha=head_sha)
     )
-
+    settlement_creator_pin = dict(
+        trusted_creator=_trusted_settlement_creator(), checked=False, verified=False, reason=""
+    )
+    if human_preapproval_recorded:
+        creator_verified, creator_reason = _human_settlement_status_creator_verified(
+            repo_slug=repo_slug or _repo_slug_from_pr_payload(pr, None), head_sha=head_sha
+        )
+        settlement_creator_pin["checked"] = True
+        settlement_creator_pin["verified"] = creator_verified
+        settlement_creator_pin["reason"] = creator_reason
+        if not creator_verified:
+            human_preapproval_recorded = False
     reasons = [tier_reason]
+    if settlement_creator_pin["checked"] and not settlement_creator_pin["verified"]:
+        reasons.append(str(settlement_creator_pin["reason"]))
     if settlement_recorded:
         reasons.append("exact-head admin_squash_merge settlement receipt recorded")
     elif human_preapproval_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
         reasons.append("exact-head Tier 4 human preapproval verified")
+        reasons.append(str(settlement_creator_pin["reason"]))
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
     if has_failures and not settlement_recorded:
@@ -3146,7 +3179,6 @@ def _build_model_review_quorum(
         if not has_required_dogfood:
             reasons.append("focused adversarial dogfood evidence is required")
         reasons.extend(review_object_warnings)
-
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
     if settlement_recorded:
@@ -3191,7 +3223,6 @@ def _build_model_review_quorum(
         status = "satisfied"
         verdict = "admin_squash_allowed"
         admin_squash_allowed = True
-
     return {
         "version": MODEL_REVIEW_QUORUM_VERSION,
         "head_sha": str(pr.get("headRefOid", "")).strip(),
@@ -3204,6 +3235,7 @@ def _build_model_review_quorum(
         "human_risk_settlement_recorded": human_risk_settlement_recorded,
         "requires_human_preapproval": requires_human_preapproval,
         "human_preapproval_recorded": human_preapproval_recorded,
+        "settlement_creator_pin": settlement_creator_pin,
         "admin_squash_allowed": admin_squash_allowed,
         "status": status,
         "verdict": verdict,
@@ -3403,6 +3435,51 @@ def _has_successful_status_context(pr: dict[str, Any], context: str) -> bool:
         conclusion = str(check.get("conclusion") or "").upper()
         return conclusion == "SUCCESS" or state == "SUCCESS"
     return False
+
+
+def _trusted_settlement_creator() -> str:
+    return (
+        str(os.environ.get(SETTLEMENT_CREATOR_ENV_VAR, "") or "").strip()
+        or DEFAULT_TRUSTED_SETTLEMENT_CREATOR
+    )
+
+
+def _human_settlement_status_creator_verified(
+    *, repo_slug: str, head_sha: str, context: str = HUMAN_SETTLEMENT_CONTEXT
+) -> tuple[bool, str]:
+    trusted = _trusted_settlement_creator()
+
+    def fail(reason: str) -> tuple[bool, str]:
+        return (False, f"settlement-creator pin: {reason}")
+
+    if not repo_slug or not head_sha:
+        return fail("missing repo slug or head sha; failing closed")
+    try:
+        payload = _gh_json(["api", f"repos/{repo_slug}/commits/{head_sha}/statuses?per_page=100"])
+    except _GhError as exc:
+        return fail(f"could not fetch commit statuses ({exc}); failing closed")
+    if not isinstance(payload, list):
+        return fail("unexpected statuses payload shape; failing closed")
+    for status in payload:
+        if not isinstance(status, dict) or str(status.get("context") or "").strip() != context:
+            continue
+        state = str(status.get("state") or "").strip().lower()
+        creator = status.get("creator")
+        login = str(creator.get("login") or "").strip() if isinstance(creator, dict) else ""
+        if state != "success":
+            return fail(f"newest '{context}' status state is '{state}', not success")
+        if not login:
+            return fail(f"newest '{context}' status has no creator login; failing closed")
+        if login.casefold() != trusted.casefold():
+            return fail(
+                f"newest '{context}' status was created by '{login}', "
+                f"not trusted settlement creator '{trusted}'"
+            )
+        return (
+            True,
+            f"settlement-creator pin: '{context}' status created by trusted settlement creator '{trusted}'",
+        )
+    return fail(f"no '{context}' status found on head commit; failing closed")
 
 
 def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: str) -> bool:

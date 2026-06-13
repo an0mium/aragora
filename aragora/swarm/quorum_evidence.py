@@ -30,11 +30,17 @@ import asyncio
 import inspect
 import logging
 import math
+import multiprocessing
 import os
+import queue
 import re
 import subprocess
-from collections.abc import Callable, Sequence
+import time
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from aragora.swarm import merge_quorum_io
@@ -79,6 +85,13 @@ DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "grok")
 
 # Tiers at or above this require exact-head operator settlement; never auto-post.
 SETTLEMENT_TIER_FLOOR = 3
+
+QUORUM_RERUN_COOLDOWN_SECONDS = 10 * 60
+QUORUM_RERUN_MAX_PER_HEAD = 3
+QUORUM_STATE_LOCK_TIMEOUT_SECONDS = 60.0
+QUORUM_STATE_LOCK_POLL_SECONDS = 0.2
+QUORUM_STATE_LOCK_STALE_SECONDS = 15 * 60
+_REVIEWER_RESULT_QUEUE_TIMEOUT = 1.0
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
@@ -87,6 +100,7 @@ _CLAUDE_TIMEOUT = 300
 _REVIEWER_TIMEOUT = 300
 _CLAUDE_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS"
 _REVIEWER_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS"
+_REVIEWER_CLEANUP_TIMEOUT = 10
 
 
 def _cap_text(text: str) -> str:
@@ -132,6 +146,15 @@ class EvidenceItem:
     would_count: bool
     counted_reviewer_ids: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
+    verdict: str = "unknown"
+
+    @property
+    def supportive(self) -> bool:
+        return self.would_count and self.verdict == "pass"
+
+    @property
+    def dissenting(self) -> bool:
+        return self.verdict == "changes_requested"
 
 
 @dataclass
@@ -147,10 +170,23 @@ class CollectOutcome:
     failures: list[ReviewerResult] = field(default_factory=list)
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
+    quorum_rerun: dict[str, Any] | None = None
 
     @property
     def counting_families(self) -> list[str]:
         return [item.family for item in self.items if item.would_count]
+
+    @property
+    def supportive_families(self) -> list[str]:
+        return [item.family for item in self.items if item.supportive]
+
+    @property
+    def dissenting_families(self) -> list[str]:
+        return [item.family for item in self.items if item.dissenting]
+
+    @property
+    def has_supportive_quorum(self) -> bool:
+        return len(self.supportive_families) >= 2
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -163,12 +199,17 @@ class CollectOutcome:
             "action": self.action,
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,
+            "supportive_families": self.supportive_families,
+            "dissenting_families": self.dissenting_families,
+            "has_supportive_quorum": self.has_supportive_quorum,
             "posted_families": list(self.posted),
             "post_errors": list(self.post_errors),
+            "quorum_rerun": self.quorum_rerun,
             "items": [
                 {
                     "family": item.family,
                     "would_count": item.would_count,
+                    "verdict": item.verdict,
                     "counted_reviewer_ids": item.counted_reviewer_ids,
                     "problems": item.problems,
                     "body": item.body,
@@ -232,6 +273,22 @@ def _neutralize_reviewer_text(text: str) -> str:
         else:
             out.append(line)
     return "\n".join(out)
+
+
+def _reviewer_verdict(text: str) -> str:
+    """Parse the first reviewer verdict line without inventing support."""
+    for line in text.splitlines():
+        stripped = line.strip().lower()
+        if not stripped:
+            continue
+        if stripped.startswith("verdict:"):
+            verdict = stripped.split(":", 1)[1].strip()
+            if verdict.startswith("pass"):
+                return "pass"
+            if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
+                return "changes_requested"
+            return "unknown"
+    return "unknown"
 
 
 def compose_evidence_comment(
@@ -336,6 +393,69 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
 
 
 def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
+    timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
+    ctx = _api_agent_process_context()
+    result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
+    process = _start_api_agent_worker_process(ctx, family, prompt, result_queue)
+    process.start()
+    process.join(timeout + _REVIEWER_CLEANUP_TIMEOUT)
+    if process.is_alive():
+        process.terminate()
+        process.join(5)
+        if process.is_alive():  # pragma: no cover - defensive hard kill.
+            process.kill()
+            process.join(5)
+        return ReviewerResult(
+            family, "", False, f"{family} reviewer timed out after {_format_seconds(timeout)}s"
+        )
+    try:
+        payload = result_queue.get(timeout=_REVIEWER_RESULT_QUEUE_TIMEOUT)
+    except queue.Empty:
+        return ReviewerResult(
+            family,
+            "",
+            False,
+            f"{family} reviewer exited without returning a result",
+        )
+    if isinstance(payload, ReviewerResult):
+        return payload
+    if isinstance(payload, dict):
+        return ReviewerResult(
+            str(payload.get("family") or family),
+            str(payload.get("text") or ""),
+            bool(payload.get("ok")),
+            str(payload.get("error") or ""),
+        )
+    return ReviewerResult(family, "", False, f"{family} reviewer returned invalid result")
+
+
+def _api_agent_process_context() -> Any:
+    """Use spawn so API reviewer children do not inherit parent connector state."""
+    return multiprocessing.get_context("spawn")
+
+
+def _start_api_agent_worker_process(
+    ctx: Any,
+    family: str,
+    prompt: str,
+    result_queue: multiprocessing.Queue,
+) -> multiprocessing.Process:
+    return ctx.Process(
+        target=_api_agent_worker,
+        args=(family, prompt, result_queue),
+        daemon=True,
+    )
+
+
+def _api_agent_worker(
+    family: str,
+    prompt: str,
+    result_queue: multiprocessing.Queue,
+) -> None:
+    result_queue.put(_run_api_agent_in_current_process(family, prompt))
+
+
+def _run_api_agent_in_current_process(family: str, prompt: str) -> ReviewerResult:
     try:
         from aragora.agents import create_agent
     except Exception as exc:  # pragma: no cover - import guard
@@ -367,7 +487,9 @@ async def _close_api_agent_resources(agent: Any) -> None:
         try:
             result = close()
             if inspect.isawaitable(result):
-                await result
+                await asyncio.wait_for(result, timeout=_REVIEWER_CLEANUP_TIMEOUT)
+        except TimeoutError:
+            logger.debug("collect-evidence API agent close timed out")
         except Exception as exc:  # noqa: BLE001 - cleanup must not mask reviewer results.
             logger.debug("collect-evidence API agent close failed: %s", exc)
 
@@ -382,7 +504,9 @@ async def _close_api_agent_resources(agent: Any) -> None:
         # loop, so the shared aiohttp connector must be released before that
         # loop is torn down. The collector dispatches reviewers serially; if it
         # ever fans reviewers out, cleanup must move outside the per-reviewer path.
-        await close_shared_connector()
+        await asyncio.wait_for(close_shared_connector(), timeout=_REVIEWER_CLEANUP_TIMEOUT)
+    except TimeoutError:
+        logger.debug("collect-evidence shared connector close timed out")
     except Exception as exc:  # noqa: BLE001 - cleanup must not mask reviewer results.
         logger.debug("collect-evidence shared connector close failed: %s", exc)
 
@@ -486,6 +610,112 @@ def resolve_author(default: str = "local") -> str:
     return login or default
 
 
+@contextmanager
+def _locked_quorum_reconcile_state(path: Path) -> Iterator[None]:
+    """Serialize load/evaluate/rerun/save for the shared merge-quorum state file."""
+    lock_path = Path(f"{path}.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + QUORUM_STATE_LOCK_TIMEOUT_SECONDS
+    fd: int | None = None
+    while fd is None:
+        try:
+            flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+            flags |= getattr(os, "O_CLOEXEC", 0)
+            flags |= getattr(os, "O_NOFOLLOW", 0)
+            fd = os.open(lock_path, flags)
+            os.write(
+                fd,
+                f"pid={os.getpid()} acquired_at={datetime.now(timezone.utc).isoformat()}\n".encode(),
+            )
+        except FileExistsError:
+            if _quorum_state_lock_is_stale(lock_path):
+                try:
+                    lock_path.unlink()
+                except FileNotFoundError:
+                    pass
+                continue
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"timed out waiting for merge-quorum state lock: {lock_path}")
+            time.sleep(QUORUM_STATE_LOCK_POLL_SECONDS)
+    try:
+        yield
+    finally:
+        os.close(fd)
+        try:
+            lock_path.unlink()
+        except OSError:
+            pass
+
+
+def _quorum_state_lock_is_stale(lock_path: Path) -> bool:
+    try:
+        stat = lock_path.lstat()
+    except OSError:
+        return False
+    if lock_path.is_symlink():
+        raise RuntimeError(f"refusing symlink merge-quorum state lock: {lock_path}")
+    age_seconds = max(0.0, time.time() - stat.st_mtime)
+    if age_seconds < QUORUM_STATE_LOCK_STALE_SECONDS:
+        return False
+    try:
+        text = lock_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    match = re.search(r"\bpid=(\d+)\b", text)
+    if not match:
+        return True
+    pid = int(match.group(1))
+    if pid <= 0 or pid == os.getpid():
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+    return False
+
+
+def default_quorum_reconciler(repo: str, pr: int) -> dict[str, Any]:
+    """Run the A1 stale-quorum reconciler for one PR after evidence posting."""
+    from scripts import reconcile_merge_quorum
+
+    state_file = reconcile_merge_quorum.DEFAULT_STATE_FILE
+    with _locked_quorum_reconcile_state(state_file):
+        state = reconcile_merge_quorum._load_state(state_file)
+        decision, quorum_run = reconcile_merge_quorum.evaluate_pr(
+            repo,
+            pr,
+            now=datetime.now(timezone.utc),
+            state=state,
+            cooldown_seconds=QUORUM_RERUN_COOLDOWN_SECONDS,
+            max_reruns=QUORUM_RERUN_MAX_PER_HEAD,
+        )
+        record: dict[str, Any] = {
+            "should_rerun": decision.should_rerun,
+            "reason": decision.reason,
+            "run_id": decision.run_id,
+            "applied": False,
+        }
+        if decision.next_prompt:
+            record["next_prompt"] = decision.next_prompt
+        if decision.should_rerun and quorum_run is not None:
+            head_state = state.setdefault(
+                quorum_run.head_sha,
+                {"count": 0, "last_rerun_at": None},
+            )
+            if int(head_state.get("count", 0)) >= QUORUM_RERUN_MAX_PER_HEAD:
+                record["should_rerun"] = False
+                record["reason"] = "max_reruns_reached_in_locked_state"
+                return record
+            record["applied"] = reconcile_merge_quorum.execute_rerun(repo, quorum_run.run_id)
+            if record["applied"]:
+                head_state["count"] = int(head_state.get("count", 0)) + 1
+                head_state["last_rerun_at"] = datetime.now(timezone.utc).isoformat()
+                reconcile_merge_quorum._save_state(state_file, state)
+        return record
+
+
 # --- Orchestrator ----------------------------------------------------------
 
 
@@ -502,6 +732,7 @@ def collect_evidence(
     reviewer_runner: Callable[[str, str], ReviewerResult] = default_reviewer_runner,
     linter: Callable[..., dict[str, Any]] = default_linter,
     poster: Callable[[str, int, str], None] = default_poster,
+    quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
     env: dict[str, str] | None = None,
 ) -> CollectOutcome:
     """Run reviewers, validate evidence, and post only when tier-gating allows."""
@@ -557,12 +788,27 @@ def collect_evidence(
                 family=family,
                 body=body,
                 would_count=bool(lint.get("would_count")),
+                verdict=_reviewer_verdict(result.text),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
             )
         )
 
     if action == "post":
+        if outcome.dissenting_families:
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                "reviewer dissent present "
+                f"({', '.join(outcome.dissenting_families)}); prepared evidence only"
+            )
+            return outcome
+        if not outcome.has_supportive_quorum:
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                "supportive quorum incomplete "
+                f"({len(outcome.supportive_families)}/2); prepared evidence only"
+            )
+            return outcome
         # Reviewers can take minutes; re-verify the head and tier immediately
         # before posting so a head that moved or a PR promoted to a settlement
         # tier in the meantime is never posted against.
@@ -585,7 +831,7 @@ def collect_evidence(
             )
         else:
             for item in outcome.items:
-                if not item.would_count:
+                if not item.supportive:
                     continue
                 try:
                     poster(repo, pr, item.body)
@@ -594,6 +840,11 @@ def collect_evidence(
                     outcome.post_errors.append(f"{item.family}: {str(exc)[:200]}")
                     continue
                 outcome.posted.append(item.family)
+        if outcome.posted and outcome.has_supportive_quorum and quorum_reconciler is not None:
+            try:
+                outcome.quorum_rerun = quorum_reconciler(repo, pr)
+            except Exception as exc:  # noqa: BLE001 - evidence posts should remain reported.
+                outcome.quorum_rerun = {"applied": False, "error": str(exc)[:200]}
 
     return outcome
 
@@ -604,14 +855,21 @@ def _render_outcome(outcome: CollectOutcome) -> str:
         f"  head: {outcome.head_sha[:10]}  tier: {outcome.tier}",
         f"  action: {outcome.action} ({outcome.action_reason})",
         f"  counting families: {', '.join(outcome.counting_families) or 'none'}",
+        f"  supportive families: {', '.join(outcome.supportive_families) or 'none'}",
+        f"  dissenting families: {', '.join(outcome.dissenting_families) or 'none'}",
     ]
     if outcome.posted:
         lines.append(f"  posted: {', '.join(outcome.posted)}")
     if outcome.post_errors:
         lines.append(f"  post errors: {'; '.join(outcome.post_errors)}")
+    if outcome.quorum_rerun:
+        rerun = outcome.quorum_rerun
+        action = "applied" if rerun.get("applied") else "not applied"
+        reason = rerun.get("reason") or rerun.get("error") or "unknown"
+        lines.append(f"  quorum rerun: {action} ({reason})")
     for item in outcome.items:
         flag = "counts" if item.would_count else f"DOES NOT count ({', '.join(item.problems)})"
-        lines.append(f"  - {item.family}: {flag}")
+        lines.append(f"  - {item.family}: {flag}; verdict={item.verdict}")
     for failure in outcome.failures:
         lines.append(f"  - {failure.family}: reviewer failed ({failure.error})")
     if outcome.action == "prepare":
@@ -652,6 +910,7 @@ def run_collect_cli(
             author=resolved_author,
             apply=apply,
             env=merge_quorum_io.aragora_env(),
+            quorum_reconciler=default_quorum_reconciler if apply else None,
         )
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         if json_output:
@@ -668,4 +927,4 @@ def run_collect_cli(
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
-    return 0 if len(outcome.counting_families) >= 2 else 1
+    return 0 if outcome.has_supportive_quorum else 1

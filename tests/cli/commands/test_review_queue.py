@@ -1778,9 +1778,23 @@ class TestModelReviewQuorum:
             "aragora.cli.commands.review_queue._build_queue",
             lambda limit: [_classify_pr(_make_pr(number=7736))],
         )
+
+        def _gh_json_dispatch(args: list[str]) -> Any:
+            # TET H2: the settlement-creator pin fetches the head commit's
+            # statuses via the REST API; everything else hydrates the PR.
+            if any("/statuses" in str(arg) for arg in args):
+                return [
+                    {
+                        "context": "aragora/human-settlement",
+                        "state": "success",
+                        "creator": {"login": "scarmani"},
+                    }
+                ]
+            return pr_payload
+
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
-            lambda args: pr_payload,
+            _gh_json_dispatch,
         )
 
         packet = _build_merge_authorization_packet(
@@ -1797,10 +1811,220 @@ class TestModelReviewQuorum:
         assert entry["requires_human_risk_settlement"] is False
         assert entry["requires_human_preapproval"] is False
         assert entry["human_preapproval_recorded"] is True
+        assert entry["settlement_creator_pin"]["checked"] is True
+        assert entry["settlement_creator_pin"]["verified"] is True
+        assert entry["settlement_creator_pin"]["trusted_creator"] == "scarmani"
         assert "exact-head Tier 4 human preapproval verified" in entry["reasons"]
         assert packet["admin_squash_order"] == [7736]
         assert packet["human_risk_settlement_required"] == []
         assert packet["not_ready"] == []
+
+    # --- TET H2: settlement-creator pin (docs/specs/TAMPER_EVIDENT_TRAIL.md) ---
+
+    def _tier_four_settled_pr(self, *, number: int = 7900) -> tuple[dict[str, Any], list[str]]:
+        """A Tier 4 PR with full quorum + comment + rollup settlement evidence.
+
+        Everything short of the settlement-creator pin passes, so each test
+        isolates exactly what the pin adds on top of the pre-H2 gate.
+        """
+        files = ["aragora/cli/commands/review_queue.py"]
+        pr = _make_pr(number=number, files=files)
+        head_sha = str(pr["headRefOid"])
+        pr["comments"] = [
+            _codex_openai_comment(body=f"Reviewed exact head {head_sha}."),
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n\n"
+                    "Model family: claude\n"
+                    f"Current head: {head_sha}\n\n"
+                    "Verdict: approve."
+                ),
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "Tier-4 Human Settlement Authorization\n\n"
+                    f"PR: #{number}\n"
+                    f"Exact head: {head_sha}\n"
+                    "Authorized action: admin_squash_merge only if checks stay green.\n\n"
+                    "Human-risk settlement: I accept the Tier 4 risk for this PR."
+                ),
+            },
+        ]
+        pr["statusCheckRollup"] = [
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"context": "aragora/human-settlement", "state": "SUCCESS"},
+        ]
+        return pr, files
+
+    @staticmethod
+    def _settlement_status(
+        login: str | None,
+        *,
+        state: str = "success",
+        context: str = "aragora/human-settlement",
+    ) -> dict[str, Any]:
+        status: dict[str, Any] = {"context": context, "state": state}
+        if login is not None:
+            status["creator"] = {"login": login}
+        return status
+
+    def _pin_quorum(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        statuses: Any,
+        *,
+        pr: dict[str, Any] | None = None,
+        files: list[str] | None = None,
+    ) -> dict[str, Any]:
+        if pr is None or files is None:
+            pr, files = self._tier_four_settled_pr()
+
+        def _gh_json_dispatch(args: list[str]) -> Any:
+            assert any("/statuses" in str(arg) for arg in args), (
+                "only the statuses API may be called from the quorum builder"
+            )
+            if isinstance(statuses, Exception):
+                raise statuses
+            return statuses
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            _gh_json_dispatch,
+        )
+        return _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            human_risk_settlement_recorded=True,
+            repo_slug="synaptent/aragora",
+        )
+
+    def test_settlement_creator_scarmani_counts(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        quorum = self._pin_quorum(monkeypatch, [self._settlement_status("scarmani")])
+        assert quorum["human_preapproval_recorded"] is True
+        assert quorum["admin_squash_allowed"] is True
+        pin = quorum["settlement_creator_pin"]
+        assert pin["checked"] is True
+        assert pin["verified"] is True
+        assert pin["trusted_creator"] == "scarmani"
+        assert any("settlement-creator pin" in reason for reason in quorum["reasons"])
+
+    def test_settlement_creator_an0mium_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The #8169 precedent gap: an automation-capable login posting the
+        status must NOT count, even though every other condition holds."""
+        quorum = self._pin_quorum(monkeypatch, [self._settlement_status("an0mium")])
+        assert quorum["human_preapproval_recorded"] is False
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["status"] == "human_preapproval_required"
+        pin = quorum["settlement_creator_pin"]
+        assert pin["checked"] is True
+        assert pin["verified"] is False
+        assert "an0mium" in pin["reason"]
+        assert "scarmani" in pin["reason"]
+        assert any("settlement-creator pin" in reason for reason in quorum["reasons"])
+
+    def test_settlement_creator_missing_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        quorum = self._pin_quorum(monkeypatch, [self._settlement_status(None)])
+        assert quorum["human_preapproval_recorded"] is False
+        assert quorum["admin_squash_allowed"] is False
+        pin = quorum["settlement_creator_pin"]
+        assert pin["verified"] is False
+        assert "no creator login" in pin["reason"]
+
+    def test_settlement_creator_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_SETTLEMENT_CREATOR", "alice-oversight")
+        quorum = self._pin_quorum(monkeypatch, [self._settlement_status("alice-oversight")])
+        assert quorum["human_preapproval_recorded"] is True
+        assert quorum["settlement_creator_pin"]["trusted_creator"] == "alice-oversight"
+
+    def test_env_override_rejects_default_creator(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_SETTLEMENT_CREATOR", "alice-oversight")
+        quorum = self._pin_quorum(monkeypatch, [self._settlement_status("scarmani")])
+        assert quorum["human_preapproval_recorded"] is False
+        assert quorum["settlement_creator_pin"]["verified"] is False
+
+    def test_transport_error_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        quorum = self._pin_quorum(monkeypatch, _GhError("api unavailable"))
+        assert quorum["human_preapproval_recorded"] is False
+        assert quorum["admin_squash_allowed"] is False
+        assert "failing closed" in quorum["settlement_creator_pin"]["reason"]
+
+    def test_unexpected_payload_shape_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        quorum = self._pin_quorum(monkeypatch, {"not": "a list"})
+        assert quorum["human_preapproval_recorded"] is False
+        assert "failing closed" in quorum["settlement_creator_pin"]["reason"]
+
+    def test_missing_status_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        quorum = self._pin_quorum(monkeypatch, [])
+        assert quorum["human_preapproval_recorded"] is False
+        assert (
+            "no 'aragora/human-settlement' status" in (quorum["settlement_creator_pin"]["reason"])
+        )
+
+    def test_newest_untrusted_status_shadows_older_trusted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The statuses API is newest-first; an untrusted overwrite on top of a
+        genuine scarmani status must reject (the rollup reflects the newest)."""
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [
+                self._settlement_status("aragora-automation-fable[bot]"),
+                self._settlement_status("scarmani"),
+            ],
+        )
+        assert quorum["human_preapproval_recorded"] is False
+        assert "aragora-automation-fable[bot]" in (quorum["settlement_creator_pin"]["reason"])
+
+    def test_newest_pending_status_rejected_despite_trusted_older(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [
+                self._settlement_status("scarmani", state="pending"),
+                self._settlement_status("scarmani"),
+            ],
+        )
+        assert quorum["human_preapproval_recorded"] is False
+        assert "not success" in quorum["settlement_creator_pin"]["reason"]
+
+    def test_pin_not_consulted_below_tier_four(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Non-Tier-4 packets must not pay the statuses API call at all."""
+
+        def _explode(args: list[str]) -> Any:
+            raise AssertionError(f"unexpected gh call from quorum builder: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _explode)
+        files = ["aragora/agents/router.py"]  # Tier 1
+        quorum = _build_model_review_quorum(
+            pr=_make_pr(files=files),
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["settlement_creator_pin"]["checked"] is False
+        assert quorum["settlement_creator_pin"]["trusted_creator"] == "scarmani"
+
+    def test_creator_check_helper_requires_repo_and_head(self) -> None:
+        from aragora.cli.commands.review_queue import (
+            _human_settlement_status_creator_verified,
+        )
+
+        ok, reason = _human_settlement_status_creator_verified(repo_slug="", head_sha="abc")
+        assert ok is False
+        assert "failing closed" in reason
+        ok, reason = _human_settlement_status_creator_verified(
+            repo_slug="synaptent/aragora", head_sha=""
+        )
+        assert ok is False
 
     # --- Finding 2: source-side filter on _dogfood_evidence_from_comments ---
 
