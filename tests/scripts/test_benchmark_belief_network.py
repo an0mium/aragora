@@ -1,4 +1,5 @@
 import importlib.util
+import math
 import sys
 from pathlib import Path
 
@@ -78,6 +79,31 @@ def test_generate_report_rejects_non_finite_rate_fields() -> None:
     results.graph_density = float("nan")
 
     with pytest.raises(ValueError, match="graph_density must be a finite non-negative value"):
+        module.generate_report(results)
+
+
+def test_generate_report_accepts_raw_maximum_average_uncertainty() -> None:
+    module = _load_module()
+    results = _minimal_valid_results(module)
+    results.average_uncertainty = math.log2(3)
+
+    report = module.generate_report(results)
+
+    assert "| Average uncertainty | 1.585 |" in report
+
+
+@pytest.mark.parametrize("invalid_uncertainty", [float("nan"), float("inf"), -0.01])
+def test_generate_report_rejects_invalid_average_uncertainty(
+    invalid_uncertainty: float,
+) -> None:
+    module = _load_module()
+    results = _minimal_valid_results(module)
+    results.average_uncertainty = invalid_uncertainty
+
+    with pytest.raises(
+        ValueError,
+        match="average_uncertainty must be a finite non-negative value",
+    ):
         module.generate_report(results)
 
 

@@ -569,7 +569,7 @@ def validate_benchmark_results(results: BenchmarkResults) -> None:
     if len(results.crux_details) != results.cruxes_found:
         raise ValueError("belief network crux count must match crux details")
     _require_unit_interval(results.graph_density, "graph_density")
-    _require_unit_interval(results.average_uncertainty, "average_uncertainty")
+    _require_nonnegative_finite(results.average_uncertainty, "average_uncertainty")
     _require_unit_interval(results.consensus_probability, "consensus_probability")
     _require_nonnegative_finite(results.convergence_barrier, "convergence_barrier")
     _require_nonnegative_finite(results.propagation_max_change, "propagation_max_change")
