@@ -167,12 +167,14 @@ def test_pr_without_quorum_check_is_still_probed() -> None:
     assert [item["pr"] for item in summary["plan"]] == [3]
 
 
-def test_candidates_scanned_oldest_first() -> None:
+def test_candidates_scanned_newest_first() -> None:
+    # #8316: probe newest-first so a low-numbered tail of permanently ineligible
+    # PRs can never starve fresh ready PRs at the high end.
     summary, _, _ = _run(
         [_pr(9), _pr(4), _pr(7)],
         {4: _entry(4), 7: _entry(7), 9: _entry(9)},
     )
-    assert summary["_packet_calls"] == [4, 7, 9]
+    assert summary["_packet_calls"] == [9, 7, 4]
 
 
 # --- Stage-2 selection (canonical merge-packet probe) -------------------------
@@ -222,17 +224,38 @@ def test_max_prs_caps_the_plan() -> None:
     prs = [_pr(n) for n in (1, 2, 3, 4, 5)]
     packets = {n: _entry(n) for n in (1, 2, 3, 4, 5)}
     summary, _, _ = _run(prs, packets, max_prs=2)
-    assert [item["pr"] for item in summary["plan"]] == [1, 2]
+    # Newest-first (#8316): the two freshest PRs are planned, not the oldest.
+    assert [item["pr"] for item in summary["plan"]] == [5, 4]
     # Probing stops once the plan is full.
-    assert summary["_packet_calls"] == [1, 2]
+    assert summary["_packet_calls"] == [5, 4]
 
 
-def test_max_scan_caps_packet_probes() -> None:
+def test_max_scan_budget_is_eligible_or_indeterminate_not_raw_probes() -> None:
+    # #8316: cleanly-ineligible candidates (here: already-satisfied) no longer
+    # consume the --max-scan budget. A queue of 10 ineligible PRs is probed in
+    # full (none burns budget), the plan stays empty, and the rejections are
+    # surfaced by reason — distinguishable from an exhausted scan window.
     prs = [_pr(n) for n in range(1, 11)]
     packets = {n: _entry(n, status="satisfied", families=["claude", "grok"]) for n in range(1, 11)}
     summary, _, _ = _run(prs, packets, max_scan=4)
-    assert len(summary["_packet_calls"]) == 4
+    assert len(summary["_packet_calls"]) == 10
     assert summary["plan"] == []
+    assert summary["rejected_by_reason"]["wrong_status"] == 10
+    assert summary["unprobed_candidates"] == 0
+
+
+def test_max_scan_caps_eligible_examinations() -> None:
+    # The eligible-or-indeterminate budget still bounds work: with 10 eligible
+    # PRs and max_scan=4 (but max_prs high), only 4 are examined; the rest are
+    # surfaced as unprobed so an empty/short plan is distinguishable from an
+    # exhausted window.
+    prs = [_pr(n) for n in range(1, 11)]
+    packets = {n: _entry(n) for n in range(1, 11)}
+    summary, _, _ = _run(prs, packets, max_scan=4, max_prs=10)
+    assert len(summary["_packet_calls"]) == 4
+    assert len(summary["plan"]) == 4
+    assert summary["scanned"] == 4
+    assert summary["unprobed_candidates"] == 6
 
 
 def test_budget_exhaustion_stops_scanning() -> None:
@@ -268,7 +291,8 @@ def test_apply_runs_collect_with_apply_then_reconciler_once() -> None:
         {1: _entry(1), 2: _entry(2)},
         apply=True,
     )
-    assert collect.calls == [(1, True), (2, True)]
+    # Newest-first scan order (#8316): PR 2 is planned/collected before PR 1.
+    assert collect.calls == [(2, True), (1, True)]
     assert reconciler.calls == 1
     assert summary["exit_code"] == 0
     assert sorted(summary["posted_prs"]) == [1, 2]
@@ -688,7 +712,8 @@ def test_apply_writes_one_routing_record_per_collected_pr() -> None:
         apply=True,
         write_routing_record=writer,
     )
-    assert [r["pr"] for r in writer.records] == [1, 2]
+    # Newest-first scan order (#8316): records are written PR 2 then PR 1.
+    assert [r["pr"] for r in writer.records] == [2, 1]
     assert len(summary["routing_records"]) == 2
     assert summary["routing_record_errors"] == []
     assert summary["exit_code"] == 0
@@ -829,3 +854,195 @@ def test_parse_collect_output_missing_head_and_tier_are_absent_not_invented() ->
     result = cycle.parse_collect_output(1, _json.dumps(payload), "")
     assert result["head_sha"] == ""
     assert result["tier"] is None
+
+
+# --- #8316 DEFECT 1: transport/structural conflation -------------------------
+
+
+def _transport_packet(pr: int, *, error: str = "GraphQL 502") -> dict[str, Any]:
+    # Mirrors aragora/cli/commands/review_queue_transport.py: a probe that could
+    # not see the PR carries status=transport_blocked / transport_blocked=True.
+    return {
+        "pr_number": pr,
+        "status": "transport_blocked",
+        "transport_blocked": True,
+        "error": error,
+    }
+
+
+def test_transport_blocked_packet_is_indeterminate_not_silently_empty() -> None:
+    # A transport hiccup must NOT look like a clean empty queue: count it in
+    # transport_blocked_prs, leave the plan empty, and exit 3 (not 0).
+    summary, collect, recon = _run([_pr(1)], {1: _transport_packet(1)})
+    assert summary["transport_blocked_prs"] == [1]
+    assert summary["plan"] == []
+    assert summary["exit_code"] == cycle.EXIT_INDETERMINATE
+    assert collect.calls == []  # dry-run posts nothing
+
+
+def test_transport_blocked_via_status_only_is_detected() -> None:
+    # An envelope that carries status=transport_blocked but no boolean flag.
+    pkt = {"pr_number": 1, "status": "transport_blocked", "error": "504"}
+    summary, _, _ = _run([_pr(1)], {1: pkt})
+    assert summary["transport_blocked_prs"] == [1]
+    assert summary["exit_code"] == cycle.EXIT_INDETERMINATE
+
+
+def test_genuinely_empty_packet_still_exits_zero() -> None:
+    # A structural empty (PR seen, nothing selectable) is NOT transport-blocked:
+    # the queue is genuinely clear, so exit 0 with an empty plan.
+    summary, _, _ = _run([_pr(1)], {1: {}})
+    assert summary["transport_blocked_prs"] == []
+    assert summary["plan"] == []
+    assert summary["exit_code"] == cycle.EXIT_OK
+
+
+def test_transport_drop_with_a_real_post_does_not_force_exit_three() -> None:
+    # If something was actually posted, a transport drop elsewhere is not the
+    # whole story: the run did real work, so it is not INDETERMINATE.
+    summary, _, recon = _run(
+        [_pr(2), _pr(1)],
+        {2: _entry(2), 1: _transport_packet(1)},
+        apply=True,
+    )
+    assert summary["posted_prs"] == [2]
+    assert summary["transport_blocked_prs"] == [1]
+    assert summary["exit_code"] == cycle.EXIT_OK
+
+
+def test_default_fetch_packet_synthesizes_transport_on_failure(monkeypatch: Any) -> None:
+    # A non-zero merge-packet exit must surface as a transport-blocked packet,
+    # never as {} (which would be indistinguishable from a clean empty queue).
+    class _Proc:
+        returncode = 1
+        stdout = ""
+        stderr = "gh: API rate limit exceeded"
+
+    monkeypatch.setattr(cycle.subprocess, "run", lambda *a, **k: _Proc())
+    entry = cycle.default_fetch_packet("owner/repo", 42)
+    assert cycle.is_transport_blocked(entry) is True
+    assert entry["pr_number"] == 42
+
+
+def test_default_fetch_packet_timeout_is_transport_blocked(monkeypatch: Any) -> None:
+    def _boom(*a: Any, **k: Any) -> Any:
+        raise cycle.subprocess.TimeoutExpired(cmd="merge-packet", timeout=1)
+
+    monkeypatch.setattr(cycle.subprocess, "run", _boom)
+    entry = cycle.default_fetch_packet("owner/repo", 7)
+    assert cycle.is_transport_blocked(entry) is True
+
+
+def test_default_fetch_packet_transport_envelope_is_propagated(monkeypatch: Any) -> None:
+    import json as _json
+
+    class _Proc:
+        returncode = 0
+        stderr = ""
+        stdout = _json.dumps(
+            {
+                "version": "merge_authorization_packet.v1",
+                "status": "transport_blocked",
+                "entries": [],
+            }
+        )
+
+    monkeypatch.setattr(cycle.subprocess, "run", lambda *a, **k: _Proc())
+    entry = cycle.default_fetch_packet("owner/repo", 99)
+    assert cycle.is_transport_blocked(entry) is True
+
+
+def test_consecutive_transport_blocks_trip_the_breaker() -> None:
+    # A run of transport failures is a systemic fault: it feeds the same breaker
+    # the apply loop uses and aborts the cycle (exit 2).
+    prs = [_pr(n) for n in (5, 4, 3, 2, 1)]
+    packets = {n: _transport_packet(n) for n in (5, 4, 3, 2, 1)}
+    summary, _, _ = _run(prs, packets, breaker_threshold=3)
+    assert summary["breaker_tripped"] is True
+    assert summary["exit_code"] == cycle.EXIT_BREAKER
+    # Stopped at the breaker: only the first 3 were probed.
+    assert summary["transport_blocked_prs"] == [5, 4, 3]
+
+
+# The apply-loop identical-error breaker (3 identical real collect failures →
+# exit 2) is unchanged; its regression coverage lives in
+# ``test_identical_error_breaker_trips_after_threshold`` above.
+
+
+# --- #8316 DEFECT 2: scan-window starvation ----------------------------------
+
+
+def test_ineligible_tail_does_not_starve_a_fresh_eligible_pr() -> None:
+    # A tail of permanently-ineligible Tier-3 PRs (oldest, lowest numbers) plus
+    # one fresh eligible Tier-1 PR (highest number). With the OLD oldest-first +
+    # raw-probe-budget behavior the ineligible tail consumed --max-scan and the
+    # fresh PR was never reached; now it is probed and selected.
+    prs = [_pr(n) for n in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20)]
+    packets = {n: _entry(n, tier=3) for n in range(1, 11)}
+    packets[20] = _entry(20, tier=1)  # the fresh eligible PR beyond --max-scan
+    summary, _, _ = _run(prs, packets, max_scan=3)
+    assert [item["pr"] for item in summary["plan"]] == [20]
+    # The ineligible PRs were probed but did not consume the eligible budget.
+    assert summary["rejected_by_reason"]["wrong_tier"] == 10
+    assert 20 in summary["_packet_calls"]
+
+
+def test_rejection_reasons_are_surfaced_with_counts() -> None:
+    prs = [_pr(n) for n in (1, 2, 3, 4)]
+    packets = {
+        1: _entry(1, tier=3),  # wrong_tier
+        2: _entry(2, human=True),  # human_settlement_required
+        3: _entry(3, dissent=True),  # unresolved_dissent
+        4: _entry(4, families=["claude", "grok"]),  # quorum_satisfied
+    }
+    summary, _, _ = _run(prs, packets)
+    assert summary["plan"] == []
+    assert summary["rejected_by_reason"] == {
+        "wrong_tier": 1,
+        "human_settlement_required": 1,
+        "unresolved_dissent": 1,
+        "quorum_satisfied": 1,
+    }
+    assert summary["scanned"] == 4
+    assert summary["unprobed_candidates"] == 0
+    # Genuinely clear queue (no transport drops): exit 0.
+    assert summary["exit_code"] == cycle.EXIT_OK
+
+
+def test_rejection_reason_classifier() -> None:
+    assert cycle.rejection_reason({}) == "empty_packet"
+    assert cycle.rejection_reason({"status": "satisfied", "tier": 1}) == "wrong_status"
+    assert (
+        cycle.rejection_reason({"status": "needs_model_review_quorum", "tier": 9}) == "wrong_tier"
+    )
+    assert (
+        cycle.rejection_reason({"status": "needs_model_review_quorum", "tier": "x"})
+        == "unknown_tier"
+    )
+    assert (
+        cycle.rejection_reason(
+            {
+                "status": "needs_model_review_quorum",
+                "tier": 1,
+                "requires_human_risk_settlement": True,
+            }
+        )
+        == "human_settlement_required"
+    )
+    assert (
+        cycle.rejection_reason(
+            {
+                "status": "needs_model_review_quorum",
+                "tier": 1,
+                "counted_model_families": ["claude", "grok"],
+            }
+        )
+        == "quorum_satisfied"
+    )
+    # Selectable entry returns None.
+    assert (
+        cycle.rejection_reason(
+            {"status": "needs_model_review_quorum", "tier": 1, "counted_model_families": ["claude"]}
+        )
+        is None
+    )

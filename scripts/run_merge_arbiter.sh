@@ -12,6 +12,31 @@ PYTHON_BIN="$(resolve_aragora_python 'import pydantic; import aragora.cli.comman
 
 cd "${REPO_ROOT}"
 
+# Opt-in funnel autopilot: draft-to-ready promotion (throughput lever 0).
+# Runs BEFORE the auto-evidence step so freshly-promoted PRs get evidenced the
+# same pass. Best-effort: a triage failure must never abort the arbiter.
+# Default off until the operator flips ARAGORA_READY_TRIAGE=1 (mirrors the
+# ARAGORA_AUTO_EVIDENCE pattern below). Honors the wrapper's cwd convention
+# (cd REPO_ROOT above), so pr_ready_triage resolves the repo from gh defaults
+# exactly like auto_evidence_cycle does.
+if [[ "${ARAGORA_READY_TRIAGE:-0}" == "1" ]]; then
+    echo "Running bounded draft-to-ready triage (apply mode)..."
+    "${PYTHON_BIN}" scripts/pr_ready_triage.py --apply \
+        || echo "Ready-triage reported failures (non-fatal for the arbiter)." >&2
+fi
+
+# Opt-in backlog backpressure refresh (throughput lever 2). When enabled,
+# refreshes .aragora/backpressure.json each pass so writer lanes can consult
+# the latest generate/shepherd signal. The gate is read-only except for its
+# own signal file (no --apply flag exists; it writes the signal by default).
+# Best-effort: never blocks the arbiter. Default off until the operator flips
+# ARAGORA_BACKLOG_GATE=1.
+if [[ "${ARAGORA_BACKLOG_GATE:-0}" == "1" ]]; then
+    echo "Refreshing backlog backpressure signal..."
+    "${PYTHON_BIN}" scripts/backlog_gate.py --quiet \
+        || echo "Backlog gate reported failures (non-fatal for the arbiter)." >&2
+fi
+
 # Opt-in bounded auto-evidence cycle (throughput lever 1, run-20260610 c07b).
 # Produces lint-validated two-family model-review evidence for ready Tier 0-2
 # PRs missing counted evidence, then re-runs stale quorum checks. Best-effort:
@@ -40,7 +65,9 @@ if [[ "${ARAGORA_AUTO_EVIDENCE:-0}" == "1" ]]; then
             fi
             unset tok
         fi
-        exec "${PYTHON_BIN}" scripts/auto_evidence_cycle.py --apply
+        # --max-scan 40 mitigates scan starvation (harmless even after the
+        # #8316 fix lands; it only widens the per-pass probe window).
+        exec "${PYTHON_BIN}" scripts/auto_evidence_cycle.py --apply --max-scan 40
     ) || echo "Auto-evidence cycle reported failures (non-fatal for the arbiter)." >&2
 fi
 
