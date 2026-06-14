@@ -1157,6 +1157,30 @@ def _hours_ago(hours: float) -> str:
     return (_liveness_now() - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S") + "Z"
 
 
+def _stale_worktree_lane(
+    tmp_path: Path,
+    *,
+    branch: str = "codex/stale-owner",
+    desired_head: str = "a" * 40,
+) -> tuple[dict[str, Any], dict[str, Any], Path]:
+    worktree = tmp_path / "missing-owner-worktree"
+    lane = {
+        "lane_id": "Q-stale-worktree",
+        "owner_session": "codex-q-stale",
+        "status": "active",
+        "branch": branch,
+        "worktree": str(worktree),
+        "desired_head_sha": desired_head,
+        "updated_at": _hours_ago(7.0),
+    }
+    ledger = {
+        "lane": "Q-stale-worktree",
+        "status": "in_progress",
+        "launched_at": _hours_ago(7.0),
+    }
+    return lane, ledger, worktree
+
+
 def write_lane_ledger(tmp_path: Path, entries: list[dict[str, Any]]) -> str:
     """Write lane-ledger fixtures in the lane_janitor layout; return runs glob."""
 
@@ -1261,6 +1285,212 @@ class TestOwnerLeaseLiveness:
         assert result["owner_liveness"]["assessed"] == "stale"
         assert result["stale_claim_advisory"] is None
         assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_absent_worktree_with_remote_exact_head_yields_advisory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane, ledger, worktree = _stale_worktree_lane(
+            tmp_path,
+            branch="codex/measure-work-loss-pending-outbox-primary-20260610",
+            desired_head="4966b95bec51fac1ae102443d5e7a2974e03065d",
+        )
+
+        monkeypatch.setattr(
+            ilo,
+            "_safe_worktree_absent_noop",
+            lambda path: Path(path) == worktree,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            ilo,
+            "_upstream_preservation_proof",
+            lambda checked_lane, checked_ledger: {
+                "method": "remote_branch_exact_head",
+                "branch": checked_lane["branch"],
+                "desired_head": checked_lane["desired_head_sha"],
+            },
+            raising=False,
+        )
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+
+        assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["stale_claim_advisory"]["available"] is True
+        assert result["advisory_withheld"] is None
+
+    def test_absent_worktree_with_sha_in_merged_pr_yields_advisory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane, ledger, worktree = _stale_worktree_lane(
+            tmp_path,
+            branch="codex/salvage-collect-evidence-quorum-rerun-20260606",
+            desired_head="317b94232d3ba41c3a1e546a94010dfdf069f85f",
+        )
+
+        monkeypatch.setattr(
+            ilo,
+            "_safe_worktree_absent_noop",
+            lambda path: Path(path) == worktree,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            ilo,
+            "_upstream_preservation_proof",
+            lambda checked_lane, checked_ledger: {
+                "method": "merged_pr_contains_desired_head",
+                "pr_number": 7825,
+                "desired_head": checked_lane["desired_head_sha"],
+            },
+            raising=False,
+        )
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+
+        assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["stale_claim_advisory"]["available"] is True
+        assert result["advisory_withheld"] is None
+
+    def test_existing_worktree_still_withholds_advisory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane, ledger, worktree = _stale_worktree_lane(tmp_path)
+        worktree.mkdir()
+
+        monkeypatch.setattr(
+            ilo,
+            "_safe_worktree_absent_noop",
+            lambda _path: False,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            ilo,
+            "_upstream_preservation_proof",
+            lambda _lane, _ledger: {
+                "method": "remote_branch_exact_head",
+                "desired_head": "a" * 40,
+            },
+            raising=False,
+        )
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_absent_worktree_without_upstream_proof_still_withholds_advisory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane, ledger, worktree = _stale_worktree_lane(tmp_path)
+
+        monkeypatch.setattr(
+            ilo,
+            "_safe_worktree_absent_noop",
+            lambda path: Path(path) == worktree,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            ilo,
+            "_upstream_preservation_proof",
+            lambda _lane, _ledger: None,
+            raising=False,
+        )
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_dirty_marker_overrides_absent_worktree_upstream_proof(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane, ledger, worktree = _stale_worktree_lane(tmp_path)
+        lane["dirty"] = True
+
+        monkeypatch.setattr(
+            ilo,
+            "_safe_worktree_absent_noop",
+            lambda path: Path(path) == worktree,
+            raising=False,
+        )
+        monkeypatch.setattr(
+            ilo,
+            "_upstream_preservation_proof",
+            lambda _lane, _ledger: {
+                "method": "remote_branch_exact_head",
+                "desired_head": "a" * 40,
+            },
+            raising=False,
+        )
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_upstream_proof_rest_calls_use_app_token_helper(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[dict[str, Any]] = []
+
+        def fake_run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            calls.append({"args": args, "kwargs": kwargs})
+            if args[:3] == [
+                sys.executable,
+                str(ilo.REPO_ROOT / "scripts" / "gh_app_env.py"),
+                "--print-token",
+            ]:
+                return subprocess.CompletedProcess(args, 0, "app-token\n", "")
+            if args[:2] == ["gh", "api"]:
+                env = kwargs["env"]
+                assert env["GH_TOKEN"] == "app-token"
+                assert env["GITHUB_TOKEN"] == "app-token"
+                assert env["ARAGORA_GITHUB_AUTH_SOURCE"] == "github_app_installation"
+                assert "graphql" not in args
+                assert "pr" not in args
+                assert "list" not in args
+                return subprocess.CompletedProcess(
+                    args,
+                    0,
+                    json.dumps(
+                        [
+                            {
+                                "ref": "refs/heads/codex/app-token-proof",
+                                "object": {"sha": "b" * 40},
+                            }
+                        ]
+                    ),
+                    "",
+                )
+            raise AssertionError(f"unexpected subprocess args: {args}")
+
+        monkeypatch.setenv("GH_TOKEN", "user-token-that-must-not-be-used")
+        monkeypatch.setattr(ilo.subprocess, "run", fake_run)
+
+        proof = ilo._upstream_preservation_proof(
+            {
+                "repo": "synaptent/aragora",
+                "branch": "codex/app-token-proof",
+                "desired_head_sha": "b" * 40,
+            },
+            None,
+        )
+
+        assert proof == {
+            "method": "remote_branch_exact_head",
+            "branch": "codex/app-token-proof",
+            "desired_head": "b" * 40,
+        }
+        assert [call["args"][0] for call in calls] == [sys.executable, "gh"]
 
     def test_uncommitted_work_claim_withholds_advisory(self) -> None:
         lane = {"lane_id": "Q6-dirty", "owner_session": "codex-q6", "updated_at": _hours_ago(7.0)}

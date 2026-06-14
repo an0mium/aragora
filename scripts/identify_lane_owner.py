@@ -68,6 +68,7 @@ from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 # ---------------------------------------------------------------------------
 # Paths (overridable for tests)
@@ -1245,6 +1246,207 @@ _LOCAL_WORK_CLAIM_KEYS = (
     "dirty",
 )
 
+_OWNER_RECORD_HEAD_KEYS = ("desired_head_sha", "head_sha", "head", "commit", "sha")
+_OWNER_RECORD_SHA_TEXT_KEYS = ("next_action", "goal", "task", "summary", "context")
+_SHA_RE = re.compile(r"\b[0-9a-fA-F]{40}\b")
+DEFAULT_GITHUB_REPOSITORY = "synaptent/aragora"
+
+
+def _owner_record_branch(lane: dict[str, Any], ledger_entry: dict[str, Any] | None) -> str:
+    for record in (lane, ledger_entry or {}):
+        branch = str(record.get("branch") or "").strip()
+        if branch:
+            return branch
+    return ""
+
+
+def _owner_record_repo(lane: dict[str, Any], ledger_entry: dict[str, Any] | None) -> str:
+    for record in (lane, ledger_entry or {}):
+        repo = str(record.get("repo") or record.get("repository") or "").strip()
+        if repo:
+            return repo
+    return os.environ.get("GITHUB_REPOSITORY", DEFAULT_GITHUB_REPOSITORY)
+
+
+def _owner_record_desired_head(lane: dict[str, Any], ledger_entry: dict[str, Any] | None) -> str:
+    for record in (lane, ledger_entry or {}):
+        for key in _OWNER_RECORD_HEAD_KEYS:
+            value = str(record.get(key) or "").strip().lower()
+            if _SHA_RE.fullmatch(value):
+                return value
+
+    for record in (lane, ledger_entry or {}):
+        for key in _OWNER_RECORD_SHA_TEXT_KEYS:
+            matches = {match.lower() for match in _SHA_RE.findall(str(record.get(key) or ""))}
+            if len(matches) == 1:
+                return next(iter(matches))
+    return ""
+
+
+def _github_app_env() -> dict[str, str] | None:
+    env = os.environ.copy()
+
+    token_helper = REPO_ROOT / "scripts" / "gh_app_env.py"
+    if not token_helper.exists():
+        return None
+
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(token_helper), "--print-token"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            cwd=str(REPO_ROOT),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    token = proc.stdout.strip()
+    if not token:
+        return None
+    env["GH_TOKEN"] = token
+    env["GITHUB_TOKEN"] = token
+    env["ARAGORA_GITHUB_AUTH_SOURCE"] = "github_app_installation"
+    return env
+
+
+def _github_rest_json(path: str, *, paginate: bool = False) -> Any:
+    env = _github_app_env()
+    if env is None:
+        return None
+
+    cmd = ["gh", "api"]
+    if paginate:
+        cmd.append("--paginate")
+    cmd.extend([path, "-H", "Accept: application/vnd.github+json"])
+    try:
+        proc = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(REPO_ROOT),
+            env=env,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        return json.loads(proc.stdout or "null")
+    except json.JSONDecodeError:
+        return None
+
+
+def _safe_worktree_absent_noop(path: str) -> bool:
+    inspect_script = REPO_ROOT / "scripts" / "safe_worktree_cleanup.py"
+    if not inspect_script.exists():
+        return False
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(inspect_script), "inspect", path, "--json"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            cwd=str(REPO_ROOT),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return False
+    cleanup = payload.get("cleanup_safety")
+    if not isinstance(cleanup, dict):
+        cleanup = {}
+    return (
+        payload.get("exists") is False
+        and cleanup.get("classification") == "absent_noop"
+        and cleanup.get("decision") == "noop"
+    )
+
+
+def _remote_branch_exact_head_proof(
+    repo: str, branch: str, desired_head: str
+) -> dict[str, Any] | None:
+    if not repo or not branch or not desired_head:
+        return None
+    refs = _github_rest_json(f"repos/{repo}/git/matching-refs/heads/{quote(branch, safe='/')}")
+    if not isinstance(refs, list):
+        return None
+    expected_ref = f"refs/heads/{branch}"
+    for ref in refs:
+        if not isinstance(ref, dict) or str(ref.get("ref") or "") != expected_ref:
+            continue
+        obj = ref.get("object")
+        if not isinstance(obj, dict):
+            continue
+        sha = str(obj.get("sha") or "").strip().lower()
+        if sha == desired_head:
+            return {
+                "method": "remote_branch_exact_head",
+                "branch": branch,
+                "desired_head": desired_head,
+            }
+    return None
+
+
+def _merged_pr_contains_desired_head_proof(repo: str, desired_head: str) -> dict[str, Any] | None:
+    if not repo or not desired_head:
+        return None
+    pulls = _github_rest_json(f"repos/{repo}/commits/{desired_head}/pulls", paginate=True)
+    if not isinstance(pulls, list):
+        return None
+    for pr in pulls:
+        if not isinstance(pr, dict) or not pr.get("merged_at"):
+            continue
+        number = pr.get("number")
+        if not isinstance(number, int):
+            continue
+        commits = _github_rest_json(f"repos/{repo}/pulls/{number}/commits", paginate=True)
+        if not isinstance(commits, list):
+            continue
+        if any(
+            isinstance(commit, dict)
+            and str(commit.get("sha") or "").strip().lower() == desired_head
+            for commit in commits
+        ):
+            return {
+                "method": "merged_pr_contains_desired_head",
+                "pr_number": number,
+                "desired_head": desired_head,
+            }
+    return None
+
+
+def _upstream_preservation_proof(
+    lane: dict[str, Any], ledger_entry: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    desired_head = _owner_record_desired_head(lane, ledger_entry)
+    if not desired_head:
+        return None
+
+    repo = _owner_record_repo(lane, ledger_entry)
+    branch = _owner_record_branch(lane, ledger_entry)
+    if branch:
+        proof = _remote_branch_exact_head_proof(repo, branch, desired_head)
+        if proof is not None:
+            return proof
+    return _merged_pr_contains_desired_head_proof(repo, desired_head)
+
+
+def _worktree_reference_preserved_upstream(
+    lane: dict[str, Any], ledger_entry: dict[str, Any] | None, worktree: str
+) -> bool:
+    return (
+        _safe_worktree_absent_noop(worktree)
+        and _upstream_preservation_proof(lane, ledger_entry) is not None
+    )
+
 
 def _ledger_entry_timestamp(entry: dict[str, Any]) -> float:
     """Most recent parseable timestamp on a lane-ledger entry (0.0 if none)."""
@@ -1296,18 +1498,19 @@ def find_lane_ledger_entry(
 def _local_work_indication(lane: dict[str, Any], ledger_entry: dict[str, Any] | None) -> str | None:
     """Reason to suspect local (possibly unpushed/uncommitted) work, or None.
 
-    Fail closed: a worktree reference alone is enough — metadata cannot
-    prove that work in a worktree was pushed.
+    Fail closed by default: a worktree reference is enough unless a fresh
+    cleanup inspect proves the path is absent and targeted GitHub REST proof
+    shows the desired branch content is already preserved upstream.
     """
 
-    if lane.get("worktree"):
-        return "owner record references a worktree path"
     for source_name, record in (("owner record", lane), ("lane ledger", ledger_entry or {})):
         for key in _LOCAL_WORK_CLAIM_KEYS:
             if record.get(key):
                 return f"{source_name} claims local work ({key})"
-    if (ledger_entry or {}).get("worktree"):
-        return "lane ledger references a worktree path"
+    for source_name, record in (("owner record", lane), ("lane ledger", ledger_entry or {})):
+        worktree = str(record.get("worktree") or "").strip()
+        if worktree and not _worktree_reference_preserved_upstream(lane, ledger_entry, worktree):
+            return f"{source_name} references a worktree path"
     return None
 
 
