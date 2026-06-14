@@ -61,6 +61,56 @@ class TestAgentsCalibration:
             mock_request.assert_called_once_with("GET", "/api/v1/agent/claude/calibration-summary")
             client.close()
 
+    def test_get_calibration_report(self) -> None:
+        """Get the auditable calibration report (issue #8229)."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "agent": "claude",
+                "status": "ok",
+                "overall": {"sample_size": 12, "accuracy": 0.75},
+            }
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.agents.get_calibration_report("claude")
+
+            mock_request.assert_called_once_with(
+                "GET", "/api/v1/agents/claude/calibration-report", params=None
+            )
+            assert result["status"] == "ok"
+            client.close()
+
+    def test_get_calibration_report_with_domain(self) -> None:
+        """Domain filter is forwarded as a query parameter."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"agent": "claude", "status": "ok"}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.agents.get_calibration_report("claude", domain="security")
+
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/agents/claude/calibration-report",
+                params={"domain": "security"},
+            )
+            client.close()
+
+    def test_get_calibration_report_absent_contract(self) -> None:
+        """Agents without calibration data return an explicit absent body."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "agent": "ghost",
+                "status": "absent",
+                "reason": "no calibration data recorded for this agent",
+                "sample_size": 0,
+            }
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.agents.get_calibration_report("ghost")
+
+            assert result["status"] == "absent"
+            assert result["sample_size"] == 0
+            client.close()
+
 
 class TestAgentsRelationships:
     """Tests for agent relationship data."""

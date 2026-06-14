@@ -18,6 +18,11 @@ on:
     branches: [main]
   merge_group:
   workflow_dispatch:
+    inputs:
+      changed_files:
+        description: "Optional newline- or comma-separated changed files for typecheck planning."
+        required: false
+        type: string
 
 concurrency:
   group: lint-${{ github.event.pull_request.number || github.ref }}
@@ -392,6 +397,27 @@ jobs:
               --base-ref "${{ github.base_ref }}" \
               --github-output "$GITHUB_OUTPUT" \
               --targets-file "$TARGETS_FILE"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            dispatch_files_raw="${{ github.event.inputs.changed_files || '' }}"
+            mapfile -t dispatch_files < <(
+              printf '%s\n' "$dispatch_files_raw" \
+                | tr ',' '\n' \
+                | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+                | awk 'NF {print}'
+            )
+            if [[ "${#dispatch_files[@]}" -gt 0 ]]; then
+              "${{ steps.typecheck_python.outputs.python_bin }}" scripts/run_typecheck_gate.py \
+                --repo-root . \
+                --files "${dispatch_files[@]}" \
+                --github-output "$GITHUB_OUTPUT" \
+                --targets-file "$TARGETS_FILE"
+            else
+              # Manual dispatches lack PR merge refs; run full rather than diffing a stale branch checkout.
+              echo "mode=full" >> "$GITHUB_OUTPUT"
+              echo "target_count=0" >> "$GITHUB_OUTPUT"
+              echo "summary=Run the full typecheck tier for workflow_dispatch without changed_files." >> "$GITHUB_OUTPUT"
+              : > "$TARGETS_FILE"
+            fi
           elif [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
             # Direct push to main: run full typecheck
             echo "mode=full" >> "$GITHUB_OUTPUT"

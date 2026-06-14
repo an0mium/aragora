@@ -18,17 +18,16 @@ Stage this elves-aragora run. Do not start implementing batches in this call.
 Your job in this call:
 - Tighten the plan so it survives compaction without this conversation
 - Generate the survival guide, execution log, and learnings file
-- **Pre-classify every batch by merge tier (0-4)** per docs/REVIEW_AUTHORITY_PRINCIPLES.md. Flag Tier 3 batches as human-settlement stops AFTER the gate, and **Tier 4 (and approval-required surfaces) as human PRE-APPROVAL stops BEFORE any implementation** — record both in the survival guide
-- Set `## Run Control` explicitly: run mode, checkpoint semantics, merge policy (default: you never admin-merge / never bypass a gate; Tier 0-2 settle by marking the draft ready for the protected squash + `aragora-merge-quorum` check), highest auto-settle tier, workspace ownership (dedicated worktree), branch tip tripwire
+- **Pre-classify every batch by merge tier (0-4)** per docs/REVIEW_AUTHORITY_PRINCIPLES.md and flag Tier 3-4 batches as human-settlement stops in the survival guide
+- Set `## Run Control` explicitly: run mode, checkpoint semantics, merge policy (default: you never merge; opt-in: merge-commit-on-green for Tier 0-2 only), highest auto-settle tier, workspace ownership (dedicated worktree), branch tip tripwire, gate attempt cap, parallel fan-out allowance (which phases/surfaces may run as parallel worktree lanes), per-batch and per-phase wall-clock budgets, external-wait pacing, receipt dir (`.aragora/run-<run-id>/receipts/`). If the plan has its own Autonomy Contract section, copy its values here — plan Run Control governs scheduling and may tighten, never weaken, the governance gate
 - Create/switch to the dedicated worktree + branch; confirm no other agent owns this checkout
-- Run preflight: pre-commit run --all-files, mypy aragora (vs .mypy-baseline), the relevant pytest slice; confirm `aragora --help`, `gh auth status`, and review agents/keys (`aragora api-key list`)
+- Run preflight: pre-commit run --all-files, mypy aragora (vs .mypy-baseline), the relevant pytest slice; confirm `aragora --help` and `aragora api-key list`
 - Log warnings/blockers
 - Prepare a short launch prompt for the next call
 
 Non-negotiables:
-- Never admin-merge; never bypass a gate. Tier 3 stops for human settlement (aragora/human-settlement); Tier 4 stops for human pre-approval BEFORE implementation and again before merge
-- The batch gate is the repo's real proof-first loop: draft PR → `gh pr checks <pr> --required` green → `aragora review-pr <pr> --reviewer claude` + `--reviewer codex` evidence (`evidence-lint`) → verified DecisionReceipt (`aragora verify`) → `review-queue merge-packet` + `scripts/settle_one_pr.py` clean (blockers == ['PR is draft']) → tier settlement. Local tests alone never close a batch.
-- Every batch produces a verified DecisionReceipt and clears adversarial dissent
+- Never merge by default; Tier 3-4 always stops for human settlement (aragora/human-settlement)
+- Every batch produces a verified DecisionReceipt (aragora verify) and clears adversarial dissent
 - Respect the operating contract's approval-required surfaces and auto-halts
 - [project-specific hard rule]
 
@@ -44,16 +43,10 @@ Read docs/elves/survival-guide.md first, then `.elves-session.json` if it exists
 docs/elves/learnings.md, then the plan, then docs/elves/execution-log.md, then skim
 docs/AGENT_OPERATING_CONTRACT.md and docs/REVIEW_AUTHORITY_PRINCIPLES.md.
 I am going offline until [WHEN]. By [WHEN] I want [CHECKPOINT]. This is a [delivery checkpoint / hard stop].
-Run the full aragora validation gate on every batch (references/validation-gate-aragora.md):
-local truth → draft PR → required checks green (`gh pr checks <pr> --required`) → independent
-model-quorum evidence at the exact head (`aragora review-pr <pr> --reviewer claude` and
-`--reviewer codex`, lint with `review-queue evidence-lint`) → verified DecisionReceipt
-(`aragora verify`) → `review-queue merge-packet` + `scripts/settle_one_pr.py` clean (only blocker
-is 'PR is draft') → tier settlement. Tier 0-2: mark the draft ready for the protected squash —
-never `--admin`, never a bypass. Tier 3: HARD STOP, queue for my settlement, move to the next
-unblocked batch. Tier 4 / approval-required surfaces: HARD STOP for my PRE-APPROVAL *before* you
-implement anything — do not write the change first.
-Do not admin-merge or bypass any gate. Do not silence reviewer dissent. Do not modify tests to make them pass.
+Run the aragora validation gate on every batch: local truth → adversarial debate → verified
+receipt → tier classification. Auto-settle Tier 0-2; HARD STOP and queue for my settlement on
+Tier 3-4, then move to the next unblocked batch.
+Do not merge anything. Do not silence reviewer dissent. Do not modify tests to make them pass.
 Every completed batch ends with commit + push, then re-read the survival guide.
 Do not wait for me to acknowledge checkpoints or commits. If unblocked work remains, keep going.
 Honor every operating-contract auto-halt (MAIN RED, approval-required surfaces, 800 LOC cap).

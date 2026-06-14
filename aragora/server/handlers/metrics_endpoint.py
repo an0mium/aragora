@@ -489,17 +489,26 @@ def get_metrics_summary() -> dict[str, Any]:
 class UnifiedMetricsHandler(BaseHandler):
     """Unified handler for Prometheus metrics endpoint.
 
-    Provides:
-    - GET /metrics - Full Prometheus metrics export
-    - GET /api/v1/metrics/prometheus - Same with API versioning
+    Provides (via the unified server registry):
+    - GET /api/v1/metrics/prometheus - Full Prometheus metrics export
     - GET /api/v1/metrics/prometheus/summary - Aggregated summary
+
+    GET /metrics is served by MetricsHandler in the unified server
+    (first-wins route registry); this handler only serves "/metrics" when
+    instantiated and invoked directly (standalone usage).
 
     This handler centralizes all metrics collection and applies
     cardinality management to prevent metric explosion.
     """
 
+    # NOTE: "/metrics" is intentionally NOT claimed here. The registry's
+    # RouteIndex is first-wins and /metrics is owned by MetricsHandler
+    # (aragora/server/handlers/metrics/handler.py), which implements the
+    # documented scrape contract (public, optional ARAGORA_METRICS_TOKEN).
+    # This handler still serves "/metrics" when invoked directly/standalone
+    # (see module docstring); via the unified server use
+    # /api/v1/metrics/prometheus instead.
     ROUTES = [
-        "/metrics",
         "/api/metrics/prometheus",
         "/api/metrics/prometheus/summary",
     ]

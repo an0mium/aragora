@@ -250,8 +250,18 @@ def _run_gh(
     return gh_subprocess_run(args, timeout=timeout, write_op=write_op)
 
 
+class ArbiterOperationalError(RuntimeError):
+    """A genuine arbiter-operational fault (e.g. cannot list PRs), as opposed to a
+    PR merely not being ready. Only these faults feed the circuit breaker."""
+
+
 def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
-    """Return open PRs whose head branch matches any configured prefix."""
+    """Return open PRs whose head branch matches any configured prefix.
+
+    Raises ``ArbiterOperationalError`` when the underlying ``gh pr list`` call or
+    its JSON output cannot be obtained — a transient/operational fault that the
+    poll loop counts toward the circuit breaker. An *empty* list means the fetch
+    succeeded but no open PR matched a configured prefix (not a fault)."""
     prefixes = _normalize_branch_prefixes(config.branch_prefixes)
     result = _run_gh(
         [
@@ -268,13 +278,11 @@ def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
         ]
     )
     if result.returncode != 0:
-        logger.warning("gh pr list failed: %s", result.stderr.strip())
-        return []
+        raise ArbiterOperationalError(f"gh pr list failed: {result.stderr.strip()}")
     try:
         prs = json.loads(result.stdout)
-    except (json.JSONDecodeError, TypeError):
-        logger.warning("Failed to parse gh pr list output")
-        return []
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ArbiterOperationalError("failed to parse gh pr list output") from exc
     candidates = []
     for pr in prs:
         branch = pr.get("headRefName", "")
@@ -287,7 +295,10 @@ def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
     """Return a mapping of check-name -> conclusion for a PR.
 
     Merges both status checks and GitHub Actions check runs.
-    """
+
+    Raises ``ArbiterOperationalError`` when ``gh pr checks`` fails without
+    producing parseable JSON (transport/auth fault). An empty mapping means
+    the call succeeded but reported no checks (a normal not-ready state)."""
     result = _run_gh(
         [
             "pr",
@@ -299,12 +310,21 @@ def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
             "name,state",
         ]
     )
-    if result.returncode != 0:
-        logger.debug("gh pr checks failed for #%d: %s", pr_number, result.stderr.strip())
-        return {}
+    # gh pr checks uses non-zero exits for pending/failing checks too, so the
+    # exit code alone does not distinguish "checks are red" from "gh broke".
+    # Parseable JSON output is the truth regardless of exit code; no JSON plus
+    # a non-zero exit is an operational fault, not a not-ready PR.
     try:
-        checks = json.loads(result.stdout)
+        checks = json.loads(result.stdout) if result.stdout else None
     except (json.JSONDecodeError, TypeError):
+        checks = None
+    if not isinstance(checks, list):
+        checks = None
+    if checks is None:
+        if result.returncode != 0:
+            raise ArbiterOperationalError(
+                f"gh pr checks failed for #{pr_number}: {result.stderr.strip()}"
+            )
         return {}
     return {c["name"]: c.get("state", "").upper() for c in checks if "name" in c}
 
@@ -660,29 +680,46 @@ class MergeArbiter:
 
         while time.monotonic() < deadline:
             summary.polls += 1
-            any_failure_this_poll = False
-            any_merge_this_poll = False
             collected_this_poll = False
+            list_fault_this_poll = False
+            eval_faults_this_poll = 0
+            clean_evaluations_this_poll = 0
 
-            candidates = _list_candidate_prs(self.config)
+            try:
+                candidates = _list_candidate_prs(self.config)
+            except ArbiterOperationalError as exc:
+                list_fault_this_poll = True
+                candidates = []
+                logger.warning("Poll %d: candidate fetch fault: %s", summary.polls, exc)
             logger.debug("Poll %d: %d candidate PRs", summary.polls, len(candidates))
 
             for pr in candidates:
-                result = _evaluate_pr(pr, self.config)
+                try:
+                    result = _evaluate_pr(pr, self.config)
+                except ArbiterOperationalError as exc:
+                    # Genuine evaluation fault (not "PR not ready"): count it, skip
+                    # this PR, keep polling the rest.
+                    eval_faults_this_poll += 1
+                    logger.warning(
+                        "Poll %d: evaluation fault for #%s: %s",
+                        summary.polls,
+                        pr.get("number"),
+                        exc,
+                    )
+                    continue
+                clean_evaluations_this_poll += 1
                 if result.success:
                     summary.merged.append(result.pr_number)
-                    any_merge_this_poll = True
-                    logger.info(
-                        "PR #%d: %s (%s)",
-                        result.pr_number,
-                        result.reason,
-                        result.branch,
-                    )
+                    logger.info("PR #%d: %s (%s)", result.pr_number, result.reason, result.branch)
                 elif "failing" in result.reason or "failed" in result.reason:
+                    # A PR with failing/missing required checks is NOT ready — a
+                    # normal waiting state, NOT an arbiter fault. Record it for
+                    # reporting, but it must never trip the circuit breaker: a
+                    # normal all-red queue would otherwise stop the engine before
+                    # it can post the very evidence that turns those checks green.
                     summary.failed.append(result.pr_number)
-                    any_failure_this_poll = True
                     logger.info(
-                        "PR #%d skipped: %s (%s)",
+                        "PR #%d not ready: %s (%s)",
                         result.pr_number,
                         result.reason,
                         result.branch,
@@ -705,15 +742,23 @@ class MergeArbiter:
                 ):
                     collected_this_poll = True
 
-            # Circuit breaker: track consecutive polls with only failures
-            if any_failure_this_poll and not any_merge_this_poll:
+            # Circuit breaker: trip only on consecutive polls with a *systemic*
+            # operational fault, never on not-ready PRs. A list-fetch fault is
+            # always systemic. Evaluation faults are systemic only when every
+            # evaluation in the poll faulted: a single PR that consistently
+            # faults (a poison pill) must not halt the arbiter for the healthy
+            # rest of the queue.
+            operational_fault_this_poll = list_fault_this_poll or (
+                eval_faults_this_poll > 0 and clean_evaluations_this_poll == 0
+            )
+            if operational_fault_this_poll:
                 self._consecutive_failures += 1
             else:
                 self._consecutive_failures = 0
 
             if self._consecutive_failures >= self.config.max_consecutive_failures:
                 summary.stop_reason = (
-                    f"circuit breaker: {self._consecutive_failures} consecutive failure-only polls"
+                    f"circuit breaker: {self._consecutive_failures} consecutive operational faults"
                 )
                 logger.warning("Merge arbiter stopping: %s", summary.stop_reason)
                 break

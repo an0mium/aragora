@@ -11,7 +11,13 @@ The compose helper is checked against the *real* evidence parser
 
 from __future__ import annotations
 
+import asyncio
+import os
 import subprocess
+import time
+from contextlib import contextmanager
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -244,6 +250,234 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
 
+# --- OpenAI reviewer fallback ----------------------------------------------
+
+
+def test_run_openai_reviewer_uses_api_when_openai_key_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def fake_api_agent(family: str, prompt: str) -> ReviewerResult:
+        calls.append((family, prompt))
+        return ReviewerResult(family, "Verdict: PASS from API", True)
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(qe, "_run_api_agent", fake_api_agent)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult("openai", "Verdict: PASS from API", True)
+    assert calls == [("openai", "review prompt")]
+
+
+def test_run_openai_reviewer_without_api_key_uses_codex_cli(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(
+        cmd: list[str],
+        *,
+        input: str,
+        capture_output: bool,
+        text: bool,
+        timeout: float,
+        check: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        seen.update(
+            {
+                "cmd": cmd,
+                "input": input,
+                "capture_output": capture_output,
+                "text": text,
+                "timeout": timeout,
+                "check": check,
+            }
+        )
+        output_path = Path(cmd[cmd.index("--output-last-message") + 1])
+        output_path.write_text("Verdict: PASS via Codex\n", encoding="utf-8")
+        seen["output_path"] = output_path
+        return subprocess.CompletedProcess(cmd, 0, stdout="ignored stdout", stderr="")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_TIMEOUT_ENV, "11")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "openai",
+        "Verdict: PASS via Codex",
+        True,
+        harness=qe._CODEX_OPENAI_HARNESS,
+    )
+    assert seen["cmd"] == [
+        "codex",
+        "exec",
+        "--ignore-user-config",
+        "-c",
+        qe._CODEX_APPROVAL_POLICY_CONFIG,
+        "--sandbox",
+        "read-only",
+        "--ephemeral",
+        "--output-last-message",
+        str(seen["output_path"]),
+        "--model",
+        qe._CODEX_DEFAULT_MODEL,
+        "-",
+    ]
+    assert "--ask-for-approval" not in seen["cmd"]
+    assert seen["input"] == "review prompt"
+    assert seen["capture_output"] is True
+    assert seen["text"] is True
+    assert seen["timeout"] == 11.0
+    assert seen["check"] is False
+    assert not Path(seen["output_path"]).exists()
+
+
+def test_run_openai_reviewer_retries_default_codex_model_selection_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    output_paths: list[Path] = []
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        output_paths.append(Path(cmd[cmd.index("--output-last-message") + 1]))
+        model = cmd[cmd.index("--model") + 1]
+        if model == qe._CODEX_DEFAULT_MODELS[0]:
+            return subprocess.CompletedProcess(
+                cmd,
+                1,
+                stdout="",
+                stderr=f"model {model} is not supported",
+            )
+        output_paths[-1].write_text("Verdict: PASS after fallback", encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv(qe._CODEX_MODEL_ENV, raising=False)
+    monkeypatch.delenv(qe._CODEX_MODELS_ENV, raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "openai",
+        "Verdict: PASS after fallback",
+        True,
+        harness=qe._CODEX_OPENAI_HARNESS,
+    )
+    assert [call[call.index("--model") + 1] for call in calls] == list(qe._CODEX_DEFAULT_MODELS)
+    assert all(not path.exists() for path in output_paths)
+
+
+def test_run_openai_reviewer_respects_pinned_codex_model_without_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd,
+            1,
+            stdout="",
+            stderr="model pinned-model is not supported",
+        )
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "pinned-model")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.ok is False
+    assert "codex CLI exit 1: model pinned-model is not supported" in result.error
+    assert len(calls) == 1
+    assert calls[0][-3:] == ["--model", "pinned-model", "-"]
+
+
+def test_run_openai_reviewer_passes_optional_codex_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        seen["cmd"] = cmd
+        Path(cmd[cmd.index("--output-last-message") + 1]).write_text(
+            "Verdict: PASS",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "gpt-5-codex")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.ok is True
+    assert seen["cmd"][-3:] == ["--model", "gpt-5-codex", "-"]
+
+
+def test_run_openai_reviewer_codex_failure_never_fabricates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="codex failed")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.family == "openai"
+    assert result.text == ""
+    assert result.ok is False
+    assert "codex CLI exit 1: codex failed" in result.error
+    assert result.harness == ""
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected_error"),
+    [
+        (
+            subprocess.TimeoutExpired(cmd=["codex"], timeout=3),
+            "codex CLI timed out after",
+        ),
+        (FileNotFoundError("missing codex"), "codex CLI not found on PATH"),
+        (OSError("disk full"), "OSError: disk full"),
+        (subprocess.SubprocessError("bad pipe"), "SubprocessError: bad pipe"),
+    ],
+)
+def test_run_openai_reviewer_cleans_codex_output_file_when_subprocess_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    exc: Exception,
+    expected_error: str,
+) -> None:
+    seen: dict[str, Path] = {}
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        output_path = Path(cmd[cmd.index("--output-last-message") + 1])
+        output_path.write_text("partial reviewer output", encoding="utf-8")
+        seen["output_path"] = output_path
+        raise exc
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.family == "openai"
+    assert result.text == ""
+    assert result.ok is False
+    assert expected_error in result.error
+    assert "output_path" in seen
+    assert not seen["output_path"].exists()
+
+
 # --- default API reviewer cleanup ------------------------------------------
 
 
@@ -271,7 +505,7 @@ def test_run_api_agent_closes_agent_and_shared_connector(monkeypatch: pytest.Mon
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result == ReviewerResult("grok", "Verdict: PASS", True)
     assert events == [
@@ -307,11 +541,152 @@ def test_run_api_agent_closes_resources_after_generate_failure(
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result.ok is False
     assert "RuntimeError: model failed" in result.error
     assert events == ["generate", "agent_close", "connector_close"]
+
+
+def test_run_api_agent_timeout_terminates_blocked_worker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(qe, "_REVIEWER_TIMEOUT", 0.05)
+    monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 0.01)
+    events: list[str] = []
+
+    class FakeQueue:
+        def get(self, timeout: float):
+            raise AssertionError("timed-out worker result must not be read")
+
+    class FakeContext:
+        def Queue(self, maxsize: int) -> FakeQueue:
+            assert maxsize == 1
+            return FakeQueue()
+
+    class FakeProcess:
+        def start(self) -> None:
+            events.append("start")
+
+        def join(self, timeout: float) -> None:
+            events.append(f"join:{timeout:.2f}")
+
+        def is_alive(self) -> bool:
+            return True
+
+        def terminate(self) -> None:
+            events.append("terminate")
+
+        def kill(self) -> None:
+            events.append("kill")
+
+    monkeypatch.setattr(qe, "_api_agent_process_context", lambda: FakeContext(), raising=False)
+    monkeypatch.setattr(
+        qe,
+        "_start_api_agent_worker_process",
+        lambda ctx, family, prompt, result_queue: FakeProcess(),
+        raising=False,
+    )
+
+    result = qe._run_api_agent("grok", "review prompt")
+
+    assert result.ok is False
+    assert "timed out" in result.error
+    assert events == ["start", "join:0.06", "terminate", "join:5.00", "kill", "join:5.00"]
+
+
+def test_run_api_agent_parent_timeout_honors_env_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "1200")
+    monkeypatch.setattr(qe, "_REVIEWER_TIMEOUT", 300)
+    monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 7)
+    events: list[str] = []
+
+    class FakeQueue:
+        def get(self, timeout: float):
+            raise AssertionError("timed-out worker result must not be read")
+
+    class FakeContext:
+        def Queue(self, maxsize: int) -> FakeQueue:
+            assert maxsize == 1
+            return FakeQueue()
+
+    class FakeProcess:
+        def start(self) -> None:
+            events.append("start")
+
+        def join(self, timeout: float) -> None:
+            events.append(f"join:{timeout:g}")
+
+        def is_alive(self) -> bool:
+            return True
+
+        def terminate(self) -> None:
+            events.append("terminate")
+
+        def kill(self) -> None:
+            events.append("kill")
+
+    monkeypatch.setattr(qe, "_api_agent_process_context", lambda: FakeContext(), raising=False)
+    monkeypatch.setattr(
+        qe,
+        "_start_api_agent_worker_process",
+        lambda ctx, family, prompt, result_queue: FakeProcess(),
+        raising=False,
+    )
+
+    result = qe._run_api_agent("grok", "review prompt")
+
+    assert result.ok is False
+    assert result.error == "grok reviewer timed out after 1200s"
+    assert events == ["start", "join:1207", "terminate", "join:5", "kill", "join:5"]
+
+
+def test_api_agent_cleanup_does_not_hang_on_stuck_agent_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def close(self) -> None:
+            events.append("agent_close_start")
+            await asyncio.sleep(3600)
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close")
+
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 0.01, raising=False)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    asyncio.run(asyncio.wait_for(qe._close_api_agent_resources(FakeAgent()), timeout=0.05))
+
+    assert events == ["agent_close_start", "connector_close"]
+
+
+def test_api_agent_cleanup_does_not_hang_on_stuck_shared_connector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeAgent:
+        async def close(self) -> None:
+            events.append("agent_close")
+
+    async def fake_close_shared_connector() -> None:
+        events.append("connector_close_start")
+        await asyncio.sleep(3600)
+
+    from aragora.agents.api_agents import common
+
+    monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 0.01, raising=False)
+    monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
+
+    asyncio.run(asyncio.wait_for(qe._close_api_agent_resources(FakeAgent()), timeout=0.05))
+
+    assert events == ["agent_close", "connector_close_start"]
 
 
 def test_run_api_agent_closes_shared_connector_after_agent_close_failure(
@@ -340,7 +715,7 @@ def test_run_api_agent_closes_shared_connector_after_agent_close_failure(
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result == ReviewerResult("grok", "Verdict: PASS", True)
     assert events == ["generate", "agent_close", "connector_close"]
@@ -368,7 +743,7 @@ def test_run_api_agent_closes_shared_connector_without_agent_close(
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result == ReviewerResult("grok", "Verdict: PASS", True)
     assert events == ["generate", "connector_close"]
@@ -397,7 +772,7 @@ def test_run_api_agent_supports_sync_agent_close(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result == ReviewerResult("grok", "Verdict: PASS", True)
     assert events == ["generate", "agent_close", "connector_close"]
@@ -429,7 +804,7 @@ def test_run_api_agent_keeps_result_when_shared_connector_close_fails(
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    result = qe._run_api_agent("grok", "review prompt")
+    result = qe._run_api_agent_in_current_process("grok", "review prompt")
 
     assert result == ReviewerResult("grok", "Verdict: PASS", True)
     assert events == ["generate", "agent_close", "connector_close"]
@@ -461,8 +836,8 @@ def test_run_api_agent_allows_consecutive_one_shot_calls(
     monkeypatch.setattr(aragora.agents, "create_agent", fake_create_agent)
     monkeypatch.setattr(common, "close_shared_connector", fake_close_shared_connector)
 
-    first = qe._run_api_agent("grok", "one")
-    second = qe._run_api_agent("grok", "two")
+    first = qe._run_api_agent_in_current_process("grok", "one")
+    second = qe._run_api_agent_in_current_process("grok", "two")
 
     assert first == ReviewerResult("grok", "Verdict: PASS one", True)
     assert second == ReviewerResult("grok", "Verdict: PASS two", True)
@@ -526,6 +901,285 @@ def test_collect_low_tier_apply_posts_both() -> None:
     assert len(posted) == 2
 
 
+def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
+    fakes, posted = _fakes(tier=1)
+    calls: list[tuple[str, int, int]] = []
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        calls.append((repo, pr, len(posted)))
+        return {"should_rerun": True, "run_id": 123, "applied": True}
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert calls == [("o/r", 1, 2)]
+    assert outcome.quorum_rerun == {"should_rerun": True, "run_id": 123, "applied": True}
+
+
+def test_collect_low_tier_apply_prepares_only_when_reviewer_dissents() -> None:
+    fakes, posted = _fakes(tier=1)
+    calls: list[tuple[str, int]] = []
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult("grok", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
+        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        calls.append((repo, pr))
+        return {"applied": True}
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert outcome.action == "prepare"
+    assert "reviewer dissent" in outcome.action_reason
+    assert outcome.dissenting_families == ["grok"]
+    assert posted == []
+    assert calls == []
+    assert outcome.quorum_rerun is None
+
+
+def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> None:
+    fakes, posted = _fakes(tier=1)
+    calls: list[tuple[str, int]] = []
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult("grok", "Verdict: inconclusive\n- unsure", True)
+        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        calls.append((repo, pr))
+        return {"applied": True}
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete" in outcome.action_reason
+    assert outcome.supportive_families == ["claude"]
+    assert posted == []
+    assert calls == []
+    assert outcome.quorum_rerun is None
+
+
+def test_collect_success_requires_two_supportive_reviewers() -> None:
+    fakes, _posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult("grok", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
+        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=False,
+        **fakes,
+    )
+
+    assert outcome.counting_families == ["claude", "grok"]
+    assert outcome.supportive_families == ["claude"]
+    assert outcome.dissenting_families == ["grok"]
+    assert outcome.has_supportive_quorum is False
+
+
+def test_locked_quorum_state_recovers_stale_pid_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    state_file = tmp_path / "state.json"
+    lock_file = tmp_path / "state.json.lock"
+    lock_file.write_text("pid=999999 acquired_at=2026-06-06T00:00:00+00:00\n", encoding="utf-8")
+    old = time.time() - 3600
+    os.utime(lock_file, (old, old))
+    monkeypatch.setattr(qe, "QUORUM_STATE_LOCK_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr(qe, "QUORUM_STATE_LOCK_POLL_SECONDS", 0.01)
+
+    with qe._locked_quorum_reconcile_state(state_file):
+        assert lock_file.exists()
+
+    assert not lock_file.exists()
+
+
+def test_collect_records_quorum_reconciler_error_after_successful_posts() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        raise RuntimeError("rerun surface unavailable")
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert len(posted) == 2
+    assert sorted(outcome.posted) == ["claude", "grok"]
+    assert outcome.quorum_rerun == {"applied": False, "error": "rerun surface unavailable"}
+
+
+def test_collect_does_not_reconcile_when_no_evidence_was_posted() -> None:
+    fakes, posted = _fakes(tier=1, would_count=False)
+    calls: list[tuple[str, int]] = []
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        calls.append((repo, pr))
+        return {"applied": True}
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert posted == []
+    assert calls == []
+    assert outcome.quorum_rerun is None
+
+
+def test_default_quorum_reconciler_holds_lock_through_state_update(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    from scripts import reconcile_merge_quorum
+
+    events: list[str] = []
+    state: dict = {}
+
+    @contextmanager
+    def fake_lock(path):
+        events.append("lock-enter")
+        yield
+        events.append("lock-exit")
+
+    def load_state(path):
+        events.append("load")
+        return state
+
+    def evaluate_pr(repo, pr, *, now, state, cooldown_seconds, max_reruns):
+        events.append("evaluate")
+        assert repo == "o/r"
+        assert pr == 1
+        assert cooldown_seconds == qe.QUORUM_RERUN_COOLDOWN_SECONDS
+        assert max_reruns == qe.QUORUM_RERUN_MAX_PER_HEAD
+        decision = SimpleNamespace(
+            should_rerun=True,
+            reason="stale-success-after-new-evidence",
+            run_id=123,
+            next_prompt=None,
+        )
+        quorum_run = SimpleNamespace(run_id=123, head_sha="abc123")
+        return decision, quorum_run
+
+    def execute_rerun(repo, run_id):
+        events.append("execute")
+        assert (repo, run_id) == ("o/r", 123)
+        return True
+
+    def save_state(path, next_state):
+        events.append("save")
+        assert next_state["abc123"]["count"] == 1
+
+    monkeypatch.setattr(qe, "_locked_quorum_reconcile_state", fake_lock)
+    monkeypatch.setattr(reconcile_merge_quorum, "DEFAULT_STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(reconcile_merge_quorum, "_load_state", load_state)
+    monkeypatch.setattr(reconcile_merge_quorum, "evaluate_pr", evaluate_pr)
+    monkeypatch.setattr(reconcile_merge_quorum, "execute_rerun", execute_rerun)
+    monkeypatch.setattr(reconcile_merge_quorum, "_save_state", save_state)
+
+    record = qe.default_quorum_reconciler("o/r", 1)
+
+    assert record == {
+        "should_rerun": True,
+        "reason": "stale-success-after-new-evidence",
+        "run_id": 123,
+        "applied": True,
+    }
+    assert events == ["lock-enter", "load", "evaluate", "execute", "save", "lock-exit"]
+
+
+def test_default_quorum_reconciler_rechecks_rerun_cap_under_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    from scripts import reconcile_merge_quorum
+
+    state = {
+        "abc123": {
+            "count": qe.QUORUM_RERUN_MAX_PER_HEAD,
+            "last_rerun_at": None,
+        }
+    }
+
+    @contextmanager
+    def fake_lock(path):
+        yield
+
+    def evaluate_pr(repo, pr, *, now, state, cooldown_seconds, max_reruns):
+        decision = SimpleNamespace(
+            should_rerun=True,
+            reason="stale-success-after-new-evidence",
+            run_id=123,
+            next_prompt=None,
+        )
+        quorum_run = SimpleNamespace(run_id=123, head_sha="abc123")
+        return decision, quorum_run
+
+    def execute_rerun(repo, run_id):
+        raise AssertionError("rerun must not execute after locked count reaches the cap")
+
+    monkeypatch.setattr(qe, "_locked_quorum_reconcile_state", fake_lock)
+    monkeypatch.setattr(reconcile_merge_quorum, "DEFAULT_STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(reconcile_merge_quorum, "_load_state", lambda path: state)
+    monkeypatch.setattr(reconcile_merge_quorum, "evaluate_pr", evaluate_pr)
+    monkeypatch.setattr(reconcile_merge_quorum, "execute_rerun", execute_rerun)
+
+    record = qe.default_quorum_reconciler("o/r", 1)
+
+    assert record == {
+        "should_rerun": False,
+        "reason": "max_reruns_reached_in_locked_state",
+        "run_id": 123,
+        "applied": False,
+    }
+
+
 def test_collect_high_tier_apply_never_posts() -> None:
     fakes, posted = _fakes(tier=4)
     outcome = collect_evidence(
@@ -548,6 +1202,38 @@ def test_collect_dry_run_prepares_without_posting() -> None:
     assert sorted(outcome.counting_families) == ["claude", "grok"]
 
 
+def test_collect_carries_reviewer_harness_into_comment() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def harness_runner(family: str, prompt: str) -> ReviewerResult:
+        return ReviewerResult(
+            family,
+            "Verdict: PASS via harness",
+            True,
+            harness=qe._CODEX_OPENAI_HARNESS,
+        )
+
+    def harness_linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        assert qe._CODEX_OPENAI_HARNESS in body
+        return {
+            "would_count": True,
+            "counted_reviewer_ids": ["openai"],
+            "problems": [],
+        }
+
+    fakes["reviewer_runner"] = harness_runner
+    fakes["linter"] = harness_linter
+
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["openai"], author="me", apply=False, **fakes
+    )
+
+    assert outcome.action == "prepare"
+    assert posted == []
+    assert outcome.counting_families == ["openai"]
+    assert qe._CODEX_OPENAI_HARNESS in outcome.items[0].body
+
+
 def test_collect_never_fabricates_on_reviewer_failure() -> None:
     fakes, posted = _fakes(tier=1)
 
@@ -561,8 +1247,10 @@ def test_collect_never_fabricates_on_reviewer_failure() -> None:
         repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
     )
     assert [f.family for f in outcome.failures] == ["grok"]
-    assert outcome.posted == ["claude"]
-    assert len(posted) == 1
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete" in outcome.action_reason
+    assert outcome.posted == []
+    assert posted == []
 
 
 def test_collect_does_not_post_uncountable_evidence() -> None:
@@ -570,7 +1258,8 @@ def test_collect_does_not_post_uncountable_evidence() -> None:
     outcome = collect_evidence(
         repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
     )
-    assert outcome.action == "post"
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete" in outcome.action_reason
     assert outcome.posted == []
     assert posted == []
     assert all(not item.would_count for item in outcome.items)
@@ -582,7 +1271,10 @@ def test_collect_rejects_unsupported_family() -> None:
         repo="o/r", pr=1, families=["claude", "bogus"], author="me", apply=True, **fakes
     )
     assert "bogus" in [f.family for f in outcome.failures]
-    assert "claude" in outcome.posted
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete" in outcome.action_reason
+    assert outcome.posted == []
+    assert posted == []
     assert "bogus" not in outcome.counting_families
 
 
@@ -679,8 +1371,8 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
             action="post",
             action_reason="ok",
             items=[
-                EvidenceItem("claude", "body", True, ["claude"], []),
-                EvidenceItem("grok", "body", True, ["grok"], []),
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
             ],
             posted=["claude", "grok"],
         )

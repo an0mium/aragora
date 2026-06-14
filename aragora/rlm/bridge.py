@@ -60,6 +60,21 @@ from aragora.config.secrets import get_secret_presence
 
 logger = logging.getLogger(__name__)
 
+# Credential env vars per RLM backend (issue #8101: never hard-require an
+# OpenAI key — route to a configured provider or skip TRUE RLM init).
+_BACKEND_CREDENTIAL_ENVS: dict[str, tuple[str, ...]] = {
+    "openai": ("OPENAI_API_KEY",),
+    "openrouter": ("OPENROUTER_API_KEY",),
+    "anthropic": ("ANTHROPIC_API_KEY",),
+    "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+}
+
+
+def _secret_configured(name: str) -> bool:
+    """Presence-only check honoring strict-secrets mode (no value exposure)."""
+    return get_secret_presence(name).source in {"aws", "env"}
+
+
 # Check if official RLM is available
 try:
     from rlm import RLM as OfficialRLM
@@ -259,13 +274,34 @@ class AragoraRLM(RLMStreamingMixin):
         self._last_query_used_compression_fallback: bool = False
 
         if HAS_OFFICIAL_RLM:
-            self._init_official_rlm()
+            if self._backend_has_usable_credential():
+                self._init_official_rlm()
+            else:
+                # Issue #8101: constructing an OpenAI-keyed RLM without a key
+                # raises AuthenticationError mid-debate (context_initializer).
+                # Skip TRUE RLM with a logged note and degrade gracefully.
+                logger.warning(
+                    "[AragoraRLM] No usable credential for RLM backend '%s'; "
+                    "skipping TRUE RLM init and using compression fallback",
+                    self.backend_config.backend,
+                )
         else:
             logger.warning(
                 "[AragoraRLM] Official RLM library not installed. "
                 "Will use compression-based FALLBACK for all queries. "
                 "For TRUE RLM (REPL-based), install with: pip install rlm"
             )
+
+    def _backend_has_usable_credential(self) -> bool:
+        """Whether the selected backend has a configured credential.
+
+        Unknown backends (e.g. litellm, custom) are never blocked — we cannot
+        prove they lack credentials.
+        """
+        keys = _BACKEND_CREDENTIAL_ENVS.get(self.backend_config.backend)
+        if not keys:
+            return True
+        return any(_secret_configured(key) for key in keys)
 
     def _apply_backend_env_overrides(self) -> None:
         """Apply environment overrides for RLM backend selection."""
@@ -283,6 +319,33 @@ class AragoraRLM(RLMStreamingMixin):
             self.backend_config.fallback_backend = env_fallback_backend.strip()
         if env_fallback_model:
             self.backend_config.fallback_model_name = env_fallback_model.strip()
+
+        # Issue #8101: the default "openai" backend must not hard-require an
+        # OpenAI key. If OpenAI is unconfigured (or blocked by strict-secrets
+        # mode) and the backend was not explicitly requested, route the
+        # primary backend to a configured provider instead.
+        if (
+            not env_backend
+            and self.backend_config.backend == "openai"
+            and not _secret_configured("OPENAI_API_KEY")
+        ):
+            if _secret_configured("OPENROUTER_API_KEY"):
+                self.backend_config.backend = "openrouter"
+                logger.info(
+                    "[AragoraRLM] OPENAI_API_KEY not configured; routing RLM backend to openrouter"
+                )
+            elif _secret_configured("ANTHROPIC_API_KEY"):
+                self.backend_config.backend = "anthropic"
+                if not env_model:
+                    # Default openai model names are meaningless on the
+                    # anthropic backend; use the repo's canonical default
+                    # (see aragora/agents/api_agents/anthropic.py).
+                    self.backend_config.model_name = os.environ.get(
+                        "ARAGORA_RLM_ANTHROPIC_MODEL", "claude-opus-4-8"
+                    )
+                logger.info(
+                    "[AragoraRLM] OPENAI_API_KEY not configured; routing RLM backend to anthropic"
+                )
 
         if (
             self.backend_config.fallback_backend is None

@@ -33,34 +33,54 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-from urllib.parse import quote, urlparse
+from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
-from aragora.review.invalidation import (
-    BaselineMeasurement,
-    DEFAULT_BASELINE_WINDOW_DAYS,
-    DEFAULT_MIN_BASELINE_SAMPLES,
-    DEFAULT_MINIMUM_MEANINGFUL_RATE,
-    DEFAULT_SAFETY_MARGIN,
-    ThresholdProposal,
-    derive_threshold,
+from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
+from aragora.cli.commands.review_queue_parsers import (
+    add_observe_outcomes_parser,
+    add_record_settlement_parser,
 )
-from aragora.review.invalidation_event_source import measure_baseline_from_stores
-from aragora.review.reviewer_output import ReviewerOutput
-from aragora.swarm.pr_review_protocol import (
-    PRReviewerExecutionFailure,
-    default_pr_review_protocol,
+from aragora.cli.commands.review_queue_transport import (
+    _GhError,
+    _gh_error_kind,
+    _gh_json,
+    _gh_text,
+    _is_github_transport_error,
+    _merge_packet_transport_blocked_envelope_with_rest_fallback,
+    _queue_conductor_transport_blocked_envelope,
 )
-from aragora.triage.auto_handle_calibration import AutoHandleCalibrationStore
-from aragora.worktree.fleet import resolve_repo_root
-from scripts.post_merge_lane_audit import (
-    post_merge_lane_audit_failed,
-    post_merge_lane_audit_failure_reason,
-    run_post_merge_lane_audit,
-)
+
+if TYPE_CHECKING:
+    from aragora.review.invalidation import BaselineMeasurement, ThresholdProposal
+    from aragora.review.reviewer_output import ReviewerOutput
 
 UTC = timezone.utc
 PostMergeLaneAuditProvider = Callable[[int, bool], dict[str, Any]]
+DEFAULT_BASELINE_WINDOW_DAYS = 30
+DEFAULT_MIN_BASELINE_SAMPLES = 50
+DEFAULT_SAFETY_MARGIN = 0.5
+DEFAULT_MINIMUM_MEANINGFUL_RATE = 0.01
+
+
+class AutoHandleCalibrationStore:
+    """Lazy proxy for the calibration store used by review-queue rendering.
+
+    The module-level name is a historical monkeypatch seam in tests. Delegating
+    from methods rather than replacing __new__ keeps that seam available without
+    importing the calibration stack during merge-packet startup.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        from aragora.triage.auto_handle_calibration import (
+            AutoHandleCalibrationStore as _AutoHandleCalibrationStore,
+        )
+
+        self._impl = _AutoHandleCalibrationStore(*args, **kwargs)
+
+    def list_active_alerts(self, *args: Any, **kwargs: Any) -> Any:
+        return self._impl.list_active_alerts(*args, **kwargs)
+
 
 # Lane classification thresholds and risk-path catalog.
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
@@ -68,6 +88,33 @@ MODEL_REVIEW_QUEUE_CAP = 6
 MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
 TIER_FOUR_SETTLEMENT_MARKER = "Tier-4 Human Settlement Authorization"
+DEFAULT_TRUSTED_SETTLEMENT_CREATOR = "scarmani"
+SETTLEMENT_CREATOR_ENV_VAR = "ARAGORA_SETTLEMENT_CREATOR"
+GITHUB_TRANSPORT_ERROR_KIND = "github_transport"
+GITHUB_TRANSPORT_BLOCKED_STATUS = "transport_blocked"
+_GITHUB_TRANSPORT_ERROR_MARKERS = (
+    "api rate limit already exceeded",
+    "check your internet connection",
+    "client.timeout exceeded",
+    "connection refused",
+    "connection reset",
+    "connection timed out",
+    "context deadline exceeded",
+    "could not resolve host",
+    "error connecting",
+    "failed to start",
+    "http 502",
+    "http 503",
+    "http 504",
+    "i/o timeout",
+    "net/http",
+    "no such host",
+    "operation timed out",
+    "rate limit exceeded",
+    "temporary failure in name resolution",
+    "timeout awaiting response headers",
+    "tls handshake timeout",
+)
 TIER_FOUR_AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "claude",
@@ -206,6 +253,45 @@ CHECK_SURFACE_DIAGNOSTIC_LIMIT = 12
 OPTIONAL_RUNNER_CAPACITY_NOISE_MIN_SECONDS = 60 * 60
 GH_COMMAND_TIMEOUT_SECONDS = 30
 GIT_STATUS_TIMEOUT_SECONDS = 10
+
+
+def resolve_repo_root(path_hint: Path) -> Path:
+    """Resolve git repo root without importing the full worktree package."""
+    proc = subprocess.run(
+        ["git", "-C", str(path_hint), "rev-parse", "--show-toplevel"],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=GIT_STATUS_TIMEOUT_SECONDS,
+    )
+    if proc.returncode == 0 and proc.stdout.strip():
+        return Path(proc.stdout.strip()).resolve()
+    return path_hint.resolve()
+
+
+def default_pr_review_protocol() -> Any:
+    from aragora.swarm.pr_review_protocol import default_pr_review_protocol as _impl
+
+    return _impl()
+
+
+def run_post_merge_lane_audit(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    from scripts.post_merge_lane_audit import run_post_merge_lane_audit as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def post_merge_lane_audit_failed(*args: Any, **kwargs: Any) -> bool:
+    from scripts.post_merge_lane_audit import post_merge_lane_audit_failed as _impl
+
+    return bool(_impl(*args, **kwargs))
+
+
+def post_merge_lane_audit_failure_reason(*args: Any, **kwargs: Any) -> str:
+    from scripts.post_merge_lane_audit import post_merge_lane_audit_failure_reason as _impl
+
+    return str(_impl(*args, **kwargs))
+
 
 LANE_ORDER: dict[str, int] = {
     "ready_now": 0,
@@ -460,76 +546,7 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     act_p.add_argument("--json", action="store_true", help="Output settlement receipt as JSON")
 
-    record_p = sub.add_parser(
-        "record-settlement",
-        help="Record an already-authorized PR settlement without mutating GitHub",
-        description=(
-            "Write a local review-queue settlement receipt after an external\n"
-            "operator decision, such as an exact-head admin squash merge. This\n"
-            "is local-only: it verifies the live PR head/state, writes under\n"
-            ".aragora/review-queue/receipts (or --review-queue-root), and does\n"
-            "not approve, comment, merge, or otherwise mutate GitHub."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    record_p.add_argument("pr", help="PR number or URL")
-    record_p.add_argument(
-        "--repo",
-        default=None,
-        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
-    )
-    record_p.add_argument(
-        "--head-sha",
-        required=True,
-        help="Exact PR head SHA that was externally settled.",
-    )
-    record_p.add_argument(
-        "--action",
-        required=True,
-        choices=("approve", "request_changes", "comment", "admin_squash_merge"),
-        help="Externally observed settlement action to record.",
-    )
-    record_p.add_argument(
-        "--reason",
-        required=True,
-        help="One-line operator reason or authorization reference.",
-    )
-    record_p.add_argument(
-        "--review-queue-root",
-        default=None,
-        help=(
-            "Override the review-queue store root used for settlement "
-            "receipts. Defaults to <repo>/.aragora/review-queue."
-        ),
-    )
-    record_p.add_argument(
-        "--apply-post-merge-lane-audit",
-        action="store_true",
-        help=(
-            "For admin_squash_merge records, apply merged-PR lane supersession "
-            "after verifying GitHub reports MERGED and using the live merge "
-            "commit as the exact guard. Default is dry-run/report only."
-        ),
-    )
-    record_p.add_argument(
-        "--post-github-status",
-        action="store_true",
-        help=(
-            "After the local receipt is durably written, atomically POST the "
-            "'aragora/human-settlement'=success commit status for the exact head "
-            "SHA. This is the ONLY GitHub mutation this command performs, and it "
-            "is the safe replacement for running 'gh api ... statuses' as a "
-            "separate command: the status can never be set unless the receipt "
-            "write succeeded first (receipt => status, never status => no "
-            "receipt). If the receipt write fails, the status is never posted."
-        ),
-    )
-    record_p.add_argument(
-        "--github-status-context",
-        default="aragora/human-settlement",
-        help="Commit-status context to post with --post-github-status.",
-    )
-    record_p.add_argument("--json", action="store_true", help="Output local receipt as JSON")
+    add_record_settlement_parser(sub)
 
     merge_packet_p = sub.add_parser(
         "merge-packet",
@@ -582,6 +599,54 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     merge_packet_p.add_argument("--json", action="store_true", help="Output as JSON")
 
+    conductor_p = sub.add_parser(
+        "conductor",
+        help="Build an owner-aware queue conductor packet and next prompt",
+        description=(
+            "Read-only queue conductor that combines open PR metadata, required checks, "
+            "branch owner lookup, operator steering, merge-packet status, head-change "
+            "detection, and supersession hints into one JSON packet plus one next prompt."
+        ),
+    )
+    conductor_p.add_argument(
+        "--limit",
+        type=int,
+        default=30,
+        help="Max open PRs to inspect when --pr is not supplied (default: 30)",
+    )
+    conductor_p.add_argument(
+        "--pr",
+        action="append",
+        default=[],
+        help="Specific PR number/ref to include. Repeatable. Defaults to open queue.",
+    )
+    conductor_p.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    conductor_p.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root used for settlement receipt lookups.",
+    )
+    conductor_p.add_argument(
+        "--owner-timeout-seconds",
+        type=float,
+        default=8.0,
+        help="Timeout for owner and steering helper lookup. Timeout means preserve/no-mutate.",
+    )
+    conductor_p.add_argument(
+        "--mode",
+        choices=("queue", "ready-boundary"),
+        default="queue",
+        help=(
+            "Conductor routing mode. ready-boundary emits mark-ready authorization "
+            "classification for draft PRs that are otherwise ready."
+        ),
+    )
+    conductor_p.add_argument("--json", action="store_true", help="Output as JSON")
+
     evidence_lint_p = sub.add_parser(
         "evidence-lint",
         help="Dry-run whether a proposed evidence comment will count for model quorum",
@@ -614,6 +679,34 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         help="GitHub author login to simulate for the proposed comment (default: local)",
     )
     evidence_lint_p.add_argument("--json", action="store_true", help="Output as JSON")
+
+    collect_evidence_p = sub.add_parser(
+        "collect-evidence",
+        help="Run genuine model reviewers, lint their evidence, post only if tier allows",
+        description=(
+            "Run >=2 genuine heterogeneous model reviewers against a PR's exact head, "
+            "compose evidence comments the quorum parsers recognize, and validate each "
+            "with evidence-lint before posting. Only Tier 0-2 PRs auto-post (with "
+            "--apply); Tier 3-4 always prepare evidence for operator settlement. "
+            "Defaults to a dry run that posts nothing."
+        ),
+    )
+    collect_evidence_arg = collect_evidence_p.add_argument
+    collect_evidence_arg("--pr", required=True, type=int, help="PR number to collect evidence for")
+    collect_evidence_arg("--repo", default="", help="owner/name target repo (default: gh context)")
+    collect_evidence_arg(
+        "--reviewers",
+        nargs="+",
+        default=None,
+        help="reviewer model families to run (default: claude grok)",
+    )
+    collect_evidence_arg(
+        "--author", default=None, help="GitHub login for evidence-lint (default: gh user)"
+    )
+    collect_evidence_arg(
+        "--apply", action="store_true", help="Post Tier 0-2 evidence; Tier 3-4 prepare only."
+    )
+    collect_evidence_arg("--json", dest="json_output", action="store_true", help="Output as JSON")
 
     lint_comment_p = sub.add_parser(
         "lint-comment",
@@ -732,9 +825,7 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Output the BaselineMeasurement + ThresholdProposal as JSON.",
     )
 
-    from aragora.review.observe_outcomes_cli import add_observe_outcomes_subparser
-
-    add_observe_outcomes_subparser(sub)
+    add_observe_outcomes_parser(sub)
 
     health_p = sub.add_parser(
         "health",
@@ -836,6 +927,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_act(args)
     if command == "record-settlement":
         return _cmd_record_settlement(args)
+    if command == "conductor":
+        return _cmd_conductor(args)
     if command == "merge-packet":
         return _cmd_merge_packet(args)
     if command in {"evidence-lint", "lint-comment"}:
@@ -854,7 +947,8 @@ def cmd_review_queue(args: argparse.Namespace) -> int:
         return _cmd_health_alert(args)
     print(
         "Usage: aragora review-queue "
-        "{build,packet,run,act,record-settlement,merge-packet,evidence-lint,lint-comment,"
+        "{build,packet,run,act,record-settlement,conductor,merge-packet,evidence-lint,"
+        "lint-comment,"
         "collect-evidence,"
         "baseline,"
         "observe-outcomes,"
@@ -905,6 +999,42 @@ def _cmd_packet(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_conductor(args: argparse.Namespace) -> int:
+    json_output = bool(getattr(args, "json", False) or getattr(args, "json_output", False))
+    try:
+        from aragora.cli.commands.review_queue_conductor import (
+            build_queue_conductor_packet,
+            render_queue_conductor_packet,
+        )
+
+        packet = build_queue_conductor_packet(
+            pr_refs=list(getattr(args, "pr", []) or []),
+            limit=int(getattr(args, "limit", 30)),
+            repo_override=getattr(args, "repo", None),
+            review_queue_root=getattr(args, "review_queue_root", None),
+            owner_timeout_seconds=float(getattr(args, "owner_timeout_seconds", 8.0)),
+            mode=getattr(args, "mode", "queue"),
+        )
+    except _GhError as exc:
+        if json_output and _is_github_transport_error(exc):
+            packet = _queue_conductor_transport_blocked_envelope(
+                error=str(exc),
+                pr_refs=list(getattr(args, "pr", []) or []),
+                repo_override=getattr(args, "repo", None),
+                limit=int(getattr(args, "limit", 30)),
+                mode=str(getattr(args, "mode", "queue") or "queue"),
+            )
+            print(json.dumps(packet, indent=2, sort_keys=True))
+            return 1
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if json_output:
+        print(json.dumps(packet, indent=2, sort_keys=True))
+    else:
+        print(render_queue_conductor_packet(packet))
+    return 0
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     repo_root = resolve_repo_root(Path.cwd())
     try:
@@ -921,7 +1051,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if not items:
         print("(no PRs in scope)")
         return 0
-
     session_id = _session_id()
     started_at = datetime.now(UTC).isoformat()
     session_receipt: dict[str, Any] = {
@@ -935,7 +1064,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     }
     session_path = _session_receipt_path(repo_root, session_id)
     _write_json(session_path, session_receipt)
-
     for index, item in enumerate(items, start=1):
         try:
             packet = _build_packet(str(item.number), repo_override=getattr(args, "repo", None))
@@ -944,7 +1072,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
             continue
         _render_session_packet(packet, item=item, index=index, total=len(items))
         decision_started = time.monotonic()
-
         while True:
             choice = input(
                 "[a]pprove [r]equest-changes [d]efer [o]pen-files [p]acket-json [q]uit: "
@@ -964,7 +1091,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
             if normalized not in {"a", "r", "d"}:
                 print("Choose one of: a, r, d, o, p, q")
                 continue
-
             action = {
                 "a": "approve",
                 "r": "request_changes",
@@ -997,7 +1123,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 f"(packet {packet.packet_sha}, head {packet.head_sha})"
             )
             break
-
     session_receipt["completed_at"] = datetime.now(UTC).isoformat()
     _write_json(session_path, session_receipt)
     print(f"Session complete: {session_path}")
@@ -1014,7 +1139,6 @@ def _cmd_act(args: argparse.Namespace) -> int:
     if action == "defer" and not reason:
         print(f"error: {DEFER_REASON_REQUIRED}", file=sys.stderr)
         return 2
-
     repo_root = resolve_repo_root(Path.cwd())
     try:
         _require_clean_worktree(repo_root)
@@ -1048,7 +1172,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
     if not head_sha:
         print("error: --head-sha is required", file=sys.stderr)
         return 2
-
     repo_root = resolve_repo_root(Path.cwd())
     try:
         _require_clean_worktree(repo_root)
@@ -1065,7 +1188,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
     except _GhError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-
     # Atomic settlement signal: the receipt is now durably written. Only here do
     # we publish the gate-trusted 'aragora/human-settlement' commit status, so a
     # green status can never exist without its backing receipt. (Running
@@ -1089,7 +1211,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
         except _GhError as exc:
             status_failed = True
             github_status = {"posted": False, "error": str(exc)}
-
     if json_output:
         payload = result.to_dict()
         if github_status is not None:
@@ -1102,7 +1223,6 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
                 f"  github-status: {github_status.get('context')}="
                 f"{github_status.get('state')} @ {head_sha[:12]}"
             )
-
     if status_failed:
         print(
             "error: receipt written but GitHub status POST failed "
@@ -1137,7 +1257,6 @@ def _cmd_evidence_lint(args: argparse.Namespace) -> int:
         else:
             print(f"error: could not read --body-file: {exc}", file=sys.stderr)
         return 1
-
     result = _lint_evidence_comment(
         pr=str(getattr(args, "pr", "") or ""),
         head_sha=str(getattr(args, "head_sha", "") or ""),
@@ -1169,6 +1288,37 @@ def _resolve_repo_slug(explicit: str) -> str:
     except Exception:
         return ""
     return (proc.stdout or "").strip() if proc.returncode == 0 else ""
+
+
+def _repo_slug_from_git_remote() -> str:
+    """Best-effort owner/name from ``origin`` without using GitHub APIs."""
+    try:
+        proc = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GIT_STATUS_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    url = (proc.stdout or "").strip()
+    if not url:
+        return ""
+    if url.startswith("git@github.com:"):
+        slug = url.removeprefix("git@github.com:").removesuffix(".git").strip("/")
+        return slug if "/" in slug else ""
+    parsed = urlparse(url)
+    if parsed.netloc.lower() == "github.com":
+        parts = [part for part in parsed.path.strip("/").split("/") if part]
+        if len(parts) >= 2:
+            return f"{parts[0]}/{parts[1].removesuffix('.git')}"
+    return ""
+
+
+def _resolve_repo_slug_for_rest_fallback(repo_override: str | None) -> str:
+    """Resolve owner/name for REST fallback when GraphQL-backed ``gh`` is degraded."""
+    return _resolve_repo_slug(str(repo_override or "")) or _repo_slug_from_git_remote()
 
 
 def _cmd_collect_evidence(args: argparse.Namespace) -> int:
@@ -1206,6 +1356,16 @@ def _cmd_merge_packet(args: argparse.Namespace) -> int:
             ignore_own_quorum_check=bool(getattr(args, "ignore_own_quorum_check", False)),
         )
     except _GhError as exc:
+        if json_output and _is_github_transport_error(exc):
+            packet = _merge_packet_transport_blocked_envelope_with_rest_fallback(
+                error=str(exc),
+                pr_refs=list(getattr(args, "pr", []) or []),
+                repo_override=getattr(args, "repo", None),
+                limit=int(getattr(args, "limit", 30) or 30),
+                gh_json=_gh_json,
+            )
+            print(json.dumps(packet, indent=2, sort_keys=True))
+            return 1
         print(f"error: {exc}", file=sys.stderr)
         return 1
     if json_output:
@@ -1240,6 +1400,10 @@ def _cmd_baseline(args: argparse.Namespace) -> int:
         return 2
 
     json_output = bool(getattr(args, "json", False))
+
+    from aragora.review.invalidation import derive_threshold
+    from aragora.review.invalidation_event_source import measure_baseline_from_stores
+    from aragora.triage.auto_handle_calibration import AutoHandleCalibrationStore
 
     try:
         store = AutoHandleCalibrationStore(db_path=args.calibration_db)
@@ -1395,62 +1559,6 @@ def _cmd_health_alert(args: argparse.Namespace) -> int:
 
 
 # --- Internals: gh shell, classification, packet building ------------------
-
-
-class _GhError(RuntimeError):
-    """Raised when a 'gh' invocation fails or returns malformed JSON."""
-
-
-def _command_timeout_message(cmd: list[str], timeout_seconds: int) -> str:
-    return f"{' '.join(cmd)} timed out after {timeout_seconds}s"
-
-
-def _gh_text(args: list[str]) -> str:
-    """Run a 'gh' command and return plain stdout."""
-    cmd = ["gh", *args]
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=GH_COMMAND_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise _GhError(
-            _command_timeout_message(cmd, int(exc.timeout or GH_COMMAND_TIMEOUT_SECONDS))
-        ) from exc
-    if proc.returncode != 0:
-        stderr = proc.stderr.strip() or "no stderr"
-        raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
-    return proc.stdout.strip()
-
-
-def _gh_json(args: list[str]) -> Any:
-    """Run a 'gh' command and parse JSON output. Returns None for empty stdout."""
-    cmd = ["gh", *args]
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=GH_COMMAND_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise _GhError(
-            _command_timeout_message(cmd, int(exc.timeout or GH_COMMAND_TIMEOUT_SECONDS))
-        ) from exc
-    if proc.returncode != 0:
-        stderr = proc.stderr.strip() or "no stderr"
-        raise _GhError(f"gh {' '.join(args)} failed: {stderr}")
-    out = proc.stdout.strip()
-    if not out:
-        return None
-    try:
-        return json.loads(out)
-    except json.JSONDecodeError as exc:
-        raise _GhError(f"gh {' '.join(args)} returned malformed JSON: {exc}") from exc
 
 
 def _resolve_settlement_repo_slug(repo_override: str | None) -> str:
@@ -1692,6 +1800,9 @@ def _fetch_required_pr_check_surface(pr_number: int, repo_override: str | None) 
             "available": False,
             "checks": [],
             "error": str(exc),
+            "error_kind": _gh_error_kind(exc),
+            "transport_blocked": _is_github_transport_error(exc),
+            "preserve_no_mutate": _is_github_transport_error(exc),
         }
     if not isinstance(payload, list):
         return {
@@ -1988,181 +2099,6 @@ def _check_rollup_unavailable(pr: dict[str, Any]) -> bool:
     return rollup is None or rollup == []
 
 
-def _repo_slug_from_pr_payload(pr: dict[str, Any], repo_override: str | None) -> str:
-    """Resolve owner/repo from an explicit override or the PR URL."""
-    override = str(repo_override or "").strip()
-    if override:
-        parsed = urlparse(override)
-        if parsed.netloc:
-            parts = [part for part in parsed.path.split("/") if part]
-            if len(parts) >= 2:
-                return f"{parts[0]}/{parts[1]}"
-        if "/" in override and not override.startswith("-"):
-            return override.removeprefix("repos/").strip("/")
-
-    url = str(pr.get("url") or "").strip()
-    parsed = urlparse(url)
-    parts = [part for part in parsed.path.split("/") if part]
-    if len(parts) >= 2:
-        return f"{parts[0]}/{parts[1]}"
-    return ""
-
-
-def _fetch_required_status_check_protection(
-    repo_slug: str,
-    base_ref: str,
-) -> dict[str, Any]:
-    """Best-effort branch-protection required status-check settings."""
-    if not repo_slug or not base_ref:
-        return {"available": False, "contexts": [], "strict": None}
-    try:
-        payload = _gh_json(
-            [
-                "api",
-                f"repos/{repo_slug}/branches/{quote(base_ref, safe='')}"
-                "/protection/required_status_checks",
-            ]
-        )
-    except Exception:
-        return {"available": False, "contexts": [], "strict": None}
-    if not isinstance(payload, dict):
-        return {"available": False, "contexts": [], "strict": None}
-    required_by_context: dict[str, dict[str, Any]] = {}
-    for item in payload.get("contexts") or []:
-        context = str(item).strip()
-        if context:
-            required_by_context.setdefault(context, {"context": context, "app_id": None})
-    for item in payload.get("checks") or []:
-        if not isinstance(item, dict):
-            continue
-        context = str(item.get("context") or "").strip()
-        if context:
-            app_id = item.get("app_id")
-            required_by_context[context] = {
-                "context": context,
-                "app_id": app_id if app_id is not None else None,
-            }
-    required_checks = list(required_by_context.values())
-    return {
-        "available": True,
-        "contexts": [item["context"] for item in required_checks],
-        "checks": required_checks,
-        "strict": bool(payload.get("strict")),
-    }
-
-
-def _fetch_direct_commit_check_runs(repo_slug: str, head_sha: str) -> list[dict[str, Any]]:
-    """Best-effort direct commit check-runs for diagnostics only."""
-    if not repo_slug or not head_sha:
-        return []
-    try:
-        payload = _gh_json(
-            [
-                "api",
-                f"repos/{repo_slug}/commits/{head_sha}/check-runs?per_page=100",
-            ]
-        )
-    except Exception:
-        return []
-    if not isinstance(payload, dict):
-        return []
-    runs = payload.get("check_runs") or []
-    return [run for run in runs if isinstance(run, dict)]
-
-
-def _direct_check_run_name(run: dict[str, Any]) -> str:
-    return str(run.get("name") or run.get("context") or "").strip()
-
-
-def _direct_check_run_is_success(run: dict[str, Any]) -> bool:
-    return str(run.get("conclusion") or "").strip().upper() in {
-        "SUCCESS",
-        "SKIPPED",
-        "NEUTRAL",
-    }
-
-
-def _direct_check_run_is_non_green(run: dict[str, Any]) -> bool:
-    status = str(run.get("status") or "").strip().upper()
-    conclusion = str(run.get("conclusion") or "").strip().upper()
-    if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL"}:
-        return False
-    if conclusion:
-        return True
-    if status in {"", "COMPLETED"}:
-        return True
-    return status in {"QUEUED", "IN_PROGRESS", "PENDING", "EXPECTED"}
-
-
-def _latest_direct_check_runs_by_name(
-    runs: list[dict[str, Any]],
-) -> dict[str, dict[str, Any]]:
-    latest: dict[str, tuple[str, int, dict[str, Any]]] = {}
-    for index, run in enumerate(runs):
-        name = _direct_check_run_name(run)
-        if not name:
-            continue
-        timestamp = str(
-            run.get("completed_at")
-            or run.get("started_at")
-            or run.get("created_at")
-            or run.get("completedAt")
-            or run.get("startedAt")
-            or run.get("createdAt")
-            or ""
-        )
-        previous = latest.get(name)
-        if (
-            previous is None
-            or timestamp > previous[0]
-            or (timestamp == previous[0] and index < previous[1])
-        ):
-            latest[name] = (timestamp, index, run)
-    return {name: item[2] for name, item in latest.items()}
-
-
-def _direct_check_run_app_id(run: dict[str, Any]) -> Any:
-    app = run.get("app")
-    if isinstance(app, dict):
-        return app.get("id")
-    return None
-
-
-def _direct_check_run_matches_required(run: dict[str, Any], required: dict[str, Any]) -> bool:
-    if _direct_check_run_name(run) != required.get("context"):
-        return False
-    required_app_id = required.get("app_id")
-    if required_app_id is None:
-        return True
-    return _direct_check_run_app_id(run) == required_app_id
-
-
-def _latest_direct_check_run_for_required(
-    runs: list[dict[str, Any]],
-    required: dict[str, Any],
-) -> dict[str, Any] | None:
-    latest: tuple[str, int, dict[str, Any]] | None = None
-    for index, run in enumerate(runs):
-        if not _direct_check_run_matches_required(run, required):
-            continue
-        timestamp = str(
-            run.get("completed_at")
-            or run.get("started_at")
-            or run.get("created_at")
-            or run.get("completedAt")
-            or run.get("startedAt")
-            or run.get("createdAt")
-            or ""
-        )
-        if (
-            latest is None
-            or timestamp > latest[0]
-            or (timestamp == latest[0] and index < latest[1])
-        ):
-            latest = (timestamp, index, run)
-    return latest[2] if latest else None
-
-
 def _build_check_surface_diagnostics(
     pr: dict[str, Any],
     *,
@@ -2195,16 +2131,37 @@ def _build_check_surface_diagnostics(
         return diagnostics
 
     head_sha = str(pr.get("headRefOid") or "").strip()
-    repo_slug = _repo_slug_from_pr_payload(pr, repo_override)
+    repo_slug = rest_fallback._repo_slug_from_pr_payload(pr, repo_override)
     base_ref = str(pr.get("baseRefName") or "").strip()
-    required_status_checks = _fetch_required_status_check_protection(repo_slug, base_ref)
+    required_status_checks = rest_fallback._fetch_required_status_check_protection(
+        repo_slug,
+        base_ref,
+        gh_json=_gh_json,
+    )
     required_contexts = required_status_checks["contexts"]
     required_check_specs = required_status_checks.get("checks") or []
     strict_required = bool(required_status_checks["strict"])
-    direct_runs = _fetch_direct_commit_check_runs(repo_slug, head_sha)
-    latest_direct_runs = _latest_direct_check_runs_by_name(direct_runs)
+    direct_runs = rest_fallback._fetch_direct_commit_check_runs(
+        repo_slug, head_sha, gh_json=_gh_json
+    )
+    direct_statuses = pr.get("commitStatuses") if isinstance(pr.get("commitStatuses"), list) else []
+    if not direct_statuses:
+        direct_statuses = rest_fallback._fetch_direct_commit_statuses(
+            repo_slug,
+            head_sha,
+            gh_json=_gh_json,
+        )
+    latest_direct_runs = rest_fallback._latest_direct_check_runs_by_name(direct_runs)
     non_green = [
-        name for name, run in latest_direct_runs.items() if _direct_check_run_is_non_green(run)
+        name
+        for name, run in latest_direct_runs.items()
+        if rest_fallback._direct_check_run_is_non_green(run)
+    ]
+    latest_direct_statuses = rest_fallback._latest_direct_statuses_by_context(direct_statuses)
+    non_green_statuses = [
+        context
+        for context, status in latest_direct_statuses.items()
+        if rest_fallback._direct_status_is_non_green(status)
     ]
     missing_required_contexts: list[str] = []
     successful_required_contexts: list[str] = []
@@ -2213,10 +2170,20 @@ def _build_check_surface_diagnostics(
         context = str(required.get("context") or "").strip()
         if not context:
             continue
-        run = _latest_direct_check_run_for_required(direct_runs, required)
+        run = rest_fallback._latest_direct_check_run_for_required(direct_runs, required)
+        status = (
+            None
+            if run is not None
+            else rest_fallback._latest_direct_status_for_required(direct_statuses, required)
+        )
         if run is None:
-            missing_required_contexts.append(context)
-        elif _direct_check_run_is_success(run):
+            if status is None:
+                missing_required_contexts.append(context)
+            elif rest_fallback._direct_status_is_success(status):
+                successful_required_contexts.append(context)
+            else:
+                non_success_required_contexts.append(context)
+        elif rest_fallback._direct_check_run_is_success(run):
             successful_required_contexts.append(context)
         else:
             non_success_required_contexts.append(context)
@@ -2226,8 +2193,10 @@ def _build_check_surface_diagnostics(
         and not (missing_required_contexts or non_success_required_contexts)
     )
     direct_summary = {
-        "available": bool(direct_runs),
+        "available": bool(direct_runs or direct_statuses),
+        "statuses_available": bool(direct_statuses),
         "total": len(direct_runs),
+        "statuses_total": len(direct_statuses),
         "branch_protection_required_status_checks_available": bool(
             required_status_checks["available"]
         ),
@@ -2238,8 +2207,8 @@ def _build_check_surface_diagnostics(
         "missing_required_contexts": missing_required_contexts,
         "non_success_required_contexts": non_success_required_contexts,
         "required_contexts_satisfied": required_contexts_satisfied,
-        "non_green_sample": non_green[:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
-        "non_green_count": len(non_green),
+        "non_green_sample": [*non_green, *non_green_statuses][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+        "non_green_count": len(non_green) + len(non_green_statuses),
     }
     diagnostics["direct_commit_check_runs"] = direct_summary
     if required_contexts_satisfied:
@@ -2252,23 +2221,23 @@ def _build_check_surface_diagnostics(
             "No check-rollup nudge is required for settlement; continue gating on "
             "exact-head branch-protection required check-runs."
         )
-    elif direct_runs:
+    elif direct_runs or direct_statuses:
         if strict_required:
             diagnostics["diagnosis"] = (
                 "GitHub PR statusCheckRollup is empty while exact-head direct commit "
-                "check-runs exist, but branch protection requires strict base freshness; "
-                "merge-packet fails closed because direct commit check-runs alone do "
+                "check-runs/statuses exist, but branch protection requires strict base freshness; "
+                "merge-packet fails closed because direct commit checks alone do "
                 "not prove the PR is up to date with base."
             )
             diagnostics["remediation_prompt"] = (
                 "Refresh the PR-facing check rollup after the branch is current with "
                 "base, or keep the PR blocked. Do not settle from direct commit "
-                "check-runs alone when branch protection is strict."
+                "checks alone when branch protection is strict."
             )
         else:
             diagnostics["diagnosis"] = (
                 "GitHub PR statusCheckRollup is empty while direct commit check-runs "
-                "exist at the head; merge-packet fails closed because direct checks "
+                "or statuses exist at the head; merge-packet fails closed because direct checks "
                 "do not satisfy all branch-protection required contexts."
             )
             diagnostics["remediation_prompt"] = (
@@ -2437,15 +2406,35 @@ def _build_packet(
     args = ["pr", "view", str(number), "--json", ",".join(light_fields)]
     if repo_override:
         args.extend(["--repo", repo_override])
-    pr = _gh_json(args)
+    try:
+        pr = _gh_json(args)
+    except _GhError as exc:
+        if not _is_github_transport_error(exc):
+            raise
+        pr = rest_fallback._hydrate_pr_with_rest_fallback(
+            number=number,
+            repo_slug=_resolve_repo_slug_for_rest_fallback(repo_override),
+            source_error=str(exc),
+            gh_json=_gh_json,
+        )
     if pr is None or not isinstance(pr, dict):
         raise _GhError(f"PR #{number} not found")
     settlement_state_block = _settlement_state_block_reason(pr)
-    if not settlement_state_block:
+    if not settlement_state_block and not pr.get("_rest_fallback"):
         args = ["pr", "view", str(number), "--json", ",".join([*light_fields, *heavy_fields])]
         if repo_override:
             args.extend(["--repo", repo_override])
-        pr = _gh_json(args)
+        try:
+            pr = _gh_json(args)
+        except _GhError as exc:
+            if not _is_github_transport_error(exc):
+                raise
+            pr = rest_fallback._hydrate_pr_with_rest_fallback(
+                number=number,
+                repo_slug=_resolve_repo_slug_for_rest_fallback(repo_override),
+                source_error=str(exc),
+                gh_json=_gh_json,
+            )
         if pr is None or not isinstance(pr, dict):
             raise _GhError(f"PR #{number} not found")
         settlement_state_block = _settlement_state_block_reason(pr)
@@ -2493,6 +2482,9 @@ def _build_packet(
             checks_summary=checks_summary,
             checks_unavailable=checks_unavailable,
         )
+    rest_fallback_meta = pr.get("_rest_fallback")
+    if isinstance(rest_fallback_meta, dict):
+        check_surfaces["metadata_transport_fallback"] = rest_fallback_meta
     required_pr_check_gate_satisfied = False
     if not settlement_state_block and not checks_unavailable and (has_failures or has_pending):
         required_surface = _fetch_required_pr_check_surface(number, repo_override)
@@ -2758,7 +2750,7 @@ def _build_packet(
     repo = _repo_from_url(str(pr.get("url", "")).strip())
     protocol_runner = default_pr_review_protocol()
     reviewer_outputs: list[ReviewerOutput] = []
-    execution_failures: list[PRReviewerExecutionFailure] = []
+    execution_failures: list[Any] = []
     if execute_reviewers:
         diff_args = ["pr", "diff", str(number)]
         if repo_override:
@@ -2833,6 +2825,7 @@ def _build_packet(
             settlement_recorded=settlement_recorded,
             human_risk_settlement_recorded=human_risk_settlement_recorded,
             check_surfaces=check_surfaces,
+            repo_slug=rest_fallback._repo_slug_from_pr_payload(pr, repo_override),
         ),
     )
     packet.packet_sha = _packet_sha(packet)
@@ -2909,6 +2902,7 @@ def _build_merge_authorization_packet(
             "requires_human_risk_settlement": quorum["requires_human_risk_settlement"],
             "requires_human_preapproval": quorum.get("requires_human_preapproval", False),
             "human_preapproval_recorded": quorum.get("human_preapproval_recorded", False),
+            "settlement_creator_pin": quorum.get("settlement_creator_pin", {}),
             "unresolved_dissent": quorum["unresolved_dissent"],
             "reviewer_signals": quorum["reviewer_signals"],
             "dogfood_evidence": quorum["dogfood_evidence"],
@@ -2989,7 +2983,17 @@ def _explicit_merged_pr_merge_packet_entry(
     args = ["pr", "view", str(number), "--json", fields]
     if repo_override:
         args.extend(["--repo", repo_override])
-    pr = _gh_json(args)
+    try:
+        pr = _gh_json(args)
+    except _GhError as exc:
+        if not _is_github_transport_error(exc):
+            raise
+        pr = rest_fallback._hydrate_pr_with_rest_fallback(
+            number=number,
+            repo_slug=_resolve_repo_slug_for_rest_fallback(repo_override),
+            source_error=str(exc),
+            gh_json=_gh_json,
+        )
     if pr is None or not isinstance(pr, dict):
         raise _GhError(f"PR #{number} not found")
     state = str(pr.get("state") or "").strip().upper()
@@ -3033,6 +3037,7 @@ def _build_model_review_quorum(
     settlement_recorded: bool = False,
     human_risk_settlement_recorded: bool = False,
     check_surfaces: dict[str, Any] | None = None,
+    repo_slug: str = "",
 ) -> dict[str, Any]:
     tier, tier_name, tier_reason = _classify_model_review_tier(files, pr=pr)
     requirement = _tier_requirement(tier)
@@ -3078,13 +3083,28 @@ def _build_model_review_quorum(
         and _has_successful_status_context(pr, HUMAN_SETTLEMENT_CONTEXT)
         and _has_tier_four_human_preapproval_comment(pr, head_sha=head_sha)
     )
-
+    settlement_creator_pin = dict(
+        trusted_creator=_trusted_settlement_creator(), checked=False, verified=False, reason=""
+    )
+    if human_preapproval_recorded:
+        creator_verified, creator_reason = _human_settlement_status_creator_verified(
+            repo_slug=repo_slug or rest_fallback._repo_slug_from_pr_payload(pr, None),
+            head_sha=head_sha,
+        )
+        settlement_creator_pin["checked"] = True
+        settlement_creator_pin["verified"] = creator_verified
+        settlement_creator_pin["reason"] = creator_reason
+        if not creator_verified:
+            human_preapproval_recorded = False
     reasons = [tier_reason]
+    if settlement_creator_pin["checked"] and not settlement_creator_pin["verified"]:
+        reasons.append(str(settlement_creator_pin["reason"]))
     if settlement_recorded:
         reasons.append("exact-head admin_squash_merge settlement receipt recorded")
     elif human_preapproval_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
         reasons.append("exact-head Tier 4 human preapproval verified")
+        reasons.append(str(settlement_creator_pin["reason"]))
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
     if has_failures and not settlement_recorded:
@@ -3112,7 +3132,6 @@ def _build_model_review_quorum(
         if not has_required_dogfood:
             reasons.append("focused adversarial dogfood evidence is required")
         reasons.extend(review_object_warnings)
-
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
     if settlement_recorded:
@@ -3157,7 +3176,6 @@ def _build_model_review_quorum(
         status = "satisfied"
         verdict = "admin_squash_allowed"
         admin_squash_allowed = True
-
     return {
         "version": MODEL_REVIEW_QUORUM_VERSION,
         "head_sha": str(pr.get("headRefOid", "")).strip(),
@@ -3170,6 +3188,7 @@ def _build_model_review_quorum(
         "human_risk_settlement_recorded": human_risk_settlement_recorded,
         "requires_human_preapproval": requires_human_preapproval,
         "human_preapproval_recorded": human_preapproval_recorded,
+        "settlement_creator_pin": settlement_creator_pin,
         "admin_squash_allowed": admin_squash_allowed,
         "status": status,
         "verdict": verdict,
@@ -3368,7 +3387,58 @@ def _has_successful_status_context(pr: dict[str, Any], context: str) -> bool:
         state = str(check.get("state") or check.get("status") or "").upper()
         conclusion = str(check.get("conclusion") or "").upper()
         return conclusion == "SUCCESS" or state == "SUCCESS"
+    for status in rest_fallback._latest_direct_statuses_by_context(
+        pr.get("commitStatuses") or []
+    ).values():
+        if rest_fallback._direct_status_context(status) != expected:
+            continue
+        return rest_fallback._direct_status_is_success(status)
     return False
+
+
+def _trusted_settlement_creator() -> str:
+    return (
+        str(os.environ.get(SETTLEMENT_CREATOR_ENV_VAR, "") or "").strip()
+        or DEFAULT_TRUSTED_SETTLEMENT_CREATOR
+    )
+
+
+def _human_settlement_status_creator_verified(
+    *, repo_slug: str, head_sha: str, context: str = HUMAN_SETTLEMENT_CONTEXT
+) -> tuple[bool, str]:
+    trusted = _trusted_settlement_creator()
+
+    def fail(reason: str) -> tuple[bool, str]:
+        return (False, f"settlement-creator pin: {reason}")
+
+    if not repo_slug or not head_sha:
+        return fail("missing repo slug or head sha; failing closed")
+    try:
+        payload = _gh_json(["api", f"repos/{repo_slug}/commits/{head_sha}/statuses?per_page=100"])
+    except _GhError as exc:
+        return fail(f"could not fetch commit statuses ({exc}); failing closed")
+    if not isinstance(payload, list):
+        return fail("unexpected statuses payload shape; failing closed")
+    for status in payload:
+        if not isinstance(status, dict) or str(status.get("context") or "").strip() != context:
+            continue
+        state = str(status.get("state") or "").strip().lower()
+        creator = status.get("creator")
+        login = str(creator.get("login") or "").strip() if isinstance(creator, dict) else ""
+        if state != "success":
+            return fail(f"newest '{context}' status state is '{state}', not success")
+        if not login:
+            return fail(f"newest '{context}' status has no creator login; failing closed")
+        if login.casefold() != trusted.casefold():
+            return fail(
+                f"newest '{context}' status was created by '{login}', "
+                f"not trusted settlement creator '{trusted}'"
+            )
+        return (
+            True,
+            f"settlement-creator pin: '{context}' status created by trusted settlement creator '{trusted}'",
+        )
+    return fail(f"no '{context}' status found on head commit; failing closed")
 
 
 def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: str) -> bool:
@@ -3446,12 +3516,14 @@ def _lint_evidence_comment(
 ) -> dict[str, Any]:
     """Dry-run whether one proposed comment would satisfy quorum parsers."""
     grounded, grounding_method = _proposed_evidence_head_grounding(body, head_sha)
+    pr_grounded, pr_grounding_method = _proposed_evidence_pr_grounding(body, pr)
+    negative_verdict = _has_blocking_or_negative_verdict(body)
     comment = {
         "author": {"login": author},
         "body": body,
         "createdAt": "",
     }
-    if grounded:
+    if grounded and pr_grounded and not negative_verdict:
         dogfood_evidence = _dogfood_evidence_from_comments([comment])
         reviewer_signals = _model_review_signals_from_comments([comment])
     else:
@@ -3467,8 +3539,12 @@ def _lint_evidence_comment(
         problems.append("empty_body")
     if not grounded:
         problems.append("missing_current_head_grounding")
+    if not pr_grounded:
+        problems.append("wrong_pr_reference")
     if _is_github_actions_author(author):
         problems.append("github_actions_author_not_counted")
+    if negative_verdict:
+        problems.append("blocking_or_negative_verdict")
     if inferred_reviewer == "unknown_model_reviewer":
         problems.append("missing_known_model_reviewer_heading")
     for problem in identity.identity_problems:
@@ -3511,6 +3587,8 @@ def _lint_evidence_comment(
         "identity_problems": list(identity.identity_problems),
         "current_head_grounded": grounded,
         "current_head_grounding_method": grounding_method,
+        "current_pr_grounded": pr_grounded,
+        "current_pr_grounding_method": pr_grounding_method,
         "dogfood_evidence": dogfood_evidence,
         "reviewer_signals": reviewer_signals,
         "counted_reviewer_ids": counted_reviewer_ids,
@@ -3518,6 +3596,42 @@ def _lint_evidence_comment(
         "would_count": bool(counted_reviewer_ids),
         "problems": problems,
     }
+
+
+def _proposed_evidence_pr_grounding(body: str, pr: str) -> tuple[bool, str]:
+    """Fail closed when a proposed evidence comment names the wrong PR.
+
+    Evidence comments are commonly drafted from recursive prompts that include
+    both a PR number and an exact head SHA. Lint mode should not approve a
+    body that is exact-head grounded but visibly copied from a different PR.
+    Comments without an explicit PR citation remain acceptable because the
+    caller already supplies the target ``--pr`` and the head SHA is the primary
+    current-head proof.
+    """
+    normalized_pr = str(pr or "").strip().lstrip("#")
+    if not normalized_pr:
+        return False, "missing_pr_argument"
+    cited = {
+        match.group(1)
+        for match in re.finditer(
+            r"\b(?:PR(?:\s+Number)?|pull\s+request)\s*[:#-]?\s*#?(\d+)\b",
+            str(body or ""),
+            flags=re.IGNORECASE,
+        )
+    }
+    cited.update(
+        match.group(1)
+        for match in re.finditer(
+            r"\bgithub\.com/[^\s)<>]+/pull/(\d+)\b",
+            str(body or ""),
+            flags=re.IGNORECASE,
+        )
+    )
+    if not cited:
+        return True, "no_pr_citation"
+    if normalized_pr in cited:
+        return True, "pr_citation"
+    return False, "wrong_pr_citation"
 
 
 def _proposed_evidence_head_grounding(body: str, head_sha: str) -> tuple[bool, str]:
@@ -3578,6 +3692,104 @@ def _known_model_reviewer_id(item: dict[str, Any]) -> str:
 
 def _is_github_actions_author(author: str) -> bool:
     return str(author or "").strip().lower() in {"github-actions", "github-actions[bot]"}
+
+
+def _has_blocking_or_negative_verdict(body: str) -> bool:
+    """Return True for explicit evidence comments that report blockers.
+
+    Merge quorum should count independent evidence that can support readiness,
+    not a comment that visibly says the reviewer failed or blocked the PR.
+    Keep the parser deliberately label-based so ordinary prose such as
+    "no blocking findings" remains countable.
+    """
+    negative_verdict_prefixes = (
+        "fail",
+        "failed",
+        "failing",
+        "fails",
+        "failure",
+        "block",
+        "blocked",
+        "blocking",
+        "request changes",
+        "request_changes",
+        "changes requested",
+        "reject",
+        "rejected",
+        "not ready",
+        "needs repair",
+    )
+    non_blocking_prefixes = (
+        "none",
+        "none found",
+        "no",
+        "no blockers",
+        "no blocking findings",
+        "not found",
+        "0",
+        "zero",
+        "false",
+        "n/a",
+        "not applicable",
+        "[]",
+    )
+
+    def _starts_with_phrase(value: str, phrases: tuple[str, ...]) -> bool:
+        # Word-boundary matching, not raw prefixes: "no" must cover "no" /
+        # "no blockers" but never "node crashes" or "not working", and
+        # "block" must never cover "blockchain".
+        return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
+
+    def _strip_decoration(text: str) -> str:
+        # Markdown list/heading/quote decoration and numbered-list markers:
+        # "### Verdict", "1. Verdict", "> **Verdict**" all expose the label.
+        return re.sub(r"^(?:[#>\-*+\s]+|\d+[.)]\s+)+", "", text.strip())
+
+    def _normalize_value(text: str) -> str:
+        text = text.replace("**", "").replace("__", "")
+        return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
+
+    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    for idx, stripped in enumerate(lines):
+        if not stripped:
+            continue
+        line = _strip_decoration(stripped)
+        line = line.replace("**", "").replace("__", "")
+        match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
+        if not match:
+            continue
+        normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
+        normalized_label = normalized_label.strip("*_ ")
+        normalized_value = _normalize_value(match.group("value"))
+        if normalized_label in {"verdict", "decision", "recommendation"} and _starts_with_phrase(
+            normalized_value, negative_verdict_prefixes
+        ):
+            return True
+        if normalized_label in {"blocking finding", "blocking findings", "blocker", "blockers"}:
+            candidate = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", normalized_value)
+            if candidate in {"-", "*", "[]", "[ ]", "—", "–"}:
+                # An inline empty marker ("Blockers: []", "Blockers: -") is an
+                # explicit "no blockers"; never read the next line as a blocker.
+                continue
+            if not candidate:
+                # The blockers may be listed on the following lines:
+                # "Blocking findings:\n- crash on startup" must stay blocking,
+                # while "Blockers:\nNone found." must stay countable.
+                follow = next((entry for entry in lines[idx + 1 :] if entry), "")
+                is_list_item = bool(re.match(r"^(?:[-*+]\s+|\d+[.)]\s+)", follow))
+                if not is_list_item:
+                    if follow.startswith("#"):
+                        # An empty blockers section followed by a heading.
+                        continue
+                    if re.match(r"^[^:]+?:\s+\S", follow):
+                        # An empty blockers section followed by a new labeled
+                        # section ("Verdict: PASS") is not a blocker entry.
+                        continue
+                candidate = _normalize_value(_strip_decoration(follow))
+            if not candidate or _starts_with_phrase(candidate, non_blocking_prefixes):
+                continue
+            return True
+    return False
 
 
 def _normalize_model_reviewer_id(value: str) -> str:
@@ -3888,6 +4100,8 @@ def _dogfood_evidence_from_comments(
         if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
             continue
         body = str(comment.get("body", "") or "")
+        if _has_blocking_or_negative_verdict(body):
+            continue
         lower = body.lower()
         if not any(
             token in lower for token in ("dogfood", "adversarial", "cross-author", "recheck")
@@ -3927,6 +4141,8 @@ def _model_review_signals_from_comments(
         if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
             continue
         body = str(comment.get("body", "") or "")
+        if _has_blocking_or_negative_verdict(body):
+            continue
         lower = body.lower()
         if not any(
             token in lower

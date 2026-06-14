@@ -1601,6 +1601,111 @@ class TestBossLoop:
         assert len(result.issues_attempted) == 0
         assert "No suitable open issue" in result.needs_human_reasons[0]
 
+    @pytest.mark.asyncio
+    async def test_backpressure_admission_skips_maintenance_issue_but_dispatches_product(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        signal_file = tmp_path / "backpressure.json"
+        signal_file.write_text(
+            json.dumps(
+                {
+                    "mode": "shepherd",
+                    "admission": {
+                        "withhold_classes": ["maintenance"],
+                        "source": "backlog_gate",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        maintenance = _make_issue(2801, "repair lane gate")
+        product = _make_issue(
+            2802,
+            "Add ODR receipt endpoint",
+        )
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [maintenance, product]
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1, backpressure_signal_path=str(signal_file)),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._existing_open_pr_skip_status = lambda **kwargs: None
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        status = await loop._run_iteration(1)
+
+        assert status.worker_status == "completed"
+        assert status.selected_issue["number"] == product.number
+        loop._dispatch_issue.assert_awaited_once_with(product, ANY)
+
+    @pytest.mark.asyncio
+    async def test_legacy_backpressure_shepherd_without_admission_is_advisory_only(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        signal_file = tmp_path / "backpressure.json"
+        signal_file.write_text(json.dumps({"mode": "shepherd"}), encoding="utf-8")
+        issue = _make_issue(2803, "repair lane gate")
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [issue]
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1, backpressure_signal_path=str(signal_file)),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._existing_open_pr_skip_status = lambda **kwargs: None
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        status = await loop._run_iteration(1)
+
+        assert status.worker_status == "completed"
+        assert status.selected_issue["number"] == issue.number
+        loop._dispatch_issue.assert_awaited_once_with(issue, ANY)
+
+    @pytest.mark.asyncio
+    async def test_backpressure_admission_allows_pending_handoff_followthrough(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        signal_file = tmp_path / "backpressure.json"
+        signal_file.write_text(
+            json.dumps(
+                {
+                    "mode": "shepherd",
+                    "admission": {
+                        "withhold_classes": ["maintenance"],
+                        "source": "backlog_gate",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        issue = _make_issue(2804, "repair lane gate")
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [issue]
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1, backpressure_signal_path=str(signal_file)),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._pending_handoff_prompts[issue.number] = ("handoff prompt", "codex")
+        loop._existing_open_pr_skip_status = lambda **kwargs: None
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        status = await loop._run_iteration(1)
+
+        assert status.worker_status == "completed"
+        assert status.selected_issue["number"] == issue.number
+        loop._dispatch_issue.assert_awaited_once_with(issue, ANY)
+
     def test_no_suitable_issue_keepalive_continues_until_max_iterations(self):
         """With keepalive on, empty queues should not terminate the run."""
         feed = MagicMock(spec=GitHubIssueFeed)

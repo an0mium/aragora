@@ -500,7 +500,7 @@ def _reset_circuit_breakers_between_tests():
     MagicMock — the next test inherits that corrupted state.  Clearing the
     dict forces fresh breaker creation.
     """
-    from aragora.resilience.circuit_breaker_v2 import (
+    from aragora.resilience.simple_circuit_breaker import (
         _circuit_breakers,
         _circuit_breakers_lock,
     )
