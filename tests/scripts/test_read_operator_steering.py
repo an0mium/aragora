@@ -231,6 +231,31 @@ def test_json_lane_selector_miss_is_machine_readable(tmp_path: Path, capsys: Any
     assert out["messages"] == []
 
 
+def test_quiet_empty_selector_miss_prints_nothing(tmp_path: Path, capsys: Any) -> None:
+    steering_root = tmp_path / "steering"
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]", encoding="utf-8")
+
+    rc = ros.main(
+        [
+            "--lane-id",
+            "engineering-autopilot-3-2",
+            "--registry-path",
+            str(registry),
+            "--steering-inbox-root",
+            str(steering_root),
+            "--quiet-empty",
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+    assert list(tmp_path.rglob("*.json")) == [registry]
+
+
 def test_default_paths_use_canonical_shared_state_from_linked_worktree(
     tmp_path: Path,
     capsys: Any,

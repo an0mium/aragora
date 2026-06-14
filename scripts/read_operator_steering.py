@@ -261,6 +261,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             steering_inbox_root=args.steering_inbox_root,
         )
     except ValueError as exc:
+        if args.quiet_empty and not args.to:
+            return 0
         if args.json and not args.to:
             out = {
                 "ok": False,
