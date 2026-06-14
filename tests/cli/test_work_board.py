@@ -448,6 +448,53 @@ def test_work_show_preserves_assignee_when_lane_is_released(
     assert item["metadata"]["lane_status"] == "released"
 
 
+def test_work_show_enriches_outbox_handoff_with_blocked_lane_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "task": "Open PR for branch publisher telemetry",
+                "branch": "codex/branch-publisher-cache-unavailable-primary-r2-20260604",
+            }
+        ),
+        encoding="utf-8",
+    )
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q312-primary-branch-publisher-cache-unavailable-r2",
+                    "owner_session": "primary-owner",
+                    "status": "blocked",
+                    "branch": "codex/branch-publisher-cache-unavailable-primary-r2-20260604",
+                    "worktree": "/repo/.worktrees/branch-publisher-cache",
+                    "updated_at": "2026-06-04T06:19:35Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_show(_args(tmp_path, work_id="automation-outbox:handoff")) == 0
+    payload = _capture_json(capsys)
+    item = payload["item"]
+
+    assert item["owner"] == "primary-owner"
+    assert item["metadata"]["active_lane"] is False
+    assert item["metadata"]["lane_owner_protected"] is True
+    assert item["metadata"]["lane_id"] == "Q312-primary-branch-publisher-cache-unavailable-r2"
+    assert item["metadata"]["owner_session"] == "primary-owner"
+    assert item["metadata"]["lane_worktree"] == "/repo/.worktrees/branch-publisher-cache"
+    assert item["metadata"]["lane_status"] == "blocked"
+    assert item["metadata"]["lane_updated_at"] == "2026-06-04T06:19:35Z"
+
+
 def test_work_robot_degrades_safely_on_malformed_lane_registry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:

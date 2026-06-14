@@ -30,6 +30,10 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.swarm.decomposition_bridge import DecompositionBridge  # noqa: E402
 from aragora.swarm.issue_scanner import BossIssueCandidate, scan_all  # noqa: E402
 from aragora.swarm.issue_upgrader import upgrade_issue_heuristic  # noqa: E402
+from aragora.swarm.pr_value import (  # noqa: E402
+    CLASS_MAINTENANCE,
+    read_backpressure_withheld_classes,
+)
 from aragora.swarm.proof_first_queue import classify_proof_first_queue_issue  # noqa: E402
 from aragora.swarm.roadmap_priority import load_roadmap_priority_policy  # noqa: E402
 
@@ -46,6 +50,7 @@ _OPEN_PR_PAGE_SIZE = 100
 _OPEN_PR_MAX_PAGES = 10
 _OPEN_PR_FILES_PAGE_SIZE = 100
 _OPEN_PR_FILES_MAX_PAGES = 10
+DEFAULT_BACKPRESSURE_SIGNAL_FILE = REPO_ROOT / ".aragora" / "backpressure.json"
 _UPGRADEABLE_CATEGORIES = frozenset(
     {"test_coverage", "broad_exception", "silent_exception", "type_annotation"}
 )
@@ -586,6 +591,15 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--backpressure-signal-file",
+        default=str(DEFAULT_BACKPRESSURE_SIGNAL_FILE),
+        help=(
+            "Read explicit admission.withhold_classes from this backpressure signal. "
+            "When maintenance is withheld, substrate candidate generation is disabled. "
+            "Missing or legacy files without admission are advisory-only."
+        ),
+    )
+    parser.add_argument(
         "--created-7d",
         type=int,
         default=None,
@@ -729,12 +743,17 @@ def main() -> None:
     )
 
     # 5. Trim to max, capping the substrate-surface share (Sprint 3 goal 2)
+    effective_substrate_cap = args.substrate_cap
+    withheld_classes = read_backpressure_withheld_classes(args.backpressure_signal_file)
+    if CLASS_MAINTENANCE in withheld_classes:
+        effective_substrate_cap = 0.0
+        print("  Backpressure admission withheld maintenance: substrate candidate cap forced to 0%")
     to_create, substrate_skipped = select_with_substrate_cap(
-        filtered, args.max_issues, args.substrate_cap
+        filtered, args.max_issues, effective_substrate_cap
     )
     if substrate_skipped:
         print(
-            f"  Substrate cap {args.substrate_cap:.0%}: skipped "
+            f"  Substrate cap {effective_substrate_cap:.0%}: skipped "
             f"{substrate_skipped} substrate-surface candidates "
             f"(substrate_skipped={substrate_skipped})"
         )
@@ -766,7 +785,7 @@ def main() -> None:
         if allowed < len(to_create):
             # Re-apply the substrate cap at the throttled budget so the
             # cap's composition is preserved while the total shrinks.
-            to_create, _ = select_with_substrate_cap(to_create, allowed, args.substrate_cap)
+            to_create, _ = select_with_substrate_cap(to_create, allowed, effective_substrate_cap)
 
     # 6. Create or dry-run
     if args.dry_run:

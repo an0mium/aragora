@@ -52,6 +52,7 @@ ALL_CHECKS = (
     "disk_free",
     "lane_liveness",
     "github_api_health",
+    "trail_reconcile",
 )
 
 # Branch namespaces owned by autonomous lanes; only these are eligible for the
@@ -490,6 +491,453 @@ def check_github_api_health(
 
 
 # ---------------------------------------------------------------------------
+# trail_reconcile (TET Component 3 — witness vs anchored-intent reconciliation)
+# docs/specs/TAMPER_EVIDENT_TRAIL.md, build phase T3 (+ T5 acceptance replay)
+# ---------------------------------------------------------------------------
+
+# Witness event classes that mutate the repo/org and therefore REQUIRE a
+# pre-anchored intent.  severity per spec: token/key/member/workflow=critical,
+# push/merge/branch=high.  require_human: credential and member changes have
+# no legitimate agent intent class — only a scarmani-anchored intent matches.
+_EVENT_CLASS_KEYS: tuple[tuple[tuple[str, ...], str, str, frozenset[str], bool], ...] = (
+    (
+        ("token", "deploy_key", "secret", "app_install", "integration"),
+        "credential_change",
+        "critical",
+        frozenset({"credential_change"}),
+        True,
+    ),
+    (("member", "org_role"), "member_change", "critical", frozenset({"member_change"}), True),
+    (("workflow",), "workflow_change", "critical", frozenset({"workflow_change"}), False),
+    (
+        ("branch_delet", "branch_delete"),
+        "branch_deletion",
+        "high",
+        frozenset({"branch_deletion", "branch_delete", "janitor"}),
+        False,
+    ),
+    # Intent-type vocabularies include aragora.trail.intent_chain.INTENT_TYPES
+    # (publish_pr/merge_pr/settle_pr — TET phase T1, PR #8251).
+    (("push",), "push", "high", frozenset({"push", "publish", "publish_pr"}), False),
+    (("merge",), "merge", "high", frozenset({"merge", "settle", "merge_pr", "settle_pr"}), False),
+)
+
+# Actor classification for the interim GitHub witness.  Unknown actors match
+# no intent — exactly the May-incident shape (action from an unknown context).
+# Intent actor_class values align with aragora.trail.intent_chain.ACTOR_CLASSES
+# (human, agent-claude, agent-codex, agent-app, daemon-*); legacy bare labels
+# are kept for tolerance.
+KNOWN_AGENT_ACTORS = frozenset({"an0mium"})
+KNOWN_HUMAN_ACTORS = frozenset({"scarmani"})
+HUMAN_ACTOR_CLASSES = frozenset({"scarmani", "human", "operator"})
+AGENT_ACTOR_CLASSES = frozenset({"agent", "automation", "loop", "lane"})
+
+
+def _intent_class_is_agent(record_class: str) -> bool:
+    return record_class in AGENT_ACTOR_CLASSES or record_class.startswith(("agent-", "daemon-"))
+
+
+def classify_witness_actor(actor: str) -> str:
+    if actor in KNOWN_HUMAN_ACTORS:
+        return "human"
+    if actor in KNOWN_AGENT_ACTORS or actor.endswith("[bot]"):
+        return "agent"
+    return "unknown"
+
+
+def classify_witness_event(event_type: str) -> tuple[str, str, frozenset[str], bool] | None:
+    """``event_type`` -> (class, severity, allowed intent_types, require_human).
+
+    Returns None for non-mutating event classes (ignored by reconciliation).
+    """
+    lowered = event_type.lower()
+    for keys, cls, severity, intent_types, require_human in _EVENT_CLASS_KEYS:
+        if any(key in lowered for key in keys):
+            # the event's own type is always an acceptable intent_type name
+            return cls, severity, intent_types | {lowered}, require_human
+    return None
+
+
+def _parse_target(target: Any) -> tuple[str, str, str, str]:
+    """Intent target -> (repo, ref, sha, pr).
+
+    Dict form is the intent_chain contract (``{"repo", "ref"|"branch",
+    "sha", "pr"}`` — e.g. the auto-evidence cycle records
+    ``{"repo": ..., "pr": N}``); the string form ``<repo>[@<ref>][#<sha>]``
+    is kept for hand-written replicas and replay fixtures.
+    """
+    if isinstance(target, dict):
+        return (
+            str(target.get("repo") or "").strip(),
+            str(target.get("ref") or target.get("branch") or "").strip(),
+            str(target.get("sha") or "").strip(),
+            str(target.get("pr") or "").strip(),
+        )
+    head, _, sha = str(target).partition("#")
+    repo, _, ref = head.partition("@")
+    return repo.strip(), ref.strip(), sha.strip(), ""
+
+
+def _target_matches(target: Any, repo: str, ref: str, sha: str, pr: str) -> bool:
+    t_repo, t_ref, t_sha, t_pr = _parse_target(target)
+    if repo and t_repo and t_repo != repo:
+        return False
+    if not (ref or sha or pr):
+        return True  # repo-scoped event (e.g. credential change)
+    if t_ref and ref and t_ref == ref:
+        return True
+    if t_sha and sha and (sha.startswith(t_sha) or t_sha.startswith(sha)):
+        return True
+    if t_pr and pr and t_pr == pr:
+        return True
+    return False
+
+
+def _record_as_dict(record: Any) -> dict[str, Any]:
+    if isinstance(record, dict):
+        return record
+    if hasattr(record, "_asdict"):
+        return dict(record._asdict())
+    if hasattr(record, "__dict__"):
+        return dict(vars(record))
+    raise TypeError(f"unsupported intent record type: {type(record).__name__}")
+
+
+def _normalize_verify(verdict: Any) -> tuple[bool, str]:
+    """Normalize ``verify_chain`` results across plausible return shapes."""
+    if isinstance(verdict, bool):
+        return verdict, ""
+    if isinstance(verdict, tuple) and verdict:
+        # aragora.trail.intent_chain.verify_chain returns (ok, first_broken_seq).
+        ok = bool(verdict[0])
+        extra = verdict[1] if len(verdict) > 1 else None
+        if extra is None:
+            return ok, ""
+        if isinstance(extra, int):
+            return ok, f"broken at seq {extra}"
+        return ok, str(extra)
+    if isinstance(verdict, dict):
+        ok = bool(verdict.get("ok", verdict.get("valid", False)))
+        detail = str(verdict.get("detail", verdict.get("error", "")) or "")
+        broken_at = verdict.get("broken_at", verdict.get("broken_at_seq"))
+        if broken_at is not None and "seq" not in detail:
+            detail = (detail + f" at seq {broken_at}").strip()
+        return ok, detail
+    for attr in ("ok", "valid"):
+        if hasattr(verdict, attr):
+            return bool(getattr(verdict, attr)), str(getattr(verdict, "detail", "") or "")
+    return bool(verdict), ""
+
+
+def _default_chain_reader(chain_path: Path) -> tuple[list[dict[str, Any]], bool, str]:
+    """Read + verify the intent chain via ``aragora.trail.intent_chain``.
+
+    The module is lane TA's deliverable (TET phase T1) and is imported lazily:
+    until it merges, ImportError degrades this check to ``unknown`` so T3 ships
+    independently and lights up the moment T1 lands.
+    """
+    from aragora.trail import intent_chain  # noqa: PLC0415 - deliberate lazy import
+
+    if not chain_path.exists():
+        raise FileNotFoundError(str(chain_path))
+    records = [_record_as_dict(r) for r in intent_chain.read_records(chain_path)]
+    ok, detail = _normalize_verify(intent_chain.verify_chain(chain_path))
+    return records, ok, detail
+
+
+def _jsonl_chain_reader(chain_path: Path) -> tuple[list[dict[str, Any]], bool, str]:
+    """Schema-only fallback reader: parses the chain JSONL without verifying
+    hashes.  Honest about it — the verify detail says ``unverified``."""
+    if not chain_path.exists():
+        raise FileNotFoundError(str(chain_path))
+    records = []
+    for line in chain_path.read_text().splitlines():
+        if line.strip():
+            records.append(json.loads(line))
+    return records, True, "unverified (jsonl fallback reader; hashes not checked)"
+
+
+def _match_intent(
+    event: dict[str, Any],
+    *,
+    allowed_intent_types: frozenset[str],
+    require_human: bool,
+    records: list[dict[str, Any]],
+    event_ts: datetime,
+    pre_window_seconds: float,
+    skew_seconds: float,
+) -> bool:
+    """An anchored intent matches a witness event iff intent_type is allowed,
+    target references the event's repo and ref/sha, actor classes are
+    compatible, and the intent was anchored BEFORE the event (within the match
+    window; a small skew grace absorbs clock drift, nothing more — post-hoc
+    anchoring cannot legitimize an action)."""
+    actor_class = classify_witness_actor(str(event.get("actor", "")))
+    for record in records:
+        if str(record.get("intent_type", "")).lower() not in allowed_intent_types:
+            continue
+        if not _target_matches(
+            record.get("target", ""),
+            str(event.get("repo", "") or ""),
+            str(event.get("ref", "") or ""),
+            str(event.get("sha", "") or ""),
+            str(event.get("pr", "") or ""),
+        ):
+            continue
+        record_class = str(record.get("actor_class", "")).lower()
+        if require_human:
+            if record_class not in HUMAN_ACTOR_CLASSES:
+                continue
+        elif actor_class == "human":
+            if record_class not in HUMAN_ACTOR_CLASSES:
+                continue
+        elif actor_class == "agent":
+            if not _intent_class_is_agent(record_class):
+                continue
+        else:  # unknown actors match nothing
+            continue
+        try:
+            record_ts = parse_iso(str(record.get("ts", "")))
+        except ValueError:
+            continue
+        lead = (event_ts - record_ts).total_seconds()
+        if -skew_seconds <= lead <= pre_window_seconds:
+            return True
+    return False
+
+
+def check_trail_reconcile(
+    *,
+    witness_events: Callable[[], list[dict[str, Any]]],
+    chain_path: Path,
+    now: datetime,
+    chain_reader: Callable[[Path], tuple[list[dict[str, Any]], bool, str]] | None = None,
+    match_window_minutes: float = 15.0,
+    skew_minutes: float = 2.0,
+    witness_cadence_hours: float = 6.0,
+    blind_factor: float = 4.0,
+    reconcile_window_hours: float = 24.0,
+    witness_coverage: str = "full",
+) -> CheckResult:
+    """TET Component 3: diff what HAPPENED (witness) against what was INTENDED
+    (anchored intent chain).  Every mutating witness event needs a matching
+    pre-anchored intent; unmatched events breach at class severity; a broken
+    chain is a critical breach; an unreadable witness or absent chain is
+    ``unknown`` (silence is never success).
+
+    ``witness_coverage="events_api"`` marks the interim GitHub REST witness,
+    which structurally CANNOT see token/deploy-key/member admin events — the
+    exact May-incident class.  Every report then carries a coverage-gap note
+    so an "ok" can never be mistaken for credential-event coverage before the
+    S3 audit-stream witness (TET T0) is live."""
+    name = "trail_reconcile"
+    coverage_note = (
+        "coverage limited: interim events-API witness cannot see "
+        "token/deploy-key/member admin events (May-incident class) — "
+        "S3 audit-stream witness (TET T0) required for full coverage"
+        if witness_coverage == "events_api"
+        else ""
+    )
+    try:
+        events = list(witness_events())
+    except Exception as exc:  # noqa: BLE001 - unreadable witness = we are blind
+        return _result(name, "unknown", f"witness unreadable: {exc.__class__.__name__}: {exc}")
+    try:
+        records, chain_ok, chain_verify_detail = (chain_reader or _default_chain_reader)(
+            Path(chain_path)
+        )
+    except ImportError:
+        return _result(
+            name,
+            "unknown",
+            "aragora.trail.intent_chain module not present (TET phase T1 not merged); "
+            "reconciliation degraded — witness events cannot be matched yet",
+        )
+    except FileNotFoundError:
+        return _result(name, "unknown", f"intent chain not yet populated at {chain_path}")
+    except Exception as exc:  # noqa: BLE001 - unreadable chain = we are blind
+        return _result(name, "unknown", f"intent chain unreadable: {exc.__class__.__name__}: {exc}")
+
+    problems: list[str] = []
+    if not chain_ok:
+        problems.append(
+            "critical: intent chain tampered — "
+            + (chain_verify_detail or "verify_chain reported broken")
+        )
+
+    window_seconds = reconcile_window_hours * 3600.0
+    newest_age_hours: float | None = None
+    matched = 0
+    considered = 0
+    malformed = 0
+    for event in events:
+        try:
+            event_ts = parse_iso(str(event.get("created_at", "")))
+        except ValueError:
+            malformed += 1
+            continue
+        age_seconds = (now - event_ts).total_seconds()
+        age_hours = age_seconds / 3600.0
+        if newest_age_hours is None or age_hours < newest_age_hours:
+            newest_age_hours = age_hours
+        classified = classify_witness_event(str(event.get("event_type", "")))
+        if classified is None or age_seconds > window_seconds:
+            continue
+        event_class, severity, allowed_intent_types, require_human = classified
+        considered += 1
+        if _match_intent(
+            event,
+            allowed_intent_types=allowed_intent_types,
+            require_human=require_human,
+            records=records,
+            event_ts=event_ts,
+            pre_window_seconds=match_window_minutes * 60.0,
+            skew_seconds=skew_minutes * 60.0,
+        ):
+            matched += 1
+            continue
+        anchor_hint = (
+            "no scarmani-anchored intent (credential/member events have no agent intent class)"
+            if require_human
+            else "no anchored intent"
+        )
+        problems.append(
+            f"{severity}: {event.get('event_type')} by {event.get('actor')} "
+            f"on {event.get('repo')}"
+            + (f"@{event['ref']}" if event.get("ref") else "")
+            + f" at {event.get('created_at')} — {anchor_hint}"
+        )
+
+    chain_note = f"chain {'ok' if chain_ok else 'TAMPERED'} ({len(records)} record(s)"
+    if chain_verify_detail:
+        chain_note += f"; {chain_verify_detail}"
+    chain_note += ")"
+    blind_note = ""
+    badly_blind = False
+    if newest_age_hours is None:
+        badly_blind = True
+        blind_note = "blind period: witness returned no events at all"
+    elif newest_age_hours > witness_cadence_hours * blind_factor:
+        badly_blind = True
+        blind_note = (
+            f"blind period: newest witness event {newest_age_hours:.1f}h old "
+            f"(cadence {witness_cadence_hours}h badly exceeded, factor {blind_factor})"
+        )
+    elif newest_age_hours > witness_cadence_hours:
+        blind_note = (
+            f"blind-period note: newest witness event {newest_age_hours:.1f}h old "
+            f"(expected cadence {witness_cadence_hours}h)"
+        )
+    if malformed:
+        blind_note = (blind_note + "; " if blind_note else "") + (
+            f"{malformed} malformed witness event(s) skipped"
+        )
+
+    if problems:
+        detail = "; ".join(problems) + f" | {chain_note}"
+        if blind_note:
+            detail += f" | {blind_note}"
+        if coverage_note:
+            detail += f" | {coverage_note}"
+        return _result(name, "breach", detail)
+    if badly_blind:
+        detail = f"{blind_note} | {chain_note}"
+        if coverage_note:
+            detail += f" | {coverage_note}"
+        return _result(name, "unknown", detail)
+    detail = (
+        f"{matched} matched, 0 unmatched of {considered} mutating witness event(s) "
+        f"in {reconcile_window_hours:g}h window; {chain_note}"
+    )
+    if blind_note:
+        detail += f" | {blind_note}"
+    if coverage_note:
+        detail += f" | {coverage_note}"
+    return _result(name, "ok", detail)
+
+
+def _replica_witness_events(path: Path) -> list[dict[str, Any]]:
+    """Local witness replica: JSONL (one normalized event per line) or a JSON
+    array of normalized events ``{event_type, repo, actor, ref, sha,
+    created_at}``."""
+    text = path.read_text()
+    stripped = text.lstrip()
+    if stripped.startswith("["):
+        return list(json.loads(stripped))
+    return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def _default_json_capture(cmd: list[str]) -> str:
+    proc = subprocess.run(  # noqa: S603 - operator-configured command
+        cmd, capture_output=True, text=True, timeout=120, check=True
+    )
+    return proc.stdout
+
+
+def _github_witness_events(
+    repo_slug: str, *, capture: Callable[[list[str]], str] = _default_json_capture
+) -> list[dict[str, Any]]:
+    """Interim witness: GitHub REST events API via ``gh api``.
+
+    This is the visible-but-incomplete witness — token/deploy-key/member admin
+    events are NOT exposed here.  The S3 audit-log stream (TET Component 1,
+    operator phase T0) replaces this as the witness root once enabled; this
+    fetcher then becomes the liveness cross-check.
+    """
+    raw = json.loads(capture(["gh", "api", f"repos/{repo_slug}/events?per_page=100"]))
+    events: list[dict[str, Any]] = []
+    for item in raw:
+        etype = item.get("type", "")
+        payload = item.get("payload") or {}
+        base = {
+            "repo": (item.get("repo") or {}).get("name", ""),
+            "actor": (item.get("actor") or {}).get("login", ""),
+            "created_at": item.get("created_at", ""),
+        }
+        if etype == "PushEvent":
+            ref = str(payload.get("ref", ""))
+            events.append(
+                {
+                    "event_type": "push",
+                    "ref": ref.removeprefix("refs/heads/"),
+                    "sha": str(payload.get("head", "")),
+                    **base,
+                }
+            )
+        elif etype == "DeleteEvent" and payload.get("ref_type") == "branch":
+            events.append(
+                {
+                    "event_type": "branch_deletion",
+                    "ref": str(payload.get("ref", "")),
+                    "sha": "",
+                    **base,
+                }
+            )
+        elif etype == "PullRequestEvent" and payload.get("action") == "closed":
+            pr = payload.get("pull_request") or {}
+            if pr.get("merged"):
+                events.append(
+                    {
+                        "event_type": "merge",
+                        "ref": str((pr.get("base") or {}).get("ref", "")),
+                        "sha": str(pr.get("merge_commit_sha", "") or ""),
+                        "pr": str(pr.get("number", "") or ""),
+                        **base,
+                    }
+                )
+        elif etype == "MemberEvent":
+            events.append(
+                {
+                    "event_type": f"member_{payload.get('action', 'change')}",
+                    "ref": "",
+                    "sha": "",
+                    **base,
+                }
+            )
+    return events
+
+
+# ---------------------------------------------------------------------------
 # Report, exit contract, ledger, notification
 # ---------------------------------------------------------------------------
 
@@ -606,6 +1054,31 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         probe_cmd=shlex.split(args.rate_limit_cmd),
                     )
                 )
+            elif name == "trail_reconcile":
+                if args.trail_witness_replica:
+                    replica = Path(args.trail_witness_replica)
+                    fetcher: Callable[[], list[dict[str, Any]]] = (
+                        lambda replica=replica: _replica_witness_events(replica)
+                    )
+                    coverage = "full"
+                else:
+                    fetcher = lambda slug=args.trail_witness_repo: _github_witness_events(slug)  # noqa: E731
+                    coverage = "events_api"
+                results.append(
+                    check_trail_reconcile(
+                        witness_events=fetcher,
+                        chain_path=Path(args.trail_chain),
+                        chain_reader=(
+                            _jsonl_chain_reader if args.trail_chain_format == "jsonl" else None
+                        ),
+                        now=now,
+                        match_window_minutes=args.trail_match_window_mins,
+                        skew_minutes=args.trail_match_skew_mins,
+                        witness_cadence_hours=args.trail_witness_cadence_hours,
+                        reconcile_window_hours=args.trail_window_hours,
+                        witness_coverage=coverage,
+                    )
+                )
         except Exception as exc:  # noqa: BLE001 - a crashed check is a blind spot, not success
             results.append(
                 _result(name, "unknown", f"check crashed: {exc.__class__.__name__}: {exc}")
@@ -660,6 +1133,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="consecutive failed publisher passes before degradation counts as persistent",
     )
     parser.add_argument("--rate-limit-cmd", default="gh api rate_limit")
+    parser.add_argument(
+        "--trail-witness-replica",
+        default=None,
+        help="local witness-replica file (normalized events, JSONL or JSON array); "
+        "when unset, the interim GitHub REST events witness is used. The S3 "
+        "audit-stream witness (TET T0, operator task) wires in here once enabled.",
+    )
+    parser.add_argument("--trail-witness-repo", default="synaptent/aragora")
+    parser.add_argument(
+        "--trail-chain",
+        default=str(repo_root / ".aragora" / "trail" / "intent-chain.jsonl"),
+        help="anchored intent chain (TET Component 2; lane TA's intent_chain module)",
+    )
+    parser.add_argument(
+        "--trail-chain-format",
+        choices=("intent_chain", "jsonl"),
+        default="intent_chain",
+        help="'intent_chain' verifies hashes via aragora.trail.intent_chain; "
+        "'jsonl' is the schema-only fallback reader (reported as unverified)",
+    )
+    parser.add_argument("--trail-match-window-mins", type=float, default=15.0)
+    parser.add_argument("--trail-match-skew-mins", type=float, default=2.0)
+    parser.add_argument("--trail-witness-cadence-hours", type=float, default=6.0)
+    parser.add_argument("--trail-window-hours", type=float, default=24.0)
     parser.add_argument(
         "--ledger",
         default=str(repo_root / ".aragora" / "fleet-sentinel" / "ledger.jsonl"),

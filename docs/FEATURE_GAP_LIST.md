@@ -4,8 +4,45 @@
 > **For current execution sequencing** (what to work on right now, what is gated, what is delayed), defer to [docs/status/NEXT_STEPS_CANONICAL.md](status/NEXT_STEPS_CANONICAL.md). Active execution status is tracked in [docs/status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md) and linked GitHub issues. **This file is the long-horizon capability and productization backlog** — the P0–P4 tiering expresses intended ordering, not dispatch readiness.
 > **For the unified finish-line vision and stage model**, see [docs/CANONICAL_GOALS.md](CANONICAL_GOALS.md). The Decision Integrity Core tranche (crux engine, executable claims, proof-carrying code) is gated on Foreman reliability per [docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md](plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md).
 > **For concrete 30/90/365-day timing**, the [3-Horizon Execution Roadmap](plans/2026-04-18-3-horizon-roadmap.md) provides the sprint-level overlay. P0/P1 items map to H1/H2 deliverables; P2/P3 items map to H3; P4 items are the deferred maximalist backlog.
-> Last updated: April 18, 2026
+> Last updated: June 11, 2026
 > March 2026 priority reframe: product cohesion and PMF proof come before certification. Pentest / SOC 2 stay tracked, but they are no longer the first blocker lane.
+
+## Revision 2026-06-11 — ODR direction (epic [#8223](https://github.com/synaptent/aragora/issues/8223))
+
+This revision reconciles the list against the June 11, 2026 strategy/market/capability investigation (recorded in epic #8223). Three changes:
+
+1. **Active direction:** the [Open Decision Receipt (ODR) tranche](#active-direction--open-decision-receipt-odr-june-2026) is now the priority spine — own the decision-semantics layer (rationale + adversarial quorum + calibrated confidence + crux + human attestation) above action-level agent governance, where Microsoft's Agent Governance Toolkit stops.
+2. **Built-but-dormant honesty:** a [dormant-capability table](#built-but-dormant--june-11-2026-capability-map) marks engines that exist in the codebase but have little or no productized surface, so future agents stop re-planning them from scratch.
+3. **De-scope annotations:** entries the proof-first shift and the steering-leverage selection filter deliberately excluded (breadth without steering value) are annotated in place, not deleted — the history stays legible.
+
+## Active Direction — Open Decision Receipt (ODR, June 2026)
+
+Epic: [#8223](https://github.com/synaptent/aragora/issues/8223). Sequencing: ODR-1→2→3 form the spine (a receipt a stranger can verify); 4/5/6 enrich the payload; 7 makes anchoring public. These supersede the P0/P1 ordering below as the current execution priority.
+
+| Item | Issue | Value rationale (one line) |
+|------|-------|----------------------------|
+| ODR-1 vendor-neutral receipt content profile (JSON Schema + JCS, SCITT-ready) | [#8224](https://github.com/synaptent/aragora/issues/8224) | A receipt format third parties can consume is the wedge; everything else rides on it. |
+| ODR-2 Ed25519 public-key signing for DecisionReceipts | [#8225](https://github.com/synaptent/aragora/issues/8225) | HMAC = shared secret = receipts only verify inside Aragora; public-key signing makes them verifiable by strangers. |
+| ODR-3 `aragora-verify` standalone offline verifier (PyPI) + `/api/receipts/verify` | [#8226](https://github.com/synaptent/aragora/issues/8226) | The verifier is the product claim: anyone can check a receipt without trusting (or running) Aragora. |
+| ODR-4 expose the crux finder (API, CLI flag, SDK, crux set in receipts) | [#8227](https://github.com/synaptent/aragora/issues/8227) | The crux is the highest-value decision-semantics payload; the engine exists with no public surface (see dormant table). |
+| ODR-5 calibration report API + calibrated confidence in receipts | [#8229](https://github.com/synaptent/aragora/issues/8229) | Calibration data is collected but opaque to users; auditable confidence is what regulators and buyers actually ask for. |
+| ODR-6 human-oversight attestation + EU AI Act Art. 14 / NIST evidence pack | [#8230](https://github.com/synaptent/aragora/issues/8230) | Proof an accountable human governed the decision — demanded by Art. 14 with no tooling owner anywhere. |
+| ODR-7 Sigstore Rekor public anchoring for receipts + intent-chain heads | [#8231](https://github.com/synaptent/aragora/issues/8231) | Public transparency-log anchoring closes the tamper-evidence gap without running our own infrastructure. |
+| Decision-stakes model routing (wire dormant Pareto optimizer, record rationale in receipts) | [#8233](https://github.com/synaptent/aragora/issues/8233) | "Why was this model trusted with this decision, at what cost" is itself decision-semantics; cost-per-settled-PR becomes a measurable claim. |
+| Jury composition optimizer (min-cost heterogeneous quorum for target reliability) | [#8234](https://github.com/synaptent/aragora/issues/8234) | Turns ELO + calibration + outcome data into cheaper quorums with provable reliability targets. |
+
+## Built But Dormant — June 11, 2026 capability map
+
+Engines that exist and substantially work, but have little or no productized surface. Statuses below were re-verified against the codebase on 2026-06-11 (module paths listed). Honesty rule: "dormant" means *unexposed or unused*, not *unbuilt*.
+
+| Capability | Where it lives | Verified state (2026-06-11) | Path out of dormancy |
+|------------|----------------|------------------------------|----------------------|
+| Crux detector | `aragora/reasoning/crux_detector.py`, `aragora/debate/crux_mode.py` | Engine complete; internal operator CLI surfaces exist (`aragora crux`/`cruxset`/`crux-arbitrate`/`crux-garden`, DIC tranche) but there is no public API endpoint, no SDK method, and no crux set in receipts — zero external exposure. | [#8227](https://github.com/synaptent/aragora/issues/8227) (ODR-4) |
+| Blockchain / ERC-8004 | `aragora/blockchain/` (registries, staking, receipt anchor, wallet) | Module + `/api/v1/blockchain/*` handler exist in-tree, but contracts are deployed to no network, staking/slashing is not wired into debate outcomes, and nothing in the product loop uses it — no operative public surface. | De-scoped by the steering-leverage filter ("blockchain expansion: breadth, no steering"). Receipt anchoring need is served by [#8231](https://github.com/synaptent/aragora/issues/8231) (Rekor) instead. |
+| Marketplace | `aragora/marketplace/` (~2.5k LOC: catalog, registry, installer, service) + browse/pilot handlers | Code and seed catalog exist; no public marketplace deployment, no published third-party content, no users. | Stays parked (P3, de-scoped) until PMF proof; no ODR issue. |
+| Inbox trust wedge | `aragora/inbox/` + `aragora triage` CLI (auth, run, --dry-run) | CLI-complete and receipt-gated end-to-end; founder feedback (May 14, 2026) found the CLI surface unpleasant and classification quality "so-so" — will only be retested as a polished web GUI. | Web GUI before any retest; not currently scheduled. |
+| Pareto provider router | `aragora/routing/cost_quality_optimizer.py` + pricing DB | Optimizer shipped (PR #724) and runtime wiring landed (#1167), but the loop's own pipeline does not route by decision stakes and no routing rationale is recorded — dormant in practice. | [#8233](https://github.com/synaptent/aragora/issues/8233) |
+| Tamper-evident audit trail | Audit-trail API (`aragora/server/handlers/audit_trail.py`) + `/audit-trail` UI page exist and are wired | Existing trail verifies checksums but is not tamper-evident under a compromised-operator threat model (no external witness, no append-only anchoring). TET is building that backend now: spec at `docs/specs/TAMPER_EVIDENT_TRAIL.md` (Tier-2 build, operator-requested 2026-06-11). | TET build phases; public anchoring via [#8231](https://github.com/synaptent/aragora/issues/8231). |
 
 ## How to Read This List
 
@@ -23,7 +60,7 @@
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Truthful live founder loop | **PROVEN — moved to Completed** | 5/5 consecutive live runs pass (35-62s, March 24, 2026). Test baseline: `71 passed` (focused) / `125 passed` (extended). Receipts persist to store for API/dashboard visibility. All 7 acceptance checklist items pass. |
-| Smart provider routing | **Shipped on `main`; live proof pending** | PR #724 shipped the Pareto optimizer and pricing database. Runtime wiring landed on `main` via [#1167](https://github.com/synaptent/aragora/pull/1167), and downstream runtime hints are applied through the debate path. The remaining obligation is to prove that routing behaves well in the live founder loop rather than to debate whether the wiring exists. Historical lineage: [#813](https://github.com/synaptent/aragora/issues/813). |
+| Smart provider routing | **Shipped on `main`; live proof pending** | PR #724 shipped the Pareto optimizer and pricing database. Runtime wiring landed on `main` via [#1167](https://github.com/synaptent/aragora/pull/1167), and downstream runtime hints are applied through the debate path. The remaining obligation is to prove that routing behaves well in the live founder loop rather than to debate whether the wiring exists. Historical lineage: [#813](https://github.com/synaptent/aragora/issues/813). **June 2026:** in practice the optimizer is dormant (see dormant table); decision-stakes routing with receipt-recorded rationale is now [#8233](https://github.com/synaptent/aragora/issues/8233). |
 | Complete one working user journey | **Mocked proof passes; live proof still open** | The relevant slices are on `main`: live settings/API-key wiring ([#1146](https://github.com/synaptent/aragora/pull/1146)), live debate creation ([#1147](https://github.com/synaptent/aragora/pull/1147)), onboarding/get-started ([#1170](https://github.com/synaptent/aragora/pull/1170)), quickstart fail-closed behavior ([#1180](https://github.com/synaptent/aragora/pull/1180)), and structured quickstart receipts ([#1192](https://github.com/synaptent/aragora/pull/1192)). The current gap is one repeatable live proof, not another architecture slice. Historical lineage: [#1046](https://github.com/synaptent/aragora/issues/1046). |
 | Knowledge Mound reads enrich debate context | **Shipped on `main`; live read/write proof pending** | Retrieval, precedent loading, and writeback groundwork landed via [#1111](https://github.com/synaptent/aragora/pull/1111), [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), [#1134](https://github.com/synaptent/aragora/pull/1134), [#1151](https://github.com/synaptent/aragora/pull/1151), [#1168](https://github.com/synaptent/aragora/pull/1168), and [#1176](https://github.com/synaptent/aragora/pull/1176). The remaining question is whether that read/write path is visible and trustworthy in the live founder loop. Historical lineage: [#1048](https://github.com/synaptent/aragora/issues/1048). |
 | Debate output quality | **VALIDATED — moved to Completed** | Run 012 (Mar 5): composite 8.38-9.39/10. Diverse benchmark (10 domains): 100% pass, avg composite 0.938. |
@@ -52,7 +89,7 @@
 |---------|--------|-------|
 | External penetration test | Scope and outreach artifacts ready; vendor selection pending | Kickoff stays warm, but certification is intentionally sequenced after the product loop is usable. Operational status is tracked in `security/pentest/VENDOR_OUTREACH_LOG.md`; work remains tracked in [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509). |
 | Semantic convergence (full embedding) | **VALIDATED — moved to Completed** | PR #723 migrated 5 similarity modules from difflib to embedding-based. Remaining difflib usage is exclusively for text diff display, not similarity. |
-| ERC-8004 on-chain deployment | Contracts written | Solidity contracts exist; not deployed to any mainnet. Needs chain endpoint config + gas management. Tracked in [#816](https://github.com/synaptent/aragora/issues/816). |
+| ERC-8004 on-chain deployment | Contracts written — **de-scoped (June 2026)** | Solidity contracts exist; not deployed to any mainnet. Needs chain endpoint config + gas management. Tracked in [#816](https://github.com/synaptent/aragora/issues/816). **June 2026:** explicitly excluded by the steering-leverage selection filter ("blockchain expansion: breadth, no steering"); public anchoring need is served by Rekor ([#8231](https://github.com/synaptent/aragora/issues/8231)) instead. Kept for history, not dispatch. |
 | Decision-Integrity UI Workbench | Partial frontend | Existing workbench pages render, but they do not replace the PMF need for five truthful user-facing paths. Remaining canvas and data wiring work stays secondary to `#1047`. |
 | SOC 2 Type II audit engagement | Scope doc ready | 60+ controls implemented (98%); pentest scope doc v3.1.0 finalized; vendor shortlisted (NCC, Bishop Fox, Trail of Bits, Cure53). Blocker: vendor selection + engagement. |
 | Enterprise Communication Hub (#293) | **Epic closed** | PR #726: template persistence, router event wiring, E2E tests. Delivery log, retry queue, circuit breakers, event telemetry, user preference UI, Active Triage dashboard, TriageRulesPanel all shipped. Remaining: inbox→debate trigger wiring end-to-end validation, tracked in [#817](https://github.com/synaptent/aragora/issues/817). |
@@ -61,14 +98,16 @@
 
 ## P3 — Scale & Revenue (Q3–Q4 2026)
 
+> **June 2026 annotation:** the proof-first shift and the steering-leverage selection filter de-scoped this tier's breadth items (more verticals, marketplace breadth, generic expansion) until PMF/steering proof exists. Rows are annotated, not deleted.
+
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Cloud marketplace listings | Not started | AWS Marketplace + Azure Marketplace listings. Infrastructure ready. |
-| Vertical packages | Not started | Healthcare (FHIR, HIPAA), Financial (SOX, risk), Legal (contracts, discovery). Guides exist; packages not assembled. |
-| Skills Marketplace pilot | Scaffolding | SkillRegistry + SkillMarketplace code exists; no public marketplace endpoint. |
+| Cloud marketplace listings | Not started — de-scoped (June 2026) | AWS Marketplace + Azure Marketplace listings. Infrastructure ready. Parked until PMF proof. |
+| Vertical packages | Not started — de-scoped (June 2026) | Healthcare (FHIR, HIPAA), Financial (SOX, risk), Legal (contracts, discovery). Guides exist; packages not assembled. Steering filter: "more verticals = breadth, no steering". |
+| Skills Marketplace pilot | Scaffolding — de-scoped (June 2026) | SkillRegistry + SkillMarketplace code exists (~2.5k LOC, see dormant table); no public marketplace endpoint or published content. Parked until PMF proof. |
 | On-premise deployment productization | Partial | Docker Compose + Helm chart exist; on-prem installer/wizard not built. |
-| International expansion / EU data residency | Not started | Data residency controls needed for EU enterprise buyers. |
-| Compute escrow mechanism | Not started | Settlement stakes via crypto compute escrow. Design in docs/plans/. |
+| International expansion / EU data residency | Not started — de-scoped (June 2026) | Data residency controls needed for EU enterprise buyers. Parked until enterprise pilots exist. |
+| Compute escrow mechanism | Not started — de-scoped (June 2026) | Settlement stakes via crypto compute escrow. Design in docs/plans/. Steering filter: blockchain expansion excluded. |
 
 ---
 
@@ -81,7 +120,7 @@
 | Truth scorer integrated into vote weights | **Shipped and wired** | `TruthScorer` (398 LOC) scores evidence-vs-rhetoric ratio per proposal. `apply_truth_ratio_bonuses()` in `VoteBonusCalculator` rewards high truth ratios. Enable via `protocol.enable_truth_ratio_weighting=True`. |
 | Epistemic hygiene + anti-sycophancy | **Shipped and integrated** | ~1,695 LOC across `epistemic_hygiene.py`, `trickster.py`, `trickster_calibrator.py`. Fully integrated into consensus, settlement, prompt assembly, and server. ~3,744 LOC tests. |
 | Prompt-to-spec engine | **Shipped** | `aragora spec` CLI command completes in ~23s. Decompose→interrogate→research→specify pipeline. `aragora/prompt_engine/` module (decomposer, interrogator, researcher, spec_builder, conductor). |
-| Canvas GUI (8-stage visual DAG) | Partial frontend | Prompt-engine page exists; full 8-stage visual canvas missing. |
+| Canvas GUI (8-stage visual DAG) | Partial frontend — de-scoped (June 2026) | Prompt-engine page exists; full 8-stage visual canvas missing. Steering filter: "frontend breadth" excluded until steering surfaces prove out. |
 | Market resolution mechanism | Design only | Long-horizon settlement claim pricing via prediction market. |
 | STOP N-candidate for Nomic Loop | Design only | Multi-plan generation before committing to self-improvement path. |
 | Meta-improver for debate protocols | Design only | A/B test protocol variants using Nomic Loop. |
@@ -106,7 +145,7 @@
 |---------|---------------|-----|
 | Self-improving platform quality | Nomic Loop 100% wired; 82 E2E tests; CLB backbone hardened (14/14 issues closed); safety gates + gauntlet gate + evolution audit + golden-path test; **Ralph V14 benchmark validated full autonomous loop** (PRs #1004-#1006) | Diverse benchmark validated (100% pass). Production safety gate requires ENABLE_NOMIC_LOOP=true. Ralph autonomy loop closed for `merge_policy=admin_merge_allowed`. |
 | Autonomous self-assessment loop | `IdeaToExecutionPipeline.from_system_metrics()`, `SelfImprovePipeline`, `NomicLoop`, `execute_to_github_issue()`, `plan_from_issue_list()`, worktree autopilot, the canonical assessment compiler, and the pause-refresh shift controller exist on `main` | The remaining truth gap is the control plane: no canonical developer task queue/claim protocol, no universal per-lane run receipt/provenance artifact, and no integrator view tying claims, receipts, heartbeats, and merge readiness together. Tracked in [#1036](https://github.com/synaptent/aragora/issues/1036), [#837](https://github.com/synaptent/aragora/issues/837), [#842](https://github.com/synaptent/aragora/issues/842), [#843](https://github.com/synaptent/aragora/issues/843), and [#990](https://github.com/synaptent/aragora/issues/990). |
-| Blockchain receipts | SHA-256 cryptographic hashing works; StakingRegistry (stake/slash/unstake/rewards); ComputeBudgetManager; ReceiptAnchor; SlashEvent model (hollow_consensus, factual_error, calibration_drift) | On-chain storage with ERC-8004 (not deployed); staking/slashing NOT wired into debate outcome loop; agent selection not weighted by compute budget. Tracked in new GitHub issue. |
+| Blockchain receipts | SHA-256 cryptographic hashing works; StakingRegistry (stake/slash/unstake/rewards); ComputeBudgetManager; ReceiptAnchor; SlashEvent model (hollow_consensus, factual_error, calibration_drift) | On-chain storage with ERC-8004 (not deployed); staking/slashing NOT wired into debate outcome loop; agent selection not weighted by compute budget. **June 2026:** ERC-8004 path de-scoped (see dormant table); receipt anchoring proceeds via Sigstore Rekor ([#8231](https://github.com/synaptent/aragora/issues/8231)). |
 | Semantic convergence | **Migrated** (PR #723) | All similarity paths use embeddings. Only `unified_diff` (text display) uses difflib. |
 | OpenClaw execution | **Core loop shipped** (PR #727) | CodeImplementationTask + SpecExtractor + receipt linkage. Production validation pending. |
 | RLM context access | Code complete (92 exports, 27 test files, 15k LOC) | No user-facing guide; integration with default Arena config unclear; training pipeline (buffer/policy/reward/trainer) untested E2E. Tracked in new GitHub issue. |

@@ -205,7 +205,7 @@ export class UnifiedInboxAPI {
   async getGmailOAuthUrl(redirectUri: string, state?: string): Promise<OAuthUrlResponse> {
     const params: Record<string, string> = { redirect_uri: redirectUri };
     if (state) params.state = state;
-    return this.client.request('GET', '/inbox/oauth/gmail', { params });
+    return this.client.request('GET', '/api/v1/inbox/oauth/gmail', { params });
   }
 
   /**
@@ -218,7 +218,7 @@ export class UnifiedInboxAPI {
   async getOutlookOAuthUrl(redirectUri: string, state?: string): Promise<OAuthUrlResponse> {
     const params: Record<string, string> = { redirect_uri: redirectUri };
     if (state) params.state = state;
-    return this.client.request('GET', '/inbox/oauth/outlook', { params });
+    return this.client.request('GET', '/api/v1/inbox/oauth/outlook', { params });
   }
 
   // ===========================================================================
@@ -232,7 +232,7 @@ export class UnifiedInboxAPI {
    * @returns Connected account details
    */
   async connect(request: ConnectAccountRequest): Promise<{ account: ConnectedAccount; message: string }> {
-    return this.client.request('POST', '/inbox/connect', {
+    return this.client.request('POST', '/api/v1/inbox/connect', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -243,7 +243,7 @@ export class UnifiedInboxAPI {
    * @returns Array of connected accounts
    */
   async listAccounts(): Promise<{ accounts: ConnectedAccount[]; total: number }> {
-    return this.client.request('GET', '/inbox/accounts');
+    return this.client.request('GET', '/api/v1/inbox/accounts');
   }
 
   /**
@@ -253,7 +253,7 @@ export class UnifiedInboxAPI {
    * @returns Confirmation message
    */
   async disconnect(accountId: string): Promise<{ message: string; account_id: string }> {
-    return this.client.request('DELETE', `/inbox/accounts/${accountId}`);
+    return this.client.request('DELETE', `/api/v1/inbox/accounts/${accountId}`);
   }
 
   // ===========================================================================
@@ -273,7 +273,7 @@ export class UnifiedInboxAPI {
     offset: number;
     has_more: boolean;
   }> {
-    return this.client.request('GET', '/inbox/messages', {
+    return this.client.request('GET', '/api/v1/inbox/messages', {
       params: params as unknown as Record<string, unknown>,
     });
   }
@@ -288,7 +288,7 @@ export class UnifiedInboxAPI {
     message: UnifiedMessage;
     triage: TriageResult | null;
   }> {
-    return this.client.request('GET', `/inbox/messages/${messageId}`);
+    return this.client.request('GET', `/api/v1/inbox/messages/${messageId}`);
   }
 
   // ===========================================================================
@@ -308,7 +308,7 @@ export class UnifiedInboxAPI {
     results: TriageResult[];
     total_triaged: number;
   }> {
-    return this.client.request('POST', '/inbox/triage', {
+    return this.client.request('POST', '/api/v1/inbox/triage', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -325,7 +325,7 @@ export class UnifiedInboxAPI {
     error_count: number;
     errors: Array<{ id: string; error: string }> | null;
   }> {
-    return this.client.request('POST', '/inbox/bulk-action', {
+    return this.client.request('POST', '/api/v1/inbox/bulk-action', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -340,7 +340,7 @@ export class UnifiedInboxAPI {
    * @returns Comprehensive inbox metrics
    */
   async getStats(): Promise<{ stats: InboxStats }> {
-    return this.client.request('GET', '/inbox/stats');
+    return this.client.request('GET', '/api/v1/inbox/stats');
   }
 
   /**
@@ -350,7 +350,7 @@ export class UnifiedInboxAPI {
    * @returns Trend analysis
    */
   async getTrends(days: number = 7): Promise<{ trends: InboxTrends }> {
-    return this.client.request('GET', '/inbox/trends', { params: { days } });
+    return this.client.request('GET', '/api/v1/inbox/trends', { params: { days } });
   }
 
   // =========================================================================
@@ -392,11 +392,17 @@ export class UnifiedInboxAPI {
     sent_at: string;
     status: string;
   }> {
-    return this.client.request('POST', '/inbox/messages/send', { json: request });
+    return this.client.request('POST', '/api/v1/inbox/messages/send', { json: request });
   }
 
   /**
    * Reply to a message.
+   *
+   * NOTE: kept at its legacy non-versioned path. The versioned reply
+   * endpoint (POST /api/v1/inbox/messages/{id}/reply) is defined in
+   * aragora/server/handlers/inbox/email_actions.py but is not mounted
+   * into the live route registry yet, so this path is tracked in the
+   * SDK drift baselines pending server-side wiring.
    */
   async reply(
     messageId: string,

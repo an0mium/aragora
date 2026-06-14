@@ -865,3 +865,536 @@ def test_notify_embedded_placeholder_neutralizes_quote_injection() -> None:
     assert script.count('"') == 4
     assert "\\" not in script
     assert "detail 'x' / end" in script
+
+
+# ---------------------------------------------------------------------------
+# trail_reconcile (TET Component 3 — witness vs anchored-intent reconciliation)
+# ---------------------------------------------------------------------------
+
+T_NOW = sentinel.parse_iso("2026-06-11T12:00:00Z")
+REPO = "synaptent/aragora"
+
+
+def _witness_event(
+    event_type: str,
+    *,
+    actor: str = "an0mium",
+    repo: str = REPO,
+    ref: str = "main",
+    sha: str = "abc1234def",
+    age_minutes: float = 10.0,
+) -> dict[str, Any]:
+    ts = sentinel.parse_iso("2026-06-11T12:00:00Z").timestamp() - age_minutes * 60
+    from datetime import datetime, timezone
+
+    created = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+    return {
+        "event_type": event_type,
+        "repo": repo,
+        "actor": actor,
+        "ref": ref,
+        "sha": sha,
+        "created_at": created,
+    }
+
+
+def _intent(
+    intent_type: str,
+    *,
+    actor_class: str = "agent",
+    target: str = f"{REPO}@main",
+    age_minutes: float = 12.0,
+    seq: int = 1,
+) -> dict[str, Any]:
+    ts = sentinel.parse_iso("2026-06-11T12:00:00Z").timestamp() - age_minutes * 60
+    from datetime import datetime, timezone
+
+    anchored = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+    return {
+        "seq": seq,
+        "ts": anchored,
+        "actor_class": actor_class,
+        "intent_type": intent_type,
+        "target": target,
+        "intent_id": f"intent-{seq}",
+        "prev_hash": "0" * 64,
+        "record_hash": "f" * 64,
+    }
+
+
+def _reconcile(
+    events: list[dict[str, Any]],
+    records: list[dict[str, Any]] | None,
+    *,
+    chain_ok: bool = True,
+    chain_detail: str = "",
+    **kwargs: Any,
+) -> dict[str, Any]:
+    def witness() -> list[dict[str, Any]]:
+        return events
+
+    def chain_reader(path: Path) -> tuple[list[dict[str, Any]], bool, str]:
+        if records is None:
+            raise FileNotFoundError(path)
+        return records, chain_ok, chain_detail
+
+    defaults: dict[str, Any] = {
+        "witness_events": witness,
+        "chain_path": Path("/nonexistent/intent-chain.jsonl"),
+        "chain_reader": chain_reader,
+        "now": T_NOW,
+    }
+    defaults.update(kwargs)
+    return sentinel.check_trail_reconcile(**defaults)
+
+
+def test_trail_reconcile_module_absent_is_unknown() -> None:
+    """No chain_reader injected -> lazy import of aragora.trail.intent_chain.
+
+    Until lane TA merges, the module does not exist; the check must degrade
+    honestly to unknown, never ok and never a false breach.
+    """
+    result = sentinel.check_trail_reconcile(
+        witness_events=lambda: [_witness_event("merge")],
+        chain_path=Path("/nonexistent/intent-chain.jsonl"),
+        now=T_NOW,
+    )
+    assert result["check"] == "trail_reconcile"
+    if "intent_chain" in result["detail"] and "not present" in result["detail"]:
+        assert result["status"] == "unknown"
+    else:
+        # Module exists (TA merged): absent chain file is still unknown.
+        assert result["status"] == "unknown"
+
+
+def test_trail_reconcile_chain_not_populated_is_unknown() -> None:
+    result = _reconcile([_witness_event("merge")], records=None)
+    assert result["status"] == "unknown"
+    assert "not yet populated" in result["detail"]
+
+
+def test_trail_reconcile_witness_unreadable_is_unknown() -> None:
+    def broken_witness() -> list[dict[str, Any]]:
+        raise OSError("S3 replica unreachable")
+
+    result = sentinel.check_trail_reconcile(
+        witness_events=broken_witness,
+        chain_path=Path("/nonexistent"),
+        chain_reader=lambda p: ([], True, ""),
+        now=T_NOW,
+    )
+    assert result["status"] == "unknown"
+    assert "witness" in result["detail"].lower()
+
+
+def test_trail_reconcile_tampered_chain_is_critical_breach() -> None:
+    result = _reconcile(
+        [],
+        records=[_intent("merge")],
+        chain_ok=False,
+        chain_detail="hash mismatch at seq 7",
+    )
+    assert result["status"] == "breach"
+    assert "critical" in result["detail"]
+    assert "tampered" in result["detail"]
+    assert "seq 7" in result["detail"]
+
+
+def test_trail_reconcile_matched_merge_is_ok() -> None:
+    result = _reconcile([_witness_event("merge")], records=[_intent("merge")])
+    assert result["status"] == "ok"
+    assert "0 unmatched" in result["detail"]
+    assert "chain ok" in result["detail"]
+
+
+def test_trail_reconcile_unmatched_push_is_high_breach() -> None:
+    result = _reconcile([_witness_event("push")], records=[])
+    assert result["status"] == "breach"
+    assert "high" in result["detail"]
+    assert "push" in result["detail"]
+    assert "an0mium" in result["detail"]  # enumerates the unaccounted event
+
+
+def test_trail_reconcile_intent_type_must_match_event_class() -> None:
+    """A merge intent does not excuse a branch deletion."""
+    result = _reconcile(
+        [_witness_event("branch_deletion", ref="elves/run-x")],
+        records=[_intent("merge", target=f"{REPO}@elves/run-x")],
+    )
+    assert result["status"] == "breach"
+    assert "branch_deletion" in result["detail"]
+
+
+def test_trail_reconcile_target_must_reference_ref_or_sha() -> None:
+    """An intent for another branch does not excuse this push."""
+    result = _reconcile(
+        [_witness_event("push", ref="main", sha="deadbeef99")],
+        records=[_intent("push", target=f"{REPO}@feature/other")],
+    )
+    assert result["status"] == "breach"
+
+
+def test_trail_reconcile_intent_anchored_after_event_not_matched() -> None:
+    """Pre-anchoring contract: an intent recorded AFTER the action (beyond
+    clock-skew grace) cannot retroactively legitimize it."""
+    result = _reconcile(
+        [_witness_event("merge", age_minutes=30.0)],
+        records=[_intent("merge", age_minutes=10.0)],  # 20 min AFTER the event
+    )
+    assert result["status"] == "breach"
+
+
+def test_trail_reconcile_intent_too_old_not_matched() -> None:
+    """An intent anchored far outside the window cannot be replayed forever."""
+    result = _reconcile(
+        [_witness_event("merge", age_minutes=10.0)],
+        records=[_intent("merge", age_minutes=300.0)],
+        match_window_minutes=15.0,
+    )
+    assert result["status"] == "breach"
+
+
+def test_trail_reconcile_credential_event_needs_human_anchor() -> None:
+    """Token/key events have no legitimate agent intent class: an
+    agent-anchored intent does NOT excuse them (spec Component 3)."""
+    result = _reconcile(
+        [_witness_event("token_created", actor="an0mium", ref="", sha="")],
+        records=[_intent("token_created", actor_class="agent", target=REPO)],
+    )
+    assert result["status"] == "breach"
+    assert "critical" in result["detail"]
+
+
+def test_trail_reconcile_credential_event_with_scarmani_anchor_ok() -> None:
+    result = _reconcile(
+        [_witness_event("token_created", actor="scarmani", ref="", sha="")],
+        records=[_intent("token_created", actor_class="scarmani", target=REPO)],
+    )
+    assert result["status"] == "ok"
+
+
+def test_trail_reconcile_unknown_actor_matches_nothing() -> None:
+    result = _reconcile(
+        [_witness_event("merge", actor="attacker-9000")],
+        records=[_intent("merge")],
+    )
+    assert result["status"] == "breach"
+    assert "attacker-9000" in result["detail"]
+
+
+def test_trail_reconcile_non_mutating_events_ignored() -> None:
+    result = _reconcile(
+        [_witness_event("issue_comment"), _witness_event("watch_started")],
+        records=[],
+    )
+    assert result["status"] == "ok"
+
+
+def test_trail_reconcile_events_outside_window_ignored() -> None:
+    """A mutating event older than the reconcile window is not re-litigated
+    (it was already reconciled in earlier cycles).  A fresh non-mutating event
+    keeps the witness demonstrably alive so blind accounting stays quiet."""
+    result = _reconcile(
+        [
+            _witness_event("push", age_minutes=60 * 50),  # ~2 days old
+            _witness_event("issue_comment", age_minutes=5),
+        ],
+        records=[],
+        reconcile_window_hours=24.0,
+    )
+    assert result["status"] == "ok"
+    assert "0 unmatched" in result["detail"]
+
+
+def test_trail_reconcile_mild_witness_silence_visible_but_quiet() -> None:
+    """Newest witness event older than cadence -> blind-period note, still ok."""
+    result = _reconcile(
+        [_witness_event("merge", age_minutes=8 * 60)],
+        records=[_intent("merge", age_minutes=8 * 60 + 2)],
+        witness_cadence_hours=6.0,
+    )
+    assert result["status"] == "ok"
+    assert "blind" in result["detail"].lower()
+
+
+def test_trail_reconcile_badly_exceeded_silence_is_unknown() -> None:
+    """Silence is never success: witness silent for 4x cadence -> unknown."""
+    result = _reconcile(
+        [],
+        records=[],
+        witness_cadence_hours=6.0,
+        reconcile_window_hours=200.0,
+    )
+    assert result["status"] == "unknown"
+    assert "blind" in result["detail"].lower() or "silen" in result["detail"].lower()
+
+
+def test_trail_reconcile_breach_outranks_blind_note() -> None:
+    """Observed breaches must not be masked by concurrent mild silence."""
+    result = _reconcile(
+        [_witness_event("push", age_minutes=7 * 60)],
+        records=[],
+        witness_cadence_hours=6.0,
+    )
+    assert result["status"] == "breach"
+
+
+def test_trail_reconcile_registered_in_all_checks() -> None:
+    assert "trail_reconcile" in sentinel.ALL_CHECKS
+
+
+# ---------------------------------------------------------------------------
+# T5 — incident-replay acceptance (the TET spec's falsifiable exit metric)
+# ---------------------------------------------------------------------------
+
+
+def test_breach_replay_may_incident_unauthorized_credential(tmp_path: Path) -> None:
+    """T5 acceptance: re-enact the May-incident class — a token created and a
+    deploy key added from an unknown actor with NO matching anchored intent
+    must raise a CRITICAL breach within ONE sentinel evaluation.
+
+    This is the falsifiable exit metric from
+    docs/specs/TAMPER_EVIDENT_TRAIL.md ("a simulated unauthorized action
+    raises a critical breach within one sentinel cycle").
+    """
+    incident = [
+        _witness_event("token_created", actor="unknown-ctx-7", ref="", sha="", age_minutes=5),
+        _witness_event("deploy_key_added", actor="unknown-ctx-7", ref="", sha="", age_minutes=4),
+    ]
+    # A normal day's chain exists around the incident — it must not excuse it.
+    records = [_intent("merge", seq=1, age_minutes=20), _intent("push", seq=2, age_minutes=40)]
+    result = _reconcile(incident, records=records)
+    assert result["status"] == "breach"
+    assert "critical" in result["detail"]
+    assert "token_created" in result["detail"]
+    assert "deploy_key_added" in result["detail"]
+    assert "unknown-ctx-7" in result["detail"]
+    # One evaluation is enough to drive the alarm exit code.
+    assert sentinel.exit_code_for([result]) == 1
+
+
+def test_replay_normal_day_thirty_merges_zero_false_alarms() -> None:
+    """T5 acceptance (other half): ~30 merges of normal agent traffic, each
+    with an intent anchored 1-12 minutes before the action, must reconcile
+    clean — zero false alarms after tuning, or the matching rules are wrong.
+    """
+    events: list[dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
+    for i in range(30):
+        event_age = 10.0 + i * 20.0  # spread across the last ~10 hours
+        anchor_lead = 1.0 + (i % 12)  # intent anchored 1-12 min before
+        sha = f"{i:02d}ab{i:02d}cd{i:02d}"
+        ref = "main" if i % 3 else f"elves/run-lane{i}"
+        events.append(
+            _witness_event(
+                "merge" if i % 2 else "push",
+                actor="aragora-automation-fable[bot]" if i % 4 else "an0mium",
+                ref=ref,
+                sha=sha,
+                age_minutes=event_age,
+            )
+        )
+        records.append(
+            _intent(
+                "merge" if i % 2 else "push",
+                seq=i + 1,
+                target=f"{REPO}@{ref}#{sha}",
+                age_minutes=event_age + anchor_lead,
+            )
+        )
+    result = _reconcile(events, records=records)
+    assert result["status"] == "ok", result["detail"]
+    assert "30" in result["detail"]  # reports how much it reconciled
+    assert sentinel.exit_code_for([result]) == 0
+
+
+def test_main_trail_reconcile_wired_end_to_end(tmp_path: Path, capsys: Any) -> None:
+    """main() drives trail_reconcile from a local witness-replica file."""
+    replica = tmp_path / "witness.jsonl"
+    replica.write_text(
+        json.dumps(
+            {
+                "event_type": "token_created",
+                "repo": REPO,
+                "actor": "unknown-ctx-7",
+                "ref": "",
+                "sha": "",
+                "created_at": "2026-06-11T11:55:00+00:00",
+            }
+        )
+        + "\n"
+    )
+    chain = tmp_path / "intent-chain.jsonl"
+    chain.write_text(json.dumps(_intent("merge")) + "\n")
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--now",
+            "2026-06-11T12:00:00Z",
+            "--checks",
+            "trail_reconcile",
+            "--trail-witness-replica",
+            str(replica),
+            "--trail-chain",
+            str(chain),
+        ]
+    )
+    report = json.loads(capsys.readouterr().out)
+    (check,) = report["checks"]
+    assert check["check"] == "trail_reconcile"
+    # The wired path reads the chain via aragora.trail.intent_chain when
+    # available; before lane TA merges it degrades to unknown (exit 2), after
+    # TA merges this replica replay must breach (exit 1). Both are alarm
+    # states — never 0.
+    assert code in (1, 2)
+    assert check["status"] in ("breach", "unknown")
+
+
+def test_main_trail_reconcile_replica_chain_reader_fallback(tmp_path: Path, capsys: Any) -> None:
+    """With --trail-chain-format jsonl the check reads the chain file directly
+    (schema-only, no hash verification) so the replica replay works before
+    lane TA's intent_chain module lands; verification state is reported."""
+    replica = tmp_path / "witness.jsonl"
+    replica.write_text(
+        json.dumps(
+            {
+                "event_type": "token_created",
+                "repo": REPO,
+                "actor": "unknown-ctx-7",
+                "ref": "",
+                "sha": "",
+                "created_at": "2026-06-11T11:55:00+00:00",
+            }
+        )
+        + "\n"
+    )
+    chain = tmp_path / "intent-chain.jsonl"
+    chain.write_text(json.dumps(_intent("merge")) + "\n")
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--now",
+            "2026-06-11T12:00:00Z",
+            "--checks",
+            "trail_reconcile",
+            "--trail-witness-replica",
+            str(replica),
+            "--trail-chain",
+            str(chain),
+            "--trail-chain-format",
+            "jsonl",
+        ]
+    )
+    report = json.loads(capsys.readouterr().out)
+    (check,) = report["checks"]
+    assert code == 1
+    assert check["status"] == "breach"
+    assert "critical" in check["detail"]
+    assert "unverified" in check["detail"]  # honest about skipping hash checks
+
+
+def test_trail_reconcile_events_api_coverage_gap_always_visible() -> None:
+    """Review finding (grok, PR #8250): the interim GitHub events-API witness
+    structurally cannot see token/deploy-key/member admin events — the exact
+    May-incident class.  An 'ok' from that witness must never be mistakable
+    for credential-event coverage: every report carries the coverage note
+    until the S3 audit-stream witness (TET T0) replaces it."""
+    ok = _reconcile(
+        [_witness_event("merge")],
+        records=[_intent("merge")],
+        witness_coverage="events_api",
+    )
+    assert ok["status"] == "ok"
+    assert "coverage limited" in ok["detail"]
+    breach = _reconcile([_witness_event("push")], records=[], witness_coverage="events_api")
+    assert breach["status"] == "breach"
+    assert "coverage limited" in breach["detail"]
+
+
+def test_trail_reconcile_full_coverage_witness_has_no_gap_note() -> None:
+    result = _reconcile([_witness_event("merge")], records=[_intent("merge")])
+    assert result["status"] == "ok"
+    assert "coverage limited" not in result["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Live-module integration: reconcile against a REAL intent chain written by
+# aragora.trail.intent_chain (TET T1, PR #8251) through the default reader.
+# ---------------------------------------------------------------------------
+
+
+def _real_chain(tmp_path: Path) -> tuple[Any, Path]:
+    intent_chain = __import__("pytest").importorskip("aragora.trail.intent_chain")
+    return intent_chain, tmp_path / "intent-chain.jsonl"
+
+
+def test_trail_reconcile_real_chain_settle_intent_matches_merge(tmp_path: Path) -> None:
+    """End-to-end on the production read path: a settle_pr intent recorded by
+    the real chain writer (target {repo, pr}) reconciles a merge witness
+    event carrying that PR number; verify_chain runs for real."""
+    intent_chain, chain = _real_chain(tmp_path)
+    intent_chain.append_intent(
+        chain,
+        actor_class="agent-app",
+        intent_type="settle_pr",
+        target={"repo": REPO, "pr": 8250},
+        now=lambda: "2026-06-11T11:52:00+00:00",
+    )
+    event = _witness_event("merge", ref="main", sha="", age_minutes=5.0)
+    event["pr"] = "8250"
+    result = sentinel.check_trail_reconcile(
+        witness_events=lambda: [event],
+        chain_path=chain,
+        now=T_NOW,
+    )
+    assert result["status"] == "ok", result["detail"]
+    assert "chain ok (1 record(s))" in result["detail"]
+
+
+def test_breach_replay_may_incident_against_real_chain(tmp_path: Path) -> None:
+    """T5 on the production read path: the May-incident credential events find
+    no excuse in a real, hash-valid chain of normal agent intents."""
+    intent_chain, chain = _real_chain(tmp_path)
+    intent_chain.append_intent(
+        chain,
+        actor_class="agent-claude",
+        intent_type="publish_pr",
+        target={"repo": REPO, "ref": "main"},
+        now=lambda: "2026-06-11T11:40:00+00:00",
+    )
+    incident = _witness_event("token_created", actor="unknown-ctx-7", ref="", sha="")
+    result = sentinel.check_trail_reconcile(
+        witness_events=lambda: [incident],
+        chain_path=chain,
+        now=T_NOW,
+    )
+    assert result["status"] == "breach"
+    assert "critical" in result["detail"]
+    assert "token_created" in result["detail"]
+
+
+def test_trail_reconcile_real_chain_tamper_detected(tmp_path: Path) -> None:
+    """A record edited after the fact breaks verify_chain -> critical breach."""
+    intent_chain, chain = _real_chain(tmp_path)
+    for i in range(2):
+        intent_chain.append_intent(
+            chain,
+            actor_class="agent-claude",
+            intent_type="merge_pr",
+            target={"repo": REPO, "ref": "main"},
+            now=lambda i=i: f"2026-06-11T11:4{i}:00+00:00",
+        )
+    lines = chain.read_text().splitlines()
+    doctored = json.loads(lines[0])
+    doctored["target"] = {"repo": "attacker/elsewhere"}
+    chain.write_text("\n".join([json.dumps(doctored), *lines[1:]]) + "\n")
+    result = sentinel.check_trail_reconcile(
+        witness_events=lambda: [_witness_event("issue_comment")],
+        chain_path=chain,
+        now=T_NOW,
+    )
+    assert result["status"] == "breach"
+    assert "tampered" in result["detail"]
+    assert "seq 0" in result["detail"]
