@@ -368,6 +368,47 @@ def test_load_live_inputs_does_not_rest_fallback_for_rest_rate_limit_error(
         settler._load_live_inputs(7423, cwd=tmp_path, repo="synaptent/aragora")
 
 
+def test_gh_pr_rate_limit_without_graphql_word_still_uses_rest_fallback(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        if command[:3] == ["gh", "pr", "view"]:
+            raise RuntimeError("gh pr view 7423 failed: API rate limit exceeded")
+        if command[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            return _tier4_packet()
+        raise AssertionError(f"unexpected _run_json command: {command}")
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        if command[:3] == ["gh", "pr", "checks"]:
+            return _valid_checks()
+        if command[:2] != ["gh", "api"]:
+            raise AssertionError(f"unexpected _run_json_any command: {command}")
+        endpoint = command[2]
+        if endpoint == "repos/synaptent/aragora/pulls/7423":
+            return _rest_pull(head)
+        if endpoint.startswith("repos/synaptent/aragora/pulls/7423/files"):
+            return []
+        if endpoint.startswith("repos/synaptent/aragora/issues/7423/comments"):
+            return [_rest_authorized_comment(head)]
+        if endpoint.startswith("repos/synaptent/aragora/pulls/7423/reviews"):
+            return []
+        if endpoint.startswith("repos/synaptent/aragora/pulls/7423/commits"):
+            return [_rest_commit(head)]
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/statuses"):
+            return [_rest_human_settlement_status()]
+        raise AssertionError(f"unexpected REST endpoint: {endpoint}")
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    pr_view, _, _ = settler._load_live_inputs(7423, cwd=tmp_path, repo="synaptent/aragora")
+
+    assert pr_view["headRefOid"] == head
+    assert pr_view["_rest_fallback"]["enabled"] is True
+
+
 def test_rest_required_checks_prove_strict_branch_freshness(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
@@ -451,6 +492,36 @@ def test_rest_required_checks_fail_closed_when_strict_branch_is_stale(
     )
 
     assert checks[-1] == {"name": "strict branch-protection freshness", "state": "FAILURE"}
+
+
+def test_rest_required_checks_surface_visibility_fetch_failure(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        endpoint = command[2]
+        if endpoint == "repos/synaptent/aragora/branches/main/protection/required_status_checks":
+            return {
+                "strict": False,
+                "checks": [{"context": "lint", "app_id": 15368}],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/check-runs"):
+            raise RuntimeError("check-runs unavailable")
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/statuses"):
+            return []
+        raise AssertionError(f"unexpected REST endpoint: {endpoint}")
+
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    checks = settler._required_checks_from_rest(
+        _pr_view(head, comments=[]),
+        cwd=tmp_path,
+        repo="synaptent/aragora",
+    )
+
+    assert checks[0] == {"name": settler.REQUIRED_CHECK_REST_VISIBILITY_CONTEXT, "state": "UNKNOWN"}
+    assert {"name": "lint", "state": "PENDING"} in checks
 
 
 def _valid_branch_protection_snapshot() -> dict[str, dict[str, Any]]:

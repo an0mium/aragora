@@ -38,6 +38,7 @@ MERGE_QUORUM_CONTEXT = "aragora-merge-quorum"
 OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comment"
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER = "required_check_visibility_skew"
+REQUIRED_CHECK_REST_VISIBILITY_CONTEXT = "required check REST visibility"
 SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER = "trusted operator allowlist is required for --settle-only"
 SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
 SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER = "admin/OWNER permission required for --settle-only"
@@ -874,7 +875,9 @@ def _looks_like_graphql_rate_limit_error(error: object) -> bool:
     # Current gh CLI surfaces exhausted PR GraphQL calls as
     # "GraphQL: API rate limit ..."; REST rate limits should not switch to
     # REST fallback because those fallback calls would share the same blocker.
-    return "graphql" in text and "rate limit" in text
+    return "rate limit" in text and (
+        "graphql" in text or "gh pr view" in text or "gh pr checks" in text
+    )
 
 
 def _gh_json_for_rest_fallback(command: list[str], *, cwd: Path) -> Any:
@@ -941,6 +944,67 @@ def _commit_status_state(status: dict[str, Any]) -> str:
     return "UNKNOWN"
 
 
+def _rest_page_endpoint(endpoint: str, page: int) -> str:
+    separator = "&" if "?" in endpoint else "?"
+    return f"{endpoint}{separator}page={page}"
+
+
+def _fetch_direct_commit_check_runs_for_gate(
+    repo: str, head: str, *, gh_json: Callable[[list[str]], Any]
+) -> tuple[list[dict[str, Any]], str]:
+    endpoint = f"repos/{repo}/commits/{head}/check-runs?per_page=100"
+    runs: list[dict[str, Any]] = []
+    try:
+        for page in range(1, 101):
+            current_endpoint = endpoint if page == 1 else _rest_page_endpoint(endpoint, page)
+            payload = gh_json(["api", current_endpoint])
+            if not isinstance(payload, dict):
+                return [], f"{current_endpoint} returned a non-object payload"
+            page_runs = [run for run in payload.get("check_runs") or [] if isinstance(run, dict)]
+            runs.extend(page_runs)
+            total_count = payload.get("total_count")
+            if isinstance(total_count, int) and len(runs) >= total_count:
+                break
+            if len(page_runs) < 100:
+                break
+    except Exception as exc:
+        return [], str(exc)
+    return runs, ""
+
+
+def _normalize_rest_status_for_gate(status: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "context": str(status.get("context") or "").strip(),
+        "state": str(status.get("state") or "").strip().upper(),
+        "targetUrl": str(status.get("target_url") or "").strip(),
+        "updatedAt": str(status.get("updated_at") or "").strip(),
+        "createdAt": str(status.get("created_at") or "").strip(),
+    }
+
+
+def _fetch_direct_commit_statuses_for_gate(
+    repo: str, head: str, *, gh_json: Callable[[list[str]], Any]
+) -> tuple[list[dict[str, Any]], str]:
+    endpoint = f"repos/{repo}/commits/{head}/statuses?per_page=100"
+    statuses: list[dict[str, Any]] = []
+    try:
+        for page in range(1, 101):
+            current_endpoint = endpoint if page == 1 else _rest_page_endpoint(endpoint, page)
+            payload = gh_json(["api", current_endpoint])
+            if not isinstance(payload, list):
+                return [], f"{current_endpoint} returned a non-list payload"
+            statuses.extend(
+                _normalize_rest_status_for_gate(status)
+                for status in payload
+                if isinstance(status, dict)
+            )
+            if len(payload) < 100:
+                break
+    except Exception as exc:
+        return [], str(exc)
+    return statuses, ""
+
+
 def _strict_branch_freshness_state(
     *, repo: str, base_ref: str, head: str, gh_json: Callable[[list[str]], Any]
 ) -> str:
@@ -979,10 +1043,16 @@ def _required_checks_from_rest(
     required_specs = [spec for spec in protection.get("checks") or [] if isinstance(spec, dict)]
     if not protection.get("available") or not required_specs:
         return []
-    direct_runs = rest_fallback._fetch_direct_commit_check_runs(repo, head, gh_json=gh_json)
-    direct_statuses = rest_fallback._fetch_direct_commit_statuses(repo, head, gh_json=gh_json)
+    direct_runs, check_run_error = _fetch_direct_commit_check_runs_for_gate(
+        repo, head, gh_json=gh_json
+    )
+    direct_statuses, status_error = _fetch_direct_commit_statuses_for_gate(
+        repo, head, gh_json=gh_json
+    )
 
     checks: list[dict[str, str]] = []
+    if check_run_error or status_error:
+        checks.append({"name": REQUIRED_CHECK_REST_VISIBILITY_CONTEXT, "state": "UNKNOWN"})
     for spec in required_specs:
         context = str(spec.get("context") or "").strip()
         if not context:
