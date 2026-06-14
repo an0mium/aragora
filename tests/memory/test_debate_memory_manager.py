@@ -328,7 +328,7 @@ class TestStoreDebateOutcome:
 
     def test_store_outcome_handles_exception(self, mock_continuum_memory, mock_debate_result):
         """Test exception handling in store_debate_outcome."""
-        mock_continuum_memory.add.side_effect = Exception("Storage error")
+        mock_continuum_memory.add.side_effect = RuntimeError("Storage error")
 
         manager = MemoryManager(continuum_memory=mock_continuum_memory)
         # Should not raise
@@ -844,6 +844,6 @@ class TestNotifySpectator:
 
     def test_notify_spectator_handles_exception(self, memory_manager, mock_spectator):
         """Test notification handles exceptions."""
-        mock_spectator.emit.side_effect = Exception("Emit error")
+        mock_spectator.emit.side_effect = RuntimeError("Emit error")
         # Should not raise
         memory_manager._notify_spectator("test_event", "test details")
