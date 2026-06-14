@@ -479,15 +479,30 @@ def _packet_marks_tier4_human_settlement(merge_packet: dict[str, Any], *, pr: in
     entry = _entry_for_pr(merge_packet, pr=pr)
     if not entry:
         return False
-    if bool(entry.get("requires_human_risk_settlement")):
-        return True
-    if bool(entry.get("requires_human_preapproval")):
-        return True
     status = str(entry.get("status") or "")
     if status not in ALLOWED_TIER4_ENTRY_STATUSES:
         return False
+    if bool(entry.get("requires_human_risk_settlement")):
+        return True
     required = merge_packet.get("human_risk_settlement_required")
     return isinstance(required, list) and str(pr) in {str(item) for item in required}
+
+
+def _numeric_not_ready_allowed(
+    merge_packet: dict[str, Any], *, pr: int, pr_view: dict[str, Any]
+) -> bool:
+    if _packet_marks_tier4_human_settlement(merge_packet, pr=pr):
+        return True
+    entry = _entry_for_pr(merge_packet, pr=pr)
+    if not entry:
+        return False
+    return bool(
+        pr_view.get("isDraft")
+        and entry.get("status") == "repair_or_wait"
+        and entry.get("verdict") == "not_ready_for_settlement"
+        and entry.get("requires_human_risk_settlement")
+        and entry.get("requires_human_preapproval")
+    )
 
 
 def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: int) -> bool:
@@ -653,7 +668,7 @@ def evaluate_tier4_gate(
     not_ready = merge_packet.get("not_ready")
     if isinstance(not_ready, list):
         allowed_not_ready = set(ALLOWED_TIER4_NOT_READY)
-        if _packet_marks_tier4_human_settlement(merge_packet, pr=pr):
+        if _numeric_not_ready_allowed(merge_packet, pr=pr, pr_view=pr_view):
             allowed_not_ready.add(str(pr))
         unexpected = sorted({str(item) for item in not_ready} - allowed_not_ready)
         if unexpected:
@@ -867,7 +882,7 @@ def _rest_status_check_rollup(
         rollup.append(
             {
                 "name": name,
-                "state": str(run.get("status") or "").strip().upper(),
+                "state": _rest_run_state(run),
                 "conclusion": str(run.get("conclusion") or "").strip().upper(),
                 "url": str(run.get("html_url") or run.get("details_url") or "").strip(),
             }
@@ -897,8 +912,26 @@ def _rest_required_checks(pr_view: dict[str, Any], *, repo: str, cwd: Path) -> l
     required = protection.get("checks") if isinstance(protection, dict) else None
     if not isinstance(required, list) or not required:
         return []
-    if not protection.get("available") or bool(protection.get("strict")):
+    if not protection.get("available"):
         return []
+    if bool(protection.get("strict")):
+        strict_checks: list[dict[str, Any]] = []
+        for check in required:
+            if not isinstance(check, dict):
+                continue
+            context = str(check.get("context") or "").strip()
+            if not context:
+                continue
+            strict_checks.append(
+                {
+                    "name": context,
+                    "state": "STRICT_BASE_REQUIRED",
+                    "bucket": "fail",
+                    "workflow": context,
+                    "link": "",
+                }
+            )
+        return strict_checks
 
     runs = rest_fallback._fetch_direct_commit_check_runs(repo, head_sha, gh_json=gh_json)
     statuses = (
@@ -951,6 +984,8 @@ def _load_live_inputs(
                 "pr",
                 "view",
                 str(pr),
+                "--repo",
+                repo,
                 "--json",
                 (
                     "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,"
@@ -991,6 +1026,8 @@ def _load_live_inputs(
                 "pr",
                 "checks",
                 str(pr),
+                "--repo",
+                repo,
                 "--required",
                 "--json",
                 "name,state,bucket,workflow,link",
