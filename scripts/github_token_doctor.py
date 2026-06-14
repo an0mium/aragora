@@ -43,14 +43,17 @@ def _rate_limit_for_token(token: str, *, timeout: float = 20.0) -> TokenCapacity
     env = dict(os.environ)
     env["GH_TOKEN"] = token
     env["GITHUB_TOKEN"] = token
-    result = subprocess.run(  # noqa: S603 - controlled gh invocation
-        ["gh", "api", "rate_limit"],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=env,
-        check=False,
-    )
+    try:
+        result = subprocess.run(  # noqa: S603 - controlled gh invocation
+            ["gh", "api", "rate_limit"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return TokenCapacity(source="", available=False, error="gh api rate_limit timed out")
     if result.returncode != 0:
         return TokenCapacity(source="", available=False, error=_completed_error(result))
     try:

@@ -80,6 +80,18 @@ def test_probe_gh_user_reports_unavailable_token(monkeypatch: Any) -> None:
     assert result.error == "gh token unavailable"
 
 
+def test_rate_limit_timeout_reports_source_unavailable(monkeypatch: Any) -> None:
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(doctor.subprocess, "run", fake_run)
+
+    result = doctor._rate_limit_for_token("secret-token", timeout=0.01)
+
+    assert result.available is False
+    assert result.error == "gh api rate_limit timed out"
+
+
 def test_probe_app_token_uses_app_minter(monkeypatch: Any) -> None:
     def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         assert cmd == ["gh", "api", "rate_limit"]

@@ -887,6 +887,28 @@ def test_write_command_uses_user_auth_not_app_auth(monkeypatch: Any, tmp_path: P
     ]
 
 
+def test_text_command_forwards_stdin_on_non_gh_path(monkeypatch: Any, tmp_path: Path) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return subprocess.CompletedProcess(args[0], 0, "RESULT\n", "")
+
+    monkeypatch.setattr(settler.subprocess, "run", fake_run)
+
+    output = settler._run_text_command(
+        ["python3", "-c", "import sys; print(sys.stdin.read())"],
+        cwd=tmp_path,
+        input_text="payload",
+    )
+
+    assert output == "RESULT"
+    assert captured["kwargs"]["input"] == "payload"
+    assert captured["kwargs"]["cwd"] == tmp_path
+    assert captured["kwargs"]["check"] is True
+
+
 def test_settle_only_posts_comment_and_status_without_merge(
     monkeypatch: Any, tmp_path: Path
 ) -> None:

@@ -996,7 +996,7 @@ def _run_text_command(command: list[str], *, cwd: Path, input_text: str | None =
     result = _run_process(
         command,
         cwd=cwd,
-        input=input_text,
+        input_text=input_text,
         timeout=180,
         prefer_app=True,
         write_op=True,
