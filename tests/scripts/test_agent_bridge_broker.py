@@ -210,3 +210,21 @@ def test_cli_success_returns_0_and_emits_json(capsys) -> None:
     captured = capsys.readouterr()
     assert code == 0
     assert '"run_id": "bridge_cli"' in captured.out
+
+
+def test_cli_broken_stdout_does_not_report_internal_failure(monkeypatch) -> None:
+    module = _load_script_module()
+
+    class BrokenStdout:
+        def write(self, _: str) -> int:
+            raise BrokenPipeError()
+
+        def flush(self) -> None:
+            raise BrokenPipeError()
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(module.sys, "stdout", BrokenStdout())
+
+    assert module.main(["list-runs", "--json"], broker_factory=FakeBroker) == 0

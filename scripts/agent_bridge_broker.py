@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Callable
@@ -190,10 +191,27 @@ def _preflight_harnesses(
 
 
 def _emit(payload: object, *, as_json: bool) -> None:
-    if as_json:
-        sys.stdout.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-        return
-    sys.stdout.write(json.dumps(payload, sort_keys=True) + "\n")
+    output = (
+        json.dumps(payload, indent=2, sort_keys=True)
+        if as_json
+        else json.dumps(payload, sort_keys=True)
+    )
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    try:
+        if callable(close):
+            close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
 
 
 def _emit_error(message: str) -> None:
