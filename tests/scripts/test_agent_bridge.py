@@ -436,7 +436,7 @@ def test_operator_snapshot_summary_only_json_omits_records(
     assert payload["summary"]["active_process_roles"] == []
     assert payload["process_census"] == {"ok": True, "total": 0, "by_role": {}}
     assert payload["agent_heartbeats"] == {"count": 2, "fresh_count": 1, "stale_count": 1}
-    assert payload["health"] == {"ok": True, "issues": []}
+    assert payload["health"] == {"ok": True, "issues": [], "issue_counts": {}}
     assert discover_include_summaries == [False]
 
 
@@ -1096,6 +1096,7 @@ def test_operator_snapshot_counts_active_duplicate_pr_lanes_as_conflicts(
     assert payload["summary"]["conflict_lanes"] == 2
     assert payload["lane_conflicts"][0]["key_kind"] == "branch"
     assert payload["health"]["ok"] is False
+    assert payload["health"]["issue_counts"] == {"lane_identity_conflict": 2}
     issue = payload["health"]["issues"][0]
     assert issue["type"] == "lane_identity_conflict"
     assert issue["owner_state"] == "duplicate_active_owner"
@@ -1196,6 +1197,7 @@ def test_operator_snapshot_does_not_conflict_same_owner_refreshes(
     assert payload["summary"]["conflict_lanes"] == 0
     assert payload["lane_conflicts"] == []
     assert payload["health"]["ok"] is True
+    assert payload["health"]["issue_counts"] == {}
 
 
 def test_operator_snapshot_current_scope_ignores_resolved_conflict_lane(
@@ -1244,7 +1246,7 @@ def test_operator_snapshot_current_scope_ignores_resolved_conflict_lane(
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["summary"]["conflict_lanes"] == 0
-    assert payload["health"] == {"ok": True, "issues": []}
+    assert payload["health"] == {"ok": True, "issues": [], "issue_counts": {}}
     assert payload["lane_conflicts"] == []
 
 
@@ -2348,7 +2350,7 @@ def test_health_ignores_dead_root_checkout_session(
     )
 
     assert mod.cmd_health(argparse.Namespace(json=True)) == 0
-    assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": []}
+    assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": [], "issue_counts": {}}
 
 
 def test_health_reports_dead_non_root_worktree(
@@ -2388,6 +2390,7 @@ def test_health_reports_dead_non_root_worktree(
     assert mod.cmd_health(argparse.Namespace(json=True)) == 1
     payload = json.loads(capsys.readouterr().out)
     assert len(payload["issues"]) == 1
+    assert payload["issue_counts"] == {"stale_worktree": 1}
     issue = payload["issues"][0]
     assert issue["type"] == "stale_worktree"
     assert issue["session"] == "codex-old-lane"
@@ -2454,7 +2457,7 @@ def test_health_ignores_dead_tmux_session_kept_current_by_broker_state(
     )
 
     assert mod.cmd_health(argparse.Namespace(json=True)) == 0
-    assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": []}
+    assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": [], "issue_counts": {}}
 
 
 def test_health_ignores_dead_session_with_removed_worktree(
@@ -2491,7 +2494,7 @@ def test_health_ignores_dead_session_with_removed_worktree(
     )
 
     assert mod.cmd_health(argparse.Namespace(json=True)) == 0
-    assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": []}
+    assert json.loads(capsys.readouterr().out) == {"ok": True, "issues": [], "issue_counts": {}}
 
 
 def test_cmd_health_summary_only_json_counts_issue_types(

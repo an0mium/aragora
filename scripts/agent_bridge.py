@@ -1111,6 +1111,14 @@ def _collect_health_issues(
     return issues
 
 
+def _summarize_health_issues(issues: list[dict[str, str]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for issue in issues:
+        issue_type = str(issue.get("type") or "unknown")
+        counts[issue_type] = counts.get(issue_type, 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def _classify_agent_process(command: str) -> str | None:
     """Classify known local agent/control-plane processes from a ps command line."""
     lowered = command.lower()
@@ -2290,15 +2298,11 @@ def cmd_processes(args: argparse.Namespace) -> int:
 def _health_summary_payload(
     issues: list[dict[str, str]], *, example_limit: int = 3
 ) -> dict[str, Any]:
-    issue_type_counts: dict[str, int] = {}
-    for issue in issues:
-        issue_type = str(issue.get("type") or "unknown")
-        issue_type_counts[issue_type] = issue_type_counts.get(issue_type, 0) + 1
     examples = issues[: max(0, example_limit)]
     return {
         "ok": len(issues) == 0,
         "issue_count": len(issues),
-        "issue_type_counts": dict(sorted(issue_type_counts.items())),
+        "issue_type_counts": _summarize_health_issues(issues),
         "issue_examples": examples,
         "issues_omitted": max(0, len(issues) - len(examples)),
         "details_omitted": True,
@@ -2339,11 +2343,17 @@ def cmd_health(args: argparse.Namespace) -> int:
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
 
+    issue_counts = _summarize_health_issues(issues)
     if args.json:
         if summary_only:
             print(json.dumps(_health_summary_payload(issues), indent=2))
             return 0 if not issues else 1
-        print(json.dumps({"ok": len(issues) == 0, "issues": issues}, indent=2))
+        print(
+            json.dumps(
+                {"ok": len(issues) == 0, "issues": issues, "issue_counts": issue_counts},
+                indent=2,
+            )
+        )
         return 0 if not issues else 1
 
     if summary_only:
@@ -2362,6 +2372,9 @@ def cmd_health(args: argparse.Namespace) -> int:
         return 0
 
     print(f"Found {len(issues)} issue(s):\n")
+    if issue_counts:
+        print("Issue counts: " + ", ".join(f"{k}={v}" for k, v in issue_counts.items()))
+        print()
     print(f"{'TYPE':<22} {'SESSION':<26} DETAIL")
     print("-" * 100)
     for issue in issues:
@@ -2899,6 +2912,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         records = _filter_current_lane_records(records)
 
     issues = _collect_health_issues(sessions, records)
+    issue_counts = _summarize_health_issues(issues)
     lane_conflicts = _active_lane_identity_conflicts(records)
     computed_conflict_lane_ids = {
         lane_id
@@ -2949,7 +2963,7 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "lanes": [r.to_dict() for r in records],
         "lane_conflicts": lane_conflicts,
         "process_census": process_census,
-        "health": {"ok": len(issues) == 0, "issues": issues},
+        "health": {"ok": len(issues) == 0, "issues": issues, "issue_counts": issue_counts},
         "pending_steering_messages": pending_steering,
         "agent_heartbeats": agent_heartbeats,
         "queue_depth": _operator_queue_depth(summary, pending_steering),
@@ -2989,6 +3003,10 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     lines.append(f"BossLoop: {boss_loop_label} ({boss_loop_status['reason']})")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
     lines.append(f"Health:   {health_status}")
+    if issue_counts:
+        lines.append(
+            "Health issue counts: " + ", ".join(f"{k}={v}" for k, v in issue_counts.items())
+        )
 
     if sessions and not summary_only:
         lines.extend(["", f"{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY"])
