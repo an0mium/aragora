@@ -16,6 +16,7 @@ import os
 import subprocess
 import time
 from contextlib import contextmanager
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -247,6 +248,234 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
         False,
         "claude CLI timed out after 7s",
     )
+
+
+# --- OpenAI reviewer fallback ----------------------------------------------
+
+
+def test_run_openai_reviewer_uses_api_when_openai_key_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def fake_api_agent(family: str, prompt: str) -> ReviewerResult:
+        calls.append((family, prompt))
+        return ReviewerResult(family, "Verdict: PASS from API", True)
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(qe, "_run_api_agent", fake_api_agent)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult("openai", "Verdict: PASS from API", True)
+    assert calls == [("openai", "review prompt")]
+
+
+def test_run_openai_reviewer_without_api_key_uses_codex_cli(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(
+        cmd: list[str],
+        *,
+        input: str,
+        capture_output: bool,
+        text: bool,
+        timeout: float,
+        check: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        seen.update(
+            {
+                "cmd": cmd,
+                "input": input,
+                "capture_output": capture_output,
+                "text": text,
+                "timeout": timeout,
+                "check": check,
+            }
+        )
+        output_path = Path(cmd[cmd.index("--output-last-message") + 1])
+        output_path.write_text("Verdict: PASS via Codex\n", encoding="utf-8")
+        seen["output_path"] = output_path
+        return subprocess.CompletedProcess(cmd, 0, stdout="ignored stdout", stderr="")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_TIMEOUT_ENV, "11")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "openai",
+        "Verdict: PASS via Codex",
+        True,
+        harness=qe._CODEX_OPENAI_HARNESS,
+    )
+    assert seen["cmd"] == [
+        "codex",
+        "exec",
+        "--ignore-user-config",
+        "-c",
+        qe._CODEX_APPROVAL_POLICY_CONFIG,
+        "--sandbox",
+        "read-only",
+        "--ephemeral",
+        "--output-last-message",
+        str(seen["output_path"]),
+        "--model",
+        qe._CODEX_DEFAULT_MODEL,
+        "-",
+    ]
+    assert "--ask-for-approval" not in seen["cmd"]
+    assert seen["input"] == "review prompt"
+    assert seen["capture_output"] is True
+    assert seen["text"] is True
+    assert seen["timeout"] == 11.0
+    assert seen["check"] is False
+    assert not Path(seen["output_path"]).exists()
+
+
+def test_run_openai_reviewer_retries_default_codex_model_selection_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    output_paths: list[Path] = []
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        output_paths.append(Path(cmd[cmd.index("--output-last-message") + 1]))
+        model = cmd[cmd.index("--model") + 1]
+        if model == qe._CODEX_DEFAULT_MODELS[0]:
+            return subprocess.CompletedProcess(
+                cmd,
+                1,
+                stdout="",
+                stderr=f"model {model} is not supported",
+            )
+        output_paths[-1].write_text("Verdict: PASS after fallback", encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv(qe._CODEX_MODEL_ENV, raising=False)
+    monkeypatch.delenv(qe._CODEX_MODELS_ENV, raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "openai",
+        "Verdict: PASS after fallback",
+        True,
+        harness=qe._CODEX_OPENAI_HARNESS,
+    )
+    assert [call[call.index("--model") + 1] for call in calls] == list(qe._CODEX_DEFAULT_MODELS)
+    assert all(not path.exists() for path in output_paths)
+
+
+def test_run_openai_reviewer_respects_pinned_codex_model_without_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd,
+            1,
+            stdout="",
+            stderr="model pinned-model is not supported",
+        )
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "pinned-model")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.ok is False
+    assert "codex CLI exit 1: model pinned-model is not supported" in result.error
+    assert len(calls) == 1
+    assert calls[0][-3:] == ["--model", "pinned-model", "-"]
+
+
+def test_run_openai_reviewer_passes_optional_codex_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        seen["cmd"] = cmd
+        Path(cmd[cmd.index("--output-last-message") + 1]).write_text(
+            "Verdict: PASS",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "gpt-5-codex")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.ok is True
+    assert seen["cmd"][-3:] == ["--model", "gpt-5-codex", "-"]
+
+
+def test_run_openai_reviewer_codex_failure_never_fabricates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="codex failed")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.family == "openai"
+    assert result.text == ""
+    assert result.ok is False
+    assert "codex CLI exit 1: codex failed" in result.error
+    assert result.harness == ""
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected_error"),
+    [
+        (
+            subprocess.TimeoutExpired(cmd=["codex"], timeout=3),
+            "codex CLI timed out after",
+        ),
+        (FileNotFoundError("missing codex"), "codex CLI not found on PATH"),
+        (OSError("disk full"), "OSError: disk full"),
+        (subprocess.SubprocessError("bad pipe"), "SubprocessError: bad pipe"),
+    ],
+)
+def test_run_openai_reviewer_cleans_codex_output_file_when_subprocess_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    exc: Exception,
+    expected_error: str,
+) -> None:
+    seen: dict[str, Path] = {}
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        output_path = Path(cmd[cmd.index("--output-last-message") + 1])
+        output_path.write_text("partial reviewer output", encoding="utf-8")
+        seen["output_path"] = output_path
+        raise exc
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.family == "openai"
+    assert result.text == ""
+    assert result.ok is False
+    assert expected_error in result.error
+    assert "output_path" in seen
+    assert not seen["output_path"].exists()
 
 
 # --- default API reviewer cleanup ------------------------------------------
@@ -973,6 +1202,38 @@ def test_collect_dry_run_prepares_without_posting() -> None:
     assert sorted(outcome.counting_families) == ["claude", "grok"]
 
 
+def test_collect_carries_reviewer_harness_into_comment() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def harness_runner(family: str, prompt: str) -> ReviewerResult:
+        return ReviewerResult(
+            family,
+            "Verdict: PASS via harness",
+            True,
+            harness=qe._CODEX_OPENAI_HARNESS,
+        )
+
+    def harness_linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        assert qe._CODEX_OPENAI_HARNESS in body
+        return {
+            "would_count": True,
+            "counted_reviewer_ids": ["openai"],
+            "problems": [],
+        }
+
+    fakes["reviewer_runner"] = harness_runner
+    fakes["linter"] = harness_linter
+
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["openai"], author="me", apply=False, **fakes
+    )
+
+    assert outcome.action == "prepare"
+    assert posted == []
+    assert outcome.counting_families == ["openai"]
+    assert qe._CODEX_OPENAI_HARNESS in outcome.items[0].body
+
+
 def test_collect_never_fabricates_on_reviewer_failure() -> None:
     fakes, posted = _fakes(tier=1)
 
@@ -1170,3 +1431,181 @@ def test_run_collect_cli_catches_runtime_error(monkeypatch, capsys) -> None:
     )
     assert rc == 1
     assert "empty diff" in capsys.readouterr().out
+
+
+# --- build_review_prompt: complete file list + fair per-file body bounding ---
+
+
+def _diff_with_deletion_before_additions() -> tuple[str, str, list[str]]:
+    """A unified diff whose large DELETION sorts (alphabetically) before its
+    ADDITIONS, mirroring PR #8416 (``tests/conftest.py`` deleted before
+    ``tests/fixtures/*`` added). A blind ``diff[:N]`` slice would drop the
+    additions entirely. Returns ``(diff, name_status, added_paths)``.
+    """
+    deleted = "tests/conftest.py"
+    added = ["tests/fixtures/alpha.py", "tests/fixtures/beta.py"]
+    big_body = "\n".join(f"-old conftest line {i} " + "x" * 60 for i in range(2000))
+    deletion = (
+        f"diff --git a/{deleted} b/{deleted}\n"
+        "deleted file mode 100644\n"
+        f"--- a/{deleted}\n+++ /dev/null\n@@ -1,2000 +0,0 @@\n{big_body}\n"
+    )
+    additions = ""
+    for path in added:
+        body = "\n".join(f"+fixture {path} line {i}" for i in range(40))
+        additions += (
+            f"diff --git a/{path} b/{path}\n"
+            "new file mode 100644\n"
+            f"--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,40 @@\n{body}\n"
+        )
+    diff = deletion + additions
+    name_status = f"D\t{deleted}\n" + "".join(f"A\t{p}\n" for p in added)
+    return diff, name_status, added
+
+
+def test_build_review_prompt_keeps_all_added_paths_when_deletion_sorts_first() -> None:
+    diff, name_status, added = _diff_with_deletion_before_additions()
+    assert len(diff) > qe._MAX_DIFF_CHARS  # body alone forces bounding
+    prompt = qe.build_review_prompt(
+        repo="o/r", pr=8416, head_sha=HEAD, diff_text=diff, name_status=name_status
+    )
+    # Every added path survives even though the diff body had to be bounded.
+    for path in added:
+        assert path in prompt
+
+
+def test_build_review_prompt_never_truncates_complete_file_list_header() -> None:
+    diff, name_status, added = _diff_with_deletion_before_additions()
+    prompt = qe.build_review_prompt(
+        repo="o/r", pr=8416, head_sha=HEAD, diff_text=diff, name_status=name_status
+    )
+    header = prompt[: prompt.index("=== DIFF")]
+    # The file-list header is placed before the (bounded) body and is complete.
+    assert "=== CHANGED FILES" in header
+    assert "tests/conftest.py" in header
+    for path in added:
+        assert path in header
+    # The body really was bounded (per-file marker present), proving the header
+    # survived truncation rather than the diff simply being small.
+    assert qe._PER_FILE_TRUNCATION_MARKER.strip() in prompt
+
+
+def test_build_review_prompt_derives_file_list_when_name_status_absent() -> None:
+    diff, _name_status, added = _diff_with_deletion_before_additions()
+    # No name_status supplied: the file list is recovered from the diff headers,
+    # so a reviewer still cannot claim an added file is absent.
+    prompt = qe.build_review_prompt(repo="o/r", pr=8416, head_sha=HEAD, diff_text=diff)
+    header = prompt[: prompt.index("=== DIFF")]
+    assert "tests/conftest.py" in header
+    for path in added:
+        assert path in header
+
+
+def test_build_review_prompt_small_diff_is_not_truncated() -> None:
+    diff = (
+        "diff --git a/aragora/x.py b/aragora/x.py\n"
+        "--- a/aragora/x.py\n+++ b/aragora/x.py\n@@ -1 +1 @@\n-old\n+new\n"
+    )
+    prompt = qe.build_review_prompt(
+        repo="o/r", pr=42, head_sha=HEAD, diff_text=diff, name_status="M\taragora/x.py\n"
+    )
+    # Shape semantics unchanged: a str grounded on the short head, carrying the
+    # verdict instruction and the changed file; nothing truncated.
+    assert isinstance(prompt, str)
+    assert HEAD[:7] in prompt
+    assert "Verdict: PASS" in prompt
+    assert "Verdict: CHANGES-REQUESTED" in prompt
+    assert "aragora/x.py" in prompt
+    assert "truncated" not in prompt
+
+
+# --- _bound_diff_body: fair per-file water-filling --------------------------
+
+
+def test_bound_diff_body_returns_input_unchanged_when_within_cap() -> None:
+    diff = "diff --git a/a b/a\n+hello\n"
+    bounded, truncated = qe._bound_diff_body(diff, 30_000)
+    assert truncated is False
+    assert bounded == diff
+
+
+def test_bound_diff_body_gives_every_file_a_hunk() -> None:
+    seg_a = "diff --git a/a b/a\n" + "A" * 50_000 + "\n"
+    seg_b = "diff --git a/b b/b\n" + "B" * 50_000 + "\n"
+    seg_c = "diff --git a/c b/c\n" + "C" * 50_000 + "\n"
+    bounded, truncated = qe._bound_diff_body(seg_a + seg_b + seg_c, 30_000)
+    assert truncated is True
+    # No single file may consume the whole budget: each file's header (and some
+    # content) survives, unlike a blind first-N-bytes slice.
+    assert "diff --git a/a b/a" in bounded
+    assert "diff --git a/b b/b" in bounded
+    assert "diff --git a/c b/c" in bounded
+    assert "B" in bounded and "C" in bounded
+    marker_overhead = 3 * len(qe._PER_FILE_TRUNCATION_MARKER)
+    assert len(bounded) <= 30_000 + marker_overhead + 8
+
+
+def test_bound_diff_body_single_file_falls_back_to_head_slice() -> None:
+    diff = "diff --git a/a b/a\n" + "A" * 100_000
+    bounded, truncated = qe._bound_diff_body(diff, 30_000)
+    assert truncated is True
+    assert bounded.startswith("diff --git a/a b/a")
+    assert len(bounded) <= 30_000 + len(qe._PER_FILE_TRUNCATION_MARKER) + 8
+
+
+def test_bound_diff_body_small_addition_kept_whole_when_deletion_huge() -> None:
+    # The fairness property that fixes #8416: a small addition that sorts AFTER a
+    # huge deletion is kept in full and never dropped.
+    deletion = "diff --git a/del b/del\n" + "D" * 200_000 + "\n"
+    addition = "diff --git a/add b/add\n+only forty chars of new content here\n"
+    bounded, truncated = qe._bound_diff_body(deletion + addition, 60_000)
+    assert truncated is True
+    assert "only forty chars of new content here" in bounded
+
+
+# --- default_prompt_builder: name-status pass-through + graceful fallback ----
+
+
+def _prompt_builder_run_stub(diff: str, name_status: str | None):
+    """Build a fake ``merge_quorum_io.run`` serving diff / name-status / head."""
+
+    def fake_run(args, *, env=None, timeout=None):
+        if args[:3] == ["gh", "pr", "diff"]:
+            if "--name-status" in args:
+                if name_status is None:
+                    return SimpleNamespace(returncode=1, stdout="", stderr="boom")
+                return SimpleNamespace(returncode=0, stdout=name_status, stderr="")
+            return SimpleNamespace(returncode=0, stdout=diff, stderr="")
+        if args[:3] == ["gh", "pr", "view"]:
+            return SimpleNamespace(returncode=0, stdout=HEAD + "\n", stderr="")
+        raise AssertionError(f"unexpected args: {args}")
+
+    return fake_run
+
+
+def test_default_prompt_builder_prepends_name_status(monkeypatch) -> None:
+    diff, name_status, added = _diff_with_deletion_before_additions()
+    monkeypatch.setattr(qe.merge_quorum_io, "run", _prompt_builder_run_stub(diff, name_status))
+    prompt = qe.default_prompt_builder("o/r", 8416, {"head_sha": HEAD})
+    header = prompt[: prompt.index("=== DIFF")]
+    assert "tests/conftest.py" in header
+    for path in added:
+        assert path in header
+
+
+def test_default_prompt_builder_tolerates_name_status_fetch_failure(monkeypatch) -> None:
+    diff, _name_status, added = _diff_with_deletion_before_additions()
+    # name-status fetch fails: the builder must NOT raise and must still produce a
+    # complete file list (recovered from the diff) -- return semantics unchanged.
+    monkeypatch.setattr(qe.merge_quorum_io, "run", _prompt_builder_run_stub(diff, None))
+    prompt = qe.default_prompt_builder("o/r", 8416, {"head_sha": HEAD})
+    header = prompt[: prompt.index("=== DIFF")]
+    for path in added:
+        assert path in header
+
+
+def test_default_prompt_builder_empty_diff_still_raises(monkeypatch) -> None:
+    # Builder exit/return semantics unchanged: an empty diff is still a hard error.
+    monkeypatch.setattr(qe.merge_quorum_io, "run", _prompt_builder_run_stub("   \n", "D\tx\n"))
+    with pytest.raises(RuntimeError, match="empty diff"):
+        qe.default_prompt_builder("o/r", 8416, {"head_sha": HEAD})

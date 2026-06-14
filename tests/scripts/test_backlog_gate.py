@@ -34,12 +34,22 @@ gate = _load_module("backlog_gate.py")
 NOW = datetime(2026, 6, 12, 12, 0, 0, tzinfo=timezone.utc)
 
 
-def _pr(number: int, *, head: str = "codex/feature", draft: bool = True) -> dict[str, Any]:
+def _pr(
+    number: int,
+    *,
+    head: str = "codex/feature",
+    title: str = "",
+    labels: list[str] | None = None,
+    draft: bool = True,
+) -> dict[str, Any]:
     return {
         "number": number,
         "headRefName": head,
+        "title": title,
+        "labels": [{"name": label} for label in (labels or [])],
         "isDraft": draft,
         "createdAt": "2026-06-11T12:00:00Z",
+        "updatedAt": "2026-06-11T12:00:00Z",
     }
 
 
@@ -60,6 +70,7 @@ def _run(
     outbox_dir: Path | None = None,
     max_open_prs: int = 60,
     max_outbox: int = 50,
+    max_maintenance_ratio: float = 0.5,
     quiet: bool = False,
     branch_prefixes: tuple[str, ...] = ("codex/",),
 ) -> tuple[int, dict[str, Any] | None, list[str]]:
@@ -78,6 +89,7 @@ def _run(
         outbox_dir=str(outbox_dir if outbox_dir is not None else tmp_path / "outbox"),
         max_open_prs=max_open_prs,
         max_outbox=max_outbox,
+        max_maintenance_ratio=max_maintenance_ratio,
         signal_file=str(signal_file),
         quiet=quiet,
         now=NOW,
@@ -103,7 +115,14 @@ def test_under_both_thresholds_generates_exit_zero(tmp_path: Path) -> None:
     assert payload["drafts"] == 1
     assert payload["ready"] == 1
     assert payload["outbox_depth"] == 3
-    assert payload["thresholds"] == {"max_open_prs": 60, "max_outbox": 50}
+    assert payload["thresholds"] == {
+        "max_open_prs": 60,
+        "max_outbox": 50,
+        "max_maintenance_ratio": 0.5,
+    }
+    assert payload["value_composition"]["total"] == 2
+    assert payload["value_composition"]["maintenance_ratio"] == 0.0
+    assert "admission" not in payload
     assert payload["generated_at"] == "2026-06-12T12:00:00Z"
     # stdout JSON matches the signal file
     assert json.loads(lines[-1]) == payload
@@ -116,6 +135,10 @@ def test_open_prs_at_threshold_is_shepherd_exit_three(tmp_path: Path) -> None:
     assert payload is not None
     assert payload["mode"] == "shepherd"
     assert payload["reasons"] == ["open_prs:5>=max_open_prs:5"]
+    assert payload["admission"] == {
+        "withhold_classes": ["maintenance"],
+        "source": "backlog_gate",
+    }
 
 
 def test_open_prs_just_under_threshold_generates(tmp_path: Path) -> None:
@@ -153,6 +176,35 @@ def test_both_over_threshold_lists_both_reasons(tmp_path: Path) -> None:
         "open_prs:7>=max_open_prs:2",
         "outbox_depth:9>=max_outbox:2",
     ]
+
+
+def test_maintenance_ratio_breach_is_shepherd_with_admission(tmp_path: Path) -> None:
+    prs = [
+        _pr(1, title="drift repair", labels=["codex-automation"]),
+        _pr(2, title="reconcile lane"),
+        _pr(3, title="new ODR receipt endpoint"),
+    ]
+    exit_code, payload, _ = _run(tmp_path, prs, max_maintenance_ratio=0.5)
+    assert exit_code == 3
+    assert payload is not None
+    assert payload["mode"] == "shepherd"
+    assert "maintenance_ratio:0.6667>max_maintenance_ratio:0.5" in payload["reasons"]
+    assert payload["value_composition"]["by_class"]["maintenance"] == 2
+    assert payload["value_composition"]["by_class"]["product"] == 1
+    assert payload["admission"] == {
+        "withhold_classes": ["maintenance"],
+        "source": "backlog_gate",
+    }
+
+
+def test_legacy_shepherd_shape_without_admission_is_not_emitted_for_generate(
+    tmp_path: Path,
+) -> None:
+    exit_code, payload, _ = _run(tmp_path, [_pr(1, title="new ODR endpoint")])
+    assert exit_code == 0
+    assert payload is not None
+    assert payload["mode"] == "generate"
+    assert "admission" not in payload
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +279,8 @@ def test_gh_failure_writes_shepherd_signal_and_exits_one(tmp_path: Path) -> None
     assert payload["reasons"] == ["gate_failure:gh pr list failed (exit 4): boom"]
     assert payload["open_prs"] is None
     assert payload["outbox_depth"] is None
+    assert payload["value_composition"] is None
+    assert "admission" not in payload
 
 
 def test_gh_failure_with_unwritable_signal_still_exits_one(
@@ -261,6 +315,7 @@ def test_truncated_listing_forces_shepherd_even_with_small_counts(tmp_path: Path
     assert payload["open_prs"] == 1, "visible in-scope count stays small"
     assert f"list_truncated:>={gate.GH_LIST_LIMIT}" in payload["reasons"]
     assert f"list_truncated:>={gate.GH_LIST_LIMIT}" in payload["annotations"]
+    assert payload["admission"]["withhold_classes"] == ["maintenance"]
 
 
 def test_listing_just_below_limit_is_unaffected(tmp_path: Path) -> None:

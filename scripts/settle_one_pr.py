@@ -31,6 +31,7 @@ CONVERGENCE_SENTENCE = (
 
 VERSION = "settle_one_steward.v1"
 MERGE_QUORUM = "aragora-merge-quorum"
+GITHUB_ACTIONS_APP_ID = 15368
 HUMAN_RISK_EXCLUDES = {7407, 7425, 7438, 7439, 7443}
 BROAD_PACKET_NEAR_SELECTED_LOOKAHEAD = 8
 PYTHON_EXECUTABLE = sys.executable or "python3"
@@ -931,10 +932,76 @@ def _check_runs_from_payload(payload: Any) -> list[dict[str, Any]]:
     return [item for item in check_runs if isinstance(item, dict)]
 
 
+def _github_actions_check_run(item: dict[str, Any]) -> bool:
+    app = item.get("app")
+    if isinstance(app, dict):
+        slug = str(app.get("slug") or "").strip().lower()
+        if slug == "github-actions":
+            return True
+        app_id = _coerce_int(app.get("id") or app.get("databaseId"))
+        if app_id == GITHUB_ACTIONS_APP_ID:
+            return True
+    return _coerce_int(item.get("app_id") or item.get("appId")) == GITHUB_ACTIONS_APP_ID
+
+
+def _fallback_required_check_source_report(
+    required_checks: Any,
+    check_runs_payload: Any,
+) -> dict[str, Any]:
+    if not isinstance(required_checks, list):
+        return {
+            "status": "unknown",
+            "blockers": ["required checks JSON unavailable"],
+            "suggestions": ["rerun gh pr checks --required before settlement"],
+        }
+
+    required_contexts = [
+        str(check.get("name") or check.get("context") or "").strip()
+        for check in required_checks
+        if isinstance(check, dict)
+    ]
+    required_contexts = [context for context in required_contexts if context]
+    if not required_contexts:
+        return {
+            "status": "unknown",
+            "blockers": ["required checks JSON empty"],
+            "suggestions": ["rerun gh pr checks --required before settlement"],
+        }
+
+    check_report = required_check_report(required_checks)
+    if check_report["blockers"]:
+        return check_report
+
+    check_runs = _check_runs_from_payload(check_runs_payload)
+    blockers: list[str] = []
+    for context in required_contexts:
+        matching_success = [
+            item
+            for item in check_runs
+            if _rollup_name(item) == context
+            and _rollup_success(item)
+            and _github_actions_check_run(item)
+        ]
+        if not matching_success:
+            blockers.append(
+                f"{context} lacks a matching successful exact-head GitHub Actions CheckRun"
+            )
+
+    if blockers:
+        return {
+            "status": "blocked",
+            "blockers": blockers,
+            "suggestions": ["rerun or inspect the missing app-sourced required check"],
+        }
+
+    return {"status": "pass", "blockers": [], "suggestions": []}
+
+
 def required_check_source_report(
     protection: Any,
     pr_view: Any,
     check_runs_payload: Any = None,
+    required_checks: Any = None,
 ) -> dict[str, Any]:
     """Fail closed when an app-pinned required check is only a manual status.
 
@@ -945,6 +1012,8 @@ def required_check_source_report(
     an executor tries to merge.
     """
     if not isinstance(protection, dict):
+        if required_checks is not None:
+            return _fallback_required_check_source_report(required_checks, check_runs_payload)
         return {
             "status": "unknown",
             "blockers": ["branch protection required_status_checks JSON unavailable"],
@@ -1573,7 +1642,9 @@ def build_report(
         blockers.extend(check_report["blockers"])
         report["suggested_commands"].extend(check_report["suggestions"])
 
-        source_report = required_check_source_report(protection, pr_view, check_runs_payload)
+        source_report = required_check_source_report(
+            protection, pr_view, check_runs_payload, required_checks
+        )
         report["checks"]["required_sources"] = source_report
         blockers.extend(source_report["blockers"])
         report["suggested_commands"].extend(source_report.get("suggestions") or [])

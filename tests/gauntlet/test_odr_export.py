@@ -451,3 +451,125 @@ class TestCLIExport:
             cmd_receipt_export(
                 argparse.Namespace(receipt="no-such-receipt-id", format="odr", output=None)
             )
+
+
+# ---------------------------------------------------------------------------
+# Calibrated-confidence provenance (issue #8229, ODR-5)
+# ---------------------------------------------------------------------------
+
+
+def _calibration_provenance() -> dict:
+    return {
+        "type": "aragora.calibration_report",
+        "endpoint_template": "/api/v1/agents/{agent}/calibration-report",
+        "agents": [
+            {
+                "agent": "claude-agent",
+                "sample_size": 12,
+                "accuracy": 0.75,
+                "brier_score": 0.18,
+                "report_ref": "/api/v1/agents/claude-agent/calibration-report",
+            }
+        ],
+    }
+
+
+class TestCalibrationProvenance:
+    """ODR confidence block points at the calibration-report endpoint."""
+
+    def test_explicit_provenance_attached(self) -> None:
+        odr = decision_receipt_to_odr(
+            _full_receipt(), calibration_provenance=_calibration_provenance()
+        )
+        calibration = odr["confidence"]["calibration"]
+        assert calibration["status"] == "present"
+        ref = calibration["provenance_ref"]
+        assert ref["type"] == "aragora.calibration_report"
+        assert ref["agents"][0]["sample_size"] == 12
+        assert ref["agents"][0]["report_ref"] == ("/api/v1/agents/claude-agent/calibration-report")
+
+    def test_provenance_takes_precedence_over_settlement(self) -> None:
+        """Explicit calibration provenance is more specific than settlement_metadata."""
+        odr = decision_receipt_to_odr(
+            _full_receipt(), calibration_provenance=_calibration_provenance()
+        )
+        assert (
+            odr["confidence"]["calibration"]["provenance_ref"]["type"]
+            == "aragora.calibration_report"
+        )
+
+    def test_omitted_provenance_keeps_existing_behavior(self) -> None:
+        odr = decision_receipt_to_odr(_full_receipt())
+        assert (
+            odr["confidence"]["calibration"]["provenance_ref"]["type"]
+            == "aragora.settlement_metadata"
+        )
+
+    def test_no_data_yields_absent_never_fabricated(self) -> None:
+        odr = decision_receipt_to_odr(_minimal_receipt())
+        assert odr["confidence"]["calibration"]["status"] == "absent"
+
+    def test_provenance_variant_validates_against_schema(self) -> None:
+        jsonschema = pytest.importorskip("jsonschema")
+        schema = load_odr_schema()
+        validator = jsonschema.Draft202012Validator(schema)
+        odr = decision_receipt_to_odr(
+            _full_receipt(), calibration_provenance=_calibration_provenance()
+        )
+        errors = list(validator.iter_errors(odr))
+        assert errors == [], [e.message for e in errors]
+
+    def test_provenance_survives_canonicalization(self) -> None:
+        odr = decision_receipt_to_odr(
+            _full_receipt(), calibration_provenance=_calibration_provenance()
+        )
+        round_tripped = json.loads(jcs_canonicalize(odr).decode("utf-8"))
+        assert (
+            round_tripped["confidence"]["calibration"]["provenance_ref"]["type"]
+            == "aragora.calibration_report"
+        )
+
+
+class TestCalibrationProvenanceForReceipt:
+    """Best-effort lookup helper: real data or None, never fabrication."""
+
+    def test_participants_forwarded_to_builder(self, monkeypatch) -> None:
+        import aragora.ranking.calibration_report as crmod
+        from aragora.gauntlet.odr_export import calibration_provenance_for_receipt
+
+        captured: dict = {}
+
+        def fake_builder(agent_names, **kwargs):
+            captured["agents"] = list(agent_names)
+            return {"type": "aragora.calibration_report", "agents": []}
+
+        monkeypatch.setattr(crmod, "build_odr_calibration_provenance", fake_builder)
+        result = calibration_provenance_for_receipt(_full_receipt())
+        assert result is not None
+        assert sorted(captured["agents"]) == [
+            "claude-agent",
+            "grok-agent",
+            "mistral-agent",
+        ]
+
+    def test_no_participants_returns_none(self) -> None:
+        from aragora.gauntlet.odr_export import calibration_provenance_for_receipt
+
+        assert calibration_provenance_for_receipt(_minimal_receipt()) is None
+
+    def test_builder_failure_returns_none(self, monkeypatch) -> None:
+        import aragora.ranking.calibration_report as crmod
+        from aragora.gauntlet.odr_export import calibration_provenance_for_receipt
+
+        def boom(agent_names, **kwargs):
+            raise RuntimeError("calibration store unavailable")
+
+        monkeypatch.setattr(crmod, "build_odr_calibration_provenance", boom)
+        assert calibration_provenance_for_receipt(_full_receipt()) is None
+
+    def test_no_calibration_data_returns_none(self, monkeypatch) -> None:
+        import aragora.ranking.calibration_report as crmod
+        from aragora.gauntlet.odr_export import calibration_provenance_for_receipt
+
+        monkeypatch.setattr(crmod, "build_odr_calibration_provenance", lambda names, **kw: None)
+        assert calibration_provenance_for_receipt(_full_receipt()) is None
