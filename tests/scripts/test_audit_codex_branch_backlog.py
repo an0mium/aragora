@@ -805,6 +805,55 @@ def test_audit_uses_open_pr_lookup_when_github_health_is_ready(
     assert payload["records"][0]["category"] == "protected_open_pr"
 
 
+def test_audit_protects_local_alias_matching_open_pr_head(tmp_path: Path, monkeypatch: Any) -> None:
+    row = _branch_row("codex/repair-8365-restack", head_sha="abc1234")
+    _stub_git_inventory(monkeypatch, row)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "open_pr_heads",
+        lambda _root, _repo, _prefix: {"codex/swarm-01659fc4-micro-6": 8365},
+    )
+    monkeypatch.setattr(
+        mod,
+        "open_pr_remote_head_map",
+        lambda _root, _open_prs: {"abc123456789": 8365},
+    )
+
+    def fail_patch_check(*_args: Any, **_kwargs: Any) -> bool:
+        raise AssertionError("exact-head open PR aliases should not run salvage checks")
+
+    monkeypatch.setattr(mod, "is_patch_equivalent", fail_patch_check)
+    monkeypatch.setattr(mod, "branch_changed_paths", fail_patch_check)
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=True,
+        publisher_backlog_limit=12,
+    )
+
+    record = payload["records"][0]
+    assert record["open_pr"] == 8365
+    assert record["category"] == "protected_open_pr"
+    assert payload["summary"]["publishable_branch_backlog"] == 0
+
+
 def test_open_pr_heads_treats_gh_timeout_as_unknown(tmp_path: Path, monkeypatch: Any) -> None:
     def timeout_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         raise subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs.get("timeout", 45))

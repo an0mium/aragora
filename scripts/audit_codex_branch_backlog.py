@@ -738,6 +738,41 @@ def open_pr_heads(root: Path, repo: str, prefix: str) -> dict[str, int] | None:
     return heads
 
 
+def open_pr_remote_head_map(root: Path, open_prs: Mapping[str, int]) -> dict[str, int]:
+    """Return local remote-tracking head SHAs for open PR branch names."""
+
+    if not open_prs:
+        return {}
+    refs = [f"refs/remotes/origin/{branch}" for branch in sorted(open_prs)]
+    proc = run_git(
+        ["for-each-ref", "--format=%(refname:short)|%(objectname:short)", *refs],
+        root,
+    )
+    if proc.returncode != 0:
+        return {}
+    remote_prefix = "origin/"
+    head_map: dict[str, int] = {}
+    for line in proc.stdout.splitlines():
+        if not line.strip() or "|" not in line:
+            continue
+        remote_branch, head_sha = line.split("|", 1)
+        branch = remote_branch.removeprefix(remote_prefix)
+        pr_number = open_prs.get(branch)
+        if pr_number is None:
+            continue
+        normalized_head = head_sha.strip().lower()
+        if normalized_head:
+            head_map[normalized_head] = pr_number
+    return head_map
+
+
+def _open_pr_number_for_head(head_sha: str, open_pr_heads_by_sha: Mapping[str, int]) -> int | None:
+    for open_pr_head, pr_number in open_pr_heads_by_sha.items():
+        if _commit_prefix_matches(open_pr_head, head_sha):
+            return pr_number
+    return None
+
+
 def _github_status_cache_paths(
     root: Path,
     *,
@@ -1138,6 +1173,7 @@ def audit(
     else:
         prs = {}
         open_pr_lookup_skipped = True
+    open_pr_heads_by_sha = open_pr_remote_head_map(root, prs) if not open_pr_lookup_skipped else {}
     resolved_outbox_dir = _automation_state_path(root, outbox_dir, DEFAULT_OUTBOX_DIR)
     resolved_receipt_dir = _automation_state_path(root, receipt_dir, DEFAULT_RECEIPT_DIR)
     cached_prs = (
@@ -1187,7 +1223,10 @@ def audit(
         paths = worktrees.get(branch, [])
         dirty_paths = [str(path) for path in paths if dirty_worktree(path)]
         active_paths = [str(path) for path in paths if active_worktree(path)]
-        open_pr = prs.get(branch) if prs is not None else None
+        open_pr = (prs.get(branch) if prs is not None else None) or _open_pr_number_for_head(
+            row["head_sha"],
+            open_pr_heads_by_sha,
+        )
         open_pr_cached = open_pr is None and open_pr_lookup_skipped and branch in cached_prs
         if open_pr_cached:
             cached_open_pr_lookup_used = True
