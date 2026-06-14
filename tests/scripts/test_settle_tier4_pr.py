@@ -108,6 +108,19 @@ def _tier4_packet(
     }
 
 
+def _tier4_repair_packet_missing_settlement(pr: int = 7423) -> dict[str, Any]:
+    packet = _tier4_packet(pr=pr)
+    packet["not_ready"] = [pr]
+    packet["entries"][0]["status"] = "repair_or_wait"
+    packet["entries"][0]["verdict"] = "not_ready_for_settlement"
+    packet["entries"][0]["requires_human_risk_settlement"] = True
+    packet["entries"][0]["reasons"] = [
+        "workflow/deploy/destructive surface touched",
+        "checks are failing; repair before settlement",
+    ]
+    return packet
+
+
 def _valid_checks() -> list[dict[str, str]]:
     return [
         {"name": "lint", "state": "SUCCESS"},
@@ -1531,6 +1544,155 @@ def test_settle_only_posts_comment_and_status_without_merge(
             None,
         )
     ]
+
+
+def test_settle_only_requires_proof_for_quorum_only_repair_packet() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is False
+    assert (
+        "aragora-merge-quorum failure is not proven to be missing human settlement"
+        in result["blockers"]
+    )
+
+
+def test_settle_only_allows_quorum_only_repair_packet_with_log_proof(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[tuple[list[str], str | None]] = []
+    commands: list[tuple[list[str], str | None]] = []
+    proof_calls: list[tuple[list[dict[str, str]], str]] = []
+    required_checks = [
+        {"name": "lint", "state": "SUCCESS"},
+        {
+            "name": "aragora-merge-quorum",
+            "state": "FAILURE",
+            "link": "https://github.example/synaptent/aragora/actions/runs/123/job/456",
+        },
+    ]
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, *, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_repair_packet_missing_settlement(),
+            required_checks,
+        ),
+    )
+
+    def fake_quorum_proof(checks: list[dict[str, str]], *, repo: str, cwd: Path, head: str) -> bool:
+        proof_calls.append((checks, head))
+        return True
+
+    monkeypatch.setattr(settler, "_quorum_failure_log_proves_missing_settlement", fake_quorum_proof)
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: (
+            text_commands.append((command, input_text))
+            or "https://github.example/pr/7423#issuecomment-1\n"
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(
+        settler,
+        "_login_has_admin_permission",
+        lambda login, repo, cwd: login == "trusted-member",
+    )
+
+    rc = settler.main(
+        [
+            "--settle-only",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert proof_calls == [(required_checks, head)]
+    assert text_commands[0][0][:3] == ["gh", "pr", "comment"]
+    assert commands[0][0][:3] == ["gh", "api", "--method"]
+
+
+def test_quorum_failure_log_proves_missing_human_settlement(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    calls: list[list[str]] = []
+
+    def fake_run_text_command(
+        command: list[str], *, cwd: Path, input_text: str | None = None
+    ) -> str:
+        calls.append(command)
+        return (
+            "Tier 4: model quorum prepared the risk packet, but no human "
+            f"settlement signal is recorded for head {head[:12]}. "
+            "The operator must record settlement and set the "
+            "'Aragora/Human-Settlement' commit status."
+        )
+
+    monkeypatch.setattr(settler, "_run_text_command", fake_run_text_command)
+
+    assert (
+        settler._quorum_failure_log_proves_missing_settlement(
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {
+                    "name": "aragora-merge-quorum",
+                    "state": "FAILURE",
+                    "link": "https://github.example/synaptent/aragora/actions/runs/123/job/456",
+                },
+            ],
+            repo="synaptent/aragora",
+            cwd=tmp_path,
+            head=head,
+        )
+        is True
+    )
+    assert calls == [
+        ["gh", "run", "view", "--repo", "synaptent/aragora", "--job", "456", "--log-failed"]
+    ]
+
+    assert (
+        settler._quorum_failure_log_proves_missing_settlement(
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {
+                    "name": "aragora-merge-quorum",
+                    "state": "FAILURE",
+                    "link": "https://github.example/synaptent/aragora/actions/runs/123/job/456",
+                },
+            ],
+            repo="synaptent/aragora",
+            cwd=tmp_path,
+            head="short",
+        )
+        is False
+    )
 
 
 def test_settle_only_rejects_untrusted_invoking_login(
