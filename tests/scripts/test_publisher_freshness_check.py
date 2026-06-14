@@ -62,6 +62,20 @@ def _set_mtime(path: Path, timestamp: float) -> None:
     os.utime(path, (timestamp, timestamp))
 
 
+class _BrokenStdout:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def write(self, _: str) -> int:
+        raise BrokenPipeError
+
+    def flush(self) -> None:
+        pass
+
+    def close(self) -> None:
+        self.closed = True
+
+
 def test_ready_when_loaded_fresh_no_drift(monkeypatch: pytest.MonkeyPatch, stub_repo: Path) -> None:
     cache = _write_cache(stub_repo, outbox_count=3)
     _write_outbox_files(stub_repo, 3)
@@ -249,6 +263,25 @@ def test_main_text_output_emits_summary(
     assert rc == 0
     assert out.startswith("publisher:")
     assert "launchd: loaded" in out
+
+
+@pytest.mark.parametrize("output_args", [[], ["--json"]])
+def test_main_handles_closed_stdout_pipe(
+    monkeypatch: pytest.MonkeyPatch, stub_repo: Path, output_args: list[str]
+) -> None:
+    _write_cache(stub_repo, outbox_count=0)
+    monkeypatch.setattr(mod, "_launchd_loaded", lambda label: (True, "loaded", None))
+    broken_stdout = _BrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", broken_stdout)
+
+    rc = mod.main(["--repo", str(stub_repo), *output_args])
+    muted_stdout = mod.sys.stdout
+    try:
+        assert rc == 0
+        assert broken_stdout.closed is True
+        assert getattr(muted_stdout, "name", None) == os.devnull
+    finally:
+        muted_stdout.close()
 
 
 def test_main_json_output_includes_full_report(

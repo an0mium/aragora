@@ -468,6 +468,25 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return compact
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def _resolve_explicit_path(repo_root: Path, value: str | None) -> Path | None:
     if not value:
         return None
@@ -500,9 +519,9 @@ def main(argv: list[str] | None = None) -> int:
             **asdict(report),
         }
         output_payload = summary_only_payload(payload) if args.summary_only else payload
-        print(json.dumps(output_payload, indent=2, sort_keys=True))
+        _emit_output(json.dumps(output_payload, indent=2, sort_keys=True))
     else:
-        print(report.summary)
+        _emit_output(report.summary)
         if report.blockers and not args.json:
             for blocker in report.blockers:
                 print(f"  - {blocker}", file=sys.stderr)
