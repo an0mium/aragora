@@ -4730,7 +4730,17 @@ def _pr_view_for_recorded_settlement(
     args = ["pr", "view", str(pr_number), "--json", fields]
     if repo_override:
         args.extend(["--repo", repo_override])
-    payload = _gh_json(args)
+    try:
+        payload = _gh_json(args)
+    except _GhError as exc:
+        if not _is_github_transport_error(exc):
+            raise
+        payload = rest_fallback._hydrate_pr_with_rest_fallback(
+            number=pr_number,
+            repo_slug=_resolve_repo_slug_for_rest_fallback(repo_override),
+            source_error=str(exc),
+            gh_json=_gh_json,
+        )
     if not isinstance(payload, dict):
         raise _GhError(f"PR #{pr_number} not found while recording settlement")
     return payload

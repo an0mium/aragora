@@ -5743,6 +5743,71 @@ class TestSettlementHelpers:
         assert saved["head_sha"] == "headsha123"
         assert saved["packet_sha"].startswith("sha256:")
 
+    def test_record_external_settlement_uses_rest_fallback_for_graphql_transport(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        calls: list[list[str]] = []
+
+        def _fake_gh_json(args: list[str]) -> Any:
+            calls.append(args)
+            if args[:2] == ["pr", "view"]:
+                raise _GhError(
+                    "gh pr view 6294 --json number,url,headRefOid,baseRefOid,state,mergedAt "
+                    "failed: GraphQL: API rate limit already exceeded for user ID 33477136."
+                )
+            if args == ["api", "repos/synaptent/aragora/pulls/6294"]:
+                return {
+                    "number": 6294,
+                    "title": "merged pr",
+                    "html_url": "https://github.com/synaptent/aragora/pull/6294",
+                    "head": {"sha": "headsha123", "ref": "feature-branch"},
+                    "base": {"sha": "basesha123", "ref": "main"},
+                    "user": {"login": "an0mium"},
+                    "state": "closed",
+                    "merged_at": "2026-05-10T08:00:00Z",
+                    "merge_commit_sha": "mergesha123",
+                    "draft": False,
+                    "mergeable": None,
+                    "mergeable_state": "unknown",
+                    "labels": [],
+                    "additions": 1,
+                    "deletions": 1,
+                    "changed_files": 1,
+                    "body": "",
+                }
+            if args == ["api", "repos/synaptent/aragora/pulls/6294/files?per_page=100"]:
+                return [{"filename": "aragora/cli/commands/review_queue.py"}]
+            if args == ["api", "repos/synaptent/aragora/issues/6294/comments?per_page=100"]:
+                return []
+            if args == ["api", "repos/synaptent/aragora/pulls/6294/reviews?per_page=100"]:
+                return []
+            if args == ["api", "repos/synaptent/aragora/pulls/6294/commits?per_page=100"]:
+                return []
+            if args == ["api", "user"]:
+                return {"login": "an0mium"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+
+        result = _record_external_settlement(
+            pr_ref="6294",
+            head_sha="headsha123",
+            action="admin_squash_merge",
+            reason="operator authorized exact-head merge",
+            repo_root=tmp_path,
+            repo_override="synaptent/aragora",
+            review_queue_root=None,
+            post_merge_lane_audit_provider=lambda _pr, _apply=False: {"audit_ok": True},
+        )
+
+        assert result.written is True
+        assert result.receipt.pr_url == "https://github.com/synaptent/aragora/pull/6294"
+        assert result.receipt.base_sha == "basesha123"
+        assert result.receipt.reviewed_at == "2026-05-10T08:00:00+00:00"
+        assert result.receipt.actor == "an0mium"
+        assert any(call[:2] == ["pr", "view"] for call in calls)
+        assert ["api", "repos/synaptent/aragora/pulls/6294"] in calls
+
     def test_record_external_admin_merge_includes_post_merge_lane_audit(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
