@@ -33,6 +33,7 @@ REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER = "required_check_visibility_skew"
 SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER = "trusted operator allowlist is required for --settle-only"
 SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
+SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER = "admin/OWNER permission required for --settle-only"
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
@@ -717,7 +718,9 @@ def evaluate_tier4_settlement_preconditions(
     required_checks: list[dict[str, Any]] | None = None,
     trusted_operator_logins: Sequence[str] | None = None,
     invoker_login: str | None = None,
+    invoker_has_admin_permission: bool | None = None,
     require_trusted_invoker: bool = False,
+    require_invoker_admin_permission: bool = False,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     actual_head = str(pr_view.get("headRefOid") or "")
@@ -763,6 +766,15 @@ def evaluate_tier4_settlement_preconditions(
             blockers.append(SETTLE_ONLY_INVOKER_BLOCKER)
         elif normalized_invoker not in allowed_logins:
             blockers.append(f"gh login {normalized_invoker} is not in trusted operator allowlist")
+    if require_invoker_admin_permission:
+        if not normalized_invoker and SETTLE_ONLY_INVOKER_BLOCKER not in blockers:
+            blockers.append(SETTLE_ONLY_INVOKER_BLOCKER)
+        elif allowed_logins and normalized_invoker not in allowed_logins:
+            pass
+        elif invoker_has_admin_permission is not True:
+            blockers.append(
+                f"gh login {normalized_invoker} lacks {SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER}"
+            )
 
     return {
         "ok": not blockers,
@@ -772,6 +784,7 @@ def evaluate_tier4_settlement_preconditions(
         "merge_state": merge_state,
         "trusted_operator_logins": sorted(allowed_logins),
         "invoker_login": normalized_invoker,
+        "invoker_has_admin_permission": invoker_has_admin_permission,
         "blockers": blockers,
     }
 
@@ -1086,7 +1099,7 @@ def build_parser() -> argparse.ArgumentParser:
             f"{TRUSTED_OPERATOR_LOGINS_ENV}. If omitted, any live admin MEMBER "
             f"may authorize when {HUMAN_SETTLEMENT_CONTEXT} is success. "
             "--settle-only additionally requires the invoking gh login to be "
-            "present in this allowlist."
+            "present in this allowlist and have admin/OWNER authority."
         ),
     )
     parser.add_argument("--json", action="store_true")
@@ -1113,6 +1126,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             allowed_logins = _trusted_operator_logins(args.trusted_operator_login)
             invoker_login = _current_gh_login(cwd=args.cwd) if allowed_logins else ""
+            invoker_has_admin_permission = (
+                _login_has_admin_permission(invoker_login, args.repo, args.cwd)
+                if invoker_login and invoker_login in allowed_logins
+                else None
+            )
             gate = evaluate_tier4_settlement_preconditions(
                 pr=args.pr,
                 expected_head=args.head,
@@ -1121,7 +1139,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 required_checks=required_checks,
                 trusted_operator_logins=args.trusted_operator_login,
                 invoker_login=invoker_login,
+                invoker_has_admin_permission=invoker_has_admin_permission,
                 require_trusted_invoker=True,
+                require_invoker_admin_permission=True,
             )
             if not gate["ok"]:
                 blocker_text = "; ".join(str(blocker) for blocker in gate["blockers"])
