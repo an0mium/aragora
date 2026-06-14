@@ -58,6 +58,14 @@ Backup Task: NONE
 """.strip()
 
 
+def test_default_open_issue_cap_matches_shared_queue_policy() -> None:
+    import scripts.cache_codex_automation_github_status as status_cache
+    import scripts.drain_codex_automation_value as value_drain
+
+    assert mod.DEFAULT_MAX_OPEN_ISSUES == status_cache.DEFAULT_MAX_OPEN_ISSUES
+    assert mod.DEFAULT_MAX_OPEN_ISSUES == value_drain.DEFAULT_MAX_OPEN_ISSUES
+
+
 def _repo_with_merged_codex_branch(tmp_path: Path) -> tuple[Path, str]:
     repo = tmp_path / "repo"
     repo.mkdir()
