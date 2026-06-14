@@ -1,12 +1,25 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
 import scripts.cache_codex_automation_github_status as mod
 import scripts.refresh_automation_status_cache as refresh_mod
 from scripts.github_cli_health import GitHubCLIHealth
+
+
+def _init_repo_with_origin(path: Path, origin: str) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "remote", "add", "origin", origin],
+        cwd=path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_build_status_uses_local_queue_when_github_unavailable(
@@ -732,6 +745,59 @@ def test_incomplete_local_aragora_does_not_shadow_shared_state_root(
     assert payload["outbox_dir"] == str(outbox)
     assert payload["receipt_dir"] == str(receipts)
     assert payload["outbox_count"] == 1
+
+
+def test_implicit_shared_state_root_accepts_matching_git_origin(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    shared_root = tmp_path / "Development" / "aragora"
+    origin = "https://github.com/synaptent/aragora.git"
+    _init_repo_with_origin(repo_root, origin)
+    _init_repo_with_origin(shared_root, origin)
+    outbox = shared_root / ".aragora" / "automation-outbox"
+    receipts = shared_root / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "handoff.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(mod.Path, "home", lambda: tmp_path)
+
+    payload = mod._local_queue_state(
+        repo_root=repo_root,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
+    assert payload["outbox_dir"] == str(outbox)
+    assert payload["receipt_dir"] == str(receipts)
+    assert payload["outbox_count"] == 1
+
+
+def test_implicit_shared_state_root_rejects_different_git_origin(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "other-repo"
+    shared_root = tmp_path / "Development" / "aragora"
+    _init_repo_with_origin(repo_root, "https://example.com/other.git")
+    _init_repo_with_origin(shared_root, "https://github.com/synaptent/aragora.git")
+    outbox = shared_root / ".aragora" / "automation-outbox"
+    receipts = shared_root / ".aragora" / "automation-receipts"
+    outbox.mkdir(parents=True)
+    receipts.mkdir(parents=True)
+    (outbox / "handoff.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(mod.Path, "home", lambda: tmp_path)
+
+    payload = mod._local_queue_state(
+        repo_root=repo_root,
+        outbox_dir=None,
+        receipt_dir=None,
+    )
+
+    assert payload["outbox_dir"] == str(repo_root / ".aragora" / "automation-outbox")
+    assert payload["receipt_dir"] == str(repo_root / ".aragora" / "automation-receipts")
+    assert payload["outbox_count"] == 0
 
 
 def test_main_default_output_uses_explicit_aragora_state_root(

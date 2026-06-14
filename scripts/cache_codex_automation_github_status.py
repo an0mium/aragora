@@ -109,6 +109,30 @@ def _repo_root(path: Path) -> Path:
     return Path(proc.stdout.strip()).resolve()
 
 
+def _git_origin_url(path: Path) -> str | None:
+    proc = subprocess.run(
+        ["git", "config", "--get", "remote.origin.url"],
+        cwd=path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    origin = proc.stdout.strip()
+    return origin or None
+
+
+def _can_use_implicit_shared_state_root(repo_root: Path, candidate: Path) -> bool:
+    repo_origin = _git_origin_url(repo_root)
+    candidate_origin = _git_origin_url(candidate)
+    if repo_origin and candidate_origin:
+        return repo_origin == candidate_origin
+    if repo_origin or candidate_origin:
+        return False
+    return True
+
+
 def _shared_state_root(repo_root: Path) -> Path:
     if _has_queue_state_dirs(repo_root):
         return repo_root
@@ -120,7 +144,7 @@ def _shared_state_root(repo_root: Path) -> Path:
         if (configured_root / ".aragora").is_dir():
             return configured_root.resolve()
     fallback = Path.home() / "Development" / "aragora"
-    if _has_queue_state_dirs(fallback):
+    if _has_queue_state_dirs(fallback) and _can_use_implicit_shared_state_root(repo_root, fallback):
         return fallback
     return repo_root
 
