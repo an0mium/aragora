@@ -162,6 +162,34 @@ def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     assert payload["records"] == [{"name": "codex/one"}, {"name": "codex/two"}]
 
 
+def test_mirror_summary_fields_adds_top_level_classifier_aliases() -> None:
+    payload = {
+        "branch_count": 2,
+        "summary": {
+            "publishable_branch_backlog": 1,
+            "writer_should_pause_for_branch_backlog": False,
+            "safe_cleanup_candidates": 2,
+            "by_category": {
+                "cleanup_patch_equivalent": 2,
+                "salvage_recent_unique": 1,
+            },
+        },
+        "records": [{"name": "codex/one"}, {"name": "codex/two"}],
+    }
+
+    mirrored = mod.mirror_summary_fields(payload)
+
+    assert mirrored is payload
+    assert mirrored["summary"]["publishable_branch_backlog"] == 1
+    assert mirrored["publishable_branch_backlog"] == 1
+    assert mirrored["writer_should_pause_for_branch_backlog"] is False
+    assert mirrored["safe_cleanup_candidates"] == 2
+    assert mirrored["category_counts"] == {
+        "cleanup_patch_equivalent": 2,
+        "salvage_recent_unique": 1,
+    }
+
+
 def test_summary_only_payload_keeps_compact_category_examples() -> None:
     payload = {
         "branch_count": 4,
@@ -261,6 +289,10 @@ def test_summary_only_payload_keeps_compact_category_examples() -> None:
     ]
     assert compact["records"] == []
     assert len(payload["records"]) == 5
+    assert compact["category_counts"] == {
+        "cleanup_patch_equivalent": 3,
+        "salvage_diverged_local": 1,
+    }
 
 
 def test_summary_only_payload_honors_example_limit() -> None:

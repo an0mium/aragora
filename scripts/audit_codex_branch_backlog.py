@@ -73,6 +73,21 @@ COMPACT_RECORD_EXAMPLE_FIELDS = (
     "handoff_receipt_exists",
     "handoff_outbox_exists",
 )
+TOP_LEVEL_SUMMARY_KEYS = (
+    "safe_cleanup_candidates",
+    "protected",
+    "salvage_candidates",
+    "publishable_branch_backlog",
+    "diverged_salvage_candidates",
+    "stale_local_only_salvage_candidates",
+    "handoff_receipted_branches",
+    "handoff_outbox_branches",
+    "unresolved_handoff_outbox_branch_refs",
+    "direct_handoff_outbox_branches",
+    "unresolved_handoff_outbox_refs_outside_audit",
+    "patch_equivalent_handoff_outbox_branches",
+    "writer_should_pause_for_branch_backlog",
+)
 DEFAULT_SUMMARY_EXAMPLES_PER_CATEGORY = 0
 DIVERGENCE_REF_BATCH_SIZE = 200
 
@@ -1445,48 +1460,52 @@ def audit(
     skipped_counts = Counter(
         record.category for record in records if record.patch_equivalence_skipped
     )
-    return {
-        "repo": str(root),
-        "worktree_head_sha": git_revision(root, "HEAD"),
-        "base": base,
-        "base_sha": git_revision(root, base),
-        "prefix": prefix,
-        "recent_hours": recent_hours,
-        "publisher_backlog_limit": publisher_backlog_limit,
-        "include_patch_equivalence": include_patch_equivalence,
-        "patch_equivalence_time_budget_seconds": patch_equivalence_time_budget_seconds,
-        "patch_equivalence_budget_exhausted": patch_equivalence_budget_exhausted,
-        "patch_equivalence_skipped_branches": patch_equivalence_skipped_branches,
-        "outbox_dir": str(resolved_outbox_dir),
-        "receipt_dir": str(resolved_receipt_dir),
-        "github_health": github_health.to_dict(),
-        "open_pr_lookup_skipped": open_pr_lookup_skipped,
-        "cached_open_pr_lookup_used": cached_open_pr_lookup_used,
-        "cached_open_pr_head_count": len(cached_prs),
-        "branch_count": len(records),
-        "summary": {
-            "safe_cleanup_candidates": safe_cleanup,
-            "protected": protected,
-            "salvage_candidates": salvage,
-            "publishable_branch_backlog": publishable_branch_backlog,
-            "diverged_salvage_candidates": diverged_salvage,
-            "stale_local_only_salvage_candidates": counts["salvage_stale_local_unique"],
-            "handoff_receipted_branches": counts["protected_handoff_receipt"],
-            "handoff_outbox_branches": counts["protected_handoff_outbox"],
-            "unresolved_handoff_outbox_branch_refs": len(handoff_outbox_branches),
-            "direct_handoff_outbox_branches": direct_handoff_outbox_branches,
-            "unresolved_handoff_outbox_refs_outside_audit": (
-                unresolved_handoff_outbox_refs_outside_audit
-            ),
-            "patch_equivalent_handoff_outbox_branches": (patch_equivalent_handoff_outbox_branches),
-            "writer_should_pause_for_branch_backlog": (
-                publishable_branch_backlog >= publisher_backlog_limit
-            ),
-            "by_category": dict(sorted(counts.items())),
-            "patch_equivalence_skipped_by_category": dict(sorted(skipped_counts.items())),
-        },
-        "records": [asdict(record) for record in records],
-    }
+    return mirror_summary_fields(
+        {
+            "repo": str(root),
+            "worktree_head_sha": git_revision(root, "HEAD"),
+            "base": base,
+            "base_sha": git_revision(root, base),
+            "prefix": prefix,
+            "recent_hours": recent_hours,
+            "publisher_backlog_limit": publisher_backlog_limit,
+            "include_patch_equivalence": include_patch_equivalence,
+            "patch_equivalence_time_budget_seconds": patch_equivalence_time_budget_seconds,
+            "patch_equivalence_budget_exhausted": patch_equivalence_budget_exhausted,
+            "patch_equivalence_skipped_branches": patch_equivalence_skipped_branches,
+            "outbox_dir": str(resolved_outbox_dir),
+            "receipt_dir": str(resolved_receipt_dir),
+            "github_health": github_health.to_dict(),
+            "open_pr_lookup_skipped": open_pr_lookup_skipped,
+            "cached_open_pr_lookup_used": cached_open_pr_lookup_used,
+            "cached_open_pr_head_count": len(cached_prs),
+            "branch_count": len(records),
+            "summary": {
+                "safe_cleanup_candidates": safe_cleanup,
+                "protected": protected,
+                "salvage_candidates": salvage,
+                "publishable_branch_backlog": publishable_branch_backlog,
+                "diverged_salvage_candidates": diverged_salvage,
+                "stale_local_only_salvage_candidates": counts["salvage_stale_local_unique"],
+                "handoff_receipted_branches": counts["protected_handoff_receipt"],
+                "handoff_outbox_branches": counts["protected_handoff_outbox"],
+                "unresolved_handoff_outbox_branch_refs": len(handoff_outbox_branches),
+                "direct_handoff_outbox_branches": direct_handoff_outbox_branches,
+                "unresolved_handoff_outbox_refs_outside_audit": (
+                    unresolved_handoff_outbox_refs_outside_audit
+                ),
+                "patch_equivalent_handoff_outbox_branches": (
+                    patch_equivalent_handoff_outbox_branches
+                ),
+                "writer_should_pause_for_branch_backlog": (
+                    publishable_branch_backlog >= publisher_backlog_limit
+                ),
+                "by_category": dict(sorted(counts.items())),
+                "patch_equivalence_skipped_by_category": dict(sorted(skipped_counts.items())),
+            },
+            "records": [asdict(record) for record in records],
+        }
+    )
 
 
 def compact_record_examples(
@@ -1510,6 +1529,22 @@ def compact_record_examples(
     return dict(sorted(examples.items()))
 
 
+def mirror_summary_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    """Copy stable classifier summary fields to top level for automation probes."""
+
+    summary = payload.get("summary")
+    if not isinstance(summary, Mapping):
+        return payload
+
+    for key in TOP_LEVEL_SUMMARY_KEYS:
+        if key in summary:
+            payload.setdefault(key, summary[key])
+    by_category = summary.get("by_category")
+    if isinstance(by_category, Mapping):
+        payload.setdefault("category_counts", dict(by_category))
+    return payload
+
+
 def summary_only_payload(
     payload: dict[str, Any],
     *,
@@ -1524,7 +1559,7 @@ def summary_only_payload(
     compact["record_examples_limit"] = example_limit
     compact["records"] = []
     compact["records_omitted"] = True
-    return compact
+    return mirror_summary_fields(compact)
 
 
 def _mute_stdout_after_broken_pipe() -> None:
