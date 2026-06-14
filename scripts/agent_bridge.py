@@ -2758,6 +2758,44 @@ def _operator_boss_loop_alive(summary: dict[str, Any]) -> bool:
     return bool(_operator_boss_loop_status(summary)["alive"])
 
 
+def _optional_record_limit(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _limit_records(records: list[Any], limit: int | None) -> tuple[list[Any], int]:
+    if limit is None or len(records) <= limit:
+        return records, 0
+    return records[:limit], len(records) - limit
+
+
+def _limit_heartbeat_owners(
+    agent_heartbeats: dict[str, Any],
+    limit: int | None,
+) -> tuple[dict[str, Any], int]:
+    if limit is None:
+        return agent_heartbeats, 0
+    latest_by_owner = agent_heartbeats.get("latest_by_owner")
+    if not isinstance(latest_by_owner, dict) or len(latest_by_owner) <= limit:
+        return agent_heartbeats, 0
+    limited = dict(agent_heartbeats)
+    owner_items = sorted(
+        latest_by_owner.items(),
+        key=lambda item: (
+            bool((item[1] or {}).get("fresh")) if isinstance(item[1], dict) else False,
+            str((item[1] or {}).get("last_seen_at") or "") if isinstance(item[1], dict) else "",
+            str(item[0]),
+        ),
+        reverse=True,
+    )
+    limited["latest_by_owner"] = dict(owner_items[:limit])
+    return limited, len(owner_items) - limit
+
+
 def _operator_recent_blockers(
     issues: list[dict[str, str]],
     pending_steering: dict[str, Any],
@@ -2879,6 +2917,8 @@ def _emit_text(output: str) -> int:
 def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     """Output a unified operator snapshot combining sessions, lanes, and health."""
     summary_only = bool(getattr(args, "summary_only", False))
+    lane_limit = _optional_record_limit(getattr(args, "lane_limit", None))
+    heartbeat_owner_limit = _optional_record_limit(getattr(args, "heartbeat_owner_limit", None))
     include_historical = bool(getattr(args, "include_historical", False)) or (
         getattr(args, "scope", "current") == "all"
     )
@@ -2942,11 +2982,24 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     }
 
     boss_loop_status = _operator_boss_loop_status(summary)
+    session_records = [s.to_dict() for s in sessions]
+    lane_records = [r.to_dict() for r in records]
+    record_omissions: dict[str, int] = {}
+    if not summary_only:
+        lane_records, omitted_lanes = _limit_records(lane_records, lane_limit)
+        if omitted_lanes:
+            record_omissions["lanes"] = omitted_lanes
+        agent_heartbeats, omitted_heartbeat_owners = _limit_heartbeat_owners(
+            agent_heartbeats,
+            heartbeat_owner_limit,
+        )
+        if omitted_heartbeat_owners:
+            record_omissions["heartbeat_owners"] = omitted_heartbeat_owners
     snapshot: dict[str, Any] = {
         "timestamp": _now_iso(),
-        "sessions": [s.to_dict() for s in sessions],
+        "sessions": session_records,
         "broker_runs": broker_runs,
-        "lanes": [r.to_dict() for r in records],
+        "lanes": lane_records,
         "lane_conflicts": lane_conflicts,
         "process_census": process_census,
         "health": {"ok": len(issues) == 0, "issues": issues},
@@ -2959,6 +3012,12 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
         "boss_loop_status": boss_loop_status,
         "summary": summary,
     }
+    if record_omissions:
+        snapshot["record_omissions"] = record_omissions
+        snapshot["record_limits"] = {
+            "lanes": lane_limit,
+            "heartbeat_owners": heartbeat_owner_limit,
+        }
     if summary_only:
         snapshot.pop("sessions")
         snapshot.pop("lanes")
@@ -2989,23 +3048,40 @@ def cmd_operator_snapshot(args: argparse.Namespace) -> int:
     lines.append(f"BossLoop: {boss_loop_label} ({boss_loop_status['reason']})")
     health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
     lines.append(f"Health:   {health_status}")
+    if record_omissions:
+        omitted = ", ".join(f"{name}={count}" for name, count in sorted(record_omissions.items()))
+        lines.append(f"Omitted:  {omitted}")
 
-    if sessions and not summary_only:
+    if session_records and not summary_only:
         lines.extend(["", f"{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY"])
         lines.append("-" * 110)
-        for s in sessions:
-            branch = s.branch[:26] if s.branch else "-"
-            summary_text = (s.summary[:40] + "..." if len(s.summary) > 40 else s.summary) or "-"
-            lines.append(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary_text}")
+        for session in session_records:
+            branch_raw = str(session.get("branch") or "")
+            branch = branch_raw[:26] if branch_raw else "-"
+            raw_summary = str(session.get("summary") or "")
+            summary_text = (
+                raw_summary[:40] + "..." if len(raw_summary) > 40 else raw_summary
+            ) or "-"
+            lines.append(
+                f"{str(session.get('name') or ''):<24} "
+                f"{str(session.get('agent') or ''):<8} "
+                f"{str(session.get('status') or ''):<8} "
+                f"{branch:<28} {summary_text}"
+            )
 
-    if records and not summary_only:
+    if lane_records and not summary_only:
         lines.extend(["", f"{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION"])
         lines.append("-" * 90)
-        for r in records:
+        for lane in lane_records:
+            raw_next_action = str(lane.get("next_action") or "")
             next_action = (
-                r.next_action[:40] + "..." if len(r.next_action) > 40 else r.next_action
+                raw_next_action[:40] + "..." if len(raw_next_action) > 40 else raw_next_action
             ) or "-"
-            lines.append(f"{r.lane_id:<22} {r.owner_session:<24} {r.status:<10} {next_action}")
+            lines.append(
+                f"{str(lane.get('lane_id') or ''):<22} "
+                f"{str(lane.get('owner_session') or ''):<24} "
+                f"{str(lane.get('status') or ''):<10} {next_action}"
+            )
 
     process_records = snapshot.get("process_census", {}).get("records", [])
     if process_records and not summary_only:
@@ -3326,6 +3402,24 @@ def main() -> int:
             "Scope pending_steering_messages lookup to one recipient "
             "session. Default: env ARAGORA_SESSION_ID, then roll-up across "
             "all recipient inbox dirs."
+        ),
+    )
+    operator_snapshot_p.add_argument(
+        "--lane-limit",
+        type=int,
+        default=None,
+        help=(
+            "Maximum lane records to include when not using --summary-only; "
+            "summary counts still use the full lane set."
+        ),
+    )
+    operator_snapshot_p.add_argument(
+        "--heartbeat-owner-limit",
+        type=int,
+        default=None,
+        help=(
+            "Maximum agent_heartbeats.latest_by_owner entries to include when "
+            "not using --summary-only; counts still use the full heartbeat set."
         ),
     )
 

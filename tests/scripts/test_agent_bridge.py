@@ -1891,6 +1891,104 @@ def test_operator_snapshot_current_output_preserves_full_canonical_snapshot(
     assert [session["name"] for session in snapshot] == ["codex-live", "claude-history"]
 
 
+def test_operator_snapshot_record_limits_trim_payload_not_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr(
+        mod,
+        "_load_lane_registry",
+        lambda: [
+            mod.LaneRecord(
+                lane_id="lane-a",
+                owner_session="owner-a",
+                status="active",
+                next_action="first",
+            ),
+            mod.LaneRecord(
+                lane_id="lane-b",
+                owner_session="owner-b",
+                status="blocked",
+                next_action="second",
+            ),
+            mod.LaneRecord(
+                lane_id="lane-c",
+                owner_session="owner-c",
+                status="working",
+                next_action="third",
+            ),
+        ],
+    )
+    monkeypatch.setattr(mod, "_load_broker_run_summaries", lambda: [])
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_process_census",
+        lambda *, include_records=True, record_limit=None, ps_lines=None: {
+            "ok": True,
+            "total": 0,
+            "by_role": {},
+            **({"records": []} if include_records else {}),
+        },
+    )
+    monkeypatch.setattr(mod, "_collect_pending_steering_messages", lambda _recipient: {"count": 0})
+    monkeypatch.setattr(
+        mod,
+        "_collect_agent_heartbeats",
+        lambda: {
+            "count": 3,
+            "fresh_count": 1,
+            "stale_count": 2,
+            "latest_by_owner": {
+                "owner-a": {
+                    "owner_session": "owner-a",
+                    "last_seen_at": "2026-06-14T00:01:00Z",
+                    "fresh": True,
+                },
+                "owner-b": {
+                    "owner_session": "owner-b",
+                    "last_seen_at": "2026-06-14T00:02:00Z",
+                    "fresh": False,
+                },
+                "owner-c": {
+                    "owner_session": "owner-c",
+                    "last_seen_at": "2026-06-14T00:03:00Z",
+                    "fresh": False,
+                },
+            },
+        },
+    )
+    monkeypatch.setattr(mod, "_collect_b0_success_rate", lambda: None)
+
+    assert (
+        mod.cmd_operator_snapshot(
+            argparse.Namespace(
+                json=True,
+                summary_only=False,
+                include_historical=False,
+                scope="current",
+                steering_recipient=None,
+                lane_limit=2,
+                heartbeat_owner_limit=1,
+            )
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert [lane["lane_id"] for lane in payload["lanes"]] == ["lane-a", "lane-b"]
+    assert payload["summary"]["active_lanes"] == 3
+    assert payload["agent_heartbeats"]["count"] == 3
+    assert list(payload["agent_heartbeats"]["latest_by_owner"]) == ["owner-a"]
+    assert payload["record_omissions"] == {"lanes": 1, "heartbeat_owners": 2}
+    assert payload["record_limits"] == {"lanes": 2, "heartbeat_owners": 1}
+
+
 def test_operator_snapshot_includes_broker_runs(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
