@@ -450,6 +450,24 @@ def test_admin_member_comment_does_not_require_explicit_allowlist() -> None:
     assert result["blockers"] == []
 
 
+def test_admin_collaborator_comment_does_not_require_explicit_allowlist() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, association="COLLABORATOR", author="an0mium")],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        permission_checker=lambda login: login == "an0mium",
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
 def test_settle_only_trusted_admin_collaborator_matches_check_rule() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     precondition = settler.evaluate_tier4_settlement_preconditions(
@@ -623,7 +641,7 @@ def test_head_mismatch_skips_member_permission_check(monkeypatch: Any) -> None:
     assert diagnostic["admin_permission_required"] is True
     assert diagnostic["admin_permission_evaluated"] is False
     assert (
-        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         in diagnostic["rejection_reasons"]
     )
 
@@ -679,7 +697,7 @@ def test_failed_required_check_skips_member_permission_check(monkeypatch: Any) -
     assert diagnostic["admin_permission_required"] is True
     assert diagnostic["admin_permission_evaluated"] is False
     assert (
-        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         in diagnostic["rejection_reasons"]
     )
 
@@ -769,7 +787,7 @@ def test_unexpected_packet_blocker_does_not_report_missing_trusted_member_commen
     assert diagnostic["admin_permission_required"] is True
     assert diagnostic["admin_permission_evaluated"] is False
     assert (
-        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         in diagnostic["rejection_reasons"]
     )
 

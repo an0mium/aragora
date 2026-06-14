@@ -22,7 +22,9 @@ AUTHORIZED_MARKER = "Tier-4 Human Settlement Authorization"
 AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 AUTHORIZED_PROTECTION_TOKENS = ("branch_protection_reconcile", "branch protection reconcile")
 TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS = {"OWNER"}
-TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"COLLABORATOR", "MEMBER"}
+# GitHub reports some repo admins as COLLABORATOR rather than MEMBER. These
+# associations are trusted only after a live repo-admin permission check.
+TRUSTED_OPERATOR_PERMISSION_CHECKED_ASSOCIATIONS = {"COLLABORATOR", "MEMBER"}
 TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
 PermissionChecker = Callable[[str], bool]
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
@@ -188,13 +190,13 @@ def _is_trusted_operator_author(
     )
 
 
-def _trusted_member_requires_permission_check(
+def _trusted_operator_requires_permission_check(
     item: dict[str, Any],
     *,
     trusted_operator_logins: frozenset[str],
 ) -> bool:
     association = str(item.get("authorAssociation") or "").upper()
-    if association not in TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS:
+    if association not in TRUSTED_OPERATOR_PERMISSION_CHECKED_ASSOCIATIONS:
         return False
     login = _author_login(item)
     if not login:
@@ -212,7 +214,7 @@ def _operator_author_rejection_reason(
     association = str(item.get("authorAssociation") or "").upper()
     if association in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
         return ""
-    if association not in TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS:
+    if association not in TRUSTED_OPERATOR_PERMISSION_CHECKED_ASSOCIATIONS:
         return f"authorAssociation {association or '<missing>'} is not trusted"
     login = _author_login(item)
     if not login:
@@ -222,7 +224,7 @@ def _operator_author_rejection_reason(
     if not evaluate_member_permissions:
         return ""
     if not permission_checker(login):
-        return f"trusted member {login or '<missing>'} lacks admin permission"
+        return f"trusted operator {login or '<missing>'} lacks admin permission"
     return ""
 
 
@@ -257,7 +259,7 @@ def _authorization_diagnostic(
         permission_checker=permission_checker,
         evaluate_member_permissions=evaluate_member_permissions,
     )
-    admin_permission_required = _trusted_member_requires_permission_check(
+    admin_permission_required = _trusted_operator_requires_permission_check(
         item,
         trusted_operator_logins=trusted_operator_logins,
     )
@@ -276,7 +278,7 @@ def _authorization_diagnostic(
         rejection_reasons.append(author_rejection)
     if admin_permission_required and not evaluate_member_permissions:
         rejection_reasons.append(
-            "trusted member admin permission was not evaluated because earlier gate blockers are present"
+            "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         )
     if not fresh_after_head_commit:
         rejection_reasons.append("authorization is older than head commit")
