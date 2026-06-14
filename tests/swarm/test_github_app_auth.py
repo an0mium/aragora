@@ -368,6 +368,23 @@ def test_gh_subprocess_run_write_op_drops_app_token(monkeypatch) -> None:
     assert env.get("ARAGORA_GITHUB_AUTH_SOURCE") != "github_app_installation"
 
 
+def test_gh_subprocess_run_passes_cwd_to_subprocess(monkeypatch, tmp_path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["cwd"] = kwargs.get("cwd")
+        return subprocess.CompletedProcess(cmd, 0, "{}", "")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "github_cli_env", lambda *, prefer_app=True: {})
+
+    result = mod.gh_subprocess_run(["pr", "view", "1"], cwd=tmp_path)
+
+    assert result.returncode == 0
+    assert captured == {"cmd": ["gh", "pr", "view", "1"], "cwd": tmp_path}
+
+
 def test_bucket_for_args_detects_graphql_via_args() -> None:
     assert mod._bucket_for_args(["api", "graphql"], "") == "graphql"
     assert mod._bucket_for_args(["api", "search/issues"], "") == "core"

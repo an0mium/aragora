@@ -17,6 +17,27 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+try:
+    from aragora.swarm.github_app_auth import (
+        gh_subprocess_run,
+        github_cli_env,
+    )
+except Exception:  # pragma: no cover - script must still run in partial checkouts
+    gh_subprocess_run = None  # type: ignore[assignment]
+
+    def github_cli_env(
+        base_env: dict[str, str] | None = None,
+        *,
+        prefer_app: bool = True,
+    ) -> dict[str, str]:
+        del prefer_app
+        return dict(os.environ if base_env is None else base_env)
+
+
 DEFAULT_REPO = "synaptent/aragora"
 AUTHORIZED_MARKER = "Tier-4 Human Settlement Authorization"
 AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
@@ -109,7 +130,9 @@ def _trusted_operator_logins(extra_logins: Sequence[str] | None = None) -> froze
 
 
 def _current_gh_login(*, cwd: Path) -> str:
-    payload = _run_json(["gh", "api", "user"], cwd=cwd)
+    # Identity is semantic for Tier-4 settlement. Do not let App-token fallback
+    # turn an operator identity check into a bot identity check.
+    payload = _run_json(["gh", "api", "user"], cwd=cwd, prefer_app=False)
     login = str(payload.get("login") or "").strip().lower()
     if not login:
         raise RuntimeError("gh api user did not return a login")
@@ -789,8 +812,59 @@ def evaluate_tier4_settlement_preconditions(
     }
 
 
-def _run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
-    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+def _subprocess_env(*, prefer_app: bool, write_op: bool) -> dict[str, str]:
+    if write_op:
+        return github_cli_env(os.environ, prefer_app=False)
+    return github_cli_env(os.environ, prefer_app=prefer_app)
+
+
+def _run_process(
+    command: list[str],
+    *,
+    cwd: Path | None = None,
+    timeout: float = 120,
+    prefer_app: bool = True,
+    write_op: bool = False,
+    input_text: str | None = None,
+    check: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    if command and command[0] == "gh" and input_text is None and gh_subprocess_run is not None:
+        result = gh_subprocess_run(
+            command[1:],
+            cwd=cwd,
+            timeout=timeout,
+            prefer_app=prefer_app,
+            write_op=write_op,
+            env=os.environ,
+        )
+        if check and result.returncode != 0:
+            raise subprocess.CalledProcessError(
+                result.returncode,
+                command,
+                output=result.stdout,
+                stderr=result.stderr,
+            )
+        return result
+    return subprocess.run(
+        command,
+        cwd=cwd,
+        input=input_text,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=_subprocess_env(prefer_app=prefer_app, write_op=write_op),
+        check=check,
+    )
+
+
+def _run_json(
+    command: list[str],
+    *,
+    cwd: Path | None = None,
+    prefer_app: bool = True,
+    write_op: bool = False,
+) -> dict[str, Any]:
+    result = _run_process(command, cwd=cwd, prefer_app=prefer_app, write_op=write_op)
     if result.returncode != 0:
         raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
     try:
@@ -802,8 +876,14 @@ def _run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
     return payload
 
 
-def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
-    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+def _run_json_any(
+    command: list[str],
+    *,
+    cwd: Path | None = None,
+    prefer_app: bool = True,
+    write_op: bool = False,
+) -> Any:
+    result = _run_process(command, cwd=cwd, prefer_app=prefer_app, write_op=write_op)
     if result.returncode != 0:
         raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
     try:
@@ -884,18 +964,43 @@ def _required_status_check_patch(*, repo: str, cwd: Path) -> tuple[list[str], st
 
 
 def _run_command(command: list[str], *, cwd: Path, input_text: str | None = None) -> None:
-    subprocess.run(command, cwd=cwd, input=input_text, text=True, check=True, timeout=180)
-
-
-def _run_text_command(command: list[str], *, cwd: Path, input_text: str | None = None) -> str:
-    result = subprocess.run(
+    if command and command[0] == "gh" and input_text is None and gh_subprocess_run is not None:
+        result = gh_subprocess_run(
+            command[1:],
+            cwd=cwd,
+            timeout=180,
+            prefer_app=True,
+            write_op=True,
+            env=os.environ,
+        )
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(
+                result.returncode,
+                command,
+                output=result.stdout,
+                stderr=result.stderr,
+            )
+        return
+    subprocess.run(
         command,
         cwd=cwd,
         input=input_text,
-        capture_output=True,
         text=True,
         check=True,
         timeout=180,
+        env=_subprocess_env(prefer_app=True, write_op=True),
+    )
+
+
+def _run_text_command(command: list[str], *, cwd: Path, input_text: str | None = None) -> str:
+    result = _run_process(
+        command,
+        cwd=cwd,
+        input=input_text,
+        timeout=180,
+        prefer_app=True,
+        write_op=True,
+        check=True,
     )
     return result.stdout.strip()
 
