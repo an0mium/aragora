@@ -865,6 +865,90 @@ def test_admin_member_comment_does_not_require_explicit_allowlist() -> None:
     assert result["blockers"] == []
 
 
+def test_allowlisted_admin_collaborator_comment_authorizes() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="COLLABORATOR",
+                    author="trusted-admin",
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-admin"],
+        permission_checker=lambda login: login == "trusted-admin",
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+    diagnostic = result["authorization_diagnostics"][0]
+    assert diagnostic["accepted"] is True
+    assert diagnostic["admin_permission_required"] is True
+    assert diagnostic["admin_permission_evaluated"] is True
+
+
+def test_collaborator_comment_requires_explicit_allowlist() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="COLLABORATOR",
+                    author="admin-collaborator",
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        permission_checker=lambda login: login == "admin-collaborator",
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+    assert result["authorization_diagnostics"][0]["rejection_reasons"] == [
+        "COLLABORATOR login admin-collaborator requires explicit trusted operator allowlist"
+    ]
+
+
+def test_allowlisted_collaborator_comment_requires_admin_permission() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="COLLABORATOR",
+                    author="trusted-collaborator",
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-collaborator"],
+        permission_checker=lambda login: False,
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+    assert result["authorization_diagnostics"][0]["rejection_reasons"] == [
+        "trusted collaborator trusted-collaborator lacks admin permission"
+    ]
+
+
 def test_cli_trusted_operator_login_authorizes_member_comment(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
@@ -909,6 +993,31 @@ def test_collaborator_permission_payload_only_treats_admin_as_admin() -> None:
     assert settler._collaborator_permission_is_admin({"role_name": "admin"}) is True
     for permission in ("maintain", "write", "triage", "read"):
         assert settler._collaborator_permission_is_admin({"permission": permission}) is False
+
+
+def test_admin_permission_check_uses_rest_collaborator_permission_endpoint(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        commands.append(command)
+        return {"permission": "admin"}
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+
+    assert settler._login_has_admin_permission(
+        "trusted-admin@example.com",
+        "owner/repo",
+        tmp_path,
+    )
+    assert commands == [
+        [
+            "gh",
+            "api",
+            "repos/owner/repo/collaborators/trusted-admin%40example.com/permission",
+        ]
+    ]
 
 
 def test_authorization_comment_for_different_head_does_not_authorize() -> None:
@@ -997,7 +1106,7 @@ def test_head_mismatch_skips_member_permission_check(monkeypatch: Any) -> None:
     assert diagnostic["admin_permission_required"] is True
     assert diagnostic["admin_permission_evaluated"] is False
     assert (
-        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         in diagnostic["rejection_reasons"]
     )
 
@@ -1053,7 +1162,7 @@ def test_failed_required_check_skips_member_permission_check(monkeypatch: Any) -
     assert diagnostic["admin_permission_required"] is True
     assert diagnostic["admin_permission_evaluated"] is False
     assert (
-        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         in diagnostic["rejection_reasons"]
     )
 
@@ -1143,7 +1252,7 @@ def test_unexpected_packet_blocker_does_not_report_missing_trusted_member_commen
     assert diagnostic["admin_permission_required"] is True
     assert diagnostic["admin_permission_evaluated"] is False
     assert (
-        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         in diagnostic["rejection_reasons"]
     )
 
