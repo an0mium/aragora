@@ -981,6 +981,59 @@ def test_main_summary_only_prints_compact_json_but_writes_full_cache(
     ]
 
 
+def test_main_suppresses_flush_time_broken_pipe(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "disposable-worktree"
+    repo_root.mkdir()
+    cache_path = tmp_path / "latest.json"
+    payload = {
+        "generated_at": "2026-06-14T00:00:00Z",
+        "local_queue": {"outbox_count": 0, "receipt_count": 0},
+        "github_queue": {"available": False, "reason": "sandboxed"},
+    }
+    monkeypatch.setattr(mod, "_repo_root", lambda _path: repo_root)
+    monkeypatch.setattr(mod, "build_status", lambda **_kwargs: payload)
+
+    class FlushBrokenStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    stream = FlushBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    assert mod.main(["--repo", str(repo_root), "--output", str(cache_path), "--json"]) == 0
+    assert stream.writes
+    assert cache_path.is_file()
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
+def test_emit_output_suppresses_write_time_broken_pipe(monkeypatch: Any) -> None:
+    class WriteBrokenStdout:
+        def write(self, text: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not run after write failure")
+
+    stream = WriteBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    mod._emit_output("payload")
+
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
 def test_build_status_records_remote_pressure_when_github_available(
     monkeypatch: Any,
     tmp_path: Path,
