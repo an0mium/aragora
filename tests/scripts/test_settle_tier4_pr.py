@@ -1028,6 +1028,7 @@ def test_ambiguous_apply_mode_is_rejected() -> None:
 def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     commands: list[tuple[list[str], str | None]] = []
+    events: list[str] = []
 
     monkeypatch.setattr(
         settler,
@@ -1041,7 +1042,9 @@ def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Pat
     monkeypatch.setattr(
         settler,
         "_run_command",
-        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+        lambda command, cwd, input_text=None: (
+            events.append("command") or commands.append((command, input_text))
+        ),
     )
     monkeypatch.setattr(
         settler,
@@ -1053,10 +1056,16 @@ def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Pat
         "_branch_protection_snapshot",
         lambda repo, cwd: {},
     )
+    monkeypatch.setattr(
+        settler,
+        "_preflight_branch_protection_reconcile",
+        lambda repo, cwd: events.append("preflight"),
+    )
 
     rc = settler.main(["--merge-apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])
 
     assert rc == 0
+    assert events[0] == "preflight"
     assert commands[0][0] == [
         "gh",
         "pr",
@@ -1069,6 +1078,144 @@ def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Pat
     ]
     assert "required_approving_review_count" in str(commands[1][1])
     assert commands[-1][0][-1].endswith("/protection/enforce_admins")
+
+
+def test_merge_apply_branch_protection_preflight_failure_prevents_merge(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "admin-user")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+    monkeypatch.setattr(
+        settler,
+        "_run_json",
+        lambda command, cwd: (_ for _ in ()).throw(RuntimeError("gh: Not Found (HTTP 404)")),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+
+    rc = settler.main(
+        ["--merge-apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"]
+    )
+
+    assert rc == 2
+    assert commands == []
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["phase"] == "preflight"
+    assert payload["mutation_occurred"] is False
+    assert payload["completed_commands"] == 0
+    assert "Not Found" in payload["error"]
+    assert "verify the active gh identity" in payload["recovery_action"]
+
+
+def test_branch_protection_preflight_reads_all_privileged_endpoints(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "admin-user")
+    monkeypatch.setattr(
+        settler,
+        "_login_has_admin_permission",
+        lambda login, repo, cwd: login == "admin-user",
+    )
+
+    def fake_run_json(command: list[str], cwd: Path) -> dict[str, Any]:
+        commands.append(command)
+        return {"ok": True}
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+
+    settler._preflight_branch_protection_reconcile(repo="owner/repo", cwd=tmp_path)
+
+    endpoints = [command[-1] for command in commands]
+    assert endpoints == [
+        "repos/owner/repo/branches/main/protection",
+        "repos/owner/repo/branches/main/protection/required_pull_request_reviews",
+        "repos/owner/repo/branches/main/protection/required_status_checks",
+        "repos/owner/repo/branches/main/protection/enforce_admins",
+    ]
+
+
+def test_branch_protection_preflight_blocks_non_admin_invoker(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "member-user")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: False)
+    monkeypatch.setattr(
+        settler,
+        "_run_json",
+        lambda command, cwd: pytest.fail("branch-protection endpoints should not be read"),
+    )
+
+    with pytest.raises(settler.Tier4ApplyError) as exc:
+        settler._preflight_branch_protection_reconcile(repo="owner/repo", cwd=tmp_path)
+
+    assert exc.value.phase == "preflight"
+    assert exc.value.mutation_occurred is False
+    assert exc.value.completed_commands == 0
+    assert "lacks admin permission" in str(exc.value)
+
+
+def test_merge_apply_branch_protection_failure_reports_partial_mutation(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_preflight_branch_protection_reconcile",
+        lambda repo, cwd: None,
+    )
+    monkeypatch.setattr(
+        settler,
+        "_branch_protection_snapshot",
+        lambda repo, cwd: {},
+    )
+
+    def fake_run_command(command: list[str], cwd: Path, input_text: str | None = None) -> None:
+        commands.append((command, input_text))
+        if "required_pull_request_reviews" in " ".join(command):
+            raise subprocess.CalledProcessError(1, command, stderr="Not Found")
+
+    monkeypatch.setattr(settler, "_run_command", fake_run_command)
+
+    rc = settler.main(
+        ["--merge-apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"]
+    )
+
+    assert rc == 2
+    assert commands[0][0][:3] == ["gh", "pr", "merge"]
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["phase"] == "branch_protection_restore"
+    assert payload["mutation_occurred"] is True
+    assert payload["completed_commands"] == 1
+    assert "inspect PR state and branch protection" in payload["recovery_action"]
 
 
 def test_merge_apply_refuses_stale_failed_required_rollup_before_merge(
@@ -1215,6 +1362,11 @@ def test_merge_apply_skips_required_status_check_patch_when_quorum_already_requi
         settler,
         "_branch_protection_snapshot",
         lambda repo, cwd: {},
+    )
+    monkeypatch.setattr(
+        settler,
+        "_preflight_branch_protection_reconcile",
+        lambda repo, cwd: None,
     )
 
     rc = settler.main(["--merge-apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path)])

@@ -46,6 +46,36 @@ ALLOWED_TIER4_ENTRY_STATUSES = {
 }
 
 
+class Tier4ApplyError(RuntimeError):
+    """Structured failure for Tier 4 merge/apply phases."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        phase: str,
+        mutation_occurred: bool,
+        completed_commands: int,
+        recovery_action: str,
+        rollback_errors: Sequence[str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.phase = phase
+        self.mutation_occurred = mutation_occurred
+        self.completed_commands = completed_commands
+        self.recovery_action = recovery_action
+        self.rollback_errors = list(rollback_errors or [])
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "phase": self.phase,
+            "mutation_occurred": self.mutation_occurred,
+            "completed_commands": self.completed_commands,
+            "rollback_errors": self.rollback_errors,
+            "recovery_action": self.recovery_action,
+        }
+
+
 def _text_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for key in ("comments", "reviews"):
@@ -887,6 +917,40 @@ def _run_text_command(command: list[str], *, cwd: Path, input_text: str | None =
     return result.stdout.strip()
 
 
+def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
+    login = _current_gh_login(cwd=cwd)
+    if not _login_has_admin_permission(login, repo, cwd):
+        raise Tier4ApplyError(
+            f"Tier 4 branch-protection preflight failed: gh login {login} lacks admin permission",
+            phase="preflight",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action="switch gh auth to an admin/OWNER identity and rerun --merge-apply",
+        )
+
+    base = f"repos/{repo}/branches/main/protection"
+    for endpoint in (
+        base,
+        f"{base}/required_pull_request_reviews",
+        f"{base}/required_status_checks",
+        f"{base}/enforce_admins",
+    ):
+        try:
+            _run_json(["gh", "api", endpoint], cwd=cwd)
+        except RuntimeError as exc:
+            raise Tier4ApplyError(
+                "Tier 4 branch-protection preflight failed before merge mutation: "
+                f"{endpoint}: {exc}",
+                phase="preflight",
+                mutation_occurred=False,
+                completed_commands=0,
+                recovery_action=(
+                    "verify the active gh identity has branch-protection admin access, "
+                    "then rerun --merge-apply"
+                ),
+            ) from exc
+
+
 def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
     base = f"repos/{repo}/branches/main/protection"
     snapshot: dict[str, Any] = {}
@@ -993,6 +1057,8 @@ def _apply_merge(
     reconcile_branch_protection: bool = False,
 ) -> list[list[str]]:
     commands: list[list[str]] = []
+    if reconcile_branch_protection:
+        _preflight_branch_protection_reconcile(repo=repo, cwd=cwd)
     snapshot = (
         _branch_protection_snapshot(repo=repo, cwd=cwd) if reconcile_branch_protection else {}
     )
@@ -1049,11 +1115,23 @@ def _apply_merge(
         ]
         _run_command(enforce_command, cwd=cwd)
         commands.append(enforce_command)
-    except (OSError, subprocess.SubprocessError) as exc:
+    except Tier4ApplyError:
+        raise
+    except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
         rollback_errors = _restore_branch_protection(repo=repo, cwd=cwd, snapshot=snapshot)
-        raise RuntimeError(
-            "Tier 4 apply failed after partial execution; "
-            f"completed_commands={len(commands)} rollback_errors={rollback_errors}: {exc}"
+        phase = "merge" if not commands else "branch_protection_restore"
+        recovery_action = (
+            "rerun live verification before any retry; if mutation_occurred=true, "
+            "inspect PR state and branch protection before rerunning --merge-apply"
+        )
+        raise Tier4ApplyError(
+            "Tier 4 apply failed after partial execution: "
+            f"completed_commands={len(commands)} rollback_errors={rollback_errors}: {exc}",
+            phase=phase,
+            mutation_occurred=bool(commands),
+            completed_commands=len(commands),
+            rollback_errors=rollback_errors,
+            recovery_action=recovery_action,
         ) from exc
     return commands
 
@@ -1181,6 +1259,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 in set(gate.get("authorized_actions") or []),
             )
         out = {"gate": gate, "applied_commands": applied_commands}
+    except Tier4ApplyError as exc:
+        if args.json:
+            print(
+                json.dumps(
+                    {"ok": False, "error": str(exc), **exc.to_payload()},
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+        else:
+            print(f"error: {exc}", file=sys.stderr)
+        return 2
     except RuntimeError as exc:
         if args.json:
             print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
