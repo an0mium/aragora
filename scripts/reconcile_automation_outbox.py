@@ -106,6 +106,48 @@ def _state_default_path(state_root: Path, default_relative: Path) -> Path:
     return expanded / default_relative
 
 
+def _has_automation_state_dirs(state_root: Path) -> bool:
+    state_dir = state_root if state_root.name == ".aragora" else state_root / ".aragora"
+    return (state_dir / "automation-outbox").is_dir() or (
+        state_dir / "automation-receipts"
+    ).is_dir()
+
+
+def _same_git_origin(left: Path, right: Path) -> bool:
+    left_proc = run_git(["config", "--get", "remote.origin.url"], left, timeout=5)
+    right_proc = run_git(["config", "--get", "remote.origin.url"], right, timeout=5)
+    if left_proc.returncode != 0 or right_proc.returncode != 0:
+        return False
+    left_origin = left_proc.stdout.strip()
+    right_origin = right_proc.stdout.strip()
+    return bool(left_origin) and left_origin == right_origin
+
+
+def _automation_state_root(repo_root: Path) -> Path:
+    """Return the checkout whose shared automation state should back reconciliation."""
+
+    if _has_automation_state_dirs(repo_root):
+        return repo_root
+
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    candidates: list[tuple[Path, bool]] = []
+    if configured:
+        candidates.append((Path(configured).expanduser(), True))
+    candidates.append((Path.home() / "Development" / "aragora", False))
+
+    for candidate, explicit in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        if not _has_automation_state_dirs(resolved):
+            continue
+        checkout = resolved.parent if resolved.name == ".aragora" else resolved
+        if explicit or _same_git_origin(repo_root, checkout):
+            return resolved
+    return repo_root
+
+
 def _resolve_path(repo_root: Path, value: Path | None, default: Path) -> Path:
     if value is None:
         return default.resolve()
@@ -930,7 +972,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     root = Path(args.repo).resolve()
-    state_root = Path(args.state_root).expanduser().resolve() if args.state_root else root
+    state_root = (
+        Path(args.state_root).expanduser().resolve()
+        if args.state_root
+        else _automation_state_root(root)
+    )
     outbox_default = _state_default_path(state_root, DEFAULT_OUTBOX_DIR)
     receipt_default = _state_default_path(state_root, DEFAULT_RECEIPT_DIR)
     outbox_dir = _resolve_path(root, args.outbox_dir, outbox_default)

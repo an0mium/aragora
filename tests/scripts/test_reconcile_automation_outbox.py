@@ -102,6 +102,63 @@ def test_repo_defaults_to_current_working_directory(
     assert payload["counts"]["satisfied_by_existing_receipt"] == 1
 
 
+def test_default_state_root_uses_env_shared_state(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    repo = tmp_path / "disposable-worktree"
+    repo.mkdir()
+    state_root = tmp_path / "shared-checkout"
+    outbox_dir = state_root / ".aragora" / "automation-outbox"
+    receipt_dir = state_root / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-env-shared-state-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/env-shared-state", key=key)
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    rc = mod.main(["--repo", str(repo), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["state_root"] == str(state_root.resolve())
+    assert payload["outbox_dir"] == str(outbox_dir.resolve())
+    assert payload["receipt_dir"] == str(receipt_dir.resolve())
+    assert payload["counts"]["satisfied_by_existing_receipt"] == 1
+
+
+def test_default_state_root_uses_matching_development_checkout(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    repo = tmp_path / "disposable-worktree"
+    repo.mkdir()
+    home = tmp_path / "home"
+    state_root = home / "Development" / "aragora"
+    outbox_dir = state_root / ".aragora" / "automation-outbox"
+    receipt_dir = state_root / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-home-shared-state-abc123"
+    _write_outbox_handoff(outbox_dir, branch="codex/home-shared-state", key=key)
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps({"idempotency_key": key, "status": "published"}),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("ARAGORA_AUTOMATION_STATE_ROOT", raising=False)
+    monkeypatch.setattr(mod.Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(mod, "_same_git_origin", lambda _left, _right: True)
+
+    rc = mod.main(["--repo", str(repo), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["state_root"] == str(state_root.resolve())
+    assert payload["outbox_dir"] == str(outbox_dir.resolve())
+    assert payload["receipt_dir"] == str(receipt_dir.resolve())
+    assert payload["counts"]["satisfied_by_existing_receipt"] == 1
+
+
 def test_explicit_dry_run_flag_keeps_read_only_default(
     tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:
