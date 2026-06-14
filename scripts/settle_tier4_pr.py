@@ -17,6 +17,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.cli.commands.review_queue_transport import _GhError
 

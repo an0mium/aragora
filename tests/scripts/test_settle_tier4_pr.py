@@ -1327,6 +1327,22 @@ def test_ambiguous_apply_mode_is_rejected() -> None:
     assert exc.value.code == 2
 
 
+def test_script_direct_help_invocation_imports_local_package() -> None:
+    script_path = Path(__file__).resolve().parents[2] / "scripts" / "settle_tier4_pr.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--help"],
+        cwd=script_path.parents[1],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+
+    assert result.returncode == 0
+    assert "Check, record, or merge-apply" in result.stdout
+
+
 def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Path) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     commands: list[tuple[list[str], str | None]] = []
