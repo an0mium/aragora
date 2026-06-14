@@ -36,6 +36,14 @@ SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
 SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER = "admin/OWNER permission required for --settle-only"
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
+FAILED_QUORUM_CONCLUSIONS = {
+    "failure",
+    "cancelled",
+    "timed_out",
+    "action_required",
+    "stale",
+    "startup_failure",
+}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
@@ -1122,6 +1130,97 @@ def _apply_settlement_signal(*, pr: int, head: str, repo: str, cwd: Path) -> lis
     return [comment_command, status_command]
 
 
+def _record_settlement(*, pr: int, head: str, reason: str, cwd: Path) -> dict[str, Any]:
+    """Write the durable external-settlement receipt via the review-queue CLI."""
+    command = [
+        sys.executable,
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "record-settlement",
+        str(pr),
+        "--head-sha",
+        head,
+        "--action",
+        "approve",
+        "--reason",
+        reason,
+        "--json",
+    ]
+    return _run_json(command, cwd=cwd)
+
+
+def _run_id_from_url(url: str) -> str:
+    """Extract the Actions run id from a check-run html/details URL.
+
+    URLs look like ``https://github.com/<owner>/<repo>/actions/runs/<RUN_ID>/job/<JOB_ID>``.
+    """
+    marker = "/runs/"
+    index = url.find(marker)
+    if index < 0:
+        return ""
+    tail = url[index + len(marker) :]
+    run_id = tail.split("/", 1)[0]
+    return run_id if run_id.isdigit() else ""
+
+
+def _quorum_run_ids(*, head: str, repo: str, cwd: Path) -> list[tuple[str, str]]:
+    """Return ``[(run_id, conclusion), ...]`` for merge-quorum check-runs at ``head``."""
+    payload = _run_json(
+        ["gh", "api", f"repos/{repo}/commits/{head}/check-runs?per_page=100"],
+        cwd=cwd,
+    )
+    runs: list[tuple[str, str]] = []
+    check_runs = payload.get("check_runs")
+    if not isinstance(check_runs, list):
+        return runs
+    for item in check_runs:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("name") or "") != MERGE_QUORUM_CONTEXT:
+            continue
+        url = str(item.get("html_url") or item.get("details_url") or "")
+        run_id = _run_id_from_url(url)
+        if run_id:
+            runs.append((run_id, str(item.get("conclusion") or "").lower()))
+    return runs
+
+
+def _rerun_failed_quorum(*, head: str, repo: str, cwd: Path) -> dict[str, Any]:
+    """Rerun only the failed jobs of the merge-quorum run, looking up the id automatically.
+
+    Returns a structured result. When there is no failed run to rerun (the gate
+    is still pending or already green) this is a no-op that reports the reason —
+    the quorum re-evaluates the freshly posted settlement status on its own.
+    """
+    runs = _quorum_run_ids(head=head, repo=repo, cwd=cwd)
+    if not runs:
+        return {
+            "rerun": False,
+            "reason": f"no {MERGE_QUORUM_CONTEXT} run found at head {head}",
+            "commands": [],
+        }
+    target = next(
+        (run_id for run_id, conclusion in runs if conclusion in FAILED_QUORUM_CONCLUSIONS),
+        None,
+    )
+    if target is None:
+        return {
+            "rerun": False,
+            "reason": (
+                f"no failed {MERGE_QUORUM_CONTEXT} run to rerun "
+                "(it will re-evaluate the settlement status on its own)"
+            ),
+            "commands": [],
+        }
+    command = ["gh", "run", "rerun", target, "--failed"]
+    try:
+        _run_command(command, cwd=cwd)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"Tier 4 quorum rerun failed: {exc}") from exc
+    return {"rerun": True, "run_id": target, "commands": [command]}
+
+
 def _apply_merge(
     *,
     pr: int,
@@ -1246,6 +1345,25 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Apply the already-settled Tier 4 merge/protection action.",
     )
+    mode.add_argument(
+        "--settle-apply",
+        action="store_true",
+        help=(
+            "One-command settlement: record the external-settlement receipt, post "
+            "the exact-head settlement comment/status, and rerun the failed "
+            f"{MERGE_QUORUM_CONTEXT} run (id looked up automatically). Never merges. "
+            "Requires the invoking gh login to be in the trusted operator allowlist, "
+            "exactly like --settle-only."
+        ),
+    )
+    parser.add_argument(
+        "--reason",
+        default=None,
+        help=(
+            "Settlement reason recorded on the --settle-apply receipt. Defaults to a "
+            "templated exact-head operator-settlement note."
+        ),
+    )
     parser.add_argument("--pr", type=int, required=True)
     parser.add_argument("--head", required=True)
     parser.add_argument("--repo", default=DEFAULT_REPO)
@@ -1272,6 +1390,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         pr_view, merge_packet, required_checks = _load_live_inputs(args.pr, cwd=args.cwd)
         applied_commands: list[list[str]] = []
+        extra_out: dict[str, Any] = {}
         if args.settle_only:
             gate = evaluate_tier4_settlement_preconditions(
                 pr=args.pr,
@@ -1315,6 +1434,56 @@ def main(argv: Sequence[str] | None = None) -> int:
                 head=args.head,
                 repo=args.repo,
                 cwd=args.cwd,
+            )
+        elif args.settle_apply:
+            gate = evaluate_tier4_settlement_preconditions(
+                pr=args.pr,
+                expected_head=args.head,
+                pr_view=pr_view,
+                merge_packet=merge_packet,
+                required_checks=required_checks,
+                trusted_operator_logins=args.trusted_operator_login,
+            )
+            if not gate["ok"]:
+                raise RuntimeError(
+                    "Tier 4 settlement preconditions are not satisfied; refusing --settle-apply"
+                )
+            allowed_logins = _trusted_operator_logins(args.trusted_operator_login)
+            invoker_login = _current_gh_login(cwd=args.cwd) if allowed_logins else ""
+            gate = evaluate_tier4_settlement_preconditions(
+                pr=args.pr,
+                expected_head=args.head,
+                pr_view=pr_view,
+                merge_packet=merge_packet,
+                required_checks=required_checks,
+                trusted_operator_logins=args.trusted_operator_login,
+                invoker_login=invoker_login,
+                require_trusted_invoker=True,
+            )
+            if not gate["ok"]:
+                blocker_text = "; ".join(str(blocker) for blocker in gate["blockers"])
+                raise RuntimeError(
+                    "Tier 4 settlement invoker is not trusted; "
+                    f"refusing --settle-apply: {blocker_text}"
+                )
+            reason = args.reason or (
+                f"Operator Tier-4 settlement for #{args.pr} at exact head {args.head}; "
+                "counted model evidence and green non-quorum required checks."
+            )
+            extra_out["receipt"] = _record_settlement(
+                pr=args.pr, head=args.head, reason=reason, cwd=args.cwd
+            )
+            already_present = _human_settlement_status_is_success(pr_view)
+            extra_out["settlement_already_present"] = already_present
+            if not already_present:
+                applied_commands = _apply_settlement_signal(
+                    pr=args.pr,
+                    head=args.head,
+                    repo=args.repo,
+                    cwd=args.cwd,
+                )
+            extra_out["quorum_rerun"] = _rerun_failed_quorum(
+                head=args.head, repo=args.repo, cwd=args.cwd
             )
         else:
             gate = evaluate_tier4_gate(
@@ -1361,7 +1530,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reconcile_branch_protection="branch_protection"
                 in set(gate.get("authorized_actions") or []),
             )
-        out = {"gate": gate, "applied_commands": applied_commands}
+        out = {"gate": gate, "applied_commands": applied_commands, **extra_out}
     except Tier4ApplyError as exc:
         if args.json:
             print(

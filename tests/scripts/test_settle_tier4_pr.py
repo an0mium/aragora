@@ -1745,3 +1745,278 @@ def test_merge_apply_merge_only_authorization_skips_branch_protection(
             None,
         )
     ]
+
+
+# --------------------------------------------------------------------------
+# --settle-apply (one-command: record receipt + post signal + rerun quorum)
+# --------------------------------------------------------------------------
+
+
+def test_run_id_from_url_parses_actions_run_id() -> None:
+    url = "https://github.com/synaptent/aragora/actions/runs/27474838200/job/81212117993"
+    assert settler._run_id_from_url(url) == "27474838200"
+    assert settler._run_id_from_url("https://github.com/synaptent/aragora/pull/8363") == ""
+    assert settler._run_id_from_url("") == ""
+
+
+def test_quorum_run_ids_extracts_and_lowercases(monkeypatch: Any, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_run_json",
+        lambda command, cwd=None: {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "FAILURE",
+                    "html_url": (
+                        "https://github.com/synaptent/aragora/actions/runs/"
+                        "27474838200/job/81212117993"
+                    ),
+                },
+                {
+                    "name": "lint",
+                    "conclusion": "success",
+                    "html_url": "https://github.com/synaptent/aragora/actions/runs/1/job/2",
+                },
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "success",
+                    "html_url": (
+                        "https://github.com/synaptent/aragora/actions/runs/"
+                        "27459026005/job/81211233588"
+                    ),
+                },
+            ]
+        },
+    )
+    runs = settler._quorum_run_ids(head="abc", repo="synaptent/aragora", cwd=tmp_path)
+    assert runs == [("27474838200", "failure"), ("27459026005", "success")]
+
+
+def test_rerun_failed_quorum_targets_the_failed_run(monkeypatch: Any, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_quorum_run_ids",
+        lambda head, repo, cwd: [("27474838200", "failure"), ("27459026005", "success")],
+    )
+    commands: list[list[str]] = []
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+    result = settler._rerun_failed_quorum(head="abc", repo="synaptent/aragora", cwd=tmp_path)
+    assert result["rerun"] is True
+    assert result["run_id"] == "27474838200"
+    assert commands == [["gh", "run", "rerun", "27474838200", "--failed"]]
+
+
+def test_rerun_failed_quorum_is_noop_without_failed_run(monkeypatch: Any, tmp_path: Path) -> None:
+    monkeypatch.setattr(settler, "_quorum_run_ids", lambda head, repo, cwd: [("1", "success")])
+    called: list[list[str]] = []
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: called.append(command),
+    )
+    result = settler._rerun_failed_quorum(head="abc", repo="r", cwd=tmp_path)
+    assert result["rerun"] is False
+    assert called == []
+
+
+def test_rerun_failed_quorum_is_noop_when_no_run_found(monkeypatch: Any, tmp_path: Path) -> None:
+    monkeypatch.setattr(settler, "_quorum_run_ids", lambda head, repo, cwd: [])
+    result = settler._rerun_failed_quorum(head="abc", repo="r", cwd=tmp_path)
+    assert result["rerun"] is False
+    assert "no aragora-merge-quorum run found" in result["reason"]
+
+
+def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Path) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[list[str]] = []
+    commands: list[list[str]] = []
+    recorded: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(
+        settler,
+        "_record_settlement",
+        lambda pr, head, reason, cwd: (
+            recorded.update({"pr": pr, "head": head, "reason": reason})
+            or {"written": True, "actor": "trusted-member", "receipt_sha256": "sha256:abc"}
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: (
+            text_commands.append(command) or "https://github.example/pr/7423#issuecomment-1\n"
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_quorum_run_ids",
+        lambda head, repo, cwd: [("27474838200", "failure")],
+    )
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    # 1. receipt recorded at the exact head
+    assert recorded["pr"] == 7423
+    assert recorded["head"] == head
+    # 2. settlement comment posted
+    assert text_commands and text_commands[0][:3] == ["gh", "pr", "comment"]
+    # 3. exact-head human-settlement status posted
+    assert any(
+        command[:4] == ["gh", "api", "--method", "POST"] and f"statuses/{head}" in command[4]
+        for command in commands
+    )
+    # 4. failed quorum run rerun, id looked up automatically
+    assert ["gh", "run", "rerun", "27474838200", "--failed"] in commands
+
+
+def test_settle_apply_skips_signal_when_status_already_success(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[list[str]] = []
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[], human_settlement_state="SUCCESS"),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(
+        settler, "_record_settlement", lambda pr, head, reason, cwd: {"written": True}
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: text_commands.append(command) or "",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+    monkeypatch.setattr(settler, "_quorum_run_ids", lambda head, repo, cwd: [("99", "failure")])
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    # idempotent: no comment/status re-posted when settlement already present
+    assert text_commands == []
+    assert not any("statuses/" in (command[4] if len(command) > 4 else "") for command in commands)
+    # but the quorum is still rerun so the gate re-reads the present settlement
+    assert ["gh", "run", "rerun", "99", "--failed"] in commands
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["settlement_already_present"] is True
+
+
+def test_settle_apply_rejects_untrusted_invoker(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "intruder")
+
+    def _boom(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("must not record settlement when invoker is untrusted")
+
+    monkeypatch.setattr(settler, "_record_settlement", _boom)
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: commands.append(command) or "",
+    )
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    assert commands == []
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert "refusing --settle-apply" in payload["error"]
