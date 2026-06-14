@@ -25,6 +25,9 @@ requires_bash = pytest.mark.skipif(
 _OK = "#!/bin/bash\nexit 0\n"
 # Fails the import probe (-c ...) but is otherwise executable.
 _BAD = '#!/bin/bash\nif [[ "${1:-}" == "-c" ]]; then exit 1; fi\nexit 0\n'
+# Hangs the import probe. The resolver must skip this instead of stranding
+# long-running launchd/systemd wrappers on a bad ambient python3.
+_HANG = '#!/bin/bash\nif [[ "${1:-}" == "-c" ]]; then while true; do sleep 1; done; fi\nexit 0\n'
 # Only succeeds for an empty probe (-c "").
 _EMPTY_ONLY = (
     "#!/bin/bash\n"
@@ -47,6 +50,7 @@ def _resolve(
     path_dirs: list[str],
     aragora_python: str | None = None,
     probe: str = "import pydantic",
+    probe_timeout_seconds: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     repo_root.mkdir(parents=True, exist_ok=True)
     env = {
@@ -56,6 +60,8 @@ def _resolve(
     }
     if aragora_python is not None:
         env["ARAGORA_PYTHON"] = aragora_python
+    if probe_timeout_seconds is not None:
+        env["ARAGORA_PYTHON_PROBE_TIMEOUT_SECONDS"] = str(probe_timeout_seconds)
     return subprocess.run(
         ["/bin/bash", "-c", f'source "{HELPER}"; resolve_aragora_python "$1"', "_", probe],
         env=env,
@@ -99,6 +105,21 @@ def test_falls_back_to_path_python3_without_venv(tmp_path: Path) -> None:
     result = _resolve(repo_root=tmp_path / "root", path_dirs=[str(good.parent)])
     assert result.returncode == 0
     assert result.stdout.strip() == str(good)
+
+
+def test_skips_hanging_python_candidate_and_continues(tmp_path: Path) -> None:
+    hanging = _mkpy(tmp_path / "bad" / "python3", _HANG)
+    good = _mkpy(tmp_path / "good" / "python", _OK)
+
+    result = _resolve(
+        repo_root=tmp_path / "root",
+        path_dirs=[str(hanging.parent), str(good.parent)],
+        probe_timeout_seconds=1,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == str(good)
+    assert f"Skipping Python candidate without usable aragora imports: {hanging}" in result.stderr
 
 
 def test_fails_loudly_when_no_interpreter_usable(tmp_path: Path) -> None:

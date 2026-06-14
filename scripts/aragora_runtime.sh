@@ -25,8 +25,40 @@ _aragora_python_ok() {
     local interp="$1"
     local probe="$2"
     local root="$3"
+    local timeout_seconds="${ARAGORA_PYTHON_PROBE_TIMEOUT_SECONDS:-5}"
+    local timeout_tenths
+    local elapsed_tenths=0
+    local status_file
+    local pid
+    local status
     [[ -n "${interp}" && -x "${interp}" ]] || return 1
-    (cd "${root}" && "${interp}" -c "${probe}" >/dev/null 2>&1)
+    if [[ ! "${timeout_seconds}" =~ ^[0-9]+$ || "${timeout_seconds}" -lt 1 ]]; then
+        timeout_seconds=5
+    fi
+    timeout_tenths=$((timeout_seconds * 10))
+    status_file="${TMPDIR:-/tmp}/aragora-python-probe.$$.$RANDOM"
+    : >"${status_file}" || return 1
+    (
+        cd "${root}" && "${interp}" -c "${probe}" >/dev/null 2>&1
+        printf '%s' "$?" >"${status_file}"
+    ) &
+    pid=$!
+    while [[ ! -s "${status_file}" ]]; do
+        if ((elapsed_tenths >= timeout_tenths)); then
+            kill "${pid}" >/dev/null 2>&1 || true
+            /bin/sleep 0.1
+            kill -9 "${pid}" >/dev/null 2>&1 || true
+            wait "${pid}" >/dev/null 2>&1 || true
+            /bin/rm -f "${status_file}"
+            return 1
+        fi
+        /bin/sleep 0.1
+        elapsed_tenths=$((elapsed_tenths + 1))
+    done
+    status="$(<"${status_file}")"
+    /bin/rm -f "${status_file}"
+    wait "${pid}" >/dev/null 2>&1 || true
+    [[ "${status}" == "0" ]]
 }
 
 # resolve_aragora_python [probe] [import_label] [runtime_label]
