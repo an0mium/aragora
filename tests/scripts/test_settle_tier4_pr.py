@@ -59,12 +59,14 @@ def _pr_view(
     *,
     comments: list[dict[str, Any]],
     human_settlement_state: str | None = "SUCCESS",
+    extra_status_rollup: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     status_rollup = (
         [{"context": "aragora/human-settlement", "state": human_settlement_state}]
         if human_settlement_state is not None
         else []
     )
+    status_rollup.extend(extra_status_rollup or [])
     return {
         "headRefOid": head,
         "state": "OPEN",
@@ -836,6 +838,11 @@ def test_settle_only_posts_comment_and_status_without_merge(
         lambda command, cwd, input_text=None: commands.append((command, input_text)),
     )
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(
+        settler,
+        "_login_has_admin_permission",
+        lambda login, repo, cwd: login == "trusted-member",
+    )
 
     rc = settler.main(
         [
@@ -931,6 +938,64 @@ def test_settle_only_rejects_untrusted_invoking_login(
         "error": (
             "Tier 4 settlement invoker is not trusted; refusing --settle-only: "
             "gh login untrusted-member is not in trusted operator allowlist"
+        ),
+    }
+
+
+def test_settle_only_rejects_trusted_invoker_without_admin_permission(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: False)
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)) or "",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+
+    rc = settler.main(
+        [
+            "--settle-only",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    assert commands == []
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload == {
+        "ok": False,
+        "error": (
+            "Tier 4 settlement invoker is not trusted; refusing --settle-only: "
+            "gh login trusted-member lacks admin/OWNER permission required for --settle-only"
         ),
     }
 
@@ -1067,6 +1132,72 @@ def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Pat
     ]
     assert "required_approving_review_count" in str(commands[1][1])
     assert commands[-1][0][-1].endswith("/protection/enforce_admins")
+
+
+def test_merge_apply_refuses_stale_failed_required_rollup_before_merge(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(
+                head,
+                comments=[_authorized_comment(head)],
+                extra_status_rollup=[
+                    {
+                        "__typename": "CheckRun",
+                        "name": "aragora-merge-quorum",
+                        "status": "COMPLETED",
+                        "conclusion": "FAILURE",
+                        "detailsUrl": "https://github.example/actions/failing-quorum",
+                        "completedAt": "2026-06-13T01:49:55Z",
+                    },
+                    {
+                        "__typename": "CheckRun",
+                        "name": "aragora-merge-quorum",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
+                        "detailsUrl": "https://github.example/actions/passing-quorum",
+                        "completedAt": "2026-06-13T01:50:41Z",
+                    },
+                ],
+            ),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+
+    rc = settler.main(
+        ["--merge-apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"]
+    )
+
+    assert rc == 2
+    assert commands == []
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["blocker"] == "required_check_visibility_skew"
+    skew = payload["required_check_visibility_skew"]
+    assert skew["stale_failed_required_contexts"] == [
+        {
+            "context": "aragora-merge-quorum",
+            "rollup_state": "FAILURE",
+            "rollup_status": "COMPLETED",
+            "details_url": "https://github.example/actions/failing-quorum",
+            "completed_at": "2026-06-13T01:49:55Z",
+            "required_state": "SUCCESS",
+            "required_link": "",
+        }
+    ]
+    assert "wait/recheck persistent required-check visibility skew" in payload["next_prompt"]
 
 
 def test_required_status_check_patch_skips_when_quorum_already_required(

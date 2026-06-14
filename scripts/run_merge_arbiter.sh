@@ -12,6 +12,43 @@ PYTHON_BIN="$(resolve_aragora_python 'import pydantic; import aragora.cli.comman
 
 cd "${REPO_ROOT}"
 
+# Opt-in GitHub App auth for this pass's shell-level `gh` calls
+# (ARAGORA_GH_APP_AUTH=1, default off; run-20260610 lane Z). The App
+# installation token carries its OWN GraphQL budget, separate from the
+# operator's default PAT whose budget is chronically exhausted by the poller
+# fleet. Mint it ONCE here and share it across the ready-triage, backlog-gate,
+# and auto-evidence blocks below (#8355 follow-up): all three run in the same
+# pass, so a single mint == the per-pass token and avoids redundant
+# gh_app_env.py calls. Previously only the auto-evidence subshell minted a
+# token, so pr_ready_triage (gh pr ready = GraphQL-only mutation) and
+# backlog_gate ran on the exhausted PAT and the funnel starved.
+#
+# Each consumer exports the token inside its own subshell so the long-running
+# arbiter exec'd at the bottom does NOT inherit this one-shot token
+# (installation tokens expire after ~1h; the arbiter refreshes its own per
+# call via aragora.swarm.github_app_auth). Fail-safe: gh_app_env.py prints
+# nothing when App config is absent, so each block degrades to the existing gh
+# auth. The token value is never echoed. ARAGORA_GITHUB_AUTH_SOURCE tags the
+# token so write ops can drop it (narrow App scopes).
+ARBITER_GH_APP_TOKEN=""
+if [[ "${ARAGORA_GH_APP_AUTH:-0}" == "1" ]]; then
+    ARBITER_GH_APP_TOKEN="$("${PYTHON_BIN}" scripts/gh_app_env.py --print-token --quiet 2>/dev/null || true)"
+    if [[ -n "${ARBITER_GH_APP_TOKEN}" ]]; then
+        echo "Arbiter pass gh auth: GitHub App installation token (per-pass mint)."
+    fi
+fi
+
+# Export the shared per-pass App token into the calling (sub)shell's gh env.
+# No-op when the token is empty (App auth off or App config absent), so the
+# default gh auth path is preserved byte-for-byte.
+apply_arbiter_gh_app_token() {
+    if [[ -n "${ARBITER_GH_APP_TOKEN}" ]]; then
+        export GH_TOKEN="${ARBITER_GH_APP_TOKEN}"
+        export GITHUB_TOKEN="${ARBITER_GH_APP_TOKEN}"
+        export ARAGORA_GITHUB_AUTH_SOURCE="github_app_installation"
+    fi
+}
+
 # Opt-in funnel autopilot: draft-to-ready promotion (throughput lever 0).
 # Runs BEFORE the auto-evidence step so freshly-promoted PRs get evidenced the
 # same pass. Best-effort: a triage failure must never abort the arbiter.
@@ -21,8 +58,12 @@ cd "${REPO_ROOT}"
 # exactly like auto_evidence_cycle does.
 if [[ "${ARAGORA_READY_TRIAGE:-0}" == "1" ]]; then
     echo "Running bounded draft-to-ready triage (apply mode)..."
-    "${PYTHON_BIN}" scripts/pr_ready_triage.py --apply \
-        || echo "Ready-triage reported failures (non-fatal for the arbiter)." >&2
+    # Subshell so the App token (when minted) reaches `gh pr ready` — a
+    # GraphQL-only mutation — without leaking into the long-running arbiter.
+    (
+        apply_arbiter_gh_app_token
+        exec "${PYTHON_BIN}" scripts/pr_ready_triage.py --apply
+    ) || echo "Ready-triage reported failures (non-fatal for the arbiter)." >&2
 fi
 
 # Opt-in backlog backpressure refresh (throughput lever 2). When enabled,
@@ -33,8 +74,12 @@ fi
 # ARAGORA_BACKLOG_GATE=1.
 if [[ "${ARAGORA_BACKLOG_GATE:-0}" == "1" ]]; then
     echo "Refreshing backlog backpressure signal..."
-    "${PYTHON_BIN}" scripts/backlog_gate.py --quiet \
-        || echo "Backlog gate reported failures (non-fatal for the arbiter)." >&2
+    # Subshell so the App token (when minted) backs backlog_gate's gh probes
+    # without leaking into the long-running arbiter.
+    (
+        apply_arbiter_gh_app_token
+        exec "${PYTHON_BIN}" scripts/backlog_gate.py --quiet
+    ) || echo "Backlog gate reported failures (non-fatal for the arbiter)." >&2
 fi
 
 # Opt-in bounded auto-evidence cycle (throughput lever 1, run-20260610 c07b).
@@ -45,26 +90,14 @@ fi
 # run_boss_cycle.sh).
 if [[ "${ARAGORA_AUTO_EVIDENCE:-0}" == "1" ]]; then
     echo "Running bounded auto-evidence cycle (apply mode)..."
-    # Opt-in GitHub App auth for the auto-evidence pass's shell-level `gh`
-    # calls (ARAGORA_GH_APP_AUTH=1, default off; run-20260610 lane Z).
-    # Minted per pass inside a subshell — installation tokens expire after
-    # one hour, so the long-running arbiter exec'd below must NOT inherit a
-    # one-shot token (it refreshes its own per call via
-    # aragora.swarm.github_app_auth). Fail-safe: gh_app_env.py prints nothing
-    # when App config is absent, so the pass degrades to existing gh auth.
-    # The token value is never echoed. ARAGORA_GITHUB_AUTH_SOURCE tags the
-    # token so write ops can drop it (narrow App scopes).
+    # Reuses the shared per-pass App token minted above (same
+    # ARAGORA_GH_APP_AUTH gate). Applied inside this subshell so the
+    # long-running arbiter exec'd below does NOT inherit the one-shot token
+    # (installation tokens expire after ~1h; the arbiter refreshes its own per
+    # call via aragora.swarm.github_app_auth). Fail-safe: when the token is
+    # empty (App auth off or config absent) this degrades to existing gh auth.
     (
-        if [[ "${ARAGORA_GH_APP_AUTH:-0}" == "1" ]]; then
-            tok="$("${PYTHON_BIN}" scripts/gh_app_env.py --print-token --quiet 2>/dev/null || true)"
-            if [[ -n "${tok}" ]]; then
-                export GH_TOKEN="${tok}"
-                export GITHUB_TOKEN="${tok}"
-                export ARAGORA_GITHUB_AUTH_SOURCE="github_app_installation"
-                echo "Auto-evidence gh auth: GitHub App installation token (per-pass mint)."
-            fi
-            unset tok
-        fi
+        apply_arbiter_gh_app_token
         # --max-scan 40 mitigates scan starvation (harmless even after the
         # #8316 fix lands; it only widens the per-pass probe window).
         exec "${PYTHON_BIN}" scripts/auto_evidence_cycle.py --apply --max-scan 40

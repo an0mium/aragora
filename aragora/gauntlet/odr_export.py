@@ -45,6 +45,7 @@ __all__ = [
     "ODR_VERSION",
     "ODR_PROFILE_URI",
     "absent",
+    "calibration_provenance_for_receipt",
     "decision_receipt_to_odr",
     "jcs_canonicalize",
     "load_odr_schema",
@@ -309,9 +310,37 @@ def _map_quorum(receipt: DecisionReceipt) -> dict[str, Any]:
     )
 
 
-def _map_confidence(receipt: DecisionReceipt) -> dict[str, Any]:
+def calibration_provenance_for_receipt(receipt: DecisionReceipt) -> dict[str, Any] | None:
+    """Best-effort calibration provenance for the receipt's participants.
+
+    Looks up the participating agents in the existing calibration stores
+    (issue #8229) and returns a ``provenance_ref`` block pointing at each
+    agent's ``/api/v1/agents/{id}/calibration-report`` endpoint, including
+    per-agent sample sizes.
+
+    Returns ``None`` when no participant has recorded calibration data or the
+    calibration subsystem is unavailable — the confidence block then carries
+    an explicit absent marker instead. Never fabricates provenance.
+    """
+    agent_names = [row["agent"] for row in _map_participants(receipt)]
+    if not agent_names:
+        return None
+    try:
+        from aragora.ranking.calibration_report import build_odr_calibration_provenance
+
+        return build_odr_calibration_provenance(agent_names)
+    except Exception:  # noqa: BLE001 - best-effort enrichment must never break export
+        return None
+
+
+def _map_confidence(
+    receipt: DecisionReceipt,
+    calibration_provenance: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     calibration: dict[str, Any]
-    if receipt.settlement_metadata:
+    if calibration_provenance is not None:
+        calibration = _present({"provenance_ref": dict(calibration_provenance)})
+    elif receipt.settlement_metadata:
         calibration = _present(
             {
                 "provenance_ref": {
@@ -356,6 +385,7 @@ def decision_receipt_to_odr(
     *,
     crux_set: list[dict[str, Any]] | None = None,
     attestation: dict[str, Any] | None = None,
+    calibration_provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Map a :class:`DecisionReceipt` onto the ODR v0.1 content profile.
 
@@ -365,6 +395,12 @@ def decision_receipt_to_odr(
             when omitted, the ``cruxes`` block carries an absent marker.
         attestation: Optional human-attestation block. When omitted, the
             decision is honestly recorded with the ``autonomous`` disposition.
+        calibration_provenance: Optional calibration ``provenance_ref`` block
+            (e.g. from :func:`calibration_provenance_for_receipt`) making the
+            confidence figure auditable against the per-agent calibration
+            report endpoint (issue #8229). Supply only when calibration data
+            actually exists; when omitted the existing settlement-metadata /
+            absent logic applies.
 
     Returns:
         A JSON-serializable dict conforming to ``aragora/gauntlet/odr_schema.json``.
@@ -378,7 +414,7 @@ def decision_receipt_to_odr(
         "claim": _map_claim(receipt),
         "reasoning": _map_reasoning(receipt),
         "quorum": _map_quorum(receipt),
-        "confidence": _map_confidence(receipt),
+        "confidence": _map_confidence(receipt, calibration_provenance),
         "cruxes": _map_cruxes(crux_set),
         "attestation": _map_attestation(attestation),
         "routing": {"status": "reserved"},

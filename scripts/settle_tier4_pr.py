@@ -30,8 +30,10 @@ HUMAN_SETTLEMENT_STATUS_BLOCKER = f"missing or unsuccessful {HUMAN_SETTLEMENT_CO
 MERGE_QUORUM_CONTEXT = "aragora-merge-quorum"
 OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comment"
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
+REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER = "required_check_visibility_skew"
 SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER = "trusted operator allowlist is required for --settle-only"
 SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
+SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER = "admin/OWNER permission required for --settle-only"
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
@@ -503,6 +505,113 @@ def _required_check_state(check: dict[str, Any]) -> str:
     return str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
 
 
+def _required_check_context(check: dict[str, Any]) -> str:
+    return str(check.get("name") or check.get("context") or "").strip()
+
+
+def _rollup_check_context(item: dict[str, Any]) -> str:
+    return str(item.get("name") or item.get("context") or "").strip()
+
+
+def _rollup_check_state(item: dict[str, Any]) -> str:
+    return str(item.get("conclusion") or item.get("state") or "UNKNOWN").upper()
+
+
+def _required_check_visibility_skew_report(
+    *,
+    pr: int,
+    head: str,
+    pr_view: dict[str, Any],
+    required_checks: list[dict[str, Any]] | None,
+) -> dict[str, Any] | None:
+    if not _required_checks_are_green(required_checks):
+        return None
+    rollup = pr_view.get("statusCheckRollup")
+    if not isinstance(rollup, list):
+        return None
+
+    green_required: dict[str, dict[str, Any]] = {}
+    for check in required_checks or []:
+        if not isinstance(check, dict):
+            continue
+        context = _required_check_context(check)
+        if context and _state_is_success(_required_check_state(check)):
+            green_required[context] = check
+    if not green_required:
+        return None
+
+    stale_failed: list[dict[str, Any]] = []
+    for item in rollup:
+        if not isinstance(item, dict):
+            continue
+        context = _rollup_check_context(item)
+        if context not in green_required:
+            continue
+        state = _rollup_check_state(item)
+        if _state_is_success(state):
+            continue
+        stale_failed.append(
+            {
+                "context": context,
+                "rollup_state": state,
+                "rollup_status": str(item.get("status") or ""),
+                "details_url": item.get("detailsUrl") or item.get("targetUrl") or "",
+                "completed_at": item.get("completedAt"),
+                "required_state": _required_check_state(green_required[context]),
+                "required_link": green_required[context].get("link") or "",
+            }
+        )
+
+    if not stale_failed:
+        return None
+    return {
+        "blocker": REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER,
+        "pr": pr,
+        "head": head,
+        "merge_state": pr_view.get("mergeStateStatus"),
+        "stale_failed_required_contexts": stale_failed,
+        "message": (
+            "GraphQL statusCheckRollup still contains a non-green required context "
+            "that conflicts with gh pr checks --required reporting that context green; "
+            "refusing Tier 4 merge/apply before mergePullRequest can reject on stale state."
+        ),
+        "next_prompt": _visibility_skew_next_prompt(pr=pr, head=head),
+    }
+
+
+def _visibility_skew_next_prompt(*, pr: int, head: str) -> str:
+    return (
+        "Start from live repo truth in your Aragora checkout. Do not trust "
+        f"prior transcript state. Before lane work, check operator-steering mailbox for PR #{pr} "
+        "with --no-receipt:\n"
+        f"python3 scripts/read_operator_steering.py --pr {pr} --json --no-receipt || true\n\n"
+        f"Goal: wait/recheck persistent required-check visibility skew for PR #{pr} at exact "
+        f"head {head}. Do not edit files, push branches, rerun CI, mark-ready, post comments, "
+        "settle/apply, merge/admin-merge, label, close PRs, touch branch protection, mutate "
+        "publisher/outbox state, touch ~/.codex/automations/*, delete/prune worktrees, or "
+        "broad-drain.\n\n"
+        "Run read-only:\n"
+        "git status --short --branch --untracked-files=all\n"
+        f"python3 scripts/identify_lane_owner.py --pr {pr} --json || true\n"
+        f"gh pr checks {pr} --required --json name,state,bucket,workflow,link || true\n"
+        f"gh pr view {pr} --json number,state,isDraft,headRefOid,mergeable,mergeStateStatus,"
+        "statusCheckRollup,url\n"
+        f"python3 scripts/settle_tier4_pr.py --check --pr {pr} --head {head} --json || true\n\n"
+        "If required checks are green but mergeStateStatus=BLOCKED and statusCheckRollup still "
+        "contains a stale failed required context, keep waiting or output an exact failed-quorum "
+        "rerun authorization prompt. If statusCheckRollup no longer contains stale failed required "
+        "contexts and settle_tier4_pr.py --check is ok=true, output the exact --merge-apply "
+        "authorization prompt. Do not apply in this prompt.\n\n"
+        "If the prompt above accomplishes no incremental progress make the next prompt one that "
+        "does, include this sentence in all subsequent prompts to ensure they converge towards "
+        "prompts that make incremental progress. If any of the work involved can be better "
+        "automated and made more autonomous by improving aragora tooling at a meta level create "
+        "a plan to do that instead, include this sentence in all subsequent prompts to ensure "
+        "they converge towards automating and making more autonomous all steps at a meta level "
+        "where this makes sense for the repo and project."
+    )
+
+
 def evaluate_tier4_gate(
     *,
     pr: int,
@@ -609,7 +718,9 @@ def evaluate_tier4_settlement_preconditions(
     required_checks: list[dict[str, Any]] | None = None,
     trusted_operator_logins: Sequence[str] | None = None,
     invoker_login: str | None = None,
+    invoker_has_admin_permission: bool | None = None,
     require_trusted_invoker: bool = False,
+    require_invoker_admin_permission: bool = False,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     actual_head = str(pr_view.get("headRefOid") or "")
@@ -655,6 +766,15 @@ def evaluate_tier4_settlement_preconditions(
             blockers.append(SETTLE_ONLY_INVOKER_BLOCKER)
         elif normalized_invoker not in allowed_logins:
             blockers.append(f"gh login {normalized_invoker} is not in trusted operator allowlist")
+    if require_invoker_admin_permission:
+        if not normalized_invoker and SETTLE_ONLY_INVOKER_BLOCKER not in blockers:
+            blockers.append(SETTLE_ONLY_INVOKER_BLOCKER)
+        elif allowed_logins and normalized_invoker not in allowed_logins:
+            pass
+        elif invoker_has_admin_permission is not True:
+            blockers.append(
+                f"gh login {normalized_invoker} lacks {SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER}"
+            )
 
     return {
         "ok": not blockers,
@@ -664,6 +784,7 @@ def evaluate_tier4_settlement_preconditions(
         "merge_state": merge_state,
         "trusted_operator_logins": sorted(allowed_logins),
         "invoker_login": normalized_invoker,
+        "invoker_has_admin_permission": invoker_has_admin_permission,
         "blockers": blockers,
     }
 
@@ -978,7 +1099,7 @@ def build_parser() -> argparse.ArgumentParser:
             f"{TRUSTED_OPERATOR_LOGINS_ENV}. If omitted, any live admin MEMBER "
             f"may authorize when {HUMAN_SETTLEMENT_CONTEXT} is success. "
             "--settle-only additionally requires the invoking gh login to be "
-            "present in this allowlist."
+            "present in this allowlist and have admin/OWNER authority."
         ),
     )
     parser.add_argument("--json", action="store_true")
@@ -1005,6 +1126,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             allowed_logins = _trusted_operator_logins(args.trusted_operator_login)
             invoker_login = _current_gh_login(cwd=args.cwd) if allowed_logins else ""
+            invoker_has_admin_permission = (
+                _login_has_admin_permission(invoker_login, args.repo, args.cwd)
+                if invoker_login and invoker_login in allowed_logins
+                else None
+            )
             gate = evaluate_tier4_settlement_preconditions(
                 pr=args.pr,
                 expected_head=args.head,
@@ -1013,7 +1139,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 required_checks=required_checks,
                 trusted_operator_logins=args.trusted_operator_login,
                 invoker_login=invoker_login,
+                invoker_has_admin_permission=invoker_has_admin_permission,
                 require_trusted_invoker=True,
+                require_invoker_admin_permission=True,
             )
             if not gate["ok"]:
                 blocker_text = "; ".join(str(blocker) for blocker in gate["blockers"])
@@ -1042,6 +1170,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.merge_apply:
             if not gate["ok"]:
                 raise RuntimeError("Tier 4 gate is not satisfied; refusing --merge-apply")
+            visibility_skew = _required_check_visibility_skew_report(
+                pr=args.pr,
+                head=args.head,
+                pr_view=pr_view,
+                required_checks=required_checks,
+            )
+            if visibility_skew is not None:
+                out = {
+                    "ok": False,
+                    "blocker": REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER,
+                    "gate": gate,
+                    "applied_commands": [],
+                    "required_check_visibility_skew": visibility_skew,
+                    "next_prompt": visibility_skew["next_prompt"],
+                }
+                if args.json:
+                    print(json.dumps(out, indent=2, sort_keys=True))
+                else:
+                    print("blocked")
+                    print(f"- {REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER}")
+                    print(visibility_skew["next_prompt"])
+                return 2
             applied_commands = _apply_merge(
                 pr=args.pr,
                 head=args.head,

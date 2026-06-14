@@ -1852,6 +1852,87 @@ def test_required_check_source_report_fails_closed_without_protection_json() -> 
     ]
 
 
+def test_required_check_source_report_falls_back_to_required_checks_and_check_runs() -> None:
+    report = required_check_source_report(
+        None,
+        {"statusCheckRollup": []},
+        {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "success",
+                    "app": {"id": 15368, "slug": "github-actions"},
+                }
+            ]
+        },
+        [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+    )
+
+    assert report == {"status": "pass", "blockers": [], "suggestions": []}
+
+
+def test_required_check_source_report_fallback_blocks_empty_required_checks() -> None:
+    report = required_check_source_report(
+        None,
+        {"statusCheckRollup": []},
+        {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "success",
+                    "app": {"id": 15368, "slug": "github-actions"},
+                }
+            ]
+        },
+        [],
+    )
+
+    assert report["status"] == "unknown"
+    assert report["blockers"] == ["required checks JSON empty"]
+
+
+def test_required_check_source_report_fallback_blocks_non_green_required_check() -> None:
+    report = required_check_source_report(
+        None,
+        {"statusCheckRollup": []},
+        {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "success",
+                    "app": {"id": 15368, "slug": "github-actions"},
+                }
+            ]
+        },
+        [{"name": "aragora-merge-quorum", "state": "FAILURE"}],
+    )
+
+    assert report["status"] == "blocked"
+    assert report["blockers"] == ["aragora-merge-quorum is FAILURE"]
+
+
+def test_required_check_source_report_fallback_blocks_status_only_required_check() -> None:
+    report = required_check_source_report(
+        None,
+        {
+            "statusCheckRollup": [
+                {
+                    "__typename": "StatusContext",
+                    "context": "aragora-merge-quorum",
+                    "state": "SUCCESS",
+                }
+            ]
+        },
+        {"check_runs": []},
+        [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+    )
+
+    assert report["status"] == "blocked"
+    assert report["blockers"] == [
+        "aragora-merge-quorum lacks a matching successful exact-head GitHub Actions CheckRun"
+    ]
+
+
 def test_build_report_reads_required_checks_from_pr_base_branch(monkeypatch) -> None:
     commands: list[list[str]] = []
 
@@ -2001,7 +2082,81 @@ def test_build_report_fails_closed_when_required_check_sources_unreadable(monkey
     )
 
     assert report["status"] == "blocked"
-    assert "branch protection required_status_checks JSON unavailable" in report["blockers"]
+    assert (
+        "aragora-merge-quorum lacks a matching successful exact-head GitHub Actions CheckRun"
+        in report["blockers"]
+    )
+
+
+def test_build_report_falls_back_when_required_checks_and_check_runs_are_green(
+    monkeypatch,
+) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "list"]:
+            return [], {"command": "metadata", "returncode": 0}
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == OWNER_PREFIX:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == STEERING_PREFIX:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if args[:3] == ["gh", "pr", "view"]:
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000001010",
+                    "baseRefName": "main",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "statusCheckRollup": [],
+                },
+                {"command": "view", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return None, {"command": "protection", "returncode": 404}
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return (
+                {
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "success",
+                            "app": {"id": 15368, "slug": "github-actions"},
+                        }
+                    ]
+                },
+                {"command": "check-runs", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "checks"]:
+            return (
+                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                {"command": "checks", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                1010,
+                status="satisfied",
+                verdict="admin_squash_allowed",
+                admin_squash_allowed=True,
+                reasons=["bounded internal code surface"],
+            ),
+            admin_order=[1010],
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=1010,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "packet_authorized_dry_run"
 
 
 def test_recursive_prompt_always_contains_convergence_sentence() -> None:
