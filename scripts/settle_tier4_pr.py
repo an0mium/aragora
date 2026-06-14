@@ -917,6 +917,15 @@ def _run_text_command(command: list[str], *, cwd: Path, input_text: str | None =
     return result.stdout.strip()
 
 
+def _is_not_found_error(exc: BaseException) -> bool:
+    text = str(exc)
+    return "HTTP 404" in text or "Not Found" in text
+
+
+def _top_level_rule_absent(top_level: dict[str, Any], key: str) -> bool:
+    return top_level.get(key) is None
+
+
 def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
     login = _current_gh_login(cwd=cwd)
     if not _login_has_admin_permission(login, repo, cwd):
@@ -929,15 +938,30 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
         )
 
     base = f"repos/{repo}/branches/main/protection"
-    for endpoint in (
-        base,
-        f"{base}/required_pull_request_reviews",
-        f"{base}/required_status_checks",
-        f"{base}/enforce_admins",
+    try:
+        top_level = _run_json(["gh", "api", base], cwd=cwd)
+    except RuntimeError as exc:
+        raise Tier4ApplyError(
+            f"Tier 4 branch-protection preflight failed before merge mutation: {base}: {exc}",
+            phase="preflight",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action=(
+                "verify the active gh identity has branch-protection admin access, "
+                "then rerun --merge-apply"
+            ),
+        ) from exc
+
+    for key, endpoint in (
+        ("required_pull_request_reviews", f"{base}/required_pull_request_reviews"),
+        ("required_status_checks", f"{base}/required_status_checks"),
+        ("enforce_admins", f"{base}/enforce_admins"),
     ):
         try:
             _run_json(["gh", "api", endpoint], cwd=cwd)
         except RuntimeError as exc:
+            if _is_not_found_error(exc) and _top_level_rule_absent(top_level, key):
+                continue
             raise Tier4ApplyError(
                 "Tier 4 branch-protection preflight failed before merge mutation: "
                 f"{endpoint}: {exc}",
@@ -954,6 +978,12 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
 def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
     base = f"repos/{repo}/branches/main/protection"
     snapshot: dict[str, Any] = {}
+    try:
+        top_level = _run_json(["gh", "api", base], cwd=cwd)
+    except RuntimeError as exc:
+        snapshot["branch_protection"] = {"snapshot_error": str(exc)}
+        return snapshot
+    snapshot["branch_protection"] = top_level
     for key, endpoint in {
         "required_pull_request_reviews": f"{base}/required_pull_request_reviews",
         "required_status_checks": f"{base}/required_status_checks",
@@ -962,14 +992,27 @@ def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
         try:
             snapshot[key] = _run_json(["gh", "api", endpoint], cwd=cwd)
         except RuntimeError as exc:
+            if _is_not_found_error(exc) and _top_level_rule_absent(top_level, key):
+                snapshot[key] = None
+                continue
             snapshot[key] = {"snapshot_error": str(exc)}
     return snapshot
 
 
 def _branch_protection_snapshot_errors(snapshot: dict[str, Any]) -> list[str]:
     errors: list[str] = []
+    top_level = snapshot.get("branch_protection")
+    if not isinstance(top_level, dict):
+        errors.append("branch_protection: missing snapshot")
+        top_level = {}
+    else:
+        snapshot_error = top_level.get("snapshot_error")
+        if snapshot_error:
+            errors.append(f"branch_protection: {snapshot_error}")
     for key in ("required_pull_request_reviews", "required_status_checks", "enforce_admins"):
         value = snapshot.get(key)
+        if value is None and _top_level_rule_absent(top_level, key):
+            continue
         if not isinstance(value, dict):
             errors.append(f"{key}: missing snapshot")
             continue
@@ -977,6 +1020,11 @@ def _branch_protection_snapshot_errors(snapshot: dict[str, Any]) -> list[str]:
         if snapshot_error:
             errors.append(f"{key}: {snapshot_error}")
     return errors
+
+
+def _snapshot_subresource_available(snapshot: dict[str, Any], key: str) -> bool:
+    value = snapshot.get(key)
+    return isinstance(value, dict) and "snapshot_error" not in value
 
 
 def _restore_branch_protection(*, repo: str, cwd: Path, snapshot: dict[str, Any]) -> list[str]:
@@ -1109,42 +1157,45 @@ def _apply_merge(
         if not reconcile_branch_protection:
             return commands
 
-        reviews_command = [
-            "gh",
-            "api",
-            "--method",
-            "PATCH",
-            f"repos/{repo}/branches/main/protection/required_pull_request_reviews",
-            "--input",
-            "-",
-        ]
-        _run_command(
-            reviews_command,
-            cwd=cwd,
-            input_text=json.dumps(
-                {
-                    "required_approving_review_count": 0,
-                    "require_code_owner_reviews": False,
-                }
-            ),
-        )
-        commands.append(reviews_command)
+        if _snapshot_subresource_available(snapshot, "required_pull_request_reviews"):
+            reviews_command = [
+                "gh",
+                "api",
+                "--method",
+                "PATCH",
+                f"repos/{repo}/branches/main/protection/required_pull_request_reviews",
+                "--input",
+                "-",
+            ]
+            _run_command(
+                reviews_command,
+                cwd=cwd,
+                input_text=json.dumps(
+                    {
+                        "required_approving_review_count": 0,
+                        "require_code_owner_reviews": False,
+                    }
+                ),
+            )
+            commands.append(reviews_command)
 
-        checks_patch = _required_status_check_patch(repo=repo, cwd=cwd)
-        if checks_patch is not None:
-            checks_command, checks_payload = checks_patch
-            _run_command(checks_command, cwd=cwd, input_text=checks_payload)
-            commands.append(checks_command)
+        if _snapshot_subresource_available(snapshot, "required_status_checks"):
+            checks_patch = _required_status_check_patch(repo=repo, cwd=cwd)
+            if checks_patch is not None:
+                checks_command, checks_payload = checks_patch
+                _run_command(checks_command, cwd=cwd, input_text=checks_payload)
+                commands.append(checks_command)
 
-        enforce_command = [
-            "gh",
-            "api",
-            "--method",
-            "POST",
-            f"repos/{repo}/branches/main/protection/enforce_admins",
-        ]
-        _run_command(enforce_command, cwd=cwd)
-        commands.append(enforce_command)
+        if _snapshot_subresource_available(snapshot, "enforce_admins"):
+            enforce_command = [
+                "gh",
+                "api",
+                "--method",
+                "POST",
+                f"repos/{repo}/branches/main/protection/enforce_admins",
+            ]
+            _run_command(enforce_command, cwd=cwd)
+            commands.append(enforce_command)
     except Tier4ApplyError:
         raise
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
