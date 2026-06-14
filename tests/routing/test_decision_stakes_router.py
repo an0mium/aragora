@@ -116,10 +116,18 @@ def test_to_dict_is_receipt_routing_block_shaped() -> None:
 
     rationale = DecisionStakesRouter(_optimizer()).route(3)
     payload = rationale.to_dict()
+    # Canonical routing-rationale schema family (shared with auto_evidence_cycle).
+    assert payload["record_type"] == "routing_rationale"
+    assert payload["schema"] == "aragora.routing_rationale/v1"
     assert payload["status"] == "present"
+    assert payload["selector"] == "decision_stakes_pareto"
+    assert payload["pareto_optimizer_consulted"] is True
     assert payload["decision_tier"] == 3
     assert payload["tier_class"] == FRONTIER
     assert "selection_reason" in payload
+    # Cost stays honestly absent (metrics expectation, not observed spend).
+    assert payload["cost"]["recorded"] is False
+    assert payload["cost"]["total_usd"] is None
     json.dumps(payload)  # must be JSON-serializable for the receipt
 
 
