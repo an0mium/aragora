@@ -113,6 +113,232 @@ def _valid_checks() -> list[dict[str, str]]:
     ]
 
 
+def _rest_pull(head: str) -> dict[str, Any]:
+    return {
+        "number": 7423,
+        "title": "Tier 4 helper test",
+        "html_url": "https://github.example/pr/7423",
+        "state": "open",
+        "draft": False,
+        "merged_at": None,
+        "mergeable": True,
+        "mergeable_state": "clean",
+        "head": {"sha": head, "ref": "codex/tier4-helper-test"},
+        "base": {"sha": "base-sha", "ref": "main"},
+        "user": {"login": "author-user"},
+        "labels": [],
+        "additions": 1,
+        "deletions": 0,
+        "changed_files": 1,
+        "body": "",
+    }
+
+
+def _rest_authorized_comment(head: str) -> dict[str, Any]:
+    comment = _authorized_comment(head)
+    return {
+        "user": {"login": comment["author"]["login"]},
+        "author_association": comment["authorAssociation"],
+        "created_at": comment["createdAt"],
+        "html_url": comment["url"],
+        "body": comment["body"],
+    }
+
+
+def _rest_commit(head: str) -> dict[str, Any]:
+    return {
+        "sha": head,
+        "commit": {"author": {"date": HEAD_COMMITTED_AT}},
+    }
+
+
+def _rest_human_settlement_status() -> dict[str, Any]:
+    return {
+        "context": settler.HUMAN_SETTLEMENT_CONTEXT,
+        "state": "success",
+        "target_url": "https://github.example/pr/7423#issuecomment-1",
+        "created_at": AUTH_CREATED_AT,
+        "updated_at": AUTH_CREATED_AT,
+    }
+
+
+def _packet_with_direct_required_checks(
+    *,
+    satisfied: bool = True,
+    missing: list[str] | None = None,
+    non_success: list[str] | None = None,
+) -> dict[str, Any]:
+    packet = _tier4_packet()
+    contexts = ["lint", "aragora-merge-quorum"]
+    packet["entries"][0]["check_surfaces"] = {
+        "direct_commit_check_runs": {
+            "available": True,
+            "branch_protection_required_status_checks_available": True,
+            "required_contexts": contexts,
+            "successful_required_contexts": [
+                context
+                for context in contexts
+                if context not in set(missing or []) | set(non_success or [])
+            ],
+            "missing_required_contexts": missing or [],
+            "non_success_required_contexts": non_success or [],
+            "required_contexts_satisfied": satisfied,
+        }
+    }
+    return packet
+
+
+def test_load_live_inputs_uses_rest_pr_view_when_graphql_is_rate_limited(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        if command[:3] == ["gh", "pr", "view"]:
+            raise RuntimeError("gh pr view 7423 failed: GraphQL: API rate limit already exceeded")
+        if command[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            return _tier4_packet()
+        raise AssertionError(f"unexpected _run_json command: {command}")
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        if command[:3] == ["gh", "pr", "checks"]:
+            return _valid_checks()
+        if command[:2] != ["gh", "api"]:
+            raise AssertionError(f"unexpected _run_json_any command: {command}")
+        endpoint = command[2]
+        if endpoint == "repos/synaptent/aragora/pulls/7423":
+            return _rest_pull(head)
+        if endpoint.startswith("repos/synaptent/aragora/pulls/7423/files"):
+            return []
+        if endpoint.startswith("repos/synaptent/aragora/issues/7423/comments"):
+            return [_rest_authorized_comment(head)]
+        if endpoint.startswith("repos/synaptent/aragora/pulls/7423/reviews"):
+            return []
+        if endpoint.startswith("repos/synaptent/aragora/pulls/7423/commits"):
+            return [_rest_commit(head)]
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/statuses"):
+            return [_rest_human_settlement_status()]
+        raise AssertionError(f"unexpected REST endpoint: {endpoint}")
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    pr_view, merge_packet, required_checks = settler._load_live_inputs(
+        7423,
+        cwd=tmp_path,
+        repo="synaptent/aragora",
+    )
+
+    assert pr_view["headRefOid"] == head
+    assert pr_view["comments"][0]["authorAssociation"] == "OWNER"
+    assert pr_view["commitStatuses"][0]["context"] == settler.HUMAN_SETTLEMENT_CONTEXT
+    assert merge_packet["entries"][0]["pr_number"] == 7423
+    assert required_checks == _valid_checks()
+    gate = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=pr_view,
+        merge_packet=merge_packet,
+        required_checks=required_checks,
+    )
+    assert gate["ok"] is True
+
+
+def test_load_live_inputs_uses_merge_packet_required_checks_when_graphql_checks_rate_limited(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    packet = _packet_with_direct_required_checks()
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        if command[:3] == ["gh", "pr", "view"]:
+            return _pr_view(head, comments=[_authorized_comment(head)])
+        if command[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            return packet
+        raise AssertionError(f"unexpected _run_json command: {command}")
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        if command[:3] == ["gh", "pr", "checks"]:
+            raise RuntimeError("gh pr checks 7423 failed: GraphQL: API rate limit already exceeded")
+        raise AssertionError(f"unexpected _run_json_any command: {command}")
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    pr_view, merge_packet, required_checks = settler._load_live_inputs(
+        7423,
+        cwd=tmp_path,
+        repo="synaptent/aragora",
+    )
+
+    assert merge_packet is packet
+    assert required_checks == [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "SUCCESS"},
+    ]
+    gate = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=pr_view,
+        merge_packet=merge_packet,
+        required_checks=required_checks,
+    )
+    assert gate["ok"] is True
+
+
+def test_rate_limited_required_checks_fail_closed_without_merge_packet_surface(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    packet = _tier4_packet()
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        if command[:3] == ["gh", "pr", "view"]:
+            return _pr_view(head, comments=[_authorized_comment(head)])
+        if command[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            return packet
+        raise AssertionError(f"unexpected _run_json command: {command}")
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        if command[:3] == ["gh", "pr", "checks"]:
+            raise RuntimeError("gh pr checks 7423 failed: GraphQL: API rate limit already exceeded")
+        raise AssertionError(f"unexpected _run_json_any command: {command}")
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    pr_view, merge_packet, required_checks = settler._load_live_inputs(
+        7423,
+        cwd=tmp_path,
+        repo="synaptent/aragora",
+    )
+
+    assert required_checks == []
+    gate = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=pr_view,
+        merge_packet=merge_packet,
+        required_checks=required_checks,
+    )
+    assert gate["ok"] is False
+    assert settler.REQUIRED_CHECKS_BLOCKER in gate["blockers"]
+
+
+def test_load_live_inputs_does_not_rest_fallback_for_non_rate_limit_graphql_error(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        if command[:3] == ["gh", "pr", "view"]:
+            raise RuntimeError("gh pr view 7423 failed: GraphQL: field unavailable")
+        raise AssertionError(f"unexpected _run_json command: {command}")
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+
+    with pytest.raises(RuntimeError, match="field unavailable"):
+        settler._load_live_inputs(7423, cwd=tmp_path, repo="synaptent/aragora")
+
+
 def test_missing_operator_comment_blocks_settlement() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
@@ -391,7 +617,7 @@ def test_cli_trusted_operator_login_authorizes_member_comment(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(
                 head,
                 comments=[_authorized_comment(head, association="MEMBER", author="trusted-member")],
@@ -774,7 +1000,7 @@ def test_check_json_includes_authorization_diagnostics(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[_authorized_comment(head, association="MEMBER")]),
             _tier4_packet(),
             _valid_checks(),
@@ -815,7 +1041,7 @@ def test_settle_only_posts_comment_and_status_without_merge(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
             _tier4_packet(),
             [
@@ -894,7 +1120,7 @@ def test_settle_only_rejects_untrusted_invoking_login(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
             _tier4_packet(),
             [
@@ -951,7 +1177,7 @@ def test_settle_only_rejects_trusted_invoker_without_admin_permission(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
             _tier4_packet(),
             [
@@ -1007,7 +1233,7 @@ def test_settle_only_requires_trusted_operator_allowlist(monkeypatch: Any, tmp_p
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
             _tier4_packet(),
             [
@@ -1045,7 +1271,7 @@ def test_settle_only_rejects_unrelated_required_failure(monkeypatch: Any, tmp_pa
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
             _tier4_packet(),
             [
@@ -1095,7 +1321,7 @@ def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Pat
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[_authorized_comment(head)]),
             _tier4_packet(),
             _valid_checks(),
@@ -1143,7 +1369,7 @@ def test_merge_apply_refuses_stale_failed_required_rollup_before_merge(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(
                 head,
                 comments=[_authorized_comment(head)],
@@ -1258,7 +1484,7 @@ def test_merge_apply_skips_required_status_check_patch_when_quorum_already_requi
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[_authorized_comment(head)]),
             _tier4_packet(),
             _valid_checks(),
@@ -1299,7 +1525,7 @@ def test_merge_apply_merge_only_authorization_skips_branch_protection(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd: (
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(
                 head,
                 comments=[_authorized_comment(head, include_branch_protection=False)],

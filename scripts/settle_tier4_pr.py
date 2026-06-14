@@ -17,6 +17,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
+from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
+from aragora.cli.commands.review_queue_transport import _GhError
+
 DEFAULT_REPO = "synaptent/aragora"
 AUTHORIZED_MARKER = "Tier-4 Human Settlement Authorization"
 AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
@@ -328,11 +331,18 @@ def _required_checks_are_green(required_checks: list[dict[str, Any]] | None) -> 
     return True
 
 
+def _status_signal_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for key in ("statusCheckRollup", "commitStatuses"):
+        value = pr_view.get(key)
+        if not isinstance(value, list):
+            continue
+        items.extend(item for item in value if isinstance(item, dict))
+    return items
+
+
 def _human_settlement_status_is_success(pr_view: dict[str, Any]) -> bool:
-    rollup = pr_view.get("statusCheckRollup")
-    if not isinstance(rollup, list):
-        return False
-    for item in rollup:
+    for item in _status_signal_items(pr_view):
         if not isinstance(item, dict):
             continue
         context = str(item.get("context") or item.get("name") or "")
@@ -812,21 +822,149 @@ def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
         raise RuntimeError(f"{' '.join(command)} did not emit JSON") from exc
 
 
-def _load_live_inputs(
-    pr: int, *, cwd: Path
-) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
-    pr_view = _run_json(
-        [
-            "gh",
-            "pr",
-            "view",
-            str(pr),
-            "--json",
-            "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,statusCheckRollup,url",
-        ],
-        cwd=cwd,
-    )
+def _looks_like_graphql_rate_limit_error(error: object) -> bool:
+    text = str(error or "").lower()
+    return "graphql" in text and "rate limit" in text
+
+
+def _gh_json_for_rest_fallback(command: list[str], *, cwd: Path) -> Any:
+    try:
+        return _run_json_any(["gh", *command], cwd=cwd)
+    except RuntimeError as exc:
+        raise _GhError(str(exc)) from exc
+
+
+def _load_pr_view(pr: int, *, cwd: Path, repo: str) -> dict[str, Any]:
+    try:
+        pr_view = _run_json(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(pr),
+                "--repo",
+                repo,
+                "--json",
+                (
+                    "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,"
+                    "statusCheckRollup,url"
+                ),
+            ],
+            cwd=cwd,
+        )
+    except RuntimeError as exc:
+        if not _looks_like_graphql_rate_limit_error(exc):
+            raise
+        try:
+            pr_view = rest_fallback._hydrate_pr_with_rest_fallback(
+                number=pr,
+                repo_slug=repo,
+                source_error=str(exc),
+                gh_json=lambda command: _gh_json_for_rest_fallback(command, cwd=cwd),
+            )
+        except _GhError as rest_exc:
+            raise RuntimeError(str(rest_exc)) from rest_exc
     pr_view["headCommittedDate"] = _head_committed_at(pr_view)
+    return pr_view
+
+
+def _required_checks_from_direct_surface(surface: dict[str, Any]) -> list[dict[str, str]]:
+    direct = surface.get("direct_commit_check_runs")
+    if not isinstance(direct, dict):
+        return []
+    contexts = [
+        str(item).strip() for item in direct.get("required_contexts") or [] if str(item).strip()
+    ]
+    if not contexts:
+        return []
+    successful = {str(item).strip() for item in direct.get("successful_required_contexts") or []}
+    missing = {str(item).strip() for item in direct.get("missing_required_contexts") or []}
+    non_success = {str(item).strip() for item in direct.get("non_success_required_contexts") or []}
+    checks: list[dict[str, str]] = []
+    for context in contexts:
+        if context in successful:
+            state = "SUCCESS"
+        elif context in missing:
+            state = "PENDING"
+        elif context in non_success:
+            state = "FAILURE"
+        else:
+            state = "UNKNOWN"
+        checks.append({"name": context, "state": state})
+    if direct.get("required_contexts_satisfied") is True or missing or non_success:
+        return checks
+    return [{"name": "branch-protection required checks", "state": "UNKNOWN"}]
+
+
+def _required_checks_from_required_pr_surface(surface: dict[str, Any]) -> list[dict[str, str]]:
+    required = surface.get("required_pr_checks")
+    if not isinstance(required, dict) or not bool(required.get("available")):
+        return []
+    failing = [
+        str(item).strip()
+        for item in required.get("failing_or_cancelled") or []
+        if str(item).strip()
+    ]
+    pending = [str(item).strip() for item in required.get("pending") or [] if str(item).strip()]
+    if failing or pending:
+        return [
+            *({"name": name, "state": "FAILURE"} for name in failing),
+            *({"name": name, "state": "PENDING"} for name in pending),
+        ]
+    effective_total = int(required.get("effective_total") or required.get("total") or 0)
+    if effective_total <= 0:
+        return []
+    state = "SUCCESS" if bool(required.get("gate_selected")) else "UNKNOWN"
+    return [{"name": "branch-protection required checks", "state": state}]
+
+
+def _required_checks_from_merge_packet(
+    merge_packet: dict[str, Any], *, pr: int
+) -> list[dict[str, str]]:
+    entry = _entry_for_pr(merge_packet, pr=pr)
+    if not isinstance(entry, dict):
+        return []
+    surfaces = entry.get("check_surfaces")
+    if not isinstance(surfaces, dict):
+        return []
+    direct_checks = _required_checks_from_direct_surface(surfaces)
+    required_pr_checks = _required_checks_from_required_pr_surface(surfaces)
+    return direct_checks or required_pr_checks
+
+
+def _load_required_checks(
+    pr: int, *, cwd: Path, repo: str, merge_packet: dict[str, Any]
+) -> list[dict[str, Any]]:
+    try:
+        checks_raw = _run_json_any(
+            [
+                "gh",
+                "pr",
+                "checks",
+                str(pr),
+                "--repo",
+                repo,
+                "--required",
+                "--json",
+                "name,state,bucket,workflow,link",
+            ],
+            cwd=cwd,
+        )
+    except RuntimeError as exc:
+        if not _looks_like_graphql_rate_limit_error(exc):
+            raise
+        return _required_checks_from_merge_packet(merge_packet, pr=pr)
+    return (
+        [check for check in checks_raw if isinstance(check, dict)]
+        if isinstance(checks_raw, list)
+        else []
+    )
+
+
+def _load_live_inputs(
+    pr: int, *, cwd: Path, repo: str = DEFAULT_REPO
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    pr_view = _load_pr_view(pr, cwd=cwd, repo=repo)
     merge_packet = _run_json(
         [
             sys.executable,
@@ -836,27 +974,13 @@ def _load_live_inputs(
             "merge-packet",
             "--pr",
             str(pr),
+            "--repo",
+            repo,
             "--json",
         ],
         cwd=cwd,
     )
-    checks_raw = _run_json_any(
-        [
-            "gh",
-            "pr",
-            "checks",
-            str(pr),
-            "--required",
-            "--json",
-            "name,state,bucket,workflow,link",
-        ],
-        cwd=cwd,
-    )
-    required_checks = (
-        [check for check in checks_raw if isinstance(check, dict)]
-        if isinstance(checks_raw, list)
-        else []
-    )
+    required_checks = _load_required_checks(pr, cwd=cwd, repo=repo, merge_packet=merge_packet)
     return pr_view, merge_packet, required_checks
 
 
@@ -1109,7 +1233,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        pr_view, merge_packet, required_checks = _load_live_inputs(args.pr, cwd=args.cwd)
+        pr_view, merge_packet, required_checks = _load_live_inputs(
+            args.pr, cwd=args.cwd, repo=args.repo
+        )
         applied_commands: list[list[str]] = []
         if args.settle_only:
             gate = evaluate_tier4_settlement_preconditions(
