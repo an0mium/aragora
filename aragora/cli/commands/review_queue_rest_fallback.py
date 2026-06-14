@@ -91,6 +91,7 @@ def _normalize_rest_issue_comment(comment: dict[str, Any]) -> dict[str, Any]:
     user: dict[str, Any] = user_payload if isinstance(user_payload, dict) else {}
     return {
         "author": {"login": str(user.get("login") or "").strip()},
+        "authorAssociation": str(comment.get("author_association") or "").strip().upper(),
         "body": str(comment.get("body") or ""),
         "createdAt": str(comment.get("created_at") or ""),
         "url": str(comment.get("html_url") or ""),
@@ -103,6 +104,7 @@ def _normalize_rest_review(review: dict[str, Any]) -> dict[str, Any]:
     commit_id = str(review.get("commit_id") or "").strip()
     return {
         "author": {"login": str(user.get("login") or "").strip()},
+        "authorAssociation": str(review.get("author_association") or "").strip().upper(),
         "body": str(review.get("body") or ""),
         "state": str(review.get("state") or "").strip().upper(),
         "submittedAt": str(review.get("submitted_at") or ""),
