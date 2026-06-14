@@ -74,9 +74,11 @@ def reset_metrics_registry():
 class TestUnifiedMetricsHandlerRouting:
     """Tests for handler routing."""
 
-    def test_can_handle_metrics(self, handler):
-        """Handler can handle /metrics endpoint."""
-        assert handler.can_handle("/metrics")
+    def test_does_not_claim_metrics_route(self, handler):
+        """/metrics is owned by MetricsHandler in the unified server
+        (first-wins registry); UnifiedMetricsHandler no longer claims it.
+        Direct handle("/metrics", ...) invocation still works (standalone)."""
+        assert not handler.can_handle("/metrics")
 
     def test_can_handle_api_prometheus(self, handler):
         """Handler can handle API versioned prometheus endpoint."""
@@ -99,9 +101,9 @@ class TestUnifiedMetricsHandlerRouting:
 class TestUnifiedMetricsHandlerRoutesAttribute:
     """Tests for ROUTES class attribute."""
 
-    def test_routes_contains_metrics(self, handler):
-        """ROUTES contains /metrics."""
-        assert "/metrics" in handler.ROUTES
+    def test_routes_excludes_metrics(self, handler):
+        """ROUTES must not claim /metrics (owned by MetricsHandler)."""
+        assert "/metrics" not in handler.ROUTES
 
     def test_routes_contains_api_prometheus(self, handler):
         """ROUTES contains API prometheus endpoint."""

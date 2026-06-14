@@ -41,6 +41,31 @@ def _load_json(path: Path) -> dict[str, Any]:
         raise RuntimeError(f"Invalid JSON in {path}: {exc}") from exc
 
 
+def _validate_cases(cases: list[Any]) -> list[dict[str, Any]]:
+    """Validate fixture case identity before metrics can be overwritten."""
+    validated: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    errors: list[str] = []
+
+    for index, case in enumerate(cases):
+        if not isinstance(case, dict):
+            errors.append(f"case[{index}] must be an object")
+            continue
+        case_id = str(case.get("id", "")).strip()
+        if not case_id:
+            errors.append(f"case[{index}] is missing non-empty id")
+            continue
+        if case_id in seen_ids:
+            errors.append(f"case[{index}] duplicate id {case_id!r}")
+            continue
+        seen_ids.add(case_id)
+        validated.append(case)
+
+    if errors:
+        raise RuntimeError("Invalid fixture cases: " + "; ".join(errors))
+    return validated
+
+
 def _compute_metrics(cases: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, Any]]:
     from aragora.debate.epistemic_hygiene import score_response
 
@@ -207,6 +232,7 @@ def main() -> int:
     cases = fixture_doc.get("cases", [])
     if not isinstance(cases, list):
         raise RuntimeError("fixtures JSON must contain a list field named 'cases'")
+    cases = _validate_cases(cases)
 
     model_metrics, case_results = _compute_metrics(cases)
     regressions = _check_thresholds(model_metrics, case_results, baseline_doc)

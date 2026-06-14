@@ -307,6 +307,46 @@ describe('Agents Namespace', () => {
       expect(result).toHaveProperty('buckets');
     });
 
+    it('should get the auditable calibration report', async () => {
+      const mockReport = {
+        agent: 'claude',
+        status: 'ok',
+        sample_size: 12,
+        overall: { sample_size: 12, accuracy: 0.75, brier_score: 0.18 },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify(mockReport)),
+      });
+
+      const result = await client.agents.getCalibrationReport('claude');
+
+      expect(result.status).toBe('ok');
+      expect(result.sample_size).toBe(12);
+      const calledUrl = mockFetch.mock.calls[mockFetch.mock.calls.length - 1][0] as string;
+      expect(calledUrl).toContain('/api/v1/agents/claude/calibration-report');
+    });
+
+    it('should surface the explicit absent contract in the calibration report', async () => {
+      const mockReport = {
+        agent: 'ghost',
+        status: 'absent',
+        reason: 'no calibration data recorded for this agent',
+        sample_size: 0,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify(mockReport)),
+      });
+
+      const result = await client.agents.getCalibrationReport('ghost');
+
+      expect(result.status).toBe('absent');
+      expect(result.sample_size).toBe(0);
+    });
+
     it('should get agent consistency', async () => {
       const mockConsistency = {
         agent: 'claude',

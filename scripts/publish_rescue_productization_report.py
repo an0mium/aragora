@@ -112,30 +112,54 @@ def write_json(path: Path, payload: dict[str, Any]) -> Path:
     return path
 
 
+def _validate_productization_map_schema_version(path: Path, value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"Productization map at {path} schema_version must be a positive integer")
+    return value
+
+
+def _validate_productization_map_entries(path: Path, entries: Any) -> list[dict[str, Any]]:
+    if not isinstance(entries, list):
+        raise ValueError(f"Productization map at {path} must contain an 'entries' list")
+
+    validated: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, dict) or not str(entry.get("class") or "").strip():
+            raise ValueError(
+                f"Productization map at {path} entries must be JSON objects "
+                "with a non-empty `class`"
+            )
+        validated.append(entry)
+    return validated
+
+
 def load_productization_map_payload(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"schema_version": 1, "entries": []}
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"Productization map at {path} must be a JSON object")
-    entries = payload.get("entries")
-    if not isinstance(entries, list):
-        raise ValueError(f"Productization map at {path} must contain an 'entries' list")
+    schema_version = _validate_productization_map_schema_version(
+        path,
+        payload.get("schema_version", 1),
+    )
+    entries = _validate_productization_map_entries(path, payload.get("entries"))
     return {
-        "schema_version": int(payload.get("schema_version", 1) or 1),
+        "schema_version": schema_version,
         "entries": entries,
     }
 
 
 def write_productization_map_payload(path: Path, payload: dict[str, Any]) -> Path:
-    entries = [
-        entry
-        for entry in list(payload.get("entries") or [])
-        if isinstance(entry, dict) and str(entry.get("class") or "").strip()
-    ]
+    schema_version = _validate_productization_map_schema_version(
+        path,
+        payload.get("schema_version", 1),
+    )
+    raw_entries = payload.get("entries", [])
+    entries = _validate_productization_map_entries(path, [] if raw_entries is None else raw_entries)
     entries.sort(key=lambda entry: str(entry.get("class") or "").strip())
     normalized = {
-        "schema_version": int(payload.get("schema_version", 1) or 1),
+        "schema_version": schema_version,
         "entries": entries,
     }
     path.parent.mkdir(parents=True, exist_ok=True)

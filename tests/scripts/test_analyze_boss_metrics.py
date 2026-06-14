@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from scripts.analyze_boss_metrics import analyze_boss_metrics, render_text
+from scripts.analyze_boss_metrics import analyze_boss_metrics, analyze_metrics, render_text
 
 
 def test_analyze_boss_metrics_fixture():
@@ -36,3 +36,40 @@ def test_analyze_boss_metrics_fixture():
     assert "deliverable rate" in text
     assert "terminal-truth families" in text
     assert "terminal-truth classes" in text
+
+
+def test_analyze_metrics_surfaces_invalid_numeric_fields():
+    summary = analyze_metrics(
+        [
+            {"prompt_chars": 30, "enriched_context_chars": 60},
+            {"prompt_chars": True, "enriched_context_chars": -1},
+            {"prompt_chars": "100", "enriched_context_chars": False},
+        ]
+    )
+
+    assert summary["prompt_chars"] == {"total": 30, "avg": 10.0}
+    assert summary["enriched_context_chars"] == {"total": 60, "avg": 20.0}
+    assert summary["invalid_numeric_metrics"] == {
+        "enriched_context_chars": 2,
+        "prompt_chars": 2,
+    }
+
+
+def test_render_text_includes_invalid_numeric_metrics():
+    text = render_text(
+        {
+            "metrics_summary": {
+                "totals": {"records": 1},
+                "prompt_chars": {"avg": 0},
+                "enriched_context_chars": {"avg": 0},
+                "deliverables": {"rate": 0},
+                "publish_actions": {},
+                "failure_taxonomy": {},
+                "invalid_numeric_metrics": {"prompt_chars": 1},
+            },
+            "terminal_truth_benchmark": {},
+        }
+    )
+
+    assert "invalid numeric metrics" in text
+    assert "prompt_chars: 1" in text

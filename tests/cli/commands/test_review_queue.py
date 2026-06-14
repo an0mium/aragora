@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import subprocess
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
@@ -25,11 +26,16 @@ from aragora.cli.commands.review_queue import (
     _build_queue,
     _classify_pr,
     _classify_model_review_tier,
+    _dogfood_evidence_from_comments,
+    _has_blocking_or_negative_verdict,
     _extract_validation_commands,
     _effective_required_pr_check_count,
     _filter_lanes,
     _GhError,
+    _gh_json,
+    _gh_text,
     _is_high_risk_path,
+    _is_github_transport_error,
     _is_merge_quorum_check,
     _parse_pr_number,
     _record_external_settlement,
@@ -42,6 +48,7 @@ from aragora.cli.commands.review_queue import (
     add_review_queue_parser,
     cmd_review_queue,
 )
+from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.review import (
     EvidenceKind,
     EvidenceRef,
@@ -1772,9 +1779,23 @@ class TestModelReviewQuorum:
             "aragora.cli.commands.review_queue._build_queue",
             lambda limit: [_classify_pr(_make_pr(number=7736))],
         )
+
+        def _gh_json_dispatch(args: list[str]) -> Any:
+            # TET H2: the settlement-creator pin fetches the head commit's
+            # statuses via the REST API; everything else hydrates the PR.
+            if any("/statuses" in str(arg) for arg in args):
+                return [
+                    {
+                        "context": "aragora/human-settlement",
+                        "state": "success",
+                        "creator": {"login": "scarmani"},
+                    }
+                ]
+            return pr_payload
+
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
-            lambda args: pr_payload,
+            _gh_json_dispatch,
         )
 
         packet = _build_merge_authorization_packet(
@@ -1791,10 +1812,220 @@ class TestModelReviewQuorum:
         assert entry["requires_human_risk_settlement"] is False
         assert entry["requires_human_preapproval"] is False
         assert entry["human_preapproval_recorded"] is True
+        assert entry["settlement_creator_pin"]["checked"] is True
+        assert entry["settlement_creator_pin"]["verified"] is True
+        assert entry["settlement_creator_pin"]["trusted_creator"] == "scarmani"
         assert "exact-head Tier 4 human preapproval verified" in entry["reasons"]
         assert packet["admin_squash_order"] == [7736]
         assert packet["human_risk_settlement_required"] == []
         assert packet["not_ready"] == []
+
+    # --- TET H2: settlement-creator pin (docs/specs/TAMPER_EVIDENT_TRAIL.md) ---
+
+    def _tier_four_settled_pr(self, *, number: int = 7900) -> tuple[dict[str, Any], list[str]]:
+        """A Tier 4 PR with full quorum + comment + rollup settlement evidence.
+
+        Everything short of the settlement-creator pin passes, so each test
+        isolates exactly what the pin adds on top of the pre-H2 gate.
+        """
+        files = ["aragora/cli/commands/review_queue.py"]
+        pr = _make_pr(number=number, files=files)
+        head_sha = str(pr["headRefOid"])
+        pr["comments"] = [
+            _codex_openai_comment(body=f"Reviewed exact head {head_sha}."),
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n\n"
+                    "Model family: claude\n"
+                    f"Current head: {head_sha}\n\n"
+                    "Verdict: approve."
+                ),
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "Tier-4 Human Settlement Authorization\n\n"
+                    f"PR: #{number}\n"
+                    f"Exact head: {head_sha}\n"
+                    "Authorized action: admin_squash_merge only if checks stay green.\n\n"
+                    "Human-risk settlement: I accept the Tier 4 risk for this PR."
+                ),
+            },
+        ]
+        pr["statusCheckRollup"] = [
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"context": "aragora/human-settlement", "state": "SUCCESS"},
+        ]
+        return pr, files
+
+    @staticmethod
+    def _settlement_status(
+        login: str | None,
+        *,
+        state: str = "success",
+        context: str = "aragora/human-settlement",
+    ) -> dict[str, Any]:
+        status: dict[str, Any] = {"context": context, "state": state}
+        if login is not None:
+            status["creator"] = {"login": login}
+        return status
+
+    def _pin_quorum(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        statuses: Any,
+        *,
+        pr: dict[str, Any] | None = None,
+        files: list[str] | None = None,
+    ) -> dict[str, Any]:
+        if pr is None or files is None:
+            pr, files = self._tier_four_settled_pr()
+
+        def _gh_json_dispatch(args: list[str]) -> Any:
+            assert any("/statuses" in str(arg) for arg in args), (
+                "only the statuses API may be called from the quorum builder"
+            )
+            if isinstance(statuses, Exception):
+                raise statuses
+            return statuses
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            _gh_json_dispatch,
+        )
+        return _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            human_risk_settlement_recorded=True,
+            repo_slug="synaptent/aragora",
+        )
+
+    def test_settlement_creator_scarmani_counts(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        quorum = self._pin_quorum(monkeypatch, [self._settlement_status("scarmani")])
+        assert quorum["human_preapproval_recorded"] is True
+        assert quorum["admin_squash_allowed"] is True
+        pin = quorum["settlement_creator_pin"]
+        assert pin["checked"] is True
+        assert pin["verified"] is True
+        assert pin["trusted_creator"] == "scarmani"
+        assert any("settlement-creator pin" in reason for reason in quorum["reasons"])
+
+    def test_settlement_creator_an0mium_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The #8169 precedent gap: an automation-capable login posting the
+        status must NOT count, even though every other condition holds."""
+        quorum = self._pin_quorum(monkeypatch, [self._settlement_status("an0mium")])
+        assert quorum["human_preapproval_recorded"] is False
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["status"] == "human_preapproval_required"
+        pin = quorum["settlement_creator_pin"]
+        assert pin["checked"] is True
+        assert pin["verified"] is False
+        assert "an0mium" in pin["reason"]
+        assert "scarmani" in pin["reason"]
+        assert any("settlement-creator pin" in reason for reason in quorum["reasons"])
+
+    def test_settlement_creator_missing_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        quorum = self._pin_quorum(monkeypatch, [self._settlement_status(None)])
+        assert quorum["human_preapproval_recorded"] is False
+        assert quorum["admin_squash_allowed"] is False
+        pin = quorum["settlement_creator_pin"]
+        assert pin["verified"] is False
+        assert "no creator login" in pin["reason"]
+
+    def test_settlement_creator_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_SETTLEMENT_CREATOR", "alice-oversight")
+        quorum = self._pin_quorum(monkeypatch, [self._settlement_status("alice-oversight")])
+        assert quorum["human_preapproval_recorded"] is True
+        assert quorum["settlement_creator_pin"]["trusted_creator"] == "alice-oversight"
+
+    def test_env_override_rejects_default_creator(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_SETTLEMENT_CREATOR", "alice-oversight")
+        quorum = self._pin_quorum(monkeypatch, [self._settlement_status("scarmani")])
+        assert quorum["human_preapproval_recorded"] is False
+        assert quorum["settlement_creator_pin"]["verified"] is False
+
+    def test_transport_error_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        quorum = self._pin_quorum(monkeypatch, _GhError("api unavailable"))
+        assert quorum["human_preapproval_recorded"] is False
+        assert quorum["admin_squash_allowed"] is False
+        assert "failing closed" in quorum["settlement_creator_pin"]["reason"]
+
+    def test_unexpected_payload_shape_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        quorum = self._pin_quorum(monkeypatch, {"not": "a list"})
+        assert quorum["human_preapproval_recorded"] is False
+        assert "failing closed" in quorum["settlement_creator_pin"]["reason"]
+
+    def test_missing_status_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        quorum = self._pin_quorum(monkeypatch, [])
+        assert quorum["human_preapproval_recorded"] is False
+        assert (
+            "no 'aragora/human-settlement' status" in (quorum["settlement_creator_pin"]["reason"])
+        )
+
+    def test_newest_untrusted_status_shadows_older_trusted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The statuses API is newest-first; an untrusted overwrite on top of a
+        genuine scarmani status must reject (the rollup reflects the newest)."""
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [
+                self._settlement_status("aragora-automation-fable[bot]"),
+                self._settlement_status("scarmani"),
+            ],
+        )
+        assert quorum["human_preapproval_recorded"] is False
+        assert "aragora-automation-fable[bot]" in (quorum["settlement_creator_pin"]["reason"])
+
+    def test_newest_pending_status_rejected_despite_trusted_older(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [
+                self._settlement_status("scarmani", state="pending"),
+                self._settlement_status("scarmani"),
+            ],
+        )
+        assert quorum["human_preapproval_recorded"] is False
+        assert "not success" in quorum["settlement_creator_pin"]["reason"]
+
+    def test_pin_not_consulted_below_tier_four(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Non-Tier-4 packets must not pay the statuses API call at all."""
+
+        def _explode(args: list[str]) -> Any:
+            raise AssertionError(f"unexpected gh call from quorum builder: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _explode)
+        files = ["aragora/agents/router.py"]  # Tier 1
+        quorum = _build_model_review_quorum(
+            pr=_make_pr(files=files),
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["settlement_creator_pin"]["checked"] is False
+        assert quorum["settlement_creator_pin"]["trusted_creator"] == "scarmani"
+
+    def test_creator_check_helper_requires_repo_and_head(self) -> None:
+        from aragora.cli.commands.review_queue import (
+            _human_settlement_status_creator_verified,
+        )
+
+        ok, reason = _human_settlement_status_creator_verified(repo_slug="", head_sha="abc")
+        assert ok is False
+        assert "failing closed" in reason
+        ok, reason = _human_settlement_status_creator_verified(
+            repo_slug="synaptent/aragora", head_sha=""
+        )
+        assert ok is False
 
     # --- Finding 2: source-side filter on _dogfood_evidence_from_comments ---
 
@@ -2165,6 +2396,81 @@ class TestModelReviewQuorum:
         assert quorum["dogfood_evidence"][0]["model_family"] == "claude"
         assert "claude" in quorum["counted_reviewer_ids"]
 
+    def test_dogfood_negative_verdict_is_not_counted(self) -> None:
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        comments = [
+            _codex_openai_comment(
+                body=(
+                    f"Current head: {head}\n"
+                    "Verdict: FAIL\n"
+                    "Blocking findings: found - exact-head evidence is stale."
+                )
+            )
+        ]
+
+        assert _dogfood_evidence_from_comments(comments, head_sha=head) == []
+
+
+class TestHasBlockingOrNegativeVerdict:
+    def test_blocker_value_starting_with_no_letters_is_still_blocking(self) -> None:
+        # Word-boundary regression: "node"/"not working" must not be swallowed
+        # by the non-blocking prefix "no".
+        assert _has_blocking_or_negative_verdict("Blockers: node crashes on startup")
+        assert _has_blocking_or_negative_verdict("Blocking findings: not working under load")
+
+    def test_markdown_heading_labels_are_recognized(self) -> None:
+        assert _has_blocking_or_negative_verdict("### Verdict: FAIL")
+        assert _has_blocking_or_negative_verdict("> **Verdict:** blocked on stale evidence")
+
+    def test_dash_separated_negative_labels_are_recognized(self) -> None:
+        assert _has_blocking_or_negative_verdict("Verdict - FAIL")
+        assert _has_blocking_or_negative_verdict("Blocking findings — found stale evidence")
+
+    def test_multi_line_blocker_lists_are_blocking(self) -> None:
+        assert _has_blocking_or_negative_verdict("Blocking findings:\n- Crash on startup")
+        assert _has_blocking_or_negative_verdict("Blockers:\n\n1. Stale exact-head evidence")
+
+    def test_multi_line_non_blocking_values_remain_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers:\nNone found.")
+        assert not _has_blocking_or_negative_verdict("Blocking findings:")
+
+    def test_decorated_and_numbered_labels_are_recognized(self) -> None:
+        assert _has_blocking_or_negative_verdict("1. Verdict: FAIL")
+        assert _has_blocking_or_negative_verdict("*Verdict*: FAIL")
+        assert _has_blocking_or_negative_verdict("__Verdict__: FAIL")
+
+    def test_failure_verdict_and_inline_list_blockers_are_negative(self) -> None:
+        assert _has_blocking_or_negative_verdict("Verdict: Failure")
+        assert _has_blocking_or_negative_verdict("Blockers: - broken auth flow")
+
+    def test_boolean_and_zero_values_remain_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers: false")
+        assert not _has_blocking_or_negative_verdict("Blocking findings: zero")
+
+    def test_word_boundary_does_not_flag_blockchain_verdict(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Verdict: blockchain summary attached")
+
+    def test_inline_empty_markers_never_consume_the_next_section(self) -> None:
+        # "Blockers: []" is an explicit empty list; the following unrelated
+        # section must not be read as a blocker entry.
+        assert not _has_blocking_or_negative_verdict("Blockers: []\nVerdict: PASS")
+        assert not _has_blocking_or_negative_verdict("Blockers: -\nScope reviewed: full diff")
+        assert not _has_blocking_or_negative_verdict("Blocking findings: [ ]\n\nVerdict: passed")
+
+    def test_empty_blockers_followed_by_new_section_or_heading_is_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers:\nVerdict: PASS")
+        assert not _has_blocking_or_negative_verdict("Blockers:\n### Validation notes")
+
+    def test_lookahead_still_catches_list_items_with_colons(self) -> None:
+        assert _has_blocking_or_negative_verdict("Blockers:\n- crash: stack overflow in parser")
+        assert _has_blocking_or_negative_verdict("Blockers:\n1. regression: settle gate bypassed")
+
+    def test_non_blocking_values_remain_countable(self) -> None:
+        assert not _has_blocking_or_negative_verdict("Blockers: none")
+        assert not _has_blocking_or_negative_verdict("Blocking findings: no blocking findings")
+        assert not _has_blocking_or_negative_verdict("#### Blockers: N/A")
+        assert not _has_blocking_or_negative_verdict("Verdict: **passed**, zero findings.")
+
 
 # --- parenthetical model-family disclosure ---------------------------------
 
@@ -2361,6 +2667,47 @@ class TestValidationExtraction:
             "`python3 -m pytest tests/cli/commands/test_review_queue.py -q`",
             "`bash scripts/automation_pr_preflight.sh origin/main HEAD`",
         ]
+
+
+class TestGhTimeouts:
+    def test_gh_json_fails_closed_on_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, Any] = {}
+
+        def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+            raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
+
+        with pytest.raises(_GhError, match=r"gh pr view 7811 timed out after \d+s"):
+            _gh_json(["pr", "view", "7811"])
+
+        assert captured["kwargs"]["timeout"] > 0
+
+    def test_gh_json_fails_closed_on_startup_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+            raise OSError("gh executable unavailable")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
+
+        with pytest.raises(_GhError) as exc_info:
+            _gh_json(["pr", "view", "7811"])
+
+        assert "gh pr view 7811 failed to start: gh executable unavailable" in str(exc_info.value)
+        assert _is_github_transport_error(exc_info.value) is True
+
+    def test_gh_text_fails_closed_on_startup_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+            raise OSError("permission denied")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue_transport.subprocess.run", fake_run)
+
+        with pytest.raises(_GhError) as exc_info:
+            _gh_text(["repo", "view"])
+
+        assert "gh repo view failed to start: permission denied" in str(exc_info.value)
+        assert _is_github_transport_error(exc_info.value) is True
 
 
 # --- _build_queue + _build_packet (with mocked gh) -------------------------
@@ -2743,6 +3090,209 @@ class TestBuildQueueAndPacket:
         assert "direct_commit_check_runs=3" in rendered_packet
         assert "diagnosis:" in rendered_packet
         assert "remediation:" in rendered_packet
+
+    def test_build_packet_uses_rest_fallback_when_pr_view_transport_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = "abc1234567890abcdef"
+        rest_pr = {
+            "number": 7466,
+            "title": "docs status fallback",
+            "html_url": "https://github.com/synaptent/aragora/pull/7466",
+            "state": "open",
+            "merged_at": None,
+            "merge_commit_sha": "",
+            "draft": False,
+            "mergeable": True,
+            "mergeable_state": "clean",
+            "user": {"login": "an0mium"},
+            "head": {"ref": "codex/rest-fallback-test", "sha": head},
+            "base": {"ref": "main", "sha": "basesha0001"},
+            "labels": [],
+            "additions": 1,
+            "deletions": 0,
+            "changed_files": 1,
+            "body": "",
+        }
+        comment_body = (
+            "## Grok independent model review\n\n"
+            f"Head: abc1234 ({head}).\n"
+            "PR: #7466.\n"
+            "Model family: grok\n\n"
+            "Verdict: PASS\n"
+            "- adversarial dogfood recheck found no blocker.\n"
+            "dogfood: yes\n"
+        )
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                raise _GhError("GraphQL: API rate limit already exceeded")
+            if args[:1] != ["api"]:
+                raise AssertionError(f"unexpected gh call: {args}")
+            endpoint = args[1]
+            if endpoint == "repos/synaptent/aragora/pulls/7466":
+                return rest_pr
+            if endpoint == "repos/synaptent/aragora/pulls/7466/files?per_page=100":
+                return [{"filename": "docs/status/fallback.md"}]
+            if endpoint == "repos/synaptent/aragora/issues/7466/comments?per_page=100":
+                return [
+                    {
+                        "user": {"login": "an0mium"},
+                        "body": comment_body,
+                        "created_at": "2026-06-12T00:01:00Z",
+                    }
+                ]
+            if endpoint == "repos/synaptent/aragora/pulls/7466/reviews?per_page=100":
+                return []
+            if endpoint == "repos/synaptent/aragora/pulls/7466/commits?per_page=100":
+                return [
+                    {
+                        "sha": head,
+                        "commit": {"author": {"date": "2026-06-12T00:00:00Z"}},
+                    }
+                ]
+            if endpoint == f"repos/synaptent/aragora/commits/{head}/status":
+                return {
+                    "statuses": [
+                        {
+                            "context": "legacy/status",
+                            "state": "success",
+                            "created_at": "2026-06-12T00:02:00Z",
+                            "updated_at": "2026-06-12T00:02:00Z",
+                        }
+                    ]
+                }
+            if (
+                endpoint
+                == "repos/synaptent/aragora/branches/main/protection/required_status_checks"
+            ):
+                return {"contexts": ["legacy/status"], "checks": [], "strict": False}
+            if endpoint == f"repos/synaptent/aragora/commits/{head}/check-runs?per_page=100":
+                return {"check_runs": []}
+            raise AssertionError(f"unexpected gh api endpoint: {endpoint}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7466", repo_override="synaptent/aragora")
+        direct = packet.check_surfaces["direct_commit_check_runs"]
+
+        assert packet.head_sha == head
+        assert packet.touched_subsystems == ["docs"]
+        assert packet.check_surfaces["metadata_transport_fallback"]["enabled"] is True
+        assert packet.check_surfaces["metadata_transport_fallback"]["repo"] == "synaptent/aragora"
+        assert packet.checks_summary == "1/1 required green (direct check-runs fallback)"
+        assert direct["total"] == 0
+        assert direct["statuses_total"] == 1
+        assert direct["successful_required_contexts"] == ["legacy/status"]
+        assert direct["required_contexts_satisfied"] is True
+        assert packet.model_review_quorum["counted_model_families"] == ["grok"]
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+
+    def test_rest_fallback_paginates_rest_surfaces(self) -> None:
+        head = "f" * 40
+        calls: list[str] = []
+
+        def page_payload(prefix: str, page: int) -> list[dict[str, Any]]:
+            if prefix == "files":
+                return [{"filename": f"docs/page-{page}-{index}.md"} for index in range(100)]
+            if prefix == "comments":
+                return [
+                    {"user": {"login": "an0mium"}, "body": f"comment {page}-{index}"}
+                    for index in range(100)
+                ]
+            if prefix == "reviews":
+                return [{"user": {"login": "reviewer"}, "state": "APPROVED"}]
+            if prefix == "commits":
+                return [
+                    {
+                        "sha": f"{page:02d}{index:038d}",
+                        "commit": {"author": {"date": "2026-06-12T00:00:00Z"}},
+                    }
+                    for index in range(100)
+                ]
+            if prefix == "statuses":
+                return [
+                    {"context": f"legacy/{page}-{index}", "state": "success"}
+                    for index in range(100)
+                ]
+            raise AssertionError(prefix)
+
+        def fake_gh_json(args: list[str]) -> Any:
+            assert args[:1] == ["api"]
+            endpoint = args[1]
+            calls.append(endpoint)
+            if endpoint == "repos/synaptent/aragora/pulls/7466":
+                return {
+                    "number": 7466,
+                    "title": "rest fallback",
+                    "html_url": "https://github.com/synaptent/aragora/pull/7466",
+                    "state": "open",
+                    "draft": False,
+                    "mergeable": True,
+                    "mergeable_state": "clean",
+                    "user": {"login": "an0mium"},
+                    "head": {"ref": "codex/rest-fallback-test", "sha": head},
+                    "base": {"ref": "main", "sha": "basesha0001"},
+                    "labels": [],
+                    "additions": 1,
+                    "deletions": 0,
+                    "changed_files": 101,
+                    "body": "",
+                }
+            if endpoint.endswith("/files?per_page=100"):
+                return page_payload("files", 1)
+            if endpoint.endswith("/files?per_page=100&page=2"):
+                return [{"filename": "docs/page-2-final.md"}]
+            if endpoint.endswith("/comments?per_page=100"):
+                return page_payload("comments", 1)
+            if endpoint.endswith("/comments?per_page=100&page=2"):
+                return [{"user": {"login": "an0mium"}, "body": "comment page 2"}]
+            if endpoint.endswith("/reviews?per_page=100"):
+                return page_payload("reviews", 1)
+            if endpoint.endswith("/commits?per_page=100"):
+                return page_payload("commits", 1)
+            if endpoint.endswith("/commits?per_page=100&page=2"):
+                return [{"sha": head, "commit": {"author": {"date": "2026-06-12T00:00:00Z"}}}]
+            if endpoint.endswith(f"/commits/{head}/statuses?per_page=100"):
+                return page_payload("statuses", 1)
+            if endpoint.endswith(f"/commits/{head}/statuses?per_page=100&page=2"):
+                return [{"context": "legacy/final", "state": "success"}]
+            if endpoint.endswith(f"/commits/{head}/check-runs?per_page=100"):
+                return {
+                    "total_count": 101,
+                    "check_runs": [
+                        {"name": f"check-{index}", "status": "completed", "conclusion": "success"}
+                        for index in range(100)
+                    ],
+                }
+            if endpoint.endswith(f"/commits/{head}/check-runs?per_page=100&page=2"):
+                return {
+                    "total_count": 101,
+                    "check_runs": [
+                        {"name": "check-final", "status": "completed", "conclusion": "success"}
+                    ],
+                }
+            raise AssertionError(f"unexpected endpoint: {endpoint}")
+
+        pr = rest_fallback._hydrate_pr_with_rest_fallback(
+            number=7466,
+            repo_slug="synaptent/aragora",
+            source_error="GraphQL rate limit",
+            gh_json=fake_gh_json,
+        )
+        check_runs = rest_fallback._fetch_direct_commit_check_runs(
+            "synaptent/aragora", head, gh_json=fake_gh_json
+        )
+
+        assert len(pr["files"]) == 101
+        assert len(pr["comments"]) == 101
+        assert len(pr["reviews"]) == 1
+        assert len(pr["commits"]) == 101
+        assert len(pr["commitStatuses"]) == 101
+        assert len(check_runs) == 101
+        assert "repos/synaptent/aragora/pulls/7466/files?per_page=100&page=2" in calls
+        assert "repos/synaptent/aragora/issues/7466/comments?per_page=100&page=2" in calls
+        assert f"repos/synaptent/aragora/commits/{head}/check-runs?per_page=100&page=2" in calls
 
     def test_non_required_rollup_failures_use_required_pr_checks_gate(
         self, monkeypatch: pytest.MonkeyPatch
@@ -4456,6 +5006,86 @@ class TestJsonOutput:
         assert roundtrip["protocol"]["protocol_version"] == "pr_review_protocol.v1"
         assert "model_review_quorum" in roundtrip
 
+    def test_merge_packet_json_transport_blocked_envelope(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def raise_transport(**_kwargs: object) -> dict[str, object]:
+            raise _GhError("gh pr view 7885 failed: TLS handshake timeout")
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            raise_transport,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: (_ for _ in ()).throw(_GhError("REST fallback unavailable")),
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["7885"],
+            repo="synaptent/aragora",
+            limit=1,
+            review_queue_root=None,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert err_buf.getvalue() == ""
+        payload = json.loads(out_buf.getvalue())
+        assert payload["version"] == "merge_authorization_packet.v1"
+        assert payload["status"] == "transport_blocked"
+        assert payload["transport_blocked"] is True
+        assert payload["preserve_no_mutate"] is True
+        assert payload["error_kind"] == "github_transport"
+        assert payload["not_ready"] == [7885]
+        assert payload["entries"] == []
+        assert payload["admin_squash_allowed"] is False
+        assert payload["rest_fallback"]["available"] is False
+
+    def test_conductor_json_transport_blocked_envelope(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import aragora.cli.commands.review_queue_conductor as conductor
+
+        def raise_transport(**_kwargs: object) -> dict[str, object]:
+            raise _GhError("gh pr view 7885 failed: read: connection reset by peer")
+
+        monkeypatch.setattr(conductor, "build_queue_conductor_packet", raise_transport)
+        ns = argparse.Namespace(
+            review_queue_command="conductor",
+            pr=["7885"],
+            repo="synaptent/aragora",
+            limit=1,
+            review_queue_root=None,
+            owner_timeout_seconds=1.0,
+            mode="ready-boundary",
+            json=True,
+        )
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert err_buf.getvalue() == ""
+        payload = json.loads(out_buf.getvalue())
+        assert payload["version"] == "queue_conductor.v1"
+        assert payload["status"] == "transport_blocked"
+        assert payload["transport_blocked"] is True
+        assert payload["preserve_no_mutate"] is True
+        assert payload["error_kind"] == "github_transport"
+        assert payload["mode"] == "ready-boundary"
+        assert payload["not_ready"] == [7885]
+        assert payload["candidates"] == []
+
 
 # --- cmd_review_queue dispatch + parser ------------------------------------
 
@@ -4512,6 +5142,30 @@ class TestCommandDispatch:
         assert ns_evidence_lint.head_sha == "headsha123"
         assert ns_evidence_lint.body_file is None
         assert ns_evidence_lint.json is True
+        # collect-evidence invocation parses through the fast-path command parser
+        ns_collect = root.parse_args(
+            [
+                "review-queue",
+                "collect-evidence",
+                "--repo",
+                "synaptent/aragora",
+                "--pr",
+                "6280",
+                "--reviewers",
+                "claude",
+                "openai",
+                "--author",
+                "an0mium",
+                "--json",
+            ]
+        )
+        assert ns_collect.review_queue_command == "collect-evidence"
+        assert ns_collect.repo == "synaptent/aragora"
+        assert ns_collect.pr == 6280
+        assert ns_collect.reviewers == ["claude", "openai"]
+        assert ns_collect.author == "an0mium"
+        assert ns_collect.apply is False
+        assert ns_collect.json_output is True
         # run invocation parses
         ns_run = root.parse_args(["review-queue", "run", "--limit", "3", "--ready-only"])
         assert ns_run.review_queue_command == "run"
@@ -4721,6 +5375,129 @@ class TestCommandDispatch:
         assert payload["would_count"] is False
         assert payload["current_head_grounding_method"] == "missing_head_sha_citation"
         assert "missing_current_head_grounding" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
+    def test_evidence_lint_rejects_wrong_pr_reference(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #9999\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Focused adversarial dogfood found no blockers."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_head_grounding_method"] == "head_sha_citation"
+        assert payload["current_pr_grounding_method"] == "wrong_pr_citation"
+        assert payload["dogfood_evidence"] == []
+        assert "wrong_pr_reference" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
+    def test_evidence_lint_rejects_wrong_pr_number_label(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR Number: #9999\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Focused adversarial dogfood found no blockers."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_pr_grounding_method"] == "wrong_pr_citation"
+        assert payload["dogfood_evidence"] == []
+        assert "wrong_pr_reference" in payload["problems"]
+
+    def test_evidence_lint_rejects_wrong_pr_url_reference(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "Evidence comment: https://github.com/synaptent/aragora/pull/9999"
+                    "#issuecomment-123\n"
+                    "Exact head reviewed: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Focused adversarial dogfood found no blockers."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["current_head_grounding_method"] == "head_sha_citation"
+        assert payload["current_pr_grounding_method"] == "wrong_pr_citation"
+        assert payload["dogfood_evidence"] == []
+        assert "wrong_pr_reference" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
+    def test_evidence_lint_rejects_explicit_blocking_verdict(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Verdict: FAIL\n"
+                    "Blocking findings: found - helper can still misclassify stale evidence."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["reviewer_signals"] == []
+        assert payload["dogfood_evidence"] == []
+        assert "blocking_or_negative_verdict" in payload["problems"]
         assert "no_counted_model_reviewer" in payload["problems"]
 
     def test_evidence_lint_requires_head_sha_when_timestamp_omitted(self) -> None:
@@ -5496,6 +6273,219 @@ class TestSettlementHelpers:
         assert payload["queue_pressure"]["scope"] == "open_pr_queue"
         assert payload["admin_squash_order"] == list(range(1, MODEL_REVIEW_QUEUE_CAP + 2))
         assert payload["entries"][0]["verdict"] == "admin_squash_allowed"
+
+    def test_merge_packet_json_reports_transport_blocked(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_transport(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError(
+                "gh pr view 1 --json number failed: error connecting to api.github.com\n"
+                "check your internet connection or https://githubstatus.com"
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_transport,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            lambda _args: (_ for _ in ()).throw(_GhError("REST fallback unavailable")),
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["1"],
+            repo="synaptent/aragora",
+            review_queue_root=None,
+            limit=30,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stderr.getvalue() == ""
+        payload = json.loads(stdout.getvalue())
+        assert payload["status"] == "transport_blocked"
+        assert payload["transport_blocked"] is True
+        assert payload["preserve_no_mutate"] is True
+        assert payload["error_kind"] == "github_transport"
+        assert payload["command"] == "review-queue merge-packet"
+        assert payload["repo"] == "synaptent/aragora"
+        assert payload["pr_refs"] == ["1"]
+        assert payload["not_ready"] == [1]
+        assert payload["entries"] == []
+        assert payload["admin_squash_order"] == []
+        assert payload["rest_fallback"]["available"] is False
+        assert "do not mark ready" in payload["next_prompt"]
+
+    def test_merge_packet_json_reports_graphql_rate_limit_blocked(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_rate_limit(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError(
+                "gh pr view 7841 --json number failed: GraphQL: "
+                "API rate limit already exceeded for user ID 33477136."
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_rate_limit,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["7841"],
+            repo=None,
+            review_queue_root=None,
+            limit=30,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stderr.getvalue() == ""
+        payload = json.loads(stdout.getvalue())
+        assert payload["status"] == "transport_blocked"
+        assert payload["error_kind"] == "github_transport"
+        assert payload["retryable"] is True
+        assert payload["pr_refs"] == ["7841"]
+        assert payload["not_ready"] == [7841]
+        assert "API rate limit already exceeded" in payload["error"]
+
+    def test_merge_packet_transport_blocked_includes_rest_fallback_metadata(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_rate_limit(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError(
+                "gh pr view 8313 --json number failed: GraphQL: "
+                "API rate limit already exceeded for user ID 33477136."
+            )
+
+        def rest_json(args: list[str]) -> dict[str, Any] | list[dict[str, Any]]:
+            if args == ["api", "repos/synaptent/aragora/pulls/8313"]:
+                return {
+                    "number": 8313,
+                    "title": "fix(proof): report capability matrix generator failures",
+                    "html_url": "https://github.com/synaptent/aragora/pull/8313",
+                    "state": "open",
+                    "draft": True,
+                    "head": {"ref": "codex/proof-matrix-failures", "sha": "head8313"},
+                    "base": {"ref": "main", "sha": "base"},
+                    "mergeable": True,
+                    "mergeable_state": "clean",
+                    "updated_at": "2026-06-12T00:00:00Z",
+                    "changed_files": 2,
+                }
+            if args == ["api", "repos/synaptent/aragora/pulls/8313/files?per_page=100"]:
+                return [
+                    {"filename": "scripts/generate_capability_matrix.py"},
+                    {"filename": "tests/scripts/test_generate_capability_matrix.py"},
+                ]
+            if args == [
+                "api",
+                "repos/synaptent/aragora/commits/head8313/check-runs?per_page=100",
+            ]:
+                return {
+                    "check_runs": [
+                        {
+                            "name": "lint",
+                            "status": "completed",
+                            "conclusion": "success",
+                            "html_url": "https://example.test/lint",
+                            "check_suite": {"app": {"name": "GitHub Actions"}},
+                        },
+                        {
+                            "name": "Tests / test-fast",
+                            "status": "queued",
+                            "conclusion": "",
+                            "html_url": "https://example.test/tests",
+                            "check_suite": {"app": {"name": "GitHub Actions"}},
+                        },
+                    ]
+                }
+            raise AssertionError(args)
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_rate_limit,
+        )
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", rest_json)
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["8313"],
+            repo="synaptent/aragora",
+            review_queue_root=None,
+            limit=1,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stderr.getvalue() == ""
+        payload = json.loads(stdout.getvalue())
+        assert payload["status"] == "transport_blocked"
+        assert payload["transport_blocked"] is True
+        assert payload["preserve_no_mutate"] is True
+        assert payload["entries"] == []
+        fallback = payload["rest_fallback"]
+        assert fallback["available"] is True
+        assert fallback["mutation_forbidden"] is True
+        assert fallback["pr"]["number"] == 8313
+        assert fallback["pr"]["head_sha"] == "head8313"
+        assert fallback["pr"]["merge_state_status"] == "CLEAN"
+        assert fallback["files"] == [
+            "scripts/generate_capability_matrix.py",
+            "tests/scripts/test_generate_capability_matrix.py",
+        ]
+        assert fallback["check_runs_available"] is True
+        assert fallback["check_runs_summary"]["total"] == 2
+        assert fallback["check_runs_summary"]["non_green_count"] == 1
+
+    def test_merge_packet_json_keeps_non_transport_errors_on_stderr(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_permission(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _GhError("gh pr view 1 failed: GraphQL: Resource not accessible by integration")
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._build_merge_authorization_packet",
+            fail_permission,
+        )
+        ns = argparse.Namespace(
+            review_queue_command="merge-packet",
+            pr=["1"],
+            repo="synaptent/aragora",
+            review_queue_root=None,
+            limit=30,
+            execute_reviewers=False,
+            ignore_own_quorum_check=False,
+            json=True,
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            rc = cmd_review_queue(ns)
+
+        assert rc == 1
+        assert stdout.getvalue() == ""
+        assert "Resource not accessible by integration" in stderr.getvalue()
 
     def test_act_command_requires_reason_for_request_changes(self) -> None:
         ns = argparse.Namespace(

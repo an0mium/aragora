@@ -55,7 +55,7 @@ def test_json_check_reports_live_probe_timeout_as_structured_blocker(
     assert exit_code == 2
     assert payload["ok"] is False
     assert payload["error"] == (
-        "gh pr view 7423 --json "
-        "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,"
+        "gh pr view 7423 --repo synaptent/aragora --json "
+        "headRefOid,state,isDraft,mergeStateStatus,baseRefName,comments,reviews,commits,"
         "statusCheckRollup,url timed out after 120s"
     )

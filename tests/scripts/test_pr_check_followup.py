@@ -533,6 +533,8 @@ def test_prompt_always_contains_recursive_convergence_sentences() -> None:
 
     assert followup.INCREMENTAL_PROGRESS_SENTENCE in result.prompt
     assert followup.META_AUTOMATION_SENTENCE in result.prompt
+    assert "- python3 scripts/agent_bridge.py health --json || true" in result.prompt
+    assert "- python3 scripts/agent_bridge.py --json health || true" not in result.prompt
 
 
 def test_wait_check_waits_for_matching_status_row_then_emits_reruns(monkeypatch: Any) -> None:

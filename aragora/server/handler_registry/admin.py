@@ -445,13 +445,14 @@ PlansHandler = _safe_import("aragora.server.handlers.plans", "PlansHandler")
 HandlerResult = _safe_import("aragora.server.handlers", "HandlerResult")
 
 # Health and readiness handlers
-LivenessHandler = _safe_import("aragora.server.handlers.admin.health.liveness", "LivenessHandler")
-ReadinessHandler = _safe_import(
-    "aragora.server.handlers.admin.health.readiness", "ReadinessHandler"
-)
-StorageHealthHandler = _safe_import(
-    "aragora.server.handlers.admin.health.storage_health", "StorageHealthHandler"
-)
+# NOTE: The focused LivenessHandler/ReadinessHandler/StorageHealthHandler are
+# intentionally NOT registered here. Every route they claim (/healthz, /readyz,
+# /readyz/dependencies, /api/{v1/}health/stores, /api/v1/health/database) is
+# already claimed by the monolithic HealthHandler registered earlier, and
+# RouteIndex.build() is first-wins — registering them only created silently
+# shadowed duplicates (see tests/server/test_route_collisions.py). They remain
+# importable from aragora.server.handlers.admin.health for direct/standalone
+# use.
 ReadinessCheckHandler = _safe_import(
     "aragora.server.handlers.readiness_check", "ReadinessCheckHandler"
 )
@@ -676,9 +677,8 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     # Spend analytics (imported but was missing from registry)
     ("_spend_analytics_handler", SpendAnalyticsHandler),
     # Health and readiness
-    ("_liveness_handler", LivenessHandler),
-    ("_readiness_handler", ReadinessHandler),
-    ("_storage_health_handler", StorageHealthHandler),
+    # (Liveness/Readiness/StorageHealth handlers deliberately unregistered:
+    # fully shadowed first-wins duplicates of HealthHandler — see import note.)
     ("_readiness_check_handler", ReadinessCheckHandler),
     # Compliance
     ("_compliance_report_handler", ComplianceReportHandler),

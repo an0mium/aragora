@@ -4,18 +4,18 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/open_pr.sh [--base <branch>] [--draft] [-- <extra gh pr create args>]
+  scripts/open_pr.sh [--base <branch>] [--draft|--no-draft] [-- <extra gh pr create args>]
 
 Examples:
   scripts/open_pr.sh
-  scripts/open_pr.sh --draft
+  scripts/open_pr.sh --no-draft
   scripts/open_pr.sh --base main -- --label governance --reviewer octocat
 
 Behavior:
   - Fails on main/master branch.
   - Fails when working tree is dirty.
   - Pushes current branch to origin.
-  - Creates PR with gh using --fill (unless one already exists).
+  - Creates a draft PR with gh using --fill (unless one already exists).
 EOF
 }
 
@@ -48,6 +48,7 @@ fi
 
 base_branch="${BASE_BRANCH:-main}"
 extra_args=()
+draft_pr=true
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -60,7 +61,10 @@ while [[ $# -gt 0 ]]; do
       base_branch="$1"
       ;;
     --draft)
-      extra_args+=("--draft")
+      draft_pr=true
+      ;;
+    --no-draft)
+      draft_pr=false
       ;;
     --)
       shift
@@ -78,6 +82,10 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+if [[ "$draft_pr" == "true" ]]; then
+  extra_args+=("--draft")
+fi
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
 if [[ "$branch" == "main" || "$branch" == "master" ]]; then

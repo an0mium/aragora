@@ -345,6 +345,16 @@ def _score_pair(
     return json.loads(summary_json.read_text(encoding="utf-8"))
 
 
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be an integer") from exc
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -355,7 +365,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--pairs",
-        type=int,
+        type=_positive_int,
         default=5,
         help="Number of control/focused pairs to run (default: 5).",
     )

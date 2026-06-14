@@ -14,6 +14,7 @@ from aragora.work.models import WorkItem
 from aragora.work.scoring import is_current_status, stale_factor
 
 _ACTIVE_LANE_STATUSES = {"active", "claimed", "in_progress", "in-progress", "running"}
+_OWNER_PROTECTED_LANE_STATUSES = _ACTIVE_LANE_STATUSES | {"blocked"}
 _OUTBOX_READY_METADATA_KEYS = (
     "objective",
     "context",
@@ -179,9 +180,13 @@ def _lane_is_active(row: dict[str, Any]) -> bool:
     return str(row.get("status") or "").strip().lower() in _ACTIVE_LANE_STATUSES
 
 
+def _lane_is_owner_protected(row: dict[str, Any]) -> bool:
+    return str(row.get("status") or "").strip().lower() in _OWNER_PROTECTED_LANE_STATUSES
+
+
 def _lane_sort_key(row: dict[str, Any]) -> tuple[int, str, str]:
     return (
-        1 if _lane_is_active(row) else 0,
+        2 if _lane_is_active(row) else 1 if _lane_is_owner_protected(row) else 0,
         str(row.get("updated_at") or ""),
         str(row.get("lane_id") or ""),
     )
@@ -203,9 +208,11 @@ def _lane_lookup_value(row: dict[str, Any], key: str) -> str | None:
 
 def _apply_lane_metadata(item: WorkItem, lane: dict[str, Any]) -> None:
     active = _lane_is_active(lane)
+    owner_protected = _lane_is_owner_protected(lane)
     owner_session = _lane_lookup_value(lane, "owner_session")
     metadata = {
         "active_lane": active,
+        "lane_owner_protected": owner_protected,
         "lane_id": _lane_lookup_value(lane, "lane_id"),
         "owner_session": owner_session,
         "lane_worktree": _lane_lookup_value(lane, "worktree"),
@@ -213,14 +220,14 @@ def _apply_lane_metadata(item: WorkItem, lane: dict[str, Any]) -> None:
         "lane_updated_at": _lane_lookup_value(lane, "updated_at"),
     }
     item.metadata.update({key: value for key, value in metadata.items() if value is not None})
-    if active and owner_session and item.owner is None:
+    if owner_protected and owner_session and item.owner is None:
         item.owner = owner_session
 
 
 def enrich_with_agent_bridge_lanes(
     repo_root: Path, items: list[WorkItem]
 ) -> tuple[list[WorkItem], dict[str, Any]]:
-    """Attach active/recent lane ownership to PR work items from repo-local lanes.json."""
+    """Attach active/recent lane ownership to branch-backed work items."""
     rows, health = _read_agent_bridge_lane_rows(repo_root)
     if not rows:
         return items, health
@@ -240,7 +247,7 @@ def enrich_with_agent_bridge_lanes(
     enriched = 0
     active = 0
     for item in items:
-        if item.source != "github_pr":
+        if item.source not in {"github_pr", "automation_outbox"}:
             continue
         number = item.metadata.get("number")
         candidates: list[dict[str, Any]] = []
