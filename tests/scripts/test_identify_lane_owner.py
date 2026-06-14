@@ -1169,6 +1169,48 @@ def write_lane_ledger(tmp_path: Path, entries: list[dict[str, Any]]) -> str:
 
 
 class TestOwnerLeaseLiveness:
+    DESIRED_SHA = "317b94232d3ba41c3a1e546a94010dfdf069f85f"
+
+    def _mock_upstream_proof(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        cleanup: dict[str, Any],
+        matching_refs: list[dict[str, Any]] | None = None,
+        commit_pulls: list[dict[str, Any]] | None = None,
+        pull_commits: dict[int, list[str]] | None = None,
+    ) -> list[list[str]]:
+        calls: list[list[str]] = []
+
+        def fake_run(
+            args: list[str], *_pos: Any, **_kwargs: Any
+        ) -> subprocess.CompletedProcess[str]:
+            argv = [str(arg) for arg in args]
+            calls.append(argv)
+            joined = " ".join(argv)
+            if "safe_worktree_cleanup.py" in joined and "inspect" in argv:
+                return subprocess.CompletedProcess(args, 0, json.dumps(cleanup), "")
+            if "gh_app_env.py" in joined and "--print-token" in argv:
+                return subprocess.CompletedProcess(args, 0, "app-token\n", "")
+            if argv[:2] == ["gh", "api"]:
+                endpoint = next(arg for arg in argv[2:] if not arg.startswith("-"))
+                if "/git/matching-refs/heads/" in endpoint:
+                    return subprocess.CompletedProcess(args, 0, json.dumps(matching_refs or []), "")
+                if endpoint.endswith(f"/commits/{self.DESIRED_SHA}/pulls"):
+                    return subprocess.CompletedProcess(args, 0, json.dumps(commit_pulls or []), "")
+                if "/pulls/" in endpoint and endpoint.endswith("/commits"):
+                    pr = int(endpoint.rsplit("/pulls/", 1)[1].split("/", 1)[0])
+                    return subprocess.CompletedProcess(
+                        args,
+                        0,
+                        json.dumps([{"sha": sha} for sha in (pull_commits or {}).get(pr, [])]),
+                        "",
+                    )
+            raise AssertionError(f"unexpected subprocess call: {argv}")
+
+        monkeypatch.setattr(ilo.subprocess, "run", fake_run)
+        return calls
+
     def test_live_owner_no_advisory(self) -> None:
         lane = {
             "lane_id": "Q1-live",
@@ -1257,6 +1299,168 @@ class TestOwnerLeaseLiveness:
         ledger = {"lane": "Q5-wt", "status": "in_progress", "launched_at": _hours_ago(7.0)}
         result = ilo.assess_owner_liveness(
             lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+        )
+        assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_absent_worktree_with_remote_branch_at_desired_head_yields_advisory(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane = {
+            "lane_id": "Q467-remote-preserved",
+            "owner_session": "codex-q467",
+            "status": "active",
+            "branch": "codex/q467",
+            "worktree": "/private/tmp/q467-worktree",
+            "next_action": f"publish branch at {self.DESIRED_SHA}",
+            "updated_at": _hours_ago(7.0),
+        }
+        cleanup = {
+            "exists": False,
+            "cleanup_safety": {"classification": "absent_noop", "decision": "noop"},
+        }
+        self._mock_upstream_proof(
+            monkeypatch,
+            cleanup=cleanup,
+            matching_refs=[
+                {
+                    "ref": "refs/heads/codex/q467",
+                    "object": {"sha": self.DESIRED_SHA, "type": "commit"},
+                }
+            ],
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry={"lane": "Q467-remote-preserved", "status": "in_progress"},
+            heartbeat=None,
+            now=_liveness_now(),
+        )
+        assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["stale_claim_advisory"] is not None
+        assert result["advisory_withheld"] is None
+
+    def test_absent_worktree_with_desired_sha_in_merged_pr_yields_advisory(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane = {
+            "lane_id": "Q379-merged-preserved",
+            "owner_session": "codex-q379",
+            "status": "active",
+            "branch": "codex/q379",
+            "worktree": "/private/tmp/q379-worktree",
+            "next_action": f"PR #7825 contains {self.DESIRED_SHA}",
+            "updated_at": _hours_ago(7.0),
+        }
+        cleanup = {
+            "exists": False,
+            "cleanup_safety": {"classification": "absent_noop", "decision": "noop"},
+        }
+        self._mock_upstream_proof(
+            monkeypatch,
+            cleanup=cleanup,
+            matching_refs=[],
+            commit_pulls=[
+                {
+                    "number": 7825,
+                    "state": "closed",
+                    "merged_at": "2026-06-13T05:15:22Z",
+                    "base": {"ref": "main"},
+                }
+            ],
+            pull_commits={7825: [self.DESIRED_SHA]},
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry={"lane": "Q379-merged-preserved", "status": "in_progress"},
+            heartbeat=None,
+            now=_liveness_now(),
+        )
+        assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["stale_claim_advisory"] is not None
+        assert result["advisory_withheld"] is None
+
+    def test_existing_worktree_still_withholds_advisory(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane = {
+            "lane_id": "Q10-present-wt",
+            "owner_session": "codex-q10",
+            "status": "active",
+            "branch": "codex/q10",
+            "worktree": "/private/tmp/q10-worktree",
+            "next_action": f"publish branch at {self.DESIRED_SHA}",
+            "updated_at": _hours_ago(7.0),
+        }
+        cleanup = {
+            "exists": True,
+            "cleanup_safety": {"classification": "preserve_unverified_owner"},
+        }
+        self._mock_upstream_proof(monkeypatch, cleanup=cleanup)
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry={"lane": "Q10-present-wt", "status": "in_progress"},
+            heartbeat=None,
+            now=_liveness_now(),
+        )
+        assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_absent_worktree_without_upstream_proof_still_withholds_advisory(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lane = {
+            "lane_id": "Q11-unpreserved",
+            "owner_session": "codex-q11",
+            "status": "active",
+            "branch": "codex/q11",
+            "worktree": "/private/tmp/q11-worktree",
+            "next_action": f"publish branch at {self.DESIRED_SHA}",
+            "updated_at": _hours_ago(7.0),
+        }
+        cleanup = {
+            "exists": False,
+            "cleanup_safety": {"classification": "absent_noop", "decision": "noop"},
+        }
+        self._mock_upstream_proof(
+            monkeypatch,
+            cleanup=cleanup,
+            matching_refs=[],
+            commit_pulls=[],
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry={"lane": "Q11-unpreserved", "status": "in_progress"},
+            heartbeat=None,
+            now=_liveness_now(),
+        )
+        assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_dirty_marker_still_withholds_without_external_proof(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+            raise AssertionError("dirty local-work claims must fail closed before proof probes")
+
+        monkeypatch.setattr(ilo.subprocess, "run", fail_run)
+        lane = {
+            "lane_id": "Q12-dirty",
+            "owner_session": "codex-q12",
+            "status": "active",
+            "branch": "codex/q12",
+            "worktree": "/private/tmp/q12-worktree",
+            "dirty": True,
+            "next_action": f"publish branch at {self.DESIRED_SHA}",
+            "updated_at": _hours_ago(7.0),
+        }
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry={"lane": "Q12-dirty", "status": "in_progress"},
+            heartbeat=None,
+            now=_liveness_now(),
         )
         assert result["owner_liveness"]["assessed"] == "stale"
         assert result["stale_claim_advisory"] is None

@@ -1245,6 +1245,25 @@ _LOCAL_WORK_CLAIM_KEYS = (
     "dirty",
 )
 
+_FULL_SHA_RE = re.compile(r"\b[0-9a-fA-F]{40}\b")
+_PR_NUMBER_RE = re.compile(r"(?:PR\s*)?#(\d+)\b", re.IGNORECASE)
+_DESIRED_HEAD_KEYS = (
+    "desired_head_sha",
+    "desired_head",
+    "head_sha",
+    "target_head_sha",
+    "branch_head_sha",
+)
+_TEXT_SHA_KEYS = (
+    "next_action",
+    "goal",
+    "summary",
+    "objective",
+)
+DEFAULT_REPO_NAME = "synaptent/aragora"
+GH_APP_TOKEN_TIMEOUT_SECONDS = 15
+GH_API_TIMEOUT_SECONDS = 20
+
 
 def _ledger_entry_timestamp(entry: dict[str, Any]) -> float:
     """Most recent parseable timestamp on a lane-ledger entry (0.0 if none)."""
@@ -1293,20 +1312,255 @@ def find_lane_ledger_entry(
     return best
 
 
+def _json_from_subprocess(proc: subprocess.CompletedProcess[str]) -> Any | None:
+    if not proc.stdout.strip():
+        return None
+    try:
+        return json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def _safe_worktree_cleanup_absent_noop(worktree: str) -> bool:
+    """True only when the supported cleanup helper classifies the path as absent/noop."""
+
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(REPO_ROOT / "scripts" / "safe_worktree_cleanup.py"),
+                "inspect",
+                worktree,
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    data = _json_from_subprocess(proc)
+    if not isinstance(data, dict):
+        return False
+    safety = data.get("cleanup_safety")
+    return (
+        data.get("exists") is False
+        and isinstance(safety, dict)
+        and safety.get("classification") == "absent_noop"
+        and safety.get("decision") == "noop"
+    )
+
+
+def _desired_head_sha(lane: dict[str, Any], ledger_entry: dict[str, Any] | None) -> str | None:
+    records = (lane, ledger_entry or {})
+    for record in records:
+        for key in _DESIRED_HEAD_KEYS:
+            value = record.get(key)
+            if isinstance(value, str) and _FULL_SHA_RE.fullmatch(value.strip()):
+                return value.strip().lower()
+    for record in records:
+        for key in _TEXT_SHA_KEYS:
+            value = record.get(key)
+            if not isinstance(value, str):
+                continue
+            match = _FULL_SHA_RE.search(value)
+            if match:
+                return match.group(0).lower()
+    return None
+
+
+def _referenced_pr_numbers(lane: dict[str, Any], ledger_entry: dict[str, Any] | None) -> list[int]:
+    numbers: list[int] = []
+    for record in (lane, ledger_entry or {}):
+        raw_pr = record.get("pr_number")
+        if raw_pr is not None:
+            try:
+                numbers.append(int(raw_pr))
+            except (TypeError, ValueError):
+                pass
+        for key in _TEXT_SHA_KEYS:
+            value = record.get(key)
+            if not isinstance(value, str):
+                continue
+            for match in _PR_NUMBER_RE.finditer(value):
+                try:
+                    numbers.append(int(match.group(1)))
+                except ValueError:
+                    continue
+    return list(dict.fromkeys(numbers))
+
+
+def _repo_name_for_lane(lane: dict[str, Any], ledger_entry: dict[str, Any] | None) -> str:
+    for record in (lane, ledger_entry or {}):
+        repo = record.get("repo") or record.get("repo_name") or record.get("repository")
+        if isinstance(repo, str) and "/" in repo:
+            return repo.strip()
+    return os.environ.get("ARAGORA_REPO_NAME", DEFAULT_REPO_NAME).strip() or DEFAULT_REPO_NAME
+
+
+def _github_app_gh_env() -> dict[str, str] | None:
+    """Mint a GitHub App token for read-only gh REST probes; no token means no proof."""
+
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(REPO_ROOT / "scripts" / "gh_app_env.py"),
+                "--print-token",
+                "--quiet",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=GH_APP_TOKEN_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    token = proc.stdout.strip()
+    if proc.returncode != 0 or not token:
+        return None
+    env = os.environ.copy()
+    env["GH_TOKEN"] = token
+    env["ARAGORA_GITHUB_AUTH_SOURCE"] = "github_app_installation"
+    return env
+
+
+def _gh_api_json(endpoint: str, env: dict[str, str]) -> Any | None:
+    try:
+        proc = subprocess.run(
+            ["gh", "api", endpoint],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=GH_API_TIMEOUT_SECONDS,
+            env=env,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    return _json_from_subprocess(proc)
+
+
+def _remote_branch_at_desired_head(
+    *,
+    repo_name: str,
+    branch: str,
+    desired_sha: str,
+    env: dict[str, str],
+) -> bool:
+    refs = _gh_api_json(f"repos/{repo_name}/git/matching-refs/heads/{branch}", env)
+    if not isinstance(refs, list):
+        return False
+    expected_ref = f"refs/heads/{branch}"
+    for ref in refs:
+        if not isinstance(ref, dict) or ref.get("ref") != expected_ref:
+            continue
+        obj = ref.get("object")
+        if isinstance(obj, dict) and str(obj.get("sha") or "").lower() == desired_sha:
+            return True
+    return False
+
+
+def _pr_is_merged_to_main(pr: dict[str, Any]) -> bool:
+    base = pr.get("base")
+    return (
+        str(pr.get("state") or "").lower() == "closed"
+        and bool(pr.get("merged_at"))
+        and isinstance(base, dict)
+        and base.get("ref") == "main"
+    )
+
+
+def _merged_pr_contains_desired_sha(
+    *,
+    repo_name: str,
+    desired_sha: str,
+    lane: dict[str, Any],
+    ledger_entry: dict[str, Any] | None,
+    env: dict[str, str],
+) -> bool:
+    candidate_prs: dict[int, dict[str, Any]] = {}
+    pulls = _gh_api_json(f"repos/{repo_name}/commits/{desired_sha}/pulls", env)
+    if isinstance(pulls, list):
+        for pr in pulls:
+            if isinstance(pr, dict):
+                try:
+                    candidate_prs[int(pr.get("number"))] = pr
+                except (TypeError, ValueError):
+                    continue
+
+    for pr_number in _referenced_pr_numbers(lane, ledger_entry):
+        if pr_number not in candidate_prs:
+            pr = _gh_api_json(f"repos/{repo_name}/pulls/{pr_number}", env)
+            if isinstance(pr, dict):
+                candidate_prs[pr_number] = pr
+
+    for pr_number, pr in candidate_prs.items():
+        if not _pr_is_merged_to_main(pr):
+            continue
+        commits = _gh_api_json(f"repos/{repo_name}/pulls/{pr_number}/commits", env)
+        if not isinstance(commits, list):
+            continue
+        for commit in commits:
+            if isinstance(commit, dict) and str(commit.get("sha") or "").lower() == desired_sha:
+                return True
+    return False
+
+
+def _worktree_reference_preserved_upstream(
+    worktree: str,
+    lane: dict[str, Any],
+    ledger_entry: dict[str, Any] | None,
+) -> bool:
+    branch = str(lane.get("branch") or (ledger_entry or {}).get("branch") or "").strip()
+    desired_sha = _desired_head_sha(lane, ledger_entry)
+    if not branch or not desired_sha:
+        return False
+    if not _safe_worktree_cleanup_absent_noop(worktree):
+        return False
+    env = _github_app_gh_env()
+    if env is None:
+        return False
+    repo_name = _repo_name_for_lane(lane, ledger_entry)
+    if _remote_branch_at_desired_head(
+        repo_name=repo_name,
+        branch=branch,
+        desired_sha=desired_sha,
+        env=env,
+    ):
+        return True
+    return _merged_pr_contains_desired_sha(
+        repo_name=repo_name,
+        desired_sha=desired_sha,
+        lane=lane,
+        ledger_entry=ledger_entry,
+        env=env,
+    )
+
+
 def _local_work_indication(lane: dict[str, Any], ledger_entry: dict[str, Any] | None) -> str | None:
     """Reason to suspect local (possibly unpushed/uncommitted) work, or None.
 
-    Fail closed: a worktree reference alone is enough — metadata cannot
-    prove that work in a worktree was pushed.
+    Fail closed: worktree metadata withholds the stale-claim advisory
+    unless the supported cleanup helper proves the path is absent/noop
+    and GitHub App-backed REST proves the branch content is preserved
+    upstream.
     """
 
-    if lane.get("worktree"):
-        return "owner record references a worktree path"
     for source_name, record in (("owner record", lane), ("lane ledger", ledger_entry or {})):
         for key in _LOCAL_WORK_CLAIM_KEYS:
             if record.get(key):
                 return f"{source_name} claims local work ({key})"
-    if (ledger_entry or {}).get("worktree"):
+
+    if lane.get("worktree") and not _worktree_reference_preserved_upstream(
+        str(lane["worktree"]), lane, ledger_entry
+    ):
+        return "owner record references a worktree path"
+    if (ledger_entry or {}).get("worktree") and not _worktree_reference_preserved_upstream(
+        str((ledger_entry or {})["worktree"]), lane, ledger_entry
+    ):
         return "lane ledger references a worktree path"
     return None
 
