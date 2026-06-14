@@ -55,7 +55,7 @@
     "blocked_not_dispatch_bounded": 12,
     "blocked_sanitation_failed": 1
   },
-  "generated_at": "2026-06-14T03:51:53Z",
+  "generated_at": "2026-06-14T03:50:53Z",
   "in_flight_metrics": {
     "in_progress_attempted_count": 8,
     "in_progress_expected_count": 8,

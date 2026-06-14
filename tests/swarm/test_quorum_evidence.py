@@ -16,6 +16,7 @@ import os
 import subprocess
 import time
 from contextlib import contextmanager
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -247,6 +248,234 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
         False,
         "claude CLI timed out after 7s",
     )
+
+
+# --- OpenAI reviewer fallback ----------------------------------------------
+
+
+def test_run_openai_reviewer_uses_api_when_openai_key_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def fake_api_agent(family: str, prompt: str) -> ReviewerResult:
+        calls.append((family, prompt))
+        return ReviewerResult(family, "Verdict: PASS from API", True)
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(qe, "_run_api_agent", fake_api_agent)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult("openai", "Verdict: PASS from API", True)
+    assert calls == [("openai", "review prompt")]
+
+
+def test_run_openai_reviewer_without_api_key_uses_codex_cli(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(
+        cmd: list[str],
+        *,
+        input: str,
+        capture_output: bool,
+        text: bool,
+        timeout: float,
+        check: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        seen.update(
+            {
+                "cmd": cmd,
+                "input": input,
+                "capture_output": capture_output,
+                "text": text,
+                "timeout": timeout,
+                "check": check,
+            }
+        )
+        output_path = Path(cmd[cmd.index("--output-last-message") + 1])
+        output_path.write_text("Verdict: PASS via Codex\n", encoding="utf-8")
+        seen["output_path"] = output_path
+        return subprocess.CompletedProcess(cmd, 0, stdout="ignored stdout", stderr="")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_TIMEOUT_ENV, "11")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "openai",
+        "Verdict: PASS via Codex",
+        True,
+        harness=qe._CODEX_OPENAI_HARNESS,
+    )
+    assert seen["cmd"] == [
+        "codex",
+        "exec",
+        "--ignore-user-config",
+        "-c",
+        qe._CODEX_APPROVAL_POLICY_CONFIG,
+        "--sandbox",
+        "read-only",
+        "--ephemeral",
+        "--output-last-message",
+        str(seen["output_path"]),
+        "--model",
+        qe._CODEX_DEFAULT_MODEL,
+        "-",
+    ]
+    assert "--ask-for-approval" not in seen["cmd"]
+    assert seen["input"] == "review prompt"
+    assert seen["capture_output"] is True
+    assert seen["text"] is True
+    assert seen["timeout"] == 11.0
+    assert seen["check"] is False
+    assert not Path(seen["output_path"]).exists()
+
+
+def test_run_openai_reviewer_retries_default_codex_model_selection_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+    output_paths: list[Path] = []
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        output_paths.append(Path(cmd[cmd.index("--output-last-message") + 1]))
+        model = cmd[cmd.index("--model") + 1]
+        if model == qe._CODEX_DEFAULT_MODELS[0]:
+            return subprocess.CompletedProcess(
+                cmd,
+                1,
+                stdout="",
+                stderr=f"model {model} is not supported",
+            )
+        output_paths[-1].write_text("Verdict: PASS after fallback", encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv(qe._CODEX_MODEL_ENV, raising=False)
+    monkeypatch.delenv(qe._CODEX_MODELS_ENV, raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result == ReviewerResult(
+        "openai",
+        "Verdict: PASS after fallback",
+        True,
+        harness=qe._CODEX_OPENAI_HARNESS,
+    )
+    assert [call[call.index("--model") + 1] for call in calls] == list(qe._CODEX_DEFAULT_MODELS)
+    assert all(not path.exists() for path in output_paths)
+
+
+def test_run_openai_reviewer_respects_pinned_codex_model_without_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd,
+            1,
+            stdout="",
+            stderr="model pinned-model is not supported",
+        )
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "pinned-model")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.ok is False
+    assert "codex CLI exit 1: model pinned-model is not supported" in result.error
+    assert len(calls) == 1
+    assert calls[0][-3:] == ["--model", "pinned-model", "-"]
+
+
+def test_run_openai_reviewer_passes_optional_codex_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        seen["cmd"] = cmd
+        Path(cmd[cmd.index("--output-last-message") + 1]).write_text(
+            "Verdict: PASS",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv(qe._CODEX_MODEL_ENV, "gpt-5-codex")
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.ok is True
+    assert seen["cmd"][-3:] == ["--model", "gpt-5-codex", "-"]
+
+
+def test_run_openai_reviewer_codex_failure_never_fabricates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="codex failed")
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.family == "openai"
+    assert result.text == ""
+    assert result.ok is False
+    assert "codex CLI exit 1: codex failed" in result.error
+    assert result.harness == ""
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected_error"),
+    [
+        (
+            subprocess.TimeoutExpired(cmd=["codex"], timeout=3),
+            "codex CLI timed out after",
+        ),
+        (FileNotFoundError("missing codex"), "codex CLI not found on PATH"),
+        (OSError("disk full"), "OSError: disk full"),
+        (subprocess.SubprocessError("bad pipe"), "SubprocessError: bad pipe"),
+    ],
+)
+def test_run_openai_reviewer_cleans_codex_output_file_when_subprocess_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    exc: Exception,
+    expected_error: str,
+) -> None:
+    seen: dict[str, Path] = {}
+
+    def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        output_path = Path(cmd[cmd.index("--output-last-message") + 1])
+        output_path.write_text("partial reviewer output", encoding="utf-8")
+        seen["output_path"] = output_path
+        raise exc
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_openai_reviewer("review prompt")
+
+    assert result.family == "openai"
+    assert result.text == ""
+    assert result.ok is False
+    assert expected_error in result.error
+    assert "output_path" in seen
+    assert not seen["output_path"].exists()
 
 
 # --- default API reviewer cleanup ------------------------------------------
@@ -971,6 +1200,38 @@ def test_collect_dry_run_prepares_without_posting() -> None:
     assert outcome.action == "prepare"
     assert posted == []
     assert sorted(outcome.counting_families) == ["claude", "grok"]
+
+
+def test_collect_carries_reviewer_harness_into_comment() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def harness_runner(family: str, prompt: str) -> ReviewerResult:
+        return ReviewerResult(
+            family,
+            "Verdict: PASS via harness",
+            True,
+            harness=qe._CODEX_OPENAI_HARNESS,
+        )
+
+    def harness_linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        assert qe._CODEX_OPENAI_HARNESS in body
+        return {
+            "would_count": True,
+            "counted_reviewer_ids": ["openai"],
+            "problems": [],
+        }
+
+    fakes["reviewer_runner"] = harness_runner
+    fakes["linter"] = harness_linter
+
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["openai"], author="me", apply=False, **fakes
+    )
+
+    assert outcome.action == "prepare"
+    assert posted == []
+    assert outcome.counting_families == ["openai"]
+    assert qe._CODEX_OPENAI_HARNESS in outcome.items[0].body
 
 
 def test_collect_never_fabricates_on_reviewer_failure() -> None:
