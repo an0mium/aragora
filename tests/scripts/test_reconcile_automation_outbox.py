@@ -1329,6 +1329,113 @@ def _patch_issue_state(monkeypatch: Any, response: dict[str, Any] | None) -> lis
     return calls
 
 
+def test_issue_state_checker_falls_back_to_rest_when_issue_view_is_rate_limited(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="GraphQL: API rate limit already exceeded for user ID 33477136.\n",
+            )
+        if args == [
+            "gh",
+            "api",
+            "--method",
+            "GET",
+            "repos/synaptent/aragora/issues/7808",
+        ]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "number": 7808,
+                        "state": "open",
+                        "state_reason": None,
+                        "html_url": "https://github.com/synaptent/aragora/issues/7808",
+                    }
+                ),
+                stderr="",
+            )
+        raise AssertionError(f"unexpected command: {args}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    checker = mod._IssueStateChecker(tmp_path, "synaptent/aragora")
+
+    state, error = checker.state("https://github.com/synaptent/aragora/issues/7808", {})
+
+    assert error is None
+    assert state == {
+        "number": 7808,
+        "state": "open",
+        "stateReason": "",
+        "url": "https://github.com/synaptent/aragora/issues/7808",
+    }
+    assert calls == [
+        [
+            "gh",
+            "issue",
+            "view",
+            "7808",
+            "--repo",
+            "synaptent/aragora",
+            "--json",
+            "number,state,stateReason,url",
+        ],
+        [
+            "gh",
+            "api",
+            "--method",
+            "GET",
+            "repos/synaptent/aragora/issues/7808",
+        ],
+    ]
+
+    cached_state, cached_error = checker.state(
+        "https://github.com/synaptent/aragora/issues/7808", {}
+    )
+    assert cached_error is None
+    assert cached_state == state
+    assert len(calls) == 2
+
+
+def test_issue_state_checker_reports_rest_failure_after_issue_view_failure(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    def fake_run(args: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="GraphQL: API rate limit already exceeded for user ID 33477136.\n",
+            )
+        if args[:4] == ["gh", "api", "--method", "GET"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="HTTP 502: 502 Bad Gateway\n",
+            )
+        raise AssertionError(f"unexpected command: {args}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    checker = mod._IssueStateChecker(tmp_path, "synaptent/aragora")
+
+    state, error = checker.state("https://github.com/synaptent/aragora/issues/7808", {})
+
+    assert state is None
+    assert error is not None
+    assert "gh issue view exited 1" in error
+    assert "REST fallback exited 1" in error
+
+
 def test_existing_issue_deadlock_archives_with_terminal_receipt(
     tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:

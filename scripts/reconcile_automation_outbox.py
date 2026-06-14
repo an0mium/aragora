@@ -437,6 +437,15 @@ def _issue_number_from_url(url: str) -> int | None:
     return int(candidate) if candidate.isdigit() else None
 
 
+def _repo_path_from_name(repo: str) -> str | None:
+    """Return owner/repo for gh REST paths when the receipt repo is usable."""
+    value = repo.strip().removeprefix("https://github.com/").strip("/")
+    parts = [part for part in value.split("/") if part]
+    if len(parts) < 2:
+        return None
+    return f"{parts[0]}/{parts[1]}"
+
+
 def _parse_timestamp(value: Any) -> datetime | None:
     text = str(value or "").strip()
     if not text:
@@ -471,6 +480,10 @@ class _IssueStateChecker:
     After MAX_CONSECUTIVE_FAILURES consecutive gh errors the checker stops
     issuing new calls and reports issues as unverifiable, so a GitHub outage
     cannot turn one reconcile pass into hundreds of 20s timeouts.
+
+    `gh issue view --json` is GraphQL-backed. When GraphQL is rate-limited but
+    REST is still healthy, fall back to `gh api` and normalize the payload into
+    the same small shape used by the archive gate.
     """
 
     MAX_CONSECUTIVE_FAILURES = 3
@@ -525,7 +538,15 @@ class _IssueStateChecker:
             return None, f"gh issue view failed ({exc.__class__.__name__})"
         if proc.returncode != 0:
             detail = (proc.stderr or "").strip().splitlines()
-            return None, f"gh issue view exited {proc.returncode}: {detail[0] if detail else ''}"
+            issue_view_error = (
+                f"gh issue view exited {proc.returncode}: {detail[0] if detail else ''}"
+            )
+            rest_payload, rest_error = self._fetch_rest(repo, number)
+            if rest_payload is not None:
+                return rest_payload, None
+            if rest_error:
+                return None, f"{issue_view_error}; REST fallback {rest_error}"
+            return None, issue_view_error
         try:
             payload = json.loads(proc.stdout)
         except json.JSONDecodeError:
@@ -533,6 +554,43 @@ class _IssueStateChecker:
         if not isinstance(payload, Mapping):
             return None, "gh issue view returned non-mapping JSON"
         return payload, None
+
+    def _fetch_rest(self, repo: str, number: int) -> tuple[Mapping[str, Any] | None, str | None]:
+        repo_path = _repo_path_from_name(repo)
+        if repo_path is None:
+            return None, f"repo {repo!r} is not an owner/name pair"
+        try:
+            proc = subprocess.run(
+                [
+                    "gh",
+                    "api",
+                    "--method",
+                    "GET",
+                    f"repos/{repo_path}/issues/{number}",
+                ],
+                cwd=self._root,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=20,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return None, f"failed ({exc.__class__.__name__})"
+        if proc.returncode != 0:
+            detail = (proc.stderr or "").strip().splitlines()
+            return None, f"exited {proc.returncode}: {detail[0] if detail else ''}"
+        try:
+            payload = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            return None, "returned unparseable JSON"
+        if not isinstance(payload, Mapping):
+            return None, "returned non-mapping JSON"
+        return {
+            "number": payload.get("number") or number,
+            "state": payload.get("state"),
+            "stateReason": payload.get("stateReason") or payload.get("state_reason") or "",
+            "url": payload.get("html_url") or payload.get("url") or "",
+        }, None
 
 
 def _existing_issue_terminal_candidate(
