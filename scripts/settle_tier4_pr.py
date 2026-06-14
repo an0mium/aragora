@@ -966,6 +966,19 @@ def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
     return snapshot
 
 
+def _branch_protection_snapshot_errors(snapshot: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    for key in ("required_pull_request_reviews", "required_status_checks", "enforce_admins"):
+        value = snapshot.get(key)
+        if not isinstance(value, dict):
+            errors.append(f"{key}: missing snapshot")
+            continue
+        snapshot_error = value.get("snapshot_error")
+        if snapshot_error:
+            errors.append(f"{key}: {snapshot_error}")
+    return errors
+
+
 def _restore_branch_protection(*, repo: str, cwd: Path, snapshot: dict[str, Any]) -> list[str]:
     base = f"repos/{repo}/branches/main/protection"
     errors: list[str] = []
@@ -1062,6 +1075,21 @@ def _apply_merge(
     snapshot = (
         _branch_protection_snapshot(repo=repo, cwd=cwd) if reconcile_branch_protection else {}
     )
+    snapshot_errors = (
+        _branch_protection_snapshot_errors(snapshot) if reconcile_branch_protection else []
+    )
+    if snapshot_errors:
+        raise Tier4ApplyError(
+            "Tier 4 branch-protection snapshot failed before merge mutation: "
+            + "; ".join(snapshot_errors),
+            phase="branch_protection_snapshot",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action=(
+                "verify branch-protection read access and retry --merge-apply before "
+                "any merge mutation"
+            ),
+        )
     merge_command = [
         "gh",
         "pr",

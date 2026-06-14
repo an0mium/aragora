@@ -113,6 +113,17 @@ def _valid_checks() -> list[dict[str, str]]:
     ]
 
 
+def _valid_branch_protection_snapshot() -> dict[str, dict[str, Any]]:
+    return {
+        "required_pull_request_reviews": {
+            "required_approving_review_count": 0,
+            "require_code_owner_reviews": False,
+        },
+        "required_status_checks": {"strict": False, "contexts": ["lint"]},
+        "enforce_admins": {"enabled": True},
+    }
+
+
 def test_missing_operator_comment_blocks_settlement() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
@@ -1054,7 +1065,7 @@ def test_merge_apply_uses_valid_command_sequence(monkeypatch: Any, tmp_path: Pat
     monkeypatch.setattr(
         settler,
         "_branch_protection_snapshot",
-        lambda repo, cwd: {},
+        lambda repo, cwd: _valid_branch_protection_snapshot(),
     )
     monkeypatch.setattr(
         settler,
@@ -1172,6 +1183,55 @@ def test_branch_protection_preflight_blocks_non_admin_invoker(
     assert "lacks admin permission" in str(exc.value)
 
 
+def test_merge_apply_branch_protection_snapshot_failure_prevents_merge(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_preflight_branch_protection_reconcile",
+        lambda repo, cwd: None,
+    )
+    monkeypatch.setattr(
+        settler,
+        "_branch_protection_snapshot",
+        lambda repo, cwd: {
+            "required_pull_request_reviews": {"snapshot_error": "gh: Not Found (HTTP 404)"},
+            "required_status_checks": {"strict": False, "contexts": ["lint"]},
+            "enforce_admins": {"enabled": True},
+        },
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+
+    rc = settler.main(
+        ["--merge-apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"]
+    )
+
+    assert rc == 2
+    assert commands == []
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["phase"] == "branch_protection_snapshot"
+    assert payload["mutation_occurred"] is False
+    assert payload["completed_commands"] == 0
+    assert "required_pull_request_reviews" in payload["error"]
+    assert "before any merge mutation" in payload["recovery_action"]
+
+
 def test_merge_apply_branch_protection_failure_reports_partial_mutation(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
@@ -1195,7 +1255,7 @@ def test_merge_apply_branch_protection_failure_reports_partial_mutation(
     monkeypatch.setattr(
         settler,
         "_branch_protection_snapshot",
-        lambda repo, cwd: {},
+        lambda repo, cwd: _valid_branch_protection_snapshot(),
     )
 
     def fake_run_command(command: list[str], cwd: Path, input_text: str | None = None) -> None:
@@ -1361,7 +1421,7 @@ def test_merge_apply_skips_required_status_check_patch_when_quorum_already_requi
     monkeypatch.setattr(
         settler,
         "_branch_protection_snapshot",
-        lambda repo, cwd: {},
+        lambda repo, cwd: _valid_branch_protection_snapshot(),
     )
     monkeypatch.setattr(
         settler,
