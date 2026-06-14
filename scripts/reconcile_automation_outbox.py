@@ -58,6 +58,8 @@ DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
 DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
 TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
+_APP_TOKEN_UNAVAILABLE = object()
+_app_token_cache: str | object | None = None
 
 
 def _mute_stdout_after_broken_pipe() -> None:
@@ -350,6 +352,143 @@ def _target_pr_state(
     except json.JSONDecodeError:
         return None
     return payload if isinstance(payload, Mapping) else None
+
+
+def _github_app_cli_env(root: Path) -> dict[str, str] | None:
+    """Return a gh CLI environment backed by the GitHub App token.
+
+    The reconciler uses this only for narrow read-only REST proof. If the App
+    token cannot be minted, callers fail closed and preserve the handoff.
+    """
+    global _app_token_cache
+
+    if _app_token_cache is _APP_TOKEN_UNAVAILABLE:
+        return None
+
+    if _app_token_cache is None:
+        try:
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "gh_app_env.py"),
+                    "--print-token",
+                    "--quiet",
+                ],
+                cwd=root,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=20,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            _app_token_cache = _APP_TOKEN_UNAVAILABLE
+            return None
+        token = proc.stdout.strip().splitlines()[-1].strip() if proc.stdout.strip() else ""
+        if proc.returncode != 0 or not token:
+            _app_token_cache = _APP_TOKEN_UNAVAILABLE
+            return None
+        _app_token_cache = token
+
+    token = str(_app_token_cache or "").strip()
+    if not token:
+        return None
+    env = os.environ.copy()
+    env["GH_TOKEN"] = token
+    env["GITHUB_TOKEN"] = token
+    env["ARAGORA_GITHUB_AUTH_SOURCE"] = "github_app_installation"
+    return env
+
+
+def _gh_api_json_with_app(root: Path, endpoint: str) -> Any | None:
+    env = _github_app_cli_env(root)
+    if env is None:
+        return None
+    try:
+        proc = subprocess.run(
+            [
+                "gh",
+                "api",
+                endpoint,
+                "-H",
+                "Accept: application/vnd.github+json",
+            ],
+            cwd=root,
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        return json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
+def _candidate_pr_targets_base(pr: Mapping[str, Any], base: str) -> bool:
+    state = str(pr.get("state") or "").strip().lower()
+    merged_at = str(pr.get("merged_at") or "").strip()
+    base_payload = pr.get("base")
+    base_ref = (
+        str(base_payload.get("ref") or "").strip() if isinstance(base_payload, Mapping) else ""
+    )
+    return state == "closed" and bool(merged_at) and base_ref == base
+
+
+def _merged_pr_commit_list_resolution(
+    root: Path,
+    repo_name: str,
+    payload: Mapping[str, Any],
+    *,
+    base: str = "main",
+) -> tuple[int, str] | None:
+    """Return (PR number, desired SHA) when REST proves the handoff is merged.
+
+    This is a narrow escape hatch for PR-intended outbox handoffs whose branch
+    still looks unique to ``git cherry`` after the PR has been merged through a
+    rewritten history path. Any unavailable or incomplete REST proof returns
+    None so the existing protective keep behavior remains in force.
+    """
+    if not _is_pr_publication_request(payload):
+        return None
+
+    desired_head = _desired_head_from_payload(dict(payload)).strip().lower()
+    if len(desired_head) != 40:
+        return None
+
+    associated_prs = _gh_api_json_with_app(
+        root,
+        f"repos/{repo_name}/commits/{desired_head}/pulls",
+    )
+    if not isinstance(associated_prs, Sequence) or isinstance(
+        associated_prs, (str, bytes, bytearray)
+    ):
+        return None
+
+    for candidate in associated_prs:
+        if not isinstance(candidate, Mapping):
+            continue
+        if not _candidate_pr_targets_base(candidate, base):
+            continue
+        pr_number = _pr_number_from_value(candidate.get("number"))
+        if pr_number is None:
+            continue
+        commits = _gh_api_json_with_app(
+            root,
+            f"repos/{repo_name}/pulls/{pr_number}/commits?per_page=100",
+        )
+        if not isinstance(commits, Sequence) or isinstance(commits, (str, bytes, bytearray)):
+            return None
+        for commit in commits:
+            if not isinstance(commit, Mapping):
+                continue
+            if str(commit.get("sha") or "").strip().lower() == desired_head:
+                return pr_number, desired_head
+    return None
 
 
 def _merged_target_pr_receipt_resolution(
@@ -1358,6 +1497,35 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
             continue
+
+        if open_pr_state_available:
+            merged_pr_resolution = _merged_pr_commit_list_resolution(root, args.repo_name, payload)
+            if merged_pr_resolution is not None:
+                pr_number, desired_head = merged_pr_resolution
+                reason = (
+                    f"desired head {desired_head} is contained in merged PR #{pr_number} "
+                    "commit list targeting main"
+                )
+                counts["satisfied_by_open_pr_merged"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "archive",
+                        "reason": reason,
+                        "synthetic_receipt": True,
+                    }
+                )
+                if args.apply:
+                    _write_synthetic_receipt(
+                        receipt_dir=receipt_dir,
+                        outbox_payload=payload,
+                        reason=reason,
+                        pr_number=pr_number,
+                        apply=True,
+                    )
+                    shutil.move(str(path), str(archive_dir / path.name))
+                continue
 
         reason = (
             "branch has unique commits not on main, no open PR — actively protecting"

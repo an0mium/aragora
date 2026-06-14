@@ -1139,6 +1139,169 @@ def test_unique_branch_keep_reason_notes_unavailable_open_pr_state(
     assert "no open PR" not in payload["actions"][0]["reason"]
 
 
+def test_unique_branch_archives_when_desired_sha_is_in_merged_pr_commit_list(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    archive_dir = tmp_path / ".aragora" / "automation-outbox-archive"
+    branch = "codex/salvage-collect-evidence-quorum-rerun-20260606"
+    key = "open-pr-codex-salvage-collect-evidence-quorum-rerun-20260606-317b9423"
+    desired_sha = "317b94232d3ba41c3a1e546a94010dfdf069f85f"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_sha,
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_sha}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"+ {desired_sha}\n")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    def fake_subprocess_run(
+        args: list[str],
+        **kwargs: Any,
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:2] == [sys.executable, str(mod.SCRIPTS_DIR / "gh_app_env.py")]:
+            assert "--print-token" in args
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="app-token\n")
+        if args[:3] == ["gh", "api", f"repos/synaptent/aragora/commits/{desired_sha}/pulls"]:
+            assert kwargs["env"]["GH_TOKEN"] == "app-token"
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {
+                            "number": 7825,
+                            "state": "closed",
+                            "merged_at": "2026-06-06T12:00:00Z",
+                            "base": {"ref": "main"},
+                        }
+                    ]
+                ),
+                stderr="",
+            )
+        if args[:3] == [
+            "gh",
+            "api",
+            "repos/synaptent/aragora/pulls/7825/commits?per_page=100",
+        ]:
+            assert kwargs["env"]["GH_TOKEN"] == "app-token"
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=json.dumps([{"sha": "abc123"}, {"sha": desired_sha}]),
+                stderr="",
+            )
+        raise AssertionError(f"unexpected subprocess call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+    monkeypatch.setattr(mod, "_app_token_cache", None)
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    reason = (
+        f"desired head {desired_sha} is contained in merged PR #7825 commit list targeting main"
+    )
+    assert payload["counts"]["satisfied_by_open_pr_merged"] == 1
+    assert payload["counts"]["still_protecting_active_work"] == 0
+    assert payload["actions"][0]["decision"] == "archive"
+    assert payload["actions"][0]["reason"] == reason
+    assert payload["actions"][0]["synthetic_receipt"] is True
+    assert handoff.exists() is False
+    assert (archive_dir / handoff.name).exists()
+    receipt_payload = json.loads((receipt_dir / f"{key}.json").read_text(encoding="utf-8"))
+    assert receipt_payload["existing_pr_url"] == "https://github.com/synaptent/aragora/pull/7825"
+    assert receipt_payload["synthetic_reason"] == reason
+
+
+def test_unique_branch_keeps_when_merged_pr_commit_proof_unavailable(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    branch = "codex/unverified-unique"
+    key = "open-pr-codex-unverified-unique-abc123"
+    desired_sha = "a" * 40
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_sha,
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_sha}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"+ {desired_sha}\n")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    def fake_subprocess_run(
+        args: list[str],
+        **_kwargs: Any,
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:2] == [sys.executable, str(mod.SCRIPTS_DIR / "gh_app_env.py")]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="app token unavailable",
+            )
+        raise AssertionError(f"unexpected subprocess call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+    monkeypatch.setattr(mod, "_app_token_cache", None)
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_open_pr_merged"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert payload["actions"][0]["reason"] == (
+        "branch has unique commits not on main, no open PR — actively protecting"
+    )
+    assert handoff.exists()
+    assert not (receipt_dir / f"{key}.json").exists()
+
+
 def test_landed_branch_archives_without_github_lookup(
     tmp_path: Path,
     monkeypatch: Any,
