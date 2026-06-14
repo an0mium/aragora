@@ -1100,7 +1100,9 @@ def _apply_merge(
         "--match-head-commit",
         head,
     ]
+    merge_invoked = False
     try:
+        merge_invoked = True
         _run_command(merge_command, cwd=cwd)
         commands.append(merge_command)
 
@@ -1148,15 +1150,17 @@ def _apply_merge(
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
         rollback_errors = _restore_branch_protection(repo=repo, cwd=cwd, snapshot=snapshot)
         phase = "merge" if not commands else "branch_protection_restore"
+        mutation_occurred = bool(commands) or merge_invoked
         recovery_action = (
             "rerun live verification before any retry; if mutation_occurred=true, "
             "inspect PR state and branch protection before rerunning --merge-apply"
         )
         raise Tier4ApplyError(
             "Tier 4 apply failed after partial execution: "
-            f"completed_commands={len(commands)} rollback_errors={rollback_errors}: {exc}",
+            f"completed_commands={len(commands)} merge_invoked={merge_invoked} "
+            f"rollback_errors={rollback_errors}: {exc}",
             phase=phase,
-            mutation_occurred=bool(commands),
+            mutation_occurred=mutation_occurred,
             completed_commands=len(commands),
             rollback_errors=rollback_errors,
             recovery_action=recovery_action,

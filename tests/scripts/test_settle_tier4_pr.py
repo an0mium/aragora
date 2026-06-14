@@ -1232,6 +1232,58 @@ def test_merge_apply_branch_protection_snapshot_failure_prevents_merge(
     assert "before any merge mutation" in payload["recovery_action"]
 
 
+def test_merge_apply_merge_command_failure_reports_possible_mutation(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd: (
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_preflight_branch_protection_reconcile",
+        lambda repo, cwd: None,
+    )
+    monkeypatch.setattr(
+        settler,
+        "_branch_protection_snapshot",
+        lambda repo, cwd: _valid_branch_protection_snapshot(),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_restore_branch_protection",
+        lambda repo, cwd, snapshot: ["restore skipped in test"],
+    )
+
+    def fake_run_command(command: list[str], cwd: Path, input_text: str | None = None) -> None:
+        commands.append((command, input_text))
+        if command[:3] == ["gh", "pr", "merge"]:
+            raise subprocess.CalledProcessError(1, command, stderr="transport lost")
+
+    monkeypatch.setattr(settler, "_run_command", fake_run_command)
+
+    rc = settler.main(
+        ["--merge-apply", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"]
+    )
+
+    assert rc == 2
+    assert commands[0][0][:3] == ["gh", "pr", "merge"]
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["phase"] == "merge"
+    assert payload["mutation_occurred"] is True
+    assert payload["completed_commands"] == 0
+    assert "merge_invoked=True" in payload["error"]
+    assert "inspect PR state and branch protection" in payload["recovery_action"]
+
+
 def test_merge_apply_branch_protection_failure_reports_partial_mutation(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
