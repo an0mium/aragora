@@ -17,6 +17,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
+from aragora.cli.commands.review_queue_transport import _GhError
+
 DEFAULT_REPO = "synaptent/aragora"
 AUTHORIZED_MARKER = "Tier-4 Human Settlement Authorization"
 AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
@@ -31,11 +38,13 @@ MERGE_QUORUM_CONTEXT = "aragora-merge-quorum"
 OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comment"
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER = "required_check_visibility_skew"
+REQUIRED_CHECK_REST_VISIBILITY_CONTEXT = "required check REST visibility"
 SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER = "trusted operator allowlist is required for --settle-only"
 SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
 SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER = "admin/OWNER permission required for --settle-only"
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
+BLOCKING_MERGE_STATES = {"DIRTY", "CONFLICTING"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
@@ -358,11 +367,18 @@ def _required_checks_are_green(required_checks: list[dict[str, Any]] | None) -> 
     return True
 
 
+def _status_signal_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for key in ("statusCheckRollup", "commitStatuses"):
+        value = pr_view.get(key)
+        if not isinstance(value, list):
+            continue
+        items.extend(item for item in value if isinstance(item, dict))
+    return items
+
+
 def _human_settlement_status_is_success(pr_view: dict[str, Any]) -> bool:
-    rollup = pr_view.get("statusCheckRollup")
-    if not isinstance(rollup, list):
-        return False
-    for item in rollup:
+    for item in _status_signal_items(pr_view):
         if not isinstance(item, dict):
             continue
         context = str(item.get("context") or item.get("name") or "")
@@ -527,6 +543,20 @@ def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: 
         return False
 
 
+def _mergeability_blockers(*, pr: int, pr_view: dict[str, Any]) -> list[str]:
+    merge_state = str(pr_view.get("mergeStateStatus") or "")
+    if merge_state in BLOCKING_MERGE_STATES:
+        return [f"PR #{pr} is {merge_state}"]
+    rest_fallback_meta = pr_view.get("_rest_fallback")
+    if (
+        merge_state == "UNKNOWN"
+        and isinstance(rest_fallback_meta, dict)
+        and bool(rest_fallback_meta.get("enabled"))
+    ):
+        return [f"PR #{pr} mergeability is UNKNOWN"]
+    return []
+
+
 def _required_check_name(check: dict[str, Any]) -> str:
     return str(check.get("name") or check.get("workflow") or "required check")
 
@@ -664,8 +694,7 @@ def evaluate_tier4_gate(
     if bool(pr_view.get("isDraft")):
         blockers.append(f"PR #{pr} is draft")
     merge_state = str(pr_view.get("mergeStateStatus") or "")
-    if merge_state in {"DIRTY", "CONFLICTING"}:
-        blockers.append(f"PR #{pr} is {merge_state}")
+    blockers.extend(_mergeability_blockers(pr=pr, pr_view=pr_view))
     for check in required_checks or []:
         name = _required_check_name(check)
         state = _required_check_state(check)
@@ -761,8 +790,7 @@ def evaluate_tier4_settlement_preconditions(
     if bool(pr_view.get("isDraft")):
         blockers.append(f"PR #{pr} is draft")
     merge_state = str(pr_view.get("mergeStateStatus") or "")
-    if merge_state in {"DIRTY", "CONFLICTING"}:
-        blockers.append(f"PR #{pr} is {merge_state}")
+    blockers.extend(_mergeability_blockers(pr=pr, pr_view=pr_view))
 
     if not required_checks:
         blockers.append(REQUIRED_CHECKS_BLOCKER)
@@ -842,21 +870,258 @@ def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
         raise RuntimeError(f"{' '.join(command)} did not emit JSON") from exc
 
 
-def _load_live_inputs(
-    pr: int, *, cwd: Path
-) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
-    pr_view = _run_json(
-        [
-            "gh",
-            "pr",
-            "view",
-            str(pr),
-            "--json",
-            "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,statusCheckRollup,url",
-        ],
-        cwd=cwd,
+def _looks_like_graphql_rate_limit_error(error: object) -> bool:
+    text = str(error or "").lower()
+    # Current gh CLI surfaces exhausted PR GraphQL calls as
+    # "GraphQL: API rate limit ..."; REST rate limits should not switch to
+    # REST fallback because those fallback calls would share the same blocker.
+    return "rate limit" in text and (
+        "graphql" in text or "gh pr view" in text or "gh pr checks" in text
     )
+
+
+def _gh_json_for_rest_fallback(command: list[str], *, cwd: Path) -> Any:
+    try:
+        return _run_json_any(["gh", *command], cwd=cwd)
+    except RuntimeError as exc:
+        raise _GhError(str(exc)) from exc
+
+
+def _load_pr_view(pr: int, *, cwd: Path, repo: str) -> dict[str, Any]:
+    try:
+        pr_view = _run_json(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(pr),
+                "--repo",
+                repo,
+                "--json",
+                (
+                    "headRefOid,state,isDraft,mergeStateStatus,baseRefName,comments,reviews,commits,"
+                    "statusCheckRollup,url"
+                ),
+            ],
+            cwd=cwd,
+        )
+    except RuntimeError as exc:
+        if not _looks_like_graphql_rate_limit_error(exc):
+            raise
+        try:
+            pr_view = rest_fallback._hydrate_pr_with_rest_fallback(
+                number=pr,
+                repo_slug=repo,
+                source_error=str(exc),
+                gh_json=lambda command: _gh_json_for_rest_fallback(command, cwd=cwd),
+            )
+        except _GhError as rest_exc:
+            raise RuntimeError(str(rest_exc)) from rest_exc
     pr_view["headCommittedDate"] = _head_committed_at(pr_view)
+    return pr_view
+
+
+def _check_run_state(run: dict[str, Any]) -> str:
+    if rest_fallback._direct_check_run_is_success(run):
+        return "SUCCESS"
+    status = str(run.get("status") or "").strip().upper()
+    conclusion = str(run.get("conclusion") or "").strip().upper()
+    if status in {"QUEUED", "IN_PROGRESS", "PENDING", "REQUESTED", "WAITING"}:
+        return "PENDING"
+    if conclusion in {"FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STALE"}:
+        return "FAILURE"
+    return "UNKNOWN"
+
+
+def _commit_status_state(status: dict[str, Any]) -> str:
+    state = str(status.get("state") or "").strip().upper()
+    if state == "SUCCESS":
+        return "SUCCESS"
+    if state in {"PENDING", "EXPECTED"}:
+        return "PENDING"
+    if state in {"FAILURE", "ERROR"}:
+        return "FAILURE"
+    return "UNKNOWN"
+
+
+def _rest_page_endpoint(endpoint: str, page: int) -> str:
+    separator = "&" if "?" in endpoint else "?"
+    return f"{endpoint}{separator}page={page}"
+
+
+def _fetch_direct_commit_check_runs_for_gate(
+    repo: str, head: str, *, gh_json: Callable[[list[str]], Any]
+) -> tuple[list[dict[str, Any]], str]:
+    endpoint = f"repos/{repo}/commits/{head}/check-runs?per_page=100"
+    runs: list[dict[str, Any]] = []
+    try:
+        for page in range(1, 101):
+            current_endpoint = endpoint if page == 1 else _rest_page_endpoint(endpoint, page)
+            payload = gh_json(["api", current_endpoint])
+            if not isinstance(payload, dict):
+                return [], f"{current_endpoint} returned a non-object payload"
+            page_runs = [run for run in payload.get("check_runs") or [] if isinstance(run, dict)]
+            runs.extend(page_runs)
+            total_count = payload.get("total_count")
+            if isinstance(total_count, int) and len(runs) >= total_count:
+                break
+            if len(page_runs) < 100:
+                break
+    except Exception as exc:
+        return [], str(exc)
+    return runs, ""
+
+
+def _normalize_rest_status_for_gate(status: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "context": str(status.get("context") or "").strip(),
+        "state": str(status.get("state") or "").strip().upper(),
+        "targetUrl": str(status.get("target_url") or "").strip(),
+        "updatedAt": str(status.get("updated_at") or "").strip(),
+        "createdAt": str(status.get("created_at") or "").strip(),
+    }
+
+
+def _fetch_direct_commit_statuses_for_gate(
+    repo: str, head: str, *, gh_json: Callable[[list[str]], Any]
+) -> tuple[list[dict[str, Any]], str]:
+    endpoint = f"repos/{repo}/commits/{head}/statuses?per_page=100"
+    statuses: list[dict[str, Any]] = []
+    try:
+        for page in range(1, 101):
+            current_endpoint = endpoint if page == 1 else _rest_page_endpoint(endpoint, page)
+            payload = gh_json(["api", current_endpoint])
+            if not isinstance(payload, list):
+                return [], f"{current_endpoint} returned a non-list payload"
+            statuses.extend(
+                _normalize_rest_status_for_gate(status)
+                for status in payload
+                if isinstance(status, dict)
+            )
+            if len(payload) < 100:
+                break
+    except Exception as exc:
+        return [], str(exc)
+    return statuses, ""
+
+
+def _strict_branch_freshness_state(
+    *, repo: str, base_ref: str, head: str, gh_json: Callable[[list[str]], Any]
+) -> str:
+    try:
+        payload = gh_json(
+            [
+                "api",
+                f"repos/{repo}/compare/{quote(base_ref, safe='')}...{quote(head, safe='')}",
+            ]
+        )
+    except Exception:
+        return "UNKNOWN"
+    if not isinstance(payload, dict):
+        return "UNKNOWN"
+    status = str(payload.get("status") or "").strip().lower()
+    if status in {"ahead", "identical"}:
+        return "SUCCESS"
+    if status in {"behind", "diverged"}:
+        return "FAILURE"
+    return "UNKNOWN"
+
+
+def _required_checks_from_rest(
+    pr_view: dict[str, Any], *, cwd: Path, repo: str
+) -> list[dict[str, str]]:
+    head = str(pr_view.get("headRefOid") or "").strip()
+    base_ref = str(pr_view.get("baseRefName") or "main").strip()
+    if not head or not base_ref:
+        return []
+    gh_json = lambda command: _gh_json_for_rest_fallback(command, cwd=cwd)
+    protection = rest_fallback._fetch_required_status_check_protection(
+        repo,
+        base_ref,
+        gh_json=gh_json,
+    )
+    required_specs = [spec for spec in protection.get("checks") or [] if isinstance(spec, dict)]
+    if not protection.get("available") or not required_specs:
+        return []
+    direct_runs, check_run_error = _fetch_direct_commit_check_runs_for_gate(
+        repo, head, gh_json=gh_json
+    )
+    direct_statuses, status_error = _fetch_direct_commit_statuses_for_gate(
+        repo, head, gh_json=gh_json
+    )
+
+    checks: list[dict[str, str]] = []
+    if check_run_error or status_error:
+        checks.append({"name": REQUIRED_CHECK_REST_VISIBILITY_CONTEXT, "state": "UNKNOWN"})
+    for spec in required_specs:
+        context = str(spec.get("context") or "").strip()
+        if not context:
+            continue
+        run = rest_fallback._latest_direct_check_run_for_required(direct_runs, spec)
+        status = (
+            None
+            if run is not None
+            else rest_fallback._latest_direct_status_for_required(
+                direct_statuses,
+                spec,
+            )
+        )
+        if run is not None:
+            state = _check_run_state(run)
+        elif status is not None:
+            state = _commit_status_state(status)
+        else:
+            state = "PENDING"
+        checks.append({"name": context, "state": state})
+
+    if protection.get("strict"):
+        checks.append(
+            {
+                "name": "strict branch-protection freshness",
+                "state": _strict_branch_freshness_state(
+                    repo=repo,
+                    base_ref=base_ref,
+                    head=head,
+                    gh_json=gh_json,
+                ),
+            }
+        )
+    return checks
+
+
+def _load_required_checks(
+    pr: int, *, cwd: Path, repo: str, pr_view: dict[str, Any]
+) -> list[dict[str, Any]]:
+    try:
+        checks_raw = _run_json_any(
+            [
+                "gh",
+                "pr",
+                "checks",
+                str(pr),
+                "--repo",
+                repo,
+                "--required",
+                "--json",
+                "name,state,bucket,workflow,link",
+            ],
+            cwd=cwd,
+        )
+    except RuntimeError as exc:
+        if not _looks_like_graphql_rate_limit_error(exc):
+            raise
+        return _required_checks_from_rest(pr_view, cwd=cwd, repo=repo)
+    return (
+        [check for check in checks_raw if isinstance(check, dict)]
+        if isinstance(checks_raw, list)
+        else []
+    )
+
+
+def _load_live_inputs(
+    pr: int, *, cwd: Path, repo: str = DEFAULT_REPO
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    pr_view = _load_pr_view(pr, cwd=cwd, repo=repo)
     merge_packet = _run_json(
         [
             sys.executable,
@@ -866,27 +1131,13 @@ def _load_live_inputs(
             "merge-packet",
             "--pr",
             str(pr),
+            "--repo",
+            repo,
             "--json",
         ],
         cwd=cwd,
     )
-    checks_raw = _run_json_any(
-        [
-            "gh",
-            "pr",
-            "checks",
-            str(pr),
-            "--required",
-            "--json",
-            "name,state,bucket,workflow,link",
-        ],
-        cwd=cwd,
-    )
-    required_checks = (
-        [check for check in checks_raw if isinstance(check, dict)]
-        if isinstance(checks_raw, list)
-        else []
-    )
+    required_checks = _load_required_checks(pr, cwd=cwd, repo=repo, pr_view=pr_view)
     return pr_view, merge_packet, required_checks
 
 
@@ -1270,7 +1521,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        pr_view, merge_packet, required_checks = _load_live_inputs(args.pr, cwd=args.cwd)
+        pr_view, merge_packet, required_checks = _load_live_inputs(
+            args.pr, cwd=args.cwd, repo=args.repo
+        )
         applied_commands: list[list[str]] = []
         if args.settle_only:
             gate = evaluate_tier4_settlement_preconditions(
