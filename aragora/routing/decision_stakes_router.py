@@ -36,11 +36,20 @@ __all__ = [
     "DecisionStakesRouter",
     "TIER_POLICY",
     "policy_for_tier",
+    "ROUTING_RATIONALE_SCHEMA",
 ]
 
 COST_EFFICIENT = "cost_efficient"
 FRONTIER = "frontier"
 TierClass = str  # COST_EFFICIENT | FRONTIER
+
+# Canonical routing-rationale record family, shared with the evidence-collection
+# variant written by ``scripts/auto_evidence_cycle.py``. That variant records a
+# *static-configuration* family selection with ``pareto_optimizer_consulted:
+# False`` ("the Pareto optimizer is not wired into this path yet"). This router
+# IS that wiring for execution routing, so its record reuses the same schema and
+# flips the flag to ``True``.
+ROUTING_RATIONALE_SCHEMA = "aragora.routing_rationale/v1"
 
 
 @dataclass(frozen=True)
@@ -96,7 +105,32 @@ class RoutingRationale:
     escalated_to_frontier: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return {"status": "present", **asdict(self)}
+        """Emit the ``aragora.routing_rationale/v1`` record for this choice.
+
+        Same schema family as the evidence-collection record
+        (``scripts/auto_evidence_cycle.py``); ``selector`` and
+        ``pareto_optimizer_consulted`` mark this as the execution-routing
+        variant where the Pareto optimizer *is* consulted. Cost stays
+        ``recorded: false`` — per-provider ``avg_cost_per_debate`` (in
+        ``models_considered``) is an expectation from metrics, not observed
+        spend, and is never reported as recorded cost.
+        """
+        return {
+            "record_type": "routing_rationale",
+            "schema": ROUTING_RATIONALE_SCHEMA,
+            "status": "present",
+            "selector": "decision_stakes_pareto",
+            "pareto_optimizer_consulted": True,
+            **asdict(self),
+            "cost": {
+                "recorded": False,
+                "total_usd": None,
+                "absent_reason": (
+                    "per-provider avg_cost_per_debate is an expectation from "
+                    "metrics, not observed spend; recorded as absent"
+                ),
+            },
+        }
 
 
 class DecisionStakesRouter:
