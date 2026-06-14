@@ -824,7 +824,7 @@ def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
 
 def _looks_like_graphql_rate_limit_error(error: object) -> bool:
     text = str(error or "").lower()
-    return "graphql" in text and "rate limit" in text
+    return "rate limit" in text
 
 
 def _gh_json_for_rest_fallback(command: list[str], *, cwd: Path) -> Any:
@@ -846,7 +846,7 @@ def _load_pr_view(pr: int, *, cwd: Path, repo: str) -> dict[str, Any]:
                 repo,
                 "--json",
                 (
-                    "headRefOid,state,isDraft,mergeStateStatus,comments,reviews,commits,"
+                    "headRefOid,state,isDraft,mergeStateStatus,baseRefName,comments,reviews,commits,"
                     "statusCheckRollup,url"
                 ),
             ],
@@ -868,72 +868,77 @@ def _load_pr_view(pr: int, *, cwd: Path, repo: str) -> dict[str, Any]:
     return pr_view
 
 
-def _required_checks_from_direct_surface(surface: dict[str, Any]) -> list[dict[str, str]]:
-    direct = surface.get("direct_commit_check_runs")
-    if not isinstance(direct, dict):
-        return []
-    contexts = [
-        str(item).strip() for item in direct.get("required_contexts") or [] if str(item).strip()
-    ]
-    if not contexts:
-        return []
-    successful = {str(item).strip() for item in direct.get("successful_required_contexts") or []}
-    missing = {str(item).strip() for item in direct.get("missing_required_contexts") or []}
-    non_success = {str(item).strip() for item in direct.get("non_success_required_contexts") or []}
-    checks: list[dict[str, str]] = []
-    for context in contexts:
-        if context in successful:
-            state = "SUCCESS"
-        elif context in missing:
-            state = "PENDING"
-        elif context in non_success:
-            state = "FAILURE"
-        else:
-            state = "UNKNOWN"
-        checks.append({"name": context, "state": state})
-    if direct.get("required_contexts_satisfied") is True or missing or non_success:
-        return checks
-    return [{"name": "branch-protection required checks", "state": "UNKNOWN"}]
+def _check_run_state(run: dict[str, Any]) -> str:
+    if rest_fallback._direct_check_run_is_success(run):
+        return "SUCCESS"
+    status = str(run.get("status") or "").strip().upper()
+    conclusion = str(run.get("conclusion") or "").strip().upper()
+    if status in {"QUEUED", "IN_PROGRESS", "PENDING", "REQUESTED", "WAITING"}:
+        return "PENDING"
+    if conclusion in {"FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STALE"}:
+        return "FAILURE"
+    return "UNKNOWN"
 
 
-def _required_checks_from_required_pr_surface(surface: dict[str, Any]) -> list[dict[str, str]]:
-    required = surface.get("required_pr_checks")
-    if not isinstance(required, dict) or not bool(required.get("available")):
-        return []
-    failing = [
-        str(item).strip()
-        for item in required.get("failing_or_cancelled") or []
-        if str(item).strip()
-    ]
-    pending = [str(item).strip() for item in required.get("pending") or [] if str(item).strip()]
-    if failing or pending:
-        return [
-            *({"name": name, "state": "FAILURE"} for name in failing),
-            *({"name": name, "state": "PENDING"} for name in pending),
-        ]
-    effective_total = int(required.get("effective_total") or required.get("total") or 0)
-    if effective_total <= 0:
-        return []
-    state = "SUCCESS" if bool(required.get("gate_selected")) else "UNKNOWN"
-    return [{"name": "branch-protection required checks", "state": state}]
+def _commit_status_state(status: dict[str, Any]) -> str:
+    state = str(status.get("state") or "").strip().upper()
+    if state == "SUCCESS":
+        return "SUCCESS"
+    if state in {"PENDING", "EXPECTED"}:
+        return "PENDING"
+    if state in {"FAILURE", "ERROR"}:
+        return "FAILURE"
+    return "UNKNOWN"
 
 
-def _required_checks_from_merge_packet(
-    merge_packet: dict[str, Any], *, pr: int
+def _required_checks_from_rest(
+    pr_view: dict[str, Any], *, cwd: Path, repo: str
 ) -> list[dict[str, str]]:
-    entry = _entry_for_pr(merge_packet, pr=pr)
-    if not isinstance(entry, dict):
+    head = str(pr_view.get("headRefOid") or "").strip()
+    base_ref = str(pr_view.get("baseRefName") or "main").strip()
+    if not head or not base_ref:
         return []
-    surfaces = entry.get("check_surfaces")
-    if not isinstance(surfaces, dict):
+    gh_json = lambda command: _gh_json_for_rest_fallback(command, cwd=cwd)
+    protection = rest_fallback._fetch_required_status_check_protection(
+        repo,
+        base_ref,
+        gh_json=gh_json,
+    )
+    required_specs = [spec for spec in protection.get("checks") or [] if isinstance(spec, dict)]
+    if not protection.get("available") or not required_specs:
         return []
-    direct_checks = _required_checks_from_direct_surface(surfaces)
-    required_pr_checks = _required_checks_from_required_pr_surface(surfaces)
-    return direct_checks or required_pr_checks
+    direct_runs = rest_fallback._fetch_direct_commit_check_runs(repo, head, gh_json=gh_json)
+    direct_statuses = rest_fallback._fetch_direct_commit_statuses(repo, head, gh_json=gh_json)
+
+    checks: list[dict[str, str]] = []
+    for spec in required_specs:
+        context = str(spec.get("context") or "").strip()
+        if not context:
+            continue
+        run = rest_fallback._latest_direct_check_run_for_required(direct_runs, spec)
+        status = (
+            None
+            if run is not None
+            else rest_fallback._latest_direct_status_for_required(
+                direct_statuses,
+                spec,
+            )
+        )
+        if run is not None:
+            state = _check_run_state(run)
+        elif status is not None:
+            state = _commit_status_state(status)
+        else:
+            state = "PENDING"
+        checks.append({"name": context, "state": state})
+
+    if protection.get("strict"):
+        checks.append({"name": "strict branch-protection freshness", "state": "UNKNOWN"})
+    return checks
 
 
 def _load_required_checks(
-    pr: int, *, cwd: Path, repo: str, merge_packet: dict[str, Any]
+    pr: int, *, cwd: Path, repo: str, pr_view: dict[str, Any]
 ) -> list[dict[str, Any]]:
     try:
         checks_raw = _run_json_any(
@@ -953,7 +958,7 @@ def _load_required_checks(
     except RuntimeError as exc:
         if not _looks_like_graphql_rate_limit_error(exc):
             raise
-        return _required_checks_from_merge_packet(merge_packet, pr=pr)
+        return _required_checks_from_rest(pr_view, cwd=cwd, repo=repo)
     return (
         [check for check in checks_raw if isinstance(check, dict)]
         if isinstance(checks_raw, list)
@@ -980,7 +985,7 @@ def _load_live_inputs(
         ],
         cwd=cwd,
     )
-    required_checks = _load_required_checks(pr, cwd=cwd, repo=repo, merge_packet=merge_packet)
+    required_checks = _load_required_checks(pr, cwd=cwd, repo=repo, pr_view=pr_view)
     return pr_view, merge_packet, required_checks
 
 

@@ -162,32 +162,6 @@ def _rest_human_settlement_status() -> dict[str, Any]:
     }
 
 
-def _packet_with_direct_required_checks(
-    *,
-    satisfied: bool = True,
-    missing: list[str] | None = None,
-    non_success: list[str] | None = None,
-) -> dict[str, Any]:
-    packet = _tier4_packet()
-    contexts = ["lint", "aragora-merge-quorum"]
-    packet["entries"][0]["check_surfaces"] = {
-        "direct_commit_check_runs": {
-            "available": True,
-            "branch_protection_required_status_checks_available": True,
-            "required_contexts": contexts,
-            "successful_required_contexts": [
-                context
-                for context in contexts
-                if context not in set(missing or []) | set(non_success or [])
-            ],
-            "missing_required_contexts": missing or [],
-            "non_success_required_contexts": non_success or [],
-            "required_contexts_satisfied": satisfied,
-        }
-    }
-    return packet
-
-
 def test_load_live_inputs_uses_rest_pr_view_when_graphql_is_rate_limited(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
@@ -244,11 +218,11 @@ def test_load_live_inputs_uses_rest_pr_view_when_graphql_is_rate_limited(
     assert gate["ok"] is True
 
 
-def test_load_live_inputs_uses_merge_packet_required_checks_when_graphql_checks_rate_limited(
+def test_load_live_inputs_uses_rest_required_checks_when_graphql_checks_rate_limited(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
-    packet = _packet_with_direct_required_checks()
+    packet = _tier4_packet()
 
     def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
         if command[:3] == ["gh", "pr", "view"]:
@@ -260,6 +234,39 @@ def test_load_live_inputs_uses_merge_packet_required_checks_when_graphql_checks_
     def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
         if command[:3] == ["gh", "pr", "checks"]:
             raise RuntimeError("gh pr checks 7423 failed: GraphQL: API rate limit already exceeded")
+        if command[:2] != ["gh", "api"]:
+            raise AssertionError(f"unexpected _run_json_any command: {command}")
+        endpoint = command[2]
+        if endpoint == "repos/synaptent/aragora/branches/main/protection/required_status_checks":
+            return {
+                "strict": False,
+                "checks": [
+                    {"context": "lint", "app_id": 15368},
+                    {"context": "aragora-merge-quorum", "app_id": 15368},
+                ],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/check-runs"):
+            return {
+                "total_count": 2,
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "completed_at": AUTH_CREATED_AT,
+                        "app": {"id": 15368},
+                    },
+                    {
+                        "name": "aragora-merge-quorum",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "completed_at": AUTH_CREATED_AT,
+                        "app": {"id": 15368},
+                    },
+                ],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/statuses"):
+            return []
         raise AssertionError(f"unexpected _run_json_any command: {command}")
 
     monkeypatch.setattr(settler, "_run_json", fake_run_json)
@@ -286,7 +293,7 @@ def test_load_live_inputs_uses_merge_packet_required_checks_when_graphql_checks_
     assert gate["ok"] is True
 
 
-def test_rate_limited_required_checks_fail_closed_without_merge_packet_surface(
+def test_rate_limited_required_checks_fail_closed_without_rest_protection_surface(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
@@ -302,6 +309,12 @@ def test_rate_limited_required_checks_fail_closed_without_merge_packet_surface(
     def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
         if command[:3] == ["gh", "pr", "checks"]:
             raise RuntimeError("gh pr checks 7423 failed: GraphQL: API rate limit already exceeded")
+        if command[:3] == [
+            "gh",
+            "api",
+            "repos/synaptent/aragora/branches/main/protection/required_status_checks",
+        ]:
+            raise RuntimeError("branch protection unavailable")
         raise AssertionError(f"unexpected _run_json_any command: {command}")
 
     monkeypatch.setattr(settler, "_run_json", fake_run_json)
