@@ -486,11 +486,11 @@ class TestSwarmCommanderConfig:
 
     def test_default_budget(self):
         config = SwarmCommanderConfig()
-        assert config.budget_limit_usd == 50.0
+        assert config.budget_limit_usd == 90.0
 
     def test_default_max_parallel(self):
         config = SwarmCommanderConfig()
-        assert config.max_parallel_tasks == 20
+        assert config.max_parallel_tasks == 40
 
     def test_iterative_mode_default(self):
         config = SwarmCommanderConfig()

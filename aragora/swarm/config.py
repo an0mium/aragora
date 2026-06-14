@@ -132,7 +132,12 @@ class SwarmCommanderConfig:
     """Configuration for the SwarmCommander."""
 
     interrogator: InterrogatorConfig = field(default_factory=InterrogatorConfig)
-    budget_limit_usd: float | None = 50.0
+    # Parallelism/throughput defaults raised ~1.8-2x (2026-06-14): the swarm is a
+    # *driving function* for more concurrent lanes/agents, not a throttle. Budget
+    # scales with the parallelism so it does not become the new bottleneck. The
+    # exact-head merge gate + lease coordination remain the safety layer, so wider
+    # fan-out does not relax any settlement guarantee.
+    budget_limit_usd: float | None = 90.0
     require_approval: bool = False
     use_worktree_isolation: bool = True
     enable_meta_planning: bool = True
@@ -140,10 +145,10 @@ class SwarmCommanderConfig:
     enable_mode_enforcement: bool = True
     generate_receipts: bool = True
     spectate_stream: bool = True
-    max_parallel_tasks: int = 20
-    max_cycles: int = 5
-    max_subtasks: int = 15
-    max_parallel_branches: int = 16
+    max_parallel_tasks: int = 40
+    max_cycles: int = 9
+    max_subtasks: int = 28
+    max_parallel_branches: int = 32
     iterative_mode: bool = True
     user_profile: UserProfile = UserProfile.CEO
 
