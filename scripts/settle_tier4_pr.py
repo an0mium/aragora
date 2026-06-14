@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
@@ -851,18 +852,18 @@ def _run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
     try:
         result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired as exc:
-        timeout = int(exc.timeout or 120)
-        raise RuntimeError(f"{' '.join(command)} timed out after {timeout}s") from exc
+        timeout = int(exc.timeout if exc.timeout is not None else 120)
+        raise RuntimeError(f"{shlex.join(command)} timed out after {timeout}s") from exc
     except OSError as exc:
-        raise RuntimeError(f"{' '.join(command)} failed to start: {exc}") from exc
+        raise RuntimeError(f"{shlex.join(command)} failed to start: {exc}") from exc
     if result.returncode != 0:
-        raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
+        raise RuntimeError(f"{shlex.join(command)} failed: {result.stderr.strip()}")
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"{' '.join(command)} did not emit JSON") from exc
+        raise RuntimeError(f"{shlex.join(command)} did not emit JSON") from exc
     if not isinstance(payload, dict):
-        raise RuntimeError(f"{' '.join(command)} emitted non-object JSON")
+        raise RuntimeError(f"{shlex.join(command)} emitted non-object JSON")
     return payload
 
 
@@ -870,16 +871,16 @@ def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
     try:
         result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired as exc:
-        timeout = int(exc.timeout or 120)
-        raise RuntimeError(f"{' '.join(command)} timed out after {timeout}s") from exc
+        timeout = int(exc.timeout if exc.timeout is not None else 120)
+        raise RuntimeError(f"{shlex.join(command)} timed out after {timeout}s") from exc
     except OSError as exc:
-        raise RuntimeError(f"{' '.join(command)} failed to start: {exc}") from exc
+        raise RuntimeError(f"{shlex.join(command)} failed to start: {exc}") from exc
     if result.returncode != 0:
-        raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
+        raise RuntimeError(f"{shlex.join(command)} failed: {result.stderr.strip()}")
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"{' '.join(command)} did not emit JSON") from exc
+        raise RuntimeError(f"{shlex.join(command)} did not emit JSON") from exc
 
 
 def _looks_like_graphql_rate_limit_error(error: object) -> bool:
@@ -1506,8 +1507,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mode.add_argument(
         "--merge-apply",
-        "--apply",
-        dest="merge_apply",
         action="store_true",
         help="Apply the already-settled Tier 4 merge/protection action.",
     )

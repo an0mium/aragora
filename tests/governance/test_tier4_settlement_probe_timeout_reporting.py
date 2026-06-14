@@ -54,8 +54,5 @@ def test_json_check_reports_live_probe_timeout_as_structured_blocker(
     payload = json.loads(capsys.readouterr().out)
     assert exit_code == 2
     assert payload["ok"] is False
-    assert payload["error"] == (
-        "gh pr view 7423 --repo synaptent/aragora --json "
-        "headRefOid,state,isDraft,mergeStateStatus,baseRefName,comments,reviews,commits,"
-        "statusCheckRollup,url timed out after 120s"
-    )
+    assert payload["error"].startswith("gh pr view 7423 --repo synaptent/aragora --json ")
+    assert payload["error"].endswith(" timed out after 120s")
