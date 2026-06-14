@@ -60,6 +60,7 @@ def _pr_view(
     comments: list[dict[str, Any]],
     human_settlement_state: str | None = "SUCCESS",
     extra_status_rollup: list[dict[str, Any]] | None = None,
+    merge_state: str = "BLOCKED",
 ) -> dict[str, Any]:
     status_rollup = (
         [{"context": "aragora/human-settlement", "state": human_settlement_state}]
@@ -71,7 +72,7 @@ def _pr_view(
         "headRefOid": head,
         "state": "OPEN",
         "isDraft": False,
-        "mergeStateStatus": "BLOCKED",
+        "mergeStateStatus": merge_state,
         "headCommittedDate": HEAD_COMMITTED_AT,
         "comments": comments,
         "reviews": [],
@@ -206,6 +207,7 @@ def test_load_live_inputs_uses_rest_pr_view_when_graphql_is_rate_limited(
     assert pr_view["headRefOid"] == head
     assert pr_view["comments"][0]["authorAssociation"] == "OWNER"
     assert pr_view["commitStatuses"][0]["context"] == settler.HUMAN_SETTLEMENT_CONTEXT
+    assert pr_view["mergeStateStatus"] == "CLEAN"
     assert merge_packet["entries"][0]["pr_number"] == 7423
     assert required_checks == _valid_checks()
     gate = settler.evaluate_tier4_gate(
@@ -381,6 +383,38 @@ def test_exact_head_operator_comment_allows_check_result() -> None:
 
     assert result["ok"] is True
     assert result["blockers"] == []
+
+
+def test_unknown_mergeability_blocks_check_result() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, include_branch_protection=False)],
+            merge_state="UNKNOWN",
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "PR #7423 mergeability is UNKNOWN" in result["blockers"]
+
+
+def test_unknown_mergeability_blocks_settlement_preconditions() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None, merge_state="UNKNOWN"),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "PR #7423 mergeability is UNKNOWN" in result["blockers"]
 
 
 def test_member_operator_comment_with_status_and_evidence_allows_check_result() -> None:

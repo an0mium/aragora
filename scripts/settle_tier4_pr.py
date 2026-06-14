@@ -650,6 +650,8 @@ def evaluate_tier4_gate(
     merge_state = str(pr_view.get("mergeStateStatus") or "")
     if merge_state in {"DIRTY", "CONFLICTING"}:
         blockers.append(f"PR #{pr} is {merge_state}")
+    if merge_state == "UNKNOWN":
+        blockers.append(f"PR #{pr} mergeability is UNKNOWN")
     for check in required_checks or []:
         name = _required_check_name(check)
         state = _required_check_state(check)
@@ -747,6 +749,8 @@ def evaluate_tier4_settlement_preconditions(
     merge_state = str(pr_view.get("mergeStateStatus") or "")
     if merge_state in {"DIRTY", "CONFLICTING"}:
         blockers.append(f"PR #{pr} is {merge_state}")
+    if merge_state == "UNKNOWN":
+        blockers.append(f"PR #{pr} mergeability is UNKNOWN")
 
     if not required_checks:
         blockers.append(REQUIRED_CHECKS_BLOCKER)
