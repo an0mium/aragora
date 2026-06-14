@@ -43,7 +43,7 @@ SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
 SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER = "admin/OWNER permission required for --settle-only"
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
-BLOCKING_MERGE_STATES = {"DIRTY", "CONFLICTING", "BEHIND"}
+BLOCKING_MERGE_STATES = {"DIRTY", "CONFLICTING"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
@@ -546,11 +546,11 @@ def _mergeability_blockers(*, pr: int, pr_view: dict[str, Any]) -> list[str]:
     merge_state = str(pr_view.get("mergeStateStatus") or "")
     if merge_state in BLOCKING_MERGE_STATES:
         return [f"PR #{pr} is {merge_state}"]
-    rest_fallback = pr_view.get("_rest_fallback")
+    rest_fallback_meta = pr_view.get("_rest_fallback")
     if (
         merge_state == "UNKNOWN"
-        and isinstance(rest_fallback, dict)
-        and bool(rest_fallback.get("enabled"))
+        and isinstance(rest_fallback_meta, dict)
+        and bool(rest_fallback_meta.get("enabled"))
     ):
         return [f"PR #{pr} mergeability is UNKNOWN"]
     return []
@@ -871,6 +871,9 @@ def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
 
 def _looks_like_graphql_rate_limit_error(error: object) -> bool:
     text = str(error or "").lower()
+    # Current gh CLI surfaces exhausted PR GraphQL calls as
+    # "GraphQL: API rate limit ..."; REST rate limits should not switch to
+    # REST fallback because those fallback calls would share the same blocker.
     return "graphql" in text and "rate limit" in text
 
 

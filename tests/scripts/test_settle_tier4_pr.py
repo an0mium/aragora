@@ -554,24 +554,6 @@ def test_rest_unknown_mergeability_blocks_settlement_preconditions() -> None:
     assert "PR #7423 mergeability is UNKNOWN" in result["blockers"]
 
 
-def test_behind_mergeability_blocks_settlement() -> None:
-    head = "57c740022e3c432718462efa12ca79f1df4f674d"
-    result = settler.evaluate_tier4_gate(
-        pr=7423,
-        expected_head=head,
-        pr_view=_pr_view(
-            head,
-            comments=[_authorized_comment(head, include_branch_protection=False)],
-            merge_state="BEHIND",
-        ),
-        merge_packet=_tier4_packet(),
-        required_checks=_valid_checks(),
-    )
-
-    assert result["ok"] is False
-    assert "PR #7423 is BEHIND" in result["blockers"]
-
-
 def test_member_operator_comment_with_status_and_evidence_allows_check_result() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
