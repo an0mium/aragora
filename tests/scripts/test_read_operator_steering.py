@@ -148,6 +148,56 @@ def test_completed_outcome_receipt(tmp_path: Path, capsys: Any) -> None:
     assert receipt["outcome_note"] == "lane completed after steering"
 
 
+def test_default_reader_uses_codex_thread_before_owner(
+    tmp_path: Path, capsys: Any, monkeypatch: Any
+) -> None:
+    steering_root = tmp_path / "steering"
+    _write_message(steering_root, "codex-owner", "thread reader")
+    monkeypatch.delenv("ARAGORA_SESSION_ID", raising=False)
+    monkeypatch.delenv("CODEX_SESSION_ID", raising=False)
+    monkeypatch.setenv("CODEX_THREAD_ID", "codex-thread-123")
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-owner",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["read_by_session"] == "codex-thread-123"
+    receipts = _receipt_files(steering_root, "codex-owner")
+    receipt = json.loads(receipts[0].read_text(encoding="utf-8"))
+    assert receipt["read_by_session"] == "codex-thread-123"
+
+
+def test_aragora_session_id_still_wins_over_codex_thread(
+    tmp_path: Path, capsys: Any, monkeypatch: Any
+) -> None:
+    steering_root = tmp_path / "steering"
+    _write_message(steering_root, "codex-owner", "primary reader")
+    monkeypatch.setenv("ARAGORA_SESSION_ID", "aragora-session-123")
+    monkeypatch.setenv("CODEX_THREAD_ID", "codex-thread-123")
+
+    rc = ros.main(
+        [
+            "--to",
+            "codex-owner",
+            "--steering-inbox-root",
+            str(steering_root),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["read_by_session"] == "aragora-session-123"
+
+
 def test_rejects_unsafe_session_before_reading(tmp_path: Path, capsys: Any) -> None:
     rc = ros.main(
         [

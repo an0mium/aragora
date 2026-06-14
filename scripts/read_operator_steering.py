@@ -206,7 +206,10 @@ def write_read_receipt(
 
 def _default_read_by_session(owner_session: str) -> str:
     return (
-        os.environ.get("ARAGORA_SESSION_ID") or os.environ.get("CODEX_SESSION_ID") or owner_session
+        os.environ.get("ARAGORA_SESSION_ID")
+        or os.environ.get("CODEX_SESSION_ID")
+        or os.environ.get("CODEX_THREAD_ID")
+        or owner_session
     )
 
 
@@ -223,7 +226,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--read-by-session",
         default=None,
-        help="Session id recorded as receipt.read_by_session. Defaults to env/session target.",
+        help=(
+            "Session id recorded as receipt.read_by_session. Defaults to "
+            "ARAGORA_SESSION_ID, CODEX_SESSION_ID, CODEX_THREAD_ID, then the session target."
+        ),
     )
     parser.add_argument("--outcome", choices=OUTCOME_CHOICES, default="read")
     parser.add_argument("--outcome-note", default=None)
