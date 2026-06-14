@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -227,6 +228,24 @@ def build_comparison(global_suppressions: dict[str, int]) -> dict[str, object]:
     }
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Report codebase quality metrics")
     parser.add_argument("--json", action="store_true", help="JSON output")
@@ -255,43 +274,49 @@ def main() -> None:
         report["baseline_comparison"] = comparison
 
     if args.json:
-        print(json.dumps(report, indent=2))
+        output = json.dumps(report, indent=2)
     else:
-        print("=== Aragora Code Quality Report ===\n")
-
-        print("Subsystem Summary:")
+        lines = ["=== Aragora Code Quality Report ===", "", "Subsystem Summary:"]
         for sub in subsystems:
-            print(
+            lines.append(
                 f"  {sub['name']:20s} {sub['files']:4d} files  {sub['loc']:7d} LOC  "
                 f"test_ratio={sub['test_ratio']:.2f}  "
                 f"except_exc={sub['suppressions']['except_exception']}  "
                 f"noqa={sub['suppressions']['noqa']}"
             )
 
-        print("\nGlobal Suppressions (aragora/):")
+        lines.extend(["", "Global Suppressions (aragora/):"])
         for k, v in sorted(global_suppressions.items()):
             threshold = RATCHET.get(f"max_{k}", "")
             marker = f" (limit: {threshold})" if threshold else ""
-            print(f"  {k:20s} {v:5d}{marker}")
+            lines.append(f"  {k:20s} {v:5d}{marker}")
 
         if boss_metrics.get("available"):
-            print("\nBoss Loop Metrics:")
-            print(f"  Unique issues attempted: {boss_metrics['unique_issues']}")
-            print(f"  Issues completed: {boss_metrics['issues_completed']}")
-            print(f"  Per-issue success rate: {boss_metrics['per_issue_success_rate']:.1%}")
-            print(f"  Meets B0 target (>=50%): {boss_metrics['meets_b0_target']}")
+            lines.extend(
+                [
+                    "",
+                    "Boss Loop Metrics:",
+                    f"  Unique issues attempted: {boss_metrics['unique_issues']}",
+                    f"  Issues completed: {boss_metrics['issues_completed']}",
+                    f"  Per-issue success rate: {boss_metrics['per_issue_success_rate']:.1%}",
+                    f"  Meets B0 target (>=50%): {boss_metrics['meets_b0_target']}",
+                ]
+            )
 
         if comparison is not None:
-            print(
-                "\nBaseline Comparison:"
-                f"\n  baseline_date: {comparison.get('baseline_date') or 'unknown'}"
+            lines.extend(
+                [
+                    "",
+                    "Baseline Comparison:",
+                    f"  baseline_date: {comparison.get('baseline_date') or 'unknown'}",
+                ]
             )
             compared = comparison.get("global_suppressions", {})
             if isinstance(compared, dict):
                 for name, values in sorted(compared.items()):
                     if not isinstance(values, dict):
                         continue
-                    print(
+                    lines.append(
                         "  {name:20s} baseline={baseline:4d} current={current:4d} delta={delta:+d}".format(
                             name=name,
                             baseline=int(values.get("baseline", 0) or 0),
@@ -301,11 +326,14 @@ def main() -> None:
                     )
 
         if violations:
-            print(f"\nRatchet Violations ({len(violations)}):")
+            lines.extend(["", f"Ratchet Violations ({len(violations)}):"])
             for v in violations:
-                print(f"  FAIL: {v}")
+                lines.append(f"  FAIL: {v}")
         else:
-            print("\nRatchet: PASS (all thresholds met)")
+            lines.extend(["", "Ratchet: PASS (all thresholds met)"])
+        output = "\n".join(lines)
+
+    _emit_output(output)
 
     if args.check and violations:
         sys.exit(1)

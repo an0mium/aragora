@@ -172,6 +172,54 @@ def test_scan_boss_metrics_skips_missing_issue_numbers(
     assert metrics["per_issue_success_rate"] == 0.0
 
 
+def test_emit_output_suppresses_flush_time_broken_pipe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    muted: list[bool] = []
+
+    class FlushBrokenStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    stream = FlushBrokenStdout()
+    monkeypatch.setattr(report_code_quality.sys, "stdout", stream)
+    monkeypatch.setattr(
+        report_code_quality,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted.append(True),
+    )
+
+    report_code_quality._emit_output("payload")
+
+    assert stream.writes == ["payload", "\n"]
+    assert muted == [True]
+
+
+def test_main_json_uses_pipe_safe_emitter(monkeypatch: pytest.MonkeyPatch) -> None:
+    emitted: list[str] = []
+    monkeypatch.setattr(sys, "argv", ["report_code_quality.py", "--json"])
+    monkeypatch.setattr(
+        report_code_quality,
+        "scan_all_aragora",
+        lambda: {"except_exception": 0, "type_ignore": 0, "noqa": 0, "todo": 0, "fixme": 0},
+    )
+    monkeypatch.setattr(report_code_quality, "scan_boss_metrics", lambda: {"available": False})
+    monkeypatch.setattr(report_code_quality, "scan_subsystem", lambda name, path: {"name": name})
+    monkeypatch.setattr(report_code_quality, "_emit_output", emitted.append)
+
+    report_code_quality.main()
+
+    payload = json.loads(emitted[0])
+    assert payload["ratchet_violations"] == []
+
+
 def test_main_json_compare_includes_baseline_comparison(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
