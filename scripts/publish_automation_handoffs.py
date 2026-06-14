@@ -551,16 +551,39 @@ def _format_json_block(value: Any) -> str:
     return json.dumps(value, indent=2, sort_keys=True)
 
 
+def _outbox_task_title(payload: dict[str, Any]) -> str:
+    requested_action = _structured_action(payload.get("requested_action"))
+    action_title = requested_action.get("title") if requested_action is not None else ""
+    return str(payload.get("task") or payload.get("title") or action_title or "").strip()
+
+
+def _outbox_validation(payload: dict[str, Any]) -> Any:
+    validation = payload.get("validation")
+    if validation:
+        return validation
+    for evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        for key in ("validation", "validation_summary", "tests"):
+            value = evidence.get(key)
+            if value:
+                return value
+    metadata = payload.get("metadata")
+    if isinstance(metadata, Mapping):
+        value = metadata.get("validation")
+        if value:
+            return value
+    return None
+
+
 def _format_outbox_body(payload: dict[str, Any], source_file: Path) -> str:
     fields = [
-        ("Task", payload.get("task")),
+        ("Task", _outbox_task_title(payload)),
         ("Requested Action", payload.get("requested_action")),
-        ("Requires GitHub", payload.get("requires_github")),
+        ("Requires GitHub", payload.get("requires_github", True)),
         ("Repo", payload.get("repo")),
         ("Created At", payload.get("created_at")),
         ("Idempotency Key", payload.get("idempotency_key")),
         ("Local Evidence", payload.get("local_evidence")),
-        ("Validation", payload.get("validation")),
+        ("Validation", _outbox_validation(payload)),
     ]
     lines: list[str] = []
     for label, value in fields:
@@ -580,6 +603,18 @@ def _format_outbox_body(payload: dict[str, Any], source_file: Path) -> str:
 
 def _has_required_outbox_contract(payload: dict[str, Any]) -> bool:
     for key in REQUIRED_OUTBOX_KEYS:
+        if key == "task" and _outbox_task_title(payload):
+            continue
+        if key == "requires_github":
+            continue
+        if (
+            key == "repo"
+            and _normalized_requested_action(payload.get("requested_action"))
+            and _outbox_evidence_value(payload, "branch")
+        ):
+            continue
+        if key == "validation" and _outbox_validation(payload):
+            continue
         if key not in payload:
             return False
         value = payload[key]

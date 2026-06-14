@@ -190,6 +190,51 @@ def test_load_outbox_handoffs_parses_structured_json(tmp_path: Path) -> None:
     assert "Published from automation outbox" in handoffs[0].body
 
 
+def test_load_outbox_handoffs_accepts_title_as_task_fallback(tmp_path: Path) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    payload = _outbox_payload(
+        title="Publish title-only branch handoff",
+        local_evidence={"branch": "codex/title-only"},
+    )
+    del payload["task"]
+    (outbox / "title-only.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].task_title == "Publish title-only branch handoff"
+    assert handoffs[0].branch == "codex/title-only"
+
+
+def test_load_outbox_handoffs_accepts_inferable_outbox_fields(tmp_path: Path) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    payload = _outbox_payload(
+        title="Publish refreshed backlog audit branch",
+        requested_action={
+            "action": "open_or_update_pr",
+            "branch": "codex/backlog-summary",
+            "title": "Publish refreshed backlog audit branch",
+        },
+        local_evidence={
+            "branch": "codex/backlog-summary",
+            "tests": ["pytest tests/scripts/test_audit_codex_branch_backlog.py -q"],
+        },
+    )
+    for key in ("task", "requires_github", "repo", "validation"):
+        del payload[key]
+    (outbox / "inferable.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    handoffs = mod.load_outbox_handoffs(tmp_path)
+
+    assert len(handoffs) == 1
+    assert handoffs[0].task_title == "Publish refreshed backlog audit branch"
+    assert handoffs[0].branch == "codex/backlog-summary"
+    assert "Requires GitHub:\ntrue" in handoffs[0].body
+    assert "pytest tests/scripts/test_audit_codex_branch_backlog.py -q" in handoffs[0].body
+
+
 def test_load_outbox_handoffs_extracts_branch_from_list_local_evidence(
     tmp_path: Path,
 ) -> None:
@@ -919,7 +964,8 @@ def test_load_outbox_handoffs_skips_incomplete_contract_payloads(tmp_path: Path)
     outbox = tmp_path / ".aragora" / "automation-outbox"
     outbox.mkdir(parents=True)
 
-    for field in mod.REQUIRED_OUTBOX_KEYS:
+    required_keys = [key for key in mod.REQUIRED_OUTBOX_KEYS if key != "requires_github"]
+    for field in required_keys:
         payload = _outbox_payload(idempotency_key=f"missing-{field}")
         del payload[field]
         (outbox / f"missing-{field}.json").write_text(
