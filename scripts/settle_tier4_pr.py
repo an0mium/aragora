@@ -30,6 +30,9 @@ AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 AUTHORIZED_PROTECTION_TOKENS = ("branch_protection_reconcile", "branch protection reconcile")
 TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS = {"OWNER"}
 TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"MEMBER"}
+# GitHub reports some repo admins as COLLABORATOR rather than MEMBER. Keep
+# that association fail-closed: require both an explicit allowlist entry and a
+# live repo-admin permission check before accepting it for Tier 4 settlement.
 TRUSTED_OPERATOR_ALLOWLIST_ADMIN_ASSOCIATIONS = {"COLLABORATOR"}
 TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
 PermissionChecker = Callable[[str], bool]
