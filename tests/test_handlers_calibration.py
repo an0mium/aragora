@@ -467,3 +467,116 @@ class TestCalibrationEdgeCases:
 
         assert result is not None
         assert result.status_code == 200
+
+
+# ============================================================================
+# GET /api/agents/{id}/calibration-report Tests (issue #8229)
+# ============================================================================
+
+
+@pytest.fixture
+def report_elo(tmp_path):
+    """Real EloSystem on a temp DB with calibration data for 'claude'."""
+    from aragora.ranking.elo import EloSystem
+
+    elo = EloSystem(db_path=tmp_path / "elo.db")
+    EloSystem._rating_cache.clear()
+    engine = elo._domain_calibration_engine
+    engine.record_prediction("claude", "security", 0.8, correct=True)
+    engine.record_prediction("claude", "security", 0.7, correct=False)
+    engine.record_prediction("claude", "performance", 0.9, correct=True)
+    return elo
+
+
+@pytest.fixture
+def report_handler(report_elo):
+    """CalibrationHandler wired to the temp EloSystem."""
+    return CalibrationHandler({"elo_system": report_elo})
+
+
+class TestCalibrationReportRouting:
+    """Route matching for the calibration-report endpoint."""
+
+    def test_can_handle_report(self, calibration_handler):
+        assert calibration_handler.can_handle("/api/v1/agents/claude/calibration-report") is True
+        assert calibration_handler.can_handle("/api/agents/claude/calibration-report") is True
+
+    def test_cannot_handle_singular_agent_report(self, calibration_handler):
+        assert calibration_handler.can_handle("/api/v1/agent/claude/calibration-report") is False
+
+    def test_cannot_handle_report_without_agent_suffix(self, calibration_handler):
+        assert calibration_handler.can_handle("/api/v1/agents/calibration-report") is False
+
+
+class TestCalibrationReport:
+    """Tests for GET /api/agents/{id}/calibration-report."""
+
+    @pytest.mark.asyncio
+    async def test_report_success_with_data(self, report_handler):
+        result = await report_handler.handle("/api/v1/agents/claude/calibration-report", {}, None)
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["status"] == "ok"
+        assert data["agent"] == "claude"
+        assert data["overall"]["sample_size"] == 3
+        assert data["domains"]["by_domain"]["security"]["sample_size"] == 2
+        assert data["calibration_curve"]["sample_size"] == 3
+        assert data["expected_calibration_error"]["status"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_report_absent_for_unknown_agent(self, report_handler):
+        """Honest absence: HTTP 200 with explicit absent body, no invented numbers."""
+        result = await report_handler.handle(
+            "/api/v1/agents/ghost-agent/calibration-report", {}, None
+        )
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["status"] == "absent"
+        assert data["sample_size"] == 0
+        assert "reason" in data
+        assert "overall" not in data
+
+    @pytest.mark.asyncio
+    async def test_report_domain_filter(self, report_handler):
+        result = await report_handler.handle(
+            "/api/v1/agents/claude/calibration-report", {"domain": "security"}, None
+        )
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["domain_filter"] == "security"
+        assert set(data["domains"]["by_domain"]) == {"security"}
+
+    @pytest.mark.asyncio
+    async def test_report_sample_sizes_on_every_figure(self, report_handler):
+        result = await report_handler.handle("/api/v1/agents/claude/calibration-report", {}, None)
+        data = json.loads(result.body)
+        for block in ("overall", "domains", "calibration_curve", "expected_calibration_error"):
+            assert "sample_size" in data[block], f"{block} missing sample_size"
+        for bucket in data["calibration_curve"]["buckets"]:
+            assert "sample_size" in bucket
+
+    @pytest.mark.asyncio
+    async def test_report_invalid_agent_name_rejected(self, report_handler):
+        result = await report_handler.handle(
+            "/api/v1/agents/..%2F..%2Fetc/calibration-report", {}, None
+        )
+        assert result is not None
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_report_elo_unavailable(self, report_handler):
+        import aragora.server.handlers.agents.calibration as mod
+
+        original = mod.ELO_AVAILABLE
+        mod.ELO_AVAILABLE = False
+        try:
+            result = await report_handler.handle(
+                "/api/v1/agents/claude/calibration-report", {}, None
+            )
+            assert result is not None
+            assert result.status_code == 503
+        finally:
+            mod.ELO_AVAILABLE = original

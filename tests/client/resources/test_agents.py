@@ -40,6 +40,41 @@ class TestAgentsAPI:
         assert hasattr(client.agents, "get_calibration")
         assert hasattr(client.agents, "get_calibration_async")
 
+    def test_agents_api_has_calibration_report_methods(self):
+        """Test that AgentsAPI has auditable calibration report methods (issue #8229)."""
+        client = AragoraClient()
+        assert hasattr(client.agents, "get_calibration_report")
+        assert hasattr(client.agents, "get_calibration_report_async")
+        assert callable(client.agents.get_calibration_report)
+
+    def test_get_calibration_report_request_path(self, monkeypatch):
+        """Report method hits the plural /agents/ calibration-report endpoint."""
+        client = AragoraClient()
+        captured = {}
+
+        def fake_get(path, params=None):
+            captured["path"] = path
+            captured["params"] = params
+            return {"agent": "claude", "status": "ok", "sample_size": 3}
+
+        monkeypatch.setattr(client.agents._client, "_get", fake_get)
+        result = client.agents.get_calibration_report("claude", domain="security")
+        assert captured["path"] == "/api/v1/agents/claude/calibration-report"
+        assert captured["params"] == {"domain": "security"}
+        assert result["status"] == "ok"
+
+    def test_get_calibration_report_absent_passthrough(self, monkeypatch):
+        """Absent bodies are returned verbatim — no fabrication client-side."""
+        client = AragoraClient()
+        absent = {
+            "agent": "ghost",
+            "status": "absent",
+            "reason": "no calibration data recorded for this agent",
+            "sample_size": 0,
+        }
+        monkeypatch.setattr(client.agents._client, "_get", lambda path, params=None: absent)
+        assert client.agents.get_calibration_report("ghost") == absent
+
     def test_agents_api_has_performance_methods(self):
         """Test that AgentsAPI has performance methods."""
         client = AragoraClient()

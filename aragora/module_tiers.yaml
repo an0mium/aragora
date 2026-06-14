@@ -36,7 +36,7 @@ modules:
     tier: core
     py_files: 83
     importer_count: 184
-    test_file_count: 164
+    test_file_count: 165
     override_reason: "Agent factory, 43 registered types"
   - name: billing
     tier: core
@@ -52,7 +52,7 @@ modules:
   - name: config
     tier: core
     py_files: 17
-    importer_count: 359
+    importer_count: 360
     test_file_count: 86
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
@@ -64,7 +64,7 @@ modules:
     tier: core
     py_files: 19
     importer_count: 207
-    test_file_count: 195
+    test_file_count: 196
     override_reason: "root type hierarchy + Agent base class"
   - name: db
     tier: core
@@ -76,7 +76,7 @@ modules:
     tier: core
     py_files: 263
     importer_count: 162
-    test_file_count: 597
+    test_file_count: 598
     override_reason: "Arena + DebateProtocol + consensus — mainline flow"
   - name: events
     tier: core
@@ -97,7 +97,7 @@ modules:
     tier: core
     py_files: 56
     importer_count: 114
-    test_file_count: 116
+    test_file_count: 117
     override_reason: "ContinuumMemory + CritiqueStore — persistent state"
   - name: nomic
     tier: core
@@ -116,9 +116,9 @@ modules:
     test_file_count: 125
   - name: ranking
     tier: core
-    py_files: 25
-    importer_count: 72
-    test_file_count: 55
+    py_files: 26
+    importer_count: 74
+    test_file_count: 58
     override_reason: "ELO skill tracking — feeds team selection"
   - name: rbac
     tier: core
@@ -139,7 +139,7 @@ modules:
     tier: core
     py_files: 1115
     importer_count: 180
-    test_file_count: 1886
+    test_file_count: 1887
     override_reason: "FastAPI server + 3K+ API operations"
   - name: storage
     tier: core
@@ -469,7 +469,7 @@ modules:
     tier: integrated
     py_files: 6
     importer_count: 2
-    test_file_count: 7
+    test_file_count: 8
   - name: reputation
     tier: integrated
     py_files: 11
