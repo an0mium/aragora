@@ -163,6 +163,78 @@ lanes:
     assert mission.lanes[0].lane_id == "impl"
 
 
+def test_main_validate_json_suppresses_flush_time_broken_pipe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import goal_conductor as mod
+
+    mission_path = tmp_path / "mission.yaml"
+    mission_path.write_text(
+        """
+name: pipe-smoke
+objective: Verify sampled JSON output.
+lanes:
+  - id: panel
+    mode: panel
+    goal: Review sampled output.
+    prompt: Review only.
+""",
+        encoding="utf-8",
+    )
+
+    class FlushBrokenStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+            self.closed = False
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = FlushBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    assert mod.main(["validate", "--mission", str(mission_path), "--json"]) == 0
+    assert stream.writes
+    assert stream.closed is True
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
+def test_emit_output_suppresses_write_time_broken_pipe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import goal_conductor as mod
+
+    class WriteBrokenStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def write(self, text: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not run after write failure")
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = WriteBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    mod._emit_output("payload")
+
+    assert stream.closed is True
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
 def test_run_once_blocks_mutating_lane_at_queue_cap_but_allows_panel(tmp_path: Path) -> None:
     import goal_conductor as mod
 
