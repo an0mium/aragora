@@ -95,6 +95,10 @@ QUORUM_STATE_LOCK_STALE_SECONDS = 15 * 60
 _REVIEWER_RESULT_QUEUE_TIMEOUT = 1.0
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
+# Marker left in place of a changed file's omitted hunk once the per-file diff
+# budget is exhausted. The complete changed-file list always precedes the body,
+# so a reviewer can still confirm every file is present.
+_PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
 _CLAUDE_TIMEOUT = 300
@@ -340,22 +344,119 @@ def compose_evidence_comment(
     )
 
 
-def build_review_prompt(*, repo: str, pr: int | str, head_sha: str, diff_text: str) -> str:
-    """Adversarial review prompt grounded on the exact head; diff is bounded."""
+def _split_unified_diff(diff: str) -> list[str]:
+    """Split a unified diff into one segment per file on ``diff --git`` headers.
+
+    Any preamble before the first ``diff --git`` is returned as a leading segment
+    so no bytes are lost. Each segment keeps its own ``diff --git`` header so a
+    reviewer can still identify the file even when the segment is later truncated.
+    """
+    segments: list[str] = []
+    current: list[str] = []
+    for line in diff.splitlines(keepends=True):
+        if line.startswith("diff --git ") and current:
+            segments.append("".join(current))
+            current = [line]
+        else:
+            current.append(line)
+    if current:
+        segments.append("".join(current))
+    return segments
+
+
+def _bound_diff_body(diff: str, max_chars: int) -> tuple[str, bool]:
+    """Bound a unified diff to ``max_chars`` without dropping whole files.
+
+    A naive ``diff[:max_chars]`` keeps only the files that sort before the budget
+    runs out, so a large deletion that sorts before later additions can hide
+    those additions entirely and let a reviewer wrongly report the added files as
+    absent. Instead the budget is shared across files (smallest first, each
+    file's unused budget flowing to the rest) so every changed file contributes
+    at least a hunk. Returns ``(text, truncated)``.
+    """
+    if len(diff) <= max_chars:
+        return diff, False
+    segments = _split_unified_diff(diff)
+    if len(segments) <= 1:
+        return diff[:max_chars].rstrip() + _PER_FILE_TRUNCATION_MARKER, True
+    allocations = [0] * len(segments)
+    remaining_budget = max_chars
+    remaining_files = len(segments)
+    for index in sorted(range(len(segments)), key=lambda i: len(segments[i])):
+        share = remaining_budget // remaining_files if remaining_files else 0
+        take = min(len(segments[index]), share)
+        allocations[index] = take
+        remaining_budget -= take
+        remaining_files -= 1
+    truncated = False
+    parts: list[str] = []
+    for segment, budget in zip(segments, allocations):
+        if budget >= len(segment):
+            parts.append(segment)
+        else:
+            truncated = True
+            parts.append(segment[:budget].rstrip() + _PER_FILE_TRUNCATION_MARKER)
+    return "".join(parts), truncated
+
+
+def _file_list_from_diff(diff: str) -> str:
+    """Best-effort changed-file list parsed from a unified diff's headers.
+
+    Fallback for when ``gh pr diff --name-status`` could not be fetched, so the
+    prompt's changed-file section stays complete and a reviewer can never call a
+    listed file absent.
+    """
+    paths: list[str] = []
+    seen: set[str] = set()
+    for line in diff.splitlines():
+        if not line.startswith("diff --git "):
+            continue
+        rest = line[len("diff --git ") :].strip()
+        marker = rest.rfind(" b/")
+        path = rest[marker + len(" b/") :].strip() if marker != -1 else rest
+        if path and path not in seen:
+            seen.add(path)
+            paths.append(path)
+    return "\n".join(paths)
+
+
+def build_review_prompt(
+    *,
+    repo: str,
+    pr: int | str,
+    head_sha: str,
+    diff_text: str,
+    name_status: str = "",
+) -> str:
+    """Adversarial review prompt grounded on the exact head.
+
+    The complete changed-file list (from ``gh pr diff --name-status`` or, as a
+    fallback, the file headers parsed from the diff) is always included in full
+    so a reviewer can never falsely report a file/module as absent. Only the
+    unified-diff body is bounded, and it is bounded per-file (so a large deletion
+    that sorts before later additions can no longer hide them) rather than by a
+    blind first-N-bytes slice.
+    """
     diff = diff_text.strip()
-    truncated = ""
-    if len(diff) > _MAX_DIFF_CHARS:
-        diff = diff[:_MAX_DIFF_CHARS]
-        truncated = "\n\n[diff truncated for length]"
+    file_list = name_status.strip() or _file_list_from_diff(diff)
+    file_count = sum(1 for line in file_list.splitlines() if line.strip())
+    bounded, truncated = _bound_diff_body(diff, _MAX_DIFF_CHARS)
     short = head_sha[:7]
+    body_header = f"=== DIFF (head {short}) ==="
+    if truncated:
+        body_header = (
+            f"=== DIFF (head {short}; some hunks omitted for length - the CHANGED FILES "
+            "list above is complete, so treat every listed path as present) ==="
+        )
     return (
         "You are an adversarial senior reviewer giving an independent model review. "
-        f"Review ONLY the diff below for PR #{pr} in {repo} at head {short}. "
+        f"Review ONLY the changes below for PR #{pr} in {repo} at head {short}. "
         "Look hard for correctness, security, and regression risks. "
         "Begin your reply with 'Verdict: PASS' or 'Verdict: CHANGES-REQUESTED', then a terse "
         "bullet list of concrete findings each tagged [P1]/[P2]/[P3] with a location, or state "
         "explicitly that there are no blocking issues. Be concise.\n\n"
-        f"=== DIFF (head {short}) ===\n{diff}{truncated}\n"
+        f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
+        f"{body_header}\n{bounded}\n"
     )
 
 
@@ -637,6 +738,26 @@ async def _close_api_agent_resources(agent: Any) -> None:
         logger.debug("collect-evidence shared connector close failed: %s", exc)
 
 
+def _fetch_name_status(repo: str, pr: int) -> str:
+    """Best-effort complete changed-file list via ``gh pr diff --name-status``.
+
+    Supplementary to the (bounded) diff body, so a failure here must never change
+    the builder's raise/return semantics: ``build_review_prompt`` falls back to
+    parsing file headers from the diff when this is empty.
+    """
+    try:
+        proc = merge_quorum_io.run(
+            ["gh", "pr", "diff", str(pr), "--repo", repo, "--name-status"],
+            env=merge_quorum_io.aragora_env(),
+            timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout or ""
+
+
 def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
     head_sha = str(ctx.get("head_sha") or "")
     proc = merge_quorum_io.run(
@@ -654,6 +775,9 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
     diff_text = proc.stdout or ""
     if not diff_text.strip():
         raise RuntimeError(f"PR #{pr} has an empty diff; nothing to review")
+    # Best-effort complete changed-file list so the reviewer always sees every
+    # path even when the diff body is bounded; never alters the raise/return below.
+    name_status = _fetch_name_status(repo, pr)
     # Pin the diff to the resolved head: `gh pr diff` returns whatever the head
     # is at call time, so if it moved between context resolution and now the
     # reviewer would see a different diff than the comment claims to ground on.
@@ -682,7 +806,9 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
         raise RuntimeError(
             f"head moved during diff fetch for PR #{pr} ({head_sha[:7]} -> {live_head[:7]}); retry"
         )
-    return build_review_prompt(repo=repo, pr=pr, head_sha=head_sha, diff_text=diff_text)
+    return build_review_prompt(
+        repo=repo, pr=pr, head_sha=head_sha, diff_text=diff_text, name_status=name_status
+    )
 
 
 def default_linter(
