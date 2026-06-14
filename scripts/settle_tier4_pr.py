@@ -43,6 +43,7 @@ SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
 SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER = "admin/OWNER permission required for --settle-only"
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
+BLOCKING_MERGE_STATES = {"DIRTY", "CONFLICTING", "BEHIND"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
@@ -511,6 +512,20 @@ def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: 
         return False
 
 
+def _mergeability_blockers(*, pr: int, pr_view: dict[str, Any]) -> list[str]:
+    merge_state = str(pr_view.get("mergeStateStatus") or "")
+    if merge_state in BLOCKING_MERGE_STATES:
+        return [f"PR #{pr} is {merge_state}"]
+    rest_fallback = pr_view.get("_rest_fallback")
+    if (
+        merge_state == "UNKNOWN"
+        and isinstance(rest_fallback, dict)
+        and bool(rest_fallback.get("enabled"))
+    ):
+        return [f"PR #{pr} mergeability is UNKNOWN"]
+    return []
+
+
 def _required_check_name(check: dict[str, Any]) -> str:
     return str(check.get("name") or check.get("workflow") or "required check")
 
@@ -648,10 +663,7 @@ def evaluate_tier4_gate(
     if bool(pr_view.get("isDraft")):
         blockers.append(f"PR #{pr} is draft")
     merge_state = str(pr_view.get("mergeStateStatus") or "")
-    if merge_state in {"DIRTY", "CONFLICTING"}:
-        blockers.append(f"PR #{pr} is {merge_state}")
-    if merge_state == "UNKNOWN":
-        blockers.append(f"PR #{pr} mergeability is UNKNOWN")
+    blockers.extend(_mergeability_blockers(pr=pr, pr_view=pr_view))
     for check in required_checks or []:
         name = _required_check_name(check)
         state = _required_check_state(check)
@@ -747,10 +759,7 @@ def evaluate_tier4_settlement_preconditions(
     if bool(pr_view.get("isDraft")):
         blockers.append(f"PR #{pr} is draft")
     merge_state = str(pr_view.get("mergeStateStatus") or "")
-    if merge_state in {"DIRTY", "CONFLICTING"}:
-        blockers.append(f"PR #{pr} is {merge_state}")
-    if merge_state == "UNKNOWN":
-        blockers.append(f"PR #{pr} mergeability is UNKNOWN")
+    blockers.extend(_mergeability_blockers(pr=pr, pr_view=pr_view))
 
     if not required_checks:
         blockers.append(REQUIRED_CHECKS_BLOCKER)
@@ -832,7 +841,7 @@ def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
 
 def _looks_like_graphql_rate_limit_error(error: object) -> bool:
     text = str(error or "").lower()
-    return "rate limit" in text
+    return "graphql" in text and "rate limit" in text
 
 
 def _gh_json_for_rest_fallback(command: list[str], *, cwd: Path) -> Any:
@@ -899,6 +908,28 @@ def _commit_status_state(status: dict[str, Any]) -> str:
     return "UNKNOWN"
 
 
+def _strict_branch_freshness_state(
+    *, repo: str, base_ref: str, head: str, gh_json: Callable[[list[str]], Any]
+) -> str:
+    try:
+        payload = gh_json(
+            [
+                "api",
+                f"repos/{repo}/compare/{quote(base_ref, safe='')}...{quote(head, safe='')}",
+            ]
+        )
+    except Exception:
+        return "UNKNOWN"
+    if not isinstance(payload, dict):
+        return "UNKNOWN"
+    status = str(payload.get("status") or "").strip().lower()
+    if status in {"ahead", "identical"}:
+        return "SUCCESS"
+    if status in {"behind", "diverged"}:
+        return "FAILURE"
+    return "UNKNOWN"
+
+
 def _required_checks_from_rest(
     pr_view: dict[str, Any], *, cwd: Path, repo: str
 ) -> list[dict[str, str]]:
@@ -941,7 +972,17 @@ def _required_checks_from_rest(
         checks.append({"name": context, "state": state})
 
     if protection.get("strict"):
-        checks.append({"name": "strict branch-protection freshness", "state": "UNKNOWN"})
+        checks.append(
+            {
+                "name": "strict branch-protection freshness",
+                "state": _strict_branch_freshness_state(
+                    repo=repo,
+                    base_ref=base_ref,
+                    head=head,
+                    gh_json=gh_json,
+                ),
+            }
+        )
     return checks
 
 
