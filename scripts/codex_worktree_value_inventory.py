@@ -35,9 +35,9 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from audit_codex_branch_backlog import (  # noqa: E402
     DEFAULT_OUTBOX_DIR,
     DEFAULT_RECEIPT_DIR,
-    TERMINAL_RECEIPT_STATUSES,
     _commit_prefix_matches,
     is_patch_equivalent,
+    is_terminal_receipt_status,
     terminal_receipted_handoff_branch_heads,
     unresolved_outbox_handoff_branches,
 )
@@ -429,7 +429,7 @@ def _receipt_path_head_pairs(
 
 def _terminal_path_receipt(payload: dict[str, Any]) -> bool:
     status = str(payload.get("status") or "").strip()
-    if status in TERMINAL_RECEIPT_STATUSES:
+    if is_terminal_receipt_status(status):
         return True
     decision = str(payload.get("decision") or "").strip()
     if decision.startswith(TERMINAL_HARVEST_DECISION_PREFIXES):

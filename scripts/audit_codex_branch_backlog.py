@@ -40,6 +40,15 @@ DEFAULT_RECEIPT_DIR = Path(".aragora/automation-receipts")
 DEFAULT_GITHUB_STATUS_CACHE = Path(".aragora/automation-github-status/latest.json")
 DEFAULT_CACHED_OPEN_PR_HEADS_MAX_AGE_HOURS = 24
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
+TERMINAL_RECEIPT_STATUS_PREFIXES = (
+    "checkout_retired_",
+    "checkout_unregistered_",
+    "completed_",
+    "patch_equivalent_to_",
+    "removed_",
+    "retired_",
+    "superseded_by_",
+)
 COMMIT_PREFIX_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 BRANCH_IDEMPOTENCY_PREFIXES = ("open-pr-", "already-satisfied-")
 DEFAULT_GITHUB_HEALTH_TIMEOUT_SECONDS = 5
@@ -328,12 +337,19 @@ def terminal_handoff_keys(receipt_root: Path) -> set[str]:
         payload = _json_mapping(receipt_file)
         if payload is None:
             continue
-        if str(payload.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
+        if not is_terminal_receipt_status(str(payload.get("status") or "")):
             continue
         idempotency_key = str(payload.get("idempotency_key") or receipt_file.stem).strip()
         if idempotency_key:
             terminal_keys.add(idempotency_key)
     return terminal_keys
+
+
+def is_terminal_receipt_status(status: str) -> bool:
+    normalized = status.strip().lower()
+    return normalized in TERMINAL_RECEIPT_STATUSES or normalized.startswith(
+        TERMINAL_RECEIPT_STATUS_PREFIXES
+    )
 
 
 def terminal_key_matches_branch_head(idempotency_key: str, branch: str, head_sha: str) -> bool:
@@ -506,7 +522,7 @@ def terminal_receipt_branches(receipt_root: Path) -> set[str]:
         payload = _json_mapping(receipt_file)
         if payload is None:
             continue
-        if str(payload.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
+        if not is_terminal_receipt_status(str(payload.get("status") or "")):
             continue
         branches.update(_outbox_payload_branches(payload))
     return branches
@@ -520,7 +536,7 @@ def terminal_receipt_branch_heads(receipt_root: Path) -> dict[str, set[str | Non
         payload = _json_mapping(receipt_file)
         if payload is None:
             continue
-        if str(payload.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
+        if not is_terminal_receipt_status(str(payload.get("status") or "")):
             continue
         for branch, heads in _outbox_payload_branch_heads(payload).items():
             refs[branch].update(heads)
@@ -543,7 +559,7 @@ def _archived_outbox_receipt_branches(
         receipt = _json_mapping(receipt_file)
         if receipt is None:
             continue
-        if str(receipt.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
+        if not is_terminal_receipt_status(str(receipt.get("status") or "")):
             continue
         idempotency_key = str(receipt.get("idempotency_key") or receipt_file.stem).strip()
         if idempotency_key not in terminal_keys:
@@ -587,7 +603,7 @@ def _archived_outbox_receipt_branch_heads(
         receipt = _json_mapping(receipt_file)
         if receipt is None:
             continue
-        if str(receipt.get("status") or "") not in TERMINAL_RECEIPT_STATUSES:
+        if not is_terminal_receipt_status(str(receipt.get("status") or "")):
             continue
         idempotency_key = str(receipt.get("idempotency_key") or receipt_file.stem).strip()
         if idempotency_key not in terminal_keys:

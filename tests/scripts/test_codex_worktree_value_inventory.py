@@ -383,6 +383,30 @@ def test_terminal_path_receipt_classification_blocks_branchless_candidate(
     assert "terminal receipt references path/head" in candidate.proof
 
 
+def test_terminal_path_receipt_accepts_cleanup_status_variant(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    repo_path = tmp_path / "worktree" / "aragora"
+    repo_path.mkdir(parents=True)
+    receipt_root = tmp_path / "receipts"
+    receipt_root.mkdir()
+    (receipt_root / "receipt.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": "retire-local-codex-example-abcdef1",
+                "status": "retired_local_branch_worktree",
+                "worktree": str(repo_path),
+                "head_sha": "abcdef123456",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.terminal_receipt_path_heads([receipt_root]) == {
+        str(repo_path.resolve()): {"abcdef123456"}
+    }
+
+
 def test_terminal_path_receipt_head_mismatch_stays_unique(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

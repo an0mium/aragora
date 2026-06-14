@@ -57,7 +57,12 @@ TERMINAL_RECEIPT_STATUSES = {
     "skipped",
 }
 TERMINAL_RECEIPT_STATUS_PREFIXES = (
+    "checkout_retired_",
+    "checkout_unregistered_",
+    "completed_",
     "patch_equivalent_to_",
+    "removed_",
+    "retired_",
     "superseded_by_",
 )
 DUPLICATE_OUTBOX_EXAMPLE_LIMIT = 20
