@@ -22,7 +22,7 @@ AUTHORIZED_MARKER = "Tier-4 Human Settlement Authorization"
 AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 AUTHORIZED_PROTECTION_TOKENS = ("branch_protection_reconcile", "branch protection reconcile")
 TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS = {"OWNER"}
-TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"MEMBER"}
+TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"COLLABORATOR", "MEMBER"}
 TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
 PermissionChecker = Callable[[str], bool]
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
@@ -1255,9 +1255,9 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help=(
-            "Restrict repo-visible MEMBER authorization comments to this admin "
+            "Restrict repo-visible MEMBER/COLLABORATOR authorization comments to this admin "
             "login. Repeatable; also reads comma-separated "
-            f"{TRUSTED_OPERATOR_LOGINS_ENV}. If omitted, any live admin MEMBER "
+            f"{TRUSTED_OPERATOR_LOGINS_ENV}. If omitted, any live admin MEMBER/COLLABORATOR "
             f"may authorize when {HUMAN_SETTLEMENT_CONTEXT} is success. "
             "--settle-only additionally requires the invoking gh login to be "
             "present in this allowlist and have admin/OWNER authority."

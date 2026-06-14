@@ -338,6 +338,31 @@ def test_configured_trusted_member_comment_authorizes(monkeypatch: Any) -> None:
     assert result["blockers"] == []
 
 
+def test_configured_trusted_collaborator_comment_authorizes(monkeypatch: Any) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    monkeypatch.setenv("ARAGORA_TIER4_TRUSTED_OPERATORS", "trusted-admin")
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="COLLABORATOR",
+                    author="trusted-admin",
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        permission_checker=lambda login: login == "trusted-admin",
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
 def test_configured_trusted_member_permission_check_runs_once(monkeypatch: Any) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     checked_logins: list[str] = []
@@ -382,6 +407,31 @@ def test_trusted_member_comment_requires_admin_permission(monkeypatch: Any) -> N
     assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
 
 
+def test_trusted_collaborator_comment_requires_admin_permission(monkeypatch: Any) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    monkeypatch.setenv("ARAGORA_TIER4_TRUSTED_OPERATORS", "trusted-collaborator")
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="COLLABORATOR",
+                    author="trusted-collaborator",
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        permission_checker=lambda login: False,
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+
+
 def test_admin_member_comment_does_not_require_explicit_allowlist() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
@@ -398,6 +448,47 @@ def test_admin_member_comment_does_not_require_explicit_allowlist() -> None:
 
     assert result["ok"] is True
     assert result["blockers"] == []
+
+
+def test_settle_only_trusted_admin_collaborator_matches_check_rule() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    precondition = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_packet(),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+        trusted_operator_logins=["trusted-admin"],
+        invoker_login="trusted-admin",
+        invoker_has_admin_permission=True,
+        require_trusted_invoker=True,
+        require_invoker_admin_permission=True,
+    )
+    check = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="COLLABORATOR",
+                    author="trusted-admin",
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-admin"],
+        permission_checker=lambda login: login == "trusted-admin",
+    )
+
+    assert precondition["ok"] is True
+    assert check["ok"] is True
+    assert check["blockers"] == []
 
 
 def test_cli_trusted_operator_login_authorizes_member_comment(
