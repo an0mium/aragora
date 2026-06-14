@@ -35,6 +35,7 @@ import os
 import queue
 import re
 import subprocess
+import tempfile
 import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
@@ -97,9 +98,17 @@ _MAX_DIFF_CHARS = 60_000
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
 _CLAUDE_TIMEOUT = 300
+_CODEX_TIMEOUT = 300
 _REVIEWER_TIMEOUT = 300
 _CLAUDE_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS"
+_CODEX_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS"
+_CODEX_MODEL_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODEL"
+_CODEX_MODELS_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODELS"
+_CODEX_DEFAULT_MODELS = ("gpt-5.5", "gpt-5")
+_CODEX_DEFAULT_MODEL = _CODEX_DEFAULT_MODELS[0]
 _REVIEWER_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS"
+_CODEX_OPENAI_HARNESS = "Codex CLI OpenAI harness"
+_CODEX_APPROVAL_POLICY_CONFIG = 'approval_policy="never"'
 _REVIEWER_CLEANUP_TIMEOUT = 10
 
 
@@ -135,6 +144,7 @@ class ReviewerResult:
     text: str
     ok: bool
     error: str = ""
+    harness: str = ""
 
 
 @dataclass
@@ -357,6 +367,8 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     fam = family.strip().lower()
     if fam == "claude":
         return _run_claude_cli(prompt)
+    if fam == "openai":
+        return _run_openai_reviewer(prompt)
     return _run_api_agent(fam, prompt)
 
 
@@ -390,6 +402,120 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
             f"claude CLI exit {proc.returncode}: {(proc.stderr or '').strip()[:200]}",
         )
     return ReviewerResult("claude", _cap_text(text), True)
+
+
+def _run_openai_reviewer(prompt: str) -> ReviewerResult:
+    """Run OpenAI evidence via direct API when available, else Codex CLI.
+
+    Operator machines often have Codex subscription auth but no direct
+    ``OPENAI_API_KEY``. In that case Codex CLI is the local OpenAI-family
+    reviewer; the normal exact-head comment composition and lint-before-post
+    paths still decide whether the resulting evidence can count.
+    """
+    if os.environ.get("OPENAI_API_KEY", "").strip():
+        return _run_api_agent("openai", prompt)
+    return _run_codex_openai_cli(prompt)
+
+
+def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
+    timeout = _timeout_seconds(_CODEX_TIMEOUT_ENV, _CODEX_TIMEOUT)
+    model_candidates = _codex_model_candidates()
+    model_errors: list[str] = []
+    for index, model in enumerate(model_candidates):
+        output_path = ""
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", suffix=".md", prefix="aragora-codex-openai-review-", delete=False
+            ) as fh:
+                output_path = fh.name
+            cmd = _codex_openai_command(output_path, model=model)
+            proc = subprocess.run(
+                cmd,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+            text = ""
+            if output_path and os.path.exists(output_path):
+                with open(output_path, encoding="utf-8") as fh:
+                    text = fh.read().strip()
+            if not text:
+                text = (proc.stdout or "").strip()
+            if proc.returncode != 0 or not text:
+                detail = (proc.stderr or proc.stdout or "").strip()[:200]
+                if index < len(model_candidates) - 1 and _codex_model_selection_failed(detail):
+                    model_errors.append(f"{model}: {detail}")
+                    continue
+                if model_errors:
+                    detail = (
+                        f"{detail}; previous model selection failures: {'; '.join(model_errors)}"
+                    )
+                return ReviewerResult(
+                    "openai", "", False, f"codex CLI exit {proc.returncode}: {detail}"
+                )
+            return ReviewerResult("openai", _cap_text(text), True, harness=_CODEX_OPENAI_HARNESS)
+        except FileNotFoundError:
+            return ReviewerResult("openai", "", False, "codex CLI not found on PATH")
+        except subprocess.TimeoutExpired:
+            return ReviewerResult(
+                "openai", "", False, f"codex CLI timed out after {_format_seconds(timeout)}s"
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return ReviewerResult("openai", "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+        finally:
+            if output_path:
+                try:
+                    os.unlink(output_path)
+                except OSError:
+                    pass
+    return ReviewerResult("openai", "", False, "codex CLI has no configured model candidates")
+
+
+def _codex_model_candidates() -> list[str]:
+    pinned_model = os.environ.get(_CODEX_MODEL_ENV, "").strip()
+    if pinned_model:
+        return [pinned_model]
+    raw_models = os.environ.get(_CODEX_MODELS_ENV, "").strip()
+    candidates = re.split(r"[\s,]+", raw_models) if raw_models else list(_CODEX_DEFAULT_MODELS)
+    return list(dict.fromkeys(model.strip() for model in candidates if model.strip()))
+
+
+def _codex_openai_command(output_path: str, *, model: str) -> list[str]:
+    cmd = [
+        "codex",
+        "exec",
+        "--ignore-user-config",
+        "-c",
+        _CODEX_APPROVAL_POLICY_CONFIG,
+        "--sandbox",
+        "read-only",
+        "--ephemeral",
+        "--output-last-message",
+        output_path,
+    ]
+    if model:
+        cmd.extend(["--model", model])
+    cmd.append("-")
+    return cmd
+
+
+def _codex_model_selection_failed(detail: str) -> bool:
+    lower = detail.lower()
+    if "model" not in lower:
+        return False
+    return any(
+        marker in lower
+        for marker in (
+            "not supported",
+            "not available",
+            "unsupported",
+            "unknown",
+            "invalid",
+            "unrecognized",
+        )
+    )
 
 
 def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
@@ -781,6 +907,7 @@ def collect_evidence(
             head_committed_at=head_committed_at,
             pr=pr,
             reviewer_text=result.text,
+            harness=result.harness,
         )
         lint = linter(pr, head_sha, head_committed_at, author, body, env or {})
         outcome.items.append(

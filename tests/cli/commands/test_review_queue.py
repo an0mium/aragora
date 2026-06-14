@@ -5142,6 +5142,30 @@ class TestCommandDispatch:
         assert ns_evidence_lint.head_sha == "headsha123"
         assert ns_evidence_lint.body_file is None
         assert ns_evidence_lint.json is True
+        # collect-evidence invocation parses through the fast-path command parser
+        ns_collect = root.parse_args(
+            [
+                "review-queue",
+                "collect-evidence",
+                "--repo",
+                "synaptent/aragora",
+                "--pr",
+                "6280",
+                "--reviewers",
+                "claude",
+                "openai",
+                "--author",
+                "an0mium",
+                "--json",
+            ]
+        )
+        assert ns_collect.review_queue_command == "collect-evidence"
+        assert ns_collect.repo == "synaptent/aragora"
+        assert ns_collect.pr == 6280
+        assert ns_collect.reviewers == ["claude", "openai"]
+        assert ns_collect.author == "an0mium"
+        assert ns_collect.apply is False
+        assert ns_collect.json_output is True
         # run invocation parses
         ns_run = root.parse_args(["review-queue", "run", "--limit", "3", "--ready-only"])
         assert ns_run.review_queue_command == "run"

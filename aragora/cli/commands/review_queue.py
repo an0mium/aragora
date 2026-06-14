@@ -680,6 +680,34 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     evidence_lint_p.add_argument("--json", action="store_true", help="Output as JSON")
 
+    collect_evidence_p = sub.add_parser(
+        "collect-evidence",
+        help="Run genuine model reviewers, lint their evidence, post only if tier allows",
+        description=(
+            "Run >=2 genuine heterogeneous model reviewers against a PR's exact head, "
+            "compose evidence comments the quorum parsers recognize, and validate each "
+            "with evidence-lint before posting. Only Tier 0-2 PRs auto-post (with "
+            "--apply); Tier 3-4 always prepare evidence for operator settlement. "
+            "Defaults to a dry run that posts nothing."
+        ),
+    )
+    collect_evidence_arg = collect_evidence_p.add_argument
+    collect_evidence_arg("--pr", required=True, type=int, help="PR number to collect evidence for")
+    collect_evidence_arg("--repo", default="", help="owner/name target repo (default: gh context)")
+    collect_evidence_arg(
+        "--reviewers",
+        nargs="+",
+        default=None,
+        help="reviewer model families to run (default: claude grok)",
+    )
+    collect_evidence_arg(
+        "--author", default=None, help="GitHub login for evidence-lint (default: gh user)"
+    )
+    collect_evidence_arg(
+        "--apply", action="store_true", help="Post Tier 0-2 evidence; Tier 3-4 prepare only."
+    )
+    collect_evidence_arg("--json", dest="json_output", action="store_true", help="Output as JSON")
+
     lint_comment_p = sub.add_parser(
         "lint-comment",
         help="Dry-run whether a proposed reviewer comment will count before posting",
