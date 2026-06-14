@@ -931,6 +931,42 @@ def test_summary_only_payload_omits_detail_lists() -> None:
     assert compact["details_omitted"] is True
 
 
+def test_summary_only_payload_preserves_cached_queue_pressure_without_heads() -> None:
+    payload = {
+        "github_queue": {
+            "available": False,
+            "reason": "remote_query_failed",
+            "error": "GraphQL rate limit",
+            "open_codex_pr_count": 160,
+            "open_pr_heads": ["codex/a", "codex/b", "codex/c"],
+            "open_pr_heads_preserved_from_cache": True,
+            "open_pr_heads_cached_at": "2026-06-13T21:57:43Z",
+            "pressure": {
+                "open_issue_cap_reached": False,
+                "open_pr_cap_reached": True,
+            },
+        },
+        "local_queue": {
+            "outbox_count": 32,
+            "receipt_count": 1343,
+        },
+    }
+
+    compact = mod.summary_only_payload(payload)
+
+    queue = compact["github_queue"]
+    assert queue["available"] is False
+    assert queue["reason"] == "remote_query_failed"
+    assert queue["open_codex_pr_count"] == 160
+    assert queue["open_pr_head_count"] == 3
+    assert queue["open_pr_heads_omitted"] is True
+    assert queue["open_pr_heads_preserved_from_cache"] is True
+    assert queue["open_pr_heads_cached_at"] == "2026-06-13T21:57:43Z"
+    assert queue["pressure"]["open_pr_cap_reached"] is True
+    assert "open_pr_heads" not in queue
+    assert compact["details_omitted"] is True
+
+
 def test_main_summary_only_prints_compact_json_but_writes_full_cache(
     monkeypatch: Any,
     tmp_path: Path,
