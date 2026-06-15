@@ -951,7 +951,7 @@ class TestCapabilityProber:
         """Should handle agent errors gracefully."""
 
         async def mock_run_agent(agent, prompt):
-            raise Exception("Agent failed")
+            raise RuntimeError("Agent failed")
 
         from aragora.modes.probes import ProbeType
 

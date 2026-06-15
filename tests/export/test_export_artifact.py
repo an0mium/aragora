@@ -829,15 +829,18 @@ class TestArtifactBuilder:
         mock_result.final_answer = "Answer that is longer than twenty characters"
         mock_result.consensus_reached = True
         mock_result.confidence = 0.9
+        # Vote breakdown is computed against the winning choice; an explicit
+        # winner attribute takes priority over the most-common-vote fallback.
+        mock_result.winner = "Answer that is longe"
 
-        # Create votes - choice matches first 20 chars of final_answer
+        # Create votes - agent1's choice matches the winner, agent2's does not
         vote1 = MagicMock()
         vote1.agent = "agent1"
-        vote1.choice = "Answer that is longe"  # Matches first 20
+        vote1.choice = "Answer that is longe"  # Matches winner -> agreed
 
         vote2 = MagicMock()
         vote2.agent = "agent2"
-        vote2.choice = "Different answer"  # Doesn't match
+        vote2.choice = "Different answer"  # Doesn't match winner -> disagreed
 
         mock_result.votes = [vote1, vote2]
 
