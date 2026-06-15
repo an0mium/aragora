@@ -1761,7 +1761,7 @@ def _apply_settlement_signal(*, pr: int, head: str, repo: str, cwd: Path) -> lis
     return [comment_command, status_command]
 
 
-def _record_settlement(*, pr: int, head: str, reason: str, cwd: Path) -> dict[str, Any]:
+def _record_settlement(*, pr: int, head: str, reason: str, repo: str, cwd: Path) -> dict[str, Any]:
     """Write the durable external-settlement receipt via the review-queue CLI."""
     command = [
         sys.executable,
@@ -1770,6 +1770,8 @@ def _record_settlement(*, pr: int, head: str, reason: str, cwd: Path) -> dict[st
         "review-queue",
         "record-settlement",
         str(pr),
+        "--repo",
+        repo,
         "--head-sha",
         head,
         "--action",
@@ -1810,8 +1812,8 @@ def _quorum_run_ids(*, head: str, repo: str, cwd: Path) -> list[tuple[str, str]]
             continue
         if str(item.get("name") or "") != MERGE_QUORUM_CONTEXT:
             continue
-        url = str(item.get("html_url") or item.get("details_url") or "")
-        run_id = _run_id_from_url(url)
+        candidate_urls = (str(item.get("details_url") or ""), str(item.get("html_url") or ""))
+        run_id = next((parsed for url in candidate_urls if (parsed := _run_id_from_url(url))), "")
         if run_id:
             runs.append((run_id, str(item.get("conclusion") or "").lower()))
     return runs
@@ -2123,7 +2125,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "counted model evidence and green non-quorum required checks."
             )
             extra_out["receipt"] = _record_settlement(
-                pr=args.pr, head=args.head, reason=reason, cwd=args.cwd
+                pr=args.pr, head=args.head, reason=reason, repo=args.repo, cwd=args.cwd
             )
             already_present = _human_settlement_status_is_success(pr_view)
             extra_out["settlement_already_present"] = already_present

@@ -2933,6 +2933,56 @@ def test_quorum_run_ids_extracts_and_lowercases(monkeypatch: Any, tmp_path: Path
     assert runs == [("27474838200", "failure"), ("27459026005", "success")]
 
 
+def test_quorum_run_ids_prefers_details_url_workflow_run_id(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_run_json",
+        lambda command, cwd=None: {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "FAILURE",
+                    "html_url": "https://github.com/synaptent/aragora/runs/99999999999",
+                    "details_url": (
+                        "https://github.com/synaptent/aragora/actions/runs/"
+                        "27474838200/job/81212117993"
+                    ),
+                }
+            ]
+        },
+    )
+
+    runs = settler._quorum_run_ids(head="abc", repo="synaptent/aragora", cwd=tmp_path)
+
+    assert runs == [("27474838200", "failure")]
+
+
+def test_record_settlement_passes_repo_to_review_queue(monkeypatch: Any, tmp_path: Path) -> None:
+    captured: dict[str, Any] = {}
+
+    def _fake_run_json(command: list[str], cwd: Path | None = None) -> dict[str, Any]:
+        captured["command"] = command
+        captured["cwd"] = cwd
+        return {"written": True}
+
+    monkeypatch.setattr(settler, "_run_json", _fake_run_json)
+
+    result = settler._record_settlement(
+        pr=7423,
+        head="57c740022e3c432718462efa12ca79f1df4f674d",
+        reason="operator accepted risk",
+        repo="example/other-repo",
+        cwd=tmp_path,
+    )
+
+    assert result == {"written": True}
+    assert captured["cwd"] == tmp_path
+    assert "--repo" in captured["command"]
+    assert captured["command"][captured["command"].index("--repo") + 1] == "example/other-repo"
+
+
 def test_rerun_failed_quorum_targets_the_failed_run(monkeypatch: Any, tmp_path: Path) -> None:
     monkeypatch.setattr(
         settler,
@@ -2994,8 +3044,8 @@ def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Pat
     monkeypatch.setattr(
         settler,
         "_record_settlement",
-        lambda pr, head, reason, cwd: (
-            recorded.update({"pr": pr, "head": head, "reason": reason})
+        lambda pr, head, reason, repo, cwd: (
+            recorded.update({"pr": pr, "head": head, "reason": reason, "repo": repo})
             or {"written": True, "actor": "trusted-member", "receipt_sha256": "sha256:abc"}
         ),
     )
@@ -3032,6 +3082,7 @@ def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Pat
     )
 
     assert rc == 0
+    assert recorded["repo"] == settler.DEFAULT_REPO
     # 1. receipt recorded at the exact head
     assert recorded["pr"] == 7423
     assert recorded["head"] == head
@@ -3068,7 +3119,7 @@ def test_settle_apply_skips_signal_when_status_already_success(
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
     monkeypatch.setattr(
-        settler, "_record_settlement", lambda pr, head, reason, cwd: {"written": True}
+        settler, "_record_settlement", lambda pr, head, reason, repo, cwd: {"written": True}
     )
     monkeypatch.setattr(
         settler,
