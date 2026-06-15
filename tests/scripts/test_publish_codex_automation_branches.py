@@ -1413,6 +1413,81 @@ def test_main_reports_open_pr_lookup_failure_when_cache_is_unusable(
     assert '"decisions": []' in out
 
 
+def test_related_work_lookup_honors_zero_budget(monkeypatch: Any, tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        **_kwargs: Any,
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    result = mod._branches_with_resolved_related_work(
+        tmp_path,
+        "owner/repo",
+        [
+            BranchSnapshot(
+                branch="codex/publisher-related-budget",
+                upstream=None,
+                head_sha="abc1234",
+                committed_at=datetime.now(UTC),
+                subject="fix publisher related lookup budget",
+                unique_commit_count=1,
+            )
+        ],
+        budget_seconds=0.0,
+    )
+
+    assert result == set()
+    assert calls == []
+
+
+def test_related_work_lookup_caps_gh_timeout_to_budget(
+    monkeypatch: Any,
+    tmp_path: Path,
+) -> None:
+    timeouts: list[int] = []
+
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        env_overrides: dict[str, str] | None = None,
+        **_kwargs: Any,
+    ) -> subprocess.CompletedProcess[str]:
+        assert cwd == tmp_path
+        assert env_overrides is not None
+        timeouts.append(int(env_overrides["ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS"]))
+        return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="HTTP 504")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    result = mod._branches_with_resolved_related_work(
+        tmp_path,
+        "owner/repo",
+        [
+            BranchSnapshot(
+                branch="codex/publisher-related-budget",
+                upstream=None,
+                head_sha="abc1234",
+                committed_at=datetime.now(UTC),
+                subject="fix publisher related lookup budget",
+                unique_commit_count=1,
+            )
+        ],
+        budget_seconds=3.0,
+    )
+
+    assert result == set()
+    assert timeouts
+    assert all(1 <= timeout <= 3 for timeout in timeouts)
+
+
 def test_review_required_inflight_pr_does_not_pause_for_pending_or_advisory_cancelled() -> None:
     assert (
         mod._open_codex_pr_is_unhealthy(

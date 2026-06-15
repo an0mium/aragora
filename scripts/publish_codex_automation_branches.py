@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from collections.abc import Callable, Mapping, Sequence
@@ -33,6 +34,7 @@ DEFAULT_PUBLISH_LIMIT = 2
 DEFAULT_MAX_OPEN_PRS = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
 DEFAULT_GIT_TIMEOUT_SECONDS = 60
+DEFAULT_RELATED_WORK_LOOKUP_BUDGET_SECONDS = 15.0
 DEFAULT_SCAN_LIMIT = 12
 DEFAULT_MIN_FREE_GIB = 50.0
 DEFAULT_CODEX_RSS_MAX_GIB = 25.0
@@ -51,6 +53,7 @@ CODEX_RSS_MAX_GIB_ENV = "ARAGORA_AUTOMATION_CODEX_RSS_MAX_GIB"
 SPEND_DAILY_CAP_ENV = "ARAGORA_AUTOMATION_SPEND_DAILY_CAP_USD"
 SPEND_WEEKLY_CAP_ENV = "ARAGORA_AUTOMATION_SPEND_WEEKLY_CAP_USD"
 SPEND_LEDGER_DIR_ENV = "ARAGORA_AUTOMATION_SPEND_LEDGER_DIR"
+RELATED_WORK_LOOKUP_BUDGET_ENV = "ARAGORA_AUTOMATION_RELATED_WORK_LOOKUP_BUDGET_SECONDS"
 UNHEALTHY_OPEN_PR_MERGE_STATES = {"BLOCKED", "DIRTY"}
 UNHEALTHY_CHECK_STATES = {
     "ACTION_REQUIRED",
@@ -1056,14 +1059,32 @@ def _related_search_queries(subject: str) -> list[str]:
     return list(dict.fromkeys(query for query in queries if query.strip()))
 
 
+def _related_work_lookup_budget_seconds() -> float:
+    raw = os.environ.get(RELATED_WORK_LOOKUP_BUDGET_ENV)
+    if raw is None:
+        return DEFAULT_RELATED_WORK_LOOKUP_BUDGET_SECONDS
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return DEFAULT_RELATED_WORK_LOOKUP_BUDGET_SECONDS
+
+
 def _branches_with_resolved_related_work(
     repo_root: Path,
     repo: str,
     branches: list[BranchSnapshot],
+    *,
+    budget_seconds: float | None = None,
 ) -> set[str]:
     resolved: set[str] = set()
+    budget = _related_work_lookup_budget_seconds() if budget_seconds is None else budget_seconds
+    deadline = time.monotonic() + max(0.0, budget)
     for branch in branches:
+        if time.monotonic() >= deadline:
+            return resolved
         for query in _related_search_queries(branch.subject):
+            if time.monotonic() >= deadline:
+                return resolved
             for command in (
                 [
                     "gh",
@@ -1096,7 +1117,18 @@ def _branches_with_resolved_related_work(
                     "20",
                 ],
             ):
-                proc = _run(command, cwd=repo_root)
+                seconds_left = deadline - time.monotonic()
+                if seconds_left <= 0:
+                    return resolved
+                proc = _run(
+                    command,
+                    cwd=repo_root,
+                    env_overrides={
+                        "ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS": str(
+                            max(1, min(DEFAULT_COMMAND_TIMEOUT_SECONDS, int(seconds_left)))
+                        )
+                    },
+                )
                 if proc.returncode != 0:
                     continue
                 payload = json.loads(proc.stdout or "[]")
