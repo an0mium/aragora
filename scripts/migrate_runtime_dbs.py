@@ -14,15 +14,20 @@ import argparse
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
-from aragora.config import resolve_db_path
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from aragora.config import resolve_db_path  # noqa: E402
 
 SUFFIXES = (".db", ".db-wal", ".db-shm", ".sqlite", ".sqlite3")
 
 
 def _get_repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return REPO_ROOT
 
 
 def _get_data_dir(repo_root: Path) -> Path:
