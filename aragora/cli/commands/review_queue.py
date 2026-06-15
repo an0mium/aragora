@@ -3103,9 +3103,15 @@ def _build_model_review_quorum(
         head_sha=head_sha,
         head_committed_at=head_committed_at,
     )
+    comment_dissenting_views = _dissenting_views_from_comments(
+        pr.get("comments") or [],
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+    )
     dissenting_views = [
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
     ]
+    dissenting_views.extend(comment_dissenting_views)
     blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
     blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
@@ -3812,6 +3818,7 @@ def _has_blocking_or_negative_verdict(body: str) -> bool:
 
     def _normalize_value(text: str) -> str:
         text = text.replace("**", "").replace("__", "")
+        text = re.sub(r"[-_]+", " ", text)
         return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
 
     lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
@@ -4191,6 +4198,64 @@ def _dogfood_evidence_from_comments(
             }
         )
     return evidence[:5]
+
+
+def _dissenting_views_from_comments(
+    comments: list[Any],
+    *,
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> list[dict[str, Any]]:
+    """Extract exact-head model-review comments that visibly request changes."""
+    dissent: list[dict[str, Any]] = []
+    for comment in comments:
+        if not isinstance(comment, dict):
+            continue
+        if not _is_comment_grounded_on_head(comment, head_sha, head_committed_at):
+            continue
+        body = str(comment.get("body", "") or "")
+        if not _has_blocking_or_negative_verdict(body):
+            continue
+        lower = body.lower()
+        if not any(
+            token in lower
+            for token in (
+                "dogfood",
+                "adversarial",
+                "cross-author",
+                "recheck",
+                "codex review",
+                "claude review",
+                "grok independent",
+                "gemini independent",
+                "independent semantic review",
+                "independent model review",
+                "model-family semantic signal",
+            )
+        ):
+            continue
+        identity = _resolve_model_review_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
+            identity = _resolve_dogfood_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
+            continue
+        author_payload = comment.get("author")
+        github_author = ""
+        if isinstance(author_payload, dict):
+            github_author = str(author_payload.get("login", "") or "")
+        if _is_github_actions_author(github_author):
+            continue
+        dissent.append(
+            {
+                "agent": identity.model_family or identity.surface_reviewer_id,
+                "position": "changes_requested",
+                "reason": _first_nonempty_line(body)[:240],
+                "source": "pr_comment",
+                "github_author": github_author,
+                **identity.as_packet_fields(),
+            }
+        )
+    return dissent[:5]
 
 
 def _model_review_signals_from_comments(
