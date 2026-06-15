@@ -34,7 +34,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.cli.commands.review_queue_parsers import (
@@ -3078,10 +3078,21 @@ def _build_model_review_quorum(
     )
     requires_human_preapproval = bool(requirement["requires_human_preapproval"])
     local_human_risk_settlement_recorded = human_risk_settlement_recorded
+    resolved_repo_slug = repo_slug or rest_fallback._repo_slug_from_pr_payload(pr, None)
+    preapproval_comment_url = (
+        _trusted_tier_four_human_preapproval_comment_url(
+            pr,
+            head_sha=head_sha,
+            head_committed_at=head_committed_at,
+            repo_slug=resolved_repo_slug,
+        )
+        if requires_human_preapproval
+        else ""
+    )
     repo_visible_human_preapproval_recorded = (
         requires_human_preapproval
         and _has_successful_status_context(pr, HUMAN_SETTLEMENT_CONTEXT)
-        and _has_tier_four_human_preapproval_comment(pr, head_sha=head_sha)
+        and bool(preapproval_comment_url)
     )
     human_preapproval_recorded = False
     settlement_creator_pin = dict(
@@ -3089,8 +3100,9 @@ def _build_model_review_quorum(
     )
     if repo_visible_human_preapproval_recorded:
         creator_verified, creator_reason = _human_settlement_status_creator_verified(
-            repo_slug=repo_slug or rest_fallback._repo_slug_from_pr_payload(pr, None),
+            repo_slug=resolved_repo_slug,
             head_sha=head_sha,
+            target_url=preapproval_comment_url,
         )
         settlement_creator_pin["checked"] = True
         settlement_creator_pin["verified"] = creator_verified
@@ -3409,9 +3421,14 @@ def _trusted_settlement_creator() -> str:
 
 
 def _human_settlement_status_creator_verified(
-    *, repo_slug: str, head_sha: str, context: str = HUMAN_SETTLEMENT_CONTEXT
+    *,
+    repo_slug: str,
+    head_sha: str,
+    context: str = HUMAN_SETTLEMENT_CONTEXT,
+    target_url: str = "",
 ) -> tuple[bool, str]:
     trusted = _trusted_settlement_creator()
+    expected_target_url = str(target_url or "").strip()
 
     def fail(reason: str) -> tuple[bool, str]:
         return (False, f"settlement-creator pin: {reason}")
@@ -3439,6 +3456,12 @@ def _human_settlement_status_creator_verified(
                 f"newest '{context}' status was created by '{login}', "
                 f"not trusted settlement creator '{trusted}'"
             )
+        status_target_url = str(status.get("target_url") or status.get("targetUrl") or "").strip()
+        if expected_target_url and status_target_url != expected_target_url:
+            return fail(
+                f"newest '{context}' status target_url does not match the "
+                "trusted settlement comment"
+            )
         return (
             True,
             f"settlement-creator pin: '{context}' status created by trusted settlement creator '{trusted}'",
@@ -3446,10 +3469,85 @@ def _human_settlement_status_creator_verified(
     return fail(f"no '{context}' status found on head commit; failing closed")
 
 
-def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: str) -> bool:
+def _comment_author_login(comment: dict[str, Any]) -> str:
+    for key in ("author", "user"):
+        author = comment.get(key)
+        if isinstance(author, dict):
+            login = str(author.get("login") or "").strip()
+            if login:
+                return login
+        elif isinstance(author, str) and author.strip():
+            return author.strip()
+    return ""
+
+
+def _comment_author_association(comment: dict[str, Any]) -> str:
+    return (
+        str(comment.get("authorAssociation") or comment.get("author_association") or "")
+        .strip()
+        .upper()
+    )
+
+
+def _comment_created_at(comment: dict[str, Any]) -> str:
+    return str(comment.get("createdAt") or comment.get("created_at") or "").strip()
+
+
+def _comment_url(comment: dict[str, Any]) -> str:
+    return str(comment.get("url") or comment.get("html_url") or "").strip()
+
+
+def _trusted_comment_author_verified(
+    comment: dict[str, Any],
+    *,
+    repo_slug: str,
+) -> bool:
+    association = _comment_author_association(comment)
+    if association == "OWNER":
+        return True
+    if association not in {"MEMBER", "COLLABORATOR"}:
+        return False
+    login = _comment_author_login(comment)
+    trusted = _trusted_settlement_creator()
+    if not login or login.casefold() != trusted.casefold() or not repo_slug:
+        return False
+    try:
+        payload = _gh_json(
+            ["api", f"repos/{repo_slug}/collaborators/{quote(login, safe='')}/permission"]
+        )
+    except _GhError:
+        return False
+    if not isinstance(payload, dict):
+        return False
+    return (
+        str(payload.get("permission") or "").strip().lower() == "admin"
+        or str(payload.get("role_name") or "").strip().lower() == "admin"
+    )
+
+
+def _comment_is_fresh_for_head(
+    comment: dict[str, Any],
+    *,
+    head_committed_at: str,
+) -> bool:
+    if not head_committed_at:
+        return True
+    created_at = _comment_created_at(comment)
+    created = _parse_github_datetime(created_at)
+    committed = _parse_github_datetime(head_committed_at)
+    return bool(created and committed and created >= committed)
+
+
+def _trusted_tier_four_human_preapproval_comment_url(
+    pr: dict[str, Any],
+    *,
+    head_sha: str,
+    head_committed_at: str,
+    repo_slug: str,
+) -> str:
     head = str(head_sha or "").strip()
     if not head:
-        return False
+        return ""
     for comment in pr.get("comments") or []:
         if not isinstance(comment, dict):
             continue
@@ -3463,8 +3561,26 @@ def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: st
             continue
         if "human-risk settlement" not in lowered:
             continue
-        return True
-    return False
+        comment_url = _comment_url(comment)
+        if not comment_url:
+            continue
+        if not _comment_is_fresh_for_head(comment, head_committed_at=head_committed_at):
+            continue
+        if not _trusted_comment_author_verified(comment, repo_slug=repo_slug):
+            continue
+        return comment_url
+    return ""
+
+
+def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: str) -> bool:
+    return bool(
+        _trusted_tier_four_human_preapproval_comment_url(
+            pr,
+            head_sha=head_sha,
+            head_committed_at=_head_committed_at_from_pr(pr),
+            repo_slug=rest_fallback._repo_slug_from_pr_payload(pr, None),
+        )
+    )
 
 
 def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, Any]]:
