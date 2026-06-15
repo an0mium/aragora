@@ -167,6 +167,8 @@ def live_claims_from_arg(value: Any) -> dict[int, str]:
             if not isinstance(row, dict):
                 continue
             pr = row.get("pr", row.get("pr_number", row.get("number")))
+            if pr is None:
+                continue
             owner = row.get("owner_session", row.get("owner"))
             try:
                 claims[int(pr)] = str(owner or "")
