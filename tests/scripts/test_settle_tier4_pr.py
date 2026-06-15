@@ -60,11 +60,27 @@ def _pr_view(
     *,
     comments: list[dict[str, Any]],
     human_settlement_state: str | None = "SUCCESS",
+    human_settlement_creator: str | None = None,
+    human_settlement_target_url: str = "https://github.example/pr/7423#issuecomment-1",
     extra_status_rollup: list[dict[str, Any]] | None = None,
     merge_state: str = "BLOCKED",
 ) -> dict[str, Any]:
+    status_creator = human_settlement_creator
+    if status_creator is None and comments:
+        author = comments[0].get("author")
+        if isinstance(author, dict):
+            status_creator = str(author.get("login") or "").strip()
+    if status_creator is None:
+        status_creator = "owner-user"
     status_rollup = (
-        [{"context": "aragora/human-settlement", "state": human_settlement_state}]
+        [
+            {
+                "context": "aragora/human-settlement",
+                "state": human_settlement_state,
+                "creator": {"login": status_creator} if status_creator else {},
+                "targetUrl": human_settlement_target_url,
+            }
+        ]
         if human_settlement_state is not None
         else []
     )
@@ -257,6 +273,7 @@ def _rest_human_settlement_status() -> dict[str, Any]:
         "context": settler.HUMAN_SETTLEMENT_CONTEXT,
         "state": "success",
         "target_url": "https://github.example/pr/7423#issuecomment-1",
+        "creator": {"login": "owner-user"},
         "created_at": AUTH_CREATED_AT,
         "updated_at": AUTH_CREATED_AT,
     }
@@ -1004,6 +1021,63 @@ def test_operator_comment_without_human_status_does_not_authorize() -> None:
     assert "missing repo-visible Tier 4 operator settlement comment" not in result["blockers"]
 
 
+def test_human_status_target_url_must_match_accepted_operator_comment() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head)],
+            human_settlement_target_url="https://github.example/pr/7423#issuecomment-stale",
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "untrusted or unbound aragora/human-settlement status" in result["blockers"]
+    assert "missing repo-visible Tier 4 operator settlement comment" not in result["blockers"]
+
+
+def test_human_status_creator_must_match_accepted_operator_comment_author() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head)],
+            human_settlement_creator="github-actions",
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "untrusted or unbound aragora/human-settlement status" in result["blockers"]
+    assert "missing repo-visible Tier 4 operator settlement comment" not in result["blockers"]
+
+
+def test_human_status_bound_to_accepted_operator_comment_authorizes() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, author="trusted-member", association="MEMBER")],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-member"],
+        permission_checker=lambda login: login == "trusted-member",
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
 def test_operator_comment_without_counted_evidence_does_not_authorize() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     result = settler.evaluate_tier4_gate(
@@ -1449,6 +1523,7 @@ def test_cli_check_uses_rest_fallback_when_pr_view_and_checks_hit_graphql_limit(
                     "context": "aragora/human-settlement",
                     "state": "success",
                     "target_url": "https://github.example/pr/7423#issuecomment-1",
+                    "creator": {"login": "owner-user"},
                     "created_at": AUTH_CREATED_AT,
                     "updated_at": AUTH_CREATED_AT,
                 }
@@ -1575,6 +1650,7 @@ def test_rest_fallback_reports_strict_branch_protection_required_contexts(
                     "context": "aragora/human-settlement",
                     "state": "success",
                     "target_url": "https://github.example/pr/7423#issuecomment-1",
+                    "creator": {"login": "owner-user"},
                     "created_at": AUTH_CREATED_AT,
                     "updated_at": AUTH_CREATED_AT,
                 }
