@@ -245,14 +245,19 @@ def test_default_dispatch_uses_explicit_repo_root(tmp_path: Path) -> None:
     assert written.exists()
 
 
-def test_default_claim_uses_lane_id_and_does_not_release_stale(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
-    wo = lc.build_work_orders(
+def _wo_42() -> lc.WorkOrderSpec:
+    return lc.build_work_orders(
         [LaneAssignment(pr=42, branch="codex/x", owner_session="sess-42")],
         repo="synaptent/aragora",
         now=_fixed_now,
     )[0]
+
+
+def test_default_claim_is_plain_no_force(tmp_path: Path, monkeypatch: Any) -> None:
+    # A clean claim succeeds on the first try with NO --force/--allow-resource-
+    # conflicts: claim_lane's conflict check then provides mutual exclusion, so a
+    # competing live claim correctly fails instead of being clobbered.
+    wo = _wo_42()
     calls: list[list[str]] = []
 
     def fake_run(cmd: list[str], **kwargs: Any) -> Any:
@@ -262,17 +267,92 @@ def test_default_claim_uses_lane_id_and_does_not_release_stale(
     monkeypatch.setattr(lc.subprocess, "run", fake_run)
 
     assert lc.default_claim(wo, repo_root=tmp_path) is True
-    assert calls
+    assert len(calls) == 1  # one plain claim, no probe/release/retry
     cmd = calls[0]
-    assert "--lane-id" in cmd
     assert cmd[cmd.index("--lane-id") + 1] == wo.work_order_id
-    assert "--owner-session" in cmd
     assert cmd[cmd.index("--owner-session") + 1] == "sess-42"
     assert "--release-stale" not in cmd
-    # The dispatcher only reaches here for non-live lanes, so the claim must be
-    # able to reclaim a stale row rather than fail closed and never dispatch.
-    assert "--force" in cmd
-    assert "--allow-resource-conflicts" in cmd
+    assert "--force" not in cmd
+    assert "--allow-resource-conflicts" not in cmd
+
+
+def test_default_claim_releases_stale_then_retries(tmp_path: Path, monkeypatch: Any) -> None:
+    # Claim refused (stale-but-active row holds the resource). The probe assesses
+    # the owner stale, so we release it and retry -- without --force.
+    wo = _wo_42()
+    seq: list[str] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> Any:
+        script = next((c for c in cmd if c.endswith(".py")), "")
+        if script.endswith("identify_lane_owner.py"):
+            seq.append("probe")
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(
+                    {"owner_session": "stale-owner", "owner_liveness": {"assessed": "stale"}}
+                ),
+                stderr="",
+            )
+        if "--release-stale" in cmd:
+            seq.append("release")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        # plain claim: fail first, succeed on retry
+        seq.append("claim")
+        return SimpleNamespace(returncode=0 if seq.count("claim") > 1 else 2, stdout="", stderr="x")
+
+    monkeypatch.setattr(lc.subprocess, "run", fake_run)
+    assert lc.default_claim(wo, repo_root=tmp_path) is True
+    assert seq == ["claim", "probe", "release", "claim"]
+
+
+def test_default_claim_does_not_release_live_owner(tmp_path: Path, monkeypatch: Any) -> None:
+    # Claim refused and the owner is LIVE -> never release/displace; claim fails.
+    wo = _wo_42()
+    released: list[str] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> Any:
+        script = next((c for c in cmd if c.endswith(".py")), "")
+        if script.endswith("identify_lane_owner.py"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(
+                    {"owner_session": "live-owner", "owner_liveness": {"assessed": "live"}}
+                ),
+                stderr="",
+            )
+        if "--release-stale" in cmd:
+            released.append("released")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return SimpleNamespace(returncode=2, stdout="", stderr="conflict")  # claim always refused
+
+    monkeypatch.setattr(lc.subprocess, "run", fake_run)
+    assert lc.default_claim(wo, repo_root=tmp_path) is False
+    assert released == []  # a live owner is never released
+
+
+def test_run_pass_releases_lane_when_dispatch_fails() -> None:
+    # Claimed, then dispatch raises: the lane must be released so it isn't wedged
+    # (claimed with no pending order) until TTL/manual cleanup.
+    released: list[int] = []
+
+    def boom_dispatch(wo: lc.WorkOrderSpec) -> str:
+        raise RuntimeError("disk full")
+
+    result = lc.run_pass(
+        repo="r",
+        fetch_candidates=lambda repo: [_cand(1)],
+        fetch_live_claims=lambda repo, cands: {},
+        max_workers=5,
+        execute=True,
+        claim_fn=lambda wo: True,
+        dispatch_fn=boom_dispatch,
+        release_fn=lambda wo: released.append(wo.pr),
+        session_id_for=_seq_session,
+        now=_fixed_now,
+    )
+    assert released == [1]
+    assert result.claim_failed == [1]
+    assert result.dispatched == []
 
 
 def test_fetch_candidates_skips_cross_repo_drafts_and_unblocked(monkeypatch: Any) -> None:

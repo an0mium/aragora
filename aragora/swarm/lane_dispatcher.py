@@ -172,6 +172,10 @@ def build_worker_prompt(
     # prompt that could break or inject.
     if not _SAFE_BRANCH.match(session_id or ""):
         raise ValueError(f"unsafe session_id {session_id!r}: must match {_SAFE_BRANCH.pattern}")
+    # target_agent is interpolated unquoted into the claim shell-out (--source);
+    # it is operator-supplied (--target-agent), so validate it too.
+    if not _SAFE_BRANCH.match(target_agent or ""):
+        raise ValueError(f"unsafe target_agent {target_agent!r}: must match {_SAFE_BRANCH.pattern}")
     safe_branch = branch if (branch and _SAFE_BRANCH.match(branch)) else f"(branch for #{pr})"
     return WORKER_PROMPT_TEMPLATE.format(
         session_id=session_id,

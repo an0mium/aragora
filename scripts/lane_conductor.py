@@ -43,6 +43,7 @@ from aragora.swarm.lane_conductor import (  # noqa: E402
     DEFAULT_TARGET_AGENT,
     default_claim,
     default_dispatch,
+    default_release,
     run_pass,
 )
 from aragora.swarm.lane_dispatcher import DEFAULT_MAX_WORKERS  # noqa: E402
@@ -225,6 +226,7 @@ def main(argv: list[str] | None = None) -> int:
         execute=args.execute,
         claim_fn=lambda wo: default_claim(wo, repo_root=root),
         dispatch_fn=lambda wo: default_dispatch(wo, repo_root=root),
+        release_fn=lambda wo: default_release(wo, repo_root=root),
     )
 
     if args.json_output:

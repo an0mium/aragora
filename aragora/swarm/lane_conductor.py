@@ -184,11 +184,15 @@ def plan_pass(
 # ---------------------------------------------------------------------------
 
 
-def default_claim(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -> bool:
-    """Write the atomic lane claim via scripts/claim_active_agent_lane.py."""
-    root = repo_root or Path.cwd()
+# Owner-liveness assessments (from identify_lane_owner) that mean the lane is
+# NOT actively held, so a stale row holding it may be released and reclaimed.
+_RECLAIMABLE_ASSESSMENTS = {"stale", "terminal", "absent", "reclaimable"}
+
+
+def _run_lane_claim(work_order: WorkOrderSpec, root: Path) -> subprocess.CompletedProcess | None:
+    """Run one PLAIN lane claim (no --force). None on spawn/timeout failure."""
     try:
-        proc = subprocess.run(
+        return subprocess.run(
             [
                 "python3",
                 str(root / "scripts" / "claim_active_agent_lane.py"),
@@ -206,14 +210,6 @@ def default_claim(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -
                 "active",
                 "--next-action",
                 f"advance #{work_order.pr}",
-                # The dispatcher only reaches here for lanes with NO live owner
-                # (liveness pre-resolved by identify_lane_owner). Any residual row
-                # for this PR/branch is therefore stale, so reclaim over it instead
-                # of failing the claim and never dispatching: --force overwrites a
-                # stale lane-id, --allow-resource-conflicts clears a stale row that
-                # still holds the same pr_number/branch/worktree.
-                "--force",
-                "--allow-resource-conflicts",
             ],
             capture_output=True,
             text=True,
@@ -221,8 +217,86 @@ def default_claim(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -
             timeout=60,
         )
     except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def _release_stale_conflict(pr: int, root: Path) -> bool:
+    """Release PR #``pr``'s current lane owner IFF it is assessed reclaimable.
+
+    claim_lane's conflict check is status-based, not heartbeat-based, so a
+    stale-but-still-``active`` row blocks a plain claim. We clear it only when
+    identify_lane_owner assesses the owner stale/terminal/absent -- NEVER a live
+    owner -- so a competing live worker is never displaced (the blind---force
+    clobber race is avoided). Returns True if a stale owner was released.
+    """
+    try:
+        probe = subprocess.run(
+            [
+                "python3",
+                str(root / "scripts" / "identify_lane_owner.py"),
+                "--pr",
+                str(pr),
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
         return False
-    return proc.returncode == 0
+    if probe.returncode != 0 or not probe.stdout.strip():
+        return False
+    try:
+        data = json.loads(probe.stdout)
+    except json.JSONDecodeError:
+        return False
+    owner = str(data.get("owner_session") or "").strip()
+    assessed = str((data.get("owner_liveness") or {}).get("assessed") or "").strip().lower()
+    if not owner or assessed not in _RECLAIMABLE_ASSESSMENTS:
+        return False  # no owner, or owner is LIVE -> never release / never displace
+    try:
+        rel = subprocess.run(
+            [
+                "python3",
+                str(root / "scripts" / "claim_active_agent_lane.py"),
+                "--release-stale",
+                "--owner-session",
+                owner,
+                "--ttl-minutes",
+                "0",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return rel.returncode == 0
+
+
+def default_claim(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -> bool:
+    """Claim the lane via scripts/claim_active_agent_lane.py.
+
+    Plain claim first (no --force): claim_lane's identity-conflict check then
+    provides mutual exclusion, so a competing LIVE claim makes this fail and we
+    never double-dispatch. If it fails because a STALE row holds the resource,
+    release that stale row (only when its owner is assessed reclaimable) and retry
+    once. This reclaims stale lanes without the blind-force clobber race that
+    could overwrite a newly-live owner.
+    """
+    root = repo_root or Path.cwd()
+    proc = _run_lane_claim(work_order, root)
+    if proc is None:
+        return False
+    if proc.returncode == 0:
+        return True
+    # Claim refused -- if a stale row is holding this PR, clear it and retry once.
+    if _release_stale_conflict(work_order.pr, root):
+        retry = _run_lane_claim(work_order, root)
+        return retry is not None and retry.returncode == 0
+    return False
 
 
 def default_dispatch(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -> str:
@@ -241,6 +315,33 @@ def default_dispatch(work_order: WorkOrderSpec, *, repo_root: Path | None = None
     return str(target)
 
 
+def default_release(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -> None:
+    """Best-effort release of a claimed lane (used when dispatch fails post-claim).
+
+    Scoped to the order's unique owner_session (ttl 0), so it clears only this
+    lane. Failures are swallowed -- the caller already records the lane as failed.
+    """
+    root = repo_root or Path.cwd()
+    try:
+        subprocess.run(
+            [
+                "python3",
+                str(root / "scripts" / "claim_active_agent_lane.py"),
+                "--release-stale",
+                "--owner-session",
+                work_order.owner_session,
+                "--ttl-minutes",
+                "0",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
 def run_pass(
     *,
     repo: str,
@@ -251,6 +352,7 @@ def run_pass(
     execute: bool = False,
     claim_fn: Callable[[WorkOrderSpec], bool | None] | None = None,
     dispatch_fn: Callable[[WorkOrderSpec], str] | None = None,
+    release_fn: Callable[[WorkOrderSpec], None] | None = None,
     session_id_for: Callable[[int], str] = default_session_id,
     now: Callable[[], str] | None = None,
 ) -> ConductorPass:
@@ -281,10 +383,17 @@ def run_pass(
 
     claim = claim_fn or default_claim
     dispatch = dispatch_fn or default_dispatch
+    release = release_fn or default_release
     for work_order in result.work_orders:
         if claim(work_order) is not True:
             result.claim_failed.append(work_order.pr)
             continue
-        result.dispatched.append(dispatch(work_order))
+        try:
+            result.dispatched.append(dispatch(work_order))
+        except Exception:  # noqa: BLE001 - any dispatch failure must not wedge the lane
+            # Claimed but dispatch failed: release the claim so the lane isn't
+            # left claimed-with-no-pending-order (wedged until TTL/manual cleanup).
+            release(work_order)
+            result.claim_failed.append(work_order.pr)
     result.executed = True
     return result

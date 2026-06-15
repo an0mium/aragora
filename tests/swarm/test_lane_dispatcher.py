@@ -184,6 +184,14 @@ def test_worker_prompt_rejects_unsafe_session_id() -> None:
         ld.build_worker_prompt(pr=1, branch="b", session_id="bad id; rm -rf /", repo="o/r")
 
 
+def test_worker_prompt_rejects_unsafe_target_agent() -> None:
+    # target_agent is interpolated unquoted into the claim --source shell-out.
+    with pytest.raises(ValueError, match="unsafe target_agent"):
+        ld.build_worker_prompt(
+            pr=1, branch="b", session_id="s", repo="o/r", target_agent="x; rm -rf /"
+        )
+
+
 def test_default_session_id_is_collision_resistant(monkeypatch: Any) -> None:
     monkeypatch.setattr(ld.time, "time", lambda: 1_765_760_000)
     first = ld.default_session_id(42)
