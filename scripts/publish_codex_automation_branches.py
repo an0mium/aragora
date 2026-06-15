@@ -822,14 +822,15 @@ def _open_codex_prs_from_status_cache(
     if not isinstance(github_queue, Mapping):
         meta["cache_reason"] = "cache_missing_github_queue"
         return None, meta
-    if github_queue.get("available") is not True:
+    queue_available = github_queue.get("available") is True
+    if not queue_available:
         reason = str(github_queue.get("reason") or "unknown")
-        meta["cache_reason"] = f"github_queue_unavailable:{reason}"
-        return None, meta
+        meta["cache_queue_available"] = False
+        meta["cache_queue_reason"] = reason
 
     raw_prs = github_queue.get("open_prs")
     prs: list[dict[str, Any]] = []
-    if isinstance(raw_prs, list):
+    if queue_available and isinstance(raw_prs, list):
         prs = [
             item
             for item in raw_prs
@@ -842,6 +843,16 @@ def _open_codex_prs_from_status_cache(
         if not isinstance(raw_heads, list):
             meta["cache_reason"] = "cache_missing_open_pr_heads"
             return None, meta
+        if not queue_available:
+            heads_observed_at = (
+                _parse_cache_timestamp(github_queue.get("open_pr_heads_cached_at")) or generated_dt
+            )
+            heads_age_seconds = (datetime.now(UTC) - heads_observed_at).total_seconds()
+            meta["cache_open_pr_heads_cached_at"] = heads_observed_at.isoformat()
+            meta["cache_open_pr_heads_age_seconds"] = round(heads_age_seconds, 3)
+            if heads_age_seconds > max_age_seconds:
+                meta["cache_reason"] = "cache_open_pr_heads_stale"
+                return None, meta
         prs = [
             {"headRefName": head}
             for head in raw_heads
