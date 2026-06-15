@@ -132,6 +132,7 @@ def build_work_orders(
             branch=assignment.branch,
             session_id=assignment.owner_session,
             repo=repo,
+            target_agent=target_agent,
         )
         orders.append(
             WorkOrderSpec(

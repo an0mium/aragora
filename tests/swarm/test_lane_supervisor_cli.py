@@ -75,6 +75,18 @@ def test_launch_seam_reuses_preset_worktree_without_provisioning() -> None:
     assert fake_launcher.launch.await_args.kwargs["worktree_path"] == "/existing/wt"
 
 
+def test_provision_refuses_when_branch_checked_out_elsewhere(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Safety: never provision a second checkout of a branch already live in
+    # another worktree -- that risks clobbering an interactive session's
+    # unpushed work. Must raise rather than --force/-B reset the ref.
+    cli = _load_cli()
+    monkeypatch.setattr(cli, "_branch_checked_out_elsewhere", lambda *a, **k: True)
+    with pytest.raises(RuntimeError, match="already checked out"):
+        cli._provision_lane_worktree("claude/some-branch", "lane-w", repo_root=tmp_path)
+
+
 def test_provision_failure_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     # A git provisioning failure must raise so the drainer records the order in
     # failed/ rather than launching into a missing tree.

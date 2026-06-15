@@ -12,6 +12,8 @@ import errno
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from aragora.swarm import lane_supervisor as ls
 
 
@@ -215,6 +217,28 @@ def test_drain_records_claim_failure_without_launching(tmp_path: Path, monkeypat
         }
     ]
     assert _names(tmp_path, ls.PENDING) == {"lane-1-cross-fs.json"}
+
+
+def test_claim_rolls_back_link_when_pending_unlink_fails(tmp_path: Path, monkeypatch: Any) -> None:
+    # Regression: if os.link succeeds but the pending unlink fails, the link must
+    # be rolled back -- otherwise the order wedges (a duplicate sits in
+    # in_progress/ while the orphaned pending makes every future claim a no-op).
+    src = _write_pending(tmp_path, "lane-stuck")
+    real_unlink = Path.unlink
+
+    def flaky_unlink(self: Path, *a: Any, **k: Any) -> Any:
+        if self.name == "lane-stuck.json" and self.parent.name == ls.PENDING:
+            raise OSError(errno.EACCES, "pending is read-only")
+        return real_unlink(self, *a, **k)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    with pytest.raises(ls.ClaimOrderError, match="could not remove pending source"):
+        ls.claim_order(src, tmp_path)
+
+    # Rolled back cleanly: no in_progress duplicate, pending source preserved.
+    assert _names(tmp_path, ls.IN_PROGRESS) == set()
+    assert _names(tmp_path, ls.PENDING) == {"lane-stuck.json"}
 
 
 def test_drain_is_idempotent_after_done(tmp_path: Path) -> None:

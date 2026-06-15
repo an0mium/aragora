@@ -28,6 +28,7 @@ testable without a network or a worktree.
 
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from collections.abc import Callable, Sequence
@@ -35,6 +36,12 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 DEFAULT_MAX_WORKERS = 3
+# Conservative ref allowlist. The branch is interpolated into a prompt that
+# tells the worker to shell out (``--branch <branch>``); GitHub permits ``$``,
+# `` ` ``, ``\``, and ``{`` in refs, so any branch outside this set is replaced
+# with a safe placeholder rather than embedded verbatim (defends both the
+# shell-injection surface and ``str.format`` KeyError on a literal ``{``).
+_SAFE_BRANCH = re.compile(r"^[A-Za-z0-9._/-]+$")
 # A worker prompt deliberately small and constant: the guardrails live in the
 # claim/merge-gate tooling and the lane registry, not in pasted text that grows
 # every turn. ``{...}`` placeholders are filled by :func:`build_worker_prompt`.
@@ -47,9 +54,9 @@ Assigned lane: PR #{pr} (branch {branch}) in {repo} ONLY.
    If it reports a LIVE owner whose owner_session != {session_id}, print \
 "yielding: owned by <owner>" and STOP -- do not work this PR.
    Otherwise claim it:
-   python3 scripts/claim_active_agent_lane.py --lane-id {session_id} \
+   python3 scripts/claim_active_agent_lane.py --lane-id {lane_id} \
 --owner-session {session_id} \
---pr-number {pr} --branch {branch} --source codex --status active \
+--pr-number {pr} --branch {branch} --source {target_agent} --status active \
 --next-action "advance #{pr}"
 
 2. GROUND from live state for #{pr} ONLY (gh pr view/checks; \
@@ -148,10 +155,25 @@ def select_assignments(
     return plan
 
 
-def build_worker_prompt(*, pr: int, branch: str, session_id: str, repo: str) -> str:
-    """The short, constant claim-first prompt for one assigned lane."""
+def build_worker_prompt(
+    *, pr: int, branch: str, session_id: str, repo: str, target_agent: str = "codex"
+) -> str:
+    """The short, constant claim-first prompt for one assigned lane.
+
+    ``target_agent`` is recorded as the claim ``--source`` so lane attribution
+    matches the agent actually dispatched (not a hardcoded ``codex``). A branch
+    that fails ``_SAFE_BRANCH`` is replaced with a placeholder so a hostile or
+    brace-bearing ref can neither inject into the shell-out nor break
+    ``str.format``.
+    """
+    safe_branch = branch if (branch and _SAFE_BRANCH.match(branch)) else f"(branch for #{pr})"
     return WORKER_PROMPT_TEMPLATE.format(
-        session_id=session_id, pr=pr, branch=branch or f"(branch for #{pr})", repo=repo
+        session_id=session_id,
+        lane_id=f"lane-{pr}-{session_id}",
+        pr=pr,
+        branch=safe_branch,
+        repo=repo,
+        target_agent=target_agent,
     )
 
 

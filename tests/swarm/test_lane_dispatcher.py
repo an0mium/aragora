@@ -133,7 +133,7 @@ def test_worker_prompt_is_claim_first_and_scoped() -> None:
         pr=42, branch="codex/lane-42", session_id="sess-42", repo="synaptent/aragora"
     )
     assert "claim_active_agent_lane.py" in prompt
-    assert "--lane-id sess-42" in prompt
+    assert "--lane-id lane-42-sess-42" in prompt
     assert "--release-stale" not in prompt
     assert "CLAIM-OR-YIELD" in prompt
     assert "#42" in prompt
@@ -151,6 +151,28 @@ def test_worker_prompt_is_short_and_constant() -> None:
     # back in (the 200-line recursive prompts were the problem).
     prompt = ld.build_worker_prompt(pr=1, branch="b", session_id="s", repo="synaptent/aragora")
     assert len(prompt.splitlines()) < 30
+
+
+def test_worker_prompt_source_reflects_target_agent() -> None:
+    # Lane attribution must match the agent actually dispatched, not a hardcoded
+    # "codex" -- otherwise a claude worker's claim is mislabeled as codex.
+    prompt = ld.build_worker_prompt(
+        pr=7, branch="b", session_id="s", repo="o/r", target_agent="claude"
+    )
+    assert "--source claude" in prompt
+    assert "--source codex" not in prompt
+
+
+def test_worker_prompt_rejects_unsafe_branch() -> None:
+    # A hostile/brace-bearing ref must neither inject into the shell-out nor
+    # break str.format -- it is replaced with a safe placeholder.
+    hostile = "b`rm -rf /`/{evil}/$x"
+    prompt = ld.build_worker_prompt(pr=9, branch=hostile, session_id="s", repo="o/r")
+    assert hostile not in prompt
+    assert "(branch for #9)" in prompt
+    # A normal branch with slashes/dots is still passed through verbatim.
+    ok = ld.build_worker_prompt(pr=9, branch="codex/lane.v2-9", session_id="s", repo="o/r")
+    assert "codex/lane.v2-9" in ok
 
 
 def test_default_session_id_is_collision_resistant(monkeypatch: Any) -> None:

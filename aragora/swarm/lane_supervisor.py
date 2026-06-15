@@ -115,7 +115,6 @@ def claim_order(path: Path, root: Path) -> Path | None:
     dest = dest_dir / path.name
     try:
         os.link(path, dest)
-        path.unlink()
     except FileExistsError:
         return None
     except FileNotFoundError:
@@ -127,6 +126,22 @@ def claim_order(path: Path, root: Path) -> Path | None:
                 "different filesystems"
             ) from exc
         raise ClaimOrderError(f"cannot atomically claim {path.name}: {exc}") from exc
+    # The in_progress link is ours; now drop the pending source. If the unlink
+    # fails, roll back the link so we never leave BOTH a pending source and an
+    # in_progress duplicate -- otherwise the order wedges forever (every future
+    # drainer hits FileExistsError on link and skips it as a claim race).
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass  # already removed by a racing drainer; our link still stands
+    except OSError as exc:
+        try:
+            dest.unlink()
+        except OSError:
+            pass
+        raise ClaimOrderError(
+            f"claimed {path.name} but could not remove pending source: {exc}"
+        ) from exc
     return dest
 
 
