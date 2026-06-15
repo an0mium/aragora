@@ -81,6 +81,19 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
         "philosophy": 0.85,  # Rigorous reasoning
         "general": 0.85,
     },
+    # OpenRouter Fusion: a multi-model council, so broadly strong rather than
+    # specialized. High cost_factor (~4.5x) means the Pareto optimizer only
+    # selects it when quality outweighs cost (high-stakes debates); it is skipped
+    # on low budgets. Opt-in via the enable_fusion feature flag.
+    "fusion": {
+        "reasoning": 0.92,
+        "architecture": 0.9,
+        "security": 0.88,
+        "api": 0.88,
+        "data_analysis": 0.9,
+        "philosophy": 0.9,
+        "general": 0.88,
+    },
 }
 
 if TYPE_CHECKING:
@@ -933,12 +946,20 @@ class AgentSelector:
         """
         selector = cls(elo_system=elo_system, persona_manager=persona_manager)
 
+        # Per-agent cost/latency overrides (default 1.0x / 1000ms). Fusion runs a
+        # model panel + judge, so it is ~4.5x cost and slower; this lets the
+        # Pareto optimizer naturally skip it on low budgets and pick it only when
+        # quality outweighs cost.
+        cost_factors = {"fusion": 4.5}
+        latency_ms = {"fusion": 1200.0}
         # Register agents with default expertise
         for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
             profile = AgentProfile(
                 name=agent_name,
                 agent_type=agent_name,
                 expertise=expertise.copy(),
+                cost_factor=cost_factors.get(agent_name, 1.0),
+                latency_ms=latency_ms.get(agent_name, 1000.0),
             )
             selector.register_agent(profile)
 

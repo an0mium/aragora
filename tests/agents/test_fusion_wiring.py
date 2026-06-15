@@ -1,0 +1,55 @@
+"""PR-1 wiring tests for the OpenRouter Fusion agent.
+
+Covers the four foundational seams: agent registration, cost pricing, feature
+flags (default-OFF), and the Pareto routing profile. No network calls.
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal
+
+import aragora.agents.api_agents.openrouter  # noqa: F401 - triggers registration
+from aragora.agents.api_agents.openrouter import FUSION_MODEL, FusionAgent
+from aragora.agents.registry import AgentRegistry
+from aragora.billing.usage import calculate_token_cost
+from aragora.config.feature_flags import FeatureFlagRegistry
+from aragora.routing.selection import DEFAULT_AGENT_EXPERTISE, AgentSelector
+
+
+def test_fusion_agent_is_registered_with_openrouter_model() -> None:
+    spec = AgentRegistry.get_spec("fusion")
+    assert spec is not None
+    assert spec.default_model == FUSION_MODEL == "openrouter/fusion"
+    assert spec.env_vars == "OPENROUTER_API_KEY"
+
+
+def test_fusion_agent_instantiates_with_fusion_model(monkeypatch) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    agent = FusionAgent()
+    assert agent.model == "openrouter/fusion"
+    assert agent.agent_type == "fusion"
+
+
+def test_fusion_cost_is_billed_as_premium_not_default() -> None:
+    # 1M in + 1M out. Fusion must cost ~4x the openrouter default, never the
+    # cheap default fallback.
+    fusion = calculate_token_cost("openrouter", "openrouter/fusion", 1_000_000, 1_000_000)
+    default = calculate_token_cost("openrouter", "some-unknown-model", 1_000_000, 1_000_000)
+    assert fusion == Decimal("8.00") + Decimal("32.00")
+    assert fusion > default
+
+
+def test_fusion_flags_exist_and_default_off() -> None:
+    reg = FeatureFlagRegistry()
+    assert reg.is_enabled("enable_fusion") is False
+    assert reg.get_value("fusion_cost_budget_per_debate") == 50.0
+    assert reg.get_value("fusion_cost_monthly_cap") == 5000.0
+
+
+def test_fusion_routing_profile_is_high_cost() -> None:
+    assert "fusion" in DEFAULT_AGENT_EXPERTISE
+    selector = AgentSelector.create_with_defaults()
+    profile = selector.agent_pool["fusion"]
+    # High cost so the Pareto optimizer skips it on low budgets; others stay 1.0x.
+    assert profile.cost_factor == 4.5
+    assert selector.agent_pool["claude"].cost_factor == 1.0
