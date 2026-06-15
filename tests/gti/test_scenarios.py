@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from aragora.gti.scenarios import Scenario, load_scenarios
 
 CORPUS = Path("docs/status/generated/gti/scenarios.json")
@@ -31,3 +33,41 @@ def test_corpus_includes_control_scenarios_that_are_fresh_and_true():
     scenarios = load_scenarios(CORPUS)
     controls = [s for s in scenarios if s.belief_matches_truth]
     assert len(controls) >= 2
+
+
+def _scenario(**kw):
+    base = dict(
+        id="GTI-TEST-001",
+        failure_mode="stale_source",
+        belief_presented="outdated claim",
+        ground_truth="current claim",
+        canonical_source="docs/status/source.md",
+        belief_matches_truth=False,
+        belief_age_days=9.0,
+        freshness_ttl_days=7.0,
+        quorum_would_flag=True,
+        expected="detect",
+        consequential_action_if_wrong="ship stale proof",
+    )
+    base.update(kw)
+    return Scenario(**base)
+
+
+def test_scenario_rejects_negative_belief_age():
+    with pytest.raises(ValueError, match="belief_age_days"):
+        _scenario(belief_age_days=-1.0)
+
+
+def test_scenario_rejects_non_finite_belief_age():
+    with pytest.raises(ValueError, match="belief_age_days"):
+        _scenario(belief_age_days=float("nan"))
+
+
+def test_scenario_rejects_non_positive_freshness_ttl():
+    with pytest.raises(ValueError, match="freshness_ttl_days"):
+        _scenario(freshness_ttl_days=0.0)
+
+
+def test_scenario_rejects_non_finite_freshness_ttl():
+    with pytest.raises(ValueError, match="freshness_ttl_days"):
+        _scenario(freshness_ttl_days=float("inf"))

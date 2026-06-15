@@ -68,6 +68,10 @@ def validate_belief_provenance(beliefs: list[BeliefProvenance], now_iso: str) ->
             continue
 
         age = (now - as_of).total_seconds()
+        if age < 0:
+            problems.append(f"{b.belief_id}: as_of timestamp is in the future")
+            continue
+
         if age > ttl and not b.was_revalidated_at_decision:
             problems.append(
                 f"{b.belief_id}: belief used past TTL "

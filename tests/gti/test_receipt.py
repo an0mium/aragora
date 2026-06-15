@@ -50,6 +50,11 @@ def test_mixed_naive_and_aware_timestamps_are_invalid_problem_not_exception():
     assert problems == ["b1: as_of timestamp timezone must match now_iso"]
 
 
+def test_future_as_of_is_invalid():
+    problems = validate_belief_provenance([_belief(as_of="2026-06-06T12:01:00+00:00")], NOW)
+    assert problems == ["b1: as_of timestamp is in the future"]
+
+
 def test_non_positive_ttl_is_invalid():
     problems = validate_belief_provenance([_belief(freshness_ttl_seconds=0.0)], NOW)
     assert problems == ["b1: invalid freshness_ttl_seconds"]

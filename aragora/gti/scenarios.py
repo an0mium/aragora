@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -45,6 +46,20 @@ class Scenario:
             raise ValueError(f"invalid failure_mode: {self.failure_mode!r}")
         if self.expected not in {"detect", "correct", "halt"}:
             raise ValueError(f"invalid expected: {self.expected!r}")
+        if (
+            isinstance(self.belief_age_days, bool)
+            or not isinstance(self.belief_age_days, (int, float))
+            or not math.isfinite(self.belief_age_days)
+            or self.belief_age_days < 0
+        ):
+            raise ValueError(f"invalid belief_age_days: {self.belief_age_days!r}")
+        if (
+            isinstance(self.freshness_ttl_days, bool)
+            or not isinstance(self.freshness_ttl_days, (int, float))
+            or not math.isfinite(self.freshness_ttl_days)
+            or self.freshness_ttl_days <= 0
+        ):
+            raise ValueError(f"invalid freshness_ttl_days: {self.freshness_ttl_days!r}")
 
 
 def load_scenarios(path: Path) -> list[Scenario]:
