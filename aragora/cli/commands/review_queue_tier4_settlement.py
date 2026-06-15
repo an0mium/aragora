@@ -113,14 +113,15 @@ def _trusted_comment_author_verified(
     gh_json: GhJson = _gh_json,
 ) -> bool:
     association = _comment_author_association(comment)
-    if association == "OWNER":
-        return True
-    if association not in {"MEMBER", "COLLABORATOR"}:
+    if association not in {"OWNER", "MEMBER", "COLLABORATOR"}:
         return False
     login = _comment_author_login(comment)
     trusted = _trusted_settlement_creator()
     if not login or login.casefold() != trusted.casefold() or not repo_slug:
         return False
+    # GitHub authorAssociation is PR metadata, not enough authority for Tier 4.
+    # Bind every accepted settlement comment to the configured trusted operator
+    # and a live repo-admin permission check, including OWNER-labeled comments.
     try:
         payload = gh_json(
             ["api", f"repos/{repo_slug}/collaborators/{quote(login, safe='')}/permission"]
@@ -140,8 +141,6 @@ def _comment_is_fresh_for_head(
     *,
     head_committed_at: str,
 ) -> bool:
-    if not head_committed_at:
-        return True
     created_at = _comment_created_at(comment)
     created = _parse_github_datetime(created_at)
     committed = _parse_github_datetime(head_committed_at)
@@ -223,7 +222,7 @@ def _head_committed_at_from_pr(pr: dict[str, Any]) -> str:
         if not isinstance(commit, dict):
             continue
         oid = str(commit.get("oid") or commit.get("sha") or "").strip()
-        if oid and oid != head_sha:
+        if not oid or oid != head_sha:
             continue
         committed = str(
             commit.get("committedDate")

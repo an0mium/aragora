@@ -1336,8 +1336,10 @@ def test_rest_fallback_reports_strict_branch_protection_required_contexts(
     payload = settler.json.loads(capsys.readouterr().out)
     gate = payload["gate"]
     assert gate["ok"] is False
-    assert "required check lint is STRICT_BASE_REQUIRED" in gate["blockers"]
-    assert "required check aragora-merge-quorum is STRICT_BASE_REQUIRED" in gate["blockers"]
+    assert "required check required check REST visibility is UNKNOWN" in gate["blockers"]
+    assert "required check lint is PENDING" in gate["blockers"]
+    assert "required check aragora-merge-quorum is PENDING" in gate["blockers"]
+    assert not any("STRICT_BASE_REQUIRED" in blocker for blocker in gate["blockers"])
 
 
 def test_collaborator_permission_payload_only_treats_admin_as_admin() -> None:

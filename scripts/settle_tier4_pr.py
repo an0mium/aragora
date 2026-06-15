@@ -1091,12 +1091,6 @@ def _required_checks_from_rest(
     direct_statuses, status_error = _fetch_direct_commit_statuses_for_gate(
         repo, head, gh_json=gh_json
     )
-    if protection.get("strict") and (check_run_error or status_error):
-        return [
-            {"name": str(spec.get("context") or "").strip(), "state": "STRICT_BASE_REQUIRED"}
-            for spec in required_specs
-            if str(spec.get("context") or "").strip()
-        ]
 
     checks: list[dict[str, str]] = []
     if check_run_error or status_error:

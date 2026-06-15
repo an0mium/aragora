@@ -48,6 +48,7 @@ from aragora.cli.commands.review_queue import (
     add_review_queue_parser,
     cmd_review_queue,
 )
+from aragora.cli.commands import review_queue_tier4_settlement as tier4_settlement
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.review import (
     EvidenceKind,
@@ -1774,17 +1775,19 @@ class TestModelReviewQuorum:
         ]
 
         def _gh_json_dispatch(args: list[str]) -> Any:
-            assert any("/statuses" in str(arg) for arg in args), (
-                "only the statuses API may be called from the quorum builder"
-            )
-            return [
-                {
-                    "context": "aragora/human-settlement",
-                    "state": "success",
-                    "creator": {"login": "scarmani"},
-                    "target_url": settlement_url,
-                }
-            ]
+            endpoint = str(args[-1])
+            if "/collaborators/scarmani/permission" in endpoint:
+                return {"permission": "admin"}
+            if "/statuses" in endpoint:
+                return [
+                    {
+                        "context": "aragora/human-settlement",
+                        "state": "success",
+                        "creator": {"login": "scarmani"},
+                        "target_url": settlement_url,
+                    }
+                ]
+            raise AssertionError(f"unexpected gh api call: {args}")
 
         monkeypatch.setattr(
             "aragora.cli.commands.review_queue._gh_json",
@@ -1804,7 +1807,7 @@ class TestModelReviewQuorum:
         assert quorum["status"] == "satisfied"
         assert quorum["verdict"] == "admin_squash_allowed"
         assert quorum["admin_squash_allowed"] is True
-        assert quorum["human_risk_settlement_recorded"] is True
+        assert quorum["human_risk_settlement_recorded"] is False
         assert quorum["human_preapproval_recorded"] is True
         assert quorum["requires_human_risk_settlement"] is False
         assert quorum["requires_human_preapproval"] is False
@@ -1832,7 +1835,7 @@ class TestModelReviewQuorum:
                 ),
             },
             {
-                "author": {"login": "an0mium"},
+                "author": {"login": "scarmani"},
                 "authorAssociation": "OWNER",
                 "createdAt": "2026-06-15T02:22:41Z",
                 "url": settlement_url,
@@ -1867,7 +1870,10 @@ class TestModelReviewQuorum:
         def _gh_json_dispatch(args: list[str]) -> Any:
             # TET H2: the settlement-creator pin fetches the head commit's
             # statuses via the REST API; everything else hydrates the PR.
-            if any("/statuses" in str(arg) for arg in args):
+            endpoint = str(args[-1])
+            if "/collaborators/scarmani/permission" in endpoint:
+                return {"permission": "admin"}
+            if "/statuses" in endpoint:
                 return [
                     {
                         "context": "aragora/human-settlement",
@@ -1930,7 +1936,7 @@ class TestModelReviewQuorum:
                 ),
             },
             {
-                "author": {"login": "an0mium"},
+                "author": {"login": "scarmani"},
                 "authorAssociation": "OWNER",
                 "createdAt": "2026-06-15T02:22:41Z",
                 "url": settlement_url,
@@ -1978,9 +1984,11 @@ class TestModelReviewQuorum:
             pr, files = self._tier_four_settled_pr()
 
         def _gh_json_dispatch(args: list[str]) -> Any:
-            assert any("/statuses" in str(arg) for arg in args), (
-                "only the statuses API may be called from the quorum builder"
-            )
+            endpoint = str(args[-1])
+            if "/collaborators/" in endpoint and endpoint.endswith("/permission"):
+                return {"permission": "admin"}
+            if not any("/statuses" in str(arg) for arg in args):
+                raise AssertionError(f"unexpected gh api call: {args}")
             if isinstance(statuses, Exception):
                 raise statuses
             return statuses
@@ -2081,6 +2089,37 @@ class TestModelReviewQuorum:
         assert quorum["human_preapproval_recorded"] is True
         assert quorum["admin_squash_allowed"] is True
 
+    def test_owner_preapproval_comment_requires_live_admin_permission(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr, files = self._tier_four_settled_pr()
+
+        def _gh_json_dispatch(args: list[str]) -> Any:
+            endpoint = str(args[-1])
+            if "/collaborators/scarmani/permission" in endpoint:
+                return {"permission": "write"}
+            raise AssertionError(f"unexpected gh api call: {args}")
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            _gh_json_dispatch,
+        )
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            human_risk_settlement_recorded=True,
+            repo_slug="synaptent/aragora",
+        )
+
+        assert quorum["human_preapproval_recorded"] is False
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["settlement_creator_pin"]["checked"] is False
+
     def test_non_admin_collaborator_preapproval_comment_is_rejected(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2160,7 +2199,14 @@ class TestModelReviewQuorum:
 
     def test_settlement_creator_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("ARAGORA_SETTLEMENT_CREATOR", "alice-oversight")
-        quorum = self._pin_quorum(monkeypatch, [self._settlement_status("alice-oversight")])
+        pr, files = self._tier_four_settled_pr()
+        pr["comments"][-1]["author"] = {"login": "alice-oversight"}
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [self._settlement_status("alice-oversight")],
+            pr=pr,
+            files=files,
+        )
         assert quorum["human_preapproval_recorded"] is True
         assert quorum["settlement_creator_pin"]["trusted_creator"] == "alice-oversight"
 
@@ -2215,6 +2261,35 @@ class TestModelReviewQuorum:
         )
         assert quorum["human_preapproval_recorded"] is False
         assert "not success" in quorum["settlement_creator_pin"]["reason"]
+
+    def test_settlement_comment_without_matching_head_timestamp_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr, files = self._tier_four_settled_pr()
+        pr.pop("headCommittedDate", None)
+        pr["commits"] = [{"committedDate": "2026-06-15T02:21:41Z"}]
+
+        def _gh_json_dispatch(args: list[str]) -> Any:
+            raise AssertionError(f"missing head timestamp should fail before gh call: {args}")
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            _gh_json_dispatch,
+        )
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            human_risk_settlement_recorded=True,
+            repo_slug="synaptent/aragora",
+        )
+
+        assert quorum["human_preapproval_recorded"] is False
+        assert tier4_settlement._head_committed_at_from_pr(pr) == ""
 
     def test_pin_not_consulted_below_tier_four(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Non-Tier-4 packets must not pay the statuses API call at all."""

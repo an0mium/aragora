@@ -3177,7 +3177,6 @@ def _build_model_review_quorum(
         settlement_creator_pin["reason"] = creator_reason
         if creator_verified:
             human_preapproval_recorded = True
-            human_risk_settlement_recorded = True
     reasons = [tier_reason]
     if settlement_creator_pin["checked"] and not settlement_creator_pin["verified"]:
         reasons.append(str(settlement_creator_pin["reason"]))
@@ -3275,7 +3274,7 @@ def _build_model_review_quorum(
         "required_model_signals": requirement["required_model_signals"],
         "requires_adversarial_dogfood": requirement["requires_adversarial_dogfood"],
         "requires_human_risk_settlement": requires_human_risk_settlement,
-        "human_risk_settlement_recorded": human_risk_settlement_recorded,
+        "human_risk_settlement_recorded": local_human_risk_settlement_recorded,
         "requires_human_preapproval": requires_human_preapproval,
         "human_preapproval_recorded": human_preapproval_recorded,
         "settlement_creator_pin": settlement_creator_pin,
@@ -3678,28 +3677,23 @@ def _head_committed_at_from_pr(pr: dict[str, Any]) -> str:
 
     Used to anchor comment-based quorum signals to the current head
     SHA per the "grounded in the current head SHA" requirement of
-    ``docs/REVIEW_AUTHORITY_PRINCIPLES.md``.  Falls back to the most
-    recent ``committedDate`` in the commits list when the head SHA
-    is not separately matched, and returns ``""`` when the PR fetch
-    did not include commit metadata (no-op for legacy callers).
+    ``docs/REVIEW_AUTHORITY_PRINCIPLES.md``.  Missing identity fails
+    closed for comment recency checks.
     """
     head_sha = str(pr.get("headRefOid", "") or "").strip()
     commits = pr.get("commits") or []
     if not isinstance(commits, list):
         return ""
-    latest_committed_at = ""
     for entry in commits:
         if not isinstance(entry, dict):
             continue
         committed_at = str(entry.get("committedDate", "") or "").strip()
         if not committed_at:
             continue
-        oid = str(entry.get("oid", "") or "").strip()
+        oid = str(entry.get("oid") or entry.get("sha") or "").strip()
         if head_sha and oid == head_sha:
             return committed_at
-        if committed_at > latest_committed_at:
-            latest_committed_at = committed_at
-    return latest_committed_at
+    return ""
 
 
 def _known_model_reviewer_id(item: dict[str, Any]) -> str:
