@@ -542,3 +542,79 @@ def test_read_cli_missing_file_exit_3(tmp_path: Path) -> None:
         FakeGh(), ["--cache-file", str(tmp_path / "absent.json"), "read", "--pr", "7"]
     )
     assert exit_code == 3
+
+
+def test_emit_output_suppresses_write_time_broken_pipe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ClosedStdout:
+        closed = False
+
+        def write(self, value: str) -> None:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+        def close(self) -> None:
+            self.closed = True
+            raise BrokenPipeError("downstream closed")
+
+    stdout = ClosedStdout()
+    monkeypatch.setattr(psc.sys, "stdout", stdout)
+    psc._emit_output("payload")
+    muted = psc.sys.stdout
+    assert stdout.closed is True
+    assert muted is not stdout
+    muted.close()
+
+
+def test_emit_output_suppresses_flush_time_broken_pipe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FlushClosedStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+            self.closed = False
+
+        def write(self, value: str) -> None:
+            self.writes.append(value)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+        def close(self) -> None:
+            self.closed = True
+            raise BrokenPipeError("downstream closed")
+
+    stdout = FlushClosedStdout()
+    monkeypatch.setattr(psc.sys, "stdout", stdout)
+    psc._emit_output("payload")
+    muted = psc.sys.stdout
+    assert stdout.writes == ["payload", "\n"]
+    assert stdout.closed is True
+    assert muted is not stdout
+    muted.close()
+
+
+def test_read_cli_suppresses_closed_stdout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ClosedStdout:
+        def write(self, value: str) -> None:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+        def close(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr(psc.sys, "stdout", ClosedStdout())
+    exit_code = main_with(
+        FakeGh(), ["--cache-file", str(tmp_path / "absent.json"), "read", "--pr", "7"]
+    )
+    muted = psc.sys.stdout
+    assert exit_code == 3
+    muted.close()

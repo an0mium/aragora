@@ -190,6 +190,25 @@ def load_cache(path: str) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    try:
+        if close is not None:
+            close()
+    except (BrokenPipeError, OSError):
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def _iso(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -563,7 +582,7 @@ def main(
             )
             return int(summary["exit_code"])
         if not args.apply:
-            print(json.dumps(cache, indent=2, sort_keys=True))
+            _emit_output(json.dumps(cache, indent=2, sort_keys=True))
             return int(summary["exit_code"])
         try:
             atomic_write_json(Path(args.cache_file), cache)
@@ -573,7 +592,7 @@ def main(
                 file=sys.stderr,
             )
             return EXIT_FAILURES
-        print(
+        _emit_output(
             json.dumps(
                 {
                     "action": "poll",
@@ -595,12 +614,12 @@ def main(
             max_age_seconds=args.max_age_seconds,
             clock=clock,
         )
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _emit_output(json.dumps(report, indent=2, sort_keys=True))
         return exit_code
 
     # verify
     report, exit_code = run_verify(args.repo, args.pr, run_gh)
-    print(json.dumps(report, indent=2, sort_keys=True))
+    _emit_output(json.dumps(report, indent=2, sort_keys=True))
     return exit_code
 
 
