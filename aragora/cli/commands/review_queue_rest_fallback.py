@@ -86,11 +86,34 @@ def _rest_pr_mergeable(rest_pr: dict[str, Any]) -> str:
     return "UNKNOWN"
 
 
+def _rest_pr_merge_state_status(rest_pr: dict[str, Any]) -> str:
+    state = str(rest_pr.get("mergeable_state") or "").strip().lower()
+    mapping = {
+        "behind": "BEHIND",
+        "blocked": "BLOCKED",
+        "clean": "CLEAN",
+        "dirty": "DIRTY",
+        "draft": "DRAFT",
+        "has_hooks": "HAS_HOOKS",
+        "unstable": "UNSTABLE",
+        "unknown": "UNKNOWN",
+    }
+    if state in mapping:
+        return mapping[state]
+    mergeable = rest_pr.get("mergeable")
+    if mergeable is True:
+        return "CLEAN"
+    if mergeable is False:
+        return "CONFLICTING"
+    return "UNKNOWN"
+
+
 def _normalize_rest_issue_comment(comment: dict[str, Any]) -> dict[str, Any]:
     user_payload = comment.get("user")
     user: dict[str, Any] = user_payload if isinstance(user_payload, dict) else {}
     return {
         "author": {"login": str(user.get("login") or "").strip()},
+        "authorAssociation": str(comment.get("author_association") or "").strip().upper(),
         "body": str(comment.get("body") or ""),
         "createdAt": str(comment.get("created_at") or ""),
         "url": str(comment.get("html_url") or ""),
@@ -103,9 +126,11 @@ def _normalize_rest_review(review: dict[str, Any]) -> dict[str, Any]:
     commit_id = str(review.get("commit_id") or "").strip()
     return {
         "author": {"login": str(user.get("login") or "").strip()},
+        "authorAssociation": str(review.get("author_association") or "").strip().upper(),
         "body": str(review.get("body") or ""),
         "state": str(review.get("state") or "").strip().upper(),
         "submittedAt": str(review.get("submitted_at") or ""),
+        "url": str(review.get("html_url") or ""),
         "commit": {"oid": commit_id} if commit_id else {},
     }
 
@@ -209,6 +234,7 @@ def _hydrate_pr_with_rest_fallback(
         "mergeCommit": {"oid": str(rest_pr.get("merge_commit_sha") or "").strip()},
         "isDraft": bool(rest_pr.get("draft")),
         "mergeable": _rest_pr_mergeable(rest_pr),
+        "mergeStateStatus": _rest_pr_merge_state_status(rest_pr),
         "reviewDecision": "",
         "labels": [
             {"name": str(label.get("name") or "").strip()}

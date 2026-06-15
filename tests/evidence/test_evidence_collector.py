@@ -788,7 +788,7 @@ class TestURLConsentGate:
 
     def test_consent_callback_error_blocks_url(self):
         """Should block URL if consent callback raises exception."""
-        callback = Mock(side_effect=Exception("Consent service unavailable"))
+        callback = Mock(side_effect=ValueError("Consent service unavailable"))
         collector = EvidenceCollector(
             require_url_consent=True,
             url_consent_callback=callback,
@@ -836,7 +836,7 @@ class TestURLConsentGate:
 
     def test_audit_callback_error_handled_gracefully(self):
         """Should handle audit callback errors gracefully."""
-        audit_callback = Mock(side_effect=Exception("Audit service down"))
+        audit_callback = Mock(side_effect=RuntimeError("Audit service down"))
         collector = EvidenceCollector(audit_callback=audit_callback)
 
         # Should not raise
