@@ -84,14 +84,18 @@ class TestEdgeTTS:
         mock_process.communicate.return_value = (b"", b"")
         mock_process.returncode = 0
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_process):
-            # Create file to simulate edge-tts success
-            output_path.write_bytes(b"fake audio")
-            result = await _generate_edge_tts(
-                text="Hello world",
-                voice="en-US-GuyNeural",
-                output_path=output_path,
-            )
+        with patch(
+            "aragora.broadcast.audio_engine._edge_tts_command",
+            return_value=["edge-tts"],
+        ):
+            with patch("asyncio.create_subprocess_exec", return_value=mock_process):
+                # Create file to simulate edge-tts success
+                output_path.write_bytes(b"fake audio")
+                result = await _generate_edge_tts(
+                    text="Hello world",
+                    voice="en-US-GuyNeural",
+                    output_path=output_path,
+                )
 
         assert result is True
 
@@ -104,13 +108,17 @@ class TestEdgeTTS:
         mock_process.kill = MagicMock()
         mock_process.wait = AsyncMock()
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_process):
-            with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
-                result = await _generate_edge_tts(
-                    text="Hello world",
-                    voice="en-US-GuyNeural",
-                    output_path=output_path,
-                )
+        with patch(
+            "aragora.broadcast.audio_engine._edge_tts_command",
+            return_value=["edge-tts"],
+        ):
+            with patch("asyncio.create_subprocess_exec", return_value=mock_process):
+                with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
+                    result = await _generate_edge_tts(
+                        text="Hello world",
+                        voice="en-US-GuyNeural",
+                        output_path=output_path,
+                    )
 
         assert result is False
         # kill is called once per retry attempt (default 3 retries)
@@ -279,6 +287,9 @@ class TestGenerateAudioSegment:
     @pytest.mark.asyncio
     async def test_generate_audio_segment_edge_tts_success(self, tmp_path, sample_segment):
         """Successfully generate audio segment with edge-tts."""
+        # get_audio_backend() probes the XTTS backend, which imports the optional
+        # Coqui "TTS" package; skip when that optional dependency is absent.
+        pytest.importorskip("TTS")
         with patch("aragora.broadcast.audio_engine._generate_edge_tts") as mock_edge:
             mock_edge.return_value = True
             # Create the expected output file
@@ -367,6 +378,9 @@ class TestGenerateAudioSegment:
     @pytest.mark.asyncio
     async def test_generate_audio_segment_deterministic_filename(self, tmp_path, sample_segment):
         """Filename is deterministic based on text hash."""
+        # get_audio_backend() probes the XTTS backend, which imports the optional
+        # Coqui "TTS" package; skip when that optional dependency is absent.
+        pytest.importorskip("TTS")
         with patch("aragora.broadcast.audio_engine._generate_edge_tts") as mock_edge:
 
             async def mock_generate(text, voice, output_path):

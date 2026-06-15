@@ -48,6 +48,7 @@ from aragora.cli.commands.review_queue import (
     add_review_queue_parser,
     cmd_review_queue,
 )
+from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.review import (
     EvidenceKind,
     EvidenceRef,
@@ -3090,6 +3091,209 @@ class TestBuildQueueAndPacket:
         assert "diagnosis:" in rendered_packet
         assert "remediation:" in rendered_packet
 
+    def test_build_packet_uses_rest_fallback_when_pr_view_transport_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = "abc1234567890abcdef"
+        rest_pr = {
+            "number": 7466,
+            "title": "docs status fallback",
+            "html_url": "https://github.com/synaptent/aragora/pull/7466",
+            "state": "open",
+            "merged_at": None,
+            "merge_commit_sha": "",
+            "draft": False,
+            "mergeable": True,
+            "mergeable_state": "clean",
+            "user": {"login": "an0mium"},
+            "head": {"ref": "codex/rest-fallback-test", "sha": head},
+            "base": {"ref": "main", "sha": "basesha0001"},
+            "labels": [],
+            "additions": 1,
+            "deletions": 0,
+            "changed_files": 1,
+            "body": "",
+        }
+        comment_body = (
+            "## Grok independent model review\n\n"
+            f"Head: abc1234 ({head}).\n"
+            "PR: #7466.\n"
+            "Model family: grok\n\n"
+            "Verdict: PASS\n"
+            "- adversarial dogfood recheck found no blocker.\n"
+            "dogfood: yes\n"
+        )
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                raise _GhError("GraphQL: API rate limit already exceeded")
+            if args[:1] != ["api"]:
+                raise AssertionError(f"unexpected gh call: {args}")
+            endpoint = args[1]
+            if endpoint == "repos/synaptent/aragora/pulls/7466":
+                return rest_pr
+            if endpoint == "repos/synaptent/aragora/pulls/7466/files?per_page=100":
+                return [{"filename": "docs/status/fallback.md"}]
+            if endpoint == "repos/synaptent/aragora/issues/7466/comments?per_page=100":
+                return [
+                    {
+                        "user": {"login": "an0mium"},
+                        "body": comment_body,
+                        "created_at": "2026-06-12T00:01:00Z",
+                    }
+                ]
+            if endpoint == "repos/synaptent/aragora/pulls/7466/reviews?per_page=100":
+                return []
+            if endpoint == "repos/synaptent/aragora/pulls/7466/commits?per_page=100":
+                return [
+                    {
+                        "sha": head,
+                        "commit": {"author": {"date": "2026-06-12T00:00:00Z"}},
+                    }
+                ]
+            if endpoint == f"repos/synaptent/aragora/commits/{head}/status":
+                return {
+                    "statuses": [
+                        {
+                            "context": "legacy/status",
+                            "state": "success",
+                            "created_at": "2026-06-12T00:02:00Z",
+                            "updated_at": "2026-06-12T00:02:00Z",
+                        }
+                    ]
+                }
+            if (
+                endpoint
+                == "repos/synaptent/aragora/branches/main/protection/required_status_checks"
+            ):
+                return {"contexts": ["legacy/status"], "checks": [], "strict": False}
+            if endpoint == f"repos/synaptent/aragora/commits/{head}/check-runs?per_page=100":
+                return {"check_runs": []}
+            raise AssertionError(f"unexpected gh api endpoint: {endpoint}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("7466", repo_override="synaptent/aragora")
+        direct = packet.check_surfaces["direct_commit_check_runs"]
+
+        assert packet.head_sha == head
+        assert packet.touched_subsystems == ["docs"]
+        assert packet.check_surfaces["metadata_transport_fallback"]["enabled"] is True
+        assert packet.check_surfaces["metadata_transport_fallback"]["repo"] == "synaptent/aragora"
+        assert packet.checks_summary == "1/1 required green (direct check-runs fallback)"
+        assert direct["total"] == 0
+        assert direct["statuses_total"] == 1
+        assert direct["successful_required_contexts"] == ["legacy/status"]
+        assert direct["required_contexts_satisfied"] is True
+        assert packet.model_review_quorum["counted_model_families"] == ["grok"]
+        assert packet.model_review_quorum["admin_squash_allowed"] is True
+
+    def test_rest_fallback_paginates_rest_surfaces(self) -> None:
+        head = "f" * 40
+        calls: list[str] = []
+
+        def page_payload(prefix: str, page: int) -> list[dict[str, Any]]:
+            if prefix == "files":
+                return [{"filename": f"docs/page-{page}-{index}.md"} for index in range(100)]
+            if prefix == "comments":
+                return [
+                    {"user": {"login": "an0mium"}, "body": f"comment {page}-{index}"}
+                    for index in range(100)
+                ]
+            if prefix == "reviews":
+                return [{"user": {"login": "reviewer"}, "state": "APPROVED"}]
+            if prefix == "commits":
+                return [
+                    {
+                        "sha": f"{page:02d}{index:038d}",
+                        "commit": {"author": {"date": "2026-06-12T00:00:00Z"}},
+                    }
+                    for index in range(100)
+                ]
+            if prefix == "statuses":
+                return [
+                    {"context": f"legacy/{page}-{index}", "state": "success"}
+                    for index in range(100)
+                ]
+            raise AssertionError(prefix)
+
+        def fake_gh_json(args: list[str]) -> Any:
+            assert args[:1] == ["api"]
+            endpoint = args[1]
+            calls.append(endpoint)
+            if endpoint == "repos/synaptent/aragora/pulls/7466":
+                return {
+                    "number": 7466,
+                    "title": "rest fallback",
+                    "html_url": "https://github.com/synaptent/aragora/pull/7466",
+                    "state": "open",
+                    "draft": False,
+                    "mergeable": True,
+                    "mergeable_state": "clean",
+                    "user": {"login": "an0mium"},
+                    "head": {"ref": "codex/rest-fallback-test", "sha": head},
+                    "base": {"ref": "main", "sha": "basesha0001"},
+                    "labels": [],
+                    "additions": 1,
+                    "deletions": 0,
+                    "changed_files": 101,
+                    "body": "",
+                }
+            if endpoint.endswith("/files?per_page=100"):
+                return page_payload("files", 1)
+            if endpoint.endswith("/files?per_page=100&page=2"):
+                return [{"filename": "docs/page-2-final.md"}]
+            if endpoint.endswith("/comments?per_page=100"):
+                return page_payload("comments", 1)
+            if endpoint.endswith("/comments?per_page=100&page=2"):
+                return [{"user": {"login": "an0mium"}, "body": "comment page 2"}]
+            if endpoint.endswith("/reviews?per_page=100"):
+                return page_payload("reviews", 1)
+            if endpoint.endswith("/commits?per_page=100"):
+                return page_payload("commits", 1)
+            if endpoint.endswith("/commits?per_page=100&page=2"):
+                return [{"sha": head, "commit": {"author": {"date": "2026-06-12T00:00:00Z"}}}]
+            if endpoint.endswith(f"/commits/{head}/statuses?per_page=100"):
+                return page_payload("statuses", 1)
+            if endpoint.endswith(f"/commits/{head}/statuses?per_page=100&page=2"):
+                return [{"context": "legacy/final", "state": "success"}]
+            if endpoint.endswith(f"/commits/{head}/check-runs?per_page=100"):
+                return {
+                    "total_count": 101,
+                    "check_runs": [
+                        {"name": f"check-{index}", "status": "completed", "conclusion": "success"}
+                        for index in range(100)
+                    ],
+                }
+            if endpoint.endswith(f"/commits/{head}/check-runs?per_page=100&page=2"):
+                return {
+                    "total_count": 101,
+                    "check_runs": [
+                        {"name": "check-final", "status": "completed", "conclusion": "success"}
+                    ],
+                }
+            raise AssertionError(f"unexpected endpoint: {endpoint}")
+
+        pr = rest_fallback._hydrate_pr_with_rest_fallback(
+            number=7466,
+            repo_slug="synaptent/aragora",
+            source_error="GraphQL rate limit",
+            gh_json=fake_gh_json,
+        )
+        check_runs = rest_fallback._fetch_direct_commit_check_runs(
+            "synaptent/aragora", head, gh_json=fake_gh_json
+        )
+
+        assert len(pr["files"]) == 101
+        assert len(pr["comments"]) == 101
+        assert len(pr["reviews"]) == 1
+        assert len(pr["commits"]) == 101
+        assert len(pr["commitStatuses"]) == 101
+        assert len(check_runs) == 101
+        assert "repos/synaptent/aragora/pulls/7466/files?per_page=100&page=2" in calls
+        assert "repos/synaptent/aragora/issues/7466/comments?per_page=100&page=2" in calls
+        assert f"repos/synaptent/aragora/commits/{head}/check-runs?per_page=100&page=2" in calls
+
     def test_non_required_rollup_failures_use_required_pr_checks_gate(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -3464,9 +3668,15 @@ class TestBuildQueueAndPacket:
         monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
 
         packet = _build_packet("7465", repo_override=None)
+        required = packet.check_surfaces["required_pr_checks"]
         rollup = packet.check_surfaces["pr_rollup"]
 
-        assert "effective_gate" not in packet.check_surfaces
+        assert packet.check_surfaces["effective_gate"] == {
+            "source": "required_pr_checks",
+            "summary": "1 failing / 2 required (required PR checks; only merge-quorum failing)",
+        }
+        assert required["gate_selected"] is True
+        assert required["quorum_only_failure"] is True
         assert rollup["optional_runner_capacity_noise_count"] == 1
         assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
         assert packet.machine_recommendation == "repair_first"
@@ -3478,6 +3688,100 @@ class TestBuildQueueAndPacket:
         assert not any(
             "checks are pending" in reason for reason in packet.model_review_quorum["reasons"]
         )
+
+    def test_required_pr_checks_gate_routes_quorum_only_failure_to_model_quorum(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=8374,
+            files=["scripts/audit_test_skips.py", "tests/scripts/test_audit_test_skips.py"],
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+                {"name": "Version Alignment", "status": "COMPLETED", "conclusion": "FAILURE"},
+                {
+                    "name": "Status Doc Reconciliation",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+                {"name": "Generate & Validate", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {
+                    "name": "TypeScript SDK Type Check",
+                    "status": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                },
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "sdk-parity", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            ],
+        )
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "state": "FAILURE",
+                        "bucket": "fail",
+                        "workflow": "Aragora Merge Quorum",
+                    },
+                    {
+                        "name": "Generate & Validate",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "OpenAPI Spec",
+                    },
+                    {
+                        "name": "TypeScript SDK Type Check",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "SDK Tests",
+                    },
+                    {"name": "lint", "state": "SUCCESS", "bucket": "pass", "workflow": "Lint"},
+                    {
+                        "name": "sdk-parity",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "SDK Parity Check",
+                    },
+                    {
+                        "name": "typecheck",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("8374", repo_override=None)
+        required = packet.check_surfaces["required_pr_checks"]
+        rollup = packet.check_surfaces["pr_rollup"]
+        quorum = packet.model_review_quorum
+
+        assert required["available"] is True
+        assert required["failing_or_cancelled"] == ["aragora-merge-quorum"]
+        assert required["gate_selected"] is True
+        assert packet.check_surfaces["effective_gate"] == {
+            "source": "required_pr_checks",
+            "summary": "1 failing / 6 required (required PR checks; only merge-quorum failing)",
+        }
+        assert rollup["non_required_non_green_count"] == 2
+        assert rollup["non_required_non_green_sample"] == [
+            "Version Alignment",
+            "Status Doc Reconciliation",
+        ]
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["verdict"] == "collect_model_quorum_before_merge"
+        assert "model quorum incomplete: 0/2 signal(s)" in quorum["reasons"]
+        assert "checks are failing; repair before settlement" not in quorum["reasons"]
 
     def test_required_pr_checks_gate_keeps_non_self_required_failure_blocking(
         self, monkeypatch: pytest.MonkeyPatch
@@ -4938,6 +5242,30 @@ class TestCommandDispatch:
         assert ns_evidence_lint.head_sha == "headsha123"
         assert ns_evidence_lint.body_file is None
         assert ns_evidence_lint.json is True
+        # collect-evidence invocation parses through the fast-path command parser
+        ns_collect = root.parse_args(
+            [
+                "review-queue",
+                "collect-evidence",
+                "--repo",
+                "synaptent/aragora",
+                "--pr",
+                "6280",
+                "--reviewers",
+                "claude",
+                "openai",
+                "--author",
+                "an0mium",
+                "--json",
+            ]
+        )
+        assert ns_collect.review_queue_command == "collect-evidence"
+        assert ns_collect.repo == "synaptent/aragora"
+        assert ns_collect.pr == 6280
+        assert ns_collect.reviewers == ["claude", "openai"]
+        assert ns_collect.author == "an0mium"
+        assert ns_collect.apply is False
+        assert ns_collect.json_output is True
         # run invocation parses
         ns_run = root.parse_args(["review-queue", "run", "--limit", "3", "--ready-only"])
         assert ns_run.review_queue_command == "run"

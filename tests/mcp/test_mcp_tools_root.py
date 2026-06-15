@@ -178,11 +178,11 @@ class TestRunDebateTool:
             )
 
             assert "error" in result
-            assert "No valid agents" in result["error"]
+            assert "Invalid agent selection" in result["error"]
 
     @pytest.mark.asyncio
     async def test_partial_agent_creation(self):
-        """Test debate runs with partial agent creation."""
+        """Test explicit selection is rejected when any requested agent can't be created."""
         mock_result = MagicMock()
         mock_result.final_answer = "Partial answer"
         mock_result.consensus_reached = False
@@ -213,8 +213,8 @@ class TestRunDebateTool:
                 agents="working,fake",
             )
 
-            assert "debate_id" in result
-            assert result["final_answer"] == "Partial answer"
+            assert "error" in result
+            assert "Invalid agent selection" in result["error"]
 
     @pytest.mark.asyncio
     async def test_successful_debate_returns_full_result(self):
@@ -518,8 +518,8 @@ class TestListAgentsTool:
             assert "openai-api" in result["agents"]
 
     @pytest.mark.asyncio
-    async def test_fallback_on_registry_error(self):
-        """Test fallback list when registry fails."""
+    async def test_empty_on_registry_error(self):
+        """Test list_agents fails closed with an empty list and error when the registry fails."""
         with patch(
             "aragora.agents.base.list_available_agents", side_effect=ImportError("Not found")
         ):
@@ -528,20 +528,21 @@ class TestListAgentsTool:
             result = await list_agents_tool()
 
             assert "agents" in result
-            assert result["count"] >= 5  # Fallback has at least 5
-            assert "note" in result
-            assert "Fallback" in result["note"]
+            assert result["count"] == 0
+            assert result["agents"] == []
+            assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_fallback_includes_common_agents(self):
-        """Test fallback list includes common agent types."""
+    async def test_no_fallback_agents_on_error(self):
+        """Test no hardcoded fallback agents are returned when the registry fails."""
         with patch("aragora.agents.base.list_available_agents", side_effect=Exception("Any error")):
             from aragora.mcp.tools import list_agents_tool
 
             result = await list_agents_tool()
 
-            assert "anthropic-api" in result["agents"]
-            assert "openai-api" in result["agents"]
+            assert result["agents"] == []
+            assert "error" in result
+            assert "Could not list agents" in result["error"]
 
 
 class TestGetDebateTool:
@@ -615,7 +616,7 @@ class TestGetDebateTool:
             result = await mcp_tools.get_debate_tool(debate_id="any_id")
 
             assert "error" in result
-            assert "not found" in result["error"]
+            assert "Storage not available" in result["error"]
 
     @pytest.mark.asyncio
     async def test_no_db_returns_error(self):

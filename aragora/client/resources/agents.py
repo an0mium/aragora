@@ -100,6 +100,38 @@ class AgentsAPI:
         response = await self._client._get_async(f"/api/v1/agent/{agent_id}/calibration")
         return AgentCalibration(**response)
 
+    def get_calibration_report(self, agent_id: str, domain: str | None = None) -> dict[str, Any]:
+        """
+        Get the auditable calibration report for an agent.
+
+        Structured, interpretable calibration breakdown (per-domain accuracy,
+        Brier/calibration-curve summary, sample sizes, data window) built from
+        existing calibration data. Agents with no calibration data return an
+        explicit ``{"status": "absent", "reason": ...}`` body.
+
+        Args:
+            agent_id: The agent ID.
+            domain: Optional domain filter for the breakdown.
+
+        Returns:
+            Calibration report dict (``status`` is ``"ok"`` or ``"absent"``).
+        """
+        params = {"domain": domain} if domain else None
+        response: dict[str, Any] = self._client._get(
+            f"/api/v1/agents/{agent_id}/calibration-report", params=params
+        )
+        return response
+
+    async def get_calibration_report_async(
+        self, agent_id: str, domain: str | None = None
+    ) -> dict[str, Any]:
+        """Async version of get_calibration_report()."""
+        params = {"domain": domain} if domain else None
+        response: dict[str, Any] = await self._client._get_async(
+            f"/api/v1/agents/{agent_id}/calibration-report", params=params
+        )
+        return response
+
     def get_performance(self, agent_id: str) -> AgentPerformance:
         """
         Get win rates, ELO trend.

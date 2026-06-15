@@ -34,8 +34,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
+from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.cli.commands.review_queue_parsers import (
     add_observe_outcomes_parser,
     add_record_settlement_parser,
@@ -679,6 +680,34 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     evidence_lint_p.add_argument("--json", action="store_true", help="Output as JSON")
 
+    collect_evidence_p = sub.add_parser(
+        "collect-evidence",
+        help="Run genuine model reviewers, lint their evidence, post only if tier allows",
+        description=(
+            "Run >=2 genuine heterogeneous model reviewers against a PR's exact head, "
+            "compose evidence comments the quorum parsers recognize, and validate each "
+            "with evidence-lint before posting. Only Tier 0-2 PRs auto-post (with "
+            "--apply); Tier 3-4 always prepare evidence for operator settlement. "
+            "Defaults to a dry run that posts nothing."
+        ),
+    )
+    collect_evidence_arg = collect_evidence_p.add_argument
+    collect_evidence_arg("--pr", required=True, type=int, help="PR number to collect evidence for")
+    collect_evidence_arg("--repo", default="", help="owner/name target repo (default: gh context)")
+    collect_evidence_arg(
+        "--reviewers",
+        nargs="+",
+        default=None,
+        help="reviewer model families to run (default: claude grok)",
+    )
+    collect_evidence_arg(
+        "--author", default=None, help="GitHub login for evidence-lint (default: gh user)"
+    )
+    collect_evidence_arg(
+        "--apply", action="store_true", help="Post Tier 0-2 evidence; Tier 3-4 prepare only."
+    )
+    collect_evidence_arg("--json", dest="json_output", action="store_true", help="Output as JSON")
+
     lint_comment_p = sub.add_parser(
         "lint-comment",
         help="Dry-run whether a proposed reviewer comment will count before posting",
@@ -1261,6 +1290,37 @@ def _resolve_repo_slug(explicit: str) -> str:
     return (proc.stdout or "").strip() if proc.returncode == 0 else ""
 
 
+def _repo_slug_from_git_remote() -> str:
+    """Best-effort owner/name from ``origin`` without using GitHub APIs."""
+    try:
+        proc = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GIT_STATUS_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    url = (proc.stdout or "").strip()
+    if not url:
+        return ""
+    if url.startswith("git@github.com:"):
+        slug = url.removeprefix("git@github.com:").removesuffix(".git").strip("/")
+        return slug if "/" in slug else ""
+    parsed = urlparse(url)
+    if parsed.netloc.lower() == "github.com":
+        parts = [part for part in parsed.path.strip("/").split("/") if part]
+        if len(parts) >= 2:
+            return f"{parts[0]}/{parts[1].removesuffix('.git')}"
+    return ""
+
+
+def _resolve_repo_slug_for_rest_fallback(repo_override: str | None) -> str:
+    """Resolve owner/name for REST fallback when GraphQL-backed ``gh`` is degraded."""
+    return _resolve_repo_slug(str(repo_override or "")) or _repo_slug_from_git_remote()
+
+
 def _cmd_collect_evidence(args: argparse.Namespace) -> int:
     from aragora.swarm.quorum_evidence import run_collect_cli
 
@@ -1823,6 +1883,19 @@ def _effective_required_pr_check_count(
     )
 
 
+def _effective_required_pr_checks(
+    checks: list[dict[str, Any]], *, ignore_quorum_check: bool = False
+) -> list[dict[str, Any]]:
+    """Return required PR checks after excluding current/self quorum rows."""
+    return [
+        check
+        for check in checks
+        if isinstance(check, dict)
+        and not _is_required_pr_check_current_merge_quorum_self_check(check)
+        and not (ignore_quorum_check and _is_merge_quorum_check(check))
+    ]
+
+
 def _status_check_display_name(check: dict[str, Any]) -> str:
     workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
     name = str(check.get("name") or check.get("context") or "").strip()
@@ -2039,181 +2112,6 @@ def _check_rollup_unavailable(pr: dict[str, Any]) -> bool:
     return rollup is None or rollup == []
 
 
-def _repo_slug_from_pr_payload(pr: dict[str, Any], repo_override: str | None) -> str:
-    """Resolve owner/repo from an explicit override or the PR URL."""
-    override = str(repo_override or "").strip()
-    if override:
-        parsed = urlparse(override)
-        if parsed.netloc:
-            parts = [part for part in parsed.path.split("/") if part]
-            if len(parts) >= 2:
-                return f"{parts[0]}/{parts[1]}"
-        if "/" in override and not override.startswith("-"):
-            return override.removeprefix("repos/").strip("/")
-
-    url = str(pr.get("url") or "").strip()
-    parsed = urlparse(url)
-    parts = [part for part in parsed.path.split("/") if part]
-    if len(parts) >= 2:
-        return f"{parts[0]}/{parts[1]}"
-    return ""
-
-
-def _fetch_required_status_check_protection(
-    repo_slug: str,
-    base_ref: str,
-) -> dict[str, Any]:
-    """Best-effort branch-protection required status-check settings."""
-    if not repo_slug or not base_ref:
-        return {"available": False, "contexts": [], "strict": None}
-    try:
-        payload = _gh_json(
-            [
-                "api",
-                f"repos/{repo_slug}/branches/{quote(base_ref, safe='')}"
-                "/protection/required_status_checks",
-            ]
-        )
-    except Exception:
-        return {"available": False, "contexts": [], "strict": None}
-    if not isinstance(payload, dict):
-        return {"available": False, "contexts": [], "strict": None}
-    required_by_context: dict[str, dict[str, Any]] = {}
-    for item in payload.get("contexts") or []:
-        context = str(item).strip()
-        if context:
-            required_by_context.setdefault(context, {"context": context, "app_id": None})
-    for item in payload.get("checks") or []:
-        if not isinstance(item, dict):
-            continue
-        context = str(item.get("context") or "").strip()
-        if context:
-            app_id = item.get("app_id")
-            required_by_context[context] = {
-                "context": context,
-                "app_id": app_id if app_id is not None else None,
-            }
-    required_checks = list(required_by_context.values())
-    return {
-        "available": True,
-        "contexts": [item["context"] for item in required_checks],
-        "checks": required_checks,
-        "strict": bool(payload.get("strict")),
-    }
-
-
-def _fetch_direct_commit_check_runs(repo_slug: str, head_sha: str) -> list[dict[str, Any]]:
-    """Best-effort direct commit check-runs for diagnostics only."""
-    if not repo_slug or not head_sha:
-        return []
-    try:
-        payload = _gh_json(
-            [
-                "api",
-                f"repos/{repo_slug}/commits/{head_sha}/check-runs?per_page=100",
-            ]
-        )
-    except Exception:
-        return []
-    if not isinstance(payload, dict):
-        return []
-    runs = payload.get("check_runs") or []
-    return [run for run in runs if isinstance(run, dict)]
-
-
-def _direct_check_run_name(run: dict[str, Any]) -> str:
-    return str(run.get("name") or run.get("context") or "").strip()
-
-
-def _direct_check_run_is_success(run: dict[str, Any]) -> bool:
-    return str(run.get("conclusion") or "").strip().upper() in {
-        "SUCCESS",
-        "SKIPPED",
-        "NEUTRAL",
-    }
-
-
-def _direct_check_run_is_non_green(run: dict[str, Any]) -> bool:
-    status = str(run.get("status") or "").strip().upper()
-    conclusion = str(run.get("conclusion") or "").strip().upper()
-    if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL"}:
-        return False
-    if conclusion:
-        return True
-    if status in {"", "COMPLETED"}:
-        return True
-    return status in {"QUEUED", "IN_PROGRESS", "PENDING", "EXPECTED"}
-
-
-def _latest_direct_check_runs_by_name(
-    runs: list[dict[str, Any]],
-) -> dict[str, dict[str, Any]]:
-    latest: dict[str, tuple[str, int, dict[str, Any]]] = {}
-    for index, run in enumerate(runs):
-        name = _direct_check_run_name(run)
-        if not name:
-            continue
-        timestamp = str(
-            run.get("completed_at")
-            or run.get("started_at")
-            or run.get("created_at")
-            or run.get("completedAt")
-            or run.get("startedAt")
-            or run.get("createdAt")
-            or ""
-        )
-        previous = latest.get(name)
-        if (
-            previous is None
-            or timestamp > previous[0]
-            or (timestamp == previous[0] and index < previous[1])
-        ):
-            latest[name] = (timestamp, index, run)
-    return {name: item[2] for name, item in latest.items()}
-
-
-def _direct_check_run_app_id(run: dict[str, Any]) -> Any:
-    app = run.get("app")
-    if isinstance(app, dict):
-        return app.get("id")
-    return None
-
-
-def _direct_check_run_matches_required(run: dict[str, Any], required: dict[str, Any]) -> bool:
-    if _direct_check_run_name(run) != required.get("context"):
-        return False
-    required_app_id = required.get("app_id")
-    if required_app_id is None:
-        return True
-    return _direct_check_run_app_id(run) == required_app_id
-
-
-def _latest_direct_check_run_for_required(
-    runs: list[dict[str, Any]],
-    required: dict[str, Any],
-) -> dict[str, Any] | None:
-    latest: tuple[str, int, dict[str, Any]] | None = None
-    for index, run in enumerate(runs):
-        if not _direct_check_run_matches_required(run, required):
-            continue
-        timestamp = str(
-            run.get("completed_at")
-            or run.get("started_at")
-            or run.get("created_at")
-            or run.get("completedAt")
-            or run.get("startedAt")
-            or run.get("createdAt")
-            or ""
-        )
-        if (
-            latest is None
-            or timestamp > latest[0]
-            or (timestamp == latest[0] and index < latest[1])
-        ):
-            latest = (timestamp, index, run)
-    return latest[2] if latest else None
-
-
 def _build_check_surface_diagnostics(
     pr: dict[str, Any],
     *,
@@ -2246,16 +2144,37 @@ def _build_check_surface_diagnostics(
         return diagnostics
 
     head_sha = str(pr.get("headRefOid") or "").strip()
-    repo_slug = _repo_slug_from_pr_payload(pr, repo_override)
+    repo_slug = rest_fallback._repo_slug_from_pr_payload(pr, repo_override)
     base_ref = str(pr.get("baseRefName") or "").strip()
-    required_status_checks = _fetch_required_status_check_protection(repo_slug, base_ref)
+    required_status_checks = rest_fallback._fetch_required_status_check_protection(
+        repo_slug,
+        base_ref,
+        gh_json=_gh_json,
+    )
     required_contexts = required_status_checks["contexts"]
     required_check_specs = required_status_checks.get("checks") or []
     strict_required = bool(required_status_checks["strict"])
-    direct_runs = _fetch_direct_commit_check_runs(repo_slug, head_sha)
-    latest_direct_runs = _latest_direct_check_runs_by_name(direct_runs)
+    direct_runs = rest_fallback._fetch_direct_commit_check_runs(
+        repo_slug, head_sha, gh_json=_gh_json
+    )
+    direct_statuses = pr.get("commitStatuses") if isinstance(pr.get("commitStatuses"), list) else []
+    if not direct_statuses:
+        direct_statuses = rest_fallback._fetch_direct_commit_statuses(
+            repo_slug,
+            head_sha,
+            gh_json=_gh_json,
+        )
+    latest_direct_runs = rest_fallback._latest_direct_check_runs_by_name(direct_runs)
     non_green = [
-        name for name, run in latest_direct_runs.items() if _direct_check_run_is_non_green(run)
+        name
+        for name, run in latest_direct_runs.items()
+        if rest_fallback._direct_check_run_is_non_green(run)
+    ]
+    latest_direct_statuses = rest_fallback._latest_direct_statuses_by_context(direct_statuses)
+    non_green_statuses = [
+        context
+        for context, status in latest_direct_statuses.items()
+        if rest_fallback._direct_status_is_non_green(status)
     ]
     missing_required_contexts: list[str] = []
     successful_required_contexts: list[str] = []
@@ -2264,10 +2183,20 @@ def _build_check_surface_diagnostics(
         context = str(required.get("context") or "").strip()
         if not context:
             continue
-        run = _latest_direct_check_run_for_required(direct_runs, required)
+        run = rest_fallback._latest_direct_check_run_for_required(direct_runs, required)
+        status = (
+            None
+            if run is not None
+            else rest_fallback._latest_direct_status_for_required(direct_statuses, required)
+        )
         if run is None:
-            missing_required_contexts.append(context)
-        elif _direct_check_run_is_success(run):
+            if status is None:
+                missing_required_contexts.append(context)
+            elif rest_fallback._direct_status_is_success(status):
+                successful_required_contexts.append(context)
+            else:
+                non_success_required_contexts.append(context)
+        elif rest_fallback._direct_check_run_is_success(run):
             successful_required_contexts.append(context)
         else:
             non_success_required_contexts.append(context)
@@ -2277,8 +2206,10 @@ def _build_check_surface_diagnostics(
         and not (missing_required_contexts or non_success_required_contexts)
     )
     direct_summary = {
-        "available": bool(direct_runs),
+        "available": bool(direct_runs or direct_statuses),
+        "statuses_available": bool(direct_statuses),
         "total": len(direct_runs),
+        "statuses_total": len(direct_statuses),
         "branch_protection_required_status_checks_available": bool(
             required_status_checks["available"]
         ),
@@ -2289,8 +2220,8 @@ def _build_check_surface_diagnostics(
         "missing_required_contexts": missing_required_contexts,
         "non_success_required_contexts": non_success_required_contexts,
         "required_contexts_satisfied": required_contexts_satisfied,
-        "non_green_sample": non_green[:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
-        "non_green_count": len(non_green),
+        "non_green_sample": [*non_green, *non_green_statuses][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+        "non_green_count": len(non_green) + len(non_green_statuses),
     }
     diagnostics["direct_commit_check_runs"] = direct_summary
     if required_contexts_satisfied:
@@ -2303,23 +2234,23 @@ def _build_check_surface_diagnostics(
             "No check-rollup nudge is required for settlement; continue gating on "
             "exact-head branch-protection required check-runs."
         )
-    elif direct_runs:
+    elif direct_runs or direct_statuses:
         if strict_required:
             diagnostics["diagnosis"] = (
                 "GitHub PR statusCheckRollup is empty while exact-head direct commit "
-                "check-runs exist, but branch protection requires strict base freshness; "
-                "merge-packet fails closed because direct commit check-runs alone do "
+                "check-runs/statuses exist, but branch protection requires strict base freshness; "
+                "merge-packet fails closed because direct commit checks alone do "
                 "not prove the PR is up to date with base."
             )
             diagnostics["remediation_prompt"] = (
                 "Refresh the PR-facing check rollup after the branch is current with "
                 "base, or keep the PR blocked. Do not settle from direct commit "
-                "check-runs alone when branch protection is strict."
+                "checks alone when branch protection is strict."
             )
         else:
             diagnostics["diagnosis"] = (
                 "GitHub PR statusCheckRollup is empty while direct commit check-runs "
-                "exist at the head; merge-packet fails closed because direct checks "
+                "or statuses exist at the head; merge-packet fails closed because direct checks "
                 "do not satisfy all branch-protection required contexts."
             )
             diagnostics["remediation_prompt"] = (
@@ -2488,15 +2419,35 @@ def _build_packet(
     args = ["pr", "view", str(number), "--json", ",".join(light_fields)]
     if repo_override:
         args.extend(["--repo", repo_override])
-    pr = _gh_json(args)
+    try:
+        pr = _gh_json(args)
+    except _GhError as exc:
+        if not _is_github_transport_error(exc):
+            raise
+        pr = rest_fallback._hydrate_pr_with_rest_fallback(
+            number=number,
+            repo_slug=_resolve_repo_slug_for_rest_fallback(repo_override),
+            source_error=str(exc),
+            gh_json=_gh_json,
+        )
     if pr is None or not isinstance(pr, dict):
         raise _GhError(f"PR #{number} not found")
     settlement_state_block = _settlement_state_block_reason(pr)
-    if not settlement_state_block:
+    if not settlement_state_block and not pr.get("_rest_fallback"):
         args = ["pr", "view", str(number), "--json", ",".join([*light_fields, *heavy_fields])]
         if repo_override:
             args.extend(["--repo", repo_override])
-        pr = _gh_json(args)
+        try:
+            pr = _gh_json(args)
+        except _GhError as exc:
+            if not _is_github_transport_error(exc):
+                raise
+            pr = rest_fallback._hydrate_pr_with_rest_fallback(
+                number=number,
+                repo_slug=_resolve_repo_slug_for_rest_fallback(repo_override),
+                source_error=str(exc),
+                gh_json=_gh_json,
+            )
         if pr is None or not isinstance(pr, dict):
             raise _GhError(f"PR #{number} not found")
         settlement_state_block = _settlement_state_block_reason(pr)
@@ -2544,6 +2495,9 @@ def _build_packet(
             checks_summary=checks_summary,
             checks_unavailable=checks_unavailable,
         )
+    rest_fallback_meta = pr.get("_rest_fallback")
+    if isinstance(rest_fallback_meta, dict):
+        check_surfaces["metadata_transport_fallback"] = rest_fallback_meta
     required_pr_check_gate_satisfied = False
     if not settlement_state_block and not checks_unavailable and (has_failures or has_pending):
         required_surface = _fetch_required_pr_check_surface(number, repo_override)
@@ -2580,6 +2534,26 @@ def _build_packet(
             )
             if ignore_own_quorum_check
             else 0
+        )
+        effective_required_checks = _effective_required_pr_checks(
+            required_pr_checks, ignore_quorum_check=ignore_own_quorum_check
+        )
+        required_failing_or_cancelled_checks = [
+            check
+            for check in effective_required_checks
+            if _required_pr_check_bucket(check) in {"fail", "cancel"}
+        ]
+        required_pending_checks = [
+            check
+            for check in effective_required_checks
+            if _required_pr_check_bucket(check) == "pending"
+        ]
+        required_quorum_only_failure = (
+            required_available
+            and effective_required_count > 0
+            and bool(required_failing_or_cancelled_checks)
+            and not required_pending_checks
+            and all(_is_merge_quorum_check(check) for check in required_failing_or_cancelled_checks)
         )
         # _rollup_non_green_diagnostics reports the raw GitHub rollup counts/sample
         # and is intentionally not filtered by ignore_own_quorum_check. The flag's
@@ -2626,18 +2600,12 @@ def _build_packet(
             "gate_blocked_reason": gate_blocked_reason,
             "failing_or_cancelled": [
                 str(check.get("name") or "").strip()
-                for check in required_pr_checks
-                if _required_pr_check_bucket(check) in {"fail", "cancel"}
-                and not _is_required_pr_check_current_merge_quorum_self_check(check)
-                and not (ignore_own_quorum_check and _is_merge_quorum_check(check))
+                for check in required_failing_or_cancelled_checks
             ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
-            "pending": [
-                str(check.get("name") or "").strip()
-                for check in required_pr_checks
-                if _required_pr_check_bucket(check) == "pending"
-                and not _is_required_pr_check_current_merge_quorum_self_check(check)
-                and not (ignore_own_quorum_check and _is_merge_quorum_check(check))
-            ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+            "pending": [str(check.get("name") or "").strip() for check in required_pending_checks][
+                :CHECK_SURFACE_DIAGNOSTIC_LIMIT
+            ],
+            "quorum_only_failure": required_quorum_only_failure,
         }
         if required_surface.get("error"):
             check_surfaces["required_pr_checks"]["error"] = str(required_surface.get("error"))
@@ -2671,6 +2639,26 @@ def _build_packet(
             check_surfaces["remediation_prompt"] = (
                 "Continue gating on branch-protection required checks; keep "
                 "non-required shadow/advisory check failures visible but non-blocking."
+            )
+        elif required_quorum_only_failure:
+            check_surfaces["required_pr_checks"]["gate_selected"] = True
+            check_surfaces["required_pr_checks"]["gate_blocked_reason"] = ""
+            checks_summary = f"{required_summary} (required PR checks; only merge-quorum failing)"
+            has_pending = False
+            checks_unavailable = False
+            check_surfaces["effective_gate"] = {
+                "source": "required_pr_checks",
+                "summary": checks_summary,
+            }
+            check_surfaces["diagnosis"] = (
+                "The PR check rollup includes non-required non-green checks, "
+                "and GitHub reports every non-quorum branch-protection required "
+                "check green; merge-packet leaves aragora-merge-quorum to the "
+                "model quorum evidence gate."
+            )
+            check_surfaces["remediation_prompt"] = (
+                "Collect missing model quorum evidence or rerun aragora-merge-quorum "
+                "after evidence is counted; keep non-required rollup failures advisory."
             )
         elif gate_blocked_reason:
             check_surfaces["diagnosis"] = (
@@ -2884,7 +2872,7 @@ def _build_packet(
             settlement_recorded=settlement_recorded,
             human_risk_settlement_recorded=human_risk_settlement_recorded,
             check_surfaces=check_surfaces,
-            repo_slug=_repo_slug_from_pr_payload(pr, repo_override),
+            repo_slug=rest_fallback._repo_slug_from_pr_payload(pr, repo_override),
         ),
     )
     packet.packet_sha = _packet_sha(packet)
@@ -3042,7 +3030,17 @@ def _explicit_merged_pr_merge_packet_entry(
     args = ["pr", "view", str(number), "--json", fields]
     if repo_override:
         args.extend(["--repo", repo_override])
-    pr = _gh_json(args)
+    try:
+        pr = _gh_json(args)
+    except _GhError as exc:
+        if not _is_github_transport_error(exc):
+            raise
+        pr = rest_fallback._hydrate_pr_with_rest_fallback(
+            number=number,
+            repo_slug=_resolve_repo_slug_for_rest_fallback(repo_override),
+            source_error=str(exc),
+            gh_json=_gh_json,
+        )
     if pr is None or not isinstance(pr, dict):
         raise _GhError(f"PR #{number} not found")
     state = str(pr.get("state") or "").strip().upper()
@@ -3125,6 +3123,19 @@ def _build_model_review_quorum(
     quorum_satisfied = (
         signal_count >= requirement["required_model_signals"] and has_required_dogfood
     )
+    required_pr_check_surface = (
+        check_surfaces.get("required_pr_checks") if isinstance(check_surfaces, dict) else {}
+    )
+    quorum_only_required_failure = bool(
+        isinstance(required_pr_check_surface, dict)
+        and required_pr_check_surface.get("quorum_only_failure")
+    )
+    missing_quorum_is_active_check_blocker = (
+        quorum_only_required_failure and not quorum_satisfied and not settlement_recorded
+    )
+    stale_quorum_check_after_satisfied_evidence = (
+        quorum_only_required_failure and quorum_satisfied and not settlement_recorded
+    )
     requires_human_preapproval = bool(requirement["requires_human_preapproval"])
     human_preapproval_recorded = (
         requires_human_preapproval
@@ -3137,7 +3148,8 @@ def _build_model_review_quorum(
     )
     if human_preapproval_recorded:
         creator_verified, creator_reason = _human_settlement_status_creator_verified(
-            repo_slug=repo_slug or _repo_slug_from_pr_payload(pr, None), head_sha=head_sha
+            repo_slug=repo_slug or rest_fallback._repo_slug_from_pr_payload(pr, None),
+            head_sha=head_sha,
         )
         settlement_creator_pin["checked"] = True
         settlement_creator_pin["verified"] = creator_verified
@@ -3155,8 +3167,12 @@ def _build_model_review_quorum(
         reasons.append(str(settlement_creator_pin["reason"]))
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
-    if has_failures and not settlement_recorded:
+    if has_failures and not settlement_recorded and not missing_quorum_is_active_check_blocker:
         reasons.append("checks are failing; repair before settlement")
+    elif missing_quorum_is_active_check_blocker:
+        reasons.append(
+            "required aragora-merge-quorum is failing because model quorum is incomplete"
+        )
     if checks_unavailable and not settlement_recorded:
         reasons.append("checks are unavailable; wait for GitHub check rollup before settlement")
         if isinstance(check_surfaces, dict) and (
@@ -3187,10 +3203,11 @@ def _build_model_review_quorum(
         verdict = "already_merged_settlement_recorded"
         requires_human_risk_settlement = False
     elif (
-        has_failures
+        (has_failures and not missing_quorum_is_active_check_blocker)
         or has_pending
         or checks_unavailable
-        or machine_recommendation == "repair_first"
+        or (machine_recommendation == "repair_first" and not missing_quorum_is_active_check_blocker)
+        or stale_quorum_check_after_satisfied_evidence
         or blocking_workflow_state
     ):
         status = "repair_or_wait"
@@ -3435,6 +3452,12 @@ def _has_successful_status_context(pr: dict[str, Any], context: str) -> bool:
         state = str(check.get("state") or check.get("status") or "").upper()
         conclusion = str(check.get("conclusion") or "").upper()
         return conclusion == "SUCCESS" or state == "SUCCESS"
+    for status in rest_fallback._latest_direct_statuses_by_context(
+        pr.get("commitStatuses") or []
+    ).values():
+        if rest_fallback._direct_status_context(status) != expected:
+            continue
+        return rest_fallback._direct_status_is_success(status)
     return False
 
 
