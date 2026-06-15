@@ -27,6 +27,7 @@ all network/process I/O is injected so the orchestrator
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import inspect
 import logging
 import math
@@ -114,6 +115,10 @@ _REVIEWER_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS"
 _CODEX_OPENAI_HARNESS = "Codex CLI OpenAI harness"
 _CODEX_APPROVAL_POLICY_CONFIG = 'approval_policy="never"'
 _REVIEWER_CLEANUP_TIMEOUT = 10
+# Reviewers each block up to their own (timeout-guarded, process-isolated) run,
+# so running them serially made wall-time the *sum* of every reviewer's timeout
+# (e.g. 2x300s). Run them concurrently instead; this cap bounds the fan-out.
+_MAX_REVIEWER_WORKERS = 4
 
 
 def _cap_text(text: str) -> str:
@@ -1019,12 +1024,41 @@ def collect_evidence(
 
     prompt = prompt_builder(repo, pr, ctx)
 
+    # Resolve the ordered, de-duplicated family list up front so item/failure
+    # ordering stays deterministic and matches the caller's requested order,
+    # regardless of which reviewer finishes first.
     seen: set[str] = set()
+    ordered_families: list[str] = []
     for raw_family in families:
         family = raw_family.strip().lower()
         if not family or family in seen:
             continue
         seen.add(family)
+        ordered_families.append(family)
+
+    # Run the supported reviewers concurrently. Each runner already bounds itself
+    # with its own timeout and isolates its work in a child subprocess/process, so
+    # threads here only wait -- but they turn serial wall-time (sum of timeouts)
+    # into roughly the slowest single reviewer. One reviewer raising never aborts
+    # the run; it is recorded as a failure like any empty/non-ok result.
+    supported = [family for family in ordered_families if family in FAMILY_PROVIDERS]
+    reviews: dict[str, ReviewerResult] = {}
+    if supported:
+        max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+            future_to_family = {
+                pool.submit(reviewer_runner, family, prompt): family for family in supported
+            }
+            for future in concurrent.futures.as_completed(future_to_family):
+                family = future_to_family[future]
+                try:
+                    reviews[family] = future.result()
+                except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
+                    reviews[family] = ReviewerResult(
+                        family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                    )
+
+    for family in ordered_families:
         if family not in FAMILY_PROVIDERS:
             # Only direct families the quorum parser can count are supported;
             # reject anything else early instead of producing an uncountable
@@ -1033,7 +1067,7 @@ def collect_evidence(
                 ReviewerResult(family, "", False, f"unsupported reviewer family: {family}")
             )
             continue
-        result = reviewer_runner(family, prompt)
+        result = reviews[family]
         if not result.ok or not result.text.strip():
             outcome.failures.append(result)
             continue

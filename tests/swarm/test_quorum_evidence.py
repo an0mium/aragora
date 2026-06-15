@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import os
 import subprocess
+import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -910,6 +911,62 @@ def test_collect_low_tier_apply_posts_both() -> None:
     assert outcome.action == "post"
     assert sorted(outcome.posted) == ["claude", "grok"]
     assert len(posted) == 2
+
+
+def test_collect_runs_reviewers_concurrently() -> None:
+    # Deterministic concurrency proof: a 2-party barrier only trips if both
+    # reviewers run at once. Serial execution would block the first runner on
+    # the barrier forever (until its 5s timeout -> BrokenBarrierError), which my
+    # runner would surface as a failure. Concurrent execution lets both pass.
+    fakes, _ = _fakes(tier=1)
+    barrier = threading.Barrier(2, timeout=5)
+
+    def barrier_runner(family: str, prompt: str) -> ReviewerResult:
+        barrier.wait()
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = barrier_runner
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=False, **fakes
+    )
+    assert {item.family for item in outcome.items} == {"claude", "grok"}
+    assert outcome.failures == []
+
+
+def test_collect_preserves_family_order_despite_completion_order() -> None:
+    # The first-requested reviewer (claude) finishes last; items must still be
+    # ordered by the caller's requested family order, not by completion.
+    fakes, _ = _fakes(tier=1)
+
+    def ordered_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "claude":
+            time.sleep(0.2)  # ensure claude returns after grok
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = ordered_runner
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=False, **fakes
+    )
+    assert [item.family for item in outcome.items] == ["claude", "grok"]
+
+
+def test_collect_records_raising_reviewer_as_failure() -> None:
+    # A reviewer that raises is recorded as a failure (it must not abort the run
+    # or crash the pool); the other reviewer's evidence is still collected.
+    fakes, _ = _fakes(tier=1)
+
+    def maybe_raise(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            raise RuntimeError("reviewer boom")
+        return ReviewerResult(family, "Verdict: PASS from claude", True)
+
+    fakes["reviewer_runner"] = maybe_raise
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=False, **fakes
+    )
+    assert [item.family for item in outcome.items] == ["claude"]
+    assert [f.family for f in outcome.failures] == ["grok"]
+    assert "reviewer boom" in outcome.failures[0].error
 
 
 def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:

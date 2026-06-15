@@ -44,6 +44,9 @@ OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comm
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER = "required_check_visibility_skew"
 REQUIRED_CHECK_REST_VISIBILITY_CONTEXT = "required check REST visibility"
+MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER = (
+    "aragora-merge-quorum failure is not proven to be missing human settlement"
+)
 SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER = "trusted operator allowlist is required for --settle-only"
 SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
 SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER = "admin/OWNER permission required for --settle-only"
@@ -609,6 +612,94 @@ def _required_check_context(check: dict[str, Any]) -> str:
     return str(check.get("name") or check.get("context") or "").strip()
 
 
+def _required_check_is_merge_quorum(check: dict[str, Any]) -> bool:
+    return _required_check_context(check) == MERGE_QUORUM_CONTEXT
+
+
+def _required_quorum_only_failure(required_checks: list[dict[str, Any]] | None) -> bool:
+    if not required_checks:
+        return False
+    saw_quorum_failure = False
+    for check in required_checks:
+        if not isinstance(check, dict):
+            continue
+        state = _required_check_state(check)
+        if _state_is_success(state):
+            continue
+        if _required_check_is_merge_quorum(check):
+            saw_quorum_failure = True
+            continue
+        return False
+    return saw_quorum_failure
+
+
+def _packet_proves_quorum_missing_settlement(merge_packet: dict[str, Any], *, pr: int) -> bool:
+    entry = _entry_for_pr(merge_packet, pr=pr)
+    if not entry:
+        return False
+    if bool(entry.get("unresolved_dissent")):
+        return False
+    return _packet_marks_tier4_human_settlement(merge_packet, pr=pr)
+
+
+def _check_link(check: dict[str, Any]) -> str:
+    for key in ("link", "detailsUrl", "details_url", "target_url", "targetUrl", "url"):
+        value = str(check.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _github_actions_job_id_from_url(url: str) -> str:
+    if "/job/" not in url:
+        return ""
+    tail = url.split("/job/", 1)[1]
+    candidate = tail.split("?", 1)[0].split("#", 1)[0].split("/", 1)[0]
+    return candidate if candidate.isdigit() else ""
+
+
+def _quorum_failure_log_proves_missing_settlement(
+    required_checks: list[dict[str, Any]] | None,
+    *,
+    repo: str,
+    cwd: Path,
+    head: str,
+) -> bool:
+    if not _required_quorum_only_failure(required_checks):
+        return False
+    quorum_check = next(
+        (
+            check
+            for check in required_checks or []
+            if isinstance(check, dict)
+            and _required_check_is_merge_quorum(check)
+            and not _state_is_success(_required_check_state(check))
+        ),
+        None,
+    )
+    if quorum_check is None:
+        return False
+    job_id = _github_actions_job_id_from_url(_check_link(quorum_check))
+    if not job_id:
+        return False
+    try:
+        log = _run_text_command(
+            ["gh", "run", "view", "--repo", repo, "--job", job_id, "--log-failed"],
+            cwd=cwd,
+        )
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        return False
+    lowered = log.lower()
+    head_prefix = str(head or "").strip().lower()[:12]
+    if len(head_prefix) < 12:
+        return False
+    return (
+        "no human settlement signal is recorded" in lowered
+        and HUMAN_SETTLEMENT_CONTEXT.lower() in lowered
+        and head_prefix in lowered
+    )
+
+
 def _rollup_check_context(item: dict[str, Any]) -> str:
     return str(item.get("name") or item.get("context") or "").strip()
 
@@ -827,6 +918,7 @@ def evaluate_tier4_settlement_preconditions(
     pr_view: dict[str, Any],
     merge_packet: dict[str, Any],
     required_checks: list[dict[str, Any]] | None = None,
+    quorum_missing_settlement_proof: bool = False,
     trusted_operator_logins: Sequence[str] | None = None,
     invoker_login: str | None = None,
     invoker_has_admin_permission: bool | None = None,
@@ -847,12 +939,27 @@ def evaluate_tier4_settlement_preconditions(
     if not required_checks:
         blockers.append(REQUIRED_CHECKS_BLOCKER)
     else:
+        packet_missing_settlement_proof = _packet_proves_quorum_missing_settlement(
+            merge_packet, pr=pr
+        )
+        has_quorum_missing_settlement_proof = (
+            packet_missing_settlement_proof or quorum_missing_settlement_proof
+        )
+        quorum_only_failure = _required_quorum_only_failure(required_checks)
         for check in required_checks:
             name = _required_check_name(check)
             state = _required_check_state(check)
-            if _state_is_success(state) or name == "aragora-merge-quorum":
+            if _state_is_success(state):
+                continue
+            if (
+                _required_check_is_merge_quorum(check)
+                and quorum_only_failure
+                and has_quorum_missing_settlement_proof
+            ):
                 continue
             blockers.append(f"required check {name} is {state}")
+        if quorum_only_failure and not has_quorum_missing_settlement_proof:
+            blockers.append(MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER)
 
     not_ready = merge_packet.get("not_ready")
     if isinstance(not_ready, list):
@@ -1590,12 +1697,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         applied_commands: list[list[str]] = []
         if args.settle_only:
+            quorum_missing_settlement_proof = False
+            if _required_quorum_only_failure(
+                required_checks
+            ) and not _packet_proves_quorum_missing_settlement(merge_packet, pr=args.pr):
+                quorum_missing_settlement_proof = _quorum_failure_log_proves_missing_settlement(
+                    required_checks,
+                    repo=args.repo,
+                    cwd=args.cwd,
+                    head=args.head,
+                )
             gate = evaluate_tier4_settlement_preconditions(
                 pr=args.pr,
                 expected_head=args.head,
                 pr_view=pr_view,
                 merge_packet=merge_packet,
                 required_checks=required_checks,
+                quorum_missing_settlement_proof=quorum_missing_settlement_proof,
                 trusted_operator_logins=args.trusted_operator_login,
             )
             if not gate["ok"]:
@@ -1615,6 +1733,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 pr_view=pr_view,
                 merge_packet=merge_packet,
                 required_checks=required_checks,
+                quorum_missing_settlement_proof=quorum_missing_settlement_proof,
                 trusted_operator_logins=args.trusted_operator_login,
                 invoker_login=invoker_login,
                 invoker_has_admin_permission=invoker_has_admin_permission,
