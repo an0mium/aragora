@@ -619,6 +619,33 @@ def _required_check_state(check: dict[str, Any]) -> str:
     return str(check.get("state") or check.get("conclusion") or "UNKNOWN").upper()
 
 
+def _merge_packet_entry_diagnostics(merge_packet: dict[str, Any], *, pr: int) -> dict[str, Any]:
+    """Surface the human-readable merge-packet entry fields for ``--check``.
+
+    These mirror what an operator would otherwise have to read out of
+    ``review-queue merge-packet --json`` by hand to learn *why* a PR is not yet
+    settle-eligible (tier, status/verdict, failing-check summary, counted model
+    families, and the explicit ``reasons`` list). All fields are best-effort: a
+    packet without a matching entry yields empty/``None`` values rather than
+    raising.
+    """
+    entry = _entry_for_pr(merge_packet, pr=pr) or {}
+    reasons = entry.get("reasons")
+    counted = entry.get("counted_model_families")
+    return {
+        "tier": entry.get("tier"),
+        "tier_name": entry.get("tier_name"),
+        "status": entry.get("status"),
+        "verdict": entry.get("verdict"),
+        "machine_recommendation": entry.get("machine_recommendation"),
+        "checks_summary": entry.get("checks_summary"),
+        "counted_model_families": list(counted) if isinstance(counted, list) else [],
+        "reasons": [str(item) for item in reasons] if isinstance(reasons, list) else [],
+        "requires_human_risk_settlement": bool(entry.get("requires_human_risk_settlement")),
+        "requires_human_preapproval": bool(entry.get("requires_human_preapproval")),
+    }
+
+
 def _required_check_context(check: dict[str, Any]) -> str:
     return str(check.get("name") or check.get("context") or "").strip()
 
@@ -748,20 +775,25 @@ def evaluate_tier4_gate(
     if bool(pr_view.get("isDraft")):
         blockers.append(f"PR #{pr} is draft")
     merge_state = str(pr_view.get("mergeStateStatus") or "")
+    required_failing: list[str] = []
     blockers.extend(_mergeability_blockers(pr=pr, pr_view=pr_view))
     for check in required_checks or []:
         name = _required_check_name(check)
         state = _required_check_state(check)
         if not _state_is_success(state):
+            required_failing.append(f"{name}={state}")
             blockers.append(f"required check {name} is {state}")
+    merge_packet_blockers: list[str] = []
     not_ready = merge_packet.get("not_ready")
     if isinstance(not_ready, list):
         allowed_not_ready = set(ALLOWED_TIER4_NOT_READY)
         if _packet_marks_tier4_human_settlement(merge_packet, pr=pr):
             allowed_not_ready.add(str(pr))
-        unexpected = sorted({str(item) for item in not_ready} - allowed_not_ready)
-        if unexpected:
-            blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
+        merge_packet_blockers = sorted({str(item) for item in not_ready} - allowed_not_ready)
+        if merge_packet_blockers:
+            blockers.append(
+                f"merge-packet has unexpected blockers: {', '.join(merge_packet_blockers)}"
+            )
 
     required_checks_green = _required_checks_are_green(required_checks)
     authorization_precondition_blockers: list[str] = []
@@ -812,13 +844,20 @@ def evaluate_tier4_gate(
         if not authorized_actions:
             blockers.append(OPERATOR_COMMENT_BLOCKER)
 
+    packet_diagnostics = _merge_packet_entry_diagnostics(merge_packet, pr=pr)
     return {
         "ok": not blockers,
         "pr": pr,
         "expected_head": expected_head,
         "actual_head": actual_head,
+        "head_match": actual_head == expected_head,
         "merge_state": merge_state,
         "blockers": blockers,
+        "required_failing": required_failing,
+        "merge_packet_blockers": merge_packet_blockers,
+        "merge_packet": packet_diagnostics,
+        "reasons": packet_diagnostics["reasons"],
+        "settle_eligible": not blockers,
         "authorized_actions": sorted(authorized_actions),
         **diagnostic_report,
     }
@@ -1869,6 +1908,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("ok" if gate["ok"] else "blocked")
         for blocker in gate["blockers"]:
             print(f"- {blocker}")
+        diag = gate.get("merge_packet") or {}
+        if not gate["ok"] and (diag.get("tier_name") or diag.get("status") or diag.get("reasons")):
+            print(
+                f"  merge-packet: tier={diag.get('tier')} ({diag.get('tier_name')}) "
+                f"status={diag.get('status')} verdict={diag.get('verdict')}"
+            )
+            if diag.get("checks_summary"):
+                print(f"  checks: {diag['checks_summary']}")
+            counted = diag.get("counted_model_families") or []
+            print(f"  counted_model_families: {len(counted)} {counted}")
+            if diag.get("requires_human_risk_settlement"):
+                print("  requires_human_risk_settlement: true")
+            for reason in diag.get("reasons") or []:
+                print(f"  reason: {reason}")
     return 0 if gate["ok"] else 1
 
 

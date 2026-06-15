@@ -91,7 +91,7 @@ Readiness receipt: [2026-04-25-rc1-to-stable-receipt.md](2026-04-25-rc1-to-stabl
   - [#6372](https://github.com/synaptent/aragora/issues/6372) auto-handle calibration + drift gating — **CLOSED**
   - [#6373](https://github.com/synaptent/aragora/issues/6373) rolling-window triage metrics — **CLOSED**
   - [#6374](https://github.com/synaptent/aragora/issues/6374) source-of-truth alignment on PR-review path — **CLOSED**
-  - [#6375](https://github.com/synaptent/aragora/issues/6375) empirical threshold grounding — **CLOSED with insufficiency receipt** (threshold remains placeholder until enough settled decisions accumulate)
+  - [#6375](https://github.com/synaptent/aragora/issues/6375) empirical threshold grounding — **CLOSED with complete-coverage guard** (a non-insufficient threshold update now requires complete v2 outcome observation coverage across the counted human-settled window; partial or absent coverage remains an insufficiency/schema-gap state instead of a measured zero)
 
 ### What Recently Landed On `main`
 
@@ -111,7 +111,7 @@ The April merge stream maps directly to the thesis and review-queue execution pa
 
 The frontier is now (updated 2026-04-30 after #6375's insufficiency receipt path landed):
 
-- **collect enough settlement evidence to ground threshold claims empirically** — [#6375](https://github.com/synaptent/aragora/issues/6375) is closed as an implementation gap because the event-source adapter, scheduler, CLI, and receipt path landed, but the latest receipt is `insufficiency_receipt.v1` with `sample_count=0`. Per thesis Commitment 3, the 5% auto-handle invalidation cap remains a placeholder until a future non-insufficient receipt measures baseline + safety margin from accumulated settlement data.
+- **collect enough settlement evidence to ground threshold claims empirically** — [#6375](https://github.com/synaptent/aragora/issues/6375) is closed with a complete-coverage guard: a non-insufficient `threshold_update_receipt.v1` may only treat a zero human invalidation numerator as measured when every counted human-settled receipt in the window has v2 outcome observation fields populated. Until then, partial or absent coverage remains an insufficiency/schema-gap state rather than a measured zero.
 - **keep queue growth bounded** — continue the single-slice cadence in the PDB lane rather than opening large successor chains in parallel
 - **continue post-v2.9.0 threshold grounding** — v2.9.0 was tagged on 2026-04-25 after the empirical threshold framework substrate landed; #6375 remains the post-release work to convert that substrate into measured baselines and operating thresholds.
 
@@ -120,7 +120,7 @@ The frontier is now (updated 2026-04-30 after #6375's insufficiency receipt path
 The current bounded queue (updated 2026-04-25):
 
 1. ~~merge [#6448](https://github.com/synaptent/aragora/pull/6448) to close [#6372](https://github.com/synaptent/aragora/issues/6372)~~ — **DONE**
-2. ~~close [#6375](https://github.com/synaptent/aragora/issues/6375) using the metrics and calibration substrates above~~ — **DONE as an insufficiency path; measurement still sample-blocked**
+2. ~~close [#6375](https://github.com/synaptent/aragora/issues/6375) using the metrics and calibration substrates above~~ — **DONE with complete-coverage guard**
 3. ~~narrow and then close [#6374](https://github.com/synaptent/aragora/issues/6374)~~ — **DONE**
 4. ~~keep refining [#6373](https://github.com/synaptent/aragora/issues/6373) from rolling-window metrics~~ — **DONE** (rolling-window endpoint live)
 5. keep the agent-bridge lane scoped to bounded, observable increments rather than a parallel subsystem explosion
