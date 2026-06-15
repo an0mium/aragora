@@ -109,7 +109,10 @@ def run_tiebreaker(
         return TiebreakerOutcome(
             ran=False, reason="no fusion_review runner supplied (Fusion not runnable here)"
         )
-    text = fusion_review()
+    try:
+        text = fusion_review()
+    except Exception as exc:
+        return TiebreakerOutcome(ran=False, reason=f"fusion review raised: {exc}")
     if not text or not text.strip():
         return TiebreakerOutcome(ran=False, reason="fusion review returned empty")
     comment = compose_tiebreaker_comment(

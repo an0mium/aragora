@@ -100,6 +100,26 @@ def test_run_tiebreaker_noop_on_empty_fusion_output() -> None:
     assert "empty" in out.reason
 
 
+def test_run_tiebreaker_noop_when_fusion_runner_raises() -> None:
+    def raises() -> str:
+        raise RuntimeError("fusion unavailable")
+
+    out = ft.run_tiebreaker(
+        supportive_families=["claude"],
+        dissenting_families=["grok"],
+        has_supportive_quorum=False,
+        flag_enabled=True,
+        head_sha="deadbeef",
+        pr=1,
+        fusion_review=raises,
+    )
+
+    assert out.ran is False
+    assert out.comment is None
+    assert "fusion review raised" in out.reason
+    assert "fusion unavailable" in out.reason
+
+
 def test_run_tiebreaker_noop_when_no_split() -> None:
     # Quorum already met -> nothing to break, even with a runner present.
     called = []
