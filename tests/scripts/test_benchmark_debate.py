@@ -2,16 +2,39 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-_scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRIPT_PATH = REPO_ROOT / "scripts" / "benchmark_debate.py"
+
+_scripts_dir = str(REPO_ROOT / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
 import benchmark_debate  # noqa: E402
+
+
+def test_cli_help_runs_without_pythonpath() -> None:
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), "--help"],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Benchmark the aragora-debate engine" in result.stdout
+    assert "--large-panel-agents" in result.stdout
 
 
 @pytest.mark.parametrize(

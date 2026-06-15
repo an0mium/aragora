@@ -28,6 +28,14 @@ import statistics
 import sys
 import time
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEBATE_SRC = REPO_ROOT / "aragora-debate" / "src"
+for _import_root in (REPO_ROOT, DEBATE_SRC):
+    _import_root_str = str(_import_root)
+    if _import_root.exists() and _import_root_str not in sys.path:
+        sys.path.insert(0, _import_root_str)
 
 from aragora_debate import Arena, DebateConfig, MockAgent
 from aragora_debate.styled_mock import StyledMockAgent
