@@ -49,12 +49,14 @@ HAS_RLM = False
 HAS_OFFICIAL_RLM = False
 
 try:
-    from aragora.rlm import get_rlm, RLMConfig, RLMContext as RLMContextImport, HAS_OFFICIAL_RLM
+    from aragora.rlm import get_rlm, RLMConfig, RLMContext as RLMContextImport
+    from aragora.rlm import HAS_OFFICIAL_RLM as _HAS_OFFICIAL_RLM_IMPORT
 
     _get_rlm = get_rlm
     _RLMConfig = RLMConfig
     _RLMContextClass = RLMContextImport
     HAS_RLM = True
+    HAS_OFFICIAL_RLM = _HAS_OFFICIAL_RLM_IMPORT
 except ImportError:
     pass
 
@@ -1863,8 +1865,16 @@ class ContextInitializer:
                 )
             except (ImportError, NameError):
                 pass
-        except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
-            logger.warning("[rlm] Context compression failed: %s", e)
+        except Exception as e:  # noqa: BLE001 - provider SDK boundary (issue #8101)
+            # Provider SDK errors (e.g. openai.AuthenticationError on a missing
+            # key) are plain Exception subclasses, not RuntimeError. Context
+            # compression is an optimization: degrade to uncompressed context
+            # with a logged note — never fail the context-init phase.
+            logger.warning(
+                "[rlm] Context compression skipped (provider/SDK error); "
+                "continuing with uncompressed context: %s",
+                e,
+            )
             try:
                 from aragora.server.prometheus_rlm import record_rlm_compression
 

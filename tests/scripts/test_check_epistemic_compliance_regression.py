@@ -78,3 +78,76 @@ def test_checker_fails_when_case_threshold_is_too_strict(tmp_path: Path) -> None
     assert result.returncode == 1
     assert "FAIL" in result.stdout
     assert "above threshold" in result.stdout
+
+
+def test_checker_rejects_duplicate_case_ids_before_scoring(tmp_path: Path) -> None:
+    fixtures_path = tmp_path / "fixtures.json"
+    fixtures_path.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": "duplicate_case",
+                        "model": "strict_model",
+                        "text": "Confidence: 0.4; alternative: retry.",
+                    },
+                    {
+                        "id": "duplicate_case",
+                        "model": "strict_model",
+                        "text": "Confidence: 0.9 and no caveats.",
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(
+        json.dumps({"global": {"min_total_cases": 2}, "models": {}, "cases": {}}),
+        encoding="utf-8",
+    )
+
+    result = _run(
+        "--fixtures",
+        str(fixtures_path),
+        "--baseline",
+        str(baseline_path),
+    )
+
+    assert result.returncode == 1
+    assert "Invalid fixture cases" in result.stderr
+    assert "duplicate id 'duplicate_case'" in result.stderr
+
+
+def test_checker_rejects_blank_case_id_before_scoring(tmp_path: Path) -> None:
+    fixtures_path = tmp_path / "fixtures.json"
+    fixtures_path.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": " ",
+                        "model": "strict_model",
+                        "text": "Confidence: 0.4; alternative: retry.",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(
+        json.dumps({"global": {"min_total_cases": 1}, "models": {}, "cases": {}}),
+        encoding="utf-8",
+    )
+
+    result = _run(
+        "--fixtures",
+        str(fixtures_path),
+        "--baseline",
+        str(baseline_path),
+    )
+
+    assert result.returncode == 1
+    assert "Invalid fixture cases" in result.stderr
+    assert "missing non-empty id" in result.stderr

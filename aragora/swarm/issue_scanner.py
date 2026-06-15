@@ -35,6 +35,43 @@ _CATEGORY_TITLE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+SUBSTRATE_PATH_PREFIXES: tuple[str, ...] = (
+    "scripts/",
+    "aragora/swarm/",
+    "aragora/nomic/",
+    ".github/",
+    "docs/governance/",
+    "tests/scripts/",
+    "tests/swarm/",
+    "tests/nomic/",
+    "tests/governance/",
+)
+
+
+def classify_candidate_surface(paths: list[str]) -> str:
+    """Classify a candidate's surface as ``product`` or ``substrate``.
+
+    Substrate = loop/meta tooling (scripts, swarm, nomic, workflows,
+    governance docs and their tests); product = everything else. Majority
+    over the candidate's file paths wins; ties and empty scopes resolve to
+    ``substrate`` so the generator's substrate cap bites conservatively
+    (FOCUS.md Sprint 3 goal 2).
+    """
+    product = 0
+    substrate = 0
+    for raw in paths:
+        path = str(raw).strip().lstrip("./")
+        if not path:
+            continue
+        if path.startswith(SUBSTRATE_PATH_PREFIXES):
+            substrate += 1
+        else:
+            product += 1
+    if product > substrate:
+        return "product"
+    return "substrate"
+
+
 @dataclass
 class BossIssueCandidate:
     """A candidate issue ready for boss-loop formatting and dispatch."""
@@ -49,11 +86,14 @@ class BossIssueCandidate:
     estimated_complexity: str = "small"
     expected_success_rate: float = 0.5
     fingerprint: str = ""
+    surface: str = ""
 
     def __post_init__(self) -> None:
         if not self.fingerprint:
             raw = f"{self.category}:{':'.join(sorted(self.file_scope + self.new_files))}"
             self.fingerprint = hashlib.sha256(raw.encode()).hexdigest()[:16]
+        if not self.surface:
+            self.surface = classify_candidate_surface(self.file_scope + self.new_files)
 
 
 def infer_issue_category_from_title(title: str | None) -> str | None:

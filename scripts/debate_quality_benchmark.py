@@ -662,6 +662,8 @@ async def run_benchmark(
     dry_run: bool = False,
 ) -> BenchmarkSummary:
     """Run the full A/B benchmark pipeline."""
+    if not prompts:
+        raise ValueError("debate quality benchmark requires at least one prompt")
 
     if dry_run:
         single_agent = MockAgent("single-agent", response_bank=_MOCK_SINGLE)
@@ -914,7 +916,24 @@ def save_results(summary: BenchmarkSummary, output_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def parse_args() -> argparse.Namespace:
+def _non_negative_int(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a non-negative integer") from exc
+    if value < 0:
+        raise argparse.ArgumentTypeError("must be a non-negative integer")
+    return value
+
+
+def select_prompts(prompt_limit: int) -> list[dict[str, str]]:
+    """Select benchmark prompts while preserving 0 as the all-prompts CLI sentinel."""
+    if prompt_limit < 0:
+        raise ValueError("prompt_limit must be a non-negative integer")
+    return PROMPTS[:prompt_limit] if prompt_limit > 0 else PROMPTS
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="A/B benchmark: single-agent vs multi-agent debate consensus.",
     )
@@ -925,7 +944,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--prompts",
-        type=int,
+        type=_non_negative_int,
         default=0,
         metavar="N",
         help="Run only the first N prompts (0 = all 12).",
@@ -936,13 +955,13 @@ def parse_args() -> argparse.Namespace:
         default=str(PROJECT_ROOT / "artifacts" / "benchmark_results.json"),
         help="Output path for JSON results.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 async def main() -> None:
     args = parse_args()
 
-    selected = PROMPTS[: args.prompts] if args.prompts > 0 else PROMPTS
+    selected = select_prompts(args.prompts)
 
     logger.info(
         "Starting benchmark: %d prompts, dry_run=%s",

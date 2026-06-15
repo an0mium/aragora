@@ -1044,6 +1044,65 @@ def test_decide_handoffs_marks_duplicate_issue(monkeypatch: Any, tmp_path: Path)
     ]
 
 
+def test_decide_handoffs_preserves_branch_context_for_duplicate_issue(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    handoff = Handoff(
+        source_file=str(tmp_path / "outbox.json"),
+        task_title="Open a draft PR for the Improver Writer stale PR janitor comment-cap fix.",
+        priority="HIGH",
+        body="body",
+        labels={},
+        expires_at=None,
+        source_kind="outbox",
+        branch="codex/stale-janitor-comment-cap-improver-20260613",
+        desired_head="7cdee78b9ba9252a809f7eedf24d1e6e6a705eeb",
+    )
+    issue_payload = json.dumps(
+        [
+            {
+                "number": 8278,
+                "title": handoff.task_title,
+                "url": "https://github.com/synaptent/aragora/issues/8278",
+                "state": "OPEN",
+            }
+        ]
+    )
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "list"] and "--label" in args:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["gh", "issue", "list"]:
+            return subprocess.CompletedProcess(args, 0, issue_payload, "")
+        if args[:3] == ["gh", "pr", "list"]:
+            return subprocess.CompletedProcess(args, 0, "[]", "")
+        if args[:3] == ["git", "rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(args, 1, "", "unknown ref")
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    decisions = mod.decide_handoffs(
+        [handoff],
+        repo_root=tmp_path,
+        repo="synaptent/aragora",
+        labels=["boss-ready"],
+        max_open_issues=12,
+    )
+
+    assert decisions == [
+        PublishDecision(
+            task_title=handoff.task_title,
+            source_file=handoff.source_file,
+            eligible=False,
+            reason="existing_issue",
+            branch="codex/stale-janitor-comment-cap-improver-20260613",
+            desired_head="7cdee78b9ba9252a809f7eedf24d1e6e6a705eeb",
+            existing_issue_url="https://github.com/synaptent/aragora/issues/8278",
+        )
+    ]
+
+
 def test_run_uses_user_auth_for_issue_create(monkeypatch: Any, tmp_path: Path) -> None:
     recorded: dict[str, Any] = {}
 
@@ -1239,6 +1298,8 @@ def test_decide_handoffs_routes_branch_handoff_to_open_pr_before_issue_cap(
             source_file=handoff.source_file,
             eligible=False,
             reason="target_open_pr",
+            branch="codex/branch-publisher-receipt-dir-compat",
+            desired_head="abc1234",
             existing_pr_url="https://github.com/synaptent/aragora/pull/6741",
         )
     ]
@@ -1306,6 +1367,8 @@ def test_decide_handoffs_keeps_branch_update_actionable_when_pr_head_is_stale(
             source_file=handoff.source_file,
             eligible=True,
             reason="eligible",
+            branch="codex/audit-skip-handoff-protected-patch-checks-20260512",
+            desired_head="5091193dfe68d40ead6ac775cd43c507360fa0fe",
         )
     ]
 
@@ -1429,6 +1492,7 @@ def test_decide_handoffs_prefers_branch_pr_over_duplicate_issue(
             source_file=handoff.source_file,
             eligible=False,
             reason="target_open_pr",
+            branch="codex/frontend-e2e-test-workflow-scope",
             existing_pr_url="https://github.com/synaptent/aragora/pull/7024",
         )
     ]
@@ -1577,6 +1641,7 @@ def test_decide_handoffs_skips_merged_referenced_pr_slug(monkeypatch: Any, tmp_p
             source_file=handoff.source_file,
             eligible=False,
             reason="existing_pr",
+            branch="codex/review-pr6808",
             existing_pr_url="https://github.com/synaptent/aragora/pull/6808",
         )
     ]

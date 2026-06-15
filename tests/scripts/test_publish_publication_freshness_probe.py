@@ -133,6 +133,29 @@ def test_scan_benchmark_truth_artifacts_flags_stale(tmp_path: Path) -> None:
     assert out["drift_count"] == 1
 
 
+def test_scan_benchmark_truth_artifacts_flags_broken_latest(tmp_path: Path) -> None:
+    truth_root = tmp_path / "tracked" / "benchmark_truth_artifacts"
+    missing_dir = truth_root / "tw-missing"
+    invalid_dir = truth_root / "tw-invalid"
+    missing_dir.mkdir(parents=True)
+    invalid_dir.mkdir(parents=True)
+    (invalid_dir / "latest.json").write_text("{not-json", encoding="utf-8")
+
+    out = publisher.scan_benchmark_truth_artifacts(
+        truth_root=truth_root, stale_hours=48.0, now=_now()
+    )
+
+    assert out["available"] is True
+    assert out["drift_count"] == 2
+    by_corpus = {row["corpus_id"]: row for row in out["corpora"]}
+    assert by_corpus["tw-missing"]["artifact_status"] == "missing_latest"
+    assert by_corpus["tw-invalid"]["artifact_status"] == "invalid_latest_json"
+    assert {row["artifact_status"] for row in out["drift_records"]} == {
+        "missing_latest",
+        "invalid_latest_json",
+    }
+
+
 def test_scan_benchmark_truth_artifacts_missing_root(tmp_path: Path) -> None:
     out = publisher.scan_benchmark_truth_artifacts(
         truth_root=tmp_path / "absent", stale_hours=48.0, now=_now()
@@ -255,7 +278,16 @@ def test_render_status_markdown_emits_sections() -> None:
                         "age_hours": 10.0,
                         "coverage_status": "complete",
                         "is_stale": False,
-                    }
+                        "artifact_status": "ok",
+                    },
+                    {
+                        "corpus_id": "tw-broken",
+                        "age_hours": None,
+                        "coverage_status": None,
+                        "is_stale": False,
+                        "artifact_status": "invalid_latest_json",
+                        "reason": "Expecting value",
+                    },
                 ],
             },
         },
@@ -266,6 +298,8 @@ def test_render_status_markdown_emits_sections() -> None:
     assert "## Canonical Metrics" in md
     assert "## Status-doc Reconciliation" in md
     assert "## Benchmark Truth Artifacts" in md
+    assert "[DRIFT]" in md
+    assert "artifact_status=invalid_latest_json" in md
     assert "ROADMAP.md" in md
 
 

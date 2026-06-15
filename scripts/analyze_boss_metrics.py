@@ -43,11 +43,14 @@ def _load_signals(path: Path) -> list[OutcomeSignal]:
     return signals
 
 
-def _safe_int(value: Any) -> int:
-    try:
-        return int(value or 0)
-    except (TypeError, ValueError):
+def _non_negative_metric_int(value: Any) -> int | None:
+    if value in (None, ""):
         return 0
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value >= 0:
+        return value
+    return None
 
 
 def analyze_metrics(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
@@ -58,12 +61,23 @@ def analyze_metrics(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
     outcomes: Counter[str] = Counter()
     worker_statuses: Counter[str] = Counter()
     decomposed_counts: Counter[str] = Counter()
+    invalid_numeric_metrics: Counter[str] = Counter()
 
     total = 0
     for record in records:
         total += 1
-        prompt_chars += _safe_int(record.get("prompt_chars"))
-        enriched_context_chars += _safe_int(record.get("enriched_context_chars"))
+        prompt_value = _non_negative_metric_int(record.get("prompt_chars"))
+        if prompt_value is None:
+            invalid_numeric_metrics["prompt_chars"] += 1
+        else:
+            prompt_chars += prompt_value
+
+        context_value = _non_negative_metric_int(record.get("enriched_context_chars"))
+        if context_value is None:
+            invalid_numeric_metrics["enriched_context_chars"] += 1
+        else:
+            enriched_context_chars += context_value
+
         if record.get("has_deliverable") is True:
             has_deliverable_count += 1
 
@@ -114,6 +128,7 @@ def analyze_metrics(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "worker_statuses": dict(sorted(worker_statuses.items())),
         "decomposed": dict(sorted(decomposed_counts.items())),
         "failure_taxonomy": dict(sorted(failure_taxonomy.items())),
+        "invalid_numeric_metrics": dict(sorted(invalid_numeric_metrics.items())),
     }
 
 
@@ -140,6 +155,7 @@ def render_text(report: dict[str, Any]) -> str:
     deliverables = metrics.get("deliverables", {})
     publish_actions = metrics.get("publish_actions", {})
     failure_taxonomy = metrics.get("failure_taxonomy", {})
+    invalid_numeric_metrics = metrics.get("invalid_numeric_metrics", {})
     terminal_truth = report.get("terminal_truth_benchmark") or {}
     no_rescue_rate = float(terminal_truth.get("no_rescue_rate", 0.0) or 0.0)
     meets_target = bool(terminal_truth.get("meets_30d_target", False))
@@ -167,6 +183,10 @@ def render_text(report: dict[str, Any]) -> str:
         lines.append("  failure taxonomy:")
         for reason, count in failure_taxonomy.items():
             lines.append(f"    - {reason}: {count}")
+    if invalid_numeric_metrics:
+        lines.append("  invalid numeric metrics:")
+        for field, count in sorted(invalid_numeric_metrics.items()):
+            lines.append(f"    - {field}: {count}")
     if terminal_families:
         lines.append("  terminal-truth families:")
         for family, count in sorted(terminal_families.items()):

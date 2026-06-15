@@ -27,6 +27,7 @@ from aragora.swarm.campaign import (
 )
 from aragora.swarm.merge_arbiter import (
     REQUIRED_CHECKS,
+    ArbiterOperationalError,
     _classify_required_checks,
     _get_check_status,
     _merge_pr,
@@ -555,7 +556,12 @@ class InitiativeIntegrator:
     ) -> dict[str, Any]:
         snapshot = self._resolve_project_pr_snapshot(project)
         pr_number = _parse_pr_number((snapshot or {}).get("number") or (snapshot or {}).get("url"))
-        checks = _get_check_status(pr_number, self.repo) if pr_number is not None else {}
+        try:
+            checks = _get_check_status(pr_number, self.repo) if pr_number is not None else {}
+        except ArbiterOperationalError:
+            # Status reporting degrades to "checks unknown" on gh faults; only
+            # the arbiter poll loop feeds these faults to its circuit breaker.
+            checks = {}
         missing_checks, failing_checks = _classify_required_checks(checks)
         dependency_blockers = _dependency_blockers(manifest, project)
         promotion_blockers: list[str] = []

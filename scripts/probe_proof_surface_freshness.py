@@ -30,6 +30,9 @@ Behaviour
 * Exits ``0`` when every probed surface is fresh, non-zero otherwise.
 * Treats a malformed or missing ``Last updated:`` line as a hard error
   and exits non-zero with a clear message on stderr.
+* Treats a materially future-dated ``Last updated:`` line as a hard
+  error, so bad clock data cannot make a stale proof surface appear
+  fresh. A small tolerance absorbs benign runner clock skew.
 
 Design constraints
 ~~~~~~~~~~~~~~~~~~
@@ -88,6 +91,7 @@ SURFACE_PATHS: dict[str, Path] = {
 
 DEFAULT_SURFACES: tuple[str, ...] = ("b0", "tw03")
 DEFAULT_MAX_AGE_DAYS: int = 7
+FUTURE_TIMESTAMP_TOLERANCE_SECONDS: int = 5 * 60
 
 _LAST_UPDATED_PATTERN = re.compile(
     r"^\s*Last\s+updated\s*:\s*(?P<value>\S+)\s*$",
@@ -213,7 +217,15 @@ def probe_surface(
         raise FreshnessProbeError(f"surface {surface!r} at {path}: {exc}") from exc
 
     age = now - last_updated
-    age_days = age.total_seconds() / 86400.0
+    if age.total_seconds() < -FUTURE_TIMESTAMP_TOLERANCE_SECONDS:
+        future_days = abs(age.total_seconds()) / 86400.0
+        raise FreshnessProbeError(
+            f"surface {surface!r} at {path}: 'Last updated:' value "
+            f"{last_updated.strftime('%Y-%m-%dT%H:%M:%SZ')} is {future_days:.2f} "
+            "day(s) in the future"
+        )
+
+    age_days = max(age.total_seconds(), 0.0) / 86400.0
     fresh = age_days <= max_age_days
 
     # Render the timestamp in canonical ``Z`` form for deterministic

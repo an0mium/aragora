@@ -307,6 +307,9 @@ async def run_benchmark(
     seed: int = 42,
 ) -> list[ABResult]:
     """Run the full A/B benchmark across all test cases."""
+    if not test_cases:
+        raise ValueError("trickster benchmark requires at least one test case")
+
     results: list[ABResult] = []
 
     for i, tc in enumerate(test_cases):
@@ -380,6 +383,9 @@ def _delta(val: float) -> str:
 
 def generate_report(results: list[ABResult], duration: float) -> str:
     """Generate the Markdown benchmark report."""
+    if not results:
+        raise ValueError("trickster benchmark report requires at least one result")
+
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     lines: list[str] = []
 
