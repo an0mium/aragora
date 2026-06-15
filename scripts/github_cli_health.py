@@ -196,6 +196,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true", help="Print machine-readable output")
     parser.add_argument("--quiet", action="store_true", help="Suppress normal output")
+    parser.add_argument(
+        "--use-app-auth",
+        action="store_true",
+        help=(
+            "Hydrate GitHub App credentials before probing gh. Disabled by default so the "
+            "standalone diagnostic remains bounded in sandboxed automation contexts."
+        ),
+    )
     return parser
 
 
@@ -205,6 +213,7 @@ def main(argv: list[str] | None = None) -> int:
     health = check_github_cli_health(
         Path(args.repo),
         timeout_seconds=int(args.timeout_seconds),
+        prefer_app=bool(args.use_app_auth),
     )
 
     if args.json:

@@ -338,11 +338,69 @@ def test_check_github_cli_health_detects_auth_failure(monkeypatch) -> None:
     assert health.api_ok is False
 
 
+def test_main_skips_app_auth_by_default(monkeypatch, capsys) -> None:
+    calls: list[bool] = []
+
+    def fake_check_github_cli_health(
+        repo_root,
+        *,
+        timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS,
+        prefer_app=True,
+    ):
+        calls.append(prefer_app)
+        return mod.GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="error connecting to api.github.com",
+            repo=str(Path(repo_root).resolve()),
+        )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fake_check_github_cli_health)
+
+    exit_code = mod.main(["--json"])
+
+    assert exit_code == 1
+    assert calls == [False]
+    assert '"mode": "connectivity_failed"' in capsys.readouterr().out
+
+
+def test_main_can_opt_into_app_auth(monkeypatch, capsys) -> None:
+    calls: list[bool] = []
+
+    def fake_check_github_cli_health(
+        repo_root,
+        *,
+        timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS,
+        prefer_app=True,
+    ):
+        calls.append(prefer_app)
+        return mod.GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(Path(repo_root).resolve()),
+        )
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fake_check_github_cli_health)
+
+    exit_code = mod.main(["--json", "--use-app-auth"])
+
+    assert exit_code == 0
+    assert calls == [True]
+    assert '"ready": true' in capsys.readouterr().out
+
+
 def test_main_json_reports_unavailable_state(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
-        lambda repo_root, timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS: mod.GitHubCLIHealth(
+        lambda repo_root,
+        timeout_seconds=mod.DEFAULT_TIMEOUT_SECONDS,
+        prefer_app=True: mod.GitHubCLIHealth(
             ready=False,
             auth_ok=False,
             api_ok=False,
