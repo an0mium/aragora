@@ -135,6 +135,39 @@ The decision core (`plan_pass`, `build_work_orders`) is pure — the `gh` /
 `identify_lane_owner` reads and the claim/dispatch writes are injected
 callables, so the whole pass is unit-tested without a network or a worktree.
 
+### Draining work orders (the supervisor)
+
+`aragora.swarm.lane_supervisor` is the back of the handoff — it drains the
+work orders the conductor dropped and launches a worker for each, via a
+file-state machine that is the double-spawn guard:
+
+```
+pending/  --claim (atomic rename)-->  in_progress/  --+--> done/
+                                                      +--> failed/
+```
+
+The atomic `pending -> in_progress` rename means two concurrent supervisors
+never launch the same order: exactly one rename wins, the loser skips. A
+launch that raises moves the order to `failed/` with the error recorded and the
+drain continues; successes move to `done/`. Everything stays inspectable and
+replayable.
+
+```bash
+# Preview what the next drain would launch (moves nothing):
+python3 scripts/lane_supervisor.py --json
+
+# Claim + launch up to N pending orders:
+python3 scripts/lane_supervisor.py --execute --max-launches 3
+```
+
+Under `--execute` each order is handed to
+`worker_launcher.WorkerLauncher.launch`. That call is async and needs a
+provisioned worktree (operator-machine-specific), so the work order must carry a
+`worktree`; orders without one fail cleanly into `failed/` rather than launching
+unisolated. The drainer state machine is fully unit-tested with an injected fake
+launcher; the live `WorkerLauncher` seam is the one piece to validate on your
+machine.
+
 ## Identity / budget note
 
 Run worker reads through the GitHub App installation token (separate API
