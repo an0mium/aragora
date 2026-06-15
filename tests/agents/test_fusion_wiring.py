@@ -39,7 +39,10 @@ def test_fusion_cost_is_billed_as_premium_not_default() -> None:
     assert fusion > default
 
 
-def test_fusion_flags_exist_and_default_off() -> None:
+def test_fusion_flags_exist_and_default_off(monkeypatch) -> None:
+    # A developer/CI shell may export ARAGORA_ENABLE_FUSION; clear it so the
+    # default-OFF assertion reflects the registered default, not the ambient env.
+    monkeypatch.delenv("ARAGORA_ENABLE_FUSION", raising=False)
     reg = FeatureFlagRegistry()
     assert reg.is_enabled("enable_fusion") is False
     assert reg.get_value("fusion_cost_budget_per_debate") == 50.0

@@ -951,7 +951,7 @@ class AgentSelector:
         # Pareto optimizer naturally skip it on low budgets and pick it only when
         # quality outweighs cost.
         cost_factors = {"fusion": 4.5}
-        latency_ms = {"fusion": 1200.0}
+        latency_ms = {"fusion": 4500.0}  # ~4.5x default, matching the cost multiplier
         # Register agents with default expertise
         for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
             profile = AgentProfile(
