@@ -139,7 +139,12 @@ class SteeringDirective:
 
 
 def write_directive(directive: SteeringDirective, *, mailbox_path: Path | None = None) -> Path:
-    """Append a directive to the mailbox (creating it if needed). Returns the path."""
+    """Append a directive to the mailbox (creating it if needed). Returns the path.
+
+    A directive serializes to well under ``PIPE_BUF`` (4 KB on macOS/Linux), so a
+    single ``O_APPEND`` write is atomic and concurrent writers cannot interleave;
+    no explicit lock is needed at these sizes.
+    """
     path = mailbox_path or default_mailbox_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
@@ -153,25 +158,32 @@ def read_directives(
     hours: float | None = 24.0,
     now: datetime | None = None,
 ) -> list[SteeringDirective]:
-    """Read directives from the mailbox, oldest first; malformed lines are skipped."""
+    """Read directives from the mailbox, oldest first; malformed lines are skipped.
+
+    Sorted by ``issued_at`` so "oldest first" holds even if a shared mailbox is
+    appended to by multiple writers with skewed clocks (unparseable timestamps
+    sort first, as the most conservative position).
+    """
     path = mailbox_path or default_mailbox_path()
     if not path.is_file():
         return []
     now = now or datetime.now(UTC)
     cutoff = None if hours is None else now - timedelta(hours=hours)
-    directives: list[SteeringDirective] = []
+    _epoch = datetime.min.replace(tzinfo=UTC)
+    dated: list[tuple[datetime, SteeringDirective]] = []
     for record in _iter_jsonl(path):
         issued = _parse_iso(record.get("issued_at"))
         if cutoff is not None and (issued is None or issued < cutoff):
             continue
         try:
-            directives.append(SteeringDirective.from_dict(record))
+            dated.append((issued or _epoch, SteeringDirective.from_dict(record)))
         except SteeringValidationError:
             # A malformed/hostile directive is dropped entirely. Because the only
             # effect a valid directive can have is additive caution, dropping one
             # can never *loosen* the effective posture.
             continue
-    return directives
+    dated.sort(key=lambda item: item[0])
+    return [directive for _, directive in dated]
 
 
 def effective_forbidden_actions(

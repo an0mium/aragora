@@ -83,7 +83,7 @@ def _iter_jsonl(path: Path) -> Iterator[dict[str, Any]]:
                 continue
             try:
                 payload = json.loads(line)
-            except (ValueError, json.JSONDecodeError):
+            except ValueError:  # JSONDecodeError subclasses ValueError
                 continue
             if isinstance(payload, dict):
                 yield payload

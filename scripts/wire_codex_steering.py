@@ -32,7 +32,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from aragora.swarm.agent_bridge.codex_source import default_codex_home  # noqa: E402
 from aragora.swarm.agent_bridge.codex_steer import default_mailbox_path  # noqa: E402
 
-_MARKER = "aragora_steering"  # presence => already wired (idempotency anchor)
+# Idempotency anchor: a deliberate token always present in the injected clause,
+# independent of the (configurable) mailbox path -- so a custom --mailbox without
+# "aragora_steering" in it still can't cause a re-append on re-run.
+_MARKER = "OPERATOR STEERING (Phase-0)"
 
 
 def _steering_clause(mailbox: Path) -> str:
@@ -110,7 +113,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.dry_run:
             print(f"  WOULD wire  {automation_dir.name}")
         else:
-            backup = toml_path.with_suffix(f".toml.bak-{int(time.time())}")
+            # Nanosecond suffix so two runs within the same second don't clobber backups.
+            backup = toml_path.with_suffix(f".toml.bak-{time.time_ns()}")
             backup.write_text(toml_path.read_text(encoding="utf-8"), encoding="utf-8")
             toml_path.write_text(tomli_w.dumps(cfg), encoding="utf-8")
             print(f"  wired {automation_dir.name}  (backup: {backup.name})")
