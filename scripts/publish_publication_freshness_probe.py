@@ -266,23 +266,66 @@ def scan_benchmark_truth_artifacts(
         if not child.is_dir():
             continue
         latest = child / "latest.json"
+        latest_path = str(latest.relative_to(truth_root.parent.parent.parent))
         if not latest.exists():
+            row = {
+                "corpus_id": child.name,
+                "latest_path": latest_path,
+                "generated_at": None,
+                "age_hours": None,
+                "is_stale": False,
+                "stale_threshold_hours": stale_hours,
+                "coverage_status": None,
+                "artifact_status": "missing_latest",
+                "reason": "latest.json not present",
+            }
+            corpora.append(row)
+            drift.append(row)
             continue
         try:
             payload = json.loads(latest.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except OSError as exc:
+            row = {
+                "corpus_id": child.name,
+                "latest_path": latest_path,
+                "generated_at": None,
+                "age_hours": None,
+                "is_stale": False,
+                "stale_threshold_hours": stale_hours,
+                "coverage_status": None,
+                "artifact_status": "unreadable_latest",
+                "reason": str(exc),
+            }
+            corpora.append(row)
+            drift.append(row)
+            continue
+        except json.JSONDecodeError as exc:
+            row = {
+                "corpus_id": child.name,
+                "latest_path": latest_path,
+                "generated_at": None,
+                "age_hours": None,
+                "is_stale": False,
+                "stale_threshold_hours": stale_hours,
+                "coverage_status": None,
+                "artifact_status": "invalid_latest_json",
+                "reason": str(exc),
+            }
+            corpora.append(row)
+            drift.append(row)
             continue
         generated_at = _parse_iso(payload.get("generated_at"))
         age_hours = _hours_between(now, generated_at) if generated_at else None
         is_stale = age_hours is not None and age_hours > stale_hours
         row = {
             "corpus_id": child.name,
-            "latest_path": str(latest.relative_to(truth_root.parent.parent.parent)),
+            "latest_path": latest_path,
             "generated_at": payload.get("generated_at"),
             "age_hours": round(age_hours, 2) if age_hours is not None else None,
             "is_stale": bool(is_stale),
             "stale_threshold_hours": stale_hours,
             "coverage_status": (payload.get("coverage") or {}).get("status"),
+            "artifact_status": "ok",
         }
         corpora.append(row)
         if is_stale:
@@ -420,11 +463,19 @@ def render_status_markdown(report: dict[str, Any]) -> str:
             f"drift_count={benchmark.get('drift_count')}"
         )
         for row in benchmark.get("corpora") or []:
+            artifact_status = str(row.get("artifact_status") or "ok")
             marker = "STALE" if row.get("is_stale") else "ok"
-            lines.append(
+            if artifact_status != "ok" and not row.get("is_stale"):
+                marker = "DRIFT"
+            line = (
                 f"- [{marker:5}] {row.get('corpus_id')}: age={row.get('age_hours')}h, "
                 f"coverage={row.get('coverage_status')}"
             )
+            if artifact_status != "ok":
+                line += f", artifact_status={artifact_status}"
+            if row.get("reason"):
+                line += f", reason={row.get('reason')}"
+            lines.append(line)
     else:
         lines.append(f"unavailable: {benchmark.get('reason')}")
 

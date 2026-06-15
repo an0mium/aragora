@@ -918,7 +918,7 @@ def build_prompt(
         [
             "Run read-only first:",
             "- git status --short --branch --untracked-files=all",
-            "- python3 scripts/agent_bridge.py --json health || true",
+            "- python3 scripts/agent_bridge.py health --json || true",
             f"- python3 scripts/identify_lane_owner.py --pr {pr_number} --json || true",
             f"- gh pr view {pr_number} --json number,state,isDraft,headRefName,headRefOid,mergeable,mergeStateStatus,statusCheckRollup,url",
             "",

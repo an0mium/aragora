@@ -165,14 +165,19 @@ def ahead_behind(repo_root: Path) -> tuple[int, int]:
 
 def untracked_files(repo_root: Path) -> list[str]:
     """Return the list of untracked, non-ignored files in ``repo_root``."""
+    files, _reason = _untracked_files_probe(repo_root)
+    return files
+
+
+def _untracked_files_probe(repo_root: Path) -> tuple[list[str], str | None]:
     try:
         result = _run_git(
             ["ls-files", "--others", "--exclude-standard"],
             repo_root=repo_root,
         )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-        return []
-    return [line for line in result.stdout.splitlines() if line.strip()]
+        return [], "untracked_files_probe_failed"
+    return [line for line in result.stdout.splitlines() if line.strip()], None
 
 
 def uncommitted_modified_files(repo_root: Path) -> list[str]:
@@ -182,7 +187,13 @@ def uncommitted_modified_files(repo_root: Path) -> list[str]:
     index) and ``git diff --name-only --cached`` (staged changes against
     HEAD), de-duplicating paths that appear in both.
     """
+    files, _reason = _uncommitted_modified_files_probe(repo_root)
+    return files
+
+
+def _uncommitted_modified_files_probe(repo_root: Path) -> tuple[list[str], str | None]:
     paths: set[str] = set()
+    failed = False
     for extra in ([], ["--cached"]):
         try:
             result = _run_git(
@@ -190,12 +201,14 @@ def uncommitted_modified_files(repo_root: Path) -> list[str]:
                 repo_root=repo_root,
             )
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            failed = True
             continue
         for line in result.stdout.splitlines():
             line = line.strip()
             if line:
                 paths.add(line)
-    return sorted(paths)
+    reason = "uncommitted_modified_probe_failed" if failed else None
+    return sorted(paths), reason
 
 
 def submodule_dirty(repo_root: Path) -> bool:
@@ -211,6 +224,11 @@ def submodule_dirty(repo_root: Path) -> bool:
     A repo with no submodules emits no output, which is treated as
     clean.
     """
+    dirty, _reason = _submodule_dirty_probe(repo_root)
+    return dirty
+
+
+def _submodule_dirty_probe(repo_root: Path) -> tuple[bool, str | None]:
     try:
         result = _run_git(
             ["submodule", "status", "--recursive"],
@@ -218,17 +236,15 @@ def submodule_dirty(repo_root: Path) -> bool:
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return False
+        return False, "submodule_status_probe_failed"
     if result.returncode != 0:
-        # Not a git repo or git too old; treat as not-dirty rather than
-        # masking the real signal.
-        return False
+        return False, "submodule_status_probe_failed"
     for line in result.stdout.splitlines():
         if not line:
             continue
         if line[0] in {"+", "-", "U"}:
-            return True
-    return False
+            return True, None
+    return False, None
 
 
 def probe(
@@ -253,9 +269,9 @@ def probe(
     else:
         ahead, behind = (0, 0)
 
-    untracked = untracked_files(repo_root)
-    uncommitted = uncommitted_modified_files(repo_root)
-    sub_dirty = submodule_dirty(repo_root)
+    untracked, untracked_probe_reason = _untracked_files_probe(repo_root)
+    uncommitted, uncommitted_probe_reason = _uncommitted_modified_files_probe(repo_root)
+    sub_dirty, submodule_probe_reason = _submodule_dirty_probe(repo_root)
 
     if untracked:
         reasons.append(f"untracked_files={len(untracked)}")
@@ -263,6 +279,16 @@ def probe(
         reasons.append(f"uncommitted_modified={len(uncommitted)}")
     if sub_dirty:
         reasons.append("submodule_dirty")
+    status_probe_reasons = [
+        reason
+        for reason in (
+            untracked_probe_reason,
+            uncommitted_probe_reason,
+            submodule_probe_reason,
+        )
+        if reason
+    ]
+    reasons.extend(status_probe_reasons)
     if ahead:
         reasons.append(f"ahead_of_origin_main={ahead}")
     if behind:
@@ -274,6 +300,7 @@ def probe(
         len(untracked) == 0
         and len(uncommitted) == 0
         and not sub_dirty
+        and not status_probe_reasons
         and ahead == 0
         and behind == 0
         and bool(head)

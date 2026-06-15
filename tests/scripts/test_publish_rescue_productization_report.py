@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from aragora.swarm.rescue_events import RescueEvent, RescueEventLedger
 
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
@@ -107,6 +109,73 @@ def test_publish_report_bundle_writes_timestamped_and_latest(tmp_path: Path) -> 
     assert json.loads(written["latest"].read_text(encoding="utf-8"))["generated_at"] == (
         "2026-04-14T18:36:07Z"
     )
+
+
+@pytest.mark.parametrize("schema_version", [0, -1, True, "1"])
+def test_load_productization_map_rejects_invalid_schema_version(
+    tmp_path: Path,
+    schema_version: object,
+) -> None:
+    productization_map_path = tmp_path / "rescue_productization.json"
+    productization_map_path.write_text(
+        json.dumps({"schema_version": schema_version, "entries": []}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="schema_version must be a positive integer"):
+        mod.load_productization_map_payload(productization_map_path)
+
+
+def test_write_productization_map_rejects_invalid_schema_version(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="schema_version must be a positive integer"):
+        mod.write_productization_map_payload(
+            tmp_path / "rescue_productization.json",
+            {
+                "schema_version": False,
+                "entries": [
+                    {
+                        "class": "followup_prompt:needs explicit next step from founder",
+                    }
+                ],
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [
+        {"class": "not-a-list"},
+        [{"target": "#6001"}],
+        ["followup_prompt:needs explicit next step from founder"],
+    ],
+)
+def test_load_productization_map_rejects_invalid_entries(
+    tmp_path: Path,
+    entries: object,
+) -> None:
+    productization_map_path = tmp_path / "rescue_productization.json"
+    productization_map_path.write_text(
+        json.dumps({"schema_version": 1, "entries": entries}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="entries"):
+        mod.load_productization_map_payload(productization_map_path)
+
+
+def test_write_productization_map_rejects_invalid_entries(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="non-empty `class`"):
+        mod.write_productization_map_payload(
+            tmp_path / "rescue_productization.json",
+            {
+                "schema_version": 1,
+                "entries": [
+                    {
+                        "target": "#6001",
+                    }
+                ],
+            },
+        )
 
 
 def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> None:

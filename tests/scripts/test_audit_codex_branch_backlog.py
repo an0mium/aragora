@@ -317,6 +317,52 @@ def test_main_summary_only_json_honors_examples_flag(
     assert compact["record_examples_limit"] == 0
 
 
+def test_main_suppresses_flush_time_broken_pipe(tmp_path: Path, monkeypatch: Any) -> None:
+    payload = {
+        "branch_count": 0,
+        "summary": {"by_category": {}},
+        "records": [],
+    }
+    monkeypatch.setattr(mod, "repo_root", lambda _path: tmp_path)
+    monkeypatch.setattr(mod, "audit", lambda **_kwargs: payload)
+
+    class FlushBrokenStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    stream = FlushBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+    assert stream.writes
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
+def test_emit_output_suppresses_write_time_broken_pipe(monkeypatch: Any) -> None:
+    class WriteBrokenStdout:
+        def write(self, text: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not run after write failure")
+
+    stream = WriteBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    mod._emit_output("payload")
+
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
 def test_print_markdown_includes_revision_metadata(tmp_path: Path, capsys: Any) -> None:
     payload = {
         "repo": str(tmp_path),

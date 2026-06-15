@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import yaml
+import pytest
 
 from aragora.swarm.campaign import CampaignManifest, CampaignProject, save_campaign_manifest
 from aragora.swarm.spec import SwarmSpec
@@ -16,6 +17,103 @@ if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
 import phase0b_role_benchmark  # noqa: E402
+
+
+def _result_row(**overrides) -> dict[str, object]:
+    row: dict[str, object] = {
+        "recorded_at": "2026-03-17T00:00:00+00:00",
+        "experiment_id": "exp-001",
+        "config_id": "p-codex_w-claude_r-claude",
+        "project_id": "B-6",
+        "runtime_manifest_path": "/tmp/phase0b-runtime.yaml",
+        "worker_branch": "codex/swarm-subtask-1",
+        "worker_commit": "abc123",
+        "worker_branch_count": 1,
+        "worker_commit_count": 1,
+        "worker_branches_json": json.dumps(["codex/swarm-subtask-1"]),
+        "worker_commits_json": json.dumps(["abc123"]),
+    }
+    row.update(overrides)
+    return row
+
+
+def test_validate_result_row_accepts_consistent_worker_metadata() -> None:
+    phase0b_role_benchmark.validate_result_row(_result_row())
+
+
+def test_validate_result_row_rejects_branch_count_mismatch() -> None:
+    row = _result_row(worker_branch_count=2)
+
+    with pytest.raises(ValueError, match="worker_branch_count"):
+        phase0b_role_benchmark.validate_result_row(row)
+
+
+def test_validate_result_row_rejects_invalid_json_list() -> None:
+    row = _result_row(worker_branches_json="not-json")
+
+    with pytest.raises(ValueError, match="worker_branches_json"):
+        phase0b_role_benchmark.validate_result_row(row)
+
+
+def test_validate_result_row_rejects_primary_commit_outside_list() -> None:
+    row = _result_row(worker_commit="missing")
+
+    with pytest.raises(ValueError, match="worker_commit"):
+        phase0b_role_benchmark.validate_result_row(row)
+
+
+def test_load_json_returns_default_for_missing_file(tmp_path: Path) -> None:
+    default = {"runs": []}
+
+    assert phase0b_role_benchmark._load_json(tmp_path / "missing.json", default) == default
+
+
+def test_load_json_rejects_malformed_existing_file(tmp_path: Path) -> None:
+    path = tmp_path / "results.json"
+    path.write_text("{not-json", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"Malformed JSON file .*results\.json"):
+        phase0b_role_benchmark._load_json(path, {"runs": []})
+
+
+def test_upsert_result_rejects_invalid_rows_before_creating_outputs(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    experiment_dir = tmp_path / "phase0b_role_benchmark"
+    monkeypatch.setattr(phase0b_role_benchmark, "EXPERIMENT_DIR", experiment_dir)
+    monkeypatch.setattr(phase0b_role_benchmark, "RUNS_DIR", experiment_dir / "runs")
+    monkeypatch.setattr(phase0b_role_benchmark, "ACTIVE_RUN_PATH", experiment_dir / "active.json")
+    monkeypatch.setattr(
+        phase0b_role_benchmark, "RESULTS_JSON_PATH", experiment_dir / "results.json"
+    )
+    monkeypatch.setattr(phase0b_role_benchmark, "RESULTS_CSV_PATH", experiment_dir / "results.csv")
+
+    with pytest.raises(ValueError, match="worker_commit_count"):
+        phase0b_role_benchmark._upsert_result(_result_row(worker_commit_count=2))
+
+    assert not experiment_dir.exists()
+
+
+def test_upsert_result_rejects_malformed_existing_results_without_overwrite(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    experiment_dir = tmp_path / "phase0b_role_benchmark"
+    experiment_dir.mkdir()
+    results_json = experiment_dir / "results.json"
+    results_json.write_text("{not-json", encoding="utf-8")
+    monkeypatch.setattr(phase0b_role_benchmark, "EXPERIMENT_DIR", experiment_dir)
+    monkeypatch.setattr(phase0b_role_benchmark, "RUNS_DIR", experiment_dir / "runs")
+    monkeypatch.setattr(phase0b_role_benchmark, "ACTIVE_RUN_PATH", experiment_dir / "active.json")
+    monkeypatch.setattr(phase0b_role_benchmark, "RESULTS_JSON_PATH", results_json)
+    monkeypatch.setattr(phase0b_role_benchmark, "RESULTS_CSV_PATH", experiment_dir / "results.csv")
+
+    with pytest.raises(ValueError, match=r"Malformed JSON file .*results\.json"):
+        phase0b_role_benchmark._upsert_result(_result_row())
+
+    assert results_json.read_text(encoding="utf-8") == "{not-json"
+    assert not (experiment_dir / "results.csv").exists()
 
 
 def test_build_result_row_includes_multi_branch_metadata(

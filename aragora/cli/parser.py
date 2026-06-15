@@ -2509,6 +2509,62 @@ def _add_review_queue_parser(subparsers) -> None:
         func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
     )
 
+    conductor_parser = queue_subparsers.add_parser(
+        "conductor",
+        help="Build an owner-aware queue conductor packet and next prompt",
+        description=(
+            "Read-only queue conductor that combines open PR metadata, required checks, "
+            "branch owner lookup, operator steering, merge-packet status, head-change "
+            "detection, and supersession hints into one JSON packet plus one next prompt."
+        ),
+    )
+    conductor_parser.add_argument(
+        "--limit",
+        type=int,
+        default=30,
+        help="Max open PRs to inspect when --pr is not supplied",
+    )
+    conductor_parser.add_argument(
+        "--pr",
+        action="append",
+        default=[],
+        help="Specific PR number/ref to include. Repeatable. Defaults to open queue.",
+    )
+    conductor_parser.add_argument(
+        "--repo",
+        default=None,
+        help="GitHub repo slug override (owner/name). Defaults to current repo context.",
+    )
+    conductor_parser.add_argument(
+        "--review-queue-root",
+        default=None,
+        help="Override the review-queue store root used for settlement receipt lookups.",
+    )
+    conductor_parser.add_argument(
+        "--owner-timeout-seconds",
+        type=float,
+        default=8.0,
+        help="Timeout for owner and steering helper lookup. Timeout means preserve/no-mutate.",
+    )
+    conductor_parser.add_argument(
+        "--mode",
+        choices=("queue", "ready-boundary"),
+        default="queue",
+        help=(
+            "Conductor routing mode. ready-boundary emits mark-ready authorization "
+            "classification for draft PRs that are otherwise ready."
+        ),
+    )
+    conductor_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Output as JSON",
+    )
+    conductor_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.review_queue", "cmd_review_queue")
+    )
+
     # Round 30g phase A: observe-outcomes (dry-run-by-default; --write opt-in).
     observe_parser = queue_subparsers.add_parser(
         "observe-outcomes",

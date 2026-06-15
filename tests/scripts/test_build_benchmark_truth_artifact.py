@@ -1263,6 +1263,43 @@ def test_resolve_latest_artifact_paths_use_corpus_and_revision_roots() -> None:
     }
 
 
+def test_publish_artifact_bundle_rejects_missing_identity(tmp_path: Path) -> None:
+    valid_artifact = {
+        "generated_at": "2026-04-14T02:03:04Z",
+        "corpus": {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 7,
+            "issue_count": 1,
+        },
+        "primary_metrics": {"truth_success_rate": 1.0},
+    }
+
+    cases = [
+        (
+            {**valid_artifact, "generated_at": ""},
+            "generated_at is required",
+        ),
+        (
+            {**valid_artifact, "corpus": {**valid_artifact["corpus"], "corpus_id": ""}},
+            "corpus.corpus_id is required",
+        ),
+        (
+            {**valid_artifact, "corpus": {**valid_artifact["corpus"], "revision": 0}},
+            "corpus.revision must be a positive integer",
+        ),
+    ]
+
+    for artifact, expected_message in cases:
+        publish_dir = tmp_path / expected_message.split()[0]
+        try:
+            mod.publish_artifact_bundle(publish_dir=publish_dir, artifact=artifact)
+        except ValueError as exc:
+            assert expected_message in str(exc)
+        else:
+            raise AssertionError(f"expected ValueError containing {expected_message!r}")
+        assert not publish_dir.exists()
+
+
 def test_main_publish_dir_writes_timestamped_artifact_and_prints_path(
     tmp_path: Path,
     monkeypatch,

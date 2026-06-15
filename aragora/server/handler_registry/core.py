@@ -62,10 +62,11 @@ HANDLER_TIERS: dict[str, str] = {
     "_onboarding_handler": "core",
     "_status_page_handler": "core",
     "_platform_config_handler": "core",
-    "_liveness_handler": "core",
-    "_readiness_handler": "core",
     "_readiness_check_handler": "core",
-    "_storage_health_handler": "core",
+    # /metrics owner — must stay core so tier-filtered (minimal) deployments
+    # keep the Prometheus scrape endpoint (previously guaranteed via
+    # SystemHandler, which no longer claims /metrics).
+    "_metrics_handler": "core",
     # ── Extended (loaded by default, can disable) ─────────────────────
     "_nomic_handler": "extended",
     "_analytics_dashboard_handler": "extended",

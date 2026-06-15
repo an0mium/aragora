@@ -30,11 +30,18 @@ import asyncio
 import inspect
 import logging
 import math
+import multiprocessing
 import os
+import queue
 import re
 import subprocess
-from collections.abc import Callable, Sequence
+import tempfile
+import time
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from aragora.swarm import merge_quorum_io
@@ -79,14 +86,34 @@ DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "grok")
 
 # Tiers at or above this require exact-head operator settlement; never auto-post.
 SETTLEMENT_TIER_FLOOR = 3
+
+QUORUM_RERUN_COOLDOWN_SECONDS = 10 * 60
+QUORUM_RERUN_MAX_PER_HEAD = 3
+QUORUM_STATE_LOCK_TIMEOUT_SECONDS = 60.0
+QUORUM_STATE_LOCK_POLL_SECONDS = 0.2
+QUORUM_STATE_LOCK_STALE_SECONDS = 15 * 60
+_REVIEWER_RESULT_QUEUE_TIMEOUT = 1.0
 # Cap the diff fed to reviewers so a huge PR cannot blow the model context.
 _MAX_DIFF_CHARS = 60_000
+# Marker left in place of a changed file's omitted hunk once the per-file diff
+# budget is exhausted. The complete changed-file list always precedes the body,
+# so a reviewer can still confirm every file is present.
+_PER_FILE_TRUNCATION_MARKER = "\n[hunk truncated; full changed-file list is above]\n"
 # Cap reviewer output so a runaway model cannot exceed GitHub's per-comment limit.
 _MAX_REVIEWER_CHARS = 32_000
 _CLAUDE_TIMEOUT = 300
+_CODEX_TIMEOUT = 300
 _REVIEWER_TIMEOUT = 300
 _CLAUDE_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS"
+_CODEX_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS"
+_CODEX_MODEL_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODEL"
+_CODEX_MODELS_ENV = "ARAGORA_COLLECT_EVIDENCE_CODEX_MODELS"
+_CODEX_DEFAULT_MODELS = ("gpt-5.5", "gpt-5")
+_CODEX_DEFAULT_MODEL = _CODEX_DEFAULT_MODELS[0]
 _REVIEWER_TIMEOUT_ENV = "ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS"
+_CODEX_OPENAI_HARNESS = "Codex CLI OpenAI harness"
+_CODEX_APPROVAL_POLICY_CONFIG = 'approval_policy="never"'
+_REVIEWER_CLEANUP_TIMEOUT = 10
 
 
 def _cap_text(text: str) -> str:
@@ -121,6 +148,7 @@ class ReviewerResult:
     text: str
     ok: bool
     error: str = ""
+    harness: str = ""
 
 
 @dataclass
@@ -132,6 +160,15 @@ class EvidenceItem:
     would_count: bool
     counted_reviewer_ids: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
+    verdict: str = "unknown"
+
+    @property
+    def supportive(self) -> bool:
+        return self.would_count and self.verdict == "pass"
+
+    @property
+    def dissenting(self) -> bool:
+        return self.verdict == "changes_requested"
 
 
 @dataclass
@@ -147,10 +184,23 @@ class CollectOutcome:
     failures: list[ReviewerResult] = field(default_factory=list)
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
+    quorum_rerun: dict[str, Any] | None = None
 
     @property
     def counting_families(self) -> list[str]:
         return [item.family for item in self.items if item.would_count]
+
+    @property
+    def supportive_families(self) -> list[str]:
+        return [item.family for item in self.items if item.supportive]
+
+    @property
+    def dissenting_families(self) -> list[str]:
+        return [item.family for item in self.items if item.dissenting]
+
+    @property
+    def has_supportive_quorum(self) -> bool:
+        return len(self.supportive_families) >= 2
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -163,12 +213,17 @@ class CollectOutcome:
             "action": self.action,
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,
+            "supportive_families": self.supportive_families,
+            "dissenting_families": self.dissenting_families,
+            "has_supportive_quorum": self.has_supportive_quorum,
             "posted_families": list(self.posted),
             "post_errors": list(self.post_errors),
+            "quorum_rerun": self.quorum_rerun,
             "items": [
                 {
                     "family": item.family,
                     "would_count": item.would_count,
+                    "verdict": item.verdict,
                     "counted_reviewer_ids": item.counted_reviewer_ids,
                     "problems": item.problems,
                     "body": item.body,
@@ -234,6 +289,22 @@ def _neutralize_reviewer_text(text: str) -> str:
     return "\n".join(out)
 
 
+def _reviewer_verdict(text: str) -> str:
+    """Parse the first reviewer verdict line without inventing support."""
+    for line in text.splitlines():
+        stripped = line.strip().lower()
+        if not stripped:
+            continue
+        if stripped.startswith("verdict:"):
+            verdict = stripped.split(":", 1)[1].strip()
+            if verdict.startswith("pass"):
+                return "pass"
+            if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
+                return "changes_requested"
+            return "unknown"
+    return "unknown"
+
+
 def compose_evidence_comment(
     *,
     family: str,
@@ -273,22 +344,119 @@ def compose_evidence_comment(
     )
 
 
-def build_review_prompt(*, repo: str, pr: int | str, head_sha: str, diff_text: str) -> str:
-    """Adversarial review prompt grounded on the exact head; diff is bounded."""
+def _split_unified_diff(diff: str) -> list[str]:
+    """Split a unified diff into one segment per file on ``diff --git`` headers.
+
+    Any preamble before the first ``diff --git`` is returned as a leading segment
+    so no bytes are lost. Each segment keeps its own ``diff --git`` header so a
+    reviewer can still identify the file even when the segment is later truncated.
+    """
+    segments: list[str] = []
+    current: list[str] = []
+    for line in diff.splitlines(keepends=True):
+        if line.startswith("diff --git ") and current:
+            segments.append("".join(current))
+            current = [line]
+        else:
+            current.append(line)
+    if current:
+        segments.append("".join(current))
+    return segments
+
+
+def _bound_diff_body(diff: str, max_chars: int) -> tuple[str, bool]:
+    """Bound a unified diff to ``max_chars`` without dropping whole files.
+
+    A naive ``diff[:max_chars]`` keeps only the files that sort before the budget
+    runs out, so a large deletion that sorts before later additions can hide
+    those additions entirely and let a reviewer wrongly report the added files as
+    absent. Instead the budget is shared across files (smallest first, each
+    file's unused budget flowing to the rest) so every changed file contributes
+    at least a hunk. Returns ``(text, truncated)``.
+    """
+    if len(diff) <= max_chars:
+        return diff, False
+    segments = _split_unified_diff(diff)
+    if len(segments) <= 1:
+        return diff[:max_chars].rstrip() + _PER_FILE_TRUNCATION_MARKER, True
+    allocations = [0] * len(segments)
+    remaining_budget = max_chars
+    remaining_files = len(segments)
+    for index in sorted(range(len(segments)), key=lambda i: len(segments[i])):
+        share = remaining_budget // remaining_files if remaining_files else 0
+        take = min(len(segments[index]), share)
+        allocations[index] = take
+        remaining_budget -= take
+        remaining_files -= 1
+    truncated = False
+    parts: list[str] = []
+    for segment, budget in zip(segments, allocations):
+        if budget >= len(segment):
+            parts.append(segment)
+        else:
+            truncated = True
+            parts.append(segment[:budget].rstrip() + _PER_FILE_TRUNCATION_MARKER)
+    return "".join(parts), truncated
+
+
+def _file_list_from_diff(diff: str) -> str:
+    """Best-effort changed-file list parsed from a unified diff's headers.
+
+    Fallback for when ``gh pr diff --name-status`` could not be fetched, so the
+    prompt's changed-file section stays complete and a reviewer can never call a
+    listed file absent.
+    """
+    paths: list[str] = []
+    seen: set[str] = set()
+    for line in diff.splitlines():
+        if not line.startswith("diff --git "):
+            continue
+        rest = line[len("diff --git ") :].strip()
+        marker = rest.rfind(" b/")
+        path = rest[marker + len(" b/") :].strip() if marker != -1 else rest
+        if path and path not in seen:
+            seen.add(path)
+            paths.append(path)
+    return "\n".join(paths)
+
+
+def build_review_prompt(
+    *,
+    repo: str,
+    pr: int | str,
+    head_sha: str,
+    diff_text: str,
+    name_status: str = "",
+) -> str:
+    """Adversarial review prompt grounded on the exact head.
+
+    The complete changed-file list (from ``gh pr diff --name-status`` or, as a
+    fallback, the file headers parsed from the diff) is always included in full
+    so a reviewer can never falsely report a file/module as absent. Only the
+    unified-diff body is bounded, and it is bounded per-file (so a large deletion
+    that sorts before later additions can no longer hide them) rather than by a
+    blind first-N-bytes slice.
+    """
     diff = diff_text.strip()
-    truncated = ""
-    if len(diff) > _MAX_DIFF_CHARS:
-        diff = diff[:_MAX_DIFF_CHARS]
-        truncated = "\n\n[diff truncated for length]"
+    file_list = name_status.strip() or _file_list_from_diff(diff)
+    file_count = sum(1 for line in file_list.splitlines() if line.strip())
+    bounded, truncated = _bound_diff_body(diff, _MAX_DIFF_CHARS)
     short = head_sha[:7]
+    body_header = f"=== DIFF (head {short}) ==="
+    if truncated:
+        body_header = (
+            f"=== DIFF (head {short}; some hunks omitted for length - the CHANGED FILES "
+            "list above is complete, so treat every listed path as present) ==="
+        )
     return (
         "You are an adversarial senior reviewer giving an independent model review. "
-        f"Review ONLY the diff below for PR #{pr} in {repo} at head {short}. "
+        f"Review ONLY the changes below for PR #{pr} in {repo} at head {short}. "
         "Look hard for correctness, security, and regression risks. "
         "Begin your reply with 'Verdict: PASS' or 'Verdict: CHANGES-REQUESTED', then a terse "
         "bullet list of concrete findings each tagged [P1]/[P2]/[P3] with a location, or state "
         "explicitly that there are no blocking issues. Be concise.\n\n"
-        f"=== DIFF (head {short}) ===\n{diff}{truncated}\n"
+        f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
+        f"{body_header}\n{bounded}\n"
     )
 
 
@@ -300,14 +468,26 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     fam = family.strip().lower()
     if fam == "claude":
         return _run_claude_cli(prompt)
+    if fam == "openai":
+        return _run_openai_reviewer(prompt)
     return _run_api_agent(fam, prompt)
+
+
+def _claude_reviewer_command() -> list[str]:
+    """Argv for the merge-gate claude reviewer with MCP servers disabled.
+
+    The reviewer only reads a diff to emit a verdict, so it needs no MCP
+    servers. Disabling them avoids claude's startup MCP handshake, which blocks
+    until the full timeout when a local MCP server is wedged.
+    """
+    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
 
 
 def _run_claude_cli(prompt: str) -> ReviewerResult:
     timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
     try:
         proc = subprocess.run(
-            ["claude", "-p"],
+            _claude_reviewer_command(),
             input=prompt,
             capture_output=True,
             text=True,
@@ -335,7 +515,184 @@ def _run_claude_cli(prompt: str) -> ReviewerResult:
     return ReviewerResult("claude", _cap_text(text), True)
 
 
+def _run_openai_reviewer(prompt: str) -> ReviewerResult:
+    """Run OpenAI evidence via direct API when available, else Codex CLI.
+
+    Operator machines often have Codex subscription auth but no direct
+    ``OPENAI_API_KEY``. In that case Codex CLI is the local OpenAI-family
+    reviewer; the normal exact-head comment composition and lint-before-post
+    paths still decide whether the resulting evidence can count.
+    """
+    if os.environ.get("OPENAI_API_KEY", "").strip():
+        return _run_api_agent("openai", prompt)
+    return _run_codex_openai_cli(prompt)
+
+
+def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
+    timeout = _timeout_seconds(_CODEX_TIMEOUT_ENV, _CODEX_TIMEOUT)
+    model_candidates = _codex_model_candidates()
+    model_errors: list[str] = []
+    for index, model in enumerate(model_candidates):
+        output_path = ""
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", suffix=".md", prefix="aragora-codex-openai-review-", delete=False
+            ) as fh:
+                output_path = fh.name
+            cmd = _codex_openai_command(output_path, model=model)
+            proc = subprocess.run(
+                cmd,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+            text = ""
+            if output_path and os.path.exists(output_path):
+                with open(output_path, encoding="utf-8") as fh:
+                    text = fh.read().strip()
+            if not text:
+                text = (proc.stdout or "").strip()
+            if proc.returncode != 0 or not text:
+                detail = (proc.stderr or proc.stdout or "").strip()[:200]
+                if index < len(model_candidates) - 1 and _codex_model_selection_failed(detail):
+                    model_errors.append(f"{model}: {detail}")
+                    continue
+                if model_errors:
+                    detail = (
+                        f"{detail}; previous model selection failures: {'; '.join(model_errors)}"
+                    )
+                return ReviewerResult(
+                    "openai", "", False, f"codex CLI exit {proc.returncode}: {detail}"
+                )
+            return ReviewerResult("openai", _cap_text(text), True, harness=_CODEX_OPENAI_HARNESS)
+        except FileNotFoundError:
+            return ReviewerResult("openai", "", False, "codex CLI not found on PATH")
+        except subprocess.TimeoutExpired:
+            return ReviewerResult(
+                "openai", "", False, f"codex CLI timed out after {_format_seconds(timeout)}s"
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return ReviewerResult("openai", "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+        finally:
+            if output_path:
+                try:
+                    os.unlink(output_path)
+                except OSError:
+                    pass
+    return ReviewerResult("openai", "", False, "codex CLI has no configured model candidates")
+
+
+def _codex_model_candidates() -> list[str]:
+    pinned_model = os.environ.get(_CODEX_MODEL_ENV, "").strip()
+    if pinned_model:
+        return [pinned_model]
+    raw_models = os.environ.get(_CODEX_MODELS_ENV, "").strip()
+    candidates = re.split(r"[\s,]+", raw_models) if raw_models else list(_CODEX_DEFAULT_MODELS)
+    return list(dict.fromkeys(model.strip() for model in candidates if model.strip()))
+
+
+def _codex_openai_command(output_path: str, *, model: str) -> list[str]:
+    cmd = [
+        "codex",
+        "exec",
+        "--ignore-user-config",
+        "-c",
+        _CODEX_APPROVAL_POLICY_CONFIG,
+        "--sandbox",
+        "read-only",
+        "--ephemeral",
+        "--output-last-message",
+        output_path,
+    ]
+    if model:
+        cmd.extend(["--model", model])
+    cmd.append("-")
+    return cmd
+
+
+def _codex_model_selection_failed(detail: str) -> bool:
+    lower = detail.lower()
+    if "model" not in lower:
+        return False
+    return any(
+        marker in lower
+        for marker in (
+            "not supported",
+            "not available",
+            "unsupported",
+            "unknown",
+            "invalid",
+            "unrecognized",
+        )
+    )
+
+
 def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
+    timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
+    ctx = _api_agent_process_context()
+    result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
+    process = _start_api_agent_worker_process(ctx, family, prompt, result_queue)
+    process.start()
+    process.join(timeout + _REVIEWER_CLEANUP_TIMEOUT)
+    if process.is_alive():
+        process.terminate()
+        process.join(5)
+        if process.is_alive():  # pragma: no cover - defensive hard kill.
+            process.kill()
+            process.join(5)
+        return ReviewerResult(
+            family, "", False, f"{family} reviewer timed out after {_format_seconds(timeout)}s"
+        )
+    try:
+        payload = result_queue.get(timeout=_REVIEWER_RESULT_QUEUE_TIMEOUT)
+    except queue.Empty:
+        return ReviewerResult(
+            family,
+            "",
+            False,
+            f"{family} reviewer exited without returning a result",
+        )
+    if isinstance(payload, ReviewerResult):
+        return payload
+    if isinstance(payload, dict):
+        return ReviewerResult(
+            str(payload.get("family") or family),
+            str(payload.get("text") or ""),
+            bool(payload.get("ok")),
+            str(payload.get("error") or ""),
+        )
+    return ReviewerResult(family, "", False, f"{family} reviewer returned invalid result")
+
+
+def _api_agent_process_context() -> Any:
+    """Use spawn so API reviewer children do not inherit parent connector state."""
+    return multiprocessing.get_context("spawn")
+
+
+def _start_api_agent_worker_process(
+    ctx: Any,
+    family: str,
+    prompt: str,
+    result_queue: multiprocessing.Queue,
+) -> multiprocessing.Process:
+    return ctx.Process(
+        target=_api_agent_worker,
+        args=(family, prompt, result_queue),
+        daemon=True,
+    )
+
+
+def _api_agent_worker(
+    family: str,
+    prompt: str,
+    result_queue: multiprocessing.Queue,
+) -> None:
+    result_queue.put(_run_api_agent_in_current_process(family, prompt))
+
+
+def _run_api_agent_in_current_process(family: str, prompt: str) -> ReviewerResult:
     try:
         from aragora.agents import create_agent
     except Exception as exc:  # pragma: no cover - import guard
@@ -367,7 +724,9 @@ async def _close_api_agent_resources(agent: Any) -> None:
         try:
             result = close()
             if inspect.isawaitable(result):
-                await result
+                await asyncio.wait_for(result, timeout=_REVIEWER_CLEANUP_TIMEOUT)
+        except TimeoutError:
+            logger.debug("collect-evidence API agent close timed out")
         except Exception as exc:  # noqa: BLE001 - cleanup must not mask reviewer results.
             logger.debug("collect-evidence API agent close failed: %s", exc)
 
@@ -382,9 +741,31 @@ async def _close_api_agent_resources(agent: Any) -> None:
         # loop, so the shared aiohttp connector must be released before that
         # loop is torn down. The collector dispatches reviewers serially; if it
         # ever fans reviewers out, cleanup must move outside the per-reviewer path.
-        await close_shared_connector()
+        await asyncio.wait_for(close_shared_connector(), timeout=_REVIEWER_CLEANUP_TIMEOUT)
+    except TimeoutError:
+        logger.debug("collect-evidence shared connector close timed out")
     except Exception as exc:  # noqa: BLE001 - cleanup must not mask reviewer results.
         logger.debug("collect-evidence shared connector close failed: %s", exc)
+
+
+def _fetch_name_status(repo: str, pr: int) -> str:
+    """Best-effort complete changed-file list via ``gh pr diff --name-status``.
+
+    Supplementary to the (bounded) diff body, so a failure here must never change
+    the builder's raise/return semantics: ``build_review_prompt`` falls back to
+    parsing file headers from the diff when this is empty.
+    """
+    try:
+        proc = merge_quorum_io.run(
+            ["gh", "pr", "diff", str(pr), "--repo", repo, "--name-status"],
+            env=merge_quorum_io.aragora_env(),
+            timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout or ""
 
 
 def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
@@ -404,6 +785,9 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
     diff_text = proc.stdout or ""
     if not diff_text.strip():
         raise RuntimeError(f"PR #{pr} has an empty diff; nothing to review")
+    # Best-effort complete changed-file list so the reviewer always sees every
+    # path even when the diff body is bounded; never alters the raise/return below.
+    name_status = _fetch_name_status(repo, pr)
     # Pin the diff to the resolved head: `gh pr diff` returns whatever the head
     # is at call time, so if it moved between context resolution and now the
     # reviewer would see a different diff than the comment claims to ground on.
@@ -432,7 +816,9 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
         raise RuntimeError(
             f"head moved during diff fetch for PR #{pr} ({head_sha[:7]} -> {live_head[:7]}); retry"
         )
-    return build_review_prompt(repo=repo, pr=pr, head_sha=head_sha, diff_text=diff_text)
+    return build_review_prompt(
+        repo=repo, pr=pr, head_sha=head_sha, diff_text=diff_text, name_status=name_status
+    )
 
 
 def default_linter(
@@ -486,6 +872,112 @@ def resolve_author(default: str = "local") -> str:
     return login or default
 
 
+@contextmanager
+def _locked_quorum_reconcile_state(path: Path) -> Iterator[None]:
+    """Serialize load/evaluate/rerun/save for the shared merge-quorum state file."""
+    lock_path = Path(f"{path}.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + QUORUM_STATE_LOCK_TIMEOUT_SECONDS
+    fd: int | None = None
+    while fd is None:
+        try:
+            flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+            flags |= getattr(os, "O_CLOEXEC", 0)
+            flags |= getattr(os, "O_NOFOLLOW", 0)
+            fd = os.open(lock_path, flags)
+            os.write(
+                fd,
+                f"pid={os.getpid()} acquired_at={datetime.now(timezone.utc).isoformat()}\n".encode(),
+            )
+        except FileExistsError:
+            if _quorum_state_lock_is_stale(lock_path):
+                try:
+                    lock_path.unlink()
+                except FileNotFoundError:
+                    pass
+                continue
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"timed out waiting for merge-quorum state lock: {lock_path}")
+            time.sleep(QUORUM_STATE_LOCK_POLL_SECONDS)
+    try:
+        yield
+    finally:
+        os.close(fd)
+        try:
+            lock_path.unlink()
+        except OSError:
+            pass
+
+
+def _quorum_state_lock_is_stale(lock_path: Path) -> bool:
+    try:
+        stat = lock_path.lstat()
+    except OSError:
+        return False
+    if lock_path.is_symlink():
+        raise RuntimeError(f"refusing symlink merge-quorum state lock: {lock_path}")
+    age_seconds = max(0.0, time.time() - stat.st_mtime)
+    if age_seconds < QUORUM_STATE_LOCK_STALE_SECONDS:
+        return False
+    try:
+        text = lock_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    match = re.search(r"\bpid=(\d+)\b", text)
+    if not match:
+        return True
+    pid = int(match.group(1))
+    if pid <= 0 or pid == os.getpid():
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+    return False
+
+
+def default_quorum_reconciler(repo: str, pr: int) -> dict[str, Any]:
+    """Run the A1 stale-quorum reconciler for one PR after evidence posting."""
+    from scripts import reconcile_merge_quorum
+
+    state_file = reconcile_merge_quorum.DEFAULT_STATE_FILE
+    with _locked_quorum_reconcile_state(state_file):
+        state = reconcile_merge_quorum._load_state(state_file)
+        decision, quorum_run = reconcile_merge_quorum.evaluate_pr(
+            repo,
+            pr,
+            now=datetime.now(timezone.utc),
+            state=state,
+            cooldown_seconds=QUORUM_RERUN_COOLDOWN_SECONDS,
+            max_reruns=QUORUM_RERUN_MAX_PER_HEAD,
+        )
+        record: dict[str, Any] = {
+            "should_rerun": decision.should_rerun,
+            "reason": decision.reason,
+            "run_id": decision.run_id,
+            "applied": False,
+        }
+        if decision.next_prompt:
+            record["next_prompt"] = decision.next_prompt
+        if decision.should_rerun and quorum_run is not None:
+            head_state = state.setdefault(
+                quorum_run.head_sha,
+                {"count": 0, "last_rerun_at": None},
+            )
+            if int(head_state.get("count", 0)) >= QUORUM_RERUN_MAX_PER_HEAD:
+                record["should_rerun"] = False
+                record["reason"] = "max_reruns_reached_in_locked_state"
+                return record
+            record["applied"] = reconcile_merge_quorum.execute_rerun(repo, quorum_run.run_id)
+            if record["applied"]:
+                head_state["count"] = int(head_state.get("count", 0)) + 1
+                head_state["last_rerun_at"] = datetime.now(timezone.utc).isoformat()
+                reconcile_merge_quorum._save_state(state_file, state)
+        return record
+
+
 # --- Orchestrator ----------------------------------------------------------
 
 
@@ -502,6 +994,7 @@ def collect_evidence(
     reviewer_runner: Callable[[str, str], ReviewerResult] = default_reviewer_runner,
     linter: Callable[..., dict[str, Any]] = default_linter,
     poster: Callable[[str, int, str], None] = default_poster,
+    quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
     env: dict[str, str] | None = None,
 ) -> CollectOutcome:
     """Run reviewers, validate evidence, and post only when tier-gating allows."""
@@ -550,6 +1043,7 @@ def collect_evidence(
             head_committed_at=head_committed_at,
             pr=pr,
             reviewer_text=result.text,
+            harness=result.harness,
         )
         lint = linter(pr, head_sha, head_committed_at, author, body, env or {})
         outcome.items.append(
@@ -557,12 +1051,27 @@ def collect_evidence(
                 family=family,
                 body=body,
                 would_count=bool(lint.get("would_count")),
+                verdict=_reviewer_verdict(result.text),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
             )
         )
 
     if action == "post":
+        if outcome.dissenting_families:
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                "reviewer dissent present "
+                f"({', '.join(outcome.dissenting_families)}); prepared evidence only"
+            )
+            return outcome
+        if not outcome.has_supportive_quorum:
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                "supportive quorum incomplete "
+                f"({len(outcome.supportive_families)}/2); prepared evidence only"
+            )
+            return outcome
         # Reviewers can take minutes; re-verify the head and tier immediately
         # before posting so a head that moved or a PR promoted to a settlement
         # tier in the meantime is never posted against.
@@ -585,7 +1094,7 @@ def collect_evidence(
             )
         else:
             for item in outcome.items:
-                if not item.would_count:
+                if not item.supportive:
                     continue
                 try:
                     poster(repo, pr, item.body)
@@ -594,6 +1103,11 @@ def collect_evidence(
                     outcome.post_errors.append(f"{item.family}: {str(exc)[:200]}")
                     continue
                 outcome.posted.append(item.family)
+        if outcome.posted and outcome.has_supportive_quorum and quorum_reconciler is not None:
+            try:
+                outcome.quorum_rerun = quorum_reconciler(repo, pr)
+            except Exception as exc:  # noqa: BLE001 - evidence posts should remain reported.
+                outcome.quorum_rerun = {"applied": False, "error": str(exc)[:200]}
 
     return outcome
 
@@ -604,14 +1118,21 @@ def _render_outcome(outcome: CollectOutcome) -> str:
         f"  head: {outcome.head_sha[:10]}  tier: {outcome.tier}",
         f"  action: {outcome.action} ({outcome.action_reason})",
         f"  counting families: {', '.join(outcome.counting_families) or 'none'}",
+        f"  supportive families: {', '.join(outcome.supportive_families) or 'none'}",
+        f"  dissenting families: {', '.join(outcome.dissenting_families) or 'none'}",
     ]
     if outcome.posted:
         lines.append(f"  posted: {', '.join(outcome.posted)}")
     if outcome.post_errors:
         lines.append(f"  post errors: {'; '.join(outcome.post_errors)}")
+    if outcome.quorum_rerun:
+        rerun = outcome.quorum_rerun
+        action = "applied" if rerun.get("applied") else "not applied"
+        reason = rerun.get("reason") or rerun.get("error") or "unknown"
+        lines.append(f"  quorum rerun: {action} ({reason})")
     for item in outcome.items:
         flag = "counts" if item.would_count else f"DOES NOT count ({', '.join(item.problems)})"
-        lines.append(f"  - {item.family}: {flag}")
+        lines.append(f"  - {item.family}: {flag}; verdict={item.verdict}")
     for failure in outcome.failures:
         lines.append(f"  - {failure.family}: reviewer failed ({failure.error})")
     if outcome.action == "prepare":
@@ -652,6 +1173,7 @@ def run_collect_cli(
             author=resolved_author,
             apply=apply,
             env=merge_quorum_io.aragora_env(),
+            quorum_reconciler=default_quorum_reconciler if apply else None,
         )
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         if json_output:
@@ -668,4 +1190,4 @@ def run_collect_cli(
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
-    return 0 if len(outcome.counting_families) >= 2 else 1
+    return 0 if outcome.has_supportive_quorum else 1

@@ -272,6 +272,14 @@ def run_single_debate(
     convergence_threshold: float = 0.85,
 ) -> DebateRunResult:
     """Run a single debate and track convergence."""
+    if max_rounds <= 0:
+        raise ValueError("max_rounds must be a positive integer")
+    if not agents:
+        raise ValueError("agents must include at least one persona")
+    unknown_agents = sorted(agent for agent in agents if agent not in PERSONAS)
+    if unknown_agents:
+        raise ValueError(f"unknown convergence benchmark agent(s): {', '.join(unknown_agents)}")
+
     detector = ConvergenceDetector(
         convergence_threshold=convergence_threshold,
         divergence_threshold=0.40,

@@ -38,6 +38,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _require_positive_int(value: int, *, label: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{label} must be a positive integer")
+
+
+def _positive_int(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return value
+
+
 @dataclass
 class BenchmarkResult:
     """Result of a single benchmark run."""
@@ -263,6 +278,8 @@ async def run_benchmarks(
     benchmarks: list[str] | None = None,
 ) -> BenchmarkSuite:
     """Run all benchmarks."""
+    _require_positive_int(iterations, label="iterations")
+
     suite = BenchmarkSuite(path=path)
 
     # Count files
@@ -348,7 +365,7 @@ def main():
     parser.add_argument(
         "-n",
         "--iterations",
-        type=int,
+        type=_positive_int,
         default=5,
         help="Number of iterations per benchmark (default: 5)",
     )

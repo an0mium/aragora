@@ -1259,6 +1259,53 @@ class TestCompressContextWithRLM:
         # Should not raise
         await init._compress_context_with_rlm(ctx)
 
+    @pytest.mark.asyncio
+    async def test_handles_provider_auth_error(self):
+        """Issue #8101: provider SDK auth errors (e.g. openai.AuthenticationError,
+        which is NOT a RuntimeError) must degrade to uncompressed context, never
+        fail the phase."""
+
+        class FakeAuthenticationError(Exception):
+            """Mimics openai.AuthenticationError: plain Exception subclass."""
+
+        ctx = MockDebateContext()
+        ctx.env.context = "A" * 5000
+
+        rlm = MagicMock()
+        rlm.compress_and_query = AsyncMock(
+            side_effect=FakeAuthenticationError("Error code: 401 - invalid api key")
+        )
+
+        init = ContextInitializer()
+        init._rlm = rlm
+        init.enable_rlm_compression = True
+
+        # Should not raise — phase must continue without compression
+        await init._compress_context_with_rlm(ctx)
+        assert getattr(ctx, "rlm_compressed_context", None) is None
+
+    @pytest.mark.asyncio
+    async def test_provider_auth_error_logs_note(self, caplog):
+        """The degraded path must leave a logged note for operators."""
+
+        class FakeAuthenticationError(Exception):
+            pass
+
+        ctx = MockDebateContext()
+        ctx.env.context = "B" * 5000
+
+        rlm = MagicMock()
+        rlm.compress_and_query = AsyncMock(side_effect=FakeAuthenticationError("401"))
+
+        init = ContextInitializer()
+        init._rlm = rlm
+        init.enable_rlm_compression = True
+
+        with caplog.at_level("WARNING", logger="aragora.debate.phases.context_init"):
+            await init._compress_context_with_rlm(ctx)
+
+        assert any("compression skipped" in rec.message.lower() for rec in caplog.records)
+
 
 # =============================================================================
 # Additional Coverage: Pre-Debate Research Tests

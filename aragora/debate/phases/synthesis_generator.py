@@ -159,6 +159,8 @@ class SynthesisGenerator:
                     synthesizer.generate(user_prompt),
                     timeout=60.0,
                 )
+            if opus_synthesis is None:
+                raise RuntimeError("synthesis agent returned no output")
             synthesis = await self._ensure_complete_synthesis(
                 ctx=ctx,
                 synthesizer=synthesizer,
@@ -193,6 +195,8 @@ class SynthesisGenerator:
                         synthesizer.generate(user_prompt),
                         timeout=30.0,
                     )
+                if sonnet_synthesis is None:
+                    raise RuntimeError("fallback synthesis agent returned no output")
                 synthesis = await self._ensure_complete_synthesis(
                     ctx=ctx,
                     synthesizer=synthesizer,

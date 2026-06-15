@@ -164,6 +164,74 @@ class TestVerifyReceiptCLI:
         assert result.returncode == 2
         assert "signature" in result.stderr
 
+    def test_receipt_file_must_be_json_object(self, tmp_path):
+        """Test error when receipt payload is not a JSON object."""
+        file_path = tmp_path / "list_receipt.json"
+        file_path.write_text(json.dumps([]))
+
+        result = self.run_cli(str(file_path), "--key", "abc123")
+
+        assert result.returncode == 2
+        assert "must contain a JSON object" in result.stderr
+        assert "Traceback" not in result.stderr
+
+    def test_signature_must_be_non_empty_string(self, tmp_path):
+        """Test error when signature is present but empty."""
+        file_path = tmp_path / "empty_signature.json"
+        file_path.write_text(
+            json.dumps(
+                {
+                    "receipt": {},
+                    "signature": "",
+                    "signature_metadata": {"algorithm": "HMAC-SHA256"},
+                }
+            )
+        )
+
+        result = self.run_cli(str(file_path), "--key", "abc123")
+
+        assert result.returncode == 2
+        assert "signature' field must be a non-empty string" in result.stderr
+        assert "Traceback" not in result.stderr
+
+    def test_signature_metadata_must_be_object(self, tmp_path):
+        """Test error when signature_metadata has the wrong shape."""
+        file_path = tmp_path / "bad_metadata.json"
+        file_path.write_text(
+            json.dumps(
+                {
+                    "receipt": {},
+                    "signature": "test",
+                    "signature_metadata": "HMAC-SHA256",
+                }
+            )
+        )
+
+        result = self.run_cli(str(file_path), "--key", "abc123")
+
+        assert result.returncode == 2
+        assert "signature_metadata' field must be an object" in result.stderr
+        assert "Traceback" not in result.stderr
+
+    def test_receipt_field_must_be_object(self, tmp_path):
+        """Test error when receipt has the wrong shape."""
+        file_path = tmp_path / "bad_receipt.json"
+        file_path.write_text(
+            json.dumps(
+                {
+                    "receipt": [],
+                    "signature": "test",
+                    "signature_metadata": {"algorithm": "HMAC-SHA256"},
+                }
+            )
+        )
+
+        result = self.run_cli(str(file_path), "--key", "abc123")
+
+        assert result.returncode == 2
+        assert "receipt' field must be an object" in result.stderr
+        assert "Traceback" not in result.stderr
+
     def test_missing_key_for_hmac(self, tmp_path):
         """Test error when no key provided for HMAC verification."""
         data = {

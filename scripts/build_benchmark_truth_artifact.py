@@ -873,18 +873,37 @@ def _revision_publish_dir(*, publish_dir: Path, corpus: dict[str, Any]) -> Path:
     return _corpus_publish_dir(publish_dir=publish_dir, corpus=corpus) / f"rev-{revision}"
 
 
+def _publishable_artifact_identity(artifact: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    corpus = artifact.get("corpus")
+    if not isinstance(corpus, dict):
+        raise ValueError("benchmark truth artifact must contain a corpus object before publishing")
+    corpus_id = str(corpus.get("corpus_id") or "").strip()
+    if not corpus_id:
+        raise ValueError("benchmark truth artifact corpus.corpus_id is required before publishing")
+    try:
+        revision = int(corpus.get("revision", 0) or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "benchmark truth artifact corpus.revision must be a positive integer before publishing"
+        ) from exc
+    if revision <= 0:
+        raise ValueError(
+            "benchmark truth artifact corpus.revision must be a positive integer before publishing"
+        )
+    generated_at = artifact.get("generated_at")
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        raise ValueError("benchmark truth artifact generated_at is required before publishing")
+    normalized_generated_at = normalize_generated_at(generated_at)
+    return {"corpus_id": corpus_id, "revision": revision}, normalized_generated_at
+
+
 def resolve_published_artifact_path(
     *,
     publish_dir: Path,
     artifact: dict[str, Any],
 ) -> Path:
-    corpus = artifact.get("corpus")
-    if not isinstance(corpus, dict):
-        corpus = {}
-    generated_at = artifact.get("generated_at")
-    timestamp = _coerce_utc_datetime(
-        generated_at if isinstance(generated_at, str) else None
-    ).strftime("%Y%m%dT%H%M%SZ")
+    corpus, generated_at = _publishable_artifact_identity(artifact)
+    timestamp = _coerce_utc_datetime(generated_at).strftime("%Y%m%dT%H%M%SZ")
     filename = f"truth-{timestamp}.json"
     return _revision_publish_dir(publish_dir=publish_dir, corpus=corpus) / filename
 
@@ -894,9 +913,7 @@ def resolve_latest_artifact_paths(
     publish_dir: Path,
     artifact: dict[str, Any],
 ) -> dict[str, Path]:
-    corpus = artifact.get("corpus")
-    if not isinstance(corpus, dict):
-        corpus = {}
+    corpus, _generated_at = _publishable_artifact_identity(artifact)
     return {
         "corpus_latest": _corpus_publish_dir(publish_dir=publish_dir, corpus=corpus)
         / "latest.json",

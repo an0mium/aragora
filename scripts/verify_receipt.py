@@ -34,6 +34,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -43,6 +44,36 @@ def load_receipt(path: str) -> dict:
     """Load and parse receipt JSON file."""
     with open(path) as f:
         return json.load(f)
+
+
+def validate_receipt_structure(data: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Validate the signed-receipt envelope before signature verification."""
+    if not isinstance(data, dict):
+        raise ValueError("Receipt file must contain a JSON object")
+
+    if "signature" not in data:
+        raise ValueError("Receipt file missing 'signature' field")
+    signature = data["signature"]
+    if not isinstance(signature, str) or not signature.strip():
+        raise ValueError("Receipt file 'signature' field must be a non-empty string")
+
+    if "signature_metadata" not in data:
+        raise ValueError("Receipt file missing 'signature_metadata' field")
+    metadata = data["signature_metadata"]
+    if not isinstance(metadata, dict):
+        raise ValueError("Receipt file 'signature_metadata' field must be an object")
+
+    if "receipt" not in data:
+        raise ValueError("Receipt file missing 'receipt' field")
+    receipt = data["receipt"]
+    if not isinstance(receipt, dict):
+        raise ValueError("Receipt file 'receipt' field must be an object")
+
+    algorithm = metadata.get("algorithm")
+    if not isinstance(algorithm, str) or not algorithm.strip():
+        raise ValueError("Missing algorithm in signature_metadata")
+
+    return receipt, metadata
 
 
 def get_key(args: argparse.Namespace) -> str | bytes | None:
@@ -229,22 +260,14 @@ def main():
         print(f"Error: Invalid JSON in receipt file: {e}", file=sys.stderr)
         sys.exit(2)
 
-    # Validate receipt structure
-    if "signature" not in data:
-        print("Error: Receipt file missing 'signature' field", file=sys.stderr)
-        sys.exit(2)
-    if "signature_metadata" not in data:
-        print("Error: Receipt file missing 'signature_metadata' field", file=sys.stderr)
-        sys.exit(2)
-    if "receipt" not in data:
-        print("Error: Receipt file missing 'receipt' field", file=sys.stderr)
+    try:
+        _receipt, metadata = validate_receipt_structure(data)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(2)
 
     # Get algorithm from metadata
-    algorithm = data["signature_metadata"].get("algorithm")
-    if not algorithm:
-        print("Error: Missing algorithm in signature_metadata", file=sys.stderr)
-        sys.exit(2)
+    algorithm = str(metadata["algorithm"]).strip()
 
     # Get key
     key = get_key(args)
@@ -270,11 +293,11 @@ def main():
             "valid": is_valid,
             "receipt_file": args.receipt_file,
             "algorithm": algorithm,
-            "key_id": data["signature_metadata"].get("key_id"),
-            "timestamp": data["signature_metadata"].get("timestamp"),
+            "key_id": metadata.get("key_id"),
+            "timestamp": metadata.get("timestamp"),
         }
-        if data["signature_metadata"].get("signatory"):
-            result["signatory"] = data["signature_metadata"]["signatory"]
+        if metadata.get("signatory"):
+            result["signatory"] = metadata["signatory"]
         print(json.dumps(result, indent=2))
     elif args.quiet:
         print("VALID" if is_valid else "INVALID")

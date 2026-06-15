@@ -172,6 +172,39 @@ def test_execute_run_plan_writes_normalized_receipt(tmp_path: Path, monkeypatch:
     assert case_receipt["judge_swap_variance_pp"] is None
 
 
+def test_execute_run_plan_rejects_failed_command_without_receipt(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    plan = smoke.build_run_plan(_manifest(), artifact_root=tmp_path / "artifacts")
+    receipt_path = tmp_path / "receipt.json"
+
+    def fake_current_head_sha(pr_url: str) -> str:
+        assert pr_url == "https://github.com/droid-code-review-evals/droid-sentry/pull/6"
+        return "cb7212e11dbdbc1813237ad129c7bc108f944e3d"
+
+    def fake_run(command: list[str], check: bool, capture_output: bool, text: bool):
+        del check, capture_output, text
+        return smoke.subprocess.CompletedProcess(
+            args=command,
+            returncode=2,
+            stdout="",
+            stderr="review failed",
+        )
+
+    monkeypatch.setattr(smoke, "_current_pr_head_sha", fake_current_head_sha)
+    monkeypatch.setattr(smoke.subprocess, "run", fake_run)
+
+    try:
+        smoke.execute_run_plan(plan, receipt_output=receipt_path)
+    except ValueError as exc:
+        assert "benchmark smoke command failed: droid-sentry-pr-6(returncode=2)" in str(exc)
+    else:
+        raise AssertionError("failed smoke command should fail closed")
+
+    assert not receipt_path.exists()
+
+
 def test_main_accepts_receipt_output_for_execute(tmp_path: Path, monkeypatch: object) -> None:
     manifest_path = tmp_path / "manifest.json"
     output_path = tmp_path / "plan.json"

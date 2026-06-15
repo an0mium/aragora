@@ -327,6 +327,13 @@ def test_inspect_blocks_dirty_and_ahead_worktrees(
     assert inspection.dirty is True
     assert inspection.unique_commits_ahead == 2
     assert inspection.blockers == ["dirty_worktree", "branch_ahead_of_origin_main"]
+    safety = mod.cleanup_safety(inspection)
+    assert safety["classification"] == "unsafe_to_delete"
+    assert safety["decision"] == "preserve"
+    assert [row["category"] for row in safety["blocker_details"]] == [
+        "unsafe_to_delete",
+        "unsafe_to_delete",
+    ]
 
 
 def test_inspect_allows_pr_lookup_failure_for_branch_with_no_unique_commits(
@@ -355,6 +362,10 @@ def test_inspect_allows_pr_lookup_failure_for_branch_with_no_unique_commits(
     assert inspection.pr_lookup_failed is True
     assert inspection.unique_commits_ahead == 0
     assert inspection.blockers == []
+    safety = mod.cleanup_safety(inspection)
+    assert safety["classification"] == "stale_or_merged"
+    assert safety["decision"] == "cleanup_candidate"
+    assert safety["removable"] is True
 
 
 def test_inspect_allows_patch_equivalent_branch_when_pr_lookup_fails(
@@ -385,6 +396,10 @@ def test_inspect_allows_patch_equivalent_branch_when_pr_lookup_fails(
     assert inspection.unique_commits_ahead == 4
     assert inspection.patch_equivalent_to_origin_main is True
     assert inspection.blockers == []
+    safety = mod.cleanup_safety(inspection)
+    assert safety["classification"] == "harvested_or_duplicate"
+    assert safety["decision"] == "cleanup_candidate"
+    assert safety["signals"]["patch_equivalent_to_origin_main"] is True
 
 
 def test_inspect_reports_stale_lock_files_without_blocking_cleanup(
@@ -444,6 +459,54 @@ def test_inspect_blocks_active_session_and_history_lookup_failure(
     assert inspection.active_session is True
     assert inspection.ahead_lookup_failed is True
     assert inspection.blockers == ["active_session", "ahead_lookup_failed"]
+    safety = mod.cleanup_safety(inspection)
+    assert safety["classification"] == "owned"
+    assert safety["decision"] == "preserve"
+    assert [row["category"] for row in safety["blocker_details"]] == ["owned", "unknown"]
+    assert safety["blocker_details"][0]["next_action"] == (
+        "preserve and route cleanup through the live owner"
+    )
+
+
+def test_inspect_json_includes_cleanup_safety_payload(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[{"number": 1361, "title": "Open PR", "url": "https://example.com/pr/1361"}],
+        pr_lookup_failed=False,
+        blockers=["open_pr"],
+    )
+
+    mod._print_inspection(inspection, as_json=True)
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["removable"] is False
+    assert payload["cleanup_safety"]["classification"] == "referenced_preserve"
+    assert payload["cleanup_safety"]["decision"] == "preserve"
+    assert payload["cleanup_safety"]["blocker_details"] == [
+        {
+            "blocker": "open_pr",
+            "category": "referenced",
+            "reason": "A live open PR references this branch.",
+            "next_action": "preserve until the PR is merged, closed, or explicitly superseded",
+        }
+    ]
 
 
 def test_worktree_is_not_dirty_for_empty_nested_wrapper(tmp_path: Path) -> None:
