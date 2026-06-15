@@ -36,6 +36,19 @@ def tmp_registry(tmp_path: Path) -> Path:
     return tmp_path / "lanes.json"
 
 
+class _BrokenPipeStdout:
+    def __init__(self, *, fail_on_flush: bool = False) -> None:
+        self.fail_on_flush = fail_on_flush
+
+    def write(self, _data: str) -> int:
+        if self.fail_on_flush:
+            return len(_data)
+        raise BrokenPipeError("downstream closed")
+
+    def flush(self) -> None:
+        raise BrokenPipeError("downstream closed")
+
+
 def test_fresh_claim_writes_single_row(tmp_registry: Path) -> None:
     result = claim_module.claim_lane(
         registry_path=tmp_registry,
@@ -563,6 +576,49 @@ def test_cli_writes_registry_via_subprocess(tmp_path: Path) -> None:
     assert file_payload[0]["session_title"] == "CLI lane claim"
     assert file_payload[0]["contact_method"] == "tmux:aragora:1"
     assert file_payload[0]["contact_payload"]["target"] == "aragora:1"
+
+
+def test_cli_json_output_handles_write_time_broken_pipe(
+    tmp_registry: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(claim_module.sys, "stdout", _BrokenPipeStdout())
+
+    result = claim_module.main(
+        [
+            "--lane-id",
+            "pipe-json",
+            "--owner-session",
+            "codex-pipe-json",
+            "--registry-path",
+            str(tmp_registry),
+            "--json",
+        ]
+    )
+
+    assert result == 0
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    assert payload[0]["lane_id"] == "pipe-json"
+
+
+def test_cli_text_output_handles_flush_time_broken_pipe(
+    tmp_registry: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(claim_module.sys, "stdout", _BrokenPipeStdout(fail_on_flush=True))
+
+    result = claim_module.main(
+        [
+            "--lane-id",
+            "pipe-text",
+            "--owner-session",
+            "codex-pipe-text",
+            "--registry-path",
+            str(tmp_registry),
+        ]
+    )
+
+    assert result == 0
+    payload = json.loads(tmp_registry.read_text(encoding="utf-8"))
+    assert payload[0]["lane_id"] == "pipe-text"
 
 
 def test_cli_conflict_returns_exit_code_2(tmp_path: Path) -> None:

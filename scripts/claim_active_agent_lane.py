@@ -161,6 +161,25 @@ def _utc_now_iso() -> str:
     return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def resolve_registry_path(
     *,
     repo_root: Path,
@@ -646,14 +665,14 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.json:
-        print(json.dumps(row, indent=2, sort_keys=True))
+        _emit_output(json.dumps(row, indent=2, sort_keys=True))
     elif args.release_stale:
-        print(
+        _emit_output(
             f"released {row['released_count']} stale lane(s) for "
             f"owner={row['owner_session']} registry={registry_path}"
         )
     else:
-        print(
+        _emit_output(
             f"claimed lane_id={row['lane_id']} owner={row['owner_session']} "
             f"status={row['status']} registry={registry_path}"
         )
