@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from aragora.swarm import lane_dispatcher as ld
 
 
@@ -173,6 +175,13 @@ def test_worker_prompt_rejects_unsafe_branch() -> None:
     # A normal branch with slashes/dots is still passed through verbatim.
     ok = ld.build_worker_prompt(pr=9, branch="codex/lane.v2-9", session_id="s", repo="o/r")
     assert "codex/lane.v2-9" in ok
+
+
+def test_worker_prompt_rejects_unsafe_session_id() -> None:
+    # session_id feeds lane_id and the --lane-id/--owner-session shell-out;
+    # session_id_for is a public seam, so a non-conforming value must fail fast.
+    with pytest.raises(ValueError, match="unsafe session_id"):
+        ld.build_worker_prompt(pr=1, branch="b", session_id="bad id; rm -rf /", repo="o/r")
 
 
 def test_default_session_id_is_collision_resistant(monkeypatch: Any) -> None:

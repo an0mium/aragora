@@ -30,6 +30,7 @@ import argparse
 import json
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +55,11 @@ _BLOCKED_STATES = {"BLOCKED", "UNSTABLE"}
 # fail-safe direction is to avoid double-dispatching a possibly-live lane.
 _RECLAIMABLE_ASSESSMENTS = {"stale", "terminal", "absent", "reclaimable"}
 _UNKNOWN_OWNER = "owner-liveness-unavailable"
-_OWNER_PROBE_TIMEOUT_SECONDS = 60
+# Per-probe timeout kept short: a single slow identify_lane_owner must not stall
+# the whole pass. Probes run concurrently across candidates (one slow probe no
+# longer serializes the backlog).
+_OWNER_PROBE_TIMEOUT_SECONDS = 15
+_OWNER_PROBE_CONCURRENCY = 8
 
 
 def _read_env() -> dict[str, str]:
@@ -91,7 +96,7 @@ def fetch_candidates(repo: str) -> list[dict[str, Any]]:
                 "--limit",
                 "200",
                 "--json",
-                "number,headRefName,isDraft,mergeStateStatus",
+                "number,headRefName,isDraft,mergeStateStatus,isCrossRepository",
             ]
         )
         or []
@@ -99,6 +104,12 @@ def fetch_candidates(repo: str) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for row in rows:
         if not isinstance(row, dict) or row.get("isDraft"):
+            continue
+        # Lanes are same-repo only: a worker provisions a worktree on the head
+        # branch and pushes to it. A fork PR's headRefName is not a ref on origin,
+        # so it can be neither provisioned nor advanced here -- skip it rather
+        # than dispatch a worker that is guaranteed to fail at fetch.
+        if row.get("isCrossRepository"):
             continue
         if str(row.get("mergeStateStatus") or "").upper() not in _BLOCKED_STATES:
             continue
@@ -110,66 +121,79 @@ def fetch_candidates(repo: str) -> list[dict[str, Any]]:
     return candidates
 
 
+def _unknown_owner(reason: str) -> str:
+    clean = " ".join(reason.strip().split())
+    return _UNKNOWN_OWNER if not clean else f"{_UNKNOWN_OWNER}: {clean[:240]}"
+
+
+def _resolve_owner(pr: int) -> tuple[int, str | None]:
+    """Resolve one PR's live owner. Returns ``(pr, owner_session | None)``.
+
+    ``None`` means the lane is reassignable (no live owner). The fail-safe
+    direction is conservative: a probe that cannot run or fails unexpectedly is
+    treated as live (return an ``owner-liveness-unavailable`` sentinel) so the
+    dispatcher never reassigns -- and therefore never force-claims -- a
+    possibly-live lane. A clean "no lane matched" result is reassignable.
+
+    NOTE: no-lane detection still keys off identify_lane_owner's "no lane
+    matched" message; coupling it to a stable exit code / structured JSON field
+    is a tracked follow-up. Until then the conservative default means a message
+    reword degrades to "dispatch nothing" (safe), never to a wrongful claim.
+    """
+    try:
+        proc = subprocess.run(
+            [
+                "python3",
+                str(REPO_ROOT / "scripts" / "identify_lane_owner.py"),
+                "--pr",
+                str(pr),
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_OWNER_PROBE_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return pr, _unknown_owner(
+            f"identify_lane_owner.py timed out after {_OWNER_PROBE_TIMEOUT_SECONDS}s"
+        )
+    except OSError as exc:
+        return pr, _unknown_owner(f"identify_lane_owner.py failed: {type(exc).__name__}: {exc}")
+
+    if proc.returncode != 0 or not proc.stdout.strip():
+        stderr = proc.stderr or ""
+        if "no lane matched" in stderr.lower():
+            return pr, None  # clean no-lane -> reassignable
+        reason = stderr or proc.stdout or f"identify_lane_owner.py exited {proc.returncode}"
+        return pr, _unknown_owner(reason)  # broken probe -> stay conservative (live)
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return pr, _unknown_owner("identify_lane_owner.py returned invalid JSON")
+    owner = str(data.get("owner_session") or "").strip()
+    if not owner:
+        return pr, None
+    assessment = str((data.get("owner_liveness") or {}).get("assessed") or "").strip().lower()
+    if assessment in _RECLAIMABLE_ASSESSMENTS:
+        return pr, None
+    return pr, owner
+
+
 def fetch_live_claims(repo: str, candidates: list[dict[str, Any]]) -> dict[int, str]:
     """Map each candidate PR with a LIVE owner to that owner_session.
 
-    Liveness comes from the canonical scripts/identify_lane_owner.py. A lane is
-    treated as live (so the dispatcher will not reassign it) unless its owner is
-    explicitly stale/terminal/absent -- the fail-safe direction avoids
-    double-dispatching a possibly-live lane.
+    Probes run concurrently (bounded by ``_OWNER_PROBE_CONCURRENCY``) so one slow
+    ``identify_lane_owner`` call no longer serializes the whole backlog.
     """
     claims: dict[int, str] = {}
-
-    def unknown_owner(reason: str) -> str:
-        clean = " ".join(reason.strip().split())
-        if not clean:
-            return _UNKNOWN_OWNER
-        return f"{_UNKNOWN_OWNER}: {clean[:240]}"
-
-    for cand in candidates:
-        pr = cand["number"]
-        try:
-            proc = subprocess.run(
-                [
-                    "python3",
-                    str(REPO_ROOT / "scripts" / "identify_lane_owner.py"),
-                    "--pr",
-                    str(pr),
-                    "--json",
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=_OWNER_PROBE_TIMEOUT_SECONDS,
-            )
-        except subprocess.TimeoutExpired:
-            claims[pr] = unknown_owner(
-                f"identify_lane_owner.py timed out after {_OWNER_PROBE_TIMEOUT_SECONDS}s"
-            )
-            continue
-        except OSError as exc:
-            claims[pr] = unknown_owner(
-                f"identify_lane_owner.py failed: {type(exc).__name__}: {exc}"
-            )
-            continue
-        if proc.returncode != 0 or not proc.stdout.strip():
-            stderr = proc.stderr or ""
-            if "no lane matched" not in stderr.lower():
-                reason = stderr or proc.stdout or f"identify_lane_owner.py exited {proc.returncode}"
-                claims[pr] = unknown_owner(reason)
-            continue
-        try:
-            data = json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            claims[pr] = unknown_owner("identify_lane_owner.py returned invalid JSON")
-            continue
-        owner = str(data.get("owner_session") or "").strip()
-        if not owner:
-            continue
-        assessment = str((data.get("owner_liveness") or {}).get("assessed") or "").strip().lower()
-        if assessment in _RECLAIMABLE_ASSESSMENTS:
-            continue
-        claims[pr] = owner
+    if not candidates:
+        return claims
+    workers = min(_OWNER_PROBE_CONCURRENCY, len(candidates))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for pr, owner in pool.map(lambda c: _resolve_owner(int(c["number"])), candidates):
+            if owner is not None:
+                claims[pr] = owner
     return claims
 
 

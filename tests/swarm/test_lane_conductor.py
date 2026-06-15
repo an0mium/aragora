@@ -269,6 +269,47 @@ def test_default_claim_uses_lane_id_and_does_not_release_stale(
     assert "--owner-session" in cmd
     assert cmd[cmd.index("--owner-session") + 1] == "sess-42"
     assert "--release-stale" not in cmd
+    # The dispatcher only reaches here for non-live lanes, so the claim must be
+    # able to reclaim a stale row rather than fail closed and never dispatch.
+    assert "--force" in cmd
+    assert "--allow-resource-conflicts" in cmd
+
+
+def test_fetch_candidates_skips_cross_repo_drafts_and_unblocked(monkeypatch: Any) -> None:
+    rows = [
+        {
+            "number": 1,
+            "headRefName": "b1",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "isCrossRepository": False,
+        },
+        # fork PR: head branch is not an origin ref -> a lane can't service it.
+        {
+            "number": 2,
+            "headRefName": "b2",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "isCrossRepository": True,
+        },
+        {
+            "number": 3,
+            "headRefName": "b3",
+            "isDraft": True,
+            "mergeStateStatus": "BLOCKED",
+            "isCrossRepository": False,
+        },
+        {
+            "number": 4,
+            "headRefName": "b4",
+            "isDraft": False,
+            "mergeStateStatus": "CLEAN",
+            "isCrossRepository": False,
+        },
+    ]
+    monkeypatch.setattr(cli, "_gh_json", lambda args: rows)
+    cands = cli.fetch_candidates("synaptent/aragora")
+    assert [c["number"] for c in cands] == [1]  # fork(2), draft(3), clean(4) all excluded
 
 
 def test_conductor_and_supervisor_share_dispatch_root_constant() -> None:

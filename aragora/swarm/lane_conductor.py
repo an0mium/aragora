@@ -206,6 +206,14 @@ def default_claim(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -
                 "active",
                 "--next-action",
                 f"advance #{work_order.pr}",
+                # The dispatcher only reaches here for lanes with NO live owner
+                # (liveness pre-resolved by identify_lane_owner). Any residual row
+                # for this PR/branch is therefore stale, so reclaim over it instead
+                # of failing the claim and never dispatching: --force overwrites a
+                # stale lane-id, --allow-resource-conflicts clears a stale row that
+                # still holds the same pr_number/branch/worktree.
+                "--force",
+                "--allow-resource-conflicts",
             ],
             capture_output=True,
             text=True,

@@ -56,9 +56,16 @@ def _branch_checked_out_elsewhere(git: list[str], branch: str, lane_path: Path) 
     for line in listing.splitlines():
         if line.startswith("worktree "):
             current_path = line[len("worktree ") :].strip()
-        elif line.startswith("branch ") and line[len("branch ") :].strip() == target_ref:
-            if Path(current_path).resolve() != lane_path.resolve():
-                return True
+        elif (
+            current_path
+            and line.startswith("branch ")
+            and line[len("branch ") :].strip() == target_ref
+        ):
+            # Pair the branch line with its block's worktree path (current_path is
+            # reset on every `worktree` line, so detached/bare blocks with no
+            # branch entry can't mispair). Guard against a stray branch line
+            # before any worktree block falsely matching.
+            return Path(current_path).resolve() != lane_path.resolve()
     return False
 
 
@@ -109,7 +116,15 @@ def _provision_lane_worktree(
             "provision a second checkout (would risk clobbering in-flight work)"
         )
 
-    subprocess.run([*git, "fetch", "origin", branch], check=True, capture_output=True, text=True)
+    # Explicit refspec guarantees refs/remotes/origin/<branch> is updated (a bare
+    # `fetch origin <branch>` only reliably populates FETCH_HEAD); leading + lets
+    # the mirror ref fast-forward past non-ff remote moves.
+    subprocess.run(
+        [*git, "fetch", "origin", f"+{branch}:refs/remotes/origin/{branch}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     # Check out the existing local branch if present; otherwise create a tracking
     # branch from origin. Neither path uses --force/-B, so no ref is reset.
     local_exists = (
@@ -128,24 +143,64 @@ def _provision_lane_worktree(
     return str(path)
 
 
+def _release_lane_claim(work_order: dict[str, Any], *, repo_root: Path | None = None) -> None:
+    """Best-effort release of the conductor's lane claim for a failed launch.
+
+    The conductor claims the lane before dropping the order; if the launch then
+    fails, the claim would otherwise linger and make future passes skip the PR
+    until its TTL expires. Releasing it (ttl 0, scoped to the order's unique
+    owner_session) lets the next pass re-dispatch. Failures here are swallowed --
+    the drainer still records the order in failed/.
+    """
+    import subprocess
+
+    owner = str(work_order.get("owner_session_id") or work_order.get("owner_session") or "").strip()
+    if not owner:
+        return
+    root = Path(repo_root) if repo_root is not None else REPO_ROOT
+    try:
+        subprocess.run(
+            [
+                "python3",
+                str(root / "scripts" / "claim_active_agent_lane.py"),
+                "--release-stale",
+                "--owner-session",
+                owner,
+                "--ttl-minutes",
+                "0",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def _worker_launcher_launch(work_order: dict[str, Any], *, repo_root: Path | None = None) -> None:
     """Default launch: provision a worktree, then hand the order to WorkerLauncher.
 
     Provisions an isolated worktree on the work order's branch unless one is
     pre-set, then calls the async launcher (which builds the worker prompt from
-    ``work_order['prompt']``). Raises on provisioning or launch failure -- the
-    drainer records it in failed/ and continues.
+    ``work_order['prompt']``). On provisioning/launch failure, releases the lane
+    claim so the PR is re-dispatchable, then re-raises -- the drainer records the
+    order in failed/ and continues.
     """
     branch = str(work_order.get("branch") or "main")
     worktree = str(work_order.get("worktree") or "").strip()
-    if not worktree:
-        worktree = _provision_lane_worktree(
-            branch, str(work_order.get("work_order_id") or "lane"), repo_root=repo_root
-        )
-    from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher
+    try:
+        if not worktree:
+            worktree = _provision_lane_worktree(
+                branch, str(work_order.get("work_order_id") or "lane"), repo_root=repo_root
+            )
+        from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher
 
-    launcher = WorkerLauncher(LaunchConfig(detach=True))
-    asyncio.run(launcher.launch(work_order, worktree_path=worktree, branch=branch))
+        launcher = WorkerLauncher(LaunchConfig(detach=True))
+        asyncio.run(launcher.launch(work_order, worktree_path=worktree, branch=branch))
+    except Exception:
+        _release_lane_claim(work_order, repo_root=repo_root)
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:

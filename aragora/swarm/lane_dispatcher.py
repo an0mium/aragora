@@ -166,6 +166,12 @@ def build_worker_prompt(
     brace-bearing ref can neither inject into the shell-out nor break
     ``str.format``.
     """
+    # session_id is interpolated into lane_id and the --lane-id/--owner-session
+    # shell-out. The default generator is safe, but session_id_for is a public
+    # injection seam -- fail fast on a non-conforming value rather than emit a
+    # prompt that could break or inject.
+    if not _SAFE_BRANCH.match(session_id or ""):
+        raise ValueError(f"unsafe session_id {session_id!r}: must match {_SAFE_BRANCH.pattern}")
     safe_branch = branch if (branch and _SAFE_BRANCH.match(branch)) else f"(branch for #{pr})"
     return WORKER_PROMPT_TEMPLATE.format(
         session_id=session_id,

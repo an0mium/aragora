@@ -87,6 +87,26 @@ def test_provision_refuses_when_branch_checked_out_elsewhere(
         cli._provision_lane_worktree("claude/some-branch", "lane-w", repo_root=tmp_path)
 
 
+def test_launch_seam_releases_lane_on_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    # If launch fails after the conductor has claimed the lane, the seam must
+    # release the claim (so the PR is re-dispatchable) and then re-raise so the
+    # drainer records the order in failed/.
+    cli = _load_cli()
+    released: list[dict] = []
+    monkeypatch.setattr(
+        cli, "_release_lane_claim", lambda wo, *, repo_root=None: released.append(wo)
+    )
+    monkeypatch.setattr(cli, "_provision_lane_worktree", lambda *a, **k: "/tmp/wt")
+    fake_launcher = MagicMock()
+    fake_launcher.launch = AsyncMock(side_effect=RuntimeError("spawn exploded"))
+    with patch("aragora.swarm.worker_launcher.WorkerLauncher", return_value=fake_launcher):
+        with pytest.raises(RuntimeError, match="spawn exploded"):
+            cli._worker_launcher_launch(
+                {"work_order_id": "lane-x", "branch": "b", "owner_session_id": "sess-x"}
+            )
+    assert released and released[0]["owner_session_id"] == "sess-x"
+
+
 def test_provision_failure_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     # A git provisioning failure must raise so the drainer records the order in
     # failed/ rather than launching into a missing tree.
