@@ -245,6 +245,32 @@ def test_default_dispatch_uses_explicit_repo_root(tmp_path: Path) -> None:
     assert written.exists()
 
 
+def test_default_claim_uses_lane_id_and_does_not_release_stale(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    wo = lc.build_work_orders(
+        [LaneAssignment(pr=42, branch="codex/x", owner_session="sess-42")],
+        repo="synaptent/aragora",
+        now=_fixed_now,
+    )[0]
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> Any:
+        calls.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(lc.subprocess, "run", fake_run)
+
+    assert lc.default_claim(wo, repo_root=tmp_path) is True
+    assert calls
+    cmd = calls[0]
+    assert "--lane-id" in cmd
+    assert cmd[cmd.index("--lane-id") + 1] == wo.work_order_id
+    assert "--owner-session" in cmd
+    assert cmd[cmd.index("--owner-session") + 1] == "sess-42"
+    assert "--release-stale" not in cmd
+
+
 def test_conductor_and_supervisor_share_dispatch_root_constant() -> None:
     assert lc.DISPATCH_PENDING_DIR == ls.DISPATCH_ROOT / ls.PENDING
 

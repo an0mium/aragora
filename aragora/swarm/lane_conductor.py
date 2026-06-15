@@ -188,6 +188,8 @@ def default_claim(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -
             [
                 "python3",
                 str(root / "scripts" / "claim_active_agent_lane.py"),
+                "--lane-id",
+                work_order.work_order_id,
                 "--owner-session",
                 work_order.owner_session,
                 "--pr-number",
@@ -200,7 +202,6 @@ def default_claim(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -
                 "active",
                 "--next-action",
                 f"advance #{work_order.pr}",
-                "--release-stale",
             ],
             capture_output=True,
             text=True,

@@ -9,14 +9,15 @@ DRY-RUN BY DEFAULT: prints which orders the next drain would launch and moves
 nothing. ``--execute`` claims (atomic pending -> in_progress) and launches.
 
 Launch seam (``--execute``): each work order is handed to
-``aragora.swarm.worker_launcher.WorkerLauncher.launch``. That call is async and
-needs a provisioned worktree -- which is operator-machine-specific. The conductor
-stays pure (no git), so this seam provisions an isolated worktree on the work
-order's branch (``git fetch`` + ``git worktree add``) and passes it as
-``launch(worktree_path=...)``. A work order may pre-set ``worktree`` to reuse an
-existing one. If provisioning or launch fails, that order is recorded in failed/
-and the drain continues. Validate this path on your machine before relying on it;
-the drainer state machine itself is fully unit-tested.
+``aragora.swarm.worker_launcher.WorkerLauncher.launch`` in detached mode. That
+call is async and needs a provisioned worktree -- which is
+operator-machine-specific. The conductor stays pure (no git), so this seam
+provisions an isolated worktree on the work order's branch (``git fetch`` +
+``git worktree add``) and passes it as ``launch(worktree_path=...)``. A work
+order may pre-set ``worktree`` to reuse an existing one. If provisioning or
+launch fails, that order is recorded in failed/ and the drain continues.
+Validate this path on your machine before relying on it; the drainer state
+machine itself is fully unit-tested.
 """
 
 from __future__ import annotations
@@ -79,9 +80,9 @@ def _worker_launcher_launch(work_order: dict[str, Any]) -> None:
     worktree = str(work_order.get("worktree") or "").strip()
     if not worktree:
         worktree = _provision_lane_worktree(branch, str(work_order.get("work_order_id") or "lane"))
-    from aragora.swarm.worker_launcher import WorkerLauncher
+    from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher
 
-    launcher = WorkerLauncher()
+    launcher = WorkerLauncher(LaunchConfig(detach=True))
     asyncio.run(launcher.launch(work_order, worktree_path=worktree, branch=branch))
 
 

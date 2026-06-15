@@ -36,7 +36,7 @@ def test_launch_seam_provisions_worktree_when_absent() -> None:
 
     with (
         patch.object(cli, "_provision_lane_worktree", return_value="/tmp/wt-lane-x") as prov,
-        patch("aragora.swarm.worker_launcher.WorkerLauncher", return_value=fake_launcher),
+        patch("aragora.swarm.worker_launcher.WorkerLauncher", return_value=fake_launcher) as cls,
     ):
         cli._worker_launcher_launch(
             {
@@ -50,6 +50,7 @@ def test_launch_seam_provisions_worktree_when_absent() -> None:
     # Provisioned for the order's branch...
     prov.assert_called_once()
     assert prov.call_args.args[0] == "claude/swarm-graphql-routing"
+    assert cls.call_args.args[0].detach is True
     # ...and the provisioned path is what launch() receives.
     fake_launcher.launch.assert_awaited_once()
     assert fake_launcher.launch.await_args.kwargs["worktree_path"] == "/tmp/wt-lane-x"
@@ -63,13 +64,14 @@ def test_launch_seam_reuses_preset_worktree_without_provisioning() -> None:
 
     with (
         patch.object(cli, "_provision_lane_worktree") as prov,
-        patch("aragora.swarm.worker_launcher.WorkerLauncher", return_value=fake_launcher),
+        patch("aragora.swarm.worker_launcher.WorkerLauncher", return_value=fake_launcher) as cls,
     ):
         cli._worker_launcher_launch(
             {"work_order_id": "lane-y", "branch": "main", "worktree": "/existing/wt"}
         )
 
     prov.assert_not_called()
+    assert cls.call_args.args[0].detach is True
     assert fake_launcher.launch.await_args.kwargs["worktree_path"] == "/existing/wt"
 
 
