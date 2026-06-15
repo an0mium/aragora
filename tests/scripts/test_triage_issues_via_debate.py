@@ -382,10 +382,11 @@ def test_evaluate_issue_uses_injected_generator(tmp_path: Path):
         now_iso="2026-05-14T12:00:00Z",
     )
 
+    opus_model, gpt_model, gemini_model = [member.model_id for member in DEFAULT_PANEL]
     responses = {
-        "claude-opus-4-7": '{"verdict":"keep","confidence":0.9,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}',
-        "gpt-4.1": '{"verdict":"keep","confidence":0.8,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}',
-        "gemini-3.1-pro-preview": '{"verdict":"refine","confidence":0.6,"automation_value":"neutral","rationale":"r","suggested_action":"a","evidence_used":[]}',
+        opus_model: '{"verdict":"keep","confidence":0.9,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}',
+        gpt_model: '{"verdict":"keep","confidence":0.8,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}',
+        gemini_model: '{"verdict":"refine","confidence":0.6,"automation_value":"neutral","rationale":"r","suggested_action":"a","evidence_used":[]}',
     }
 
     async def generator(member: PanelMember, prompt: str) -> str:
@@ -436,7 +437,7 @@ def test_evaluate_issue_records_untyped_provider_exception(tmp_path: Path):
     )
 
     async def generator(member: PanelMember, prompt: str) -> str:
-        if member.model_id == "claude-opus-4-7":
+        if member.model_id == DEFAULT_PANEL[0].model_id:
             raise ProviderSDKError("provider overloaded")
         return '{"verdict":"keep","confidence":0.9,"automation_value":"valuable","rationale":"r","suggested_action":"a","evidence_used":[]}'
 

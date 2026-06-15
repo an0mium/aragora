@@ -407,7 +407,7 @@ class TestOpenAIFallback:
     def test_openai_fallback_model_mapping(self, openai_agent):
         """Test that OpenAI models are mapped correctly to OpenRouter."""
         assert "gpt-4o" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
-        assert OpenAIAPIAgent.OPENROUTER_MODEL_MAP["gpt-4o"] == "openai/gpt-4o"
+        assert OpenAIAPIAgent.OPENROUTER_MODEL_MAP["gpt-4o"] == "openai/gpt-5.5"
         assert "gpt-4o-mini" in OpenAIAPIAgent.OPENROUTER_MODEL_MAP
 
     def test_openai_quota_keyword_detection(self, openai_agent):
@@ -478,10 +478,7 @@ class TestGeminiFallback:
     def test_gemini_fallback_model_mapping(self, gemini_agent):
         """Test that Gemini models are mapped correctly to OpenRouter."""
         assert "gemini-3.1-pro-preview" in GeminiAgent.OPENROUTER_MODEL_MAP
-        assert (
-            GeminiAgent.OPENROUTER_MODEL_MAP["gemini-3.1-pro-preview"]
-            == "google/gemini-3.1-pro-preview"
-        )
+        assert GeminiAgent.OPENROUTER_MODEL_MAP["gemini-3.1-pro-preview"] == "google/gemini-3.1-pro"
         assert "gemini-1.5-pro" in GeminiAgent.OPENROUTER_MODEL_MAP
 
     def test_gemini_quota_keyword_detection(self, gemini_agent):
