@@ -952,8 +952,17 @@ class AgentSelector:
         # quality outweighs cost.
         cost_factors = {"fusion": 4.5}
         latency_ms = {"fusion": 4500.0}  # ~4.5x default, matching the cost multiplier
+        # Enforce the opt-in contract: Fusion is only exposed to the Pareto
+        # optimizer when ``enable_fusion`` is set. Without this gate a stock
+        # install (flag OFF) could still auto-select Fusion on a high-budget
+        # debate -- contradicting the default-OFF guarantee.
+        from aragora.config.feature_flags import is_enabled as _flag_enabled
+
+        fusion_enabled = _flag_enabled("enable_fusion")
         # Register agents with default expertise
         for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
+            if agent_name == "fusion" and not fusion_enabled:
+                continue
             profile = AgentProfile(
                 name=agent_name,
                 agent_type=agent_name,

@@ -49,10 +49,22 @@ def test_fusion_flags_exist_and_default_off(monkeypatch) -> None:
     assert reg.get_value("fusion_cost_monthly_cap") == 5000.0
 
 
-def test_fusion_routing_profile_is_high_cost() -> None:
+def test_fusion_routing_profile_is_high_cost(monkeypatch) -> None:
+    # Enforcement: with enable_fusion ON, fusion is registered with a high
+    # cost/latency profile so the Pareto optimizer skips it on low budgets.
+    monkeypatch.setenv("ARAGORA_ENABLE_FUSION", "true")
     assert "fusion" in DEFAULT_AGENT_EXPERTISE
     selector = AgentSelector.create_with_defaults()
     profile = selector.agent_pool["fusion"]
-    # High cost so the Pareto optimizer skips it on low budgets; others stay 1.0x.
     assert profile.cost_factor == 4.5
+    assert profile.latency_ms == 4500.0
     assert selector.agent_pool["claude"].cost_factor == 1.0
+
+
+def test_fusion_not_in_pool_when_flag_off(monkeypatch) -> None:
+    # The opt-in contract: with enable_fusion OFF (default), fusion must NOT be
+    # exposed to the optimizer, even though it's in DEFAULT_AGENT_EXPERTISE.
+    monkeypatch.delenv("ARAGORA_ENABLE_FUSION", raising=False)
+    selector = AgentSelector.create_with_defaults()
+    assert "fusion" not in selector.agent_pool
+    assert "claude" in selector.agent_pool  # other agents unaffected

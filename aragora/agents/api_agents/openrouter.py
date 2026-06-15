@@ -49,6 +49,11 @@ DEEPSEEK_V4_PRO_MODEL = "deepseek/deepseek-v4-pro"
 # synthesis). It is itself a *blend*, so it must never be treated as an
 # independent quorum family (see aragora.swarm.quorum_evidence) -- it is a single
 # high-confidence participant/judge option, gated behind feature flags.
+# Slug per the vendor page (openrouter.ai/openrouter/fusion); NOT yet
+# runtime-verified against the live OpenRouter API here (no key in this env).
+# Safe because the agent is gated OFF by default (see routing enforcement +
+# enable_fusion) and never dispatches until explicitly enabled; confirm the slug
+# and pricing (TODO in billing/usage.py) before enabling for real debates.
 FUSION_MODEL = "openrouter/fusion"
 
 # Fallback model chain for resilience when primary models fail

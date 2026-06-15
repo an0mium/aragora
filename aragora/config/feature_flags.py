@@ -459,14 +459,14 @@ class FeatureFlagRegistry:
             "fusion_cost_budget_per_debate",
             float,
             50.0,
-            "Max USD spent on Fusion calls within a single debate before falling back to normal agents",
+            "[scaffolding; enforcement lands in the nomic-integration PR] Max USD on Fusion calls per debate before falling back to normal agents",
             FlagCategory.BILLING,
         )
         self.register(
             "fusion_cost_monthly_cap",
             float,
             5000.0,
-            "Monthly USD cap across all Fusion calls",
+            "[scaffolding; enforcement lands in the nomic-integration PR] Monthly USD cap across all Fusion calls",
             FlagCategory.BILLING,
         )
         # Knowledge Mound flags
