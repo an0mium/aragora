@@ -19,6 +19,7 @@ from aragora.verification.proofs import (
     SAFE_BUILTINS,
     EXEC_TIMEOUT_SECONDS,
     _exec_with_timeout,
+    VerificationError,
     ProofType,
     ProofStatus,
     VerificationProof,
@@ -108,17 +109,17 @@ class TestExecWithTimeout:
     def test_safe_builtins_enforced(self):
         """Unsafe builtins should not be available."""
         namespace = {}
-        # Code validation catches dangerous patterns early (RuntimeError)
-        # or execution fails with NameError if pattern slips through
-        with pytest.raises((NameError, RuntimeError)):
+        # Code-safety validation rejects dangerous patterns (e.g. open() ) with
+        # a VerificationError before the code is executed.
+        with pytest.raises(VerificationError):
             _exec_with_timeout("result = open('/etc/passwd')", namespace)
 
     def test_import_blocked(self):
         """Import should be blocked."""
         namespace = {}
-        # Code validation catches import early (RuntimeError)
-        # or execution fails with ImportError/NameError
-        with pytest.raises((NameError, ImportError, RuntimeError)):
+        # Code-safety validation rejects import statements with a
+        # VerificationError before the code is executed.
+        with pytest.raises(VerificationError):
             _exec_with_timeout("import os", namespace)
 
 
