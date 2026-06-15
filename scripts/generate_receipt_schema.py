@@ -17,9 +17,13 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, get_type_hints
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -33,6 +37,25 @@ _PYTHON_TO_JSON_TYPE: dict[str, str | list[str]] = {
     "list": "array",
     "dict": "object",
 }
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str = "") -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
 
 
 def _python_type_to_json(annotation: str) -> str | list[str]:
@@ -237,9 +260,9 @@ def main() -> None:
 
     if args.stdout:
         for name, schema in schemas.items():
-            print(f"--- {name} ---")
-            print(json.dumps(schema, indent=2))
-            print()
+            _emit_output(f"--- {name} ---")
+            _emit_output(json.dumps(schema, indent=2))
+            _emit_output()
         return
 
     output_dir: Path = args.output_dir
@@ -251,25 +274,25 @@ def main() -> None:
             path = output_dir / name
             generated = json.dumps(schema, indent=2) + "\n"
             if not path.exists():
-                print(f"MISSING: {path}")
+                _emit_output(f"MISSING: {path}")
                 stale = True
             elif path.read_text() != generated:
-                print(f"STALE:   {path}")
+                _emit_output(f"STALE:   {path}")
                 stale = True
             else:
-                print(f"OK:      {path}")
+                _emit_output(f"OK:      {path}")
         if stale:
-            print("\nRun 'python scripts/generate_receipt_schema.py' to regenerate.")
+            _emit_output("\nRun 'python scripts/generate_receipt_schema.py' to regenerate.")
             sys.exit(1)
-        print("\nAll schemas up to date.")
+        _emit_output("\nAll schemas up to date.")
         return
 
     for name, schema in schemas.items():
         path = output_dir / name
         path.write_text(json.dumps(schema, indent=2) + "\n")
-        print(f"Wrote {path}")
+        _emit_output(f"Wrote {path}")
 
-    print("Done.")
+    _emit_output("Done.")
 
 
 if __name__ == "__main__":
