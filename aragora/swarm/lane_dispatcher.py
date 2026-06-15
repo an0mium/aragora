@@ -176,6 +176,10 @@ def build_worker_prompt(
     # it is operator-supplied (--target-agent), so validate it too.
     if not _SAFE_BRANCH.match(target_agent or ""):
         raise ValueError(f"unsafe target_agent {target_agent!r}: must match {_SAFE_BRANCH.pattern}")
+    # repo is interpolated into the gh shell-out the worker is told to run; gate it
+    # with the same allowlist ("owner/name" matches: alnum, '.', '/', '-', '_').
+    if not _SAFE_BRANCH.match(repo or ""):
+        raise ValueError(f"unsafe repo {repo!r}: must match {_SAFE_BRANCH.pattern}")
     safe_branch = branch if (branch and _SAFE_BRANCH.match(branch)) else f"(branch for #{pr})"
     return WORKER_PROMPT_TEMPLATE.format(
         session_id=session_id,

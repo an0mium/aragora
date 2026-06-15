@@ -192,6 +192,15 @@ def test_worker_prompt_rejects_unsafe_target_agent() -> None:
         )
 
 
+def test_worker_prompt_rejects_unsafe_repo() -> None:
+    # repo is interpolated into the gh shell-out the worker is told to run.
+    with pytest.raises(ValueError, match="unsafe repo"):
+        ld.build_worker_prompt(pr=1, branch="b", session_id="s", repo="o/r; rm -rf /")
+    # A normal owner/name repo is accepted.
+    ok = ld.build_worker_prompt(pr=1, branch="b", session_id="s", repo="synaptent/aragora")
+    assert "synaptent/aragora" in ok
+
+
 def test_default_session_id_is_collision_resistant(monkeypatch: Any) -> None:
     monkeypatch.setattr(ld.time, "time", lambda: 1_765_760_000)
     first = ld.default_session_id(42)

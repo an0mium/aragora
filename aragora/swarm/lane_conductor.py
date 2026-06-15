@@ -252,7 +252,10 @@ def _release_stale_conflict(pr: int, root: Path) -> bool:
     except json.JSONDecodeError:
         return False
     owner = str(data.get("owner_session") or "").strip()
-    assessed = str((data.get("owner_liveness") or {}).get("assessed") or "").strip().lower()
+    liveness = data.get("owner_liveness")
+    assessed = (
+        str((liveness.get("assessed") if isinstance(liveness, dict) else "") or "").strip().lower()
+    )
     if not owner or assessed not in _RECLAIMABLE_ASSESSMENTS:
         return False  # no owner, or owner is LIVE -> never release / never displace
     try:

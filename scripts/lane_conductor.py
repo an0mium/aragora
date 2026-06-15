@@ -175,7 +175,10 @@ def _resolve_owner(pr: int) -> tuple[int, str | None]:
     owner = str(data.get("owner_session") or "").strip()
     if not owner:
         return pr, None
-    assessment = str((data.get("owner_liveness") or {}).get("assessed") or "").strip().lower()
+    liveness = data.get("owner_liveness")
+    assessment = (
+        str((liveness.get("assessed") if isinstance(liveness, dict) else "") or "").strip().lower()
+    )
     if assessment in _RECLAIMABLE_ASSESSMENTS:
         return pr, None
     return pr, owner
