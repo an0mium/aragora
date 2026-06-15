@@ -65,4 +65,17 @@ class Scenario:
 def load_scenarios(path: Path) -> list[Scenario]:
     """Load and validate the scenario corpus from JSON."""
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
-    return [Scenario(**entry) for entry in raw["scenarios"]]
+    if not isinstance(raw, dict) or not isinstance(raw.get("scenarios"), list):
+        raise ValueError("scenario corpus must contain a scenarios list")
+
+    scenarios: list[Scenario] = []
+    seen_ids: set[str] = set()
+    for index, entry in enumerate(raw["scenarios"]):
+        if not isinstance(entry, dict):
+            raise ValueError(f"scenario entry {index} must be an object")
+        scenario = Scenario(**entry)
+        if scenario.id in seen_ids:
+            raise ValueError(f"duplicate scenario id: {scenario.id}")
+        seen_ids.add(scenario.id)
+        scenarios.append(scenario)
+    return scenarios

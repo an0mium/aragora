@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 import pytest
 
@@ -71,3 +72,28 @@ def test_scenario_rejects_non_positive_freshness_ttl():
 def test_scenario_rejects_non_finite_freshness_ttl():
     with pytest.raises(ValueError, match="freshness_ttl_days"):
         _scenario(freshness_ttl_days=float("inf"))
+
+
+def test_load_scenarios_rejects_missing_scenarios_list(tmp_path):
+    path = tmp_path / "scenarios.json"
+    path.write_text(json.dumps({"items": []}) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="scenarios list"):
+        load_scenarios(path)
+
+
+def test_load_scenarios_rejects_non_object_entries(tmp_path):
+    path = tmp_path / "scenarios.json"
+    path.write_text(json.dumps({"scenarios": ["not-an-object"]}) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="entry 0"):
+        load_scenarios(path)
+
+
+def test_load_scenarios_rejects_duplicate_ids(tmp_path):
+    path = tmp_path / "scenarios.json"
+    entry = _scenario().__dict__
+    path.write_text(json.dumps({"scenarios": [entry, entry]}) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate scenario id"):
+        load_scenarios(path)

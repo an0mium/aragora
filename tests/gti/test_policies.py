@@ -40,6 +40,13 @@ def test_gated_catches_stale_by_age():
     assert out.acted_on_stale_belief is False
 
 
+def test_gated_treats_exact_ttl_boundary_as_fresh():
+    # "Past TTL" means strictly older than the TTL; equality is still fresh.
+    out = gated_policy(_scn(belief_age_days=7.0, freshness_ttl_days=7.0, quorum_would_flag=False))
+    assert out.detected_stale is False
+    assert out.acted_on_stale_belief is True
+
+
 def test_gated_catches_via_quorum_when_age_ok():
     out = gated_policy(_scn(belief_age_days=0.0, freshness_ttl_days=7.0, quorum_would_flag=True))
     assert out.detected_stale is True
