@@ -2175,6 +2175,71 @@ class TestModelReviewQuorum:
         assert quorum["admin_squash_allowed"] is False
         assert "target_url does not match" in quorum["settlement_creator_pin"]["reason"]
 
+    def test_newer_trusted_settlement_comment_status_pair_counts(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr, files = self._tier_four_settled_pr()
+        head_sha = str(pr["headRefOid"])
+        newer_url = "https://github.example/pr/7900#issuecomment-settlement-retry"
+        pr["comments"].append(
+            {
+                "author": {"login": "scarmani"},
+                "authorAssociation": "OWNER",
+                "createdAt": "2026-06-15T02:24:41Z",
+                "url": newer_url,
+                "body": (
+                    "Tier-4 Human Settlement Authorization\n\n"
+                    "PR: #7900\n"
+                    f"Exact head: {head_sha}\n"
+                    "Authorized action: admin_squash_merge only if checks stay green.\n\n"
+                    "Human-risk settlement: I accept the Tier 4 risk for this PR."
+                ),
+            }
+        )
+
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [self._settlement_status("scarmani", target_url=newer_url)],
+            pr=pr,
+            files=files,
+        )
+
+        assert quorum["human_preapproval_recorded"] is True
+        assert quorum["admin_squash_allowed"] is True
+
+    def test_older_settlement_comment_target_rejected_after_newer_retry(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr, files = self._tier_four_settled_pr()
+        head_sha = str(pr["headRefOid"])
+        older_url = str(pr["comments"][-1]["url"])
+        pr["comments"].append(
+            {
+                "author": {"login": "scarmani"},
+                "authorAssociation": "OWNER",
+                "createdAt": "2026-06-15T02:24:41Z",
+                "url": "https://github.example/pr/7900#issuecomment-settlement-retry",
+                "body": (
+                    "Tier-4 Human Settlement Authorization\n\n"
+                    "PR: #7900\n"
+                    f"Exact head: {head_sha}\n"
+                    "Authorized action: admin_squash_merge only if checks stay green.\n\n"
+                    "Human-risk settlement: I accept the Tier 4 risk for this PR."
+                ),
+            }
+        )
+
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [self._settlement_status("scarmani", target_url=older_url)],
+            pr=pr,
+            files=files,
+        )
+
+        assert quorum["human_preapproval_recorded"] is False
+        assert quorum["admin_squash_allowed"] is False
+        assert "target_url does not match" in quorum["settlement_creator_pin"]["reason"]
+
     def test_settlement_creator_an0mium_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """The #8169 precedent gap: an automation-capable login posting the
         status must NOT count, even though every other condition holds."""

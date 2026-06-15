@@ -173,7 +173,8 @@ def _trusted_tier_four_human_preapproval_comment_url(
     head = str(head_sha or "").strip()
     if not head:
         return ""
-    for comment in pr.get("comments") or []:
+    candidates: list[tuple[datetime, int, str]] = []
+    for index, comment in enumerate(pr.get("comments") or []):
         if not isinstance(comment, dict):
             continue
         body = str(comment.get("body") or "")
@@ -193,8 +194,13 @@ def _trusted_tier_four_human_preapproval_comment_url(
             continue
         if not _trusted_comment_author_verified(comment, repo_slug=repo_slug, gh_json=gh_json):
             continue
-        return comment_url
-    return ""
+        created_at = _parse_github_datetime(_comment_created_at(comment))
+        if created_at is None:
+            continue
+        candidates.append((created_at, index, comment_url))
+    if not candidates:
+        return ""
+    return max(candidates, key=lambda item: (item[0], item[1]))[2]
 
 
 def _has_tier_four_human_preapproval_comment(
