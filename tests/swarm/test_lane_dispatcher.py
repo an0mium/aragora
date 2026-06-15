@@ -133,6 +133,8 @@ def test_worker_prompt_is_claim_first_and_scoped() -> None:
         pr=42, branch="codex/lane-42", session_id="sess-42", repo="synaptent/aragora"
     )
     assert "claim_active_agent_lane.py" in prompt
+    assert "--lane-id sess-42" in prompt
+    assert "--release-stale" not in prompt
     assert "CLAIM-OR-YIELD" in prompt
     assert "#42" in prompt
     assert "codex/lane-42" in prompt

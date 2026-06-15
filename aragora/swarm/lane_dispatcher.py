@@ -47,9 +47,10 @@ Assigned lane: PR #{pr} (branch {branch}) in {repo} ONLY.
    If it reports a LIVE owner whose owner_session != {session_id}, print \
 "yielding: owned by <owner>" and STOP -- do not work this PR.
    Otherwise claim it:
-   python3 scripts/claim_active_agent_lane.py --owner-session {session_id} \
+   python3 scripts/claim_active_agent_lane.py --lane-id {session_id} \
+--owner-session {session_id} \
 --pr-number {pr} --branch {branch} --source codex --status active \
---next-action "advance #{pr}" --release-stale
+--next-action "advance #{pr}"
 
 2. GROUND from live state for #{pr} ONLY (gh pr view/checks; \
 review-queue merge-packet --pr {pr} --json). Trust live state, never memory.
