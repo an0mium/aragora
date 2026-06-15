@@ -2233,8 +2233,7 @@ def cmd_owner(args: argparse.Namespace) -> int:
     )
 
     if args.json:
-        print(json.dumps(payload, indent=2))
-        return 0
+        return _emit_text(json.dumps(payload, indent=2))
 
     if payload["owner_status"] == "unowned":
         print(f"unowned: {payload['recommended_operator_action']}")
@@ -2870,7 +2869,7 @@ def _mute_stdout_after_broken_pipe() -> None:
 
 def _emit_text(output: str) -> int:
     try:
-        print(output)
+        print(output, flush=True)
     except BrokenPipeError:
         _mute_stdout_after_broken_pipe()
     return 0

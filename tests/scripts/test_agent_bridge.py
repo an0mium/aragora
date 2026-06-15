@@ -1638,6 +1638,37 @@ def test_cmd_owner_json_reports_newest_historical_match_when_unowned(
     )
 
 
+def test_cmd_owner_json_suppresses_broken_pipe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    _patch_bridge_paths(mod, tmp_path, monkeypatch)
+    mod.AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    mod.LANE_REGISTRY_FILE.write_text("[]", encoding="utf-8")
+    muted_stdout: list[bool] = []
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr(mod, "discover", lambda **_kwargs: [])
+    monkeypatch.setattr(mod, "_enrich_prs", lambda _sessions: None)
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(
+        mod,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    rc = mod.cmd_owner(
+        argparse.Namespace(json=True, pr=None, branch="codex/example", worktree=None)
+    )
+
+    assert rc == 0
+    assert muted_stdout == [True]
+
+
 def test_collect_agent_process_census_redacts_commands_and_counts_roles() -> None:
     import agent_bridge as mod
 
