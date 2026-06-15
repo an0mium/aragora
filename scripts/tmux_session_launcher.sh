@@ -268,8 +268,13 @@ if [[ -n "${PROMPT}" ]]; then
     HAS_PROMPT="yes"
 fi
 
+LEASE_SCOPE_CONFIGURED="0"
+if [[ ${#WRITE_SCOPES[@]} -gt 0 || ${#CLAIMED_PATHS[@]} -gt 0 || ${#TEST_COMMANDS[@]} -gt 0 ]]; then
+    LEASE_SCOPE_CONFIGURED="1"
+fi
+
 LEASE_CONFIGURED="0"
-if [[ -n "${TASK_ID}" || -n "${LEASE_TITLE}" || ${#WRITE_SCOPES[@]} -gt 0 || ${#CLAIMED_PATHS[@]} -gt 0 || ${#TEST_COMMANDS[@]} -gt 0 ]]; then
+if [[ -n "${TASK_ID}" && "${LEASE_SCOPE_CONFIGURED}" == "1" ]]; then
     LEASE_CONFIGURED="1"
 fi
 
@@ -280,6 +285,9 @@ Refusing unleased autonomous Codex launch.
 Autonomous Codex workers must be assigned by the conductor/dispatcher instead
 of free-picking the queue. Pass an explicit dev-coordination lease, for example:
   --task-id Q123 --title "repair PR #123" --claimed-path scripts/foo.py
+
+A valid autonomous Codex lease requires --task-id plus at least one concrete
+scope signal: --claimed-path, --write-scope, or --test.
 
 For one-off manual debugging only, pass --allow-unleased-codex.
 EOF
