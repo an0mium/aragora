@@ -1126,7 +1126,7 @@ class TestDecisionRouterRouteMethods:
         assert result.decision_integrity == package_payload
 
     @pytest.mark.asyncio
-    async def test_route_to_debate_executes_decision_integrity(self, monkeypatch):
+    async def test_route_to_debate_blocks_untrusted_intake_execution(self, monkeypatch):
         """Decision integrity execution is fail-closed when intake is untrusted."""
         from types import SimpleNamespace
         from unittest.mock import AsyncMock
