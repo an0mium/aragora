@@ -50,6 +50,7 @@ from aragora.cli.commands.review_queue_tier4_settlement import (
     _has_tier_four_human_preapproval_comment as _has_tier_four_human_preapproval_comment,
     _human_settlement_status_creator_verified as _human_settlement_status_creator_verified,
     _trusted_settlement_creator as _trusted_settlement_creator,
+    _trusted_recorded_settlement_comment_url as _trusted_recorded_settlement_comment_url,
     _trusted_tier_four_human_preapproval_comment_url as _trusted_tier_four_human_preapproval_comment_url,
 )
 from aragora.cli.commands.review_queue_transport import (
@@ -1205,14 +1206,23 @@ def _cmd_record_settlement(args: argparse.Namespace) -> int:
     status_failed = False
     if getattr(args, "post_github_status", False):
         try:
+            repo_slug = _resolve_settlement_repo_slug(getattr(args, "repo", None))
+            status_target_url = _trusted_recorded_settlement_comment_url(
+                pr_number=result.receipt.pr_number,
+                repo_slug=repo_slug,
+                repo_override=getattr(args, "repo", None),
+                head_sha=head_sha,
+                gh_json=_gh_json,
+            )
             github_status = _post_human_settlement_status(
-                repo_slug=_resolve_settlement_repo_slug(getattr(args, "repo", None)),
+                repo_slug=repo_slug,
                 head_sha=head_sha,
                 context=str(
                     getattr(args, "github_status_context", "") or "aragora/human-settlement"
                 ),
                 pr_ref=str(getattr(args, "pr")),
                 receipt_sha256=result.receipt_sha256,
+                target_url=status_target_url,
             )
         except _GhError as exc:
             status_failed = True
@@ -1587,13 +1597,19 @@ def _post_human_settlement_status(
     context: str,
     pr_ref: str,
     receipt_sha256: str,
+    target_url: str,
 ) -> dict[str, Any]:
-    """POST the head-bound human-settlement commit status, citing the receipt.
+    """POST the head-bound human-settlement status, citing receipt and comment.
 
     Only called after the local receipt is durably written, so the status is
     always backed by a receipt. The receipt sha is embedded in the status
-    description for an auditable status->receipt link.
+    description for an auditable status->receipt link. ``target_url`` binds the
+    status to the trusted exact-head Tier 4 settlement comment that quorum later
+    verifies.
     """
+    target_url = str(target_url or "").strip()
+    if not target_url:
+        raise _GhError("human-settlement status requires a trusted settlement comment target_url")
     pr_digits = "".join(ch for ch in str(pr_ref) if ch.isdigit()) or str(pr_ref)
     description = (f"Settlement receipt {receipt_sha256} recorded for PR #{pr_digits}")[:140]
     resp = _gh_json(
@@ -1608,6 +1624,8 @@ def _post_human_settlement_status(
             f"context={context}",
             "-f",
             f"description={description}",
+            "-f",
+            f"target_url={target_url}",
         ]
     )
     state = ""
@@ -1621,6 +1639,7 @@ def _post_human_settlement_status(
         "state": state,
         "head_sha": head_sha,
         "receipt_sha256": receipt_sha256,
+        "target_url": target_url,
     }
 
 

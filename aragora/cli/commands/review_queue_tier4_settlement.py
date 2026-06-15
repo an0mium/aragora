@@ -203,6 +203,42 @@ def _trusted_tier_four_human_preapproval_comment_url(
     return max(candidates, key=lambda item: (item[0], item[1]))[2]
 
 
+def _trusted_recorded_settlement_comment_url(
+    *,
+    pr_number: int,
+    repo_slug: str,
+    repo_override: str | None,
+    head_sha: str,
+    gh_json: GhJson = _gh_json,
+) -> str:
+    fields = "number,url,headRefOid,comments,commits"
+    args = ["pr", "view", str(pr_number), "--json", fields]
+    if repo_override:
+        args.extend(["--repo", repo_override])
+    pr = gh_json(args)
+    if not isinstance(pr, dict):
+        raise _GhError(f"PR #{pr_number} not found while binding settlement status")
+    live_head = str(pr.get("headRefOid", "") or "").strip()
+    if live_head != head_sha:
+        raise _GhError(
+            f"PR #{pr_number} head changed from {head_sha} to {live_head}; "
+            "refusing to post exact-head settlement status"
+        )
+    comment_url = _trusted_tier_four_human_preapproval_comment_url(
+        pr,
+        head_sha=head_sha,
+        head_committed_at=_head_committed_at_from_pr(pr),
+        repo_slug=repo_slug,
+        gh_json=gh_json,
+    )
+    if not comment_url:
+        raise _GhError(
+            "no trusted exact-head Tier 4 settlement comment URL found; "
+            "refusing to post aragora/human-settlement status"
+        )
+    return comment_url
+
+
 def _has_tier_four_human_preapproval_comment(
     pr: dict[str, Any],
     *,

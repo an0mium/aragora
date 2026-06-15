@@ -6462,6 +6462,201 @@ class TestSettlementHelpers:
         assert rc == 1
         assert "gh unavailable" in err_buf.getvalue()
 
+    def test_record_settlement_post_status_targets_trusted_comment(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue.resolve_repo_root",
+            lambda cwd: tmp_path,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._require_clean_worktree",
+            lambda repo_root: None,
+        )
+        settlement_url = "https://github.example/pr/6294#issuecomment-settlement"
+        status_posts: list[list[str]] = []
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            fields = str(args[4]) if args[:4] == ["pr", "view", "6294", "--json"] else ""
+            if args[:2] == ["pr", "view"] and "comments,commits" not in fields:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "OPEN",
+                    "mergedAt": "",
+                }
+            if args[:2] == ["pr", "view"] and "comments,commits" in fields:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "commits": [{"oid": "headsha123", "committedDate": "2026-06-15T20:38:38Z"}],
+                    "comments": [
+                        {
+                            "author": {"login": "scarmani"},
+                            "authorAssociation": "OWNER",
+                            "createdAt": "2026-06-15T20:39:38Z",
+                            "url": settlement_url,
+                            "body": (
+                                "Tier-4 Human Settlement Authorization\n\n"
+                                "PR: #6294\n"
+                                "Exact head: headsha123\n"
+                                "Authorized action: admin_squash_merge only if checks stay green.\n\n"
+                                "Human-risk settlement: I accept the Tier 4 risk for this PR."
+                            ),
+                        }
+                    ],
+                }
+            if args == ["api", "user"]:
+                return {"login": "scarmani"}
+            if args == ["repo", "view", "--json", "nameWithOwner"]:
+                return {"nameWithOwner": "synaptent/aragora"}
+            if args == ["api", "repos/synaptent/aragora/collaborators/scarmani/permission"]:
+                return {"permission": "admin"}
+            if args[:4] == [
+                "api",
+                "--method",
+                "POST",
+                "repos/synaptent/aragora/statuses/headsha123",
+            ]:
+                status_posts.append(args)
+                return {"state": "success", "context": "aragora/human-settlement"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+        ns = argparse.Namespace(
+            review_queue_command="record-settlement",
+            pr="6294",
+            repo=None,
+            head_sha="headsha123",
+            action="comment",
+            reason="operator authorized exact-head human settlement",
+            review_queue_root=None,
+            apply_post_merge_lane_audit=False,
+            post_github_status=True,
+            github_status_context="aragora/human-settlement",
+            json=True,
+            json_output=True,
+        )
+
+        out_buf = io.StringIO()
+        with redirect_stdout(out_buf):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out_buf.getvalue())
+        assert rc == 0
+        assert payload["github_status"]["target_url"] == settlement_url
+        assert status_posts == [
+            [
+                "api",
+                "--method",
+                "POST",
+                "repos/synaptent/aragora/statuses/headsha123",
+                "-f",
+                "state=success",
+                "-f",
+                "context=aragora/human-settlement",
+                "-f",
+                f"description=Settlement receipt {payload['receipt_sha256']} recorded for PR #6294",
+                "-f",
+                f"target_url={settlement_url}",
+            ]
+        ]
+        ok, reason = tier4_settlement._human_settlement_status_creator_verified(
+            repo_slug="synaptent/aragora",
+            head_sha="headsha123",
+            target_url=settlement_url,
+            gh_json=lambda args: [
+                {
+                    "context": "aragora/human-settlement",
+                    "state": "success",
+                    "creator": {"login": "scarmani"},
+                    "target_url": settlement_url,
+                }
+            ],
+        )
+        assert ok is True
+        assert "status created by trusted settlement creator 'scarmani'" in reason
+
+    def test_record_settlement_post_status_requires_trusted_comment_target(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue.resolve_repo_root",
+            lambda cwd: tmp_path,
+        )
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._require_clean_worktree",
+            lambda repo_root: None,
+        )
+        status_posts: list[list[str]] = []
+
+        def _fake_gh_json(args: list[str]) -> dict[str, Any]:
+            fields = str(args[4]) if args[:4] == ["pr", "view", "6294", "--json"] else ""
+            if args[:2] == ["pr", "view"] and "comments,commits" not in fields:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "baseRefOid": "basesha123",
+                    "state": "OPEN",
+                    "mergedAt": "",
+                }
+            if args[:2] == ["pr", "view"] and "comments,commits" in fields:
+                return {
+                    "number": 6294,
+                    "url": "https://github.com/synaptent/aragora/pull/6294",
+                    "headRefOid": "headsha123",
+                    "commits": [{"oid": "headsha123", "committedDate": "2026-06-15T20:38:38Z"}],
+                    "comments": [],
+                }
+            if args == ["api", "user"]:
+                return {"login": "scarmani"}
+            if args == ["repo", "view", "--json", "nameWithOwner"]:
+                return {"nameWithOwner": "synaptent/aragora"}
+            if args[:4] == [
+                "api",
+                "--method",
+                "POST",
+                "repos/synaptent/aragora/statuses/headsha123",
+            ]:
+                status_posts.append(args)
+                return {"state": "success", "context": "aragora/human-settlement"}
+            raise AssertionError(args)
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", _fake_gh_json)
+        ns = argparse.Namespace(
+            review_queue_command="record-settlement",
+            pr="6294",
+            repo=None,
+            head_sha="headsha123",
+            action="comment",
+            reason="operator authorized exact-head human settlement",
+            review_queue_root=None,
+            apply_post_merge_lane_audit=False,
+            post_github_status=True,
+            github_status_context="aragora/human-settlement",
+            json=True,
+            json_output=True,
+        )
+
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out_buf.getvalue())
+        assert rc == 1
+        assert status_posts == []
+        assert payload["github_status"]["posted"] is False
+        assert (
+            "no trusted exact-head Tier 4 settlement comment URL found"
+            in payload["github_status"]["error"]
+        )
+        assert "receipt written but GitHub status POST failed" in err_buf.getvalue()
+
     def test_record_settlement_command_records_audit_apply_failure_then_returns_1(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
