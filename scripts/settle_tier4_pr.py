@@ -35,6 +35,15 @@ SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER = "trusted operator allowlist is required f
 SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
 SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER = "admin/OWNER permission required for --settle-only"
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
+HUMAN_PREAPPROVAL_RECEIPT_BLOCKER = (
+    "Tier 4 human preapproval required but not recorded (merge-packet reports "
+    "human_preapproval_recorded=false). The repo-visible settlement comment and "
+    f"{HUMAN_SETTLEMENT_CONTEXT} status are necessary but NOT sufficient: a local, "
+    "operator-controlled human-risk receipt must back them. Record it with "
+    "`aragora review-queue record-settlement --action approve --pr <PR> "
+    "--head-sha <HEAD> --reason <why> --post-github-status` (which writes the "
+    "receipt and status atomically), then re-check."
+)
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
 FAILED_QUORUM_CONCLUSIONS = {
     "failure",
@@ -401,6 +410,28 @@ def _packet_has_counted_tier4_evidence(merge_packet: dict[str, Any], *, pr: int)
     return True
 
 
+def _packet_requires_unrecorded_human_preapproval(merge_packet: dict[str, Any], *, pr: int) -> bool:
+    """True when merge-packet says this PR needs Tier-4 human preapproval that is
+    not yet receipt-backed.
+
+    Mirrors review_queue's strict two-signal gate: the repo-visible settlement
+    comment plus the ``aragora/human-settlement`` status are necessary but NOT
+    sufficient -- a local, operator-controlled human-risk receipt must also exist
+    (review_queue only sets ``human_preapproval_recorded`` once it does). The
+    settle helper's own ``--settle-only`` path posts the status without writing
+    that receipt, so without this guard ``--check`` would authorize a PR that
+    merge-packet still blocks. Refusing here keeps the two tools in agreement and
+    preserves the receipt as the one signal automation cannot forge from GitHub
+    comments/status alone.
+    """
+    entry = _entry_for_pr(merge_packet, pr=pr)
+    if not entry:
+        return False
+    return bool(entry.get("requires_human_preapproval")) and not bool(
+        entry.get("human_preapproval_recorded")
+    )
+
+
 def _comment_authorizes_requested_action(
     body: str, *, require_branch_protection_token: bool
 ) -> bool:
@@ -439,6 +470,8 @@ def _operator_authorized_actions(
     if not _required_checks_are_green(required_checks):
         return set()
     if not _human_settlement_status_is_success(pr_view):
+        return set()
+    if _packet_requires_unrecorded_human_preapproval(merge_packet, pr=pr):
         return set()
     if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
         return set()
@@ -697,6 +730,8 @@ def evaluate_tier4_gate(
             pass
         elif not _human_settlement_status_is_success(pr_view):
             authorization_precondition_blockers.append(HUMAN_SETTLEMENT_STATUS_BLOCKER)
+        elif _packet_requires_unrecorded_human_preapproval(merge_packet, pr=pr):
+            authorization_precondition_blockers.append(HUMAN_PREAPPROVAL_RECEIPT_BLOCKER)
         elif not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
             authorization_precondition_blockers.append(TIER4_EVIDENCE_BLOCKER)
     blockers.extend(authorization_precondition_blockers)

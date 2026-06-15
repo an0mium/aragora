@@ -85,6 +85,8 @@ def _tier4_packet(
     counted_reviewer_ids: list[str] | None = None,
     dogfood_evidence: list[dict[str, str]] | None = None,
     unresolved_dissent: bool = False,
+    requires_human_preapproval: bool = True,
+    human_preapproval_recorded: bool = True,
 ) -> dict[str, Any]:
     return {
         "not_ready": [pr],
@@ -94,6 +96,8 @@ def _tier4_packet(
                 "pr_number": pr,
                 "status": "human_preapproval_required",
                 "requires_human_risk_settlement": True,
+                "requires_human_preapproval": requires_human_preapproval,
+                "human_preapproval_recorded": human_preapproval_recorded,
                 "unresolved_dissent": unresolved_dissent,
                 "counted_reviewer_ids": (
                     ["codex", "grok"] if counted_reviewer_ids is None else counted_reviewer_ids
@@ -158,6 +162,75 @@ def test_exact_head_operator_comment_allows_check_result() -> None:
 
     assert result["ok"] is True
     assert result["blockers"] == []
+
+
+def test_unrecorded_human_preapproval_blocks_check_result() -> None:
+    # Repo-visible comment + status + evidence are all present, but merge-packet
+    # reports human_preapproval_recorded=false (no local receipt). --check must
+    # refuse, matching review_queue's strict two-signal gate, so a receipt-less
+    # automated settlement (e.g. settle helper --settle-only posting only the
+    # status) cannot self-clear Tier 4 authorization.
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, include_branch_protection=False)],
+        ),
+        merge_packet=_tier4_packet(human_preapproval_recorded=False),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert settler.HUMAN_PREAPPROVAL_RECEIPT_BLOCKER in result["blockers"]
+    assert result["authorized_actions"] == []
+
+
+def test_recorded_human_preapproval_allows_check_result() -> None:
+    # The same PR once the operator-controlled human-risk receipt is recorded
+    # (human_preapproval_recorded=true): the receipt blocker clears.
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, include_branch_protection=False)],
+        ),
+        merge_packet=_tier4_packet(human_preapproval_recorded=True),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is True
+    assert settler.HUMAN_PREAPPROVAL_RECEIPT_BLOCKER not in result["blockers"]
+
+
+def test_packet_requires_unrecorded_human_preapproval_helper() -> None:
+    assert (
+        settler._packet_requires_unrecorded_human_preapproval(
+            _tier4_packet(requires_human_preapproval=True, human_preapproval_recorded=False),
+            pr=7423,
+        )
+        is True
+    )
+    assert (
+        settler._packet_requires_unrecorded_human_preapproval(
+            _tier4_packet(requires_human_preapproval=True, human_preapproval_recorded=True),
+            pr=7423,
+        )
+        is False
+    )
+    # A PR that does not require preapproval is never blocked on the receipt.
+    assert (
+        settler._packet_requires_unrecorded_human_preapproval(
+            _tier4_packet(requires_human_preapproval=False, human_preapproval_recorded=False),
+            pr=7423,
+        )
+        is False
+    )
+    # Unknown PR -> no matching entry -> not blocked.
+    assert settler._packet_requires_unrecorded_human_preapproval(_tier4_packet(), pr=9999) is False
 
 
 def test_member_operator_comment_with_status_and_evidence_allows_check_result() -> None:
