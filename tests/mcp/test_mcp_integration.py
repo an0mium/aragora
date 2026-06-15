@@ -285,7 +285,7 @@ class TestMCPToolValidation:
 
             # Should fail on agent creation
             assert "error" in result
-            assert "No valid agents" in result["error"]
+            assert "Invalid agent selection" in result["error"]
 
 
 class TestMCPAsyncFunctions:

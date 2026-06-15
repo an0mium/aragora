@@ -1192,6 +1192,52 @@ def write_lane_ledger(tmp_path: Path, entries: list[dict[str, Any]]) -> str:
     return str(tmp_path / ".aragora" / "run-*" / "lanes")
 
 
+def write_preservation_outbox(
+    tmp_path: Path,
+    *,
+    lane_id: str,
+    branch: str,
+    desired_head_sha: str,
+) -> Path:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True, exist_ok=True)
+    path = outbox / f"open-pr-{branch.replace('/', '-')}-{desired_head_sha[:8]}.json"
+    path.write_text(
+        json.dumps(
+            {
+                "lane_id": lane_id,
+                "branch": branch,
+                "desired_head_sha": desired_head_sha,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def completed(
+    cmd: list[str], *, stdout: str = "", returncode: int = 0
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr="")
+
+
+def safe_inspect_payload(*, exists: bool) -> str:
+    blockers = [] if exists else ["missing_path"]
+    return json.dumps(
+        {
+            "exists": exists,
+            "tracked_worktree": exists,
+            "active_session": False,
+            "dirty": False,
+            "blockers": blockers,
+            "cleanup_safety": {
+                "classification": "cleanup_candidate" if exists else "absent_noop",
+                "decision": "cleanup_candidate" if exists else "noop",
+            },
+        }
+    )
+
+
 class TestOwnerLeaseLiveness:
     def test_live_owner_no_advisory(self) -> None:
         lane = {
@@ -1286,70 +1332,87 @@ class TestOwnerLeaseLiveness:
         assert result["stale_claim_advisory"] is None
         assert result["advisory_withheld"] == "possible_unpushed_work"
 
-    def test_absent_worktree_with_remote_exact_head_yields_advisory(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_absent_worktree_with_remote_exact_head_yields_advisory(self, tmp_path: Path) -> None:
         lane, ledger, worktree = _stale_worktree_lane(
             tmp_path,
             branch="codex/measure-work-loss-pending-outbox-primary-20260610",
             desired_head="4966b95bec51fac1ae102443d5e7a2974e03065d",
         )
+        calls: list[list[str]] = []
 
-        monkeypatch.setattr(
-            ilo,
-            "_safe_worktree_absent_noop",
-            lambda path: Path(path) == worktree,
-            raising=False,
-        )
-        monkeypatch.setattr(
-            ilo,
-            "_upstream_preservation_proof",
-            lambda checked_lane, checked_ledger: {
-                "method": "remote_branch_exact_head",
-                "branch": checked_lane["branch"],
-                "desired_head": checked_lane["desired_head_sha"],
-            },
-            raising=False,
-        )
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            calls.append(cmd)
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(
+                    cmd,
+                    stdout=f"{lane['desired_head_sha']}\trefs/heads/{lane['branch']}\n",
+                )
+            raise AssertionError(f"unexpected command: {cmd}")
 
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
         result = ilo.assess_owner_liveness(
-            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
         )
 
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "remote_branch_exact_head"
+        assert not any(cmd[:2] == ["gh", "api"] for cmd in calls)
         assert result["owner_liveness"]["assessed"] == "stale"
         assert result["stale_claim_advisory"]["available"] is True
         assert result["advisory_withheld"] is None
 
-    def test_absent_worktree_with_sha_in_merged_pr_yields_advisory(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_absent_worktree_with_sha_in_merged_pr_yields_advisory(self, tmp_path: Path) -> None:
+        desired_head = "317b94232d3ba41c3a1e546a94010dfdf069f85f"
         lane, ledger, worktree = _stale_worktree_lane(
             tmp_path,
             branch="codex/salvage-collect-evidence-quorum-rerun-20260606",
-            desired_head="317b94232d3ba41c3a1e546a94010dfdf069f85f",
+            desired_head=desired_head,
         )
 
-        monkeypatch.setattr(
-            ilo,
-            "_safe_worktree_absent_noop",
-            lambda path: Path(path) == worktree,
-            raising=False,
-        )
-        monkeypatch.setattr(
-            ilo,
-            "_upstream_preservation_proof",
-            lambda checked_lane, checked_ledger: {
-                "method": "merged_pr_contains_desired_head",
-                "pr_number": 7825,
-                "desired_head": checked_lane["desired_head_sha"],
-            },
-            raising=False,
-        )
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout="")
+            if cmd == ["git", "remote", "get-url", "origin"]:
+                return completed(cmd, stdout="https://github.com/synaptent/aragora.git\n")
+            if cmd[:2] == ["gh", "api"] and f"commits/{desired_head}/pulls" in cmd[-1]:
+                return completed(
+                    cmd, stdout=json.dumps([{"number": 7825, "merged_at": LIVENESS_NOW}])
+                )
+            if cmd[:2] == ["gh", "api"] and "pulls/7825/commits" in cmd[-1]:
+                return completed(cmd, stdout=json.dumps([{"sha": desired_head}]))
+            raise AssertionError(f"unexpected command: {cmd}")
 
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
         result = ilo.assess_owner_liveness(
-            lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
         )
 
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "merged_pr_commit_list"
         assert result["owner_liveness"]["assessed"] == "stale"
         assert result["stale_claim_advisory"]["available"] is True
         assert result["advisory_withheld"] is None
@@ -1437,60 +1500,48 @@ class TestOwnerLeaseLiveness:
         assert result["stale_claim_advisory"] is None
         assert result["advisory_withheld"] == "possible_unpushed_work"
 
-    def test_upstream_proof_rest_calls_use_app_token_helper(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        calls: list[dict[str, Any]] = []
+    def test_upstream_proof_rest_calls_use_bounded_gh_api(self, tmp_path: Path) -> None:
+        desired_head = "b" * 40
+        lane, ledger, _worktree = _stale_worktree_lane(
+            tmp_path,
+            branch="codex/app-token-proof",
+            desired_head=desired_head,
+        )
+        calls: list[list[str]] = []
 
-        def fake_run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-            calls.append({"args": args, "kwargs": kwargs})
-            if args[:3] == [
-                sys.executable,
-                str(ilo.REPO_ROOT / "scripts" / "gh_app_env.py"),
-                "--print-token",
-            ]:
-                return subprocess.CompletedProcess(args, 0, "app-token\n", "")
-            if args[:2] == ["gh", "api"]:
-                env = kwargs["env"]
-                assert env["GH_TOKEN"] == "app-token"
-                assert env["GITHUB_TOKEN"] == "app-token"
-                assert env["ARAGORA_GITHUB_AUTH_SOURCE"] == "github_app_installation"
-                assert "graphql" not in args
-                assert "pr" not in args
-                assert "list" not in args
-                return subprocess.CompletedProcess(
-                    args,
-                    0,
-                    json.dumps(
-                        [
-                            {
-                                "ref": "refs/heads/codex/app-token-proof",
-                                "object": {"sha": "b" * 40},
-                            }
-                        ]
-                    ),
-                    "",
-                )
-            raise AssertionError(f"unexpected subprocess args: {args}")
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            calls.append(cmd)
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout="")
+            if cmd == ["git", "remote", "get-url", "origin"]:
+                return completed(cmd, stdout="https://github.com/synaptent/aragora.git\n")
+            if cmd[:2] == ["gh", "api"]:
+                assert "graphql" not in cmd
+                assert "pr" not in cmd
+                assert "list" not in cmd
+                if f"commits/{desired_head}/pulls" in cmd[-1]:
+                    return completed(
+                        cmd,
+                        stdout=json.dumps([{"number": 7825, "merged_at": LIVENESS_NOW}]),
+                    )
+                if "pulls/7825/commits" in cmd[-1]:
+                    return completed(cmd, stdout=json.dumps([{"sha": desired_head}]))
+            raise AssertionError(f"unexpected command: {cmd}")
 
-        monkeypatch.setenv("GH_TOKEN", "user-token-that-must-not-be-used")
-        monkeypatch.setattr(ilo.subprocess, "run", fake_run)
-
-        proof = ilo._upstream_preservation_proof(
-            {
-                "repo": "synaptent/aragora",
-                "branch": "codex/app-token-proof",
-                "desired_head_sha": "b" * 40,
-            },
-            None,
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
         )
 
-        assert proof == {
-            "method": "remote_branch_exact_head",
-            "branch": "codex/app-token-proof",
-            "desired_head": "b" * 40,
-        }
-        assert [call["args"][0] for call in calls] == [sys.executable, "gh"]
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "merged_pr_commit_list"
+        assert any(cmd[:2] == ["gh", "api"] for cmd in calls)
+        assert not any(str(ilo.REPO_ROOT / "scripts" / "gh_app_env.py") in cmd for cmd in calls)
 
     def test_uncommitted_work_claim_withholds_advisory(self) -> None:
         lane = {"lane_id": "Q6-dirty", "owner_session": "codex-q6", "updated_at": _hours_ago(7.0)}
@@ -1576,6 +1627,261 @@ class TestOwnerLeaseLiveness:
     def test_find_lane_ledger_entry_missing_returns_none(self, tmp_path: Path) -> None:
         runs_glob = write_lane_ledger(tmp_path, [])
         assert ilo.find_lane_ledger_entry({"lane_id": "nope"}, runs_glob=runs_glob) is None
+
+
+class TestWorktreeReferencePreservationProof:
+    def test_q467_absent_worktree_remote_branch_exact_head_yields_advisory(
+        self, tmp_path: Path
+    ) -> None:
+        desired_sha = "4966b95bec51fac1ae102443d5e7a2974e03065d"
+        branch = "codex/measure-work-loss-pending-outbox-primary-20260610"
+        lane = {
+            "lane_id": "Q467-primary-measure-work-loss-pending-outbox",
+            "owner_session": "codex-q467",
+            "branch": branch,
+            "worktree": str(tmp_path / "absent-q467"),
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+        write_preservation_outbox(
+            tmp_path,
+            lane_id=lane["lane_id"],
+            branch=branch,
+            desired_head_sha=desired_sha,
+        )
+        calls: list[list[str]] = []
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            calls.append(cmd)
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout=f"{desired_sha}\trefs/heads/{branch}\n")
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "remote_branch_exact_head"
+        assert not any(cmd[:2] == ["gh", "api"] for cmd in calls)
+
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+        assert result["stale_claim_advisory"]["available"] is True
+        assert result["advisory_withheld"] is None
+
+    def test_q379_absent_worktree_merged_pr_commit_yields_advisory_when_remote_gone(
+        self, tmp_path: Path
+    ) -> None:
+        desired_sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        branch = "codex/salvage-collect-evidence-quorum-rerun-20260606"
+        lane = {
+            "lane_id": "Q379-primary-salvage",
+            "owner_session": "codex-q379",
+            "branch": branch,
+            "worktree": str(tmp_path / "absent-q379"),
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "completed",
+            "launched_at": _hours_ago(7.0),
+        }
+        write_preservation_outbox(
+            tmp_path,
+            lane_id=lane["lane_id"],
+            branch=branch,
+            desired_head_sha=desired_sha,
+        )
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout="")
+            if cmd == ["git", "remote", "get-url", "origin"]:
+                return completed(cmd, stdout="https://github.com/synaptent/aragora.git\n")
+            if cmd[:2] == ["gh", "api"] and f"commits/{desired_sha}/pulls" in cmd[-1]:
+                return completed(
+                    cmd, stdout=json.dumps([{"number": 8396, "merged_at": LIVENESS_NOW}])
+                )
+            if cmd[:2] == ["gh", "api"] and "pulls/8396/commits" in cmd[-1]:
+                return completed(cmd, stdout=json.dumps([{"sha": desired_sha}]))
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        assert proof["available"] is True
+        assert proof["upstream_preservation"]["method"] == "merged_pr_commit_list"
+
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+        assert result["stale_claim_advisory"]["available"] is True
+        assert result["advisory_withheld"] is None
+
+    def test_present_worktree_still_withholds_possible_unpushed_work(self, tmp_path: Path) -> None:
+        desired_sha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        branch = "codex/present-worktree"
+        lane = {
+            "lane_id": "Q-present",
+            "owner_session": "codex-present",
+            "branch": branch,
+            "worktree": str(tmp_path / "present-worktree"),
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+        write_preservation_outbox(
+            tmp_path,
+            lane_id=lane["lane_id"],
+            branch=branch,
+            desired_head_sha=desired_sha,
+        )
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=True))
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+        assert proof["available"] is False
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_absent_worktree_without_upstream_proof_still_withholds(self, tmp_path: Path) -> None:
+        desired_sha = "cccccccccccccccccccccccccccccccccccccccc"
+        branch = "codex/no-upstream-proof"
+        lane = {
+            "lane_id": "Q-no-proof",
+            "owner_session": "codex-no-proof",
+            "branch": branch,
+            "worktree": str(tmp_path / "absent-no-proof"),
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+        write_preservation_outbox(
+            tmp_path,
+            lane_id=lane["lane_id"],
+            branch=branch,
+            desired_head_sha=desired_sha,
+        )
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            if "safe_worktree_cleanup.py" in " ".join(cmd):
+                return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+            if cmd[:3] == ["git", "ls-remote", "origin"]:
+                return completed(cmd, stdout="")
+            if cmd == ["git", "remote", "get-url", "origin"]:
+                return completed(cmd, stdout="https://github.com/synaptent/aragora.git\n")
+            if cmd[:2] == ["gh", "api"] and f"commits/{desired_sha}/pulls" in cmd[-1]:
+                return completed(cmd, stdout="[]")
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+        assert proof["available"] is False
+        assert proof["reason"] == "upstream_preservation_unproven"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
+
+    def test_dirty_marker_set_still_withholds_possible_unpushed_work(self, tmp_path: Path) -> None:
+        branch = "codex/dirty-marker"
+        lane = {
+            "lane_id": "Q-dirty-marker",
+            "owner_session": "codex-dirty-marker",
+            "branch": branch,
+            "worktree": str(tmp_path / "absent-dirty"),
+            "local_work": True,
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": lane["lane_id"],
+            "branch": branch,
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+
+        def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        proof = ilo.build_worktree_reference_preservation_proof(
+            lane,
+            ledger_entry=ledger,
+            repo_root=tmp_path,
+            state_root=tmp_path / ".aragora",
+            runner=runner,
+        )
+        result = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger,
+            heartbeat=None,
+            now=_liveness_now(),
+            local_work_preservation=proof,
+        )
+        assert proof["available"] is False
+        assert proof["reason"] == "local_work_claim_present"
+        assert result["stale_claim_advisory"] is None
+        assert result["advisory_withheld"] == "possible_unpushed_work"
 
 
 class TestLivenessCLI:

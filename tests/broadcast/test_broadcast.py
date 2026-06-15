@@ -47,7 +47,8 @@ class TestScriptGen:
             ],
         )
 
-        segments = generate_script(trace)
+        script = generate_script(trace)
+        segments = script.segments
 
         assert len(segments) == 5  # Opening + msg1 + transition + msg2 + closing
         assert segments[0].speaker == "narrator"
@@ -86,6 +87,9 @@ class TestAudioEngine:
     @patch("aragora.broadcast.audio_engine._generate_edge_tts")
     async def test_generate_audio_with_mock(self, mock_tts):
         """Test audio generation with mocked TTS."""
+        # get_audio_backend() probes the XTTS backend, which imports the optional
+        # Coqui "TTS" package; skip when that optional dependency is absent.
+        pytest.importorskip("TTS")
 
         # Mock that creates the file and returns True
         async def mock_edge_tts(text, voice, output_path):
@@ -156,6 +160,9 @@ class TestMixer:
 @patch("aragora.broadcast.audio_engine._generate_edge_tts")
 async def test_full_pipeline_mock(mock_tts):
     """Test the full broadcast pipeline with mocks."""
+    # generate_audio() builds the real TTS backend, whose XTTS probe imports the
+    # optional Coqui "TTS" package; skip when that optional dependency is absent.
+    pytest.importorskip("TTS")
 
     # Mock TTS that creates the file
     async def mock_edge_tts(text, voice, output_path):
@@ -187,7 +194,8 @@ async def test_full_pipeline_mock(mock_tts):
         temp_path = Path(temp_dir)
 
         # Generate script
-        segments = generate_script(trace)
+        script = generate_script(trace)
+        segments = script.segments
         assert len(segments) > 0
 
         # Generate audio
