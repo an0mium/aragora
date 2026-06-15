@@ -81,19 +81,22 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
         "philosophy": 0.85,  # Rigorous reasoning
         "general": 0.85,
     },
-    # OpenRouter Fusion: a multi-model council, so broadly strong rather than
-    # specialized. High cost_factor (~4.5x) means the Pareto optimizer only
-    # selects it when quality outweighs cost (high-stakes debates); it is skipped
-    # on low budgets. Opt-in via the enable_fusion feature flag.
-    "fusion": {
-        "reasoning": 0.92,
-        "architecture": 0.9,
-        "security": 0.88,
-        "api": 0.88,
-        "data_analysis": 0.9,
-        "philosophy": 0.9,
-        "general": 0.88,
-    },
+}
+
+# OpenRouter Fusion is NOT a default agent -- it is opt-in via the enable_fusion
+# feature flag, so it is kept out of DEFAULT_AGENT_EXPERTISE (the always-on
+# defaults) and registered separately only when the flag is set. As a
+# multi-model council it is broadly strong rather than specialized; its high
+# cost_factor (~4.5x) means the Pareto optimizer picks it only when quality
+# outweighs cost.
+FUSION_EXPERTISE: dict[str, float] = {
+    "reasoning": 0.92,
+    "architecture": 0.9,
+    "security": 0.88,
+    "api": 0.88,
+    "data_analysis": 0.9,
+    "philosophy": 0.9,
+    "general": 0.88,
 }
 
 if TYPE_CHECKING:
@@ -950,27 +953,28 @@ class AgentSelector:
         # model panel + judge, so it is ~4.5x cost and slower; this lets the
         # Pareto optimizer naturally skip it on low budgets and pick it only when
         # quality outweighs cost.
-        cost_factors = {"fusion": 4.5}
-        latency_ms = {"fusion": 4500.0}  # ~4.5x default, matching the cost multiplier
-        # Enforce the opt-in contract: Fusion is only exposed to the Pareto
-        # optimizer when ``enable_fusion`` is set. Without this gate a stock
-        # install (flag OFF) could still auto-select Fusion on a high-budget
-        # debate -- contradicting the default-OFF guarantee.
+        # Register the always-on default agents (1.0x cost / 1000ms latency).
+        for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
+            selector.register_agent(
+                AgentProfile(name=agent_name, agent_type=agent_name, expertise=expertise.copy())
+            )
+
+        # Fusion is opt-in: expose it to the Pareto optimizer ONLY when
+        # enable_fusion is set, so a stock install (flag OFF) never auto-selects
+        # it -- enforcing the default-OFF guarantee. Its high cost/latency make
+        # the optimizer pick it only when quality outweighs cost.
         from aragora.config.feature_flags import is_enabled as _flag_enabled
 
-        fusion_enabled = _flag_enabled("enable_fusion")
-        # Register agents with default expertise
-        for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
-            if agent_name == "fusion" and not fusion_enabled:
-                continue
-            profile = AgentProfile(
-                name=agent_name,
-                agent_type=agent_name,
-                expertise=expertise.copy(),
-                cost_factor=cost_factors.get(agent_name, 1.0),
-                latency_ms=latency_ms.get(agent_name, 1000.0),
+        if _flag_enabled("enable_fusion"):
+            selector.register_agent(
+                AgentProfile(
+                    name="fusion",
+                    agent_type="fusion",
+                    expertise=FUSION_EXPERTISE.copy(),
+                    cost_factor=4.5,
+                    latency_ms=4500.0,
+                )
             )
-            selector.register_agent(profile)
 
         # Sync from ELO if available
         if elo_system:
@@ -993,4 +997,5 @@ __all__ = [
     "PHASE_ROLES",
     # Constants
     "DEFAULT_AGENT_EXPERTISE",
+    "FUSION_EXPERTISE",
 ]

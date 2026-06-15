@@ -13,7 +13,11 @@ from aragora.agents.api_agents.openrouter import FUSION_MODEL, FusionAgent
 from aragora.agents.registry import AgentRegistry
 from aragora.billing.usage import calculate_token_cost
 from aragora.config.feature_flags import FeatureFlagRegistry
-from aragora.routing.selection import DEFAULT_AGENT_EXPERTISE, AgentSelector
+from aragora.routing.selection import (
+    DEFAULT_AGENT_EXPERTISE,
+    FUSION_EXPERTISE,
+    AgentSelector,
+)
 
 
 def test_fusion_agent_is_registered_with_openrouter_model() -> None:
@@ -53,7 +57,10 @@ def test_fusion_routing_profile_is_high_cost(monkeypatch) -> None:
     # Enforcement: with enable_fusion ON, fusion is registered with a high
     # cost/latency profile so the Pareto optimizer skips it on low budgets.
     monkeypatch.setenv("ARAGORA_ENABLE_FUSION", "true")
-    assert "fusion" in DEFAULT_AGENT_EXPERTISE
+    # Fusion is an opt-in agent, kept OUT of the always-on defaults; its
+    # expertise lives in the separate FUSION_EXPERTISE (a domain->score map).
+    assert "fusion" not in DEFAULT_AGENT_EXPERTISE
+    assert FUSION_EXPERTISE.get("reasoning", 0) > 0
     selector = AgentSelector.create_with_defaults()
     profile = selector.agent_pool["fusion"]
     assert profile.cost_factor == 4.5
