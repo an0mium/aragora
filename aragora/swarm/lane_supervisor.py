@@ -5,11 +5,11 @@ work orders as JSON into ``.aragora/lane_dispatch/pending/``. This module is the
 *back* of that handoff: it drains pending orders and hands each to a worker
 launcher, with a file-state machine that is the load-bearing safety primitive:
 
-    pending/  --claim (atomic rename)-->  in_progress/  --+--> done/
-                                                          +--> failed/
+    pending/  --claim (atomic no-overwrite link)-->  in_progress/  --+--> done/
+                                                                     +--> failed/
 
-The atomic ``pending -> in_progress`` rename is how two concurrent supervisors
-(or a retry) never double-spawn the same work order: exactly one rename wins;
+The atomic ``pending -> in_progress`` claim is how two concurrent supervisors
+(or a retry) never double-spawn the same work order: exactly one no-overwrite link wins;
 the loser sees the source gone and skips. Each order ends in ``done/`` (launched)
 or ``failed/`` (launch raised, error recorded), so the queue is always
 inspectable and replayable.
@@ -24,6 +24,7 @@ CLI's dry-run default); ``drain_once`` performs the claims + launches.
 from __future__ import annotations
 
 import json
+import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -87,17 +88,19 @@ def load_pending(root: Path) -> list[tuple[Path, dict[str, Any]]]:
 
 
 def claim_order(path: Path, root: Path) -> Path | None:
-    """Atomically move one order pending -> in_progress; the claim.
+    """Atomically claim one order pending -> in_progress without overwriting.
 
     Returns the new in_progress path, or ``None`` if another drainer already
-    claimed it (the rename source vanished) -- the double-spawn guard.
+    claimed it (the source vanished or the destination exists) -- the
+    double-spawn guard.
     """
     dest_dir = _state_dir(root, IN_PROGRESS)
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / path.name
     try:
-        path.rename(dest)
-    except (FileNotFoundError, OSError):
+        os.link(path, dest)
+        path.unlink()
+    except (FileExistsError, FileNotFoundError, OSError):
         return None
     return dest
 

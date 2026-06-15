@@ -151,6 +151,15 @@ def test_worker_prompt_is_short_and_constant() -> None:
     assert len(prompt.splitlines()) < 30
 
 
+def test_default_session_id_is_collision_resistant(monkeypatch: Any) -> None:
+    monkeypatch.setattr(ld.time, "time", lambda: 1_765_760_000)
+    first = ld.default_session_id(42)
+    second = ld.default_session_id(42)
+    assert first.startswith("codex-lane-pr42-1765760000-")
+    assert second.startswith("codex-lane-pr42-1765760000-")
+    assert first != second
+
+
 # ---------------------------------------------------------------------------
 # Live-claim parsing accepts both shapes
 # ---------------------------------------------------------------------------

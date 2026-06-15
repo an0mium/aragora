@@ -29,6 +29,7 @@ testable without a network or a worktree.
 from __future__ import annotations
 
 import time
+import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -96,7 +97,7 @@ class DispatchPlan:
 
 
 def default_session_id(pr: int) -> str:
-    return f"codex-lane-pr{pr}-{int(time.time())}"
+    return f"codex-lane-pr{pr}-{int(time.time())}-{uuid.uuid4().hex[:8]}"
 
 
 def select_assignments(

@@ -87,6 +87,7 @@ class ConductorPass:
     owned: dict[int, str] = field(default_factory=dict)
     deferred: list[int] = field(default_factory=list)
     dispatched: list[str] = field(default_factory=list)
+    claim_failed: list[int] = field(default_factory=list)
     executed: bool = False
     reason: str = ""
 
@@ -96,6 +97,7 @@ class ConductorPass:
             "owned": {str(pr): owner for pr, owner in self.owned.items()},
             "deferred": list(self.deferred),
             "dispatched": list(self.dispatched),
+            "claim_failed": list(self.claim_failed),
             "executed": self.executed,
             "reason": self.reason,
         }
@@ -169,30 +171,36 @@ def plan_pass(
 # ---------------------------------------------------------------------------
 
 
-def default_claim(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -> None:
+def default_claim(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -> bool:
     """Write the atomic lane claim via scripts/claim_active_agent_lane.py."""
     root = repo_root or Path.cwd()
-    subprocess.run(
-        [
-            "python3",
-            str(root / "scripts" / "claim_active_agent_lane.py"),
-            "--owner-session",
-            work_order.owner_session,
-            "--pr-number",
-            str(work_order.pr),
-            "--branch",
-            work_order.branch,
-            "--source",
-            work_order.target_agent,
-            "--status",
-            "active",
-            "--next-action",
-            f"advance #{work_order.pr}",
-            "--release-stale",
-        ],
-        check=False,
-        timeout=60,
-    )
+    try:
+        proc = subprocess.run(
+            [
+                "python3",
+                str(root / "scripts" / "claim_active_agent_lane.py"),
+                "--owner-session",
+                work_order.owner_session,
+                "--pr-number",
+                str(work_order.pr),
+                "--branch",
+                work_order.branch,
+                "--source",
+                work_order.target_agent,
+                "--status",
+                "active",
+                "--next-action",
+                f"advance #{work_order.pr}",
+                "--release-stale",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return proc.returncode == 0
 
 
 def default_dispatch(work_order: WorkOrderSpec, *, repo_root: Path | None = None) -> str:
@@ -219,7 +227,7 @@ def run_pass(
     max_workers: int = DEFAULT_MAX_WORKERS,
     target_agent: str = DEFAULT_TARGET_AGENT,
     execute: bool = False,
-    claim_fn: Callable[[WorkOrderSpec], None] | None = None,
+    claim_fn: Callable[[WorkOrderSpec], bool | None] | None = None,
     dispatch_fn: Callable[[WorkOrderSpec], str] | None = None,
     session_id_for: Callable[[int], str] = default_session_id,
     now: Callable[[], str] | None = None,
@@ -249,7 +257,9 @@ def run_pass(
     claim = claim_fn or default_claim
     dispatch = dispatch_fn or default_dispatch
     for work_order in result.work_orders:
-        claim(work_order)
+        if claim(work_order) is False:
+            result.claim_failed.append(work_order.pr)
+            continue
         result.dispatched.append(dispatch(work_order))
     result.executed = True
     return result

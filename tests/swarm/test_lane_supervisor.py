@@ -71,6 +71,20 @@ def test_second_claim_returns_none(tmp_path: Path) -> None:
     assert second is None
 
 
+def test_claim_does_not_overwrite_existing_in_progress(tmp_path: Path) -> None:
+    path = _write_pending(tmp_path, "lane-7-x", pr=7)
+    in_progress = tmp_path / ls.DISPATCH_ROOT / ls.IN_PROGRESS
+    in_progress.mkdir(parents=True, exist_ok=True)
+    existing = in_progress / path.name
+    existing.write_text(json.dumps({"work_order_id": "lane-7-x", "pr": 999}), encoding="utf-8")
+
+    claimed = ls.claim_order(path, tmp_path)
+
+    assert claimed is None
+    assert path.exists()
+    assert json.loads(existing.read_text(encoding="utf-8"))["pr"] == 999
+
+
 # ---------------------------------------------------------------------------
 # drain_once
 # ---------------------------------------------------------------------------

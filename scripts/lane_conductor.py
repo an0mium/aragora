@@ -50,7 +50,8 @@ _BLOCKED_STATES = {"BLOCKED", "UNSTABLE"}
 # Owner-liveness assessments that mean the lane is NOT actively held, so it is
 # reassignable. Anything else (including unknown) is treated as live -- the
 # fail-safe direction is to avoid double-dispatching a possibly-live lane.
-_RECLAIMABLE_ASSESSMENTS = {"stale", "terminal", "absent", "reclaimable", "none", ""}
+_RECLAIMABLE_ASSESSMENTS = {"stale", "terminal", "absent", "reclaimable"}
+_UNKNOWN_OWNER = "owner-liveness-unavailable"
 
 
 def _read_env() -> dict[str, str]:
@@ -131,15 +132,18 @@ def fetch_live_claims(repo: str, candidates: list[dict[str, Any]]) -> dict[int, 
             timeout=60,
         )
         if proc.returncode != 0 or not proc.stdout.strip():
+            if "no lane matched" not in (proc.stderr or "").lower():
+                claims[pr] = _UNKNOWN_OWNER
             continue
         try:
             data = json.loads(proc.stdout)
         except json.JSONDecodeError:
+            claims[pr] = _UNKNOWN_OWNER
             continue
         owner = str(data.get("owner_session") or "").strip()
         if not owner:
             continue
-        assessment = str((data.get("owner_liveness") or {}).get("assessment") or "").strip().lower()
+        assessment = str((data.get("owner_liveness") or {}).get("assessed") or "").strip().lower()
         if assessment in _RECLAIMABLE_ASSESSMENTS:
             continue
         claims[pr] = owner

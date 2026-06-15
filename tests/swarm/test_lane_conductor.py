@@ -7,12 +7,28 @@ lane registry, a worktree, or a spawned worker.
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from aragora.swarm import lane_conductor as lc
 from aragora.swarm.lane_dispatcher import LaneAssignment
+
+
+def _load_cli() -> Any:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "lane_conductor.py"
+    spec = importlib.util.spec_from_file_location("lane_conductor_cli_under_test", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+cli = _load_cli()
 
 
 def _cand(number: int, branch: str = "") -> dict[str, Any]:
@@ -130,6 +146,28 @@ def test_run_pass_execute_claims_then_dispatches_each() -> None:
     assert result.dispatched[0].endswith("lane-1-sess-1.json")
 
 
+def test_run_pass_execute_skips_dispatch_when_claim_fails() -> None:
+    dispatched: list[int] = []
+
+    def claim(wo: lc.WorkOrderSpec) -> bool:
+        return wo.pr != 1
+
+    result = lc.run_pass(
+        repo="r",
+        fetch_candidates=lambda repo: [_cand(1), _cand(2)],
+        fetch_live_claims=lambda repo, cands: {},
+        max_workers=5,
+        execute=True,
+        claim_fn=claim,
+        dispatch_fn=lambda wo: (dispatched.append(wo.pr), "p")[1],
+        session_id_for=_seq_session,
+        now=_fixed_now,
+    )
+    assert dispatched == [2]
+    assert result.claim_failed == [1]
+    assert result.dispatched == ["p"]
+
+
 def test_run_pass_execute_skips_live_owned_lanes() -> None:
     claimed: list[int] = []
     result = lc.run_pass(
@@ -169,3 +207,45 @@ def test_default_dispatch_writes_atomic_json(tmp_path: Path) -> None:
     assert payload["pr"] == 42
     assert payload["owner_session_id"] == "sess-42"
     assert "CLAIM-OR-YIELD" in payload["prompt"]
+
+
+# ---------------------------------------------------------------------------
+# CLI live-owner liveness parsing
+# ---------------------------------------------------------------------------
+
+
+def _proc(stdout: str = "", *, returncode: int = 0, stderr: str = "") -> Any:
+    return SimpleNamespace(returncode=returncode, stdout=stdout, stderr=stderr)
+
+
+def test_fetch_live_claims_reads_canonical_assessed_field(monkeypatch: Any) -> None:
+    payload = {"owner_session": "owner-a", "owner_liveness": {"assessed": "live"}}
+    monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: _proc(json.dumps(payload)))
+
+    assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {1: "owner-a"}
+
+
+def test_fetch_live_claims_treats_empty_liveness_as_live(monkeypatch: Any) -> None:
+    payload = {"owner_session": "owner-a", "owner_liveness": {}}
+    monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: _proc(json.dumps(payload)))
+
+    assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {1: "owner-a"}
+
+
+def test_fetch_live_claims_reclaims_explicit_stale_owner(monkeypatch: Any) -> None:
+    payload = {"owner_session": "owner-a", "owner_liveness": {"assessed": "stale"}}
+    monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: _proc(json.dumps(payload)))
+
+    assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {}
+
+
+def test_fetch_live_claims_allows_explicit_absent_owner(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda *args, **kwargs: _proc(
+            returncode=1, stderr="ERROR: no lane matched criteria {'pr': 1}"
+        ),
+    )
+
+    assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {}
