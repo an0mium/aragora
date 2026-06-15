@@ -82,6 +82,9 @@ class WorkOrderSpec:
     repo: str
     prompt: str
     created_at: str = ""
+    # Opt in to verbatim prompt rendering in WorkerLauncher._build_prompt: the
+    # claim-first prompt IS the directive and must reach the worker unmodified.
+    prompt_verbatim: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
