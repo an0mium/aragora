@@ -11,6 +11,25 @@ def _completed(*, returncode: int = 0, stdout: str = "", stderr: str = "") -> Si
     return SimpleNamespace(returncode=returncode, stdout=stdout, stderr=stderr)
 
 
+class _BrokenStdout:
+    def __init__(self, *, fail_on: str) -> None:
+        self.fail_on = fail_on
+        self.writes: list[str] = []
+
+    def write(self, text: str) -> int:
+        if self.fail_on == "write":
+            raise BrokenPipeError("downstream closed")
+        self.writes.append(text)
+        return len(text)
+
+    def flush(self) -> None:
+        if self.fail_on == "flush":
+            raise BrokenPipeError("downstream closed")
+
+    def close(self) -> None:
+        return None
+
+
 def test_cli_uses_direct_session_mux_module() -> None:
     assert cli.session_mux.__name__ == "aragora_swarm_session_mux_direct"
 
@@ -209,3 +228,49 @@ def test_status_command_prints_readiness_phase(monkeypatch, tmp_path: Path, caps
     output = capsys.readouterr().out
     assert '"phase": "prompt_accepted"' in output
     assert '"prompt_accepted": true' in output
+
+
+def test_list_json_suppresses_write_time_broken_pipe(monkeypatch, tmp_path: Path) -> None:
+    muted: list[bool] = []
+
+    monkeypatch.setattr(cli, "_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(cli.session_mux, "list_sessions", lambda repo_root: [])
+    monkeypatch.setattr(
+        cli, "_mute_stdout_after_broken_pipe", lambda: muted.append(True), raising=False
+    )
+    monkeypatch.setattr(cli.sys, "stdout", _BrokenStdout(fail_on="write"))
+
+    assert cli.main(["list", "--json"]) == 0
+    assert muted == [True]
+
+
+def test_capture_suppresses_flush_time_broken_pipe(monkeypatch, tmp_path: Path) -> None:
+    muted: list[bool] = []
+    log_path = tmp_path / ".aragora" / "session_mux" / "logs" / "codex-1.log"
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text(
+        "\n".join([session_mux.prompt_marker("fresh"), "captured line"]),
+        encoding="utf-8",
+    )
+    registry = session_mux.SessionMuxRegistry(tmp_path)
+    registry.upsert(
+        session_mux.SessionRecord(
+            name="codex-1",
+            tmux_session="codex-1",
+            tmux_window="0",
+            tmux_pane="0",
+            launcher_command="codex",
+            started_at="2026-04-13T18:00:00Z",
+            log_path=str(log_path),
+            last_prompt_id="fresh",
+        )
+    )
+
+    monkeypatch.setattr(cli, "_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        cli, "_mute_stdout_after_broken_pipe", lambda: muted.append(True), raising=False
+    )
+    monkeypatch.setattr(cli.sys, "stdout", _BrokenStdout(fail_on="flush"))
+
+    assert cli.main(["capture", "--name", "codex-1", "--tail", "20"]) == 0
+    assert muted == [True]

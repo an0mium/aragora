@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 from types import ModuleType
@@ -65,8 +66,24 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_text(text: str) -> None:
+    try:
+        sys.stdout.write(text)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def _print_json(payload: object) -> None:
-    sys.stdout.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    _emit_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
 def _print_status_text(status: dict[str, object]) -> None:
@@ -79,7 +96,7 @@ def _print_status_text(status: dict[str, object]) -> None:
         f"tmux={status['tmux_target']} branch={status.get('branch') or '-'} "
         f"worktree={status.get('worktree_path') or '-'} readiness={phase}"
     )
-    sys.stdout.write(f"{line}\n")
+    _emit_text(f"{line}\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -119,11 +136,13 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "capture":
             text = session_mux.capture_output(repo_root, name=args.name, tail_lines=args.tail)
-            sys.stdout.write(f"{text}\n" if text else "")
+            if text:
+                _emit_text(f"{text}\n")
             return 0
         if args.command == "tail":
             text = session_mux.tail_output(repo_root, name=args.name, line_count=args.lines)
-            sys.stdout.write(f"{text}\n" if text else "")
+            if text:
+                _emit_text(f"{text}\n")
             return 0
     except (FileNotFoundError, KeyError, RuntimeError, ValueError) as exc:
         parser.exit(status=1, message=f"{exc}\n")
