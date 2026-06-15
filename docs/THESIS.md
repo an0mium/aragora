@@ -462,12 +462,7 @@ evaluated against the target, not the current implementation.
   surfaces so they treat the PDB execution path as the canonical PR
   review realization.
 
-- **Empirical threshold grounding.** Commitment 3's 5% auto-handle
-  outcome-invalidation threshold is a placeholder for "substantially
-  lower than baseline human-settled invalidation rate." Work needed:
-  measure the baseline once enough settled decisions accumulate;
-  replace the placeholder with baseline + safety margin; recalibrate
-  per rolling window.
+- **Empirical threshold grounding.** Commitment 3's invalidation threshold is set to the 1.0% minimum-meaningful floor triggered by 0 observed invalidations over 67 settled decisions (formula `max(0 * 0.5, 0.01)` = 0.01), which is explicitly provisional and recalibrates upward as real invalidation events accrue — not as a measured 1% rate. This closes the implementation gap under `threshold_update_receipt.v1` dated 2026-06-14.
 
 Each gap is a tracked product backlog item. The gap-closing work is
 what the product roadmap is for; it is not a reason to update the
@@ -560,11 +555,12 @@ Five concrete commitments follow from taking the thesis seriously:
      drops below 15% (suggesting the panel is converging on the human's
      prior rather than adding independent signal); or
    - if, among decisions the triage layer *auto-handles*, the
-     outcome-invalidation rate rises above 5% — a placeholder for
-     "substantially lower than baseline human-settled invalidation
-     rate," pending empirical baseline measurement per § Implementation
-     gaps — suggesting auto-handling has drifted outside its
-     validated scope,
+     outcome-invalidation rate rises above 1.0% — the minimum-meaningful
+     floor triggered by 0 observed invalidations over 67 settled decisions
+     (formula `max(0 * 0.5, 0.01)` = 0.01), which is explicitly provisional and
+     recalibrates upward as real invalidation events accrue (not as a measured
+     1% rate) per `threshold_update_receipt.v1` dated 2026-06-14 — suggesting
+     auto-handling has drifted outside its validated scope,
    the product has failed its own test on that window and must be
    revised (architecturally via input-diversification; operationally
    via expanded panel heterogeneity; or in triage policy via tighter

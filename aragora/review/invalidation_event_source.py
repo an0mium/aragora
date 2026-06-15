@@ -178,11 +178,30 @@ class ReviewQueueInvalidationEventSource:
             "auto_handle_source": "auto-handle calibration store",
         }
         if not human_invalidations:
-            notes["human_invalidations_source"] = (
-                "settlement-receipt schema does not yet record post-settlement "
-                "invalidation signals by default; human-side numerator is 0 by "
-                "data availability unless future-schema fields are present."
+            v2_observed = _any_receipt_has_v2_outcome_fields(
+                store_root=self.review_queue_root,
+                window_end=window_end,
+                window_days=window_days,
             )
+            if v2_observed:
+                notes["human_invalidations_source"] = (
+                    "settlement-receipt schema-v2 outcome fields are present on at "
+                    "least one receipt in the window, but no receipt in the window "
+                    "fired any of the five canonical signals. Treat as measured "
+                    "zero only if the observation timestamp is recent enough to "
+                    "have caught any in-window signals."
+                )
+            else:
+                notes["human_invalidations_source"] = (
+                    "schema_gap_human_numerator: settlement-receipt v2 outcome "
+                    "fields (outcome_revert_within_window, "
+                    "outcome_post_merge_incident, outcome_human_override_redo, "
+                    "outcome_rollback, outcome_reopened_pr) are not yet populated "
+                    "on any receipt in the window. Run "
+                    "aragora.review.settlement_outcome.observe_outcome over the "
+                    "window to close this gap. Until then, human-side numerator "
+                    "is 0 by data availability, not by measurement."
+                )
 
         return InvalidationRecalibrationSample(
             invalidations=tuple(auto_invalidations + human_invalidations),

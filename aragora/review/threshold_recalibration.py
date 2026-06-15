@@ -638,7 +638,10 @@ def _insufficiency_reasons(
         reasons.append("no_decisions_in_window")
     if measurement.total_human_settled < measurement.min_samples_required:
         reasons.append("below_min_human_settled")
-    if "human_invalidations_source" in measurement.notes or "human_invalidations_source" in notes:
+    human_source_note = measurement.notes.get("human_invalidations_source") or notes.get(
+        "human_invalidations_source"
+    )
+    if human_source_note and "fields are present" not in human_source_note:
         reasons.append("schema_gap_human_numerator")
     if proposal.is_placeholder and "placeholder_threshold" not in reasons:
         reasons.append("placeholder_threshold")
