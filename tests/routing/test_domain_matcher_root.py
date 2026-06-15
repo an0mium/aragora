@@ -8,12 +8,22 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
-from anthropic.types import TextBlock
+
+try:
+    from anthropic.types import TextBlock
+except ModuleNotFoundError:
+    TextBlock = None
 
 from aragora.routing.domain_matcher import (
     DOMAIN_KEYWORDS,
     DomainDetector,
     _DomainCache,
+)
+
+
+requires_anthropic = pytest.mark.skipif(
+    TextBlock is None,
+    reason="anthropic package is not installed in the baseline collection environment",
 )
 
 
@@ -294,6 +304,7 @@ class TestDomainDetectorKeywords:
 # =============================================================================
 
 
+@requires_anthropic
 class TestDomainDetectorLLM:
     """Tests for DomainDetector LLM-based detection."""
 
