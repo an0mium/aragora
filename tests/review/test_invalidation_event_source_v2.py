@@ -61,7 +61,7 @@ def _add_complete_v2_outcome_fields(payload: dict, *, fired: bool = False) -> di
     payload["outcome_human_override_redo"] = False
     payload["outcome_rollback"] = False
     payload["outcome_reopened_pr"] = False
-    payload["outcome_observed_at"] = "2026-04-22T00:00:00Z"
+    payload["outcome_observed_at"] = "2026-04-30T12:00:00Z"
     return payload
 
 
@@ -282,6 +282,65 @@ class TestCountReceiptsWithV2OutcomeFields:
                 window_days=30,
             )
             == 0
+        )
+
+    def test_missing_observed_at_does_not_count_as_complete(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        missing_observed_at = _base_payload(pr_number=101)
+        missing_observed_at["outcome_revert_within_window"] = False
+        missing_observed_at["outcome_post_merge_incident"] = False
+        missing_observed_at["outcome_human_override_redo"] = False
+        missing_observed_at["outcome_rollback"] = False
+        missing_observed_at["outcome_reopened_pr"] = False
+        _write_receipt(receipts_dir, "missing_observed_at", missing_observed_at)
+
+        assert _any_receipt_has_v2_outcome_fields(
+            store_root=tmp_path,
+            window_end=datetime(2026, 4, 30, tzinfo=UTC),
+            window_days=30,
+        )
+        assert (
+            _count_receipts_with_v2_outcome_fields(
+                store_root=tmp_path,
+                window_end=datetime(2026, 4, 30, tzinfo=UTC),
+                window_days=30,
+            )
+            == 0
+        )
+
+    def test_early_observed_at_does_not_count_as_complete(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        early = _base_payload(pr_number=101)
+        _add_complete_v2_outcome_fields(early)
+        early["outcome_observed_at"] = "2026-04-20T12:00:00Z"
+        _write_receipt(receipts_dir, "early", early)
+
+        assert (
+            _count_receipts_with_v2_outcome_fields(
+                store_root=tmp_path,
+                window_end=datetime(2026, 4, 30, tzinfo=UTC),
+                window_days=30,
+            )
+            == 0
+        )
+
+    def test_observed_at_on_revert_window_boundary_counts(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        boundary = _base_payload(
+            pr_number=101,
+            reviewed_at="2026-04-15T12:00:00+00:00",
+        )
+        _add_complete_v2_outcome_fields(boundary)
+        boundary["outcome_observed_at"] = "2026-04-29T12:00:00Z"
+        _write_receipt(receipts_dir, "boundary", boundary)
+
+        assert (
+            _count_receipts_with_v2_outcome_fields(
+                store_root=tmp_path,
+                window_end=datetime(2026, 4, 30, tzinfo=UTC),
+                window_days=30,
+            )
+            == 1
         )
 
     def test_count_uses_same_receipt_window_as_denominator(self, tmp_path: Path) -> None:
