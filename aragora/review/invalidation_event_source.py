@@ -200,7 +200,7 @@ class ReviewQueueInvalidationEventSource:
                     "fired any of the five canonical signals. Treat as measured "
                     "zero because the human invalidation observation coverage is complete."
                 )
-            elif coverage != "complete":
+            elif coverage != "complete" and not human_invalidations:
                 notes["human_invalidations_source"] = (
                     f"schema_gap_human_numerator: settlement-receipt v2 outcome "
                     f"fields are populated on {v2_observed_count}/{human_total} "
@@ -273,44 +273,15 @@ def count_decisions_from_settlement_receipts(
         window_days: Width of the window in days. Defaults to
             :data:`DEFAULT_BASELINE_WINDOW_DAYS`.
     """
-    if window_days <= 0:
-        raise ValueError("window_days must be positive")
-    window_end = _ensure_utc(window_end)
-    window_start = window_end - timedelta(days=window_days)
-
-    receipts_dir = resolve_review_queue_root(store_root) / RECEIPTS_SUBDIR
-    if not receipts_dir.exists():
-        return 0
-
-    try:
-        candidates = sorted(
-            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
-            key=lambda p: p.name,
+    return sum(
+        1
+        for _ in _iter_in_window_settlement_receipt_payloads(
+            store_root=store_root,
+            window_end=window_end,
+            window_days=window_days,
+            warn_invalid_reviewed_at=True,
         )
-    except OSError as exc:
-        logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
-        return 0
-
-    total = 0
-    for path in candidates:
-        payload = _safe_read_json(path)
-        if payload is None:
-            continue
-        reviewed_raw = payload.get("reviewed_at")
-        if not reviewed_raw:
-            continue
-        try:
-            reviewed_at = _parse_iso(str(reviewed_raw))
-        except ValueError:
-            logger.warning(
-                "review.invalidation_event_source: receipt %s has invalid reviewed_at=%r",
-                path,
-                reviewed_raw,
-            )
-            continue
-        if window_start <= reviewed_at <= window_end:
-            total += 1
-    return total
+    )
 
 
 _V2_OUTCOME_FIELD_NAMES: frozenset[str] = frozenset(
@@ -323,6 +294,82 @@ _V2_OUTCOME_FIELD_NAMES: frozenset[str] = frozenset(
         "outcome_observed_at",
     }
 )
+
+_V2_OUTCOME_SIGNAL_FIELD_NAMES: frozenset[str] = frozenset(
+    {
+        "outcome_revert_within_window",
+        "outcome_post_merge_incident",
+        "outcome_human_override_redo",
+        "outcome_rollback",
+        "outcome_reopened_pr",
+    }
+)
+
+
+def _iter_in_window_settlement_receipt_payloads(
+    *,
+    store_root: str | Path | None = None,
+    window_end: datetime,
+    window_days: int = DEFAULT_BASELINE_WINDOW_DAYS,
+    warn_invalid_reviewed_at: bool = False,
+) -> Iterator[dict[str, Any]]:
+    """Yield parseable in-window settlement receipt payloads.
+
+    Denominator counts and v2-observation coverage must use this same receipt
+    set so "complete" coverage cannot be inferred from a broader scan than the
+    human-settlement denominator.
+    """
+    if window_days <= 0:
+        raise ValueError("window_days must be positive")
+    window_end = _ensure_utc(window_end)
+    window_start = window_end - timedelta(days=window_days)
+
+    receipts_dir = resolve_review_queue_root(store_root) / RECEIPTS_SUBDIR
+    if not receipts_dir.exists():
+        return
+
+    try:
+        candidates = sorted(
+            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
+            key=lambda p: p.name,
+        )
+    except OSError as exc:
+        logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
+        return
+
+    for path in candidates:
+        payload = _safe_read_json(path)
+        if payload is None:
+            continue
+        reviewed_raw = payload.get("reviewed_at")
+        if not reviewed_raw:
+            continue
+        try:
+            reviewed_at = _parse_iso(str(reviewed_raw))
+        except ValueError:
+            if warn_invalid_reviewed_at:
+                logger.warning(
+                    "review.invalidation_event_source: receipt %s has invalid reviewed_at=%r",
+                    path,
+                    reviewed_raw,
+                )
+            continue
+        if window_start <= reviewed_at <= window_end:
+            yield payload
+
+
+def _receipt_has_any_v2_outcome_field(payload: dict[str, Any]) -> bool:
+    return any(
+        field_name in payload and payload[field_name] is not None
+        for field_name in _V2_OUTCOME_FIELD_NAMES
+    )
+
+
+def _receipt_has_complete_v2_outcome_fields(payload: dict[str, Any]) -> bool:
+    return all(
+        field_name in payload and payload[field_name] is not None
+        for field_name in _V2_OUTCOME_SIGNAL_FIELD_NAMES
+    )
 
 
 def _any_receipt_has_v2_outcome_fields(
@@ -343,44 +390,17 @@ def _any_receipt_has_v2_outcome_fields(
     This is the discriminator behind the two ``human_invalidations_source``
     notes in :func:`measure_baseline_from_disk`.
     """
-    if window_days <= 0:
-        raise ValueError("window_days must be positive")
-    window_end = _ensure_utc(window_end)
-    window_start = window_end - timedelta(days=window_days)
-
-    receipts_dir = resolve_review_queue_root(store_root) / RECEIPTS_SUBDIR
-    if not receipts_dir.exists():
-        return False
-
-    try:
-        candidates = sorted(
-            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
-            key=lambda p: p.name,
-        )
-    except OSError as exc:
-        logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
-        return False
-
     probed = 0
-    for path in candidates:
+    for payload in _iter_in_window_settlement_receipt_payloads(
+        store_root=store_root,
+        window_end=window_end,
+        window_days=window_days,
+    ):
         if probed >= probe_cap:
             break
-        payload = _safe_read_json(path)
-        if payload is None:
-            continue
-        reviewed_raw = payload.get("reviewed_at")
-        if not reviewed_raw:
-            continue
-        try:
-            reviewed_at = _parse_iso(str(reviewed_raw))
-        except ValueError:
-            continue
-        if not (window_start <= reviewed_at <= window_end):
-            continue
         probed += 1
-        for field_name in _V2_OUTCOME_FIELD_NAMES:
-            if field_name in payload and payload[field_name] is not None:
-                return True
+        if _receipt_has_any_v2_outcome_field(payload):
+            return True
     return False
 
 
@@ -390,45 +410,16 @@ def _count_receipts_with_v2_outcome_fields(
     window_end: datetime,
     window_days: int = DEFAULT_BASELINE_WINDOW_DAYS,
 ) -> int:
-    """Return the number of in-window settlement receipts with observed v2 outcomes."""
-    if window_days <= 0:
-        raise ValueError("window_days must be positive")
-    window_end = _ensure_utc(window_end)
-    window_start = window_end - timedelta(days=window_days)
-
-    receipts_dir = resolve_review_queue_root(store_root) / RECEIPTS_SUBDIR
-    if not receipts_dir.exists():
-        return 0
-
-    try:
-        candidates = sorted(
-            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
-            key=lambda p: p.name,
+    """Return in-window receipts whose five v2 outcome signals are complete."""
+    return sum(
+        1
+        for payload in _iter_in_window_settlement_receipt_payloads(
+            store_root=store_root,
+            window_end=window_end,
+            window_days=window_days,
         )
-    except OSError as exc:
-        logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
-        return 0
-
-    total = 0
-    for path in candidates:
-        payload = _safe_read_json(path)
-        if payload is None:
-            continue
-        reviewed_raw = payload.get("reviewed_at")
-        if not reviewed_raw:
-            continue
-        try:
-            reviewed_at = _parse_iso(str(reviewed_raw))
-        except ValueError:
-            continue
-        if not (window_start <= reviewed_at <= window_end):
-            continue
-        if any(
-            field_name in payload and payload[field_name] is not None
-            for field_name in _V2_OUTCOME_FIELD_NAMES
-        ):
-            total += 1
-    return total
+        if _receipt_has_complete_v2_outcome_fields(payload)
+    )
 
 
 def iter_invalidations_from_settlement_receipts(
@@ -657,7 +648,7 @@ def measure_baseline_from_stores(
                 "fired any of the five canonical signals. Treat as measured "
                 "zero because the human invalidation observation coverage is complete.",
             )
-        elif coverage != "complete":
+        elif coverage != "complete" and not human_invalidations_in_window:
             extra_notes.setdefault(
                 "human_invalidations_source",
                 f"schema_gap_human_numerator: settlement-receipt v2 outcome "
