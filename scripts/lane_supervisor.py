@@ -10,11 +10,13 @@ nothing. ``--execute`` claims (atomic pending -> in_progress) and launches.
 
 Launch seam (``--execute``): each work order is handed to
 ``aragora.swarm.worker_launcher.WorkerLauncher.launch``. That call is async and
-needs a provisioned worktree -- which is operator-machine-specific -- so the
-work order must carry a ``worktree`` (the conductor/operator provisions it). If
-it does not, the launch fails for that order (recorded in failed/) and the drain
-continues. Validate this path on your machine before relying on it; the drainer
-state machine itself is fully unit-tested.
+needs a provisioned worktree -- which is operator-machine-specific. The conductor
+stays pure (no git), so this seam provisions an isolated worktree on the work
+order's branch (``git fetch`` + ``git worktree add``) and passes it as
+``launch(worktree_path=...)``. A work order may pre-set ``worktree`` to reuse an
+existing one. If provisioning or launch fails, that order is recorded in failed/
+and the drain continues. Validate this path on your machine before relying on it;
+the drainer state machine itself is fully unit-tested.
 """
 
 from __future__ import annotations
@@ -37,22 +39,49 @@ from aragora.swarm.lane_supervisor import (  # noqa: E402
 )
 
 
-def _worker_launcher_launch(work_order: dict[str, Any]) -> None:
-    """Default launch: hand the work order to WorkerLauncher (async).
+def _provision_lane_worktree(branch: str, work_order_id: str) -> str:
+    """Provision an isolated worktree checked out on ``branch``.
 
-    Requires a ``worktree`` on the work order (operator/conductor provisions it).
-    Raises if absent or if the launch fails -- the drainer records it in failed/.
+    Operator-machine work the pure conductor cannot do: fetch the branch and add
+    a dedicated worktree so the launched worker can advance (and push) the PR's
+    branch. Idempotent -- reuses the path if it already exists. Raises
+    ``subprocess.CalledProcessError`` on git failure so the drainer records the
+    order in failed/ rather than launching into a missing tree.
     """
+    import subprocess
+
+    safe_id = "".join(c if (c.isalnum() or c in "-_") else "-" for c in work_order_id) or "lane"
+    path = REPO_ROOT / ".worktrees" / f"lane-{safe_id}"
+    if path.exists():
+        return str(path)
+    git = ["git", "-C", str(REPO_ROOT)]
+    subprocess.run([*git, "fetch", "origin", branch], check=True, capture_output=True, text=True)
+    # Track the remote branch so the worker is on the branch (not detached) and
+    # can push; --force tolerates a pre-existing checkout of the same branch.
+    subprocess.run(
+        [*git, "worktree", "add", "--force", "-B", branch, str(path), f"origin/{branch}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return str(path)
+
+
+def _worker_launcher_launch(work_order: dict[str, Any]) -> None:
+    """Default launch: provision a worktree, then hand the order to WorkerLauncher.
+
+    Provisions an isolated worktree on the work order's branch unless one is
+    pre-set, then calls the async launcher (which builds the worker prompt from
+    ``work_order['prompt']``). Raises on provisioning or launch failure -- the
+    drainer records it in failed/ and continues.
+    """
+    branch = str(work_order.get("branch") or "main")
     worktree = str(work_order.get("worktree") or "").strip()
     if not worktree:
-        raise RuntimeError(
-            f"work order {work_order.get('work_order_id')} has no 'worktree'; "
-            "provision an isolated worktree for the branch and set it before launch"
-        )
+        worktree = _provision_lane_worktree(branch, str(work_order.get("work_order_id") or "lane"))
     from aragora.swarm.worker_launcher import WorkerLauncher
 
     launcher = WorkerLauncher()
-    branch = str(work_order.get("branch") or "main")
     asyncio.run(launcher.launch(work_order, worktree_path=worktree, branch=branch))
 
 

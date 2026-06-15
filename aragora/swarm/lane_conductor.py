@@ -59,11 +59,19 @@ DISPATCH_PENDING_DIR = DISPATCH_ROOT / PENDING
 class WorkOrderSpec:
     """A self-describing unit of work for one assigned lane.
 
-    Carries everything the supervisor needs to spawn a worker: the target agent,
-    the claimed owner session, the PR/branch, and the exact claim-first prompt.
-    ``target_agent``/``owner_session_id`` match the keys
-    ``worker_launcher.WorkerLauncher.launch`` reads, so an adapter can hand this
-    straight through.
+    Carries the launch-relevant fields: the target agent, the claimed owner
+    session, the PR/branch, and the exact claim-first ``prompt``. The dict keys
+    (``target_agent``, ``owner_session_id``, ``prompt``, ``branch``) match what
+    ``worker_launcher.WorkerLauncher.launch`` consumes -- ``launch`` reads
+    ``target_agent``/``owner_session_id`` and builds the worker prompt from
+    ``prompt`` -- so the work order is handed straight through as ``launch``'s
+    ``work_order`` argument.
+
+    It deliberately does NOT carry a ``worktree``: provisioning an isolated
+    worktree for the branch is operator-machine work (git fetch + checkout), so
+    the supervisor's launch seam (``scripts/lane_supervisor.py``) provisions one
+    and passes it as ``launch(worktree_path=...)``. Keeping it out of the spec is
+    what lets the conductor stay pure (no git, no network, no spawned process).
     """
 
     work_order_id: str

@@ -173,6 +173,25 @@ def test_drain_records_failure_and_continues(tmp_path: Path) -> None:
     assert _names(tmp_path, ls.DONE) == {"lane-1-a.json", "lane-3-c.json"}
 
 
+def test_drain_failures_consume_max_launches_cap(tmp_path: Path) -> None:
+    # Regression: max_launches must bound launch *attempts*, not just successes.
+    # Otherwise a queue of failing orders never trips the cap and a single pass
+    # would claim+fail the entire pending set, ignoring --max-launches.
+    for i in range(5):
+        _write_pending(tmp_path, f"lane-{i}-boom")
+
+    def always_fail(wo: dict[str, Any]) -> None:
+        raise RuntimeError("spawn exploded")
+
+    result = ls.drain_once(root=tmp_path, launch_fn=always_fail, max_launches=2)
+
+    assert len(result.failed) == 2  # only 2 attempts, not all 5
+    assert len(result.deferred) == 3
+    # The 3 deferred orders are left pending for the next pass (not failed/).
+    assert len(_names(tmp_path, ls.PENDING)) == 3
+    assert len(_names(tmp_path, ls.FAILED)) == 2
+
+
 def test_drain_records_claim_failure_without_launching(tmp_path: Path, monkeypatch: Any) -> None:
     _write_pending(tmp_path, "lane-1-cross-fs", pr=1)
     launched: list[str] = []

@@ -175,7 +175,12 @@ def drain_once(
     result = DrainResult()
     for path, order in load_pending(root):
         wo_id = str(order.get("work_order_id"))
-        if len(result.launched) >= cap:
+        # Bound launch *attempts* (successes + failures), not just successes:
+        # otherwise a queue of failing orders never trips the cap and a single
+        # pass would claim and move the entire pending set to failed/, ignoring
+        # --max-launches. Claim races (skipped) don't consume a worker, so they
+        # do not count.
+        if (len(result.launched) + len(result.failed)) >= cap:
             result.deferred.append(wo_id)
             continue
         try:

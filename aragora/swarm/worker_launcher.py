@@ -1091,6 +1091,17 @@ class WorkerLauncher:
         metadata = work_order.get("metadata", {})
         target_agent = str(work_order.get("target_agent", "")).strip().lower()
 
+        # --- Section 0: Explicit directive (verbatim) ---
+        # When a caller supplies a fully-formed prompt -- e.g. the lane
+        # dispatcher's constant claim-first prompt (claim-or-yield -> ground ->
+        # one bounded step -> report+release) -- honor it verbatim as the lead
+        # directive. Without this, the carefully-scoped guardrails (claim-first
+        # protocol, "never merge/settle") are silently dropped and the worker
+        # only sees a prompt rebuilt from title/description.
+        explicit_prompt = str(work_order.get("prompt", "")).strip()
+        if explicit_prompt:
+            parts.append(explicit_prompt)
+
         # --- Section 1: Task goal (plain English) ---
         title = str(work_order.get("title", "")).strip()
         if title:

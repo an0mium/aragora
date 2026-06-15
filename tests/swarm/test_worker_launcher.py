@@ -110,6 +110,24 @@ class TestBuildPrompt:
         prompt = WorkerLauncher._build_prompt({})
         assert "git commit" in prompt
 
+    def test_explicit_prompt_is_honored_verbatim(self):
+        # Regression: a fully-formed `prompt` (e.g. the lane dispatcher's
+        # constant claim-first prompt) must reach the worker verbatim, not be
+        # silently dropped in favor of a title/description rebuild.
+        claim_first = (
+            "You are an Aragora lane worker. CLAIM-OR-YIELD lane PR #8426. "
+            "Never merge, admin-merge, or settle. Report + release."
+        )
+        wo = {
+            "prompt": claim_first,
+            "title": "advance #8426",
+            "target_agent": "codex",
+        }
+        prompt = WorkerLauncher._build_prompt(wo)
+        assert claim_first in prompt
+        assert "CLAIM-OR-YIELD" in prompt
+        assert "Never merge" in prompt
+
     def test_metadata_acceptance_criteria(self):
         wo = {
             "title": "Add feature",
