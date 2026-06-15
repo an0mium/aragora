@@ -30,6 +30,36 @@ def test_missing_as_of_is_invalid():
     assert any("missing" in p for p in problems)
 
 
+def test_missing_verification_method_is_invalid():
+    problems = validate_belief_provenance([_belief(verification_method="")], NOW)
+    assert problems == ["b1: missing verification_method provenance"]
+
+
+def test_malformed_now_is_invalid_problem_not_exception():
+    problems = validate_belief_provenance([_belief()], "not-a-timestamp")
+    assert problems == ["now_iso: invalid ISO timestamp"]
+
+
+def test_malformed_as_of_is_invalid_problem_not_exception():
+    problems = validate_belief_provenance([_belief(as_of="not-a-timestamp")], NOW)
+    assert problems == ["b1: invalid as_of timestamp"]
+
+
+def test_mixed_naive_and_aware_timestamps_are_invalid_problem_not_exception():
+    problems = validate_belief_provenance([_belief(as_of="2026-06-06T11:59:00")], NOW)
+    assert problems == ["b1: as_of timestamp timezone must match now_iso"]
+
+
+def test_non_positive_ttl_is_invalid():
+    problems = validate_belief_provenance([_belief(freshness_ttl_seconds=0.0)], NOW)
+    assert problems == ["b1: invalid freshness_ttl_seconds"]
+
+
+def test_non_finite_ttl_is_invalid():
+    problems = validate_belief_provenance([_belief(freshness_ttl_seconds=float("inf"))], NOW)
+    assert problems == ["b1: invalid freshness_ttl_seconds"]
+
+
 def test_past_ttl_without_revalidation_is_invalid():
     problems = validate_belief_provenance(
         [_belief(as_of="2026-06-06T11:00:00+00:00", freshness_ttl_seconds=300.0)], NOW
