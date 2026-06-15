@@ -19,7 +19,7 @@ from aragora.broadcast import (
     broadcast_debate,
     broadcast_debate_sync,
 )
-from aragora.broadcast.script_gen import ScriptSegment
+from aragora.broadcast.script_gen import Script, ScriptSegment
 
 
 # =============================================================================
@@ -374,7 +374,9 @@ class TestBroadcastIntegration:
             ScriptSegment(speaker="claude-visionary", text="Hello"),
         ]
 
-        with patch("aragora.broadcast.generate_script", return_value=mock_segments):
+        with patch(
+            "aragora.broadcast.generate_script", return_value=Script(segments=mock_segments)
+        ):
             with patch("aragora.broadcast.generate_audio") as mock_gen_audio:
                 mock_gen_audio.return_value = [tmp_path / "seg1.mp3", tmp_path / "seg2.mp3"]
                 with patch("aragora.broadcast.mix_audio", return_value=True):
@@ -387,7 +389,7 @@ class TestBroadcastIntegration:
         """Return None when script generation produces no segments."""
         output_path = tmp_path / "output.mp3"
 
-        with patch("aragora.broadcast.generate_script", return_value=[]):
+        with patch("aragora.broadcast.generate_script", return_value=Script(segments=[])):
             result = await broadcast_debate(mock_trace, output_path)
 
         assert result is None
@@ -399,7 +401,9 @@ class TestBroadcastIntegration:
 
         mock_segments = [ScriptSegment(speaker="narrator", text="Hello")]
 
-        with patch("aragora.broadcast.generate_script", return_value=mock_segments):
+        with patch(
+            "aragora.broadcast.generate_script", return_value=Script(segments=mock_segments)
+        ):
             with patch("aragora.broadcast.generate_audio", return_value=[]):
                 result = await broadcast_debate(mock_trace, output_path)
 
@@ -412,7 +416,9 @@ class TestBroadcastIntegration:
 
         mock_segments = [ScriptSegment(speaker="narrator", text="Hello")]
 
-        with patch("aragora.broadcast.generate_script", return_value=mock_segments):
+        with patch(
+            "aragora.broadcast.generate_script", return_value=Script(segments=mock_segments)
+        ):
             with patch("aragora.broadcast.generate_audio") as mock_gen:
                 mock_gen.return_value = [tmp_path / "seg.mp3"]
                 with patch("aragora.broadcast.mix_audio", return_value=False):
@@ -428,7 +434,9 @@ class TestBroadcastIntegration:
 
         mock_segments = [ScriptSegment(speaker="narrator", text="Hello")]
 
-        with patch("aragora.broadcast.generate_script", return_value=mock_segments):
+        with patch(
+            "aragora.broadcast.generate_script", return_value=Script(segments=mock_segments)
+        ):
             with patch("aragora.broadcast.generate_audio") as mock_gen:
                 mock_gen.return_value = [tmp_path / "seg.mp3"]
                 with patch("aragora.broadcast.mix_audio", return_value=False):
@@ -445,7 +453,9 @@ class TestBroadcastIntegration:
         """Generate output path when not provided."""
         mock_segments = [ScriptSegment(speaker="narrator", text="Hello")]
 
-        with patch("aragora.broadcast.generate_script", return_value=mock_segments):
+        with patch(
+            "aragora.broadcast.generate_script", return_value=Script(segments=mock_segments)
+        ):
             with patch("aragora.broadcast.generate_audio") as mock_gen:
                 mock_gen.return_value = [Path("/tmp/seg.mp3")]
                 with patch("aragora.broadcast.mix_audio", return_value=True):
@@ -461,7 +471,9 @@ class TestBroadcastIntegration:
         output_path = tmp_path / "output.mp3"
         mock_segments = [ScriptSegment(speaker="narrator", text="Hello")]
 
-        with patch("aragora.broadcast.generate_script", return_value=mock_segments):
+        with patch(
+            "aragora.broadcast.generate_script", return_value=Script(segments=mock_segments)
+        ):
             with patch("aragora.broadcast.generate_audio") as mock_gen:
                 temp_dir_used = None
 
@@ -484,7 +496,9 @@ class TestBroadcastIntegration:
         output_path = tmp_path / "output.mp3"
         mock_segments = [ScriptSegment(speaker="narrator", text="Hello")]
 
-        with patch("aragora.broadcast.generate_script", return_value=mock_segments):
+        with patch(
+            "aragora.broadcast.generate_script", return_value=Script(segments=mock_segments)
+        ):
             with patch("aragora.broadcast.generate_audio") as mock_gen:
                 temp_dir_used = None
 

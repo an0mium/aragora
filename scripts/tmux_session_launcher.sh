@@ -6,7 +6,7 @@
 #   ./scripts/tmux_session_launcher.sh --name claude-worker --agent claude --autonomous --prompt "Fix tests"
 #   ./scripts/tmux_session_launcher.sh --name factory-review --agent droid --prompt "Review PR #6811"
 #   ./scripts/tmux_session_launcher.sh --name factory-review --agent factory --cwd /tmp/pr-review --prompt "Review PR #6811"
-#   ./scripts/tmux_session_launcher.sh --name codex-qa --agent codex --autonomous --prompt "Fix the tests"
+#   ./scripts/tmux_session_launcher.sh --name codex-qa --agent codex --autonomous --task-id Q123 --claimed-path tests/foo.py --prompt "Fix the tests"
 #   ./scripts/tmux_session_launcher.sh --list
 #   ./scripts/tmux_session_launcher.sh --kill codex-conductor
 #
@@ -14,6 +14,9 @@
 #   --autonomous   Grant full permissions (Claude: --dangerously-skip-permissions,
 #                  Codex: codex exec --dangerously-bypass-approvals-and-sandbox)
 #                  Required for agents to run Bash, edit files, etc. in tmux lanes.
+#                  Autonomous Codex launches must carry a dev-coordination
+#                  lease assignment (--task-id plus scope/test flags), unless
+#                  --allow-unleased-codex is passed explicitly for manual debug.
 #
 # Each session gets:
 #   - a dedicated tmux window in the "aragora" session
@@ -148,6 +151,14 @@ PROMPT_FILE=""
 ACTION="launch"
 AUTONOMOUS="0"
 WORKDIR=""
+TASK_ID=""
+LEASE_TITLE=""
+LEASE_TTL_HOURS="${CODEX_WORK_LEASE_TTL_HOURS:-8}"
+ALLOW_LEASE_OVERLAP="0"
+ALLOW_UNLEASED_CODEX="0"
+WRITE_SCOPES=()
+CLAIMED_PATHS=()
+TEST_COMMANDS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -157,6 +168,14 @@ while [[ $# -gt 0 ]]; do
         --prompt)   PROMPT="$2"; shift 2 ;;
         --prompt-file) PROMPT_FILE="$2"; shift 2 ;;
         --autonomous) AUTONOMOUS="1"; shift ;;
+        --task-id)  TASK_ID="$2"; shift 2 ;;
+        --title|--goal) LEASE_TITLE="$2"; shift 2 ;;
+        --lease-ttl-hours) LEASE_TTL_HOURS="$2"; shift 2 ;;
+        --write-scope) WRITE_SCOPES+=("$2"); shift 2 ;;
+        --claimed-path) CLAIMED_PATHS+=("$2"); shift 2 ;;
+        --test) TEST_COMMANDS+=("$2"); shift 2 ;;
+        --allow-overlap) ALLOW_LEASE_OVERLAP="1"; shift ;;
+        --allow-unleased-codex) ALLOW_UNLEASED_CODEX="1"; shift ;;
         --list)     ACTION="list"; shift ;;
         --kill)     ACTION="kill"; NAME="$2"; shift 2 ;;
         --status)   ACTION="status"; shift ;;
@@ -249,6 +268,32 @@ if [[ -n "${PROMPT}" ]]; then
     HAS_PROMPT="yes"
 fi
 
+LEASE_SCOPE_CONFIGURED="0"
+if [[ ${#WRITE_SCOPES[@]} -gt 0 || ${#CLAIMED_PATHS[@]} -gt 0 || ${#TEST_COMMANDS[@]} -gt 0 ]]; then
+    LEASE_SCOPE_CONFIGURED="1"
+fi
+
+LEASE_CONFIGURED="0"
+if [[ -n "${TASK_ID}" && "${LEASE_SCOPE_CONFIGURED}" == "1" ]]; then
+    LEASE_CONFIGURED="1"
+fi
+
+if [[ "${AGENT}" == "codex" && "${AUTONOMOUS}" == "1" && "${ALLOW_UNLEASED_CODEX}" != "1" && "${LEASE_CONFIGURED}" != "1" ]]; then
+    cat >&2 <<'EOF'
+Refusing unleased autonomous Codex launch.
+
+Autonomous Codex workers must be assigned by the conductor/dispatcher instead
+of free-picking the queue. Pass an explicit dev-coordination lease, for example:
+  --task-id Q123 --title "repair PR #123" --claimed-path scripts/foo.py
+
+A valid autonomous Codex lease requires --task-id plus at least one concrete
+scope signal: --claimed-path, --write-scope, or --test.
+
+For one-off manual debugging only, pass --allow-unleased-codex.
+EOF
+    exit 2
+fi
+
 # Build the launch command
 # When --autonomous is set:
 #   - Claude gets ARAGORA_ADMIN_APPROVED=1 → --dangerously-skip-permissions (can run Bash)
@@ -257,6 +302,32 @@ fi
 #   - Droid/Factory prompted work always uses `droid exec --auto high`; use
 #     ARAGORA_DROID_AUTO_LEVEL=low|medium|high to lower the level explicitly.
 if [[ "${AGENT}" == "codex" ]]; then
+    CODEX_SESSION_ARGS=(--agent "${NAME}" --base main)
+    if [[ "${AUTONOMOUS}" == "1" ]]; then
+        CODEX_SESSION_ARGS+=(--yolo)
+    fi
+    if [[ -n "${TASK_ID}" ]]; then
+        CODEX_SESSION_ARGS+=(--task-id "${TASK_ID}")
+    fi
+    if [[ -n "${LEASE_TITLE}" ]]; then
+        CODEX_SESSION_ARGS+=(--title "${LEASE_TITLE}")
+    fi
+    if [[ -n "${LEASE_TTL_HOURS}" ]]; then
+        CODEX_SESSION_ARGS+=(--lease-ttl-hours "${LEASE_TTL_HOURS}")
+    fi
+    for scope in "${WRITE_SCOPES[@]}"; do
+        CODEX_SESSION_ARGS+=(--write-scope "${scope}")
+    done
+    for path in "${CLAIMED_PATHS[@]}"; do
+        CODEX_SESSION_ARGS+=(--claimed-path "${path}")
+    done
+    for test_cmd in "${TEST_COMMANDS[@]}"; do
+        CODEX_SESSION_ARGS+=(--test "${test_cmd}")
+    done
+    if [[ "${ALLOW_LEASE_OVERLAP}" == "1" ]]; then
+        CODEX_SESSION_ARGS+=(--allow-overlap)
+    fi
+    CODEX_SESSION_ARGS_TEXT="$(python3 -c 'import shlex, sys; print(" ".join(shlex.quote(a) for a in sys.argv[1:]))' "${CODEX_SESSION_ARGS[@]}")"
     if [[ "${AUTONOMOUS}" == "1" ]]; then
         if [[ -n "${PROMPT}" ]]; then
             CODEX_EXEC_PROMPT_FILE="${PROMPT_FILE}"
@@ -273,7 +344,8 @@ import shlex
 import sys
 from pathlib import Path
 
-launch_file, workdir, name, prompt_file = sys.argv[1:5]
+launch_file, workdir, prompt_file = sys.argv[1:4]
+session_args = sys.argv[4:]
 body = "\n".join(
     [
         "#!/usr/bin/env bash",
@@ -281,7 +353,8 @@ body = "\n".join(
         f"cd {shlex.quote(workdir)}",
         (
             "./scripts/codex_session.sh "
-            f"--agent {shlex.quote(name)} --base main --yolo -- "
+            + " ".join(shlex.quote(arg) for arg in session_args)
+            + " -- "
             "codex exec --dangerously-bypass-approvals-and-sandbox "
             f"- < {shlex.quote(prompt_file)}"
         ),
@@ -291,16 +364,16 @@ body = "\n".join(
 path = Path(launch_file)
 path.write_text(body, encoding="utf-8")
 os.chmod(path, 0o700)
-' "${CODEX_EXEC_LAUNCH_FILE}" "${WORKDIR}" "${NAME}" "${CODEX_EXEC_PROMPT_FILE}"
+' "${CODEX_EXEC_LAUNCH_FILE}" "${WORKDIR}" "${CODEX_EXEC_PROMPT_FILE}" "${CODEX_SESSION_ARGS[@]}"
             LAUNCH_CMD="bash '${CODEX_EXEC_LAUNCH_FILE}'"
             # `codex exec` consumes the prompt directly; do not also paste it
             # into an interactive pane.
             PROMPT=""
         else
-            LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh --agent '${NAME}' --base main --yolo"
+            LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
         fi
     else
-        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh --agent '${NAME}' --base main"
+        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
     fi
 elif [[ "${AGENT}" == "claude" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
