@@ -1162,6 +1162,39 @@ class BossLoop:
             tests_passed=tests_passed,
         )
 
+    def _append_no_suitable_issue_metrics(
+        self,
+        *,
+        iteration: int,
+        elapsed_seconds: float,
+        needs_human_reasons: list[str],
+        next_actions: list[str],
+    ) -> None:
+        blocker_evidence = {
+            "stop_reason": BossStopReason.NO_SUITABLE_ISSUE.value,
+            "needs_human_reasons": list(needs_human_reasons),
+            "next_actions": list(next_actions),
+        }
+        self._append_iteration_metrics(
+            iteration=iteration,
+            issue_number=None,
+            worker_result={
+                "status": "blocked",
+                "outcome": "blocked",
+                "blocker_kind": BossStopReason.NO_SUITABLE_ISSUE.value,
+                "blocker_evidence": blocker_evidence,
+                "failure_reason": (
+                    str(needs_human_reasons[0]).strip()
+                    if needs_human_reasons
+                    else "No suitable open issue found in the GitHub feed."
+                ),
+                "reasons": list(needs_human_reasons),
+                "next_actions": list(next_actions),
+                "receipt_metadata": {"blocker_evidence": blocker_evidence},
+            },
+            elapsed_seconds=elapsed_seconds,
+        )
+
     def _normalized_model_rotation(self) -> list[str]:
         seen: set[str] = set()
         normalized: list[str] = []
@@ -4407,6 +4440,13 @@ class BossLoop:
                     already_maxed=already_maxed,
                     report=eligibility_report,
                 )
+            elapsed_seconds = time.monotonic() - iter_start
+            self._append_no_suitable_issue_metrics(
+                iteration=iteration,
+                elapsed_seconds=elapsed_seconds,
+                needs_human_reasons=needs_human_reasons,
+                next_actions=next_actions,
+            )
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -4417,7 +4457,7 @@ class BossLoop:
                 stop_reason=BossStopReason.NO_SUITABLE_ISSUE.value,
                 needs_human_reasons=needs_human_reasons,
                 next_actions=next_actions,
-                elapsed_seconds=time.monotonic() - iter_start,
+                elapsed_seconds=elapsed_seconds,
             )
 
         # Step 3: Check runner freshness only when there is eligible work to dispatch
@@ -4664,6 +4704,13 @@ class BossLoop:
                     already_maxed=already_maxed,
                     report=eligibility_report,
                 )
+            elapsed_seconds = time.monotonic() - iter_start
+            self._append_no_suitable_issue_metrics(
+                iteration=iteration,
+                elapsed_seconds=elapsed_seconds,
+                needs_human_reasons=needs_human_reasons,
+                next_actions=next_actions,
+            )
             return [
                 BossIterationStatus(
                     iteration=iteration,
@@ -4675,7 +4722,7 @@ class BossLoop:
                     stop_reason=BossStopReason.NO_SUITABLE_ISSUE.value,
                     needs_human_reasons=needs_human_reasons,
                     next_actions=next_actions,
-                    elapsed_seconds=time.monotonic() - iter_start,
+                    elapsed_seconds=elapsed_seconds,
                 )
             ]
 

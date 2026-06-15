@@ -61,6 +61,7 @@ def lines(name: str) -> list[str]:
     return [line for line in os.environ.get(name, "").splitlines() if line]
 
 
+changed_paths = set(lines("PREFLIGHT_CHANGED_FILES"))
 source_changes = lines("PREFLIGHT_SOURCE_CHANGES")
 test_changes = lines("PREFLIGHT_TEST_CHANGES")
 publisher_startup_changes = lines("PREFLIGHT_PUBLISHER_STARTUP_CHANGES")
@@ -77,6 +78,14 @@ if "scripts/agent_bridge.py" in source_changes:
 if test_changes:
     quoted_tests = " ".join(shlex.quote(path) for path in test_changes)
     suggested_commands.append(f"python3 -m pytest {quoted_tests} -q")
+if changed_paths & {
+    "scripts/render_benchmark_truth_status.py",
+    "tests/scripts/test_render_benchmark_truth_status.py",
+}:
+    suggested_commands.append("python3 -m py_compile scripts/render_benchmark_truth_status.py")
+    pytest_command = "python3 -m pytest tests/scripts/test_render_benchmark_truth_status.py -q"
+    if pytest_command not in suggested_commands:
+        suggested_commands.append(pytest_command)
 if publisher_startup_changes:
     startup_modules = (
         "scripts.cache_codex_automation_github_status",
