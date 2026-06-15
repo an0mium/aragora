@@ -641,7 +641,12 @@ def _insufficiency_reasons(
     human_source_note = measurement.notes.get("human_invalidations_source") or notes.get(
         "human_invalidations_source"
     )
-    if human_source_note and "fields are present" not in human_source_note:
+    human_coverage = measurement.notes.get("human_invalidations_coverage") or notes.get(
+        "human_invalidations_coverage"
+    )
+    if human_coverage in {"absent", "partial"} or (
+        human_source_note and human_coverage != "complete"
+    ):
         reasons.append("schema_gap_human_numerator")
     if proposal.is_placeholder and "placeholder_threshold" not in reasons:
         reasons.append("placeholder_threshold")

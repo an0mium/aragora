@@ -17,6 +17,7 @@ from aragora.review.invalidation import (
 )
 from aragora.review.invalidation_event_source import (
     _any_receipt_has_v2_outcome_fields,
+    _count_receipts_with_v2_outcome_fields,
     _invalidation_from_settlement_receipt as _settlement_payload_to_invalidated_decision,
 )
 
@@ -222,6 +223,38 @@ class TestAnyReceiptHasV2OutcomeFields:
     def test_rejects_nonpositive_window_days(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="must be positive"):
             _any_receipt_has_v2_outcome_fields(
+                store_root=tmp_path,
+                window_end=datetime(2026, 4, 30, tzinfo=UTC),
+                window_days=0,
+            )
+
+
+class TestCountReceiptsWithV2OutcomeFields:
+    def test_counts_only_in_window_receipts_with_observed_v2_fields(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        _write_receipt(receipts_dir, "v1", _base_payload(pr_number=100))
+        v2_false = _base_payload(pr_number=101)
+        v2_false["outcome_revert_within_window"] = False
+        _write_receipt(receipts_dir, "v2_false", v2_false)
+        v2_none = _base_payload(pr_number=102)
+        v2_none["outcome_revert_within_window"] = None
+        _write_receipt(receipts_dir, "v2_none", v2_none)
+        old_v2 = _base_payload(pr_number=103, reviewed_at="2026-01-01T12:00:00+00:00")
+        old_v2["outcome_revert_within_window"] = False
+        _write_receipt(receipts_dir, "old_v2", old_v2)
+
+        assert (
+            _count_receipts_with_v2_outcome_fields(
+                store_root=tmp_path,
+                window_end=datetime(2026, 4, 30, tzinfo=UTC),
+                window_days=30,
+            )
+            == 1
+        )
+
+    def test_rejects_nonpositive_window_days(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="must be positive"):
+            _count_receipts_with_v2_outcome_fields(
                 store_root=tmp_path,
                 window_end=datetime(2026, 4, 30, tzinfo=UTC),
                 window_days=0,
