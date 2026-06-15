@@ -1731,6 +1731,79 @@ class TestModelReviewQuorum:
         assert quorum["admin_squash_allowed"] is False
         assert quorum["requires_human_preapproval"] is True
 
+    def test_tier_four_repo_visible_helper_settlement_clears_preapproval(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        files = ["aragora/cli/commands/review_queue.py"]
+        pr = _make_pr(number=8406, files=files)
+        head_sha = str(pr["headRefOid"])
+        pr["comments"] = [
+            _codex_openai_comment(body=f"Reviewed exact head {head_sha}."),
+            {
+                "author": {"login": "scarmani"},
+                "body": (
+                    "## Claude independent model review\n\n"
+                    "Model family: claude\n"
+                    f"Current head: {head_sha}\n\n"
+                    "Verdict: approve."
+                ),
+            },
+            {
+                "author": {"login": "scarmani"},
+                "body": (
+                    "Tier-4 Human Settlement Authorization\n\n"
+                    "PR: #8406\n"
+                    f"Exact head: {head_sha}\n"
+                    "Authorized action: admin_squash_merge and "
+                    "branch_protection_reconcile, only if #8406 is non-draft "
+                    "and live exact-head checks/merge-packet remain otherwise "
+                    "green.\n\n"
+                    "Human-risk settlement: I accept the Tier 4 risk for this PR."
+                ),
+            },
+        ]
+        pr["statusCheckRollup"] = [
+            {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"context": "aragora/human-settlement", "state": "SUCCESS"},
+        ]
+
+        def _gh_json_dispatch(args: list[str]) -> Any:
+            assert any("/statuses" in str(arg) for arg in args), (
+                "only the statuses API may be called from the quorum builder"
+            )
+            return [
+                {
+                    "context": "aragora/human-settlement",
+                    "state": "success",
+                    "creator": {"login": "scarmani"},
+                }
+            ]
+
+        monkeypatch.setattr(
+            "aragora.cli.commands.review_queue._gh_json",
+            _gh_json_dispatch,
+        )
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+            repo_slug="synaptent/aragora",
+        )
+
+        assert quorum["status"] == "satisfied"
+        assert quorum["verdict"] == "admin_squash_allowed"
+        assert quorum["admin_squash_allowed"] is True
+        assert quorum["human_risk_settlement_recorded"] is True
+        assert quorum["human_preapproval_recorded"] is True
+        assert quorum["requires_human_risk_settlement"] is False
+        assert quorum["requires_human_preapproval"] is False
+        assert "repo-visible exact-head human risk settlement recorded" in quorum["reasons"]
+
     def test_open_tier_four_with_exact_helper_settlement_is_authorized(
         self,
         monkeypatch: pytest.MonkeyPatch,

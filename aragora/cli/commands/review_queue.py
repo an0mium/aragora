@@ -3077,16 +3077,17 @@ def _build_model_review_quorum(
         signal_count >= requirement["required_model_signals"] and has_required_dogfood
     )
     requires_human_preapproval = bool(requirement["requires_human_preapproval"])
-    human_preapproval_recorded = (
+    local_human_risk_settlement_recorded = human_risk_settlement_recorded
+    repo_visible_human_preapproval_recorded = (
         requires_human_preapproval
-        and human_risk_settlement_recorded
         and _has_successful_status_context(pr, HUMAN_SETTLEMENT_CONTEXT)
         and _has_tier_four_human_preapproval_comment(pr, head_sha=head_sha)
     )
+    human_preapproval_recorded = False
     settlement_creator_pin = dict(
         trusted_creator=_trusted_settlement_creator(), checked=False, verified=False, reason=""
     )
-    if human_preapproval_recorded:
+    if repo_visible_human_preapproval_recorded:
         creator_verified, creator_reason = _human_settlement_status_creator_verified(
             repo_slug=repo_slug or rest_fallback._repo_slug_from_pr_payload(pr, None),
             head_sha=head_sha,
@@ -3094,15 +3095,19 @@ def _build_model_review_quorum(
         settlement_creator_pin["checked"] = True
         settlement_creator_pin["verified"] = creator_verified
         settlement_creator_pin["reason"] = creator_reason
-        if not creator_verified:
-            human_preapproval_recorded = False
+        if creator_verified:
+            human_preapproval_recorded = True
+            human_risk_settlement_recorded = True
     reasons = [tier_reason]
     if settlement_creator_pin["checked"] and not settlement_creator_pin["verified"]:
         reasons.append(str(settlement_creator_pin["reason"]))
     if settlement_recorded:
         reasons.append("exact-head admin_squash_merge settlement receipt recorded")
     elif human_preapproval_recorded:
-        reasons.append("exact-head human risk settlement receipt recorded")
+        if local_human_risk_settlement_recorded:
+            reasons.append("exact-head human risk settlement receipt recorded")
+        else:
+            reasons.append("repo-visible exact-head human risk settlement recorded")
         reasons.append("exact-head Tier 4 human preapproval verified")
         reasons.append(str(settlement_creator_pin["reason"]))
     elif human_risk_settlement_recorded:
