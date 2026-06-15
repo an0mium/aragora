@@ -491,7 +491,7 @@ class TestGeminiModelMapping:
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "google/gemini-pro-1.5"
+            assert fallback.model == "google/gemini-3.1-pro"
 
     def test_default_fallback_model(self):
         """Test unmapped model uses default fallback."""
