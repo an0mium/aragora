@@ -34,12 +34,23 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 from aragora.cli.commands import review_queue_rest_fallback as rest_fallback
 from aragora.cli.commands.review_queue_parsers import (
     add_observe_outcomes_parser,
     add_record_settlement_parser,
+)
+from aragora.cli.commands.review_queue_tier4_settlement import (
+    DEFAULT_TRUSTED_SETTLEMENT_CREATOR as DEFAULT_TRUSTED_SETTLEMENT_CREATOR,
+    HUMAN_SETTLEMENT_CONTEXT as HUMAN_SETTLEMENT_CONTEXT,
+    SETTLEMENT_CREATOR_ENV_VAR as SETTLEMENT_CREATOR_ENV_VAR,
+    TIER_FOUR_AUTHORIZED_MERGE_TOKENS as TIER_FOUR_AUTHORIZED_MERGE_TOKENS,
+    TIER_FOUR_SETTLEMENT_MARKER as TIER_FOUR_SETTLEMENT_MARKER,
+    _has_tier_four_human_preapproval_comment as _has_tier_four_human_preapproval_comment,
+    _human_settlement_status_creator_verified as _human_settlement_status_creator_verified,
+    _trusted_settlement_creator as _trusted_settlement_creator,
+    _trusted_tier_four_human_preapproval_comment_url as _trusted_tier_four_human_preapproval_comment_url,
 )
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
@@ -86,10 +97,6 @@ class AutoHandleCalibrationStore:
 LARGE_DIFF_THRESHOLD = 500  # additions + deletions, beyond which "needs_human_attention"
 MODEL_REVIEW_QUEUE_CAP = 6
 MODEL_REVIEW_QUORUM_VERSION = "model_review_quorum.v1"
-HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
-TIER_FOUR_SETTLEMENT_MARKER = "Tier-4 Human Settlement Authorization"
-DEFAULT_TRUSTED_SETTLEMENT_CREATOR = "scarmani"
-SETTLEMENT_CREATOR_ENV_VAR = "ARAGORA_SETTLEMENT_CREATOR"
 GITHUB_TRANSPORT_ERROR_KIND = "github_transport"
 GITHUB_TRANSPORT_BLOCKED_STATUS = "transport_blocked"
 _GITHUB_TRANSPORT_ERROR_MARKERS = (
@@ -115,7 +122,6 @@ _GITHUB_TRANSPORT_ERROR_MARKERS = (
     "timeout awaiting response headers",
     "tls handshake timeout",
 )
-TIER_FOUR_AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "claude",
     "openai",
@@ -3085,6 +3091,7 @@ def _build_model_review_quorum(
             head_sha=head_sha,
             head_committed_at=head_committed_at,
             repo_slug=resolved_repo_slug,
+            gh_json=_gh_json,
         )
         if requires_human_preapproval
         else ""
@@ -3103,6 +3110,7 @@ def _build_model_review_quorum(
             repo_slug=resolved_repo_slug,
             head_sha=head_sha,
             target_url=preapproval_comment_url,
+            gh_json=_gh_json,
         )
         settlement_creator_pin["checked"] = True
         settlement_creator_pin["verified"] = creator_verified
@@ -3411,176 +3419,6 @@ def _has_successful_status_context(pr: dict[str, Any], context: str) -> bool:
             continue
         return rest_fallback._direct_status_is_success(status)
     return False
-
-
-def _trusted_settlement_creator() -> str:
-    return (
-        str(os.environ.get(SETTLEMENT_CREATOR_ENV_VAR, "") or "").strip()
-        or DEFAULT_TRUSTED_SETTLEMENT_CREATOR
-    )
-
-
-def _human_settlement_status_creator_verified(
-    *,
-    repo_slug: str,
-    head_sha: str,
-    context: str = HUMAN_SETTLEMENT_CONTEXT,
-    target_url: str = "",
-) -> tuple[bool, str]:
-    trusted = _trusted_settlement_creator()
-    expected_target_url = str(target_url or "").strip()
-
-    def fail(reason: str) -> tuple[bool, str]:
-        return (False, f"settlement-creator pin: {reason}")
-
-    if not repo_slug or not head_sha:
-        return fail("missing repo slug or head sha; failing closed")
-    try:
-        payload = _gh_json(["api", f"repos/{repo_slug}/commits/{head_sha}/statuses?per_page=100"])
-    except _GhError as exc:
-        return fail(f"could not fetch commit statuses ({exc}); failing closed")
-    if not isinstance(payload, list):
-        return fail("unexpected statuses payload shape; failing closed")
-    for status in payload:
-        if not isinstance(status, dict) or str(status.get("context") or "").strip() != context:
-            continue
-        state = str(status.get("state") or "").strip().lower()
-        creator = status.get("creator")
-        login = str(creator.get("login") or "").strip() if isinstance(creator, dict) else ""
-        if state != "success":
-            return fail(f"newest '{context}' status state is '{state}', not success")
-        if not login:
-            return fail(f"newest '{context}' status has no creator login; failing closed")
-        if login.casefold() != trusted.casefold():
-            return fail(
-                f"newest '{context}' status was created by '{login}', "
-                f"not trusted settlement creator '{trusted}'"
-            )
-        status_target_url = str(status.get("target_url") or status.get("targetUrl") or "").strip()
-        if expected_target_url and status_target_url != expected_target_url:
-            return fail(
-                f"newest '{context}' status target_url does not match the "
-                "trusted settlement comment"
-            )
-        return (
-            True,
-            f"settlement-creator pin: '{context}' status created by trusted settlement creator '{trusted}'",
-        )
-    return fail(f"no '{context}' status found on head commit; failing closed")
-
-
-def _comment_author_login(comment: dict[str, Any]) -> str:
-    for key in ("author", "user"):
-        author = comment.get(key)
-        if isinstance(author, dict):
-            login = str(author.get("login") or "").strip()
-            if login:
-                return login
-        elif isinstance(author, str) and author.strip():
-            return author.strip()
-    return ""
-
-
-def _comment_author_association(comment: dict[str, Any]) -> str:
-    return (
-        str(comment.get("authorAssociation") or comment.get("author_association") or "")
-        .strip()
-        .upper()
-    )
-
-
-def _comment_created_at(comment: dict[str, Any]) -> str:
-    return str(comment.get("createdAt") or comment.get("created_at") or "").strip()
-
-
-def _comment_url(comment: dict[str, Any]) -> str:
-    return str(comment.get("url") or comment.get("html_url") or "").strip()
-
-
-def _trusted_comment_author_verified(
-    comment: dict[str, Any],
-    *,
-    repo_slug: str,
-) -> bool:
-    association = _comment_author_association(comment)
-    if association == "OWNER":
-        return True
-    if association not in {"MEMBER", "COLLABORATOR"}:
-        return False
-    login = _comment_author_login(comment)
-    trusted = _trusted_settlement_creator()
-    if not login or login.casefold() != trusted.casefold() or not repo_slug:
-        return False
-    try:
-        payload = _gh_json(
-            ["api", f"repos/{repo_slug}/collaborators/{quote(login, safe='')}/permission"]
-        )
-    except _GhError:
-        return False
-    if not isinstance(payload, dict):
-        return False
-    return (
-        str(payload.get("permission") or "").strip().lower() == "admin"
-        or str(payload.get("role_name") or "").strip().lower() == "admin"
-    )
-
-
-def _comment_is_fresh_for_head(
-    comment: dict[str, Any],
-    *,
-    head_committed_at: str,
-) -> bool:
-    if not head_committed_at:
-        return True
-    created_at = _comment_created_at(comment)
-    created = _parse_github_datetime(created_at)
-    committed = _parse_github_datetime(head_committed_at)
-    return bool(created and committed and created >= committed)
-
-
-def _trusted_tier_four_human_preapproval_comment_url(
-    pr: dict[str, Any],
-    *,
-    head_sha: str,
-    head_committed_at: str,
-    repo_slug: str,
-) -> str:
-    head = str(head_sha or "").strip()
-    if not head:
-        return ""
-    for comment in pr.get("comments") or []:
-        if not isinstance(comment, dict):
-            continue
-        body = str(comment.get("body") or "")
-        lowered = body.lower()
-        if TIER_FOUR_SETTLEMENT_MARKER not in body:
-            continue
-        if head not in body:
-            continue
-        if not any(token in lowered for token in TIER_FOUR_AUTHORIZED_MERGE_TOKENS):
-            continue
-        if "human-risk settlement" not in lowered:
-            continue
-        comment_url = _comment_url(comment)
-        if not comment_url:
-            continue
-        if not _comment_is_fresh_for_head(comment, head_committed_at=head_committed_at):
-            continue
-        if not _trusted_comment_author_verified(comment, repo_slug=repo_slug):
-            continue
-        return comment_url
-    return ""
-
-
-def _has_tier_four_human_preapproval_comment(pr: dict[str, Any], *, head_sha: str) -> bool:
-    return bool(
-        _trusted_tier_four_human_preapproval_comment_url(
-            pr,
-            head_sha=head_sha,
-            head_committed_at=_head_committed_at_from_pr(pr),
-            repo_slug=rest_fallback._repo_slug_from_pr_payload(pr, None),
-        )
-    )
 
 
 def _reviewer_signals_from_protocol(protocol: dict[str, Any]) -> list[dict[str, Any]]:
