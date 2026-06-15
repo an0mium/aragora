@@ -1300,6 +1300,36 @@ def _required_checks_from_rest(
     return checks
 
 
+def _merge_missing_required_checks(
+    required_checks: list[dict[str, Any]],
+    fallback_checks: list[dict[str, Any]],
+    missing_specs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    existing_contexts = {
+        _required_check_context(check)
+        for check in required_checks
+        if isinstance(check, dict) and _required_check_context(check)
+    }
+    missing_contexts = {
+        str(spec.get("context") or "").strip()
+        for spec in missing_specs
+        if str(spec.get("context") or "").strip()
+    }
+    merged = list(required_checks)
+    for check in fallback_checks:
+        context = _required_check_context(check)
+        if not context or context in existing_contexts:
+            continue
+        if (
+            context in missing_contexts
+            or context == REQUIRED_CHECK_REST_VISIBILITY_CONTEXT
+            or context == "strict branch-protection freshness"
+        ):
+            merged.append(check)
+            existing_contexts.add(context)
+    return merged
+
+
 def _required_checks_with_direct_fallback(
     required_checks: list[dict[str, Any]],
     pr_view: dict[str, Any],
@@ -1336,7 +1366,16 @@ def _required_checks_with_direct_fallback(
         return required_checks
     if protection.get("strict"):
         rest_checks = _required_checks_from_rest(pr_view, cwd=cwd, repo=repo)
-        return rest_checks or [
+        if not rest_checks:
+            return [
+                *required_checks,
+                {"name": REQUIRED_CHECK_REST_VISIBILITY_CONTEXT, "state": "UNKNOWN"},
+            ]
+        return _merge_missing_required_checks(
+            required_checks,
+            rest_checks,
+            missing_specs,
+        ) or [
             *required_checks,
             {"name": REQUIRED_CHECK_REST_VISIBILITY_CONTEXT, "state": "UNKNOWN"},
         ]

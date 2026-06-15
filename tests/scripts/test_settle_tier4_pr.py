@@ -516,6 +516,62 @@ def test_direct_required_check_fallback_preserves_strict_freshness(
     ]
 
 
+def test_strict_fallback_preserves_existing_failing_required_checks(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        endpoint = command[2]
+        if endpoint == "repos/synaptent/aragora/branches/main/protection/required_status_checks":
+            return {
+                "strict": True,
+                "contexts": [],
+                "checks": [{"context": "lint", "app_id": 15368}],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/check-runs"):
+            return {
+                "total_count": 1,
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "app": {"id": 15368},
+                    }
+                ],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/statuses"):
+            return []
+        if endpoint == f"repos/synaptent/aragora/compare/main...{head}":
+            return {"status": "ahead"}
+        raise AssertionError(f"unexpected REST endpoint: {endpoint}")
+
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    required_checks = settler._required_checks_with_direct_fallback(
+        [{"name": "ruleset-required", "state": "FAILURE"}],
+        _pr_view(head, comments=[]),
+        cwd=tmp_path,
+        repo="synaptent/aragora",
+    )
+
+    assert required_checks == [
+        {"name": "ruleset-required", "state": "FAILURE"},
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "strict branch-protection freshness", "state": "SUCCESS"},
+    ]
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
+        required_checks=required_checks,
+    )
+    assert result["ok"] is False
+    assert "required check ruleset-required is FAILURE" in result["blockers"]
+
+
 def test_direct_required_check_fallback_does_not_treat_completed_without_conclusion_as_success(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
