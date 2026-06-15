@@ -473,11 +473,21 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     return _run_api_agent(fam, prompt)
 
 
+def _claude_reviewer_command() -> list[str]:
+    """Argv for the merge-gate claude reviewer with MCP servers disabled.
+
+    The reviewer only reads a diff to emit a verdict, so it needs no MCP
+    servers. Disabling them avoids claude's startup MCP handshake, which blocks
+    until the full timeout when a local MCP server is wedged.
+    """
+    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
+
+
 def _run_claude_cli(prompt: str) -> ReviewerResult:
     timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
     try:
         proc = subprocess.run(
-            ["claude", "-p"],
+            _claude_reviewer_command(),
             input=prompt,
             capture_output=True,
             text=True,

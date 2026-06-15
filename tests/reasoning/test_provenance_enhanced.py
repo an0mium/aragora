@@ -482,7 +482,7 @@ class TestGitProvenanceTracker:
     def test_run_git_exception(self):
         """Test _run_git handles exceptions."""
         tracker = GitProvenanceTracker(repo_path="/repo")
-        with patch("subprocess.run", side_effect=Exception("Command failed")):
+        with patch("subprocess.run", side_effect=OSError("Command failed")):
             success, output = tracker._run_git(["status"])
             assert success is False
             assert "Command failed" in output
@@ -784,7 +784,7 @@ class TestWebProvenanceTracker:
             )
 
             mock_pool, session_ctx = _mock_http_pool_response()
-            session_ctx.__aenter__.side_effect = RuntimeError("Network error")
+            session_ctx.__aenter__.side_effect = OSError("Network error")
 
             with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
                 check = await tracker.check_staleness(source_info)

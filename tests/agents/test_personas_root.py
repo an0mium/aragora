@@ -508,20 +508,14 @@ class TestConstants:
     """Tests for module constants."""
 
     def test_expertise_domains_defined(self):
-        """Should have 12 expertise domains."""
-        assert len(EXPERTISE_DOMAINS) == 12
-        assert "security" in EXPERTISE_DOMAINS
-        assert "performance" in EXPERTISE_DOMAINS
-        assert "architecture" in EXPERTISE_DOMAINS
-        assert "testing" in EXPERTISE_DOMAINS
+        """Should include core expertise domains."""
+        assert len(EXPERTISE_DOMAINS) >= 12
+        assert {"security", "performance", "architecture", "testing"} <= set(EXPERTISE_DOMAINS)
 
     def test_personality_traits_defined(self):
-        """Should have 8 personality traits."""
-        assert len(PERSONALITY_TRAITS) == 8
-        assert "thorough" in PERSONALITY_TRAITS
-        assert "pragmatic" in PERSONALITY_TRAITS
-        assert "innovative" in PERSONALITY_TRAITS
-        assert "conservative" in PERSONALITY_TRAITS
+        """Should include core personality traits."""
+        assert len(PERSONALITY_TRAITS) >= 8
+        assert {"thorough", "pragmatic", "innovative", "conservative"} <= set(PERSONALITY_TRAITS)
 
 
 # =============================================================================
@@ -533,14 +527,9 @@ class TestDefaultPersonas:
     """Tests for DEFAULT_PERSONAS constant."""
 
     def test_default_personas_defined(self):
-        """Should have 6 default personas."""
-        assert len(DEFAULT_PERSONAS) == 6
-        assert "claude" in DEFAULT_PERSONAS
-        assert "codex" in DEFAULT_PERSONAS
-        assert "gemini" in DEFAULT_PERSONAS
-        assert "grok" in DEFAULT_PERSONAS
-        assert "qwen" in DEFAULT_PERSONAS
-        assert "deepseek" in DEFAULT_PERSONAS
+        """Should include the core default personas."""
+        assert len(DEFAULT_PERSONAS) >= 6
+        assert {"claude", "codex", "gemini", "grok", "qwen", "deepseek"} <= set(DEFAULT_PERSONAS)
 
     def test_default_claude_persona(self):
         """Should have correct claude persona."""

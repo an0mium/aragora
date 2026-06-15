@@ -423,10 +423,10 @@ class TestOpenAIModelMapping:
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "openai/gpt-4o"
+            assert fallback.model == "openai/gpt-5.5"
 
     def test_unknown_model_defaults_to_gpt4o(self):
-        """Test unknown model falls back to gpt-4o."""
+        """Test unknown model falls back to the current OpenAI default."""
         agent = OpenAIAPIAgent(
             api_key="test-key",
             model="gpt-unknown-model",
@@ -434,7 +434,7 @@ class TestOpenAIModelMapping:
 
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "router-key"}):
             fallback = agent._get_cached_fallback_agent()
-            assert fallback.model == "openai/gpt-4o"
+            assert fallback.model == "openai/gpt-5.5"
 
 
 class TestOpenAIFallbackDisabled:

@@ -240,7 +240,9 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
 
     result = qe._run_claude_cli("review prompt")
 
-    assert seen["args"] == (["claude", "-p"],)
+    assert seen["args"] == (
+        ["claude", "-p", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}'],
+    )
     assert seen["timeout"] == 7.0
     assert result == ReviewerResult(
         "claude",
@@ -248,6 +250,15 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
         False,
         "claude CLI timed out after 7s",
     )
+
+
+def test_claude_reviewer_command_disables_mcp() -> None:
+    cmd = qe._claude_reviewer_command()
+
+    assert cmd[:2] == ["claude", "-p"]
+    assert "--mcp-config" in cmd
+    assert cmd[cmd.index("--mcp-config") + 1] == '{"mcpServers":{}}'
+    assert "--strict-mcp-config" in cmd
 
 
 # --- OpenAI reviewer fallback ----------------------------------------------
