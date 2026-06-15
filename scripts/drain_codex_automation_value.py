@@ -748,6 +748,34 @@ def run_drain(config: DrainConfig, *, runner: Runner | None = None) -> dict[str,
         },
         "phases": [],
     }
+    if config.branch_limit <= 0 and config.issue_limit <= 0 and config.merge_limit <= 0:
+        report["github_health"] = {
+            "skipped": True,
+            "reason": "all action limits are zero",
+        }
+        report["phases"].extend(
+            [
+                {
+                    "name": "merge_existing_prs",
+                    "ok": True,
+                    "skipped": [{"reason": "merge_limit=0"}],
+                },
+                {
+                    "name": "publish_branch_prs",
+                    "ok": True,
+                    "skipped": [{"reason": "branch_limit=0"}],
+                },
+                {
+                    "name": "publish_handoff_issues",
+                    "ok": True,
+                    "skipped": [{"reason": "issue_limit=0"}],
+                },
+            ]
+        )
+        report["status"] = "ok"
+        report["blockers"] = []
+        return report
+
     health = check_github_cli_health(config.repo_root)
     report["github_health"] = health.to_dict()
     if not health.ready:

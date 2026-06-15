@@ -268,6 +268,49 @@ def test_run_drain_stops_when_github_unavailable(monkeypatch: Any, tmp_path: Pat
     assert calls == []
 
 
+def test_run_drain_zero_limits_skips_external_probes(monkeypatch: Any, tmp_path: Path) -> None:
+    def fail_health(_repo_root: Path) -> GitHubCLIHealth:
+        raise AssertionError("zero-limit drain should not check GitHub health")
+
+    def fail_runner(args: Any, cwd: Path) -> subprocess.CompletedProcess[str]:
+        raise AssertionError(f"zero-limit drain should not run {' '.join(args)} in {cwd}")
+
+    monkeypatch.setattr(mod, "check_github_cli_health", fail_health)
+    config = mod.DrainConfig(
+        repo_root=tmp_path,
+        github_repo="owner/repo",
+        state_root=tmp_path,
+        outbox_dir=tmp_path / ".aragora" / "automation-outbox",
+        receipt_dir=tmp_path / ".aragora" / "automation-receipts",
+        cache_output=None,
+        base="origin/main",
+        branch_limit=0,
+        issue_limit=0,
+        merge_limit=0,
+        max_open_prs=12,
+        max_open_issues=16,
+        branch_scan_limit=40,
+        apply=False,
+    )
+
+    report = mod.run_drain(config, runner=fail_runner)
+
+    assert report["status"] == "ok"
+    assert report["blockers"] == []
+    assert report["github_health"] == {
+        "skipped": True,
+        "reason": "all action limits are zero",
+    }
+    assert [phase["name"] for phase in report["phases"]] == [
+        "merge_existing_prs",
+        "publish_branch_prs",
+        "publish_handoff_issues",
+    ]
+    assert report["phases"][0]["skipped"] == [{"reason": "merge_limit=0"}]
+    assert report["phases"][1]["skipped"] == [{"reason": "branch_limit=0"}]
+    assert report["phases"][2]["skipped"] == [{"reason": "issue_limit=0"}]
+
+
 def test_run_drain_skips_issue_publish_when_cap_reached(monkeypatch: Any, tmp_path: Path) -> None:
     def fake_health(_repo_root: Path) -> GitHubCLIHealth:
         return GitHubCLIHealth(
