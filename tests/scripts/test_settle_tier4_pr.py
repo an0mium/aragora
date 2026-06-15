@@ -929,6 +929,10 @@ def test_unrecorded_human_preapproval_blocks_check_result() -> None:
 
     assert result["ok"] is False
     assert settler.HUMAN_PREAPPROVAL_RECEIPT_BLOCKER in result["blockers"]
+    assert "record-settlement <PR> --action approve" in settler.HUMAN_PREAPPROVAL_RECEIPT_BLOCKER
+    assert "record-settlement --action approve --pr <PR>" not in (
+        settler.HUMAN_PREAPPROVAL_RECEIPT_BLOCKER
+    )
     assert result["authorized_actions"] == []
 
 

@@ -56,7 +56,7 @@ HUMAN_PREAPPROVAL_RECEIPT_BLOCKER = (
     "human_preapproval_recorded=false). The repo-visible settlement comment and "
     f"{HUMAN_SETTLEMENT_CONTEXT} status are necessary but NOT sufficient: a local, "
     "operator-controlled human-risk receipt must back them. Record it with "
-    "`aragora review-queue record-settlement --action approve --pr <PR> "
+    "`aragora review-queue record-settlement <PR> --action approve "
     "--head-sha <HEAD> --reason <why> --post-github-status` (which writes the "
     "receipt and status atomically), then re-check."
 )
