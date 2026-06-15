@@ -36,6 +36,10 @@ from aragora.swarm.boss_worker_lifecycle import (
 from aragora.swarm.debate_gate import DebateGate, DebateGateConfig, DebateGateRequest
 from aragora.swarm.dispatch_contract_gate import dispatch_contract_gate  # noqa: F401
 from aragora.swarm.env_utils import git_safe_env
+from aragora.swarm.pr_value import (
+    classify_value_record,
+    read_backpressure_withheld_classes,
+)
 from aragora.swarm.proof_first_queue import filter_noncanonical_boss_ready_issues
 from aragora.swarm.roadmap_priority import extract_roadmap_codes, load_roadmap_priority_policy
 from aragora.swarm.task_sanitizer import SanitizationOutcome, TaskSanitizer  # noqa: F401
@@ -580,6 +584,7 @@ class BossLoopConfig:
     use_focused_verification: bool = True
 
     use_value_ranking: bool = True
+    backpressure_signal_path: str | None = ".aragora/backpressure.json"
 
     avoid_open_pr_scope_conflicts: bool = True
 
@@ -945,6 +950,7 @@ class BossLoop:
         self._pending_handoff_prompts: dict[int, tuple[str, str | None]] = {}
         self._stop_reason: str | None = None
         self._last_sanitation_summary: list[str] = []
+        self._last_backpressure_summary: list[str] = []
         # Decomposition guardrails
         self._total_sub_issues_created: int = 0
         self._ticks_spent_on_decomposed_issues: int = 0
@@ -1479,6 +1485,50 @@ class BossLoop:
         else:
             self._last_sanitation_summary = []
 
+    def _filter_backpressure_withheld_issues(
+        self,
+        issues: list[GitHubIssue],
+        *,
+        pending_issue_numbers: set[int] | None = None,
+    ) -> list[GitHubIssue]:
+        """Drop feed-driven issues withheld by explicit backpressure admission.
+
+        Legacy shepherd-mode signals without ``admission.withhold_classes`` are
+        advisory-only. Pending handoff prompts are exempt because they represent
+        drain/follow-through on existing work rather than fresh generation.
+        """
+        withheld = read_backpressure_withheld_classes(self.config.backpressure_signal_path)
+        if not withheld:
+            self._last_backpressure_summary = []
+            return issues
+
+        pending = set(pending_issue_numbers or set())
+        kept: list[GitHubIssue] = []
+        skipped_by_class: dict[str, list[int]] = {}
+        for issue in issues:
+            if issue.number in pending:
+                kept.append(issue)
+                continue
+            value_class = classify_value_record(issue.to_dict())
+            if value_class in withheld:
+                skipped_by_class.setdefault(value_class, []).append(issue.number)
+                continue
+            kept.append(issue)
+
+        summaries: list[str] = []
+        for value_class, numbers in sorted(skipped_by_class.items()):
+            issue_refs = ", ".join(f"#{number}" for number in numbers[:3])
+            if len(numbers) > 3:
+                issue_refs = f"{issue_refs}, +{len(numbers) - 3} more"
+            summaries.append(f"{value_class} ({len(numbers)}: {issue_refs})")
+        self._last_backpressure_summary = summaries
+        if summaries:
+            logger.info(
+                "Boss loop skipped by backpressure admission: %s",
+                "; ".join(summaries),
+            )
+        return kept
+
     def _no_suitable_issue_guidance(
         self,
         *,
@@ -1502,6 +1552,12 @@ class BossLoop:
             sanitation_summary = "Skipped by sanitation: " + "; ".join(sanitation)
             needs_human_reasons.append(sanitation_summary)
             next_actions.append(sanitation_summary)
+        if self._last_backpressure_summary:
+            backpressure_summary = "Skipped by backpressure admission: " + "; ".join(
+                self._last_backpressure_summary
+            )
+            needs_human_reasons.append(backpressure_summary)
+            next_actions.append(backpressure_summary)
         for blocker_summary in self._session_blocker_summaries(already_maxed):
             needs_human_reasons.append(blocker_summary)
         return needs_human_reasons, next_actions
@@ -4304,6 +4360,10 @@ class BossLoop:
             i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
         ]
         candidate_issues = self._filter_issues_with_active_claims(candidate_issues)
+        candidate_issues = self._filter_backpressure_withheld_issues(
+            candidate_issues,
+            pending_issue_numbers=pending_issue_numbers,
+        )
         eligibility_report = build_issue_eligibility_report(
             candidate_issues,
             skip_labels=self.config.skip_labels,
@@ -4566,6 +4626,10 @@ class BossLoop:
             i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
         ]
         candidate_issues = self._filter_issues_with_active_claims(candidate_issues)
+        candidate_issues = self._filter_backpressure_withheld_issues(
+            candidate_issues,
+            pending_issue_numbers=pending_issue_numbers,
+        )
         eligibility_report = build_issue_eligibility_report(
             candidate_issues,
             skip_labels=self.config.skip_labels,

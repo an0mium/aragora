@@ -1126,8 +1126,8 @@ class TestDecisionRouterRouteMethods:
         assert result.decision_integrity == package_payload
 
     @pytest.mark.asyncio
-    async def test_route_to_debate_executes_decision_integrity(self, monkeypatch):
-        """Decision integrity execution triggers plan executor when enabled."""
+    async def test_route_to_debate_blocks_untrusted_intake_execution(self, monkeypatch):
+        """Decision integrity execution is fail-closed when intake is untrusted."""
         from types import SimpleNamespace
         from unittest.mock import AsyncMock
 
@@ -1229,10 +1229,17 @@ class TestDecisionRouterRouteMethods:
         ) as mock_execute:
             result = await router.route(request)
 
-        assert mock_execute.called is True
         assert result.success is True
         assert result.decision_integrity is not None
-        assert result.decision_integrity["execution"]["status"] == "completed"
+        # The route builds the plan and requests execution, but the backbone
+        # gate is fail-closed: the intake trust tier produced by this path
+        # ("authenticated-user"/"service-authored") is not in the auto-execution
+        # allowlist, so the plan is blocked before the executor is invoked.
+        assert result.decision_integrity["plan_id"]
+        execution = result.decision_integrity["execution"]
+        assert execution["status"] == "failed"
+        assert "untrusted_intake_tier" in execution["error"]
+        assert mock_execute.called is False
 
 
 # ===========================================================================

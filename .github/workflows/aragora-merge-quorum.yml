@@ -18,6 +18,14 @@ name: Aragora Merge Quorum
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  # B1 (docs/specs/QUORUM_EVIDENCE_RETRIGGER.md): model-review evidence
+  # comments are posted AFTER the pull_request events above, so the
+  # ready-triggered evaluation always pre-dates the evidence and fails
+  # stale. When a comment that plausibly carries reviewer evidence is
+  # created, the evidence-retrigger job below re-runs the head-bound
+  # pull_request evaluation so the gate re-reads the now-complete evidence.
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -26,7 +34,12 @@ on:
         type: string
 
 concurrency:
-  group: aragora-merge-quorum-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+  # Dual-event PR resolution: pull_request events carry the PR number
+  # directly; issue_comment events carry it as github.event.issue.number.
+  # Including the issue number keeps comment-triggered runs serialized
+  # per-PR (and behind any in-flight evaluation for the same PR) instead
+  # of colliding in a single repo-wide group.
+  group: aragora-merge-quorum-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
   # cancel-in-progress is intentionally false. With true, two triggers for the
   # same PR (e.g. synchronize + reopened, or rapid pushes) cancel each other;
   # a cancelled run reports a "cancelled" conclusion, which turns this REQUIRED
@@ -46,6 +59,10 @@ permissions:
 jobs:
   merge-quorum:
     name: aragora-merge-quorum
+    # issue_comment events are handled by the evidence-retrigger job below.
+    # The enforcing evaluation only runs in pull_request / workflow_dispatch
+    # context, where its check run binds to the PR head SHA.
+    if: github.event_name != 'issue_comment'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -206,3 +223,110 @@ jobs:
 
           fail(f"Unrecognized merge-quorum status '{status}' — failing closed.")
           PY
+
+  # B1 — evidence re-trigger (docs/specs/QUORUM_EVIDENCE_RETRIGGER.md).
+  #
+  # An issue_comment-triggered workflow run executes the DEFAULT-BRANCH
+  # workflow file and its check runs attach to the default-branch SHA, not
+  # the PR head (the same reason workflow_dispatch above is "debug; does not
+  # update PR check status"). So this job does NOT evaluate the packet
+  # inline — it re-runs the latest head-bound pull_request evaluation run,
+  # which re-reads the now-complete evidence and reports on the PR head.
+  # Re-running a read-only evaluation is always safe; it can never pass a
+  # genuinely failing PR (docs/governance/BOSS_LOOP_MERGE_GATE_RESILIENCE.md §6).
+  evidence-retrigger:
+    name: quorum-evidence-retrigger
+    # Cheap declarative guards: only PR comments, never comments authored by
+    # github-actions (the evidence parsers exclude that author, so such a
+    # comment can never change the quorum — and skipping it also prevents
+    # bot-comment retrigger loops). Non-matching events skip without
+    # scheduling a runner.
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      github.event.comment.user.login != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Job-scoped least privilege. actions:write is required ONLY to re-run
+    # this workflow's own prior evaluation run; it cannot approve, merge,
+    # push, comment, or alter statuses. The enforcing merge-quorum job above
+    # keeps the workflow-level read-only permissions unchanged.
+    permissions:
+      actions: write
+      pull-requests: read
+    # Debounce comment floods: a newer evidence comment for the same PR
+    # cancels an older still-pending retrigger. cancel-in-progress here is
+    # safe precisely because this job is NOT the required check — the
+    # required evaluation job's group above keeps cancel-in-progress: false,
+    # so comment activity can never cancel an enforcing run into a red
+    # "cancelled" conclusion.
+    concurrency:
+      group: quorum-evidence-retrigger-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Guard and re-trigger stale quorum evaluation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          # Attacker-controlled content enters ONLY via env (never inline
+          # ${{ }} inside run:), so comment markdown cannot inject shell.
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Guard 1: the comment's FIRST markdown heading must name a known
+          # reviewer family — the same convention the quorum evidence
+          # parsers key on (review_queue.py heading inference + canonical
+          # model-family markers). Anything else no-ops successfully.
+          heading="$(printf '%s\n' "$COMMENT_BODY" | grep -m1 -E '^[[:space:]]{0,3}#{1,6}[[:space:]]' || true)"
+          if [[ -z "$heading" ]]; then
+            echo "No markdown heading in comment — not evidence-shaped; no-op."
+            exit 0
+          fi
+          families='claude|anthropic|codex|tesla|harvey|factory|grok|xai|gemini|openai|gpt|mistral|codestral|deepseek|qwen|kimi|moonshot|yi|glm|zhipu|minimax|hermes'
+          heading_lower="$(printf '%s' "$heading" | tr '[:upper:]' '[:lower:]')"
+          if ! printf '%s' "$heading_lower" | grep -qE "(^|[^a-z0-9])(${families})([^a-z0-9]|$)"; then
+            echo "First heading names no known reviewer family — no-op."
+            exit 0
+          fi
+
+          # Guard 2: PR must be open and non-draft (drafts defer the gate).
+          pr_json="$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}")"
+          pr_state="$(jq -r '.state' <<<"$pr_json")"
+          pr_draft="$(jq -r '.draft' <<<"$pr_json")"
+          head_sha="$(jq -r '.head.sha' <<<"$pr_json")"
+          if [[ "$pr_state" != "open" || "$pr_draft" != "false" ]]; then
+            echo "PR #${PR_NUMBER} state=${pr_state} draft=${pr_draft} — gate not active; no-op."
+            exit 0
+          fi
+
+          # Guard 3: only re-run a COMPLETED, non-success evaluation bound to
+          # the CURRENT head SHA. In-flight runs will already see the new
+          # comment; a green gate needs no recount; runs for old heads are
+          # correctly superseded by the next pull_request event.
+          run_json="$(gh api "repos/${GH_REPO}/actions/workflows/aragora-merge-quorum.yml/runs?event=pull_request&head_sha=${head_sha}&per_page=1" \
+            --jq '.workflow_runs[0] // empty')"
+          if [[ -z "$run_json" ]]; then
+            echo "No prior head-bound evaluation run for ${head_sha} — no-op."
+            exit 0
+          fi
+          run_id="$(jq -r '.id' <<<"$run_json")"
+          run_status="$(jq -r '.status' <<<"$run_json")"
+          run_conclusion="$(jq -r '.conclusion' <<<"$run_json")"
+          if [[ "$run_status" != "completed" ]]; then
+            echo "Latest evaluation run ${run_id} is ${run_status} — it will see this comment; no-op."
+            exit 0
+          fi
+          if [[ "$run_conclusion" == "success" ]]; then
+            echo "Latest evaluation run ${run_id} already succeeded — no-op."
+            exit 0
+          fi
+
+          echo "Re-running stale evaluation run ${run_id} (conclusion=${run_conclusion}) for PR #${PR_NUMBER} head ${head_sha}."
+          # Tolerate rerun races (e.g. a manual rerun already in progress):
+          # failure to request a rerun must not turn comment activity into
+          # red noise. The A1 reconciler remains the safety net.
+          gh run rerun "$run_id" --repo "$GH_REPO" \
+            || echo "::warning::rerun request for run ${run_id} failed (possibly already re-running); no-op."

@@ -41,6 +41,7 @@ import asyncio
 import gc
 import json
 import logging
+import math
 import os
 import random
 import resource
@@ -201,6 +202,28 @@ class MockAgent:
         return 0  # Always vote for first proposal
 
 
+def _dispatch_concurrency_ratio(
+    dispatch_duration_s: float, response_delays_s: list[float]
+) -> float:
+    """Estimate whether proposal dispatch ran in parallel.
+
+    Fully parallel dispatch should take about as long as the slowest individual
+    response; sequential dispatch should take closer to the sum of responses.
+    """
+    if not math.isfinite(dispatch_duration_s) or dispatch_duration_s <= 0:
+        return 0.0
+
+    valid_delays = [
+        float(delay)
+        for delay in response_delays_s
+        if math.isfinite(float(delay)) and float(delay) > 0
+    ]
+    if not valid_delays:
+        return 0.0
+
+    return min(1.0, max(valid_delays) / dispatch_duration_s)
+
+
 async def run_mock_debate(
     debate_id: str,
     question: str,
@@ -241,6 +264,7 @@ async def run_mock_debate(
     first_token_start = time.monotonic()
     proposals = []
     proposal_tasks = [agent.generate(f"Propose a solution for: {question}") for agent in agents]
+    response_delays = [agent._response_delay for agent in agents]
     # Run proposals concurrently to measure dispatch concurrency
     dispatch_start = time.monotonic()
     results = await asyncio.gather(*proposal_tasks, return_exceptions=True)
@@ -256,11 +280,7 @@ async def run_mock_debate(
     if not proposals:
         raise RuntimeError(f"No proposals generated for debate {debate_id}")
 
-    # Calculate dispatch concurrency ratio
-    # If fully parallel, total time ~ single agent time
-    # If sequential, total time ~ sum of agent times
-    single_agent_est = max(0.01, dispatch_duration / max(num_agents, 1))
-    dispatch_ratio = min(1.0, single_agent_est / max(dispatch_duration, 0.001))
+    dispatch_ratio = _dispatch_concurrency_ratio(dispatch_duration, response_delays)
 
     # Phase 2: Rounds (critique and revision)
     for round_num in range(num_rounds):

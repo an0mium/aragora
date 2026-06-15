@@ -135,12 +135,16 @@ class TestRouting:
         """Test handler recognizes system routes."""
         assert system_handler.can_handle("/api/system/maintenance") is True
         assert system_handler.can_handle("/api/circuit-breakers") is True
-        assert system_handler.can_handle("/metrics") is True
+        # /metrics is owned by MetricsHandler (public Prometheus scrape
+        # contract); SystemHandler's legacy shadowing claim was removed.
+        assert system_handler.can_handle("/metrics") is False
 
     def test_can_handle_auth_routes(self, system_handler):
         """Test handler recognizes auth routes."""
         assert system_handler.can_handle("/api/auth/stats") is True
-        assert system_handler.can_handle("/api/auth/revoke") is True
+        # /api/auth/revoke is owned by AuthHandler (session.revoke
+        # contract); SystemHandler's legacy shadowing claim was removed.
+        assert system_handler.can_handle("/api/auth/revoke") is False
 
     def test_cannot_handle_unknown_routes(self, system_handler):
         """Test handler rejects unknown routes."""

@@ -894,7 +894,7 @@ class TestContextHelpers:
 
     def test_circuit_breaker_import_error(self, handler):
         """Returns unavailable when resilience module not importable."""
-        with patch.dict("sys.modules", {"aragora.resilience.circuit_breaker_v2": None}):
+        with patch.dict("sys.modules", {"aragora.resilience.simple_circuit_breaker": None}):
             result = handler._get_circuit_breaker_state("agent-1")
         assert result["available"] is False
 

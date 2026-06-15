@@ -251,7 +251,12 @@ def github_cli_env(
 ) -> dict[str, str]:
     env = dict(os.environ if base_env is None else base_env)
     if not prefer_app:
-        return env
+        # Drop any App-sourced token a shell wrapper exported (tagged via
+        # ARAGORA_GITHUB_AUTH_SOURCE by the scripts/gh_app_env.py wiring) so
+        # callers that do not prefer App auth — e.g. write ops where the
+        # installation has narrow scopes — fall back to the operator's
+        # PAT/keyring auth instead of silently using the App token.
+        return _drop_app_token(env)
     token = get_github_app_installation_token(env)
     if not token:
         return env

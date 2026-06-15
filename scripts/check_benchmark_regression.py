@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -60,6 +61,16 @@ def extract_means(data: dict) -> dict[str, float]:
         if mean is not None:
             results[name] = mean
     return results
+
+
+def _non_negative_finite_float(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        candidate = float(value)
+        if math.isfinite(candidate) and candidate >= 0:
+            return candidate
+    return None
 
 
 def _format_name_sample(names: set[str]) -> str:
@@ -190,11 +201,25 @@ def validate_results(results_path: Path) -> int:
 
     # Check for any benchmarks with suspicious stats (e.g., extremely slow)
     warnings = 0
+    invalid_stats = 0
     for bench in benchmarks:
         name = bench.get("name", "unknown")
         stats = bench.get("stats", {})
-        mean = stats.get("mean", 0)
-        stddev = stats.get("stddev", 0)
+        if not isinstance(stats, dict):
+            print(f"  ERROR: {name} has invalid stats payload")
+            invalid_stats += 1
+            continue
+
+        mean = _non_negative_finite_float(stats.get("mean"))
+        stddev = _non_negative_finite_float(stats.get("stddev", 0))
+        if mean is None:
+            print(f"  ERROR: {name} has invalid mean stat: {stats.get('mean')!r}")
+            invalid_stats += 1
+            continue
+        if stddev is None:
+            print(f"  ERROR: {name} has invalid stddev stat: {stats.get('stddev')!r}")
+            invalid_stats += 1
+            continue
 
         # Flag benchmarks with coefficient of variation > 100% (highly unstable)
         if mean > 0 and stddev / mean > 1.0:
@@ -206,6 +231,10 @@ def validate_results(results_path: Path) -> int:
 
     if warnings:
         print(f"\n{warnings} benchmark(s) with high variance (informational only).")
+
+    if invalid_stats:
+        print(f"\nFAILED: {invalid_stats} benchmark(s) with invalid numeric stats.")
+        return 1
 
     print("PASSED: Benchmark results file is valid.")
     return 0

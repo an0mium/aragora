@@ -23,12 +23,15 @@ def reclassify_report(data: dict[str, Any]) -> dict[str, Any]:
     runs = data.get("runs")
     if not isinstance(runs, list):
         raise ValueError("Report must contain runs list.")
+    if not runs:
+        raise ValueError("Report runs list must contain at least one run.")
+    for index, run in enumerate(runs):
+        if not isinstance(run, dict):
+            raise ValueError(f"Report runs[{index}] must be an object.")
 
     warning_only_runs = 0
     blocker_runs = 0
     for run in runs:
-        if not isinstance(run, dict):
-            continue
         stderr_excerpt = str(run.get("stderr_excerpt") or "")
         classified = classify_stderr_signals(stderr_excerpt)
         run["runtime_blockers"] = classified["runtime_blockers"]

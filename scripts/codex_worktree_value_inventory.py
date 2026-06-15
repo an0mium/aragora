@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -34,6 +35,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from audit_codex_branch_backlog import (  # noqa: E402
     DEFAULT_OUTBOX_DIR,
     DEFAULT_RECEIPT_DIR,
+    TERMINAL_RECEIPT_STATUSES,
     _commit_prefix_matches,
     is_patch_equivalent,
     terminal_receipted_handoff_branch_heads,
@@ -41,15 +43,50 @@ from audit_codex_branch_backlog import (  # noqa: E402
 )
 
 SCHEMA = "aragora-worktree-harvest/1.0"
+# Every git/gh subprocess in this module must carry an explicit timeout so a
+# wedged candidate repo (e.g. `git status` blocked on an fsmonitor daemon or
+# hook) can never hang the whole inventory. Overridable per-run via
+# --git-timeout-seconds (alias of the long-standing --git-timeout flag).
+GIT_TIMEOUT_SECONDS = 30
+# Substring run_cmd embeds in stderr on timeout; classify_candidate uses it to
+# annotate timed-out candidates as inspect_timeout (always protected).
+_TIMEOUT_ERROR_MARKER = "timed out after"
 DEFAULT_LEGACY_ROOT = Path.home() / ".codex" / "worktrees"
 DEFAULT_CANONICAL_REL_ROOT = Path(".worktrees") / "codex-auto"
 DEFAULT_ROOT = DEFAULT_LEGACY_ROOT  # kept for backward compatibility
 DEFAULT_LEDGER_ROOT = Path(".aragora/worktree-harvest")
+DEFAULT_HARVEST_RECEIPT_REL_DIR = DEFAULT_LEDGER_ROOT / "harvest-receipts"
 ACTIVE_SESSION_FILES = (
     ".claude-session-active",
     ".codex_session_active",
     ".nomic-session-active",
 )
+RECEIPT_PATH_KEYS = frozenset(
+    {
+        "candidate_path",
+        "candidate_repo_path",
+        "checkout_path",
+        "path",
+        "repo_path",
+        "source_path",
+        "source_repo_path",
+        "worktree",
+        "worktree_path",
+    }
+)
+RECEIPT_HEAD_KEYS = frozenset(
+    {
+        "candidate_head",
+        "candidate_head_sha",
+        "commit",
+        "head",
+        "head_sha",
+        "sha",
+        "source_head",
+        "source_head_sha",
+    }
+)
+TERMINAL_HARVEST_DECISION_PREFIXES = ("already_", "preserve_")
 PROJECT_MARKER_FILES = (
     ".git",
     "pyproject.toml",
@@ -110,6 +147,7 @@ class GitInfo:
     patch_equivalent_to_base: bool = False
     smart_merge_equivalent_to_base: bool = False
     lookup_failed: bool = False
+    inspect_timeout: bool = False
     lookup_errors: list[str] = field(default_factory=list)
 
 
@@ -163,30 +201,77 @@ class InventoryContext:
     smart_merge_detection: bool = False
     smart_merge_main_subjects: list[str] = field(default_factory=list)
     open_pr_heads_cache: dict[str, list[dict[str, Any]]] | None = None
+    terminal_receipt_path_heads: dict[str, set[str | None]] = field(default_factory=dict)
 
 
 def utc_now() -> datetime:
     return datetime.now(UTC).replace(microsecond=0)
 
 
+def _kill_process_tree(proc: subprocess.Popen) -> None:
+    """Kill the child and its whole session, then drain pipes boundedly.
+
+    ``subprocess.run(timeout=...)`` kills only the direct child and then
+    drains its pipes with no timeout; a descendant process (git hook,
+    fsmonitor daemon) that inherited the pipe FDs keeps them open and the
+    drain blocks forever -- the observed "hung inside candidate git status"
+    failure. Killing the whole session and bounding the drain guarantees
+    run_cmd always returns.
+
+    ``os.killpg``/``start_new_session`` are POSIX-only; on platforms without
+    them the AttributeError/OSError fallback kills the direct child only.
+    """
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (OSError, AttributeError):
+        proc.kill()
+    try:
+        proc.communicate(timeout=5)
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        # Last resort: abandon the pipes rather than block the inventory.
+        for stream in (proc.stdout, proc.stderr):
+            if stream is not None:
+                try:
+                    stream.close()
+                except OSError:
+                    pass
+        try:
+            proc.wait(timeout=5)  # reap; SIGKILL was already sent above
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
+
 def run_cmd(args: list[str], cwd: Path, *, timeout: int) -> subprocess.CompletedProcess[str]:
     try:
-        return subprocess.run(
+        proc = subprocess.Popen(
             args,
             cwd=cwd,
             text=True,
-            capture_output=True,
-            check=False,
-            timeout=timeout,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        stderr = str(exc)
-        if isinstance(exc, subprocess.TimeoutExpired):
-            stderr = f"command timed out after {timeout}s: {' '.join(args)}"
-        return subprocess.CompletedProcess(args=args, returncode=124, stdout="", stderr=stderr)
+    except OSError as exc:
+        return subprocess.CompletedProcess(args=args, returncode=124, stdout="", stderr=str(exc))
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=124,
+            stdout="",
+            stderr=f"command timed out after {timeout}s: {' '.join(args)}",
+        )
+    return subprocess.CompletedProcess(
+        args=args, returncode=proc.returncode, stdout=stdout or "", stderr=stderr or ""
+    )
 
 
-def run_git(args: list[str], cwd: Path, *, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+def run_git(
+    args: list[str], cwd: Path, *, timeout: int = GIT_TIMEOUT_SECONDS
+) -> subprocess.CompletedProcess[str]:
     return run_cmd(["git", *args], cwd, timeout=timeout)
 
 
@@ -286,6 +371,109 @@ def branch_matches_receipt(
     return any(
         receipt_head is None or _commit_prefix_matches(receipt_head, head) for receipt_head in heads
     )
+
+
+def _absolute_path_key(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        return None
+    return str(path.resolve(strict=False))
+
+
+def _receipt_heads_from_mapping(payload: dict[str, Any]) -> set[str | None]:
+    heads: set[str | None] = set()
+    for key, value in payload.items():
+        if key not in RECEIPT_HEAD_KEYS:
+            continue
+        if value is None:
+            heads.add(None)
+            continue
+        if isinstance(value, str):
+            text = value.strip()
+            if text:
+                heads.add(text)
+    return heads
+
+
+def _receipt_path_head_pairs(
+    value: Any,
+    *,
+    inherited_heads: set[str | None] | None = None,
+) -> list[tuple[str, str | None]]:
+    heads = set(inherited_heads or set())
+    pairs: list[tuple[str, str | None]] = []
+
+    if isinstance(value, dict):
+        local_heads = _receipt_heads_from_mapping(value)
+        if local_heads:
+            heads = local_heads
+        for key, item in value.items():
+            if key in RECEIPT_PATH_KEYS:
+                path_key = _absolute_path_key(item)
+                if path_key:
+                    for head in heads or {None}:
+                        pairs.append((path_key, head))
+            if isinstance(item, (dict, list)):
+                pairs.extend(_receipt_path_head_pairs(item, inherited_heads=heads))
+    elif isinstance(value, list):
+        for item in value:
+            pairs.extend(_receipt_path_head_pairs(item, inherited_heads=heads))
+
+    return pairs
+
+
+def _terminal_path_receipt(payload: dict[str, Any]) -> bool:
+    status = str(payload.get("status") or "").strip()
+    if status in TERMINAL_RECEIPT_STATUSES:
+        return True
+    decision = str(payload.get("decision") or "").strip()
+    if decision.startswith(TERMINAL_HARVEST_DECISION_PREFIXES):
+        return True
+    return False
+
+
+def terminal_receipt_path_heads(receipt_roots: list[Path]) -> dict[str, set[str | None]]:
+    """Return terminal receipt path refs with optional exact-head evidence."""
+
+    refs: dict[str, set[str | None]] = {}
+    for receipt_root in receipt_roots:
+        for receipt_file in json_files(receipt_root):
+            payload = load_json_mapping(receipt_file)
+            if payload is None or not _terminal_path_receipt(payload):
+                continue
+            for path_key, head in _receipt_path_head_pairs(payload):
+                refs.setdefault(path_key, set()).add(head)
+    return refs
+
+
+def path_matches_receipt(
+    candidate_path: Path,
+    repo_path: Path | None,
+    head: str | None,
+    receipt_path_heads: dict[str, set[str | None]],
+) -> bool:
+    path_keys = {_absolute_path_key(str(candidate_path))}
+    if repo_path is not None:
+        path_keys.add(_absolute_path_key(str(repo_path)))
+    for path_key in {item for item in path_keys if item}:
+        heads = receipt_path_heads.get(path_key, set())
+        if not heads:
+            continue
+        if not head:
+            if None in heads:
+                return True
+            continue
+        if any(
+            receipt_head is None or _commit_prefix_matches(receipt_head, head)
+            for receipt_head in heads
+        ):
+            return True
+    return False
 
 
 def outbox_files_for_branch(outbox_dir: Path, branch: str | None) -> list[str]:
@@ -728,11 +916,18 @@ def classify_candidate(
     links["outbox_files"] = outbox_files_for_branch(context.outbox_dir, branch)
     links["receipt_files"] = receipt_files_for_branch(context.receipt_dir, branch)
     outbox_protected = bool(branch and branch in context.unresolved_outbox_branches)
-    receipt_protected = branch_matches_receipt(
+    branch_receipt_protected = branch_matches_receipt(
         branch,
         head,
         context.terminal_receipt_branch_heads,
     )
+    path_receipt_protected = path_matches_receipt(
+        candidate_root,
+        repo_path,
+        head,
+        context.terminal_receipt_path_heads,
+    )
+    receipt_protected = branch_receipt_protected or path_receipt_protected
 
     if active_session or lock_files or dirty:
         classification = "active_or_dirty"
@@ -753,7 +948,10 @@ def classify_candidate(
             proof.append("unresolved automation outbox references branch")
     elif receipt_protected:
         classification = "receipt_protected"
-        proof.append("terminal automation receipt references branch/head")
+        if branch_receipt_protected:
+            proof.append("terminal automation receipt references branch/head")
+        if path_receipt_protected:
+            proof.append("terminal receipt references path/head")
     elif git.ahead and git.ahead > 0:
         patch_equivalent = False
         try:
@@ -800,6 +998,14 @@ def classify_candidate(
     else:
         classification = "unregistered_git_residue"
         proof.append("git checkout is not registered in git worktree list")
+
+    if any(_TIMEOUT_ERROR_MARKER in error for error in git.lookup_errors):
+        # A timed-out lookup is never authoritative: the candidate is already
+        # routed to a protected class (active_or_dirty via the fail-dirty
+        # status path, or lookup_failed), so it can never be safe-to-clean.
+        # Annotate it so operators and the summary can count timeouts.
+        git.inspect_timeout = True
+        proof.append("inspect_timeout: a git/GitHub lookup timed out; candidate is protected")
 
     return build_candidate(
         candidate_root,
@@ -981,16 +1187,14 @@ def candidate_roots(root: Path, limit: int | None = None) -> list[Path]:
 
 def _git_common_dir(repo: Path) -> Path | None:
     """Return the git common dir for ``repo`` without raising on non-repos."""
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+    # cwd="." is deliberate: ``repo`` may be a deleted/broken worktree path,
+    # and Popen(cwd=<missing dir>) raises before git can answer; ``git -C``
+    # reports the failure gracefully instead.
+    result = run_cmd(
+        ["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        Path("."),
+        timeout=5,
+    )
     if result.returncode != 0:
         return None
     raw = result.stdout.strip()
@@ -1105,6 +1309,7 @@ def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
         "bytes_by_class": bytes_by_class,
         "known_size_bytes": known_bytes,
         "size_lookup_failures": size_lookup_failures,
+        "inspect_timeouts": sum(1 for candidate in candidates if candidate.git.inspect_timeout),
         "inventory_coverage": (
             1.0 if not candidates else (len(candidates) - size_lookup_failures) / len(candidates)
         ),
@@ -1172,6 +1377,12 @@ def inventory(
             repo,
             outbox_dir=outbox_dir,
             receipt_dir=receipt_dir,
+        ),
+        terminal_receipt_path_heads=terminal_receipt_path_heads(
+            [
+                receipt_dir if receipt_dir.is_absolute() else repo / receipt_dir,
+                repo / DEFAULT_HARVEST_RECEIPT_REL_DIR,
+            ]
         ),
         skip_gh=skip_gh,
         git_timeout=git_timeout,
@@ -1284,7 +1495,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--size-mode", choices=("du", "stat", "none"), default="du")
     parser.add_argument("--size-timeout", type=int, default=300)
-    parser.add_argument("--git-timeout", type=int, default=30)
+    parser.add_argument(
+        "--git-timeout",
+        "--git-timeout-seconds",
+        dest="git_timeout",
+        type=int,
+        default=GIT_TIMEOUT_SECONDS,
+        help=f"Timeout for each git subprocess (default {GIT_TIMEOUT_SECONDS}s; "
+        "a timed-out candidate is annotated inspect_timeout and preserved)",
+    )
     parser.add_argument("--gh-timeout", type=int, default=30)
     parser.add_argument("--patch-timeout", type=int, default=45)
     parser.add_argument("--skip-gh", action="store_true")

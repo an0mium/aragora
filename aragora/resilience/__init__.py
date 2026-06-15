@@ -103,8 +103,9 @@ from .timeout import (
     with_timeout_sync,
 )
 
-# Circuit breaker v2 (async-first, configurable)
-from .circuit_breaker_v2 import (
+# Configurable sync-core circuit breaker (formerly circuit_breaker_v2;
+# that module is now a deprecation shim re-exporting from simple_circuit_breaker)
+from .simple_circuit_breaker import (
     BaseCircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerConfig as CircuitBreakerConfigV2,
@@ -195,7 +196,7 @@ __all__ = [
     "timeout_context_sync",
     "with_timeout",
     "with_timeout_sync",
-    # Circuit breaker v2
+    # Configurable sync-core circuit breaker (formerly circuit_breaker_v2)
     "BaseCircuitBreaker",
     "CircuitBreakerConfig",
     "CircuitBreakerConfigV2",

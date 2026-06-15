@@ -177,12 +177,38 @@ class ReviewQueueInvalidationEventSource:
             "human_denominator_source": "review-queue settlement receipts",
             "auto_handle_source": "auto-handle calibration store",
         }
-        if not human_invalidations:
-            notes["human_invalidations_source"] = (
-                "settlement-receipt schema does not yet record post-settlement "
-                "invalidation signals by default; human-side numerator is 0 by "
-                "data availability unless future-schema fields are present."
+        if human_total:
+            v2_observed_count = _count_receipts_with_v2_outcome_fields(
+                store_root=self.review_queue_root,
+                window_end=window_end,
+                window_days=window_days,
             )
+            coverage = (
+                "complete"
+                if v2_observed_count == human_total
+                else "partial"
+                if v2_observed_count
+                else "absent"
+            )
+            notes["human_invalidations_coverage"] = coverage
+            notes["human_invalidations_observed_count"] = str(v2_observed_count)
+            notes["human_settlement_receipt_count"] = str(human_total)
+            if coverage == "complete" and not human_invalidations:
+                notes["human_invalidations_source"] = (
+                    "settlement-receipt schema-v2 outcome fields are present on all "
+                    "receipts in the window, but no receipt in the window "
+                    "fired any of the five canonical signals. Treat as measured "
+                    "zero because the human invalidation observation coverage is complete."
+                )
+            elif coverage != "complete" and not human_invalidations:
+                notes["human_invalidations_source"] = (
+                    f"schema_gap_human_numerator: settlement-receipt v2 outcome "
+                    f"fields are populated on {v2_observed_count}/{human_total} "
+                    "receipts in the window. Run "
+                    "aragora.review.settlement_outcome.observe_outcome over the "
+                    "window to close this gap. Until then, human-side numerator "
+                    "is partial data availability, not a full-window measurement."
+                )
 
         return InvalidationRecalibrationSample(
             invalidations=tuple(auto_invalidations + human_invalidations),
@@ -247,44 +273,15 @@ def count_decisions_from_settlement_receipts(
         window_days: Width of the window in days. Defaults to
             :data:`DEFAULT_BASELINE_WINDOW_DAYS`.
     """
-    if window_days <= 0:
-        raise ValueError("window_days must be positive")
-    window_end = _ensure_utc(window_end)
-    window_start = window_end - timedelta(days=window_days)
-
-    receipts_dir = resolve_review_queue_root(store_root) / RECEIPTS_SUBDIR
-    if not receipts_dir.exists():
-        return 0
-
-    try:
-        candidates = sorted(
-            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
-            key=lambda p: p.name,
+    return sum(
+        1
+        for _ in _iter_in_window_settlement_receipt_payloads(
+            store_root=store_root,
+            window_end=window_end,
+            window_days=window_days,
+            warn_invalid_reviewed_at=True,
         )
-    except OSError as exc:
-        logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
-        return 0
-
-    total = 0
-    for path in candidates:
-        payload = _safe_read_json(path)
-        if payload is None:
-            continue
-        reviewed_raw = payload.get("reviewed_at")
-        if not reviewed_raw:
-            continue
-        try:
-            reviewed_at = _parse_iso(str(reviewed_raw))
-        except ValueError:
-            logger.warning(
-                "review.invalidation_event_source: receipt %s has invalid reviewed_at=%r",
-                path,
-                reviewed_raw,
-            )
-            continue
-        if window_start <= reviewed_at <= window_end:
-            total += 1
-    return total
+    )
 
 
 _V2_OUTCOME_FIELD_NAMES: frozenset[str] = frozenset(
@@ -297,6 +294,82 @@ _V2_OUTCOME_FIELD_NAMES: frozenset[str] = frozenset(
         "outcome_observed_at",
     }
 )
+
+_V2_OUTCOME_SIGNAL_FIELD_NAMES: frozenset[str] = frozenset(
+    {
+        "outcome_revert_within_window",
+        "outcome_post_merge_incident",
+        "outcome_human_override_redo",
+        "outcome_rollback",
+        "outcome_reopened_pr",
+    }
+)
+
+
+def _iter_in_window_settlement_receipt_payloads(
+    *,
+    store_root: str | Path | None = None,
+    window_end: datetime,
+    window_days: int = DEFAULT_BASELINE_WINDOW_DAYS,
+    warn_invalid_reviewed_at: bool = False,
+) -> Iterator[dict[str, Any]]:
+    """Yield parseable in-window settlement receipt payloads.
+
+    Denominator counts and v2-observation coverage must use this same receipt
+    set so "complete" coverage cannot be inferred from a broader scan than the
+    human-settlement denominator.
+    """
+    if window_days <= 0:
+        raise ValueError("window_days must be positive")
+    window_end = _ensure_utc(window_end)
+    window_start = window_end - timedelta(days=window_days)
+
+    receipts_dir = resolve_review_queue_root(store_root) / RECEIPTS_SUBDIR
+    if not receipts_dir.exists():
+        return
+
+    try:
+        candidates = sorted(
+            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
+            key=lambda p: p.name,
+        )
+    except OSError as exc:
+        logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
+        return
+
+    for path in candidates:
+        payload = _safe_read_json(path)
+        if payload is None:
+            continue
+        reviewed_raw = payload.get("reviewed_at")
+        if not reviewed_raw:
+            continue
+        try:
+            reviewed_at = _parse_iso(str(reviewed_raw))
+        except ValueError:
+            if warn_invalid_reviewed_at:
+                logger.warning(
+                    "review.invalidation_event_source: receipt %s has invalid reviewed_at=%r",
+                    path,
+                    reviewed_raw,
+                )
+            continue
+        if window_start <= reviewed_at <= window_end:
+            yield payload
+
+
+def _receipt_has_any_v2_outcome_field(payload: dict[str, Any]) -> bool:
+    return any(
+        field_name in payload and payload[field_name] is not None
+        for field_name in _V2_OUTCOME_FIELD_NAMES
+    )
+
+
+def _receipt_has_complete_v2_outcome_fields(payload: dict[str, Any]) -> bool:
+    return all(
+        field_name in payload and payload[field_name] is not None
+        for field_name in _V2_OUTCOME_SIGNAL_FIELD_NAMES
+    )
 
 
 def _any_receipt_has_v2_outcome_fields(
@@ -317,45 +390,36 @@ def _any_receipt_has_v2_outcome_fields(
     This is the discriminator behind the two ``human_invalidations_source``
     notes in :func:`measure_baseline_from_disk`.
     """
-    if window_days <= 0:
-        raise ValueError("window_days must be positive")
-    window_end = _ensure_utc(window_end)
-    window_start = window_end - timedelta(days=window_days)
-
-    receipts_dir = resolve_review_queue_root(store_root) / RECEIPTS_SUBDIR
-    if not receipts_dir.exists():
-        return False
-
-    try:
-        candidates = sorted(
-            (p for p in receipts_dir.iterdir() if p.is_file() and p.suffix == ".json"),
-            key=lambda p: p.name,
-        )
-    except OSError as exc:
-        logger.warning("review.invalidation_event_source: cannot list %s: %s", receipts_dir, exc)
-        return False
-
     probed = 0
-    for path in candidates:
+    for payload in _iter_in_window_settlement_receipt_payloads(
+        store_root=store_root,
+        window_end=window_end,
+        window_days=window_days,
+    ):
         if probed >= probe_cap:
             break
-        payload = _safe_read_json(path)
-        if payload is None:
-            continue
-        reviewed_raw = payload.get("reviewed_at")
-        if not reviewed_raw:
-            continue
-        try:
-            reviewed_at = _parse_iso(str(reviewed_raw))
-        except ValueError:
-            continue
-        if not (window_start <= reviewed_at <= window_end):
-            continue
         probed += 1
-        for field_name in _V2_OUTCOME_FIELD_NAMES:
-            if field_name in payload and payload[field_name] is not None:
-                return True
+        if _receipt_has_any_v2_outcome_field(payload):
+            return True
     return False
+
+
+def _count_receipts_with_v2_outcome_fields(
+    *,
+    store_root: str | Path | None = None,
+    window_end: datetime,
+    window_days: int = DEFAULT_BASELINE_WINDOW_DAYS,
+) -> int:
+    """Return in-window receipts whose five v2 outcome signals are complete."""
+    return sum(
+        1
+        for payload in _iter_in_window_settlement_receipt_payloads(
+            store_root=store_root,
+            window_end=window_end,
+            window_days=window_days,
+        )
+        if _receipt_has_complete_v2_outcome_fields(payload)
+    )
 
 
 def iter_invalidations_from_settlement_receipts(
@@ -560,35 +624,39 @@ def measure_baseline_from_stores(
     #     (reverted_at / post_merge_incident / redo_pr); kept for backwards
     #     compatibility but no v2-shaped data is available.
     extra_notes = dict(measurement.notes)
-    if not human_invalidations_in_window:
-        # Probe a bounded set of receipts in the window to decide which
-        # data-collection note applies. Read-only and rate-limited by the
-        # ``count_decisions_from_settlement_receipts`` cap upstream.
-        v2_observed = _any_receipt_has_v2_outcome_fields(
+    if human_total:
+        v2_observed_count = _count_receipts_with_v2_outcome_fields(
             store_root=review_queue_root,
             window_end=window_end,
             window_days=window_days,
         )
-        if v2_observed:
+        coverage = (
+            "complete"
+            if v2_observed_count == human_total
+            else "partial"
+            if v2_observed_count
+            else "absent"
+        )
+        extra_notes.setdefault("human_invalidations_coverage", coverage)
+        extra_notes.setdefault("human_invalidations_observed_count", str(v2_observed_count))
+        extra_notes.setdefault("human_settlement_receipt_count", str(human_total))
+        if coverage == "complete" and not human_invalidations_in_window:
             extra_notes.setdefault(
                 "human_invalidations_source",
-                "settlement-receipt schema-v2 outcome fields are present on at "
-                "least one receipt in the window, but no receipt in the window "
+                "settlement-receipt schema-v2 outcome fields are present on all "
+                "receipts in the window, but no receipt in the window "
                 "fired any of the five canonical signals. Treat as measured "
-                "zero only if the observation timestamp is recent enough to "
-                "have caught any in-window signals.",
+                "zero because the human invalidation observation coverage is complete.",
             )
-        else:
+        elif coverage != "complete" and not human_invalidations_in_window:
             extra_notes.setdefault(
                 "human_invalidations_source",
-                "schema_gap_human_numerator: settlement-receipt v2 outcome "
-                "fields (outcome_revert_within_window, "
-                "outcome_post_merge_incident, outcome_human_override_redo, "
-                "outcome_rollback, outcome_reopened_pr) are not yet populated "
-                "on any receipt in the window. Run "
+                f"schema_gap_human_numerator: settlement-receipt v2 outcome "
+                f"fields are populated on {v2_observed_count}/{human_total} "
+                "receipts in the window. Run "
                 "aragora.review.settlement_outcome.observe_outcome over the "
                 "window to close this gap. Until then, human-side numerator "
-                "is 0 by data availability, not by measurement.",
+                "is partial data availability, not a full-window measurement.",
             )
 
     # Re-pack to attach the additional note while keeping the

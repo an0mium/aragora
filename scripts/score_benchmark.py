@@ -83,6 +83,10 @@ def _validate_row(row: object) -> list[str]:
     return errors
 
 
+def _canonical_row_key(row: dict[str, object]) -> str:
+    return json.dumps(row, sort_keys=True, separators=(",", ":"))
+
+
 def score_fixtures(fixtures_dir: Path) -> tuple[bool, str]:
     """Load and score all fixture files.
 
@@ -99,6 +103,7 @@ def score_fixtures(fixtures_dir: Path) -> tuple[bool, str]:
     total_pass = 0
     total_fail = 0
     lines: list[str] = []
+    seen_examples: dict[str, str] = {}
 
     for fixture_file in fixture_files:
         with fixture_file.open() as fh:
@@ -121,6 +126,16 @@ def score_fixtures(fixtures_dir: Path) -> tuple[bool, str]:
                 for err in row_errors:
                     file_errors.append(f"  [{idx}] schema error: {err}")
                 continue
+
+            row_key = _canonical_row_key(row)
+            first_seen = seen_examples.get(row_key)
+            if first_seen is not None:
+                file_fail += 1
+                file_errors.append(
+                    f"  [{idx}] duplicate benchmark example also seen in {first_seen}"
+                )
+                continue
+            seen_examples[row_key] = f"{fixture_file.name}[{idx}]"
 
             expected = row.get("expected_class", "")
             result = classify_from_metrics(row)

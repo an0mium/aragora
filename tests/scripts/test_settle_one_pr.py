@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import subprocess
+import sys
 from pathlib import Path
 
 import scripts.settle_one_pr as settle_one_pr
@@ -25,6 +27,20 @@ SURFACE_REASON = (
     "security/auth/RBAC/secrets/deploy/workflow/legal/compliance/destructive/"
     "migration/public-API surface"
 )
+MERGE_PACKET_PREFIX = [
+    settle_one_pr.PYTHON_EXECUTABLE,
+    "-m",
+    "aragora.cli.main",
+    "review-queue",
+    "merge-packet",
+]
+OPERATOR_SNAPSHOT_PREFIX = [
+    settle_one_pr.PYTHON_EXECUTABLE,
+    "scripts/agent_bridge.py",
+    "operator-snapshot",
+]
+OWNER_PREFIX = [settle_one_pr.PYTHON_EXECUTABLE, "scripts/identify_lane_owner.py", "--pr"]
+STEERING_PREFIX = [settle_one_pr.PYTHON_EXECUTABLE, "scripts/read_operator_steering.py", "--pr"]
 
 
 def _entry(
@@ -111,6 +127,78 @@ def test_run_reports_timeout_and_terminates_process_group(monkeypatch) -> None:
     assert result["timeout_seconds"] == 7
     assert "timed out after 7s" in result["stderr"]
     assert killed == [(4242, settle_one_pr.signal.SIGKILL)]
+
+
+def test_run_reports_process_start_failure(monkeypatch) -> None:
+    def fake_popen(*args, **kwargs):
+        assert args[0] == ["missing-helper"]
+        assert kwargs["start_new_session"] is True
+        raise FileNotFoundError("missing-helper")
+
+    monkeypatch.setattr(settle_one_pr.subprocess, "Popen", fake_popen)
+
+    result = settle_one_pr._run(["missing-helper"], cwd=Path.cwd(), timeout=7)
+
+    assert result["returncode"] == 127
+    assert result["start_failed"] is True
+    assert result["stdout"] == ""
+    assert "command failed to start" in result["stderr"]
+    assert "missing-helper" in result["stderr"]
+
+
+def test_load_single_pr_packet_uses_current_interpreter(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        return _packet(_entry(8185)), {"command": "packet", "returncode": 0}
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    packet = settle_one_pr._load_single_pr_packet(cwd=Path.cwd(), pr=8185, repo=None)
+
+    assert packet["entries"][0]["pr_number"] == 8185
+    assert commands[0][:5] == [
+        sys.executable,
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "merge-packet",
+    ]
+
+
+def test_load_single_pr_packet_summarizes_transport_envelope(monkeypatch) -> None:
+    packet_error = {
+        "status": "transport_blocked",
+        "transport_blocked": True,
+        "error_kind": "github_transport",
+        "error": "gh pr view 7841 failed: GraphQL: API rate limit already exceeded",
+    }
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del args, cwd, timeout
+        return None, {
+            "command": "packet",
+            "returncode": 1,
+            "stdout": json.dumps(packet_error),
+            "stderr": "",
+        }
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    try:
+        settle_one_pr._load_single_pr_packet(cwd=Path.cwd(), pr=7841, repo=None)
+    except RuntimeError as exc:
+        message = str(exc)
+    else:  # pragma: no cover - the assertion below is clearer than pytest.raises here.
+        raise AssertionError("expected RuntimeError")
+
+    assert message == (
+        "merge-packet transport blocked: "
+        "gh pr view 7841 failed: GraphQL: API rate limit already exceeded"
+    )
+    assert "transport_blocked" not in message
 
 
 def test_select_candidate_prefers_admin_order() -> None:
@@ -548,7 +636,7 @@ def test_broad_packet_lazy_loader_uses_single_bulk_packet(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
         commands.append(args)
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == MERGE_PACKET_PREFIX:
             assert "--limit" in args
             assert "--pr" not in args
             return _packet(_entry(7376), _entry(7449)), {"command": "packet", "returncode": 0}
@@ -572,7 +660,7 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
         nonlocal bulk_calls
         del cwd, timeout
         commands.append(args)
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == MERGE_PACKET_PREFIX:
             if "--limit" in args:
                 bulk_calls += 1
                 return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
@@ -594,7 +682,7 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_fails(
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -615,7 +703,7 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_times_out(
 ) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == MERGE_PACKET_PREFIX:
             if "--limit" in args:
                 return None, {
                     "command": "bulk-packet",
@@ -636,7 +724,7 @@ def test_broad_packet_lazy_loader_falls_back_when_bulk_packet_times_out(
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -655,7 +743,7 @@ def test_broad_packet_lazy_loader_returns_empty_when_bulk_and_light_metadata_fai
 ) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == MERGE_PACKET_PREFIX:
             return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
         if args[:3] == ["gh", "pr", "list"]:
             return None, {"command": "metadata", "returncode": 1, "stderr": "HTTP 504"}
@@ -674,7 +762,7 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
 ) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == MERGE_PACKET_PREFIX:
             if "--limit" in args:
                 return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             pr_number = args[args.index("--pr") + 1]
@@ -694,7 +782,7 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_failures(
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -712,7 +800,7 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
 ) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == MERGE_PACKET_PREFIX:
             if "--limit" in args:
                 return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             return None, {
@@ -732,7 +820,7 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -750,7 +838,7 @@ def test_broad_packet_lazy_loader_surfaces_targeted_packet_timeout(
 def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == MERGE_PACKET_PREFIX:
             if "--limit" in args:
                 return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             pr_number = int(args[args.index("--pr") + 1])
@@ -772,7 +860,7 @@ def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) ->
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -789,7 +877,7 @@ def test_broad_packet_lazy_loader_warns_on_large_fallback_fanout(monkeypatch) ->
 def test_combine_packets_preserves_source_packet_timestamps(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
-        if args[:5] == ["python3", "-m", "aragora.cli.main", "review-queue", "merge-packet"]:
+        if args[:5] == MERGE_PACKET_PREFIX:
             if "--limit" in args:
                 return None, {"command": "bulk-packet", "returncode": 1, "stderr": "HTTP 504"}
             pr_number = int(args[args.index("--pr") + 1])
@@ -804,7 +892,7 @@ def test_combine_packets_preserves_source_packet_timestamps(monkeypatch) -> None
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -855,7 +943,7 @@ def test_build_report_threads_repo_to_policy_metadata(monkeypatch) -> None:
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return (
@@ -913,7 +1001,7 @@ def test_build_report_explicit_pr_loads_policy_metadata_without_broad_list(monke
                 },
                 {"command": "policy-view", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         raise AssertionError(args)
 
@@ -942,6 +1030,77 @@ def test_build_report_explicit_pr_loads_policy_metadata_without_broad_list(monke
     assert all(command[:3] != ["gh", "pr", "list"] for command in commands)
 
 
+def test_build_report_bounds_policy_command_output(monkeypatch) -> None:
+    large_stdout = "stdout-line\n" * 1200
+    large_stderr = "stderr-line\n" * 900
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return (
+                {
+                    "number": 7451,
+                    "title": "fix: candidate",
+                    "headRefName": "codex/candidate",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "aragora/server/routes.py"}],
+                },
+                {
+                    "command": "policy-view",
+                    "returncode": 0,
+                    "stdout": large_stdout,
+                    "stderr": large_stderr,
+                },
+            )
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return (
+                {"lanes": []},
+                {
+                    "command": "snapshot",
+                    "returncode": 0,
+                    "stdout": large_stdout,
+                    "stderr": large_stderr,
+                },
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                7451,
+                tier=3,
+                requires_human_risk_settlement=True,
+                reasons=["semantic, persistence, security, API, or SDK surface touched"],
+            )
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=7451,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    policy_context = report["policy_context"]
+    command_reports = [
+        policy_context["operator_snapshot_command"],
+        policy_context["policy_metadata_commands"][0],
+    ]
+    limit = getattr(settle_one_pr, "COMMAND_OUTPUT_REPORT_LIMIT", 4096)
+    for command_report in command_reports:
+        assert command_report["stdout_length"] == len(large_stdout)
+        assert command_report["stderr_length"] == len(large_stderr)
+        assert command_report["stdout_truncated"] is True
+        assert command_report["stderr_truncated"] is True
+        assert len(command_report["stdout"]) <= limit + 128
+        assert len(command_report["stderr"]) <= limit + 128
+        assert command_report["stdout"] != large_stdout
+        assert command_report["stderr"] != large_stderr
+
+
 def test_build_report_fails_closed_when_operator_snapshot_fails(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         del cwd, timeout
@@ -950,7 +1109,7 @@ def test_build_report_fails_closed_when_operator_snapshot_fails(monkeypatch) -> 
                 [{"number": 7451, "title": "fix: candidate", "headRefName": "codex/candidate"}],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return None, {"command": "snapshot", "returncode": 1, "stderr": "snapshot failed"}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return (
@@ -1000,7 +1159,7 @@ def test_build_report_does_not_reload_snapshot_when_packet_already_failed_closed
         del cwd, timeout
         if args[:3] == ["gh", "pr", "list"]:
             return [], {"command": "metadata", "returncode": 0}
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             snapshot_called = True
             return None, {"command": "snapshot", "returncode": 1, "stderr": "outage"}
         raise AssertionError(args)
@@ -1034,7 +1193,7 @@ def test_build_report_blocks_repo_mismatch_when_repo_override_supplied(monkeypat
                 [{"number": 7451, "title": "fix: candidate", "headRefName": "codex/candidate"}],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             snapshot_called = True
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
@@ -1094,14 +1253,16 @@ def test_lazy_policy_metadata_continues_past_failed_pr_view(monkeypatch) -> None
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
-        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+        if args[:3] == OWNER_PREFIX:
             return {"status": "completed"}, {"command": "owner", "returncode": 0}
-        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+        if args[:3] == STEERING_PREFIX:
             return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return None, {"command": "policy-view-7451", "returncode": 1, "stderr": "timeout"}
+        if args[:2] == ["gh", "api"] and args[2] == "repos/{owner}/{repo}/pulls/7451":
+            return None, {"command": "pull-rest-7451", "returncode": 404, "stderr": "not found"}
         if (
             args[:3] == ["gh", "pr", "view"]
             and args[3] == "7452"
@@ -1156,7 +1317,7 @@ def test_lazy_policy_metadata_continues_past_failed_pr_view(monkeypatch) -> None
             )
         if args[:3] == ["gh", "pr", "checks"]:
             return (
-                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                [],
                 {"command": "checks", "returncode": 0},
             )
         raise AssertionError(args)
@@ -1194,11 +1355,11 @@ def test_explicit_pr_reuses_preloaded_policy_file_scope(monkeypatch) -> None:
     def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
         nonlocal policy_view_calls
         del cwd, timeout
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
-        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+        if args[:3] == OWNER_PREFIX:
             return {"status": "completed"}, {"command": "owner", "returncode": 0}
-        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+        if args[:3] == STEERING_PREFIX:
             return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
         if (
             args[:3] == ["gh", "pr", "view"]
@@ -1265,7 +1426,7 @@ def test_explicit_pr_reuses_preloaded_policy_file_scope(monkeypatch) -> None:
             )
         if args[:3] == ["gh", "pr", "checks"]:
             return (
-                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                [],
                 {"command": "checks", "returncode": 0},
             )
         raise AssertionError(args)
@@ -1292,6 +1453,60 @@ def test_explicit_pr_reuses_preloaded_policy_file_scope(monkeypatch) -> None:
     assert report["policy_exclusions"] == []
 
 
+def test_pr_policy_metadata_uses_rest_fallback_when_graphql_unavailable(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return None, {
+                "command": "policy-view-7451",
+                "returncode": 1,
+                "stderr": "GraphQL: API rate limit already exceeded",
+            }
+        if args[:2] == ["gh", "api"] and args[2] == "repos/{owner}/{repo}/pulls/7451":
+            return (
+                {
+                    "number": 7451,
+                    "title": "docs: candidate",
+                    "head": {"ref": "codex/docs-candidate"},
+                    "user": {"login": "alice"},
+                    "mergeable": True,
+                    "mergeable_state": "clean",
+                },
+                {"command": "pull-rest", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2] == "repos/{owner}/{repo}/pulls/7451/files":
+            return (
+                [{"filename": "docs/status/example.md", "additions": 2, "deletions": 1}],
+                {"command": "files-rest", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    metadata, command = settle_one_pr.load_pr_policy_metadata(Path.cwd(), 7451)
+
+    assert metadata == {
+        "number": 7451,
+        "title": "docs: candidate",
+        "headRefName": "codex/docs-candidate",
+        "author": {"login": "alice"},
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "CLEAN",
+        "files": [
+            {
+                "path": "docs/status/example.md",
+                "additions": 2,
+                "deletions": 1,
+                "changeType": None,
+            }
+        ],
+        "metadata_source": "rest_pull_files",
+    }
+    assert command["rest_fallback"] is True
+    assert command["primary_command"]["returncode"] == 1
+    assert command["fallback_reason"] == "GraphQL: API rate limit already exceeded"
+
+
 def test_build_report_fails_closed_when_selected_policy_metadata_unavailable(
     monkeypatch,
 ) -> None:
@@ -1308,10 +1523,12 @@ def test_build_report_fails_closed_when_selected_policy_metadata_unavailable(
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return None, {"command": "policy-view", "returncode": 1, "stderr": "timeout"}
+        if args[:2] == ["gh", "api"] and args[2] == "repos/{owner}/{repo}/pulls/7451":
+            return None, {"command": "pull-rest", "returncode": 404, "stderr": "not found"}
         raise AssertionError(args)
 
     monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
@@ -1349,7 +1566,7 @@ def test_build_report_lazy_loads_file_scope_for_selected_candidate(monkeypatch) 
                 ],
                 {"command": "metadata", "returncode": 0},
             )
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return (
@@ -1400,6 +1617,34 @@ def test_tier3_or_human_risk_is_report_only() -> None:
 
     assert "Tier 3 requires report-only handling" in blockers
     assert "requires_human_risk_settlement=true" in blockers
+
+
+def test_entry_blockers_use_effective_required_checks_gate() -> None:
+    entry = _entry(
+        1005,
+        status="satisfied",
+        verdict="admin_squash_allowed",
+        admin_squash_allowed=True,
+        reasons=["bounded helper reliability surface"],
+        checks_summary="2 pending / 21 total",
+    )
+    entry["check_surfaces"] = {
+        "effective_gate": {
+            "source": "required_pr_checks",
+            "summary": "6/6 required green (required PR checks)",
+        },
+        "required_pr_checks": {
+            "available": True,
+            "gate_selected": True,
+            "summary": "6/6 required green",
+            "pending": [],
+            "failing_or_cancelled": [],
+        },
+    }
+
+    blockers = entry_blockers(entry)
+
+    assert blockers == []
 
 
 def test_owner_payload_blocks_active_owner() -> None:
@@ -1665,6 +1910,87 @@ def test_required_check_source_report_fails_closed_without_protection_json() -> 
     ]
 
 
+def test_required_check_source_report_falls_back_to_required_checks_and_check_runs() -> None:
+    report = required_check_source_report(
+        None,
+        {"statusCheckRollup": []},
+        {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "success",
+                    "app": {"id": 15368, "slug": "github-actions"},
+                }
+            ]
+        },
+        [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+    )
+
+    assert report == {"status": "pass", "blockers": [], "suggestions": []}
+
+
+def test_required_check_source_report_fallback_blocks_empty_required_checks() -> None:
+    report = required_check_source_report(
+        None,
+        {"statusCheckRollup": []},
+        {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "success",
+                    "app": {"id": 15368, "slug": "github-actions"},
+                }
+            ]
+        },
+        [],
+    )
+
+    assert report["status"] == "unknown"
+    assert report["blockers"] == ["required checks JSON empty"]
+
+
+def test_required_check_source_report_fallback_blocks_non_green_required_check() -> None:
+    report = required_check_source_report(
+        None,
+        {"statusCheckRollup": []},
+        {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "success",
+                    "app": {"id": 15368, "slug": "github-actions"},
+                }
+            ]
+        },
+        [{"name": "aragora-merge-quorum", "state": "FAILURE"}],
+    )
+
+    assert report["status"] == "blocked"
+    assert report["blockers"] == ["aragora-merge-quorum is FAILURE"]
+
+
+def test_required_check_source_report_fallback_blocks_status_only_required_check() -> None:
+    report = required_check_source_report(
+        None,
+        {
+            "statusCheckRollup": [
+                {
+                    "__typename": "StatusContext",
+                    "context": "aragora-merge-quorum",
+                    "state": "SUCCESS",
+                }
+            ]
+        },
+        {"check_runs": []},
+        [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+    )
+
+    assert report["status"] == "blocked"
+    assert report["blockers"] == [
+        "aragora-merge-quorum lacks a matching successful exact-head GitHub Actions CheckRun"
+    ]
+
+
 def test_build_report_reads_required_checks_from_pr_base_branch(monkeypatch) -> None:
     commands: list[list[str]] = []
 
@@ -1673,11 +1999,11 @@ def test_build_report_reads_required_checks_from_pr_base_branch(monkeypatch) -> 
         commands.append(args)
         if args[:3] == ["gh", "pr", "list"]:
             return [], {"command": "metadata", "returncode": 0}
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
-        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+        if args[:3] == OWNER_PREFIX:
             return {"status": "completed"}, {"command": "owner", "returncode": 0}
-        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+        if args[:3] == STEERING_PREFIX:
             return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"]:
             return (
@@ -1716,10 +2042,7 @@ def test_build_report_reads_required_checks_from_pr_base_branch(monkeypatch) -> 
                 {"command": "check-runs", "returncode": 0},
             )
         if args[:3] == ["gh", "pr", "checks"]:
-            return (
-                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
-                {"command": "checks", "returncode": 0},
-            )
+            return [], {"command": "checks", "returncode": 0}
         raise AssertionError(args)
 
     monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
@@ -1757,11 +2080,11 @@ def test_build_report_fails_closed_when_required_check_sources_unreadable(monkey
         del cwd, timeout
         if args[:3] == ["gh", "pr", "list"]:
             return [], {"command": "metadata", "returncode": 0}
-        if args[:3] == ["python3", "scripts/agent_bridge.py", "operator-snapshot"]:
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
-        if args[:3] == ["python3", "scripts/identify_lane_owner.py", "--pr"]:
+        if args[:3] == OWNER_PREFIX:
             return {"status": "completed"}, {"command": "owner", "returncode": 0}
-        if args[:3] == ["python3", "scripts/read_operator_steering.py", "--pr"]:
+        if args[:3] == STEERING_PREFIX:
             return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"]:
             return (
@@ -1814,7 +2137,290 @@ def test_build_report_fails_closed_when_required_check_sources_unreadable(monkey
     )
 
     assert report["status"] == "blocked"
-    assert "branch protection required_status_checks JSON unavailable" in report["blockers"]
+    assert (
+        "aragora-merge-quorum lacks a matching successful exact-head GitHub Actions CheckRun"
+        in report["blockers"]
+    )
+
+
+def test_build_report_falls_back_when_required_checks_and_check_runs_are_green(
+    monkeypatch,
+) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "list"]:
+            return [], {"command": "metadata", "returncode": 0}
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == OWNER_PREFIX:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == STEERING_PREFIX:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if args[:3] == ["gh", "pr", "view"]:
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000001010",
+                    "baseRefName": "main",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "statusCheckRollup": [],
+                },
+                {"command": "view", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return None, {"command": "protection", "returncode": 404}
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return (
+                {
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "success",
+                            "app": {"id": 15368, "slug": "github-actions"},
+                        }
+                    ]
+                },
+                {"command": "check-runs", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "checks"]:
+            return (
+                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                {"command": "checks", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    report = build_report(
+        _packet(
+            _entry(
+                1010,
+                status="satisfied",
+                verdict="admin_squash_allowed",
+                admin_squash_allowed=True,
+                reasons=["bounded internal code surface"],
+            ),
+            admin_order=[1010],
+        ),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=1010,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "packet_authorized_dry_run"
+
+
+def test_build_report_uses_packet_required_check_metadata_when_app_token_cannot_read_protection(
+    monkeypatch,
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        if args[:3] == ["gh", "pr", "list"]:
+            return [], {"command": "metadata", "returncode": 0}
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == OWNER_PREFIX:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == STEERING_PREFIX:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "8372"
+            and args[5] == settle_one_pr.PR_POLICY_FIELDS
+        ):
+            return (
+                {
+                    "number": 8372,
+                    "title": "docs: ODR mission",
+                    "headRefName": "claude/odr-completion-mission",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "docs/superpowers/plans/odr.md"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "8372"
+            and "statusCheckRollup" in args[5]
+        ):
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000008372",
+                    "baseRefName": "main",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "statusCheckRollup": [],
+                },
+                {"command": "view", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return None, {
+                "command": "protection",
+                "returncode": 403,
+                "stderr": "Resource not accessible by integration",
+            }
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return (
+                {
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "success",
+                            "app": {"id": 15368},
+                        }
+                    ]
+                },
+                {"command": "check-runs", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "checks"]:
+            return (
+                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                {"command": "checks", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    entry = _entry(
+        8372,
+        status="satisfied",
+        verdict="admin_squash_allowed",
+        admin_squash_allowed=True,
+        reasons=["bounded internal code surface"],
+    )
+    entry["check_surfaces"] = {
+        "direct_commit_check_runs": {
+            "required_contexts_satisfied": True,
+            "non_success_required_contexts": [],
+            "required_checks": [{"context": "aragora-merge-quorum", "app_id": 15368}],
+        }
+    }
+    report = build_report(
+        _packet(entry, admin_order=[8372]),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=8372,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "packet_authorized_dry_run"
+    assert report["blockers"] == []
+    assert report["checks"]["required_source_fallback"] == {
+        "used": True,
+        "source": "merge_packet_direct_commit_check_runs.required_checks",
+        "reason": "Resource not accessible by integration",
+        "contexts": ["aragora-merge-quorum"],
+    }
+    assert report["checks"]["required_sources"]["source"] == (
+        "merge_packet_direct_commit_check_runs.required_checks"
+    )
+    assert any(
+        cmd[:2] == ["gh", "api"] and cmd[2].endswith("/required_status_checks") for cmd in commands
+    )
+
+
+def test_build_report_still_fails_closed_when_required_contexts_are_unknown(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "list"]:
+            return [], {"command": "metadata", "returncode": 0}
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == OWNER_PREFIX:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == STEERING_PREFIX:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "8373"
+            and args[5] == settle_one_pr.PR_POLICY_FIELDS
+        ):
+            return (
+                {
+                    "number": 8373,
+                    "title": "docs: unknown required contexts",
+                    "headRefName": "codex/docs",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "docs/status/example.md"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "8373"
+            and "statusCheckRollup" in args[5]
+        ):
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000008373",
+                    "baseRefName": "main",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "statusCheckRollup": [],
+                },
+                {"command": "view", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return None, {"command": "protection", "returncode": 403}
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return (
+                {
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "success",
+                            "app": {"id": 15368},
+                        }
+                    ]
+                },
+                {"command": "check-runs", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "checks"]:
+            return [], {"command": "checks", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    entry = _entry(
+        8373,
+        status="satisfied",
+        verdict="admin_squash_allowed",
+        admin_squash_allowed=True,
+        reasons=["bounded internal code surface"],
+    )
+    entry["check_surfaces"] = {
+        "direct_commit_check_runs": {
+            "required_contexts_satisfied": True,
+            "non_success_required_contexts": [],
+            "required_checks": [],
+        }
+    }
+    report = build_report(
+        _packet(entry, admin_order=[8373]),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=8373,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "blocked"
+    assert "required checks JSON empty" in report["blockers"]
+    assert "required_source_fallback" not in report["checks"]
 
 
 def test_recursive_prompt_always_contains_convergence_sentence() -> None:

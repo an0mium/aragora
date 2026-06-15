@@ -51,3 +51,47 @@ def test_parse_args_accepts_positive_benchmark_counts() -> None:
     assert args.concurrent == 3
     assert args.large_panel_agents == 4
     assert args.large_panel_rounds == 2
+
+
+def test_validate_benchmark_config_rejects_empty_concurrency_levels() -> None:
+    with pytest.raises(ValueError, match="concurrent_levels must include at least one level"):
+        benchmark_debate._validate_benchmark_config(
+            num_agents=2,
+            num_rounds=1,
+            concurrent_levels=[],
+            large_panel_agents=4,
+            large_panel_rounds=2,
+        )
+
+
+def test_validate_benchmark_config_rejects_duplicate_concurrency_levels() -> None:
+    with pytest.raises(ValueError, match="concurrent_levels must not contain duplicate levels"):
+        benchmark_debate._validate_benchmark_config(
+            num_agents=2,
+            num_rounds=1,
+            concurrent_levels=[3, 3],
+            large_panel_agents=4,
+            large_panel_rounds=2,
+        )
+
+
+def test_validate_benchmark_config_rejects_non_positive_programmatic_values() -> None:
+    with pytest.raises(ValueError, match=r"concurrent_levels\[1\] must be a positive integer"):
+        benchmark_debate._validate_benchmark_config(
+            num_agents=2,
+            num_rounds=1,
+            concurrent_levels=[3, 0],
+            large_panel_agents=4,
+            large_panel_rounds=2,
+        )
+
+
+def test_validate_benchmark_config_rejects_bool_programmatic_values() -> None:
+    with pytest.raises(ValueError, match="num_agents must be a positive integer"):
+        benchmark_debate._validate_benchmark_config(
+            num_agents=True,
+            num_rounds=1,
+            concurrent_levels=[3],
+            large_panel_agents=4,
+            large_panel_rounds=2,
+        )
