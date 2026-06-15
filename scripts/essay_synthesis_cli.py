@@ -26,12 +26,28 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from collections.abc import Iterable
 
-from aragora.pipelines.essay_synthesis import EssaySynthesisPipeline, SynthesisConfig
+
+def _load_pipeline_classes():
+    repo_root = Path(__file__).resolve().parent.parent
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    try:
+        from aragora.pipelines.essay_synthesis import EssaySynthesisPipeline, SynthesisConfig
+    except ModuleNotFoundError as exc:
+        if exc.name in {"aragora.pipelines", "aragora.pipelines.essay_synthesis"}:
+            raise SystemExit(
+                "essay_synthesis_cli.py depends on the legacy "
+                "aragora.pipelines.essay_synthesis module, which is not present. "
+                "Use `aragora essay refine --help` for the current essay pipeline."
+            ) from exc
+        raise
+    return EssaySynthesisPipeline, SynthesisConfig
 
 
 def _read_text_file(path: Path) -> str:
@@ -233,6 +249,8 @@ def main() -> None:
     seed_text = args.seed_text or ""
     if args.seed_file:
         seed_text = (seed_text + "\n" + _read_text_file(Path(args.seed_file))).strip()
+
+    EssaySynthesisPipeline, SynthesisConfig = _load_pipeline_classes()
 
     config = SynthesisConfig(
         target_word_count=args.target_words,
