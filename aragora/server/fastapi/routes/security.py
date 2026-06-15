@@ -24,10 +24,66 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v2", tags=["Security"])
 
+_HTTP_METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
+_UNPROTECTED_API_PATHS = frozenset(
+    {"/api/v2/health", "/api/v2/health/ready", "/api/v2/health/live"}
+)
+
 
 def _reject_unexpected_query_params(request: Request) -> None:
     if request.query_params:
         raise HTTPException(status_code=400, detail="Invalid query")
+
+
+def _openapi_operation_paths(app: Any) -> list[str]:
+    """Return one path entry per OpenAPI operation exposed by a FastAPI app."""
+    openapi = getattr(app, "openapi", None)
+    if not callable(openapi):
+        return []
+
+    spec = openapi()
+    if not isinstance(spec, dict):
+        return []
+
+    paths = spec.get("paths", {})
+    if not isinstance(paths, dict):
+        return []
+
+    operation_paths: list[str] = []
+    for path, path_item in paths.items():
+        if not isinstance(path, str) or not isinstance(path_item, dict):
+            continue
+        for method, operation in path_item.items():
+            if (
+                isinstance(method, str)
+                and method.lower() in _HTTP_METHODS
+                and isinstance(operation, dict)
+            ):
+                operation_paths.append(path)
+    return operation_paths
+
+
+def _legacy_flat_route_paths(app: Any) -> list[str]:
+    """Best-effort fallback for older Starlette-like test doubles."""
+    route_paths: list[str] = []
+    for route in getattr(app, "routes", ()) or ():
+        path = getattr(route, "path", None)
+        if isinstance(path, str) and hasattr(route, "methods"):
+            route_paths.append(path)
+    return route_paths
+
+
+def _rbac_coverage_route_paths(app: Any) -> list[str]:
+    operation_paths = _openapi_operation_paths(app)
+    if operation_paths:
+        return operation_paths
+    return _legacy_flat_route_paths(app)
+
+
+def _is_unprotected_endpoint_path(path: str) -> bool:
+    if not path.startswith("/api/"):
+        return True
+    return path in _UNPROTECTED_API_PATHS
 
 
 # =============================================================================
@@ -78,32 +134,19 @@ async def get_rbac_coverage(
         logger.debug("Live RBAC assignments unavailable: %s", exc)
 
     # ----- Endpoint coverage -----
-    # Count total registered routes on the FastAPI app.
-    # Route counts are more stable than method counts across FastAPI/Starlette
-    # versions, and the dashboard field is endpoint-oriented.
-    total_endpoints = 0
+    # FastAPI 0.137 preserves included routers as a tree, so app.routes no
+    # longer reliably exposes every included API route. Count public OpenAPI
+    # operations first, with a guarded route-list fallback for older test doubles.
+    endpoint_paths: list[str] = []
     try:
-        for route in request.app.routes:
-            if hasattr(route, "methods"):
-                total_endpoints += 1
+        endpoint_paths = _rbac_coverage_route_paths(request.app)
     except (RuntimeError, TypeError, AttributeError):
-        pass
+        endpoint_paths = []
 
     # Heuristic: endpoints behind RBAC middleware are "protected".
-    # The RBAC middleware protects all /api/v2/* routes except health,
-    # so the unprotected set is small (health + docs + openapi.json).
-    unprotected = 0
-    try:
-        for route in request.app.routes:
-            path = getattr(route, "path", "")
-            if path and not path.startswith("/api/"):
-                if hasattr(route, "methods"):
-                    unprotected += 1
-            elif path in ("/api/v2/health", "/api/v2/health/ready", "/api/v2/health/live"):
-                if hasattr(route, "methods"):
-                    unprotected += 1
-    except (RuntimeError, TypeError, AttributeError):
-        pass
+    # The RBAC middleware protects all /api/v2/* routes except health.
+    total_endpoints = len(endpoint_paths)
+    unprotected = sum(1 for path in endpoint_paths if _is_unprotected_endpoint_path(path))
 
     if total_endpoints == 0:
         total_endpoints = 1  # prevent division by zero
