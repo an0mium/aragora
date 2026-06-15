@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -11,6 +13,25 @@ if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
 import benchmark_triage_profiles  # noqa: E402
+
+
+def test_cli_help_direct_invocation_without_pythonpath() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    script_path = repo_root / "scripts" / "benchmark_triage_profiles.py"
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--help"],
+        cwd=repo_root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Compare baseline and staged_v1 inbox-triage profiles" in result.stdout
 
 
 def test_main_writes_report_and_returns_success(monkeypatch, tmp_path, capsys) -> None:

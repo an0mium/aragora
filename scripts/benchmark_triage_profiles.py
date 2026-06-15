@@ -10,6 +10,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from aragora.inbox.triage_profile_benchmark import render_benchmark_report, run_fixture_benchmark
 
 ACCEPTANCE_KEYS = (
