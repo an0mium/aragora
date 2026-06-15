@@ -281,8 +281,10 @@ def test_default_claim_releases_stale_then_retries(tmp_path: Path, monkeypatch: 
     # the owner stale, so we release it and retry -- without --force.
     wo = _wo_42()
     seq: list[str] = []
+    calls: list[list[str]] = []
 
     def fake_run(cmd: list[str], **kwargs: Any) -> Any:
+        calls.append(cmd)
         script = next((c for c in cmd if c.endswith(".py")), "")
         if script.endswith("identify_lane_owner.py"):
             seq.append("probe")
@@ -303,6 +305,8 @@ def test_default_claim_releases_stale_then_retries(tmp_path: Path, monkeypatch: 
     monkeypatch.setattr(lc.subprocess, "run", fake_run)
     assert lc.default_claim(wo, repo_root=tmp_path) is True
     assert seq == ["claim", "probe", "release", "claim"]
+    release_cmd = next(cmd for cmd in calls if "--release-stale" in cmd)
+    assert release_cmd[release_cmd.index("--pr-number") + 1] == str(wo.pr)
 
 
 def test_default_claim_does_not_release_live_owner(tmp_path: Path, monkeypatch: Any) -> None:
@@ -355,6 +359,26 @@ def test_run_pass_releases_lane_when_dispatch_fails() -> None:
     assert result.dispatched == []
 
 
+def test_default_release_scopes_to_work_order_lane_and_pr(tmp_path: Path, monkeypatch: Any) -> None:
+    wo = _wo_42()
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> Any:
+        calls.append(cmd)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(lc.subprocess, "run", fake_run)
+
+    lc.default_release(wo, repo_root=tmp_path)
+
+    assert len(calls) == 1
+    cmd = calls[0]
+    assert "--release-stale" in cmd
+    assert cmd[cmd.index("--lane-id") + 1] == wo.work_order_id
+    assert cmd[cmd.index("--owner-session") + 1] == wo.owner_session
+    assert cmd[cmd.index("--pr-number") + 1] == str(wo.pr)
+
+
 def test_fetch_candidates_skips_cross_repo_drafts_and_unblocked(monkeypatch: Any) -> None:
     rows = [
         {
@@ -386,10 +410,17 @@ def test_fetch_candidates_skips_cross_repo_drafts_and_unblocked(monkeypatch: Any
             "mergeStateStatus": "CLEAN",
             "isCrossRepository": False,
         },
+        {
+            "number": 5,
+            "headRefName": "",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "isCrossRepository": False,
+        },
     ]
     monkeypatch.setattr(cli, "_gh_json", lambda args: rows)
     cands = cli.fetch_candidates("synaptent/aragora")
-    assert [c["number"] for c in cands] == [1]  # fork(2), draft(3), clean(4) all excluded
+    assert [c["number"] for c in cands] == [1]  # fork(2), draft(3), clean(4), empty(5) excluded
 
 
 def test_conductor_and_supervisor_share_dispatch_root_constant() -> None:
