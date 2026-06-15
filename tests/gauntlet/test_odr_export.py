@@ -328,6 +328,19 @@ class TestAbsentMarkerHonesty:
         for participant in odr["quorum"]["participants"]:
             assert participant["model_family"] == "undisclosed"
 
+    def test_consensus_proof_only_agents_remain_participants(self) -> None:
+        receipt = _full_receipt()
+        receipt.agent_responses = []
+
+        odr = decision_receipt_to_odr(receipt)
+        quorum = odr["quorum"]
+        participants = {row["agent"]: row for row in quorum["participants"]}
+
+        assert set(quorum["supporting_agents"]) <= set(participants)
+        assert set(quorum["dissent"]["dissenting_agents"]) <= set(participants)
+        assert participants["claude-agent"]["model_family"] == "undisclosed"
+        assert participants["mistral-agent"]["model_id"] == "undisclosed"
+
 
 # ---------------------------------------------------------------------------
 # Schema validation
