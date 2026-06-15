@@ -62,13 +62,9 @@ def sample_debate_result():
         rounds_used=3,
         winner="claude",
         confidence=0.85,
+        participants=["claude", "gpt-4", "gemini"],
     )
     result.debate_id = "test-debate-123"
-    result.question = "What is the best programming language?"
-    result.answer = "Python is widely considered excellent."
-    result.total_rounds = 3
-    result.consensus_confidence = 0.85
-    result.participating_agents = ["claude", "gpt-4", "gemini"]
     return result
 
 
@@ -251,7 +247,7 @@ class TestFormatDebateData:
 
         assert isinstance(data, FormattedDebateData)
         assert data.debate_id == "test-debate-123"
-        assert data.question == sample_debate_result.question
+        assert data.question == sample_debate_result.task
         assert data.total_rounds == 3
         assert data.confidence == 0.85
         assert data.confidence_percent == "85%"
@@ -259,7 +255,7 @@ class TestFormatDebateData:
 
     def test_question_truncation(self, integration, sample_debate_result):
         """Test question is truncated to limit."""
-        sample_debate_result.question = "A" * 300
+        sample_debate_result.task = "A" * 300
         data = integration.format_debate_data(sample_debate_result, question_limit=100)
 
         assert len(data.question_truncated) == 100
@@ -267,7 +263,7 @@ class TestFormatDebateData:
 
     def test_answer_truncation(self, integration, sample_debate_result):
         """Test answer is truncated to limit."""
-        sample_debate_result.answer = "B" * 600
+        sample_debate_result.final_answer = "B" * 600
         data = integration.format_debate_data(sample_debate_result, answer_limit=200)
 
         assert len(data.answer_truncated) == 200
@@ -282,7 +278,7 @@ class TestFormatDebateData:
 
     def test_agents_truncation(self, integration, sample_debate_result):
         """Test agents list is truncated."""
-        sample_debate_result.participating_agents = ["a1", "a2", "a3", "a4", "a5", "a6"]
+        sample_debate_result.participants = ["a1", "a2", "a3", "a4", "a5", "a6"]
         data = integration.format_debate_data(sample_debate_result, agents_limit=3)
 
         assert "+3 more" in data.agents_display
@@ -302,7 +298,7 @@ class TestFormatDebateData:
 
     def test_no_answer(self, integration, sample_debate_result):
         """Test handling when answer is None."""
-        sample_debate_result.answer = None
+        sample_debate_result.final_answer = None
         data = integration.format_debate_data(sample_debate_result)
 
         assert data.answer is None
@@ -310,7 +306,7 @@ class TestFormatDebateData:
 
     def test_no_confidence(self, integration, sample_debate_result):
         """Test handling when confidence is None."""
-        sample_debate_result.consensus_confidence = None
+        sample_debate_result.confidence = None
         data = integration.format_debate_data(sample_debate_result)
 
         assert data.confidence is None
