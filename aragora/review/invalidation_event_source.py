@@ -182,6 +182,7 @@ class ReviewQueueInvalidationEventSource:
                 store_root=self.review_queue_root,
                 window_end=window_end,
                 window_days=window_days,
+                revert_window_days=self.revert_window_days,
             )
             coverage = (
                 "complete"
@@ -196,9 +197,10 @@ class ReviewQueueInvalidationEventSource:
             if coverage == "complete" and not human_invalidations:
                 notes["human_invalidations_source"] = (
                     "settlement-receipt schema-v2 outcome fields are present on all "
-                    "receipts in the window, but no receipt in the window "
-                    "fired any of the five canonical signals. Treat as measured "
-                    "zero because the human invalidation observation coverage is complete."
+                    "receipts in the window and each observation covers the invalidation "
+                    "window, but no receipt in the window fired any of the five canonical "
+                    "signals. Treat as measured zero because the human invalidation "
+                    "observation coverage is complete."
                 )
             elif coverage != "complete" and not human_invalidations:
                 notes["human_invalidations_source"] = (
@@ -365,11 +367,27 @@ def _receipt_has_any_v2_outcome_field(payload: dict[str, Any]) -> bool:
     )
 
 
-def _receipt_has_complete_v2_outcome_fields(payload: dict[str, Any]) -> bool:
-    return all(
+def _receipt_has_complete_v2_outcome_fields(
+    payload: dict[str, Any],
+    *,
+    revert_window_days: int = DEFAULT_REVERT_WINDOW_DAYS,
+) -> bool:
+    if not all(
         field_name in payload and payload[field_name] is not None
         for field_name in _V2_OUTCOME_SIGNAL_FIELD_NAMES
-    )
+    ):
+        return False
+
+    observed_raw = payload.get("outcome_observed_at")
+    reviewed_raw = payload.get("reviewed_at")
+    if not observed_raw or not reviewed_raw:
+        return False
+    try:
+        observed_at = _parse_iso(str(observed_raw))
+        reviewed_at = _parse_iso(str(reviewed_raw))
+    except ValueError:
+        return False
+    return observed_at >= reviewed_at + timedelta(days=revert_window_days)
 
 
 def _any_receipt_has_v2_outcome_fields(
@@ -409,8 +427,9 @@ def _count_receipts_with_v2_outcome_fields(
     store_root: str | Path | None = None,
     window_end: datetime,
     window_days: int = DEFAULT_BASELINE_WINDOW_DAYS,
+    revert_window_days: int = DEFAULT_REVERT_WINDOW_DAYS,
 ) -> int:
-    """Return in-window receipts whose five v2 outcome signals are complete."""
+    """Return in-window receipts whose v2 outcome observation is complete."""
     return sum(
         1
         for payload in _iter_in_window_settlement_receipt_payloads(
@@ -418,7 +437,10 @@ def _count_receipts_with_v2_outcome_fields(
             window_end=window_end,
             window_days=window_days,
         )
-        if _receipt_has_complete_v2_outcome_fields(payload)
+        if _receipt_has_complete_v2_outcome_fields(
+            payload,
+            revert_window_days=revert_window_days,
+        )
     )
 
 
@@ -629,6 +651,7 @@ def measure_baseline_from_stores(
             store_root=review_queue_root,
             window_end=window_end,
             window_days=window_days,
+            revert_window_days=revert_window_days,
         )
         coverage = (
             "complete"
@@ -644,9 +667,10 @@ def measure_baseline_from_stores(
             extra_notes.setdefault(
                 "human_invalidations_source",
                 "settlement-receipt schema-v2 outcome fields are present on all "
-                "receipts in the window, but no receipt in the window "
-                "fired any of the five canonical signals. Treat as measured "
-                "zero because the human invalidation observation coverage is complete.",
+                "receipts in the window and each observation covers the invalidation "
+                "window, but no receipt in the window fired any of the five canonical "
+                "signals. Treat as measured zero because the human invalidation "
+                "observation coverage is complete.",
             )
         elif coverage != "complete" and not human_invalidations_in_window:
             extra_notes.setdefault(
