@@ -8,6 +8,7 @@ so no worker is ever spawned and no worktree provisioned.
 from __future__ import annotations
 
 import json
+import errno
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +44,15 @@ def test_load_pending_parses_valid_skips_invalid(tmp_path: Path) -> None:
 
     orders = ls.load_pending(tmp_path)
     assert [o["work_order_id"] for _p, o in orders] == ["lane-1-a"]
+
+
+def test_load_pending_uses_created_at_before_filename_order(tmp_path: Path) -> None:
+    _write_pending(tmp_path, "lane-10-later", pr=10, created_at="2026-06-15T00:00:02Z")
+    _write_pending(tmp_path, "lane-2-earlier", pr=2, created_at="2026-06-15T00:00:01Z")
+
+    orders = ls.load_pending(tmp_path)
+
+    assert [o["work_order_id"] for _p, o in orders] == ["lane-2-earlier", "lane-10-later"]
 
 
 def test_load_pending_empty_when_no_dir(tmp_path: Path) -> None:
@@ -83,6 +93,23 @@ def test_claim_does_not_overwrite_existing_in_progress(tmp_path: Path) -> None:
     assert claimed is None
     assert path.exists()
     assert json.loads(existing.read_text(encoding="utf-8"))["pr"] == 999
+
+
+def test_claim_unexpected_oserror_is_loud(tmp_path: Path, monkeypatch: Any) -> None:
+    path = _write_pending(tmp_path, "lane-7-x", pr=7)
+
+    def fail_link(src: Path, dest: Path) -> None:
+        raise OSError(errno.EXDEV, "cross-device link")
+
+    monkeypatch.setattr(ls.os, "link", fail_link)
+
+    try:
+        ls.claim_order(path, tmp_path)
+    except ls.ClaimOrderError as exc:
+        assert "different filesystems" in str(exc)
+    else:  # pragma: no cover - assertion branch
+        raise AssertionError("expected ClaimOrderError")
+    assert path.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +171,31 @@ def test_drain_records_failure_and_continues(tmp_path: Path) -> None:
     )
     assert "spawn exploded" in failed_doc["_launch_error"]
     assert _names(tmp_path, ls.DONE) == {"lane-1-a.json", "lane-3-c.json"}
+
+
+def test_drain_records_claim_failure_without_launching(tmp_path: Path, monkeypatch: Any) -> None:
+    _write_pending(tmp_path, "lane-1-cross-fs", pr=1)
+    launched: list[str] = []
+
+    def fail_link(src: Path, dest: Path) -> None:
+        raise OSError(errno.EXDEV, "cross-device link")
+
+    monkeypatch.setattr(ls.os, "link", fail_link)
+
+    result = ls.drain_once(
+        root=tmp_path,
+        launch_fn=lambda wo: launched.append(wo["work_order_id"]),
+        max_launches=5,
+    )
+
+    assert launched == []
+    assert result.failed == [
+        {
+            "work_order_id": "lane-1-cross-fs",
+            "error": "cannot atomically claim lane-1-cross-fs.json: pending and in_progress are on different filesystems",
+        }
+    ]
+    assert _names(tmp_path, ls.PENDING) == {"lane-1-cross-fs.json"}
 
 
 def test_drain_is_idempotent_after_done(tmp_path: Path) -> None:

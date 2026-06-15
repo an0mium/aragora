@@ -28,6 +28,7 @@ import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from errno import EXDEV
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,10 @@ DEFAULT_MAX_LAUNCHES = 3
 
 # A launch callable spawns one worker for a work order; it raises on failure.
 LaunchFn = Callable[[dict[str, Any]], None]
+
+
+class ClaimOrderError(RuntimeError):
+    """Unexpected filesystem failure while claiming a pending work order."""
 
 
 @dataclass
@@ -74,17 +79,27 @@ def _read_order(path: Path) -> dict[str, Any] | None:
     return data
 
 
+def _pending_sort_key(item: tuple[Path, dict[str, Any]]) -> tuple[str, int, str]:
+    path, order = item
+    created_at = str(order.get("created_at") or "")
+    try:
+        mtime_ns = path.stat().st_mtime_ns
+    except OSError:
+        mtime_ns = 0
+    return (created_at, mtime_ns, path.name)
+
+
 def load_pending(root: Path) -> list[tuple[Path, dict[str, Any]]]:
-    """Parsed, valid pending work orders, oldest file first (stable order)."""
+    """Parsed, valid pending work orders in conductor dispatch order."""
     pending = _state_dir(root, PENDING)
     if not pending.is_dir():
         return []
     orders: list[tuple[Path, dict[str, Any]]] = []
-    for path in sorted(pending.glob("*.json")):
+    for path in pending.glob("*.json"):
         order = _read_order(path)
         if order is not None:
             orders.append((path, order))
-    return orders
+    return sorted(orders, key=_pending_sort_key)
 
 
 def claim_order(path: Path, root: Path) -> Path | None:
@@ -92,7 +107,8 @@ def claim_order(path: Path, root: Path) -> Path | None:
 
     Returns the new in_progress path, or ``None`` if another drainer already
     claimed it (the source vanished or the destination exists) -- the
-    double-spawn guard.
+    double-spawn guard. Unexpected filesystem errors are raised so a broken
+    dispatch root cannot silently look like a harmless claim race.
     """
     dest_dir = _state_dir(root, IN_PROGRESS)
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -100,8 +116,17 @@ def claim_order(path: Path, root: Path) -> Path | None:
     try:
         os.link(path, dest)
         path.unlink()
-    except (FileExistsError, FileNotFoundError, OSError):
+    except FileExistsError:
         return None
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        if exc.errno == EXDEV:
+            raise ClaimOrderError(
+                f"cannot atomically claim {path.name}: pending and in_progress are on "
+                "different filesystems"
+            ) from exc
+        raise ClaimOrderError(f"cannot atomically claim {path.name}: {exc}") from exc
     return dest
 
 
@@ -153,7 +178,11 @@ def drain_once(
         if len(result.launched) >= cap:
             result.deferred.append(wo_id)
             continue
-        claimed = claim_order(path, root)
+        try:
+            claimed = claim_order(path, root)
+        except ClaimOrderError as exc:
+            result.failed.append({"work_order_id": wo_id, "error": str(exc)})
+            continue
         if claimed is None:
             # Lost the claim race to another drainer; leave it to them.
             result.skipped.append(wo_id)

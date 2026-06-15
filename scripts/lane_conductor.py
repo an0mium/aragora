@@ -40,6 +40,8 @@ if str(REPO_ROOT) not in sys.path:
 from aragora.swarm import github_app_auth  # noqa: E402
 from aragora.swarm.lane_conductor import (  # noqa: E402
     DEFAULT_TARGET_AGENT,
+    default_claim,
+    default_dispatch,
     run_pass,
 )
 from aragora.swarm.lane_dispatcher import DEFAULT_MAX_WORKERS  # noqa: E402
@@ -52,6 +54,7 @@ _BLOCKED_STATES = {"BLOCKED", "UNSTABLE"}
 # fail-safe direction is to avoid double-dispatching a possibly-live lane.
 _RECLAIMABLE_ASSESSMENTS = {"stale", "terminal", "absent", "reclaimable"}
 _UNKNOWN_OWNER = "owner-liveness-unavailable"
+_OWNER_PROBE_TIMEOUT_SECONDS = 60
 
 
 def _read_env() -> dict[str, str]:
@@ -116,29 +119,49 @@ def fetch_live_claims(repo: str, candidates: list[dict[str, Any]]) -> dict[int, 
     double-dispatching a possibly-live lane.
     """
     claims: dict[int, str] = {}
+
+    def unknown_owner(reason: str) -> str:
+        clean = " ".join(reason.strip().split())
+        if not clean:
+            return _UNKNOWN_OWNER
+        return f"{_UNKNOWN_OWNER}: {clean[:240]}"
+
     for cand in candidates:
         pr = cand["number"]
-        proc = subprocess.run(
-            [
-                "python3",
-                str(REPO_ROOT / "scripts" / "identify_lane_owner.py"),
-                "--pr",
-                str(pr),
-                "--json",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=60,
-        )
+        try:
+            proc = subprocess.run(
+                [
+                    "python3",
+                    str(REPO_ROOT / "scripts" / "identify_lane_owner.py"),
+                    "--pr",
+                    str(pr),
+                    "--json",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_OWNER_PROBE_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            claims[pr] = unknown_owner(
+                f"identify_lane_owner.py timed out after {_OWNER_PROBE_TIMEOUT_SECONDS}s"
+            )
+            continue
+        except OSError as exc:
+            claims[pr] = unknown_owner(
+                f"identify_lane_owner.py failed: {type(exc).__name__}: {exc}"
+            )
+            continue
         if proc.returncode != 0 or not proc.stdout.strip():
-            if "no lane matched" not in (proc.stderr or "").lower():
-                claims[pr] = _UNKNOWN_OWNER
+            stderr = proc.stderr or ""
+            if "no lane matched" not in stderr.lower():
+                reason = stderr or proc.stdout or f"identify_lane_owner.py exited {proc.returncode}"
+                claims[pr] = unknown_owner(reason)
             continue
         try:
             data = json.loads(proc.stdout)
         except json.JSONDecodeError:
-            claims[pr] = _UNKNOWN_OWNER
+            claims[pr] = unknown_owner("identify_lane_owner.py returned invalid JSON")
             continue
         owner = str(data.get("owner_session") or "").strip()
         if not owner:
@@ -153,6 +176,11 @@ def fetch_live_claims(repo: str, candidates: list[dict[str, Any]]) -> dict[int, 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default="synaptent/aragora")
+    parser.add_argument(
+        "--root",
+        default=".",
+        help="repo root holding .aragora/lane_dispatch/ and lane claim scripts",
+    )
     parser.add_argument("--max-workers", type=int, default=DEFAULT_MAX_WORKERS)
     parser.add_argument("--target-agent", default=DEFAULT_TARGET_AGENT)
     parser.add_argument(
@@ -162,6 +190,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--json", dest="json_output", action="store_true")
     args = parser.parse_args(argv)
+    root = Path(args.root).resolve()
 
     result = run_pass(
         repo=args.repo,
@@ -170,6 +199,8 @@ def main(argv: list[str] | None = None) -> int:
         max_workers=args.max_workers,
         target_agent=args.target_agent,
         execute=args.execute,
+        claim_fn=lambda wo: default_claim(wo, repo_root=root),
+        dispatch_fn=lambda wo: default_dispatch(wo, repo_root=root),
     )
 
     if args.json_output:

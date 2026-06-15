@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 from aragora.swarm import lane_conductor as lc
+from aragora.swarm import lane_supervisor as ls
 from aragora.swarm.lane_dispatcher import LaneAssignment
 
 
@@ -121,8 +123,9 @@ def test_run_pass_dry_run_does_not_claim_or_dispatch() -> None:
 def test_run_pass_execute_claims_then_dispatches_each() -> None:
     order: list[str] = []
 
-    def claim(wo: lc.WorkOrderSpec) -> None:
+    def claim(wo: lc.WorkOrderSpec) -> bool:
         order.append(f"claim:{wo.pr}")
+        return True
 
     def dispatch(wo: lc.WorkOrderSpec) -> str:
         order.append(f"dispatch:{wo.pr}")
@@ -144,6 +147,26 @@ def test_run_pass_execute_claims_then_dispatches_each() -> None:
     assert result.executed is True
     assert len(result.dispatched) == 2
     assert result.dispatched[0].endswith("lane-1-sess-1.json")
+
+
+def test_run_pass_execute_requires_explicit_claim_success() -> None:
+    dispatched: list[int] = []
+
+    result = lc.run_pass(
+        repo="r",
+        fetch_candidates=lambda repo: [_cand(1)],
+        fetch_live_claims=lambda repo, cands: {},
+        max_workers=5,
+        execute=True,
+        claim_fn=lambda wo: None,
+        dispatch_fn=lambda wo: (dispatched.append(wo.pr), "p")[1],
+        session_id_for=_seq_session,
+        now=_fixed_now,
+    )
+
+    assert dispatched == []
+    assert result.claim_failed == [1]
+    assert result.dispatched == []
 
 
 def test_run_pass_execute_skips_dispatch_when_claim_fails() -> None:
@@ -176,7 +199,7 @@ def test_run_pass_execute_skips_live_owned_lanes() -> None:
         fetch_live_claims=lambda repo, cands: {1: "owner-x"},
         max_workers=5,
         execute=True,
-        claim_fn=lambda wo: claimed.append(wo.pr),
+        claim_fn=lambda wo: (claimed.append(wo.pr), True)[1],
         dispatch_fn=lambda wo: "p",
         session_id_for=_seq_session,
         now=_fixed_now,
@@ -207,6 +230,51 @@ def test_default_dispatch_writes_atomic_json(tmp_path: Path) -> None:
     assert payload["pr"] == 42
     assert payload["owner_session_id"] == "sess-42"
     assert "CLAIM-OR-YIELD" in payload["prompt"]
+
+
+def test_default_dispatch_uses_explicit_repo_root(tmp_path: Path) -> None:
+    wo = lc.build_work_orders(
+        [LaneAssignment(pr=42, branch="codex/x", owner_session="sess-42")],
+        repo="synaptent/aragora",
+        now=_fixed_now,
+    )[0]
+
+    written = Path(lc.default_dispatch(wo, repo_root=tmp_path))
+
+    assert written.parent == tmp_path / ".aragora" / "lane_dispatch" / "pending"
+    assert written.exists()
+
+
+def test_conductor_and_supervisor_share_dispatch_root_constant() -> None:
+    assert lc.DISPATCH_PENDING_DIR == ls.DISPATCH_ROOT / ls.PENDING
+
+
+def test_cli_execute_uses_explicit_root_for_claim_and_dispatch(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    roots: list[Path] = []
+
+    def fake_claim(wo: lc.WorkOrderSpec, *, repo_root: Path | None = None) -> bool:
+        assert repo_root is not None
+        roots.append(repo_root)
+        return True
+
+    def fake_dispatch(wo: lc.WorkOrderSpec, *, repo_root: Path | None = None) -> str:
+        assert repo_root is not None
+        roots.append(repo_root)
+        return str(
+            repo_root / ".aragora" / "lane_dispatch" / "pending" / f"{wo.work_order_id}.json"
+        )
+
+    monkeypatch.setattr(cli, "fetch_candidates", lambda repo: [_cand(42, "codex/x")])
+    monkeypatch.setattr(cli, "fetch_live_claims", lambda repo, candidates: {})
+    monkeypatch.setattr(cli, "default_claim", fake_claim)
+    monkeypatch.setattr(cli, "default_dispatch", fake_dispatch)
+
+    code = cli.main(["--execute", "--root", str(tmp_path), "--json"])
+
+    assert code == 0
+    assert roots == [tmp_path.resolve(), tmp_path.resolve()]
 
 
 # ---------------------------------------------------------------------------
@@ -249,3 +317,40 @@ def test_fetch_live_claims_allows_explicit_absent_owner(monkeypatch: Any) -> Non
     )
 
     assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {}
+
+
+def test_fetch_live_claims_timeout_fails_closed_with_reason(monkeypatch: Any) -> None:
+    def boom(*args: Any, **kwargs: Any) -> Any:
+        raise subprocess.TimeoutExpired(cmd=["identify_lane_owner.py"], timeout=60)
+
+    monkeypatch.setattr(cli.subprocess, "run", boom)
+
+    claims = cli.fetch_live_claims("synaptent/aragora", [_cand(1)])
+
+    assert claims[1].startswith("owner-liveness-unavailable:")
+    assert "timed out" in claims[1]
+
+
+def test_fetch_live_claims_oserror_fails_closed_with_reason(monkeypatch: Any) -> None:
+    def boom(*args: Any, **kwargs: Any) -> Any:
+        raise OSError("python missing")
+
+    monkeypatch.setattr(cli.subprocess, "run", boom)
+
+    claims = cli.fetch_live_claims("synaptent/aragora", [_cand(1)])
+
+    assert claims[1].startswith("owner-liveness-unavailable:")
+    assert "python missing" in claims[1]
+
+
+def test_fetch_live_claims_broken_probe_fails_closed_with_stderr(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda *args, **kwargs: _proc(returncode=2, stderr="ImportError: schema drift"),
+    )
+
+    claims = cli.fetch_live_claims("synaptent/aragora", [_cand(1)])
+
+    assert claims[1].startswith("owner-liveness-unavailable:")
+    assert "ImportError" in claims[1]

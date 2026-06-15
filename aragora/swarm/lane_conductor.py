@@ -46,12 +46,13 @@ from aragora.swarm.lane_dispatcher import (
     default_session_id,
     select_assignments,
 )
+from aragora.swarm.lane_supervisor import DISPATCH_ROOT, PENDING
 
 DEFAULT_TARGET_AGENT = "codex"
 # Durable work-order drop the supervisor / worker_launcher drains. A file-drop
 # (not a direct async spawn) keeps the conductor decoupled from worktree
 # provisioning and lets every dispatch be inspected/replayed.
-DISPATCH_PENDING_DIR = Path(".aragora") / "lane_dispatch" / "pending"
+DISPATCH_PENDING_DIR = DISPATCH_ROOT / PENDING
 
 
 @dataclass
@@ -237,7 +238,10 @@ def run_pass(
     ``fetch_candidates``/``fetch_live_claims`` are injected so the I/O lives in
     the caller (the CLI wires the real ``gh``/``identify_lane_owner``
     implementations). With ``execute=False`` (default) nothing is claimed or
-    dispatched -- the returned plan is a preview.
+    dispatched -- the returned plan is a preview. In execute mode ``claim_fn``
+    must return exactly ``True`` before dispatch happens; any falsey value,
+    timeout wrapper, or non-boolean failure sentinel blocks dispatch for that
+    lane.
     """
     candidates = list(fetch_candidates(repo))
     live_claims = fetch_live_claims(repo, candidates)
@@ -257,7 +261,7 @@ def run_pass(
     claim = claim_fn or default_claim
     dispatch = dispatch_fn or default_dispatch
     for work_order in result.work_orders:
-        if claim(work_order) is False:
+        if claim(work_order) is not True:
             result.claim_failed.append(work_order.pr)
             continue
         result.dispatched.append(dispatch(work_order))
