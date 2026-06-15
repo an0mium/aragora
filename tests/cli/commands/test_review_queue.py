@@ -3668,9 +3668,15 @@ class TestBuildQueueAndPacket:
         monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
 
         packet = _build_packet("7465", repo_override=None)
+        required = packet.check_surfaces["required_pr_checks"]
         rollup = packet.check_surfaces["pr_rollup"]
 
-        assert "effective_gate" not in packet.check_surfaces
+        assert packet.check_surfaces["effective_gate"] == {
+            "source": "required_pr_checks",
+            "summary": "1 failing / 2 required (required PR checks; only merge-quorum failing)",
+        }
+        assert required["gate_selected"] is True
+        assert required["quorum_only_failure"] is True
         assert rollup["optional_runner_capacity_noise_count"] == 1
         assert rollup["long_queued_self_hosted_shadow_without_runner_metadata_count"] == 0
         assert packet.machine_recommendation == "repair_first"
@@ -3682,6 +3688,100 @@ class TestBuildQueueAndPacket:
         assert not any(
             "checks are pending" in reason for reason in packet.model_review_quorum["reasons"]
         )
+
+    def test_required_pr_checks_gate_routes_quorum_only_failure_to_model_quorum(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pr_payload = _make_pr(
+            number=8374,
+            files=["scripts/audit_test_skips.py", "tests/scripts/test_audit_test_skips.py"],
+            checks=[
+                {
+                    "name": "aragora-merge-quorum",
+                    "workflowName": "Aragora Merge Quorum",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+                {"name": "Version Alignment", "status": "COMPLETED", "conclusion": "FAILURE"},
+                {
+                    "name": "Status Doc Reconciliation",
+                    "status": "COMPLETED",
+                    "conclusion": "FAILURE",
+                },
+                {"name": "Generate & Validate", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {
+                    "name": "TypeScript SDK Type Check",
+                    "status": "COMPLETED",
+                    "conclusion": "SUCCESS",
+                },
+                {"name": "lint", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "sdk-parity", "status": "COMPLETED", "conclusion": "SUCCESS"},
+                {"name": "typecheck", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            ],
+        )
+
+        def fake_gh_json(args: list[str]) -> Any:
+            if args[:2] == ["pr", "view"]:
+                return pr_payload
+            if args[:2] == ["pr", "checks"]:
+                return [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "state": "FAILURE",
+                        "bucket": "fail",
+                        "workflow": "Aragora Merge Quorum",
+                    },
+                    {
+                        "name": "Generate & Validate",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "OpenAPI Spec",
+                    },
+                    {
+                        "name": "TypeScript SDK Type Check",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "SDK Tests",
+                    },
+                    {"name": "lint", "state": "SUCCESS", "bucket": "pass", "workflow": "Lint"},
+                    {
+                        "name": "sdk-parity",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "SDK Parity Check",
+                    },
+                    {
+                        "name": "typecheck",
+                        "state": "SUCCESS",
+                        "bucket": "pass",
+                        "workflow": "Lint",
+                    },
+                ]
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr("aragora.cli.commands.review_queue._gh_json", fake_gh_json)
+
+        packet = _build_packet("8374", repo_override=None)
+        required = packet.check_surfaces["required_pr_checks"]
+        rollup = packet.check_surfaces["pr_rollup"]
+        quorum = packet.model_review_quorum
+
+        assert required["available"] is True
+        assert required["failing_or_cancelled"] == ["aragora-merge-quorum"]
+        assert required["gate_selected"] is True
+        assert packet.check_surfaces["effective_gate"] == {
+            "source": "required_pr_checks",
+            "summary": "1 failing / 6 required (required PR checks; only merge-quorum failing)",
+        }
+        assert rollup["non_required_non_green_count"] == 2
+        assert rollup["non_required_non_green_sample"] == [
+            "Version Alignment",
+            "Status Doc Reconciliation",
+        ]
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["verdict"] == "collect_model_quorum_before_merge"
+        assert "model quorum incomplete: 0/2 signal(s)" in quorum["reasons"]
+        assert "checks are failing; repair before settlement" not in quorum["reasons"]
 
     def test_required_pr_checks_gate_keeps_non_self_required_failure_blocking(
         self, monkeypatch: pytest.MonkeyPatch

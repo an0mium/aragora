@@ -17,7 +17,9 @@ from aragora.review.invalidation import (
 )
 from aragora.review.invalidation_event_source import (
     _any_receipt_has_v2_outcome_fields,
+    _count_receipts_with_v2_outcome_fields,
     _invalidation_from_settlement_receipt as _settlement_payload_to_invalidated_decision,
+    count_decisions_from_settlement_receipts,
 )
 
 UTC = timezone.utc
@@ -51,6 +53,16 @@ def _base_payload(
         "machine_recommendation": "fire_and_forget",
         "github_event": "merged",
     }
+
+
+def _add_complete_v2_outcome_fields(payload: dict, *, fired: bool = False) -> dict:
+    payload["outcome_revert_within_window"] = fired
+    payload["outcome_post_merge_incident"] = False
+    payload["outcome_human_override_redo"] = False
+    payload["outcome_rollback"] = False
+    payload["outcome_reopened_pr"] = False
+    payload["outcome_observed_at"] = "2026-04-22T00:00:00Z"
+    return payload
 
 
 class TestPayloadToInvalidatedDecisionV2Fields:
@@ -222,6 +234,90 @@ class TestAnyReceiptHasV2OutcomeFields:
     def test_rejects_nonpositive_window_days(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="must be positive"):
             _any_receipt_has_v2_outcome_fields(
+                store_root=tmp_path,
+                window_end=datetime(2026, 4, 30, tzinfo=UTC),
+                window_days=0,
+            )
+
+
+class TestCountReceiptsWithV2OutcomeFields:
+    def test_counts_only_in_window_receipts_with_complete_v2_fields(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        _write_receipt(receipts_dir, "v1", _base_payload(pr_number=100))
+        v2_false = _base_payload(pr_number=101)
+        _add_complete_v2_outcome_fields(v2_false)
+        _write_receipt(receipts_dir, "v2_false", v2_false)
+        v2_none = _base_payload(pr_number=102)
+        v2_none["outcome_revert_within_window"] = None
+        _write_receipt(receipts_dir, "v2_none", v2_none)
+        old_v2 = _base_payload(pr_number=103, reviewed_at="2026-01-01T12:00:00+00:00")
+        _add_complete_v2_outcome_fields(old_v2)
+        _write_receipt(receipts_dir, "old_v2", old_v2)
+
+        assert (
+            _count_receipts_with_v2_outcome_fields(
+                store_root=tmp_path,
+                window_end=datetime(2026, 4, 30, tzinfo=UTC),
+                window_days=30,
+            )
+            == 1
+        )
+
+    def test_partial_v2_fields_do_not_count_as_complete(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        partial = _base_payload(pr_number=101)
+        partial["outcome_revert_within_window"] = False
+        partial["outcome_observed_at"] = "2026-04-22T00:00:00Z"
+        _write_receipt(receipts_dir, "partial", partial)
+
+        assert _any_receipt_has_v2_outcome_fields(
+            store_root=tmp_path,
+            window_end=datetime(2026, 4, 30, tzinfo=UTC),
+            window_days=30,
+        )
+        assert (
+            _count_receipts_with_v2_outcome_fields(
+                store_root=tmp_path,
+                window_end=datetime(2026, 4, 30, tzinfo=UTC),
+                window_days=30,
+            )
+            == 0
+        )
+
+    def test_count_uses_same_receipt_window_as_denominator(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        _write_receipt(receipts_dir, "plain", _base_payload(pr_number=100))
+        complete = _base_payload(pr_number=101)
+        _add_complete_v2_outcome_fields(complete)
+        _write_receipt(receipts_dir, "complete", complete)
+        old_complete = _base_payload(pr_number=102, reviewed_at="2026-01-01T12:00:00+00:00")
+        _add_complete_v2_outcome_fields(old_complete)
+        _write_receipt(receipts_dir, "old_complete", old_complete)
+        invalid_reviewed_at = _base_payload(pr_number=103, reviewed_at="not-a-date")
+        _add_complete_v2_outcome_fields(invalid_reviewed_at)
+        _write_receipt(receipts_dir, "invalid_reviewed_at", invalid_reviewed_at)
+
+        window_end = datetime(2026, 4, 30, tzinfo=UTC)
+        assert (
+            count_decisions_from_settlement_receipts(
+                store_root=tmp_path,
+                window_end=window_end,
+                window_days=30,
+            )
+            == 2
+        )
+        assert (
+            _count_receipts_with_v2_outcome_fields(
+                store_root=tmp_path,
+                window_end=window_end,
+                window_days=30,
+            )
+            == 1
+        )
+
+    def test_rejects_nonpositive_window_days(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="must be positive"):
+            _count_receipts_with_v2_outcome_fields(
                 store_root=tmp_path,
                 window_end=datetime(2026, 4, 30, tzinfo=UTC),
                 window_days=0,
