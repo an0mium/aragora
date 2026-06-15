@@ -1883,6 +1883,19 @@ def _effective_required_pr_check_count(
     )
 
 
+def _effective_required_pr_checks(
+    checks: list[dict[str, Any]], *, ignore_quorum_check: bool = False
+) -> list[dict[str, Any]]:
+    """Return required PR checks after excluding current/self quorum rows."""
+    return [
+        check
+        for check in checks
+        if isinstance(check, dict)
+        and not _is_required_pr_check_current_merge_quorum_self_check(check)
+        and not (ignore_quorum_check and _is_merge_quorum_check(check))
+    ]
+
+
 def _status_check_display_name(check: dict[str, Any]) -> str:
     workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
     name = str(check.get("name") or check.get("context") or "").strip()
@@ -2522,6 +2535,26 @@ def _build_packet(
             if ignore_own_quorum_check
             else 0
         )
+        effective_required_checks = _effective_required_pr_checks(
+            required_pr_checks, ignore_quorum_check=ignore_own_quorum_check
+        )
+        required_failing_or_cancelled_checks = [
+            check
+            for check in effective_required_checks
+            if _required_pr_check_bucket(check) in {"fail", "cancel"}
+        ]
+        required_pending_checks = [
+            check
+            for check in effective_required_checks
+            if _required_pr_check_bucket(check) == "pending"
+        ]
+        required_quorum_only_failure = (
+            required_available
+            and effective_required_count > 0
+            and bool(required_failing_or_cancelled_checks)
+            and not required_pending_checks
+            and all(_is_merge_quorum_check(check) for check in required_failing_or_cancelled_checks)
+        )
         # _rollup_non_green_diagnostics reports the raw GitHub rollup counts/sample
         # and is intentionally not filtered by ignore_own_quorum_check. The flag's
         # effect on the rollup is limited to the summary text computed above; the
@@ -2567,18 +2600,12 @@ def _build_packet(
             "gate_blocked_reason": gate_blocked_reason,
             "failing_or_cancelled": [
                 str(check.get("name") or "").strip()
-                for check in required_pr_checks
-                if _required_pr_check_bucket(check) in {"fail", "cancel"}
-                and not _is_required_pr_check_current_merge_quorum_self_check(check)
-                and not (ignore_own_quorum_check and _is_merge_quorum_check(check))
+                for check in required_failing_or_cancelled_checks
             ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
-            "pending": [
-                str(check.get("name") or "").strip()
-                for check in required_pr_checks
-                if _required_pr_check_bucket(check) == "pending"
-                and not _is_required_pr_check_current_merge_quorum_self_check(check)
-                and not (ignore_own_quorum_check and _is_merge_quorum_check(check))
-            ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+            "pending": [str(check.get("name") or "").strip() for check in required_pending_checks][
+                :CHECK_SURFACE_DIAGNOSTIC_LIMIT
+            ],
+            "quorum_only_failure": required_quorum_only_failure,
         }
         if required_surface.get("error"):
             check_surfaces["required_pr_checks"]["error"] = str(required_surface.get("error"))
@@ -2612,6 +2639,26 @@ def _build_packet(
             check_surfaces["remediation_prompt"] = (
                 "Continue gating on branch-protection required checks; keep "
                 "non-required shadow/advisory check failures visible but non-blocking."
+            )
+        elif required_quorum_only_failure:
+            check_surfaces["required_pr_checks"]["gate_selected"] = True
+            check_surfaces["required_pr_checks"]["gate_blocked_reason"] = ""
+            checks_summary = f"{required_summary} (required PR checks; only merge-quorum failing)"
+            has_pending = False
+            checks_unavailable = False
+            check_surfaces["effective_gate"] = {
+                "source": "required_pr_checks",
+                "summary": checks_summary,
+            }
+            check_surfaces["diagnosis"] = (
+                "The PR check rollup includes non-required non-green checks, "
+                "and GitHub reports every non-quorum branch-protection required "
+                "check green; merge-packet leaves aragora-merge-quorum to the "
+                "model quorum evidence gate."
+            )
+            check_surfaces["remediation_prompt"] = (
+                "Collect missing model quorum evidence or rerun aragora-merge-quorum "
+                "after evidence is counted; keep non-required rollup failures advisory."
             )
         elif gate_blocked_reason:
             check_surfaces["diagnosis"] = (
@@ -3076,6 +3123,19 @@ def _build_model_review_quorum(
     quorum_satisfied = (
         signal_count >= requirement["required_model_signals"] and has_required_dogfood
     )
+    required_pr_check_surface = (
+        check_surfaces.get("required_pr_checks") if isinstance(check_surfaces, dict) else {}
+    )
+    quorum_only_required_failure = bool(
+        isinstance(required_pr_check_surface, dict)
+        and required_pr_check_surface.get("quorum_only_failure")
+    )
+    missing_quorum_is_active_check_blocker = (
+        quorum_only_required_failure and not quorum_satisfied and not settlement_recorded
+    )
+    stale_quorum_check_after_satisfied_evidence = (
+        quorum_only_required_failure and quorum_satisfied and not settlement_recorded
+    )
     requires_human_preapproval = bool(requirement["requires_human_preapproval"])
     human_preapproval_recorded = (
         requires_human_preapproval
@@ -3107,8 +3167,12 @@ def _build_model_review_quorum(
         reasons.append(str(settlement_creator_pin["reason"]))
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
-    if has_failures and not settlement_recorded:
+    if has_failures and not settlement_recorded and not missing_quorum_is_active_check_blocker:
         reasons.append("checks are failing; repair before settlement")
+    elif missing_quorum_is_active_check_blocker:
+        reasons.append(
+            "required aragora-merge-quorum is failing because model quorum is incomplete"
+        )
     if checks_unavailable and not settlement_recorded:
         reasons.append("checks are unavailable; wait for GitHub check rollup before settlement")
         if isinstance(check_surfaces, dict) and (
@@ -3139,10 +3203,11 @@ def _build_model_review_quorum(
         verdict = "already_merged_settlement_recorded"
         requires_human_risk_settlement = False
     elif (
-        has_failures
+        (has_failures and not missing_quorum_is_active_check_blocker)
         or has_pending
         or checks_unavailable
-        or machine_recommendation == "repair_first"
+        or (machine_recommendation == "repair_first" and not missing_quorum_is_active_check_blocker)
+        or stale_quorum_check_after_satisfied_evidence
         or blocking_workflow_state
     ):
         status = "repair_or_wait"

@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
@@ -30,6 +31,10 @@ AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
 AUTHORIZED_PROTECTION_TOKENS = ("branch_protection_reconcile", "branch protection reconcile")
 TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS = {"OWNER"}
 TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"MEMBER"}
+# GitHub reports some repo admins as COLLABORATOR rather than MEMBER. Keep
+# that association fail-closed: require both an explicit allowlist entry and a
+# live repo-admin permission check before accepting it for Tier 4 settlement.
+TRUSTED_OPERATOR_ALLOWLIST_ADMIN_ASSOCIATIONS = {"COLLABORATOR"}
 TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
 PermissionChecker = Callable[[str], bool]
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
@@ -203,11 +208,15 @@ def _trusted_member_requires_permission_check(
     trusted_operator_logins: frozenset[str],
 ) -> bool:
     association = str(item.get("authorAssociation") or "").upper()
-    if association not in TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS:
+    if association not in (
+        TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS | TRUSTED_OPERATOR_ALLOWLIST_ADMIN_ASSOCIATIONS
+    ):
         return False
     login = _author_login(item)
     if not login:
         return False
+    if association in TRUSTED_OPERATOR_ALLOWLIST_ADMIN_ASSOCIATIONS:
+        return login in trusted_operator_logins
     return not trusted_operator_logins or login in trusted_operator_logins
 
 
@@ -221,17 +230,21 @@ def _operator_author_rejection_reason(
     association = str(item.get("authorAssociation") or "").upper()
     if association in TRUSTED_OPERATOR_AUTHOR_ASSOCIATIONS:
         return ""
-    if association not in TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS:
+    if association not in (
+        TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS | TRUSTED_OPERATOR_ALLOWLIST_ADMIN_ASSOCIATIONS
+    ):
         return f"authorAssociation {association or '<missing>'} is not trusted"
     login = _author_login(item)
     if not login:
         return f"{association} login <missing> is not available"
+    if association in TRUSTED_OPERATOR_ALLOWLIST_ADMIN_ASSOCIATIONS and not trusted_operator_logins:
+        return f"{association} login {login} requires explicit trusted operator allowlist"
     if trusted_operator_logins and login not in trusted_operator_logins:
         return f"{association} login {login} is not in trusted operator allowlist"
     if not evaluate_member_permissions:
         return ""
     if not permission_checker(login):
-        return f"trusted member {login or '<missing>'} lacks admin permission"
+        return f"trusted {association.lower()} {login or '<missing>'} lacks admin permission"
     return ""
 
 
@@ -285,7 +298,7 @@ def _authorization_diagnostic(
         rejection_reasons.append(author_rejection)
     if admin_permission_required and not evaluate_member_permissions:
         rejection_reasons.append(
-            "trusted member admin permission was not evaluated because earlier gate blockers are present"
+            "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         )
     if not fresh_after_head_commit:
         rejection_reasons.append("authorization is older than head commit")
@@ -848,26 +861,38 @@ def evaluate_tier4_settlement_preconditions(
 
 
 def _run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
-    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+    try:
+        result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired as exc:
+        timeout = int(exc.timeout if exc.timeout is not None else 120)
+        raise RuntimeError(f"{shlex.join(command)} timed out after {timeout}s") from exc
+    except OSError as exc:
+        raise RuntimeError(f"{shlex.join(command)} failed to start: {exc}") from exc
     if result.returncode != 0:
-        raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
+        raise RuntimeError(f"{shlex.join(command)} failed: {result.stderr.strip()}")
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"{' '.join(command)} did not emit JSON") from exc
+        raise RuntimeError(f"{shlex.join(command)} did not emit JSON") from exc
     if not isinstance(payload, dict):
-        raise RuntimeError(f"{' '.join(command)} emitted non-object JSON")
+        raise RuntimeError(f"{shlex.join(command)} emitted non-object JSON")
     return payload
 
 
 def _run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
-    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+    try:
+        result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired as exc:
+        timeout = int(exc.timeout if exc.timeout is not None else 120)
+        raise RuntimeError(f"{shlex.join(command)} timed out after {timeout}s") from exc
+    except OSError as exc:
+        raise RuntimeError(f"{shlex.join(command)} failed to start: {exc}") from exc
     if result.returncode != 0:
-        raise RuntimeError(f"{' '.join(command)} failed: {result.stderr.strip()}")
+        raise RuntimeError(f"{shlex.join(command)} failed: {result.stderr.strip()}")
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"{' '.join(command)} did not emit JSON") from exc
+        raise RuntimeError(f"{shlex.join(command)} did not emit JSON") from exc
 
 
 def _looks_like_graphql_rate_limit_error(error: object) -> bool:

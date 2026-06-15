@@ -311,16 +311,16 @@ class TestMCPToolExecution:
             assert result["count"] == 3
 
     @pytest.mark.asyncio
-    async def test_list_agents_fallback_on_error(self, server):
-        """Test list_agents returns fallback on error."""
+    async def test_list_agents_empty_on_error(self, server):
+        """Test list_agents fails closed with an empty list and error when the registry errors."""
         with patch("aragora.agents.base.list_available_agents") as mock_list:
             mock_list.side_effect = Exception("Registry unavailable")
 
             result = await server._list_agents()
 
             assert "agents" in result
-            assert len(result["agents"]) >= 5  # Fallback list
-            assert "note" in result
+            assert result["agents"] == []
+            assert "error" in result
 
     @pytest.mark.asyncio
     async def test_get_debate_from_cache(self, server):
@@ -346,8 +346,10 @@ class TestMCPToolExecution:
     @pytest.mark.asyncio
     async def test_get_debate_not_found(self, server):
         """Test get_debate returns error for non-existent debate."""
+        storage_db = MagicMock()
+        storage_db.get.return_value = None
         with patch("aragora.server.storage.get_debates_db") as mock_db:
-            mock_db.return_value = None
+            mock_db.return_value = storage_db
 
             result = await server._get_debate({"debate_id": "nonexistent"})
 
@@ -364,7 +366,7 @@ class TestMCPToolExecution:
 
     @pytest.mark.asyncio
     async def test_run_debate_no_valid_agents(self, server):
-        """Test run_debate with no valid agents returns error."""
+        """Test run_debate returns an error when a requested agent can't be created."""
         with patch("aragora.agents.base.create_agent") as mock_create:
             mock_create.side_effect = Exception("No API key")
 
@@ -376,7 +378,7 @@ class TestMCPToolExecution:
             )
 
             assert "error" in result
-            assert "No valid agents" in result["error"]
+            assert "Invalid agent selection" in result["error"]
 
     @pytest.mark.asyncio
     async def test_run_gauntlet_missing_content(self, server):
@@ -409,21 +411,21 @@ class TestMCPToolCallHandler:
 
     @pytest.mark.asyncio
     async def test_call_tool_handles_exceptions(self, server):
-        """Test tool call handler catches exceptions and uses fallback."""
+        """Test tool call handler catches exceptions and fails closed."""
         # Mock list_available_agents to raise an exception
-        # This tests that the tool properly catches errors and returns fallback
+        # This tests that the tool properly catches errors and returns an error result
         with patch(
             "aragora.agents.base.list_available_agents",
             side_effect=RuntimeError("Test error"),
         ):
             result = await _call_tool(server, "list_agents", {})
 
-            # When list_available_agents fails, list_agents_tool returns fallback
+            # When list_available_agents fails, list_agents_tool returns an empty list + error
             assert len(result) == 1
             parsed = json.loads(result[0].text)
-            # Fallback returns a list of agents with a note
             assert "agents" in parsed
-            assert "note" in parsed  # Fallback includes a note about unavailability
+            assert parsed["agents"] == []
+            assert "error" in parsed
 
     @pytest.mark.asyncio
     async def test_call_tool_returns_text_content(self, server):
