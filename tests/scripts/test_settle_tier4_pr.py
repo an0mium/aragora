@@ -2959,6 +2959,44 @@ def test_quorum_run_ids_prefers_details_url_workflow_run_id(
     assert runs == [("27474838200", "failure")]
 
 
+def test_quorum_run_ids_reads_paginated_check_runs(monkeypatch: Any, tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    def _fake_run_json(command: list[str], cwd: Path | None = None) -> dict[str, Any]:
+        calls.append(command)
+        endpoint = command[-1]
+        if endpoint.endswith("page=1"):
+            return {
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "conclusion": "success",
+                        "html_url": "https://github.com/synaptent/aragora/actions/runs/1/job/2",
+                    }
+                    for _ in range(100)
+                ]
+            }
+        return {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "FAILURE",
+                    "details_url": (
+                        "https://github.com/synaptent/aragora/actions/runs/"
+                        "27474838200/job/81212117993"
+                    ),
+                }
+            ]
+        }
+
+    monkeypatch.setattr(settler, "_run_json", _fake_run_json)
+
+    runs = settler._quorum_run_ids(head="abc", repo="synaptent/aragora", cwd=tmp_path)
+
+    assert runs == [("27474838200", "failure")]
+    assert len(calls) == 2
+
+
 def test_record_settlement_passes_repo_to_review_queue(monkeypatch: Any, tmp_path: Path) -> None:
     captured: dict[str, Any] = {}
 
@@ -2975,12 +3013,19 @@ def test_record_settlement_passes_repo_to_review_queue(monkeypatch: Any, tmp_pat
         reason="operator accepted risk",
         repo="example/other-repo",
         cwd=tmp_path,
+        post_github_status=True,
     )
 
     assert result == {"written": True}
     assert captured["cwd"] == tmp_path
     assert "--repo" in captured["command"]
     assert captured["command"][captured["command"].index("--repo") + 1] == "example/other-repo"
+    assert "--post-github-status" in captured["command"]
+    assert "--github-status-context" in captured["command"]
+    assert (
+        captured["command"][captured["command"].index("--github-status-context") + 1]
+        == "aragora/human-settlement"
+    )
 
 
 def test_rerun_failed_quorum_targets_the_failed_run(monkeypatch: Any, tmp_path: Path) -> None:
@@ -3021,6 +3066,35 @@ def test_rerun_failed_quorum_is_noop_when_no_run_found(monkeypatch: Any, tmp_pat
     assert "no aragora-merge-quorum run found" in result["reason"]
 
 
+def test_reason_is_rejected_without_settle_apply(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    def _load_boom(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("must reject --reason before loading live inputs")
+
+    monkeypatch.setattr(settler, "_load_live_inputs", _load_boom)
+
+    rc = settler.main(
+        [
+            "--check",
+            "--pr",
+            "7423",
+            "--head",
+            "57c740022e3c432718462efa12ca79f1df4f674d",
+            "--reason",
+            "operator accepted risk",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert "--reason is only valid with --settle-apply" in payload["error"]
+
+
 def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Path) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     text_commands: list[list[str]] = []
@@ -3044,8 +3118,16 @@ def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Pat
     monkeypatch.setattr(
         settler,
         "_record_settlement",
-        lambda pr, head, reason, repo, cwd: (
-            recorded.update({"pr": pr, "head": head, "reason": reason, "repo": repo})
+        lambda pr, head, reason, repo, cwd, post_github_status=False: (
+            recorded.update(
+                {
+                    "pr": pr,
+                    "head": head,
+                    "reason": reason,
+                    "repo": repo,
+                    "post_github_status": post_github_status,
+                }
+            )
             or {"written": True, "actor": "trusted-member", "receipt_sha256": "sha256:abc"}
         ),
     )
@@ -3083,18 +3165,66 @@ def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Pat
 
     assert rc == 0
     assert recorded["repo"] == settler.DEFAULT_REPO
+    assert recorded["post_github_status"] is True
     # 1. receipt recorded at the exact head
     assert recorded["pr"] == 7423
     assert recorded["head"] == head
     # 2. settlement comment posted
     assert text_commands and text_commands[0][:3] == ["gh", "pr", "comment"]
-    # 3. exact-head human-settlement status posted
-    assert any(
-        command[:4] == ["gh", "api", "--method", "POST"] and f"statuses/{head}" in command[4]
-        for command in commands
-    )
+    # 3. exact-head human-settlement status is owned by record-settlement --post-github-status
+    assert not any("statuses/" in str(part) for command in commands for part in command)
     # 4. failed quorum run rerun, id looked up automatically
     assert ["gh", "run", "rerun", "27474838200", "--failed"] in commands
+
+
+def test_settle_apply_does_not_record_receipt_when_comment_post_fails(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+
+    def _record_boom(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("must not record receipt when comment post fails")
+
+    def _comment_boom(command: list[str], cwd: Path, input_text: str | None = None) -> str:
+        raise settler.subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(settler, "_record_settlement", _record_boom)
+    monkeypatch.setattr(settler, "_run_text_command", _comment_boom)
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert "Tier 4 settlement signal failed" in payload["error"]
 
 
 def test_settle_apply_skips_signal_when_status_already_success(
@@ -3118,8 +3248,13 @@ def test_settle_apply_skips_signal_when_status_already_success(
     )
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+    recorded: dict[str, Any] = {}
     monkeypatch.setattr(
-        settler, "_record_settlement", lambda pr, head, reason, repo, cwd: {"written": True}
+        settler,
+        "_record_settlement",
+        lambda pr, head, reason, repo, cwd, post_github_status=False: (
+            recorded.update({"post_github_status": post_github_status}) or {"written": True}
+        ),
     )
     monkeypatch.setattr(
         settler,
@@ -3149,6 +3284,7 @@ def test_settle_apply_skips_signal_when_status_already_success(
     )
 
     assert rc == 0
+    assert recorded["post_github_status"] is False
     # idempotent: no comment/status re-posted when settlement already present
     assert text_commands == []
     assert not any("statuses/" in (command[4] if len(command) > 4 else "") for command in commands)

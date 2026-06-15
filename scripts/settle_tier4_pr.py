@@ -1729,7 +1729,9 @@ def _restore_branch_protection(*, repo: str, cwd: Path, snapshot: dict[str, Any]
     return errors
 
 
-def _apply_settlement_signal(*, pr: int, head: str, repo: str, cwd: Path) -> list[list[str]]:
+def _apply_settlement_signal(
+    *, pr: int, head: str, repo: str, cwd: Path, post_status: bool = True
+) -> list[list[str]]:
     comment_command = [
         "gh",
         "pr",
@@ -1753,6 +1755,8 @@ def _apply_settlement_signal(*, pr: int, head: str, repo: str, cwd: Path) -> lis
     ]
     try:
         comment_url = _run_text_command(comment_command, cwd=cwd).strip()
+        if not post_status:
+            return [comment_command]
         if comment_url:
             status_command.extend(["-f", f"target_url={comment_url}"])
         _run_command(status_command, cwd=cwd)
@@ -1761,7 +1765,15 @@ def _apply_settlement_signal(*, pr: int, head: str, repo: str, cwd: Path) -> lis
     return [comment_command, status_command]
 
 
-def _record_settlement(*, pr: int, head: str, reason: str, repo: str, cwd: Path) -> dict[str, Any]:
+def _record_settlement(
+    *,
+    pr: int,
+    head: str,
+    reason: str,
+    repo: str,
+    cwd: Path,
+    post_github_status: bool = False,
+) -> dict[str, Any]:
     """Write the durable external-settlement receipt via the review-queue CLI."""
     command = [
         sys.executable,
@@ -1780,6 +1792,14 @@ def _record_settlement(*, pr: int, head: str, reason: str, repo: str, cwd: Path)
         reason,
         "--json",
     ]
+    if post_github_status:
+        command.extend(
+            [
+                "--post-github-status",
+                "--github-status-context",
+                HUMAN_SETTLEMENT_CONTEXT,
+            ]
+        )
     return _run_json(command, cwd=cwd)
 
 
@@ -1799,23 +1819,30 @@ def _run_id_from_url(url: str) -> str:
 
 def _quorum_run_ids(*, head: str, repo: str, cwd: Path) -> list[tuple[str, str]]:
     """Return ``[(run_id, conclusion), ...]`` for merge-quorum check-runs at ``head``."""
-    payload = _run_json(
-        ["gh", "api", f"repos/{repo}/commits/{head}/check-runs?per_page=100"],
-        cwd=cwd,
-    )
     runs: list[tuple[str, str]] = []
-    check_runs = payload.get("check_runs")
-    if not isinstance(check_runs, list):
-        return runs
-    for item in check_runs:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("name") or "") != MERGE_QUORUM_CONTEXT:
-            continue
-        candidate_urls = (str(item.get("details_url") or ""), str(item.get("html_url") or ""))
-        run_id = next((parsed for url in candidate_urls if (parsed := _run_id_from_url(url))), "")
-        if run_id:
-            runs.append((run_id, str(item.get("conclusion") or "").lower()))
+    page = 1
+    while True:
+        payload = _run_json(
+            ["gh", "api", f"repos/{repo}/commits/{head}/check-runs?per_page=100&page={page}"],
+            cwd=cwd,
+        )
+        check_runs = payload.get("check_runs")
+        if not isinstance(check_runs, list):
+            return runs
+        for item in check_runs:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("name") or "") != MERGE_QUORUM_CONTEXT:
+                continue
+            candidate_urls = (str(item.get("details_url") or ""), str(item.get("html_url") or ""))
+            run_id = next(
+                (parsed for url in candidate_urls if (parsed := _run_id_from_url(url))), ""
+            )
+            if run_id:
+                runs.append((run_id, str(item.get("conclusion") or "").lower()))
+        if len(check_runs) < 100:
+            break
+        page += 1
     return runs
 
 
@@ -2021,6 +2048,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.reason and not args.settle_apply:
+            raise RuntimeError("--reason is only valid with --settle-apply")
         pr_view, merge_packet, required_checks = _load_live_inputs(
             args.pr, cwd=args.cwd, repo=args.repo
         )
@@ -2124,9 +2153,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"Operator Tier-4 settlement for #{args.pr} at exact head {args.head}; "
                 "counted model evidence and green non-quorum required checks."
             )
-            extra_out["receipt"] = _record_settlement(
-                pr=args.pr, head=args.head, reason=reason, repo=args.repo, cwd=args.cwd
-            )
             already_present = _human_settlement_status_is_success(pr_view)
             extra_out["settlement_already_present"] = already_present
             if not already_present:
@@ -2135,7 +2161,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     head=args.head,
                     repo=args.repo,
                     cwd=args.cwd,
+                    post_status=False,
                 )
+            extra_out["receipt"] = _record_settlement(
+                pr=args.pr,
+                head=args.head,
+                reason=reason,
+                repo=args.repo,
+                cwd=args.cwd,
+                post_github_status=not already_present,
+            )
             extra_out["quorum_rerun"] = _rerun_failed_quorum(
                 head=args.head, repo=args.repo, cwd=args.cwd
             )
