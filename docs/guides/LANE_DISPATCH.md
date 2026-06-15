@@ -108,6 +108,33 @@ The recursion is intentional and continuous (an always-advancing front); what
 the conductor removes is the **uncoordinated** part (collisions) and the
 **hand-cranked** part (copy-paste).
 
+### Running the conductor
+
+`aragora.swarm.lane_conductor` implements one *pass* of that loop, and
+`scripts/lane_conductor.py` is its CLI. **Dry-run by default; it never merges or
+settles** — it only assigns, claims, and drops work orders.
+
+```bash
+# Preview the next pass (no claims written, no work orders dispatched):
+python3 scripts/lane_conductor.py --json --max-workers 3
+
+# Actually claim the lanes and drop work orders for the supervisor to spawn:
+python3 scripts/lane_conductor.py --execute --max-workers 3
+```
+
+Under `--execute`, each assignment is claimed via `claim_active_agent_lane.py`
+(atomic) and its work order is written to
+`.aragora/lane_dispatch/pending/<id>.json`. A work order is self-describing
+(`target_agent`, `owner_session_id`, `pr`, `branch`, and the claim-first
+`prompt`), and its keys match what `worker_launcher.WorkerLauncher.launch`
+reads, so the supervisor adapter that drains the pending dir can hand it
+straight to the launcher. The file-drop keeps the conductor decoupled from
+worktree provisioning and makes every dispatch inspectable/replayable.
+
+The decision core (`plan_pass`, `build_work_orders`) is pure — the `gh` /
+`identify_lane_owner` reads and the claim/dispatch writes are injected
+callables, so the whole pass is unit-tested without a network or a worktree.
+
 ## Identity / budget note
 
 Run worker reads through the GitHub App installation token (separate API
