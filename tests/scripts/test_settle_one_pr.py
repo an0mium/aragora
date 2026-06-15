@@ -1261,6 +1261,8 @@ def test_lazy_policy_metadata_continues_past_failed_pr_view(monkeypatch) -> None
             return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return None, {"command": "policy-view-7451", "returncode": 1, "stderr": "timeout"}
+        if args[:2] == ["gh", "api"] and args[2] == "repos/{owner}/{repo}/pulls/7451":
+            return None, {"command": "pull-rest-7451", "returncode": 404, "stderr": "not found"}
         if (
             args[:3] == ["gh", "pr", "view"]
             and args[3] == "7452"
@@ -1315,7 +1317,7 @@ def test_lazy_policy_metadata_continues_past_failed_pr_view(monkeypatch) -> None
             )
         if args[:3] == ["gh", "pr", "checks"]:
             return (
-                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                [],
                 {"command": "checks", "returncode": 0},
             )
         raise AssertionError(args)
@@ -1424,7 +1426,7 @@ def test_explicit_pr_reuses_preloaded_policy_file_scope(monkeypatch) -> None:
             )
         if args[:3] == ["gh", "pr", "checks"]:
             return (
-                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                [],
                 {"command": "checks", "returncode": 0},
             )
         raise AssertionError(args)
@@ -1451,6 +1453,60 @@ def test_explicit_pr_reuses_preloaded_policy_file_scope(monkeypatch) -> None:
     assert report["policy_exclusions"] == []
 
 
+def test_pr_policy_metadata_uses_rest_fallback_when_graphql_unavailable(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
+            return None, {
+                "command": "policy-view-7451",
+                "returncode": 1,
+                "stderr": "GraphQL: API rate limit already exceeded",
+            }
+        if args[:2] == ["gh", "api"] and args[2] == "repos/{owner}/{repo}/pulls/7451":
+            return (
+                {
+                    "number": 7451,
+                    "title": "docs: candidate",
+                    "head": {"ref": "codex/docs-candidate"},
+                    "user": {"login": "alice"},
+                    "mergeable": True,
+                    "mergeable_state": "clean",
+                },
+                {"command": "pull-rest", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2] == "repos/{owner}/{repo}/pulls/7451/files":
+            return (
+                [{"filename": "docs/status/example.md", "additions": 2, "deletions": 1}],
+                {"command": "files-rest", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    metadata, command = settle_one_pr.load_pr_policy_metadata(Path.cwd(), 7451)
+
+    assert metadata == {
+        "number": 7451,
+        "title": "docs: candidate",
+        "headRefName": "codex/docs-candidate",
+        "author": {"login": "alice"},
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "CLEAN",
+        "files": [
+            {
+                "path": "docs/status/example.md",
+                "additions": 2,
+                "deletions": 1,
+                "changeType": None,
+            }
+        ],
+        "metadata_source": "rest_pull_files",
+    }
+    assert command["rest_fallback"] is True
+    assert command["primary_command"]["returncode"] == 1
+    assert command["fallback_reason"] == "GraphQL: API rate limit already exceeded"
+
+
 def test_build_report_fails_closed_when_selected_policy_metadata_unavailable(
     monkeypatch,
 ) -> None:
@@ -1471,6 +1527,8 @@ def test_build_report_fails_closed_when_selected_policy_metadata_unavailable(
             return {"lanes": []}, {"command": "snapshot", "returncode": 0}
         if args[:3] == ["gh", "pr", "view"] and args[3] == "7451":
             return None, {"command": "policy-view", "returncode": 1, "stderr": "timeout"}
+        if args[:2] == ["gh", "api"] and args[2] == "repos/{owner}/{repo}/pulls/7451":
+            return None, {"command": "pull-rest", "returncode": 404, "stderr": "not found"}
         raise AssertionError(args)
 
     monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
@@ -1984,10 +2042,7 @@ def test_build_report_reads_required_checks_from_pr_base_branch(monkeypatch) -> 
                 {"command": "check-runs", "returncode": 0},
             )
         if args[:3] == ["gh", "pr", "checks"]:
-            return (
-                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
-                {"command": "checks", "returncode": 0},
-            )
+            return [], {"command": "checks", "returncode": 0}
         raise AssertionError(args)
 
     monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
@@ -2157,6 +2212,215 @@ def test_build_report_falls_back_when_required_checks_and_check_runs_are_green(
     )
 
     assert report["status"] == "packet_authorized_dry_run"
+
+
+def test_build_report_uses_packet_required_check_metadata_when_app_token_cannot_read_protection(
+    monkeypatch,
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        commands.append(args)
+        if args[:3] == ["gh", "pr", "list"]:
+            return [], {"command": "metadata", "returncode": 0}
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == OWNER_PREFIX:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == STEERING_PREFIX:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "8372"
+            and args[5] == settle_one_pr.PR_POLICY_FIELDS
+        ):
+            return (
+                {
+                    "number": 8372,
+                    "title": "docs: ODR mission",
+                    "headRefName": "claude/odr-completion-mission",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "docs/superpowers/plans/odr.md"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "8372"
+            and "statusCheckRollup" in args[5]
+        ):
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000008372",
+                    "baseRefName": "main",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "statusCheckRollup": [],
+                },
+                {"command": "view", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return None, {
+                "command": "protection",
+                "returncode": 403,
+                "stderr": "Resource not accessible by integration",
+            }
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return (
+                {
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "success",
+                            "app": {"id": 15368},
+                        }
+                    ]
+                },
+                {"command": "check-runs", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "checks"]:
+            return (
+                [{"name": "aragora-merge-quorum", "state": "SUCCESS"}],
+                {"command": "checks", "returncode": 0},
+            )
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    entry = _entry(
+        8372,
+        status="satisfied",
+        verdict="admin_squash_allowed",
+        admin_squash_allowed=True,
+        reasons=["bounded internal code surface"],
+    )
+    entry["check_surfaces"] = {
+        "direct_commit_check_runs": {
+            "required_contexts_satisfied": True,
+            "non_success_required_contexts": [],
+            "required_checks": [{"context": "aragora-merge-quorum", "app_id": 15368}],
+        }
+    }
+    report = build_report(
+        _packet(entry, admin_order=[8372]),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=8372,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "packet_authorized_dry_run"
+    assert report["blockers"] == []
+    assert report["checks"]["required_source_fallback"] == {
+        "used": True,
+        "source": "merge_packet_direct_commit_check_runs.required_checks",
+        "reason": "Resource not accessible by integration",
+        "contexts": ["aragora-merge-quorum"],
+    }
+    assert report["checks"]["required_sources"]["source"] == (
+        "merge_packet_direct_commit_check_runs.required_checks"
+    )
+    assert any(
+        cmd[:2] == ["gh", "api"] and cmd[2].endswith("/required_status_checks") for cmd in commands
+    )
+
+
+def test_build_report_still_fails_closed_when_required_contexts_are_unknown(monkeypatch) -> None:
+    def fake_run_json(args: list[str], *, cwd: Path, timeout: int = 120):
+        del cwd, timeout
+        if args[:3] == ["gh", "pr", "list"]:
+            return [], {"command": "metadata", "returncode": 0}
+        if args[:3] == OPERATOR_SNAPSHOT_PREFIX:
+            return {"lanes": []}, {"command": "snapshot", "returncode": 0}
+        if args[:3] == OWNER_PREFIX:
+            return {"status": "completed"}, {"command": "owner", "returncode": 0}
+        if args[:3] == STEERING_PREFIX:
+            return {"message_count": 0}, {"command": "mailbox", "returncode": 0}
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "8373"
+            and args[5] == settle_one_pr.PR_POLICY_FIELDS
+        ):
+            return (
+                {
+                    "number": 8373,
+                    "title": "docs: unknown required contexts",
+                    "headRefName": "codex/docs",
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "files": [{"path": "docs/status/example.md"}],
+                },
+                {"command": "policy-view", "returncode": 0},
+            )
+        if (
+            args[:3] == ["gh", "pr", "view"]
+            and args[3] == "8373"
+            and "statusCheckRollup" in args[5]
+        ):
+            return (
+                {
+                    "headRefOid": "0000000000000000000000000000000000008373",
+                    "baseRefName": "main",
+                    "isDraft": False,
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "CLEAN",
+                    "statusCheckRollup": [],
+                },
+                {"command": "view", "returncode": 0},
+            )
+        if args[:2] == ["gh", "api"] and args[2].endswith("/required_status_checks"):
+            return None, {"command": "protection", "returncode": 403}
+        if args[:2] == ["gh", "api"] and args[2].endswith("/check-runs?per_page=100"):
+            return (
+                {
+                    "check_runs": [
+                        {
+                            "name": "aragora-merge-quorum",
+                            "conclusion": "success",
+                            "app": {"id": 15368},
+                        }
+                    ]
+                },
+                {"command": "check-runs", "returncode": 0},
+            )
+        if args[:3] == ["gh", "pr", "checks"]:
+            return [], {"command": "checks", "returncode": 0}
+        raise AssertionError(args)
+
+    monkeypatch.setattr(settle_one_pr, "_run_json", fake_run_json)
+
+    entry = _entry(
+        8373,
+        status="satisfied",
+        verdict="admin_squash_allowed",
+        admin_squash_allowed=True,
+        reasons=["bounded internal code surface"],
+    )
+    entry["check_surfaces"] = {
+        "direct_commit_check_runs": {
+            "required_contexts_satisfied": True,
+            "non_success_required_contexts": [],
+            "required_checks": [],
+        }
+    }
+    report = build_report(
+        _packet(entry, admin_order=[8373]),
+        cwd=Path.cwd(),
+        state_root=Path.cwd(),
+        explicit_pr=8373,
+        exclude_prs=set(),
+        live=True,
+        validate=False,
+    )
+
+    assert report["status"] == "blocked"
+    assert "required checks JSON empty" in report["blockers"]
+    assert "required_source_fallback" not in report["checks"]
 
 
 def test_recursive_prompt_always_contains_convergence_sentence() -> None:
