@@ -13,6 +13,7 @@ Produces a JSON report of:
 Usage:
     python scripts/report_code_quality.py                    # Print summary
     python scripts/report_code_quality.py --json             # Machine-readable
+    python scripts/report_code_quality.py --json --summary-only  # Compact JSON
     python scripts/report_code_quality.py --check            # Exit 1 if ratchet violated
 """
 
@@ -227,16 +228,49 @@ def build_comparison(global_suppressions: dict[str, int]) -> dict[str, object]:
     }
 
 
-def main() -> None:
+def _summary_int(entry: dict, key: str) -> int:
+    value = entry.get(key)
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def summary_only_payload(report: dict[str, object]) -> dict[str, object]:
+    """Compact the verbose per-subsystem report for automation startup probes."""
+    subsystems = report.get("subsystems")
+    subsystem_rows = subsystems if isinstance(subsystems, list) else []
+    payload = {key: value for key, value in report.items() if key != "subsystems"}
+    payload["subsystem_count"] = len(subsystem_rows)
+    payload["subsystem_names"] = [
+        str(row.get("name"))
+        for row in subsystem_rows
+        if isinstance(row, dict) and row.get("name") is not None
+    ]
+    payload["subsystem_totals"] = {
+        "files": sum(_summary_int(row, "files") for row in subsystem_rows if isinstance(row, dict)),
+        "loc": sum(_summary_int(row, "loc") for row in subsystem_rows if isinstance(row, dict)),
+        "test_files": sum(
+            _summary_int(row, "test_files") for row in subsystem_rows if isinstance(row, dict)
+        ),
+    }
+    payload["subsystems_omitted"] = True
+    payload["details_omitted"] = True
+    return payload
+
+
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Report codebase quality metrics")
     parser.add_argument("--json", action="store_true", help="JSON output")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit verbose per-subsystem details for compact automation probes",
+    )
     parser.add_argument("--check", action="store_true", help="Exit 1 if ratchet violated")
     parser.add_argument(
         "--compare",
         action="store_true",
         help="Show deltas versus the last recorded suppression baseline",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     subsystems = [scan_subsystem(name, path) for name, path in SUBSYSTEMS.items()]
     global_suppressions = scan_all_aragora()
@@ -255,6 +289,8 @@ def main() -> None:
         report["baseline_comparison"] = comparison
 
     if args.json:
+        if args.summary_only:
+            report = summary_only_payload(report)
         print(json.dumps(report, indent=2))
     else:
         print("=== Aragora Code Quality Report ===\n")

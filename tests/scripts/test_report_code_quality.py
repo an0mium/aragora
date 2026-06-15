@@ -195,6 +195,56 @@ def test_main_json_compare_includes_baseline_comparison(
     assert payload["baseline_comparison"]["global_suppressions"]["except_exception"]["delta"] == -2
 
 
+def test_main_json_summary_only_omits_verbose_subsystems(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["report_code_quality.py", "--json", "--summary-only", "--compare"],
+    )
+    monkeypatch.setattr(
+        report_code_quality,
+        "scan_all_aragora",
+        lambda: {"except_exception": 768, "type_ignore": 0, "noqa": 0, "todo": 0, "fixme": 0},
+    )
+    monkeypatch.setattr(
+        report_code_quality,
+        "scan_boss_metrics",
+        lambda: {"available": True, "unique_issues": 4, "issues_completed": 3},
+    )
+    monkeypatch.setattr(
+        report_code_quality,
+        "scan_subsystem",
+        lambda name, path: {
+            "name": name,
+            "path": path,
+            "files": 2,
+            "loc": 30,
+            "test_files": 1,
+            "test_ratio": 0.5,
+            "suppressions": {"except_exception": 0, "noqa": 0},
+            "top5_largest": [{"file": f"{path}/large.py", "loc": 20}],
+        },
+    )
+
+    report_code_quality.main()
+
+    payload = json.loads(capsys.readouterr().out)
+    assert "subsystems" not in payload
+    assert payload["subsystems_omitted"] is True
+    assert payload["details_omitted"] is True
+    assert payload["subsystem_count"] == len(report_code_quality.SUBSYSTEMS)
+    assert payload["subsystem_totals"] == {
+        "files": len(report_code_quality.SUBSYSTEMS) * 2,
+        "loc": len(report_code_quality.SUBSYSTEMS) * 30,
+        "test_files": len(report_code_quality.SUBSYSTEMS),
+    }
+    assert payload["global_suppressions"]["except_exception"] == 768
+    assert payload["boss_metrics"]["available"] is True
+    assert payload["baseline_comparison"]["baseline_date"] == "2026-04-12"
+
+
 def test_main_text_compare_prints_baseline_section(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
