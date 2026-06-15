@@ -1,0 +1,117 @@
+# Claim-First Lane Dispatch
+
+How to run several merge-advance worker sessions (Codex CLI, Claude Code,
+Factory Droid) against the open-PR queue **without** them colliding on the same
+PRs — and without hand-pasting ever-growing recursive prompts.
+
+## The problem this solves
+
+The cross-agent lane-lease registry already exists end to end:
+
+- `scripts/claim_active_agent_lane.py` writes atomic claims (lock-file +
+  tmp+rename) into `.aragora/agent-bridge/lanes.json`.
+- `scripts/identify_lane_owner.py` reads them back with owner-lease liveness
+  (lease age, heartbeat, lane-ledger status, stale/terminal assessment).
+
+The chronic failure mode is **not** a missing primitive. As
+`claim_active_agent_lane.py`'s own docstring puts it: *"many sessions … never
+write a lane claim, so the registry tends to stay empty even when 5-10
+concurrent agents are running."* Each session then free-picks "the highest-value
+open PR," several converge on the same one, and the duplicate
+evidence/settlement work is thrown away when one of them lands first.
+
+Two anti-patterns drive it:
+
+1. **Free-pick** — every worker independently scouts the queue and picks a PR.
+2. **Detect-don't-claim** — workers `identify_lane_owner` to *see* an owner but
+   never *claim* before working, leaving a race window.
+
+The fix is **claim-first dispatch**: a conductor assigns each unclaimed PR to at
+most one worker, and the worker claims it atomically before doing anything.
+
+## The two halves of the loop
+
+| Half | Module | Role |
+|------|--------|------|
+| **Front** (assign) | `aragora.swarm.lane_dispatcher` | Pick which unclaimed merge-blocked PR each free worker gets; emit its prompt. |
+| **Back** (follow up) | `aragora.swarm.conductor` | After a worker finishes, decide retry / switch / decompose / escalate / stop and generate the next prompt. |
+
+`lane_dispatcher` is **pure-core**: no GitHub calls, no `lanes.json` writes, no
+process spawning. It takes the merge-blocked candidates and the set of PRs that
+already have a *live* owner (liveness resolved by `identify_lane_owner`) and
+returns assignments. The live wiring — resolve candidates via
+`merge_quorum_io`, resolve live owners via `identify_lane_owner`, spawn workers
+via `aragora.swarm.worker_launcher` — sits in the CLI/conductor shell so the
+decision stays unit-testable.
+
+## Dispatch decision
+
+```bash
+python3 scripts/lane_dispatcher.py --json \
+    --candidates-json '[{"number":8405,"branch":"codex/a"},{"number":8406,"branch":"codex/b"}]' \
+    --live-claims-json '{"8406":"sess-existing"}' \
+    --max-workers 3
+```
+
+- Candidates are merge-blocked PRs in **priority order**.
+- Live claims map a PR to its current live owner (a *stale/terminal* owner must
+  not appear, so its lane is reassignable).
+- Output: `assignments` (PR + branch + a fresh `owner_session`), `owned` (PRs
+  skipped because a live owner holds them), `deferred` (left over once
+  `--max-workers` is hit — backpressure instead of unbounded fan-out).
+
+## The worker prompt
+
+Short and **constant** — the guardrails live in the claim/merge-gate tooling and
+the lane registry, not in pasted text that grows every turn. Generate it with:
+
+```bash
+python3 scripts/lane_dispatcher.py --print-prompt --pr 8405 --branch codex/a
+```
+
+It instructs the worker to:
+
+1. **Claim-or-yield** — `identify_lane_owner --pr N`; if a *live* owner that
+   isn't this session holds it, print `yielding` and STOP; else
+   `claim_active_agent_lane … --release-stale`.
+2. **Ground** from live state for that PR only (never trust memory).
+3. **Advance one bounded step** toward merge (rerun one stale failed required
+   check / collect one exact-head two-family evidence set only if evidence-lint
+   `would_count` / one narrow repair in an isolated worktree). Never merge,
+   admin-merge, settle Tier-4, touch branch protection, or touch another PR.
+4. **Report + release** — print the new head, action, result, single blocker;
+   refresh the heartbeat; release the lane if merged or blocked.
+
+It explicitly forbids scouting the queue or switching PRs — assignment comes
+from the conductor. This is what ends both the contention **and** the
+prompt-bloat: ~15 fixed lines instead of a 200-line recursive prompt that
+regenerates and grows itself each turn.
+
+## Wiring the autonomous conductor (no copy-paste)
+
+A long-running loop closes the gap so the operator moves from the message bus to
+the escalation channel:
+
+1. Resolve merge-blocked PRs (`merge_quorum_io`) → `candidates`.
+2. Resolve live owners (`identify_lane_owner --json`) → `live_claims`.
+3. `lane_dispatcher.select_assignments(...)` → assignments (capped at
+   `--max-workers`).
+4. For each assignment: `claim_active_agent_lane.py` (atomic), then launch the
+   worker with `build_worker_prompt(...)` via `aragora.swarm.worker_launcher`.
+5. Collect each worker's structured result via `aragora.swarm.reconciler`; feed
+   it to `aragora.swarm.conductor` for the follow-up decision.
+6. A higher *validator* model reviews results and injects corrective steering
+   into the `.aragora/operator-steering/<session>/` mailbox that
+   `identify_lane_owner` already surfaces.
+
+The recursion is intentional and continuous (an always-advancing front); what
+the conductor removes is the **uncoordinated** part (collisions) and the
+**hand-cranked** part (copy-paste).
+
+## Identity / budget note
+
+Run worker reads through the GitHub App installation token (separate API
+budget) so concurrent workers don't starve the operator's shared per-user PAT
+quota — see `aragora.swarm.github_app_auth` and the read-routing in
+`aragora.swarm.merge_quorum_io`. Reserve the operator PAT (`an0mium`) for the
+writes the App token 403s on; keep `scarmani` for human-gate settlement only.
