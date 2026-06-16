@@ -1004,6 +1004,18 @@ def test_packet_requires_unrecorded_human_preapproval_helper() -> None:
         )
         is True
     )
+    legacy_status_missing_recorded_packet = _tier4_packet()
+    legacy_status_missing_recorded_packet["entries"][0].pop("requires_human_preapproval")
+    legacy_status_missing_recorded_packet["entries"][0].pop("human_preapproval_recorded")
+    legacy_status_missing_recorded_packet["entries"][0]["requires_human_risk_settlement"] = False
+    legacy_status_missing_recorded_packet["human_risk_settlement_required"] = []
+    assert (
+        settler._packet_requires_unrecorded_human_preapproval(
+            legacy_status_missing_recorded_packet,
+            pr=7423,
+        )
+        is True
+    )
 
     legacy_risk_packet = _tier4_packet(human_preapproval_recorded=False)
     legacy_risk_packet["entries"][0].pop("requires_human_preapproval")
@@ -1052,6 +1064,28 @@ def test_packet_requires_unrecorded_human_preapproval_helper() -> None:
             pr=7423,
         )
         is True
+    )
+
+    # Generic statuses do not trigger the receipt blocker by themselves. They
+    # only fail closed when another Tier-4 settlement signal is present, as the
+    # repair_or_wait packets above prove.
+    generic_repair_packet = _tier4_packet(
+        requires_human_preapproval=False,
+        human_preapproval_recorded=False,
+    )
+    generic_repair_packet["not_ready"] = []
+    generic_repair_packet["human_risk_settlement_required"] = []
+    generic_repair_packet["entries"][0]["status"] = "repair_or_wait"
+    generic_repair_packet["entries"][0]["requires_human_risk_settlement"] = False
+    generic_repair_packet["entries"][0]["tier"] = 2
+    generic_repair_packet["entries"][0]["tier_name"] = "tier_2"
+    generic_repair_packet["entries"][0]["reasons"] = ["repair before model quorum"]
+    assert (
+        settler._packet_requires_unrecorded_human_preapproval(
+            generic_repair_packet,
+            pr=7423,
+        )
+        is False
     )
 
     # A PR that does not carry any preapproval or Tier-4 settlement signal is

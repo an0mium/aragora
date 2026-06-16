@@ -77,7 +77,10 @@ ALLOWED_TIER4_NOT_READY = {
     "tier4_human_risk_settlement",
     "operator_settlement_required",
 }
-ALLOWED_TIER4_ENTRY_STATUSES = {
+HUMAN_PREAPPROVAL_ENTRY_STATUSES = {
+    # This is intentionally not a generic Tier-4 status allowlist. Generic
+    # states such as "ready" or "repair_or_wait" must not require the local
+    # human-preapproval receipt without another explicit settlement signal.
     "human_preapproval_required",
 }
 
@@ -499,8 +502,7 @@ def _packet_entry_requires_human_preapproval(
 ) -> bool:
     if bool(entry.get("requires_human_preapproval")):
         return True
-    status = str(entry.get("status") or "").strip()
-    if status in ALLOWED_TIER4_ENTRY_STATUSES:
+    if _status_requires_human_preapproval(entry.get("status")):
         return True
     if _packet_marks_tier4_settlement_surface(merge_packet, pr=pr):
         return True
@@ -513,6 +515,10 @@ def _packet_entry_requires_human_preapproval(
     if not isinstance(reasons, list):
         return False
     return any(_reason_indicates_human_preapproval(item) for item in reasons)
+
+
+def _status_requires_human_preapproval(value: Any) -> bool:
+    return str(value or "").strip() in HUMAN_PREAPPROVAL_ENTRY_STATUSES
 
 
 def _normalize_packet_signal(value: Any) -> str:
@@ -645,8 +651,7 @@ def _packet_marks_tier4_human_settlement(merge_packet: dict[str, Any], *, pr: in
     entry = _entry_for_pr(merge_packet, pr=pr)
     if not entry:
         return False
-    status = str(entry.get("status") or "")
-    if status not in ALLOWED_TIER4_ENTRY_STATUSES:
+    if not _status_requires_human_preapproval(entry.get("status")):
         return False
     if bool(entry.get("requires_human_risk_settlement")):
         return True
