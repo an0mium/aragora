@@ -23,6 +23,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 TIEBREAKER_HEADING = "## OpenRouter Fusion tie-breaker (advisory, non-counting)"
+MIN_DISPLAYABLE_HEAD_SHA_LENGTH = 7
 # A fusion_review runner returns the reviewer's raw text (or "" on failure).
 FusionReview = Callable[[], str]
 
@@ -56,11 +57,16 @@ def compose_tiebreaker_comment(
     supportive_families: Sequence[str],
     dissenting_families: Sequence[str],
 ) -> str:
-    """Compose the disclosed, explicitly non-counting tie-breaker comment."""
+    """Compose the disclosed, explicitly non-counting tie-breaker comment.
+
+    ``head_sha`` is required provenance. Empty or implausibly short values are
+    displayed as unknown, but ``None`` remains a caller contract violation.
+    """
+    short_head = _display_head_sha(head_sha)
     return (
         f"{TIEBREAKER_HEADING}\n\n"
         f"Tie evaluated via the OpenRouter Fusion council (multi-model panel + judge), "
-        f"grounded on PR #{pr} head {head_sha[:12]}.\n"
+        f"grounded on PR #{pr} head {short_head}.\n"
         f"Split: supportive={sorted(supportive_families)} "
         f"dissenting={sorted(dissenting_families)}.\n\n"
         f"{verdict_text.strip()}\n\n"
@@ -69,6 +75,15 @@ def compose_tiebreaker_comment(
         "model-quorum requirement. It only advises the operator's settlement decision; the "
         "dissenting reviewer's concern must still be resolved or explicitly accepted."
     )
+
+
+def _display_head_sha(head_sha: str) -> str:
+    if head_sha is None:
+        raise TypeError("head_sha must be a str, not None")
+    normalized = head_sha.strip()
+    if len(normalized) < MIN_DISPLAYABLE_HEAD_SHA_LENGTH:
+        return "unknown"
+    return normalized[:12]
 
 
 @dataclass(frozen=True)

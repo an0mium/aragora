@@ -7,6 +7,8 @@ and explicitly NON-counting (Fusion is a blend, never a quorum family).
 
 from __future__ import annotations
 
+import pytest
+
 from aragora.config.feature_flags import FeatureFlagRegistry
 from aragora.swarm import fusion_tiebreak as ft
 
@@ -69,6 +71,38 @@ def test_run_tiebreaker_composes_disclosed_noncounting_comment() -> None:
     assert "advisory" in out.comment.lower()
     assert "abcdef123456" in out.comment  # head short-sha
     assert "#8444" in out.comment
+
+
+@pytest.mark.parametrize("head_sha", ["", "   ", "abc123"])
+def test_run_tiebreaker_treats_empty_or_short_head_sha_as_unknown(head_sha: str) -> None:
+    out = ft.run_tiebreaker(
+        supportive_families=["claude"],
+        dissenting_families=["grok"],
+        has_supportive_quorum=False,
+        flag_enabled=True,
+        head_sha=head_sha,
+        pr=8444,
+        fusion_review=lambda: "Verdict: lean-pass",
+    )
+
+    assert out.ran is True
+    assert out.comment is not None
+    assert "head unknown" in out.comment
+    assert "head abc123" not in out.comment
+    assert "head ." not in out.comment
+
+
+def test_run_tiebreaker_keeps_none_head_sha_fail_loud() -> None:
+    with pytest.raises(TypeError, match="head_sha"):
+        ft.run_tiebreaker(
+            supportive_families=["claude"],
+            dissenting_families=["grok"],
+            has_supportive_quorum=False,
+            flag_enabled=True,
+            head_sha=None,  # type: ignore[arg-type]
+            pr=8444,
+            fusion_review=lambda: "Verdict: lean-pass",
+        )
 
 
 def test_run_tiebreaker_noop_without_runner() -> None:
