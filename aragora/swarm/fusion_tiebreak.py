@@ -78,7 +78,7 @@ class TiebreakerOutcome:
     ran: bool
     reason: str
     comment: str | None = None
-    is_tie_breaker: bool = True  # never a counting family signal
+    is_tie_breaker: bool = False  # actual tie-breaker comments opt in below
 
 
 def run_tiebreaker(
@@ -112,7 +112,7 @@ def run_tiebreaker(
     try:
         text = fusion_review()
     except Exception as exc:
-        return TiebreakerOutcome(ran=False, reason=f"fusion review raised: {exc}")
+        return TiebreakerOutcome(ran=False, reason=f"fusion review raised {type(exc).__name__}")
     if not text or not text.strip():
         return TiebreakerOutcome(ran=False, reason="fusion review returned empty")
     comment = compose_tiebreaker_comment(
@@ -123,5 +123,8 @@ def run_tiebreaker(
         dissenting_families=dissenting_families,
     )
     return TiebreakerOutcome(
-        ran=True, reason="tie-breaker composed (advisory, non-counting)", comment=comment
+        ran=True,
+        reason="tie-breaker composed (advisory, non-counting)",
+        comment=comment,
+        is_tie_breaker=True,
     )

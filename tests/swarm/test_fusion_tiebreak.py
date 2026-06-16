@@ -83,6 +83,7 @@ def test_run_tiebreaker_noop_without_runner() -> None:
         fusion_review=None,
     )
     assert out.ran is False
+    assert out.is_tie_breaker is False
     assert "not runnable" in out.reason
 
 
@@ -97,6 +98,7 @@ def test_run_tiebreaker_noop_on_empty_fusion_output() -> None:
         fusion_review=lambda: "   ",
     )
     assert out.ran is False
+    assert out.is_tie_breaker is False
     assert "empty" in out.reason
 
 
@@ -116,8 +118,9 @@ def test_run_tiebreaker_noop_when_fusion_runner_raises() -> None:
 
     assert out.ran is False
     assert out.comment is None
-    assert "fusion review raised" in out.reason
-    assert "fusion unavailable" in out.reason
+    assert out.is_tie_breaker is False
+    assert out.reason == "fusion review raised RuntimeError"
+    assert "fusion unavailable" not in out.reason
 
 
 def test_run_tiebreaker_noop_when_no_split() -> None:
@@ -133,6 +136,7 @@ def test_run_tiebreaker_noop_when_no_split() -> None:
         fusion_review=lambda: called.append(1) or "should not run",
     )
     assert out.ran is False
+    assert out.is_tie_breaker is False
     assert called == []  # runner must NOT be invoked when there's no tie
 
 
