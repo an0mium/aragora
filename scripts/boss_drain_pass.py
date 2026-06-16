@@ -126,6 +126,7 @@ def dispatch_repair(repo: str, pr: int, *, dry_run: bool, enable_repair: bool, a
         print(f"  [repair-plan/{gate}] #{pr} branch={branch} agent={agent}")
         return True
     # ENABLED apply path (bounded; isolated worktree on the PR branch).
+    import shutil
     import tempfile
 
     wt = tempfile.mkdtemp(prefix=f"drain-repair-{pr}-")
@@ -164,16 +165,23 @@ def dispatch_repair(repo: str, pr: int, *, dry_run: bool, enable_repair: bool, a
                 text=True,
                 timeout=1800,
             )
-        subprocess.run(
+        # Only propagate the worker's commits if the run itself succeeded — a
+        # broken / scope-violating / timed-out agent run must NOT push whatever
+        # it left in the worktree to the PR branch. Report success only if the
+        # push also landed.
+        if run.returncode != 0:
+            return False
+        push = subprocess.run(
             ["git", "-C", wt, "push", "origin", branch], capture_output=True, timeout=120
         )
-        return run.returncode == 0
+        return push.returncode == 0
     except Exception:  # noqa: BLE001 - one repair failure never aborts the pass
         return False
     finally:
         subprocess.run(
             ["git", "worktree", "remove", "--force", wt], capture_output=True, timeout=60
         )
+        shutil.rmtree(wt, ignore_errors=True)  # backstop if 'worktree add' never registered wt
 
 
 def make_execute_fn(

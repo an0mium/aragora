@@ -177,17 +177,29 @@ def build_candidates(
         number = int(view.get("number", 0))
         if number <= 0:
             continue
-        # Fetch the detail view (file paths included) so the merge-authority guard
-        # can fence off gate-logic PRs before any authority probe or action.
+        branch = str(view.get("headRefName", ""))
+        # Cheap pre-filter (no detail fetch): a PR that is off-limits by pinned-id
+        # or branch-prefix, owned by another fleet, or explicitly superseded routes
+        # to LEAVE/CLOSE on the list-view signal alone — classify_candidate re-derives
+        # the same verdict from these signals. This avoids a `gh pr view` for every
+        # structex/* and claude/* branch (a per-cycle API/rate-limit regression at
+        # queue size 60-300). Only PRs that survive this filter pay for the detail
+        # fetch, which the merge-authority file-path guard genuinely needs.
+        cheap_off_limits = number in ctx.off_limits_prs or any(
+            branch.startswith(p) for p in ctx.off_limits_prefixes
+        )
+        if cheap_off_limits or number in ctx.owned_prs or number in ctx.superseded_prs:
+            candidates.append(classify_candidate(view, ctx, merge_authorized=False, tier=4))
+            continue
+        # Fetch detail (file paths included) so the merge-authority guard can still
+        # fence off gate-logic PRs whose off-limits status is only visible in their
+        # changed files (e.g. a codex/* branch that edits an evidence parser).
         detail = view_pr_fn(number) or view
-        branch = str(detail.get("headRefName", view.get("headRefName", "")))
         paths = [str(f.get("path", "")) for f in (detail.get("files") or []) if isinstance(f, dict)]
         off_limits = ctx._is_off_limits(number, branch, paths)
         changed = detail.get("changedFiles", detail.get("changed_files", 1))
         has_changes = bool(changed and int(changed) > 0)
-        # Cheap routes need no authority probe: off-limits (incl. gate-logic) / owned /
-        # explicitly-superseded / empty all classify on signal alone.
-        if off_limits or number in ctx.owned_prs or number in ctx.superseded_prs or not has_changes:
+        if off_limits or not has_changes:
             candidates.append(classify_candidate(detail, ctx, merge_authorized=False, tier=4))
             continue
         authorized, tier = merge_authorized_fn(number)
