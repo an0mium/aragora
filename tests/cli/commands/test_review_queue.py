@@ -6832,3 +6832,11 @@ class TestSettlementHelpers:
         )
         rc = cmd_review_queue(ns)
         assert rc == 2
+
+
+def test_quorum_evidence_is_tier4_merge_authority():
+    """quorum_evidence.py (the evidence composer/classifier) must be Tier-4."""
+    from aragora.cli.commands.review_queue import TIER_4_PREFIXES, _matches_prefix
+
+    assert "aragora/swarm/quorum_evidence.py" in TIER_4_PREFIXES
+    assert _matches_prefix("aragora/swarm/quorum_evidence.py", TIER_4_PREFIXES) is True

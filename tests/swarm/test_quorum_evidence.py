@@ -2172,3 +2172,54 @@ def test_infra_retry_env_count_respected(monkeypatch):
     runner = _seq_runner([_RR("grok", "", False, "x")])  # always fails
     _retry(runner, "grok", "p")
     assert runner.state["n"] == 3  # 1 initial + 2 retries
+
+
+# --- Advisory changes_requested (Tier-4, operator-preapproved 2026-06-16) ---
+from aragora.swarm.quorum_evidence import (  # noqa: E402
+    EvidenceItem as _EI,
+    _classify_verdict as _cv,
+    _has_blocking_findings as _hbf,
+)
+
+_CR = "Verdict: changes-requested\n\n"
+
+
+def test_has_blocking_findings_severity_tags():
+    assert _hbf(_CR + "- [P1] real problem") is True
+    assert _hbf(_CR + "- [P0] critical") is True
+    assert _hbf(_CR + "- [P2] nit\n- [P3] style") is False
+
+
+def test_has_blocking_findings_keyword_and_negations():
+    assert _hbf("there is a blocking security hole") is True
+    assert _hbf("No blocking issues found") is False
+    assert _hbf("non-blocking nit only") is False
+    assert _hbf("zero blocking findings; just polish") is False
+
+
+def test_classify_verdict_pass_unaffected():
+    assert _cv("Verdict: PASS\n\nNo blocking issues.", advisory_enabled=True) == "pass"
+    assert _cv("Verdict: PASS", advisory_enabled=False) == "pass"
+
+
+def test_classify_verdict_advisory_only_when_enabled_and_findings_free():
+    body = _CR + "- [P3] unused import\n- [P2] minor naming"
+    # OFF (default): a CR stays a counting dissent.
+    assert _cv(body, advisory_enabled=False) == "changes_requested"
+    # ON + no blocking finding: downgraded to advisory abstain.
+    assert _cv(body, advisory_enabled=True) == "changes_requested_advisory"
+
+
+def test_classify_verdict_real_blocker_never_downgraded():
+    # Even with advisory ON, a CR that names a blocker stays a dissent.
+    assert _cv(_CR + "- [P1] data loss", advisory_enabled=True) == "changes_requested"
+    assert _cv(_CR + "this is a blocking bug", advisory_enabled=True) == "changes_requested"
+
+
+def test_evidence_item_advisory_is_neither_supportive_nor_dissenting():
+    adv = _EI(family="claude", body="b", would_count=True, verdict="changes_requested_advisory")
+    assert adv.advisory is True
+    assert adv.dissenting is False
+    assert adv.supportive is False
+    diss = _EI(family="grok", body="b", would_count=True, verdict="changes_requested")
+    assert diss.dissenting is True and diss.advisory is False

@@ -218,6 +218,12 @@ class EvidenceItem:
     def dissenting(self) -> bool:
         return self.verdict == "changes_requested"
 
+    @property
+    def advisory(self) -> bool:
+        # A findings-free changes_requested downgraded under advisory mode: counts
+        # as neither support nor dissent (an abstain). See _classify_verdict.
+        return self.verdict == "changes_requested_advisory"
+
 
 @dataclass
 class CollectOutcome:
@@ -247,6 +253,10 @@ class CollectOutcome:
         return [item.family for item in self.items if item.dissenting]
 
     @property
+    def advisory_families(self) -> list[str]:
+        return [item.family for item in self.items if item.advisory]
+
+    @property
     def has_supportive_quorum(self) -> bool:
         return len(self.supportive_families) >= 2
 
@@ -263,6 +273,7 @@ class CollectOutcome:
             "counting_families": self.counting_families,
             "supportive_families": self.supportive_families,
             "dissenting_families": self.dissenting_families,
+            "advisory_families": self.advisory_families,
             "has_supportive_quorum": self.has_supportive_quorum,
             "posted_families": list(self.posted),
             "post_errors": list(self.post_errors),
@@ -428,6 +439,53 @@ def _reviewer_verdict(text: str) -> str:
                 return "changes_requested"
             return "unknown"
     return "unknown"
+
+
+_ADVISORY_CR_ENV = "ARAGORA_QUORUM_ADVISORY_CR"
+# A reviewer's own severity convention: [P0]/[P1] = blocking; [P2]/[P3] = nits.
+_BLOCKING_TAG_RE = re.compile(r"\[p[01]\]", re.IGNORECASE)
+_BLOCKING_WORD_RE = re.compile(r"blocking", re.IGNORECASE)
+_BLOCKING_NEGATION_RE = re.compile(r"(?:no|non|not|zero|without|n't)[\s-]*$", re.IGNORECASE)
+
+
+def _advisory_cr_enabled() -> bool:
+    """Default OFF. When ON, a ``changes_requested`` that enumerates NO blocking
+    finding is treated as an ABSTAIN (non-counting), not a veto — targeting the
+    reviewer verdict-variance where a model returns changes_requested while its
+    body lists only [P2]/[P3] nits. Counting rules (FAMILY_PROVIDERS, the
+    2-distinct-family minimum, Fusion-exclusion) are unchanged; this only stops a
+    findings-free CR from vetoing. A CR that names a real blocker still vetoes."""
+    return os.environ.get(_ADVISORY_CR_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _has_blocking_findings(text: str) -> bool:
+    """True if the reviewer body cites a blocking concern: any [P0]/[P1] severity
+    tag, or an un-negated 'blocking' mention. Conservative — errs toward True
+    (keep the dissent) so a genuine blocker is never reclassified to advisory."""
+    if _BLOCKING_TAG_RE.search(text):
+        return True
+    for m in _BLOCKING_WORD_RE.finditer(text):
+        prefix = text[max(0, m.start() - 16) : m.start()]
+        if _BLOCKING_NEGATION_RE.search(prefix):
+            continue  # "no blocking" / "non-blocking" / "not blocking" / "zero blocking"
+        return True
+    return False
+
+
+def _classify_verdict(text: str, *, advisory_enabled: bool | None = None) -> str:
+    """``_reviewer_verdict`` plus the optional advisory downgrade.
+
+    A findings-free ``changes_requested`` becomes ``changes_requested_advisory``
+    (neither supportive nor dissenting) only when the advisory mode is enabled;
+    otherwise behavior is identical to ``_reviewer_verdict``.
+    """
+    verdict = _reviewer_verdict(text)
+    if verdict != "changes_requested":
+        return verdict
+    enabled = _advisory_cr_enabled() if advisory_enabled is None else advisory_enabled
+    if enabled and not _has_blocking_findings(text):
+        return "changes_requested_advisory"
+    return verdict
 
 
 def compose_evidence_comment(
@@ -1302,7 +1360,7 @@ def collect_evidence(
                 family=family,
                 body=body,
                 would_count=bool(lint.get("would_count")),
-                verdict=_reviewer_verdict(result.text),
+                verdict=_classify_verdict(result.text),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
             )
@@ -1498,7 +1556,7 @@ def apply_prepared_evidence(
                 would_count=would_count,
                 counted_reviewer_ids=counted_reviewer_ids,
                 problems=problems,
-                verdict=_reviewer_verdict(item.body),
+                verdict=_classify_verdict(item.body),
             )
         )
     outcome.items = relinted_items
