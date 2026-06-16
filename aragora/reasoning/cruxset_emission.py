@@ -155,7 +155,7 @@ def maybe_emit_cruxset_from_finder_result(
 
     try:
         from aragora.debate.crux_mode import CruxFinderResult  # lazy — avoids import cycle
-    except Exception as exc:  # noqa: BLE001 - degrade gracefully like the rest of this function
+    except BaseException as exc:  # noqa: BLE001 - pyo3_runtime.PanicException is not an Exception
         logger.warning(
             "maybe_emit_cruxset_from_finder_result: could not import CruxFinderResult: %s", exc
         )
