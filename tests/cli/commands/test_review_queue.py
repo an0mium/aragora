@@ -2621,6 +2621,10 @@ class TestHasBlockingOrNegativeVerdict:
         assert _has_blocking_or_negative_verdict("[P0] settlement gate bypass")
         assert _has_blocking_or_negative_verdict("- [P1] stale exact-head evidence")
         assert _has_blocking_or_negative_verdict("**[P1]** dependency drift is unresolved")
+        assert _has_blocking_or_negative_verdict("1. [P1] stale exact-head evidence")
+        assert _has_blocking_or_negative_verdict("1) [P0] settlement gate bypass")
+        assert _has_blocking_or_negative_verdict("> [P1] stale exact-head evidence")
+        assert _has_blocking_or_negative_verdict("## [P1] stale exact-head evidence")
         assert not _has_blocking_or_negative_verdict("[P2] follow-up cleanup")
 
 
@@ -5766,6 +5770,50 @@ class TestCommandDispatch:
                 "**Model id:** Claude Code\n"
                 "**Receipt artifact:** /tmp/receipt.md\n\n"
                 "[P1] This exact-head diff still has a blocking dependency drift finding.\n\n"
+                "Focused adversarial dogfood: I reviewed the exact-head diff."
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["reviewer_signals"] == []
+        assert payload["dogfood_evidence"] == []
+        assert "blocking_or_negative_verdict" in payload["problems"]
+
+    @pytest.mark.parametrize(
+        "finding_line",
+        [
+            "1. [P1] This exact-head diff still has a blocking finding.",
+            "1) [P0] This exact-head diff still has a blocking finding.",
+            "> [P1] This exact-head diff still has a blocking finding.",
+            "## [P1] This exact-head diff still has a blocking finding.",
+        ],
+    )
+    def test_evidence_lint_rejects_decorated_p1_findings_without_negative_verdict(
+        self,
+        finding_line: str,
+    ) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=(
+                "## Claude independent semantic review on head "
+                "cd87c5a1b2db34f04167906553502db3ede9525e\n\n"
+                "**Reviewer harness:** claude\n"
+                "**Model family:** claude\n"
+                "**Model id:** Claude Code\n"
+                "**Receipt artifact:** /tmp/receipt.md\n\n"
+                f"{finding_line}\n\n"
                 "Focused adversarial dogfood: I reviewed the exact-head diff."
             ),
             body_file=None,
