@@ -2111,3 +2111,64 @@ def test_cross_provider_does_not_change_counting_rules() -> None:
     assert "fusion" not in qe.FAMILY_PROVIDERS  # blend must never count as a family
     assert qe.FAMILY_PROVIDERS["grok"] == "xai"
     assert qe.FAMILY_PROVIDERS["gemini"] == "google"
+
+
+# --- Reviewer infra-retry hardening (Tier-4, operator-preapproved 2026-06-16) ---
+from aragora.swarm.quorum_evidence import (  # noqa: E402
+    ReviewerResult as _RR,
+    _run_reviewer_with_infra_retry as _retry,
+)
+
+
+def _seq_runner(results):
+    state = {"n": 0}
+
+    def run(family, prompt):
+        r = results[min(state["n"], len(results) - 1)]
+        state["n"] += 1
+        return r
+
+    run.state = state
+    return run
+
+
+def test_infra_retry_recovers_transient_failure(monkeypatch):
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", raising=False)
+    runner = _seq_runner([_RR("grok", "", False, "timeout"), _RR("grok", "Verdict: pass", True)])
+    res = _retry(runner, "grok", "p")
+    assert res.ok is True  # second attempt's verdict used
+    assert runner.state["n"] == 2  # retried exactly once
+
+
+def test_infra_retry_never_retries_a_real_verdict(monkeypatch):
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", raising=False)
+    # A returned changes_requested (ok=True) is a real review — must NOT be retried away.
+    runner = _seq_runner(
+        [_RR("claude", "Verdict: changes-requested", True), _RR("claude", "Verdict: pass", True)]
+    )
+    res = _retry(runner, "claude", "p")
+    assert res.ok is True
+    assert res.text.lower().startswith("verdict: changes")
+    assert runner.state["n"] == 1  # dissent stands; no re-roll
+
+
+def test_infra_retry_exhausts_and_returns_failure(monkeypatch):
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "1")
+    runner = _seq_runner([_RR("grok", "", False, "timeout")])  # always fails
+    res = _retry(runner, "grok", "p")
+    assert res.ok is False
+    assert runner.state["n"] == 2  # 1 initial + 1 retry
+
+
+def test_infra_retry_zero_disables(monkeypatch):
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "0")
+    runner = _seq_runner([_RR("grok", "", False, "x")])
+    _retry(runner, "grok", "p")
+    assert runner.state["n"] == 1  # no retry when disabled
+
+
+def test_infra_retry_env_count_respected(monkeypatch):
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "2")
+    runner = _seq_runner([_RR("grok", "", False, "x")])  # always fails
+    _retry(runner, "grok", "p")
+    assert runner.state["n"] == 3  # 1 initial + 2 retries

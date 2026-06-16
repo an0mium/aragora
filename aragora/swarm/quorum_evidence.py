@@ -121,6 +121,48 @@ _REVIEWER_CLEANUP_TIMEOUT = 10
 # (e.g. 2x300s). Run them concurrently instead; this cap bounds the fan-out.
 _MAX_REVIEWER_WORKERS = 4
 
+# Retry a reviewer ONLY on infra failure (ok=False: timeout / CLI-not-found /
+# nonzero-exit / empty output) — transport flakiness, not a review. A returned
+# verdict (ok=True), INCLUDING changes_requested, is never retried: that is a
+# real adversarial review and must stand. This does not touch counting rules
+# (FAMILY_PROVIDERS, the 2-distinct-family minimum, Fusion-exclusion) — it only
+# stops a transient CLI timeout from masquerading as a missing/ dissenting family
+# and forcing a manual re-roll. Default 1 retry; 0 disables (env-overridable).
+_REVIEWER_INFRA_RETRIES_ENV = "ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES"
+_REVIEWER_INFRA_RETRIES_DEFAULT = 1
+
+
+def _reviewer_infra_retries() -> int:
+    raw = os.environ.get(_REVIEWER_INFRA_RETRIES_ENV, "").strip()
+    if not raw:
+        return _REVIEWER_INFRA_RETRIES_DEFAULT
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return _REVIEWER_INFRA_RETRIES_DEFAULT
+
+
+def _run_reviewer_with_infra_retry(
+    runner: Callable[[str, str], ReviewerResult],
+    family: str,
+    prompt: str,
+    *,
+    retries: int | None = None,
+) -> ReviewerResult:
+    """Invoke ``runner(family, prompt)``, retrying ONLY transport failures.
+
+    Re-runs while the result is an infra failure (``ok is False``) up to
+    ``retries`` extra attempts. A result that returned a verdict (``ok is True``)
+    — pass OR changes_requested — is returned immediately and never retried, so a
+    genuine dissent can never be "retried away". Counting/settlement are unchanged.
+    """
+    attempts_left = _reviewer_infra_retries() if retries is None else max(0, retries)
+    result = runner(family, prompt)
+    while not result.ok and attempts_left > 0:
+        attempts_left -= 1
+        result = runner(family, prompt)
+    return result
+
 
 def _cap_text(text: str) -> str:
     text = text.strip()
@@ -1221,7 +1263,8 @@ def collect_evidence(
         max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
             future_to_family = {
-                pool.submit(reviewer_runner, family, prompt): family for family in supported
+                pool.submit(_run_reviewer_with_infra_retry, reviewer_runner, family, prompt): family
+                for family in supported
             }
             for future in concurrent.futures.as_completed(future_to_family):
                 family = future_to_family[future]
