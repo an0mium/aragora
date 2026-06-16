@@ -11,11 +11,10 @@ DIC-15 acceptance criteria exercised here:
 
 All tests use deterministic mocked inputs (no Arena or API calls).
 
-Note: ``aragora.debate.*`` imports are blocked by a broken Rust/cffi
-``cryptography`` backend in this container.  We inject a lightweight stub
-into ``sys.modules`` so the lazy import inside the function under test
-resolves to our ``_CruxFinderResult`` dataclass.  In CI the real class is
-used and the same tests pass.
+Note: ``aragora.debate.*`` imports may be blocked by a broken Rust/cffi
+``cryptography`` backend in some containers.  We try the real import first;
+only when it fails do we inject a lightweight stub into ``sys.modules`` so
+the lazy import inside the function under test can resolve.
 """
 
 from __future__ import annotations
@@ -33,29 +32,37 @@ from aragora.reasoning.cruxset import CRUXSET_SCHEMA_VERSION, CruxSet
 
 
 # ---------------------------------------------------------------------------
-# Stub for CruxFinderResult (mirrors fields read by the bridge function)
+# Real import or stub — prefer real when available
 # ---------------------------------------------------------------------------
 
+try:
+    from aragora.debate.crux_mode import CruxFinderResult as _ResultClass  # type: ignore[assignment]
 
-@dataclass
-class _CruxFinderResult:
-    """Lightweight stand-in for aragora.debate.crux_mode.CruxFinderResult."""
+    _USE_STUB = False
+except BaseException:  # noqa: BLE001 - pyo3_runtime.PanicException is not a subclass of Exception
+    _USE_STUB = True
 
-    debate_id: str
-    question: str
-    analysis: Any
-    agents: list[str] = field(default_factory=list)
-    rounds: int = 0
-    metadata: dict[str, Any] = field(default_factory=dict)
+    @dataclass  # type: ignore[no-redef]
+    class _ResultClass:  # type: ignore[no-redef]
+        """Lightweight stand-in for aragora.debate.crux_mode.CruxFinderResult."""
+
+        debate_id: str
+        question: str
+        analysis: Any
+        counterfactuals: list[dict[str, Any]] = field(default_factory=list)
+        agents: list[str] = field(default_factory=list)
+        rounds: int = 0
+        raw_claims: list[dict[str, Any]] = field(default_factory=list)
+        metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @pytest.fixture(autouse=True)
 def _inject_crux_mode_stub(monkeypatch):
-    """Pre-populate sys.modules with a stub module so the lazy import in
-    maybe_emit_cruxset_from_finder_result resolves to _CruxFinderResult.
-    """
+    """Inject stub only when the real import failed (broken cryptography backend)."""
+    if not _USE_STUB:
+        return
     stub = ModuleType("aragora.debate.crux_mode")
-    stub.CruxFinderResult = _CruxFinderResult  # type: ignore[attr-defined]
+    stub.CruxFinderResult = _ResultClass  # type: ignore[attr-defined]
     if "aragora.debate" not in sys.modules:
         monkeypatch.setitem(sys.modules, "aragora.debate", ModuleType("aragora.debate"))
     monkeypatch.setitem(sys.modules, "aragora.debate.crux_mode", stub)
@@ -107,13 +114,15 @@ def _result(
     question: str = "Should we adopt X?",
     agents: list[str] | None = None,
     rounds: int = 3,
-) -> _CruxFinderResult:
-    return _CruxFinderResult(
+) -> Any:
+    return _ResultClass(
         debate_id=debate_id,
         question=question,
         analysis=analysis,
+        counterfactuals=[],
         agents=list(agents or ["agent-alpha", "agent-beta"]),
         rounds=rounds,
+        raw_claims=[],
         metadata={"mode": "crux_finder", "approach": "A"},
     )
 

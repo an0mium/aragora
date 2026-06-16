@@ -153,7 +153,13 @@ def maybe_emit_cruxset_from_finder_result(
     if not cruxset_emission_enabled():
         return None
 
-    from aragora.debate.crux_mode import CruxFinderResult  # lazy — avoids import cycle
+    try:
+        from aragora.debate.crux_mode import CruxFinderResult  # lazy — avoids import cycle
+    except Exception as exc:  # noqa: BLE001 - degrade gracefully like the rest of this function
+        logger.warning(
+            "maybe_emit_cruxset_from_finder_result: could not import CruxFinderResult: %s", exc
+        )
+        return None
 
     if not isinstance(result, CruxFinderResult):
         logger.warning(
@@ -170,6 +176,7 @@ def maybe_emit_cruxset_from_finder_result(
         "agents": list(result.agents),
     }
     if extra_provenance:
+        # extra_provenance intentionally overwrites base keys — caller's responsibility
         provenance.update(extra_provenance)
 
     return maybe_emit_cruxset(
@@ -178,7 +185,7 @@ def maybe_emit_cruxset_from_finder_result(
         decision=None,  # crux_finder never produces a verdict by design
         receipt_id=receipt_id,
         provenance=provenance,
-        top_k=len(result.analysis.cruxes) or 5,
+        top_k=max(len(result.analysis.cruxes), 1),
     )
 
 
