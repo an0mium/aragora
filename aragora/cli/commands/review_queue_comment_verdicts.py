@@ -54,6 +54,10 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
     for idx, stripped in enumerate(lines):
         if not stripped:
             continue
+        if re.match(
+            r"^(?:[-*+]\s*)?(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?(?:\s|$|[:.;—–-])", stripped, re.I
+        ):
+            return True
         line = _strip_decoration(stripped).replace("**", "").replace("__", "")
         match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
         if not match:
