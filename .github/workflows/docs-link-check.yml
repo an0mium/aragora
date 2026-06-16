@@ -1,0 +1,42 @@
+# Tier-4 parked workflow (operator-review-required). Wires the in-repo
+# stdlib link checker scripts/ci/check_docs_links.py into CI so a docs move
+# that breaks an internal link/anchor fails the PR. Not merged by the mission;
+# operator reviews and lands it. Modeled on docs-consistency.yml.
+name: Docs Link Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "scripts/ci/check_docs_links.py"
+      - ".github/workflows/docs-link-check.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "scripts/ci/check_docs_links.py"
+      - ".github/workflows/docs-link-check.yml"
+
+concurrency:
+  group: docs-link-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-link-check:
+    name: Docs Link Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check internal docs links and anchors
+        run: python3 scripts/ci/check_docs_links.py

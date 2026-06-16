@@ -1,0 +1,45 @@
+# Tier-4 parked workflow (operator-review-required). Wires the in-repo
+# onboarding smoke scripts/ci/onboarding_smoke.sh into CI: a fresh /tmp venv
+# installs the package from the checkout and runs the zero-key aragora CLI
+# demo, proving a new contributor can go checkout -> working CLI. Not merged by
+# the mission; operator reviews and lands it. Modeled on docs-consistency.yml.
+name: Onboarding Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "aragora/cli/**"
+      - "scripts/ci/onboarding_smoke.sh"
+      - ".github/workflows/onboarding-smoke.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "aragora/cli/**"
+      - "scripts/ci/onboarding_smoke.sh"
+      - ".github/workflows/onboarding-smoke.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: onboarding-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  onboarding-smoke:
+    name: Onboarding Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run onboarding smoke (fresh venv -> install -> CLI demo)
+        run: bash scripts/ci/onboarding_smoke.sh
