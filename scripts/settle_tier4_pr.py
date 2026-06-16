@@ -423,6 +423,30 @@ def _human_settlement_status_is_success(pr_view: dict[str, Any]) -> bool:
     return False
 
 
+def _operator_settlement_comment_is_present(
+    pr_view: dict[str, Any],
+    *,
+    pr: int,
+    head: str,
+    repo: str,
+    cwd: Path | None,
+    trusted_operator_logins: Sequence[str] | None = None,
+) -> bool:
+    report = authorization_diagnostics(
+        pr_view,
+        pr=pr,
+        head=head,
+        require_branch_protection_token=False,
+        repo=repo,
+        cwd=cwd,
+        trusted_operator_logins=trusted_operator_logins,
+    )
+    return any(
+        isinstance(diagnostic, dict) and bool(diagnostic.get("accepted"))
+        for diagnostic in report.get("authorization_diagnostics", [])
+    )
+
+
 def _packet_has_counted_tier4_evidence(merge_packet: dict[str, Any], *, pr: int) -> bool:
     entry = _entry_for_pr(merge_packet, pr=pr)
     if not entry:
@@ -1819,7 +1843,7 @@ def _run_id_from_url(url: str) -> str:
 
 def _quorum_run_ids(*, head: str, repo: str, cwd: Path) -> list[tuple[str, str]]:
     """Return ``[(run_id, conclusion), ...]`` for merge-quorum check-runs at ``head``."""
-    runs: list[tuple[str, str]] = []
+    runs: list[tuple[str, str, str, int]] = []
     page = 1
     while True:
         payload = _run_json(
@@ -1839,11 +1863,23 @@ def _quorum_run_ids(*, head: str, repo: str, cwd: Path) -> list[tuple[str, str]]
                 (parsed for url in candidate_urls if (parsed := _run_id_from_url(url))), ""
             )
             if run_id:
-                runs.append((run_id, str(item.get("conclusion") or "").lower()))
+                timestamp = str(
+                    item.get("started_at")
+                    or item.get("startedAt")
+                    or item.get("completed_at")
+                    or item.get("completedAt")
+                    or item.get("created_at")
+                    or item.get("createdAt")
+                    or ""
+                )
+                runs.append(
+                    (run_id, str(item.get("conclusion") or "").lower(), timestamp, len(runs))
+                )
         if len(check_runs) < 100:
             break
         page += 1
-    return runs
+    runs.sort(key=lambda item: (item[2], -item[3]), reverse=True)
+    return [(run_id, conclusion) for run_id, conclusion, _timestamp, _sequence in runs]
 
 
 def _rerun_failed_quorum(*, head: str, repo: str, cwd: Path) -> dict[str, Any]:
@@ -2153,9 +2189,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"Operator Tier-4 settlement for #{args.pr} at exact head {args.head}; "
                 "counted model evidence and green non-quorum required checks."
             )
-            already_present = _human_settlement_status_is_success(pr_view)
-            extra_out["settlement_already_present"] = already_present
-            if not already_present:
+            status_already_present = _human_settlement_status_is_success(pr_view)
+            comment_already_present = _operator_settlement_comment_is_present(
+                pr_view,
+                pr=args.pr,
+                head=args.head,
+                repo=args.repo,
+                cwd=args.cwd,
+                trusted_operator_logins=args.trusted_operator_login,
+            )
+            extra_out["settlement_status_already_present"] = status_already_present
+            extra_out["settlement_comment_already_present"] = comment_already_present
+            extra_out["settlement_already_present"] = (
+                status_already_present and comment_already_present
+            )
+            if not comment_already_present:
                 applied_commands = _apply_settlement_signal(
                     pr=args.pr,
                     head=args.head,
@@ -2169,7 +2217,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reason=reason,
                 repo=args.repo,
                 cwd=args.cwd,
-                post_github_status=not already_present,
+                post_github_status=not status_already_present,
             )
             extra_out["quorum_rerun"] = _rerun_failed_quorum(
                 head=args.head, repo=args.repo, cwd=args.cwd

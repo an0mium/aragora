@@ -3001,6 +3001,55 @@ def test_quorum_run_ids_reads_paginated_check_runs(monkeypatch: Any, tmp_path: P
     assert len(calls) == 2
 
 
+def test_rerun_failed_quorum_targets_newest_failed_run(monkeypatch: Any, tmp_path: Path) -> None:
+    def _fake_run_json(command: list[str], cwd: Path | None = None) -> dict[str, Any]:
+        return {
+            "check_runs": [
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "FAILURE",
+                    "started_at": "2026-06-15T20:00:00Z",
+                    "details_url": (
+                        "https://github.com/synaptent/aragora/actions/runs/"
+                        "27474838200/job/81212117993"
+                    ),
+                },
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "FAILURE",
+                    "started_at": "2026-06-15T21:00:00Z",
+                    "details_url": (
+                        "https://github.com/synaptent/aragora/actions/runs/"
+                        "27499999999/job/81212117994"
+                    ),
+                },
+                {
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "success",
+                    "started_at": "2026-06-15T22:00:00Z",
+                    "details_url": (
+                        "https://github.com/synaptent/aragora/actions/runs/"
+                        "27500000000/job/81212117995"
+                    ),
+                },
+            ]
+        }
+
+    commands: list[list[str]] = []
+    monkeypatch.setattr(settler, "_run_json", _fake_run_json)
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+
+    result = settler._rerun_failed_quorum(head="abc", repo="synaptent/aragora", cwd=tmp_path)
+
+    assert result["rerun"] is True
+    assert result["run_id"] == "27499999999"
+    assert commands == [["gh", "run", "rerun", "27499999999", "--failed"]]
+
+
 def test_record_settlement_passes_repo_to_review_queue(monkeypatch: Any, tmp_path: Path) -> None:
     captured: dict[str, Any] = {}
 
@@ -3231,7 +3280,7 @@ def test_settle_apply_does_not_record_receipt_when_comment_post_fails(
     assert "Tier 4 settlement signal failed" in payload["error"]
 
 
-def test_settle_apply_skips_signal_when_status_already_success(
+def test_settle_apply_posts_missing_comment_when_status_already_success(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
@@ -3289,12 +3338,86 @@ def test_settle_apply_skips_signal_when_status_already_success(
 
     assert rc == 0
     assert recorded["post_github_status"] is False
-    # idempotent: no comment/status re-posted when settlement already present
-    assert text_commands == []
+    # Status alone is insufficient: the exact-head settlement comment is still required.
+    assert text_commands and text_commands[0][:3] == ["gh", "pr", "comment"]
     assert not any("statuses/" in (command[4] if len(command) > 4 else "") for command in commands)
     # but the quorum is still rerun so the gate re-reads the present settlement
     assert ["gh", "run", "rerun", "99", "--failed"] in commands
     payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["settlement_status_already_present"] is True
+    assert payload["settlement_comment_already_present"] is False
+    assert payload["settlement_already_present"] is False
+
+
+def test_settle_apply_skips_signal_when_status_and_comment_already_success(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[list[str]] = []
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(
+                head,
+                comments=[_authorized_comment(head)],
+                human_settlement_state="SUCCESS",
+            ),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+    recorded: dict[str, Any] = {}
+    monkeypatch.setattr(
+        settler,
+        "_record_settlement",
+        lambda pr, head, reason, repo, cwd, post_github_status=False: (
+            recorded.update({"post_github_status": post_github_status}) or {"written": True}
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: text_commands.append(command) or "",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+    monkeypatch.setattr(settler, "_quorum_run_ids", lambda head, repo, cwd: [("99", "failure")])
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    assert recorded["post_github_status"] is False
+    # idempotent: no comment/status re-posted when both signals are already present
+    assert text_commands == []
+    assert not any("statuses/" in (command[4] if len(command) > 4 else "") for command in commands)
+    assert ["gh", "run", "rerun", "99", "--failed"] in commands
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["settlement_status_already_present"] is True
+    assert payload["settlement_comment_already_present"] is True
     assert payload["settlement_already_present"] is True
 
 
