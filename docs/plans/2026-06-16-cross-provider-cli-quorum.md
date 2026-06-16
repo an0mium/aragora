@@ -1,7 +1,11 @@
 # Cross-Provider CLI Quorum (Tier-4 — preapproval required)
 
-**Status:** design / awaiting operator preapproval · **Date:** 2026-06-16
+**Status:** **operator-preapproved 2026-06-16** (implementation authorized); the
+PR still requires a **head-bound Western-only operator settlement to merge** ·
 **Surface:** `aragora/swarm/quorum_evidence.py` — **merge-authority (Tier-4)**
+
+> Reviewers run **sandboxed/read-only**: grok-build with `--sandbox read-only`,
+> `agy` with `--sandbox` — they cannot write/exec in the merge-gate cwd.
 
 ## Why
 

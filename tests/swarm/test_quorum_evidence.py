@@ -2032,8 +2032,13 @@ def test_dispatch_routes_grok_and_gemini_to_cli_reviewers(monkeypatch) -> None:
     assert calls == ["grok", "gemini"]
 
 
-def test_grok_reviewer_prefers_cli_when_installed(monkeypatch) -> None:
-    monkeypatch.setattr(qe.os.path, "exists", lambda p: True)
+def _force_grok_bin(monkeypatch, present: bool) -> None:
+    monkeypatch.setattr(qe.os.path, "isfile", lambda p: present)
+    monkeypatch.setattr(qe.os, "access", lambda p, mode: present)
+
+
+def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None:
+    _force_grok_bin(monkeypatch, True)
     seen: dict = {}
 
     def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
@@ -2044,18 +2049,37 @@ def test_grok_reviewer_prefers_cli_when_installed(monkeypatch) -> None:
     monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: pytest.fail("should not hit API"))
     res = qe._run_grok_reviewer("review prompt")
     assert res.family == "grok" and res.ok is True
-    assert seen["argv"][1:] == ["--no-plan", "-p", "review prompt"]
-    assert seen["argv"][0] != "grok"  # explicit Grok Build path, not the legacy PATH binary
+    # read-only sandbox + headless single-prompt, explicit Grok Build path.
+    assert seen["argv"][1:] == ["--sandbox", "read-only", "--no-plan", "-p", "review prompt"]
+    assert seen["argv"][0].endswith(".grok/bin/grok")
+
+
+def test_grok_build_bin_override(monkeypatch) -> None:
+    monkeypatch.setenv("ARAGORA_GROK_BUILD_BIN", "/custom/grok")
+    assert qe._resolve_grok_build_bin() == "/custom/grok"
 
 
 def test_grok_reviewer_falls_back_to_api_without_cli(monkeypatch) -> None:
-    monkeypatch.setattr(qe.os.path, "exists", lambda p: False)
+    _force_grok_bin(monkeypatch, False)
     monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: qe.ReviewerResult(f, "api", True))
     res = qe._run_grok_reviewer("x")
     assert res.family == "grok" and res.text == "api"
 
 
-def test_gemini_reviewer_prefers_agy_when_on_path(monkeypatch) -> None:
+def test_grok_reviewer_falls_back_to_api_on_cli_failure_when_key_present(monkeypatch) -> None:
+    _force_grok_bin(monkeypatch, True)
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    monkeypatch.setattr(
+        qe,
+        "_run_argv_cli_reviewer",
+        lambda *a, **k: qe.ReviewerResult("grok", "", False, "grok CLI exit 1: capped"),
+    )
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: qe.ReviewerResult(f, "api", True))
+    res = qe._run_grok_reviewer("x")
+    assert res.text == "api"  # wedged CLI + key present -> API fallback, quorum not blocked
+
+
+def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     import shutil as _sh
 
     monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
@@ -2069,7 +2093,17 @@ def test_gemini_reviewer_prefers_agy_when_on_path(monkeypatch) -> None:
     monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: pytest.fail("should not hit API"))
     res = qe._run_gemini_reviewer("review prompt")
     assert res.family == "gemini"
-    assert seen["argv"] == ["agy", "-p", "review prompt"]
+    # resolved path (not bare "agy") + sandbox.
+    assert seen["argv"] == ["/usr/local/bin/agy", "--sandbox", "-p", "review prompt"]
+
+
+def test_gemini_reviewer_falls_back_to_api_without_agy(monkeypatch) -> None:
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda name: None)
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: qe.ReviewerResult(f, "api", True))
+    res = qe._run_gemini_reviewer("x")
+    assert res.family == "gemini" and res.text == "api"
 
 
 def test_cross_provider_does_not_change_counting_rules() -> None:

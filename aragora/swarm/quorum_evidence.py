@@ -663,27 +663,47 @@ def _run_argv_cli_reviewer(
     return ReviewerResult(family, _cap_text(text), True, harness=harness)
 
 
+def _env_key_present(*names: str) -> bool:
+    return any(os.environ.get(n, "").strip() for n in names)
+
+
 def _run_grok_reviewer(prompt: str) -> ReviewerResult:
     """Grok evidence via the Grok Build CLI (subscription) when installed, else API.
 
     CLI-first serves the predictable-cost posture: a local Grok Build install is
-    used without a metered xAI API key. Machines without it fall back to the API
-    path unchanged.
+    used without a metered xAI API key. The CLI runs ``--sandbox read-only`` so a
+    review can never write/exec in the merge-gate cwd. If the CLI is absent OR
+    fails (nonzero/timeout/cap) and an ``XAI_API_KEY``/``GROK_API_KEY`` is set, we
+    fall back to the API path so a wedged subscription CLI can't block quorum.
     """
     grok_bin = _resolve_grok_build_bin()
-    if os.path.exists(grok_bin):
-        return _run_argv_cli_reviewer(
-            "grok", [grok_bin, "--no-plan", "-p", prompt], _GROK_BUILD_HARNESS
+    if os.path.isfile(grok_bin) and os.access(grok_bin, os.X_OK):
+        result = _run_argv_cli_reviewer(
+            "grok",
+            [grok_bin, "--sandbox", "read-only", "--no-plan", "-p", prompt],
+            _GROK_BUILD_HARNESS,
         )
+        if result.ok or not _env_key_present("XAI_API_KEY", "GROK_API_KEY"):
+            return result
     return _run_api_agent("grok", prompt)
 
 
 def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
-    """Gemini evidence via the Antigravity CLI (``agy``, subscription) when on PATH, else API."""
+    """Gemini evidence via the Antigravity CLI (``agy``, subscription) when on PATH, else API.
+
+    Invokes the resolved ``agy`` path (not a bare name) with ``--sandbox`` so the
+    review can't touch the cwd. Falls back to the API path when ``agy`` is absent
+    OR fails and a ``GEMINI_API_KEY``/``GOOGLE_API_KEY`` is set.
+    """
     import shutil
 
-    if shutil.which("agy"):
-        return _run_argv_cli_reviewer("gemini", ["agy", "-p", prompt], _ANTIGRAVITY_HARNESS)
+    agy_path = shutil.which("agy")
+    if agy_path:
+        result = _run_argv_cli_reviewer(
+            "gemini", [agy_path, "--sandbox", "-p", prompt], _ANTIGRAVITY_HARNESS
+        )
+        if result.ok or not _env_key_present("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+            return result
     return _run_api_agent("gemini", prompt)
 
 
