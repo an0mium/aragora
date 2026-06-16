@@ -18,6 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from aragora.billing.usage import PROVIDER_PRICING
 from aragora.pdb.budget import PDBBudgetLedger
 from aragora.pdb.panel_config import (
     PDBBudgetConfig,
@@ -729,6 +730,24 @@ class TestNewFamilyCostTracking:
             tokens_in=1_000_000,
             tokens_out=0,
         ) == pytest.approx(1.25)
+
+    @pytest.mark.parametrize(
+        ("provider", "model"),
+        [
+            ("openai", "gpt-5.5"),
+            ("google", "gemini-3.5-flash"),
+        ],
+    )
+    def test_calibrated_billing_rates_have_pdb_cost_entries(
+        self, provider: str, model: str
+    ) -> None:
+        provider_prices = PROVIDER_PRICING[provider]
+        expected = float(provider_prices[model] + provider_prices[f"{model}-output"])
+        assert estimate_cost_usd(
+            model=model,
+            tokens_in=1_000_000,
+            tokens_out=1_000_000,
+        ) == pytest.approx(expected)
 
     def test_grok_4_cost_nonzero(self) -> None:
         # grok-4 legacy tier: (3.00, 15.00) → 18.0 at 1M/1M
