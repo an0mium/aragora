@@ -21,10 +21,15 @@ Design intent (recorded so later PRs hold the line):
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Any
+
+from aragora.config.feature_flags import FeatureFlagRegistry
+from aragora.persistence.db_config import get_default_data_dir
 
 
 class MissionTransport(Enum):
@@ -122,6 +127,26 @@ class WorkItem:
             "dependencies": list(self.dependencies),
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "WorkItem":
+        status_raw = payload.get("status", WorkItemStatus.PENDING.value)
+        file_scope_raw = payload.get("file_scope", [])
+        file_scope = (
+            tuple(str(f) for f in file_scope_raw) if isinstance(file_scope_raw, list) else ()
+        )
+        dependencies_raw = payload.get("dependencies", [])
+        dependencies = (
+            tuple(str(d) for d in dependencies_raw) if isinstance(dependencies_raw, list) else ()
+        )
+        return cls(
+            item_id=str(payload["item_id"]),
+            description=str(payload["description"]),
+            status=WorkItemStatus(status_raw),
+            complexity=str(payload.get("complexity", "low")),
+            file_scope=file_scope,
+            dependencies=dependencies,
+        )
+
 
 def work_items_from_subtasks(subtasks: Iterable[Any]) -> tuple[WorkItem, ...]:
     """Adapt nomic decomposition output into a PENDING work-item queue.
@@ -151,3 +176,81 @@ def work_items_from_subtasks(subtasks: Iterable[Any]) -> tuple[WorkItem, ...]:
             )
         )
     return tuple(items)
+
+
+class MissionStore:
+    """JSON-based store for native mission queues, rooted at get_default_data_dir() / 'missions'."""
+
+    def __init__(self, state_dir: Path | None = None) -> None:
+        self.state_dir = Path(state_dir or (get_default_data_dir() / "missions")).resolve()
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+
+    def path_for(self, mission_id: str) -> Path:
+        # Sanitize to prevent path traversal
+        clean_id = "".join(c for c in mission_id if c.isalnum() or c in "_-")
+        if not clean_id or clean_id != mission_id:
+            raise ValueError(f"Invalid mission ID: {mission_id}")
+        return self.state_dir / f"{clean_id}.json"
+
+    def save_mission(self, spec: MissionSpec, items: Iterable[WorkItem]) -> Path:
+        data = {
+            "spec": spec.to_dict(),
+            "items": [item.to_dict() for item in items],
+        }
+        dest = self.path_for(spec.mission_id)
+        tmp = dest.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        tmp.replace(dest)
+        return dest
+
+    def load_mission(self, mission_id: str) -> tuple[MissionSpec, tuple[WorkItem, ...]] | None:
+        path = self.path_for(mission_id)
+        if not path.exists():
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+        spec = MissionSpec.from_dict(data["spec"])
+        items = tuple(WorkItem.from_dict(i) for i in data.get("items", []))
+        return spec, items
+
+    def list_missions(self) -> list[str]:
+        """List all active mission IDs based on files in the state directory."""
+        return [p.stem for p in sorted(self.state_dir.glob("*.json"))]
+
+
+class NativeMissionRunner:
+    """Intake coordinator for native missions: decompose and enqueue."""
+
+    def __init__(
+        self,
+        orchestrator: Any | None = None,
+        store: MissionStore | None = None,
+        feature_flags: FeatureFlagRegistry | None = None,
+    ) -> None:
+        self._orchestrator = orchestrator
+        self.store = store or MissionStore()
+        self.feature_flags = feature_flags or FeatureFlagRegistry()
+
+    @property
+    def orchestrator(self) -> Any:
+        if self._orchestrator is None:
+            from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+
+            self._orchestrator = AutonomousOrchestrator()
+        return self._orchestrator
+
+    async def ingest_mission(
+        self,
+        spec: MissionSpec,
+        tracks: list[str] | None = None,
+    ) -> tuple[WorkItem, ...]:
+        """Decompose the high-level goal, convert to WorkItems, and persist in the queue."""
+        if not self.feature_flags.is_enabled("enable_native_mission"):
+            raise RuntimeError(
+                "Native mission orchestrator is disabled (enable_native_mission flag is OFF)."
+            )
+
+        decomposition = await self.orchestrator.decompose_goal(spec.goal, tracks=tracks)
+        work_items = work_items_from_subtasks(decomposition.subtasks)
+
+        self.store.save_mission(spec, work_items)
+        return work_items
