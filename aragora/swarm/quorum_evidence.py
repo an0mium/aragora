@@ -1341,14 +1341,25 @@ def apply_prepared_evidence(
     relinted_items: list[EvidenceItem] = []
     for item in outcome.items:
         lint = linter(pr, head_sha, head_committed_at, author, item.body, env or {})
+        counted_reviewer_ids = list(lint.get("counted_reviewer_ids") or [])
+        problems = list(lint.get("problems") or [])
+        lint_identity_matches = item.family in {
+            str(reviewer_id).strip().lower() for reviewer_id in counted_reviewer_ids
+        }
+        would_count = bool(lint.get("would_count"))
+        if would_count and not lint_identity_matches:
+            would_count = False
+            problems.append(
+                f"fresh lint counted reviewer ids do not include prepared family: {item.family}"
+            )
         relinted_items.append(
             EvidenceItem(
                 family=item.family,
                 body=item.body,
-                would_count=bool(lint.get("would_count")),
-                counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
-                problems=list(lint.get("problems") or []),
-                verdict=item.verdict,
+                would_count=would_count,
+                counted_reviewer_ids=counted_reviewer_ids,
+                problems=problems,
+                verdict=_reviewer_verdict(item.body),
             )
         )
     outcome.items = relinted_items
