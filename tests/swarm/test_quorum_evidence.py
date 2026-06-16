@@ -43,6 +43,11 @@ def _slow_grok_process_reviewer_runner(family: str, prompt: str) -> ReviewerResu
     return ReviewerResult(family, f"Verdict: PASS from {family}", True)
 
 
+def _slow_process_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+    time.sleep(0.2)
+    return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+
 # --- decide_action (tier gating) -------------------------------------------
 
 
@@ -1001,8 +1006,61 @@ def test_collect_overall_timeout_records_unfinished_reviewers(monkeypatch) -> No
     assert outcome.posted == []
     assert posted == []
     assert [failure.family for failure in outcome.failures] == ["grok"]
-    assert "orchestration timed out after 0.25s" in outcome.failures[0].error
+    assert outcome.failures[0].error.startswith("grok reviewer orchestration timed out after ")
     assert elapsed < 2.0
+
+
+def test_collect_process_timeout_uses_bounded_fanout(monkeypatch) -> None:
+    fakes, _posted = _fakes(tier=1)
+    fakes["reviewer_runner"] = _slow_process_reviewer_runner
+    monkeypatch.setattr(qe, "_MAX_REVIEWER_WORKERS", 1)
+    monkeypatch.setattr(
+        qe, "_reviewer_process_context", lambda: qe.multiprocessing.get_context("fork")
+    )
+    start = time.monotonic()
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=False,
+        overall_timeout_seconds=2,
+        **fakes,
+    )
+    elapsed = time.monotonic() - start
+
+    assert [item.family for item in outcome.items] == ["claude", "grok"]
+    assert elapsed >= 0.35
+
+
+def test_terminate_reviewer_process_kills_process_group(monkeypatch) -> None:
+    calls: list[tuple[str, object]] = []
+
+    class FakeProcess:
+        pid = 12345
+
+        def is_alive(self) -> bool:
+            return False
+
+        def terminate(self) -> None:
+            calls.append(("terminate", None))
+
+        def kill(self) -> None:
+            calls.append(("kill", None))
+
+        def join(self, timeout=None) -> None:
+            calls.append(("join", timeout))
+
+    def fake_killpg(pid: int, sig: int) -> None:
+        calls.append(("killpg", (pid, sig)))
+
+    monkeypatch.setattr(qe.os, "killpg", fake_killpg, raising=False)
+
+    qe._terminate_reviewer_process(FakeProcess())
+
+    assert calls[0] == ("killpg", (12345, qe.signal.SIGTERM))
+    assert ("join", 5) in calls
 
 
 def test_collect_overall_timeout_fails_closed_when_processes_unavailable(

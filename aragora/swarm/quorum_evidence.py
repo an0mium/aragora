@@ -36,6 +36,7 @@ import multiprocessing
 import os
 import queue
 import re
+import signal
 import subprocess
 import tempfile
 import time
@@ -1120,6 +1121,11 @@ def _reviewer_process_worker(
     reviewer_runner: Callable[[str, str], ReviewerResult],
     result_queue: multiprocessing.Queue,
 ) -> None:
+    if hasattr(os, "setsid"):
+        try:
+            os.setsid()
+        except OSError:
+            pass
     try:
         result = reviewer_runner(family, prompt)
     except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run.
@@ -1130,6 +1136,35 @@ def _reviewer_process_worker(
         # Parent-side timeout handling will report the family as failed if the
         # worker cannot return a result.
         pass
+
+
+def _terminate_reviewer_process(process: multiprocessing.Process) -> None:
+    pid = process.pid
+    if pid is not None and hasattr(os, "killpg"):
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        except OSError:
+            if process.is_alive():
+                process.terminate()
+    elif process.is_alive():
+        process.terminate()
+
+    process.join(5)
+    if not process.is_alive():
+        return
+
+    if pid is not None and hasattr(os, "killpg"):
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        except OSError:
+            process.kill()
+    else:
+        process.kill()
+    process.join(5)
 
 
 def _run_reviewers_in_processes(
@@ -1143,6 +1178,41 @@ def _run_reviewers_in_processes(
     if ctx is None:
         return None
 
+    reviews: dict[str, ReviewerResult] = {}
+    deadline = time.monotonic() + overall_timeout_seconds
+    for start in range(0, len(supported), _MAX_REVIEWER_WORKERS):
+        chunk = supported[start : start + _MAX_REVIEWER_WORKERS]
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            timeout_label = _format_seconds(overall_timeout_seconds)
+            for family in supported[start:]:
+                reviews[family] = ReviewerResult(
+                    family,
+                    "",
+                    False,
+                    f"{family} reviewer orchestration timed out after {timeout_label}s",
+                )
+            break
+        reviews.update(
+            _run_reviewer_process_batch(
+                ctx=ctx,
+                supported=chunk,
+                prompt=prompt,
+                reviewer_runner=reviewer_runner,
+                overall_timeout_seconds=remaining,
+            )
+        )
+    return reviews
+
+
+def _run_reviewer_process_batch(
+    *,
+    ctx: Any,
+    supported: Sequence[str],
+    prompt: str,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    overall_timeout_seconds: float,
+) -> dict[str, ReviewerResult]:
     result_queue: multiprocessing.Queue = ctx.Queue()
     processes: dict[str, multiprocessing.Process] = {}
     for family in supported:
@@ -1215,11 +1285,7 @@ def _run_reviewers_in_processes(
     for family in list(pending):
         process = processes[family]
         if process.is_alive():
-            process.terminate()
-            process.join(5)
-            if process.is_alive():  # pragma: no cover - defensive hard kill.
-                process.kill()
-                process.join(5)
+            _terminate_reviewer_process(process)
         else:
             process.join(timeout=0.1)
         reviews[family] = ReviewerResult(
@@ -1233,7 +1299,7 @@ def _run_reviewers_in_processes(
 
     for process in processes.values():
         if process.is_alive():  # pragma: no cover - defensive cleanup.
-            process.terminate()
+            _terminate_reviewer_process(process)
         process.join(timeout=0.1)
 
     return reviews
