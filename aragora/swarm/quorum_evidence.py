@@ -1251,6 +1251,34 @@ def _clone_reviewer_failures(failures: Sequence[ReviewerResult]) -> list[Reviewe
     ]
 
 
+def _prepared_family_allowlist(families: Sequence[str] | None) -> set[str] | None:
+    if families is None:
+        return None
+    return {family.strip().lower() for family in families if family.strip()}
+
+
+def _validate_prepared_item_families(
+    items: Sequence[EvidenceItem],
+    *,
+    families: Sequence[str] | None,
+) -> None:
+    allowed = _prepared_family_allowlist(families)
+    seen: set[str] = set()
+    for item in items:
+        family = item.family.strip().lower()
+        if family not in FAMILY_PROVIDERS:
+            raise ValueError(
+                f"prepared evidence artifact has unsupported reviewer family: {family}"
+            )
+        if family in seen:
+            raise ValueError(f"prepared evidence artifact has duplicate reviewer family: {family}")
+        if allowed is not None and family not in allowed:
+            raise ValueError(
+                f"prepared evidence artifact family {family} is not in requested reviewer allowlist"
+            )
+        seen.add(family)
+
+
 def apply_prepared_evidence(
     *,
     repo: str,
@@ -1258,6 +1286,7 @@ def apply_prepared_evidence(
     prepared_json: Path,
     author: str,
     apply: bool,
+    families: Sequence[str] | None = None,
     context_fetcher: Callable[[str, int], dict[str, Any]] = merge_quorum_io.fetch_pr_context,
     tier_fetcher: Callable[[str, int], int | None] = merge_quorum_io.fetch_pr_tier,
     linter: Callable[..., dict[str, Any]] = default_linter,
@@ -1279,6 +1308,7 @@ def apply_prepared_evidence(
         )
     if not prepared.head_sha:
         raise ValueError("prepared evidence artifact missing head SHA")
+    _validate_prepared_item_families(prepared.items, families=families)
 
     ctx = context_fetcher(repo, pr)
     head_sha = str(ctx.get("head_sha") or "").strip()
@@ -1452,6 +1482,7 @@ def run_collect_cli(
                 prepared_json=prepared_json,
                 author=resolved_author,
                 apply=apply,
+                families=fams,
                 env=merge_quorum_io.aragora_env(),
                 quorum_reconciler=default_quorum_reconciler if apply else None,
             )

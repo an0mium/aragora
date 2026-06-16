@@ -1426,7 +1426,7 @@ def test_collect_missing_head_raises() -> None:
         collect_evidence(repo="o/r", pr=1, families=["claude"], author="me", apply=True, **fakes)
 
 
-def _prepared_outcome_file(tmp_path) -> Path:
+def _prepared_outcome_file(tmp_path, *, items: list[EvidenceItem] | None = None) -> Path:
     outcome = CollectOutcome(
         repo="o/r",
         pr=1,
@@ -1435,7 +1435,8 @@ def _prepared_outcome_file(tmp_path) -> Path:
         tier=1,
         action="prepare",
         action_reason="dry-run; re-run with --apply to post",
-        items=[
+        items=items
+        or [
             EvidenceItem("claude", "claude body", True, ["claude"], [], "pass"),
             EvidenceItem("grok", "grok body", True, ["grok"], [], "pass"),
         ],
@@ -1471,6 +1472,7 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
         prepared_json=prepared,
         author="me",
         apply=True,
+        families=["claude", "grok"],
         context_fetcher=context_fetcher,
         tier_fetcher=tier_fetcher,
         linter=linter,
@@ -1481,6 +1483,90 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert "without reviewer regeneration" in outcome.action_reason
     assert outcome.posted == ["claude", "grok"]
     assert posted == [("o/r", "claude body"), ("o/r", "grok body")]
+
+
+def test_apply_prepared_evidence_rejects_unsupported_family(tmp_path) -> None:
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("claude", "claude body", True, ["claude"], [], "pass"),
+            EvidenceItem("factory", "factory body", True, ["factory"], [], "pass"),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="unsupported reviewer family"):
+        qe.apply_prepared_evidence(
+            repo="o/r",
+            pr=1,
+            prepared_json=prepared,
+            author="me",
+            apply=True,
+            families=["claude", "factory"],
+            context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+            tier_fetcher=lambda repo, pr: 1,
+            linter=lambda *args, **kwargs: {
+                "would_count": True,
+                "counted_reviewer_ids": ["claude"],
+                "problems": [],
+            },
+            poster=lambda repo, pr, body: None,
+        )
+
+
+def test_apply_prepared_evidence_rejects_duplicate_family(tmp_path) -> None:
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("claude", "claude body one", True, ["claude"], [], "pass"),
+            EvidenceItem("claude", "claude body two", True, ["claude"], [], "pass"),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="duplicate reviewer family"):
+        qe.apply_prepared_evidence(
+            repo="o/r",
+            pr=1,
+            prepared_json=prepared,
+            author="me",
+            apply=True,
+            families=["claude"],
+            context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+            tier_fetcher=lambda repo, pr: 1,
+            linter=lambda *args, **kwargs: {
+                "would_count": True,
+                "counted_reviewer_ids": ["claude"],
+                "problems": [],
+            },
+            poster=lambda repo, pr, body: None,
+        )
+
+
+def test_apply_prepared_evidence_honors_requested_family_allowlist(tmp_path) -> None:
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("openai", "openai body", True, ["openai"], [], "pass"),
+            EvidenceItem("grok", "grok body", True, ["grok"], [], "pass"),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="not in requested reviewer allowlist"):
+        qe.apply_prepared_evidence(
+            repo="o/r",
+            pr=1,
+            prepared_json=prepared,
+            author="me",
+            apply=True,
+            families=["claude", "grok"],
+            context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+            tier_fetcher=lambda repo, pr: 1,
+            linter=lambda *args, **kwargs: {
+                "would_count": True,
+                "counted_reviewer_ids": ["openai"],
+                "problems": [],
+            },
+            poster=lambda repo, pr, body: None,
+        )
 
 
 def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
@@ -1582,6 +1668,7 @@ def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_p
     assert rc == 0
     assert seen["prepared_json"] == prepared
     assert seen["apply"] is True
+    assert seen["families"] == ("claude", "grok")
 
 
 def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:
