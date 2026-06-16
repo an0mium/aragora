@@ -5,8 +5,8 @@
 
 This note documents the deployment intent for `WORKER_MODE` and
 `ARAGORA_SINGLE_INSTANCE`. It closes the documentation gap identified in
-[DRIFT-002](../archive/governance/deploy-truth-table.md#drift-002-kubernetes-worker-has-no-explicit-entrypoint)
-and [DRIFT-007](../archive/governance/deploy-truth-table.md#drift-007-aragora_single_instancetrue-undocumented).
+[DRIFT-002](./deploy-truth-table.md#drift-002-kubernetes-worker-has-no-explicit-entrypoint)
+and [DRIFT-007](./deploy-truth-table.md#drift-007-aragora_single_instancetrue-undocumented).
 
 ## Summary
 
@@ -36,7 +36,7 @@ Operational guidance:
   tested.
 
 This is the documented mitigation for
-[DRIFT-002](../archive/governance/deploy-truth-table.md#drift-002-kubernetes-worker-has-no-explicit-entrypoint):
+[DRIFT-002](./deploy-truth-table.md#drift-002-kubernetes-worker-has-no-explicit-entrypoint):
 the env var is deployment metadata, not a substitute for the worker entrypoint.
 
 ## `ARAGORA_SINGLE_INSTANCE`
@@ -65,7 +65,7 @@ Operational guidance:
   explicitly.
 
 This documents the previously missing operator contract called out in
-[DRIFT-007](../archive/governance/deploy-truth-table.md#drift-007-aragora_single_instancetrue-undocumented).
+[DRIFT-007](./deploy-truth-table.md#drift-007-aragora_single_instancetrue-undocumented).
 
 ## Recommended deployment patterns
 
@@ -77,5 +77,5 @@ This documents the previously missing operator contract called out in
 
 ## Related governance records
 
-- [Deploy Truth Table](../archive/governance/deploy-truth-table.md)
-- [Runtime Entrypoint Inventory](../archive/governance/entrypoint-inventory.md)
+- [Deploy Truth Table](./deploy-truth-table.md)
+- [Runtime Entrypoint Inventory](./entrypoint-inventory.md)
