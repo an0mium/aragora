@@ -2118,7 +2118,7 @@ def test_settle_only_diagnostic_packet_does_not_hide_missing_model_quorum() -> N
     )
 
     assert result["ok"] is False
-    assert settler.TIER4_EVIDENCE_BLOCKER in result["blockers"]
+    assert settler.MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER in result["blockers"]
     assert result["self_quorum_missing_settlement_proven"] is False
 
 
@@ -2141,7 +2141,7 @@ def test_settle_only_diagnostic_packet_does_not_hide_unresolved_dissent() -> Non
     )
 
     assert result["ok"] is False
-    assert settler.TIER4_EVIDENCE_BLOCKER in result["blockers"]
+    assert settler.MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER in result["blockers"]
     assert result["self_quorum_missing_settlement_proven"] is False
 
 
@@ -2164,6 +2164,53 @@ def test_settle_only_diagnostic_packet_does_not_hide_owner_blocker() -> None:
 
     assert result["ok"] is False
     assert settler.MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER in result["blockers"]
+    assert result["self_quorum_missing_settlement_proven"] is False
+
+
+def test_settle_only_log_proof_does_not_allow_diagnostic_owner_blocker() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    diagnostic_packet = _tier4_diagnostic_human_preapproval_packet(head)
+    diagnostic_packet["entries"][0]["active_owner"] = True
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        diagnostic_merge_packet=diagnostic_packet,
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+        quorum_missing_settlement_proof=True,
+    )
+
+    assert result["ok"] is False
+    assert "diagnostic merge-packet reports owner/mailbox blocker" in result["blockers"]
+    assert result["self_quorum_missing_settlement_proven"] is False
+
+
+def test_settle_only_log_proof_does_not_allow_missing_diagnostic_model_quorum() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        diagnostic_merge_packet=_tier4_diagnostic_human_preapproval_packet(
+            head,
+            counted_model_families=["grok"],
+        ),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+        quorum_missing_settlement_proof=True,
+    )
+
+    assert result["ok"] is False
+    assert settler.TIER4_EVIDENCE_BLOCKER in result["blockers"]
     assert result["self_quorum_missing_settlement_proven"] is False
 
 

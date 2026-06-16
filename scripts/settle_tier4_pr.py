@@ -59,6 +59,7 @@ HUMAN_SETTLEMENT_STATUS_BLOCKER = f"missing or unsuccessful {HUMAN_SETTLEMENT_CO
 MERGE_QUORUM_CONTEXT = "aragora-merge-quorum"
 DIAGNOSTIC_MERGE_PACKET_KEY = "_diagnostic_ignore_own_quorum_check"
 DIAGNOSTIC_MERGE_PACKET_ERROR_KEY = "_diagnostic_ignore_own_quorum_check_error"
+DIAGNOSTIC_OWNER_MAILBOX_BLOCKER = "diagnostic merge-packet reports owner/mailbox blocker"
 OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comment"
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER = "required_check_visibility_skew"
@@ -1058,6 +1059,7 @@ def evaluate_tier4_gate(
         "merge_packet_blockers": merge_packet_blockers,
         "merge_packet": packet_diagnostics,
         "diagnostic_merge_packet": diagnostic_packet_diagnostics,
+        "diagnostic_merge_packet_error": merge_packet.get(DIAGNOSTIC_MERGE_PACKET_ERROR_KEY),
         "self_quorum_missing_settlement_proven": self_quorum_missing_settlement_proven,
         "reasons": packet_diagnostics["reasons"],
         "settle_eligible": not blockers,
@@ -1101,7 +1103,12 @@ def evaluate_tier4_settlement_preconditions(
         )
     )
     effective_merge_packet = (
-        diagnostic_merge_packet if diagnostic_merge_packet is not None else merge_packet
+        diagnostic_merge_packet if self_quorum_missing_settlement_proven else merge_packet
+    )
+    diagnostic_entry = (
+        _entry_for_pr(diagnostic_merge_packet, pr=pr)
+        if isinstance(diagnostic_merge_packet, dict)
+        else None
     )
 
     if not required_checks:
@@ -1148,6 +1155,8 @@ def evaluate_tier4_settlement_preconditions(
         and not _packet_has_required_self_quorum_model_families(diagnostic_merge_packet, pr=pr)
     ):
         blockers.append(TIER4_EVIDENCE_BLOCKER)
+    if isinstance(diagnostic_entry, dict) and _entry_has_owner_mailbox_blocker(diagnostic_entry):
+        blockers.append(DIAGNOSTIC_OWNER_MAILBOX_BLOCKER)
 
     allowed_logins = _trusted_operator_logins(trusted_operator_logins)
     normalized_invoker = str(invoker_login or "").strip().lower()
@@ -1178,6 +1187,7 @@ def evaluate_tier4_settlement_preconditions(
         "invoker_login": normalized_invoker,
         "invoker_has_admin_permission": invoker_has_admin_permission,
         "blockers": blockers,
+        "diagnostic_merge_packet_error": merge_packet.get(DIAGNOSTIC_MERGE_PACKET_ERROR_KEY),
         "self_quorum_missing_settlement_proven": self_quorum_missing_settlement_proven,
     }
 
