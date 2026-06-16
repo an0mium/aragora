@@ -163,6 +163,7 @@ Examples:
     _add_mcp_parser(subparsers)
     _add_marketplace_parser(subparsers)
     _add_skills_parser(subparsers)
+    _add_mission_parser(subparsers)
     _add_nomic_parser(subparsers)
     _add_workflow_parser(subparsers)
     _add_deploy_parser(subparsers)
@@ -5370,3 +5371,32 @@ def _add_essay_parser(subparsers) -> None:
         help="Comma-separated model identifiers; first model is used as judge",
     )
     score_parser.set_defaults(func=_lazy("aragora.cli.commands.essay", "essay_command"))
+
+
+def _add_mission_parser(subparsers) -> None:
+    """Add the 'mission' subcommand parser."""
+    mission_parser = subparsers.add_parser(
+        "mission",
+        help="Run or manage native missions",
+        description="Ingest a free-text goal, decompose it, and register it to the mission loop.",
+    )
+    mission_parser.add_argument("goal", help="The high-level goal description")
+    mission_parser.add_argument("--budget", type=float, help="The USD budget limit for the mission")
+    mission_parser.add_argument("--max-hours", type=float, help="The maximum run time in hours")
+    mission_parser.add_argument(
+        "--relay",
+        choices=["none", "slack", "email"],
+        default="none",
+        help="The notification relay channel for hard-halt/park actions",
+    )
+    mission_parser.add_argument(
+        "--auto-settle-max-tier",
+        type=int,
+        default=2,
+        choices=[0, 1, 2, 3, 4],
+        help="The maximum merge-quorum evidence quality tier to settle autonomously",
+    )
+    mission_parser.add_argument(
+        "--tracks", help="Comma-separated focus tracks (e.g. sme,qa,billing)"
+    )
+    mission_parser.set_defaults(func=_lazy("aragora.cli.commands.mission", "cmd_mission"))
