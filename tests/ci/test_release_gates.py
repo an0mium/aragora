@@ -617,7 +617,8 @@ class TestPipAuditGate:
         assert "pyjwt-2.12.1" not in lock_content
         assert "pyjwt-2.13.0" in lock_content
         assert "starlette-1.0.0" not in lock_content
-        assert "starlette-1.0.1" in lock_content
+        assert "starlette-1.0.1" not in lock_content
+        assert "starlette-1.3.1" in lock_content
 
     def test_load_ignored_vulns_skips_comments(self, tmp_path):
         allowlist = tmp_path / "allowlist.txt"
