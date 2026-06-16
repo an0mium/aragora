@@ -547,12 +547,23 @@ def build_review_prompt(
 
 
 def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
-    """Run a genuine reviewer: ``claude`` via its CLI, others via the API agent."""
+    """Run a genuine reviewer, preferring subscription CLIs over metered APIs.
+
+    ``claude`` -> claude CLI; ``openai`` -> Codex CLI (or API if OPENAI_API_KEY);
+    ``grok`` -> Grok Build CLI when installed (else API); ``gemini`` -> Antigravity
+    CLI when installed (else API); everything else -> API agent. The CLI-first
+    routing for grok/gemini lets the merge gate form a 2-family quorum from any
+    two subscription CLIs, so one provider's usage cap can't stall merges.
+    """
     fam = family.strip().lower()
     if fam == "claude":
         return _run_claude_cli(prompt)
     if fam == "openai":
         return _run_openai_reviewer(prompt)
+    if fam == "grok":
+        return _run_grok_reviewer(prompt)
+    if fam == "gemini":
+        return _run_gemini_reviewer(prompt)
     return _run_api_agent(fam, prompt)
 
 
@@ -609,6 +620,71 @@ def _run_openai_reviewer(prompt: str) -> ReviewerResult:
     if os.environ.get("OPENAI_API_KEY", "").strip():
         return _run_api_agent("openai", prompt)
     return _run_codex_openai_cli(prompt)
+
+
+_GROK_BUILD_HARNESS = "Grok Build CLI harness"
+_ANTIGRAVITY_HARNESS = "Antigravity CLI harness"
+
+
+def _resolve_grok_build_bin() -> str:
+    """Path to the Grok Build CLI, avoiding the unrelated legacy ``grok`` on PATH.
+
+    Grok Build installs to ``~/.grok/bin/grok`` (overridable via
+    ``ARAGORA_GROK_BUILD_BIN``); the legacy ``grok-cli`` often shadows it on PATH.
+    """
+    override = os.environ.get("ARAGORA_GROK_BUILD_BIN", "").strip()
+    return override or os.path.expanduser("~/.grok/bin/grok")
+
+
+def _run_argv_cli_reviewer(
+    family: str, argv: list[str], harness: str, timeout: float = _REVIEWER_TIMEOUT
+) -> ReviewerResult:
+    """Run a headless single-prompt CLI reviewer (prompt passed as an argv value).
+
+    The prompt (a head-grounded diff review request, already bounded to
+    ``_MAX_DIFF_CHARS``) is passed as the final argument; the model's stdout is
+    the review body. Same exact-head composition + evidence-lint as every other
+    reviewer decides whether the result can count.
+    """
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
+    except FileNotFoundError:
+        return ReviewerResult(family, "", False, f"{family} CLI not found: {argv[0]}")
+    except subprocess.TimeoutExpired:
+        return ReviewerResult(
+            family, "", False, f"{family} CLI timed out after {_format_seconds(timeout)}s"
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+    text = (proc.stdout or "").strip()
+    if proc.returncode != 0 or not text:
+        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        return ReviewerResult(family, "", False, f"{family} CLI exit {proc.returncode}: {detail}")
+    return ReviewerResult(family, _cap_text(text), True, harness=harness)
+
+
+def _run_grok_reviewer(prompt: str) -> ReviewerResult:
+    """Grok evidence via the Grok Build CLI (subscription) when installed, else API.
+
+    CLI-first serves the predictable-cost posture: a local Grok Build install is
+    used without a metered xAI API key. Machines without it fall back to the API
+    path unchanged.
+    """
+    grok_bin = _resolve_grok_build_bin()
+    if os.path.exists(grok_bin):
+        return _run_argv_cli_reviewer(
+            "grok", [grok_bin, "--no-plan", "-p", prompt], _GROK_BUILD_HARNESS
+        )
+    return _run_api_agent("grok", prompt)
+
+
+def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
+    """Gemini evidence via the Antigravity CLI (``agy``, subscription) when on PATH, else API."""
+    import shutil
+
+    if shutil.which("agy"):
+        return _run_argv_cli_reviewer("gemini", ["agy", "-p", prompt], _ANTIGRAVITY_HARNESS)
+    return _run_api_agent("gemini", prompt)
 
 
 def _run_codex_openai_cli(prompt: str) -> ReviewerResult:

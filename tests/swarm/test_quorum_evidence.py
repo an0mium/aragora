@@ -2010,3 +2010,70 @@ def test_default_prompt_builder_empty_diff_still_raises(monkeypatch) -> None:
     monkeypatch.setattr(qe.merge_quorum_io, "run", _prompt_builder_run_stub("   \n", "D\tx\n"))
     with pytest.raises(RuntimeError, match="empty diff"):
         qe.default_prompt_builder("o/r", 8416, {"head_sha": HEAD})
+
+
+# --- Cross-provider CLI quorum (grok-build / antigravity) --------------------
+
+
+def test_dispatch_routes_grok_and_gemini_to_cli_reviewers(monkeypatch) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(
+        qe,
+        "_run_grok_reviewer",
+        lambda p: calls.append("grok") or qe.ReviewerResult("grok", "ok", True),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_gemini_reviewer",
+        lambda p: calls.append("gemini") or qe.ReviewerResult("gemini", "ok", True),
+    )
+    qe.default_reviewer_runner("grok", "x")
+    qe.default_reviewer_runner("GEMINI", "x")  # case-insensitive
+    assert calls == ["grok", "gemini"]
+
+
+def test_grok_reviewer_prefers_cli_when_installed(monkeypatch) -> None:
+    monkeypatch.setattr(qe.os.path, "exists", lambda p: True)
+    seen: dict = {}
+
+    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+        seen["argv"] = argv
+        return qe.ReviewerResult(family, "verdict", True, harness=harness)
+
+    monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: pytest.fail("should not hit API"))
+    res = qe._run_grok_reviewer("review prompt")
+    assert res.family == "grok" and res.ok is True
+    assert seen["argv"][1:] == ["--no-plan", "-p", "review prompt"]
+    assert seen["argv"][0] != "grok"  # explicit Grok Build path, not the legacy PATH binary
+
+
+def test_grok_reviewer_falls_back_to_api_without_cli(monkeypatch) -> None:
+    monkeypatch.setattr(qe.os.path, "exists", lambda p: False)
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: qe.ReviewerResult(f, "api", True))
+    res = qe._run_grok_reviewer("x")
+    assert res.family == "grok" and res.text == "api"
+
+
+def test_gemini_reviewer_prefers_agy_when_on_path(monkeypatch) -> None:
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
+    seen: dict = {}
+
+    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+        seen["argv"] = argv
+        return qe.ReviewerResult(family, "v", True, harness=harness)
+
+    monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: pytest.fail("should not hit API"))
+    res = qe._run_gemini_reviewer("review prompt")
+    assert res.family == "gemini"
+    assert seen["argv"] == ["agy", "-p", "review prompt"]
+
+
+def test_cross_provider_does_not_change_counting_rules() -> None:
+    # The Tier-4 change adds reviewer BACKENDS only; family counting is unchanged.
+    assert "fusion" not in qe.FAMILY_PROVIDERS  # blend must never count as a family
+    assert qe.FAMILY_PROVIDERS["grok"] == "xai"
+    assert qe.FAMILY_PROVIDERS["gemini"] == "google"
