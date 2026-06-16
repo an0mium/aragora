@@ -108,10 +108,11 @@ def _analysis(*claims: CruxClaim, barrier: float = 0.5) -> CruxAnalysisResult:
 
 
 def _result(
-    analysis: CruxAnalysisResult,
+    analysis: Any,
     *,
     debate_id: str = "debate-test-001",
     question: str = "Should we adopt X?",
+    counterfactuals: list[dict[str, Any]] | None = None,
     agents: list[str] | None = None,
     rounds: int = 3,
 ) -> Any:
@@ -119,7 +120,7 @@ def _result(
         debate_id=debate_id,
         question=question,
         analysis=analysis,
-        counterfactuals=[],
+        counterfactuals=list(counterfactuals or []),
         agents=list(agents or ["agent-alpha", "agent-beta"]),
         rounds=rounds,
         raw_claims=[],
@@ -201,6 +202,22 @@ def test_extra_provenance_merged(monkeypatch) -> None:
     assert cs.provenance.get("debate_id") is not None  # base provenance preserved
 
 
+def test_counterfactuals_preserved_in_provenance(monkeypatch) -> None:
+    monkeypatch.setenv(mod.CRUXSET_EMISSION_ENV_VAR, "1")
+    counterfactuals = [
+        {
+            "claim_id": "c1",
+            "assumption": "X is false",
+            "would_flip": True,
+        }
+    ]
+    cs = mod.maybe_emit_cruxset_from_finder_result(
+        _result(_analysis(_claim("c1", "S", 0.7)), counterfactuals=counterfactuals)
+    )
+    assert cs is not None
+    assert cs.provenance.get("counterfactuals") == counterfactuals
+
+
 def test_receipt_id_threaded_through(monkeypatch) -> None:
     monkeypatch.setenv(mod.CRUXSET_EMISSION_ENV_VAR, "1")
     cs = mod.maybe_emit_cruxset_from_finder_result(
@@ -246,6 +263,24 @@ def test_returns_none_when_analysis_has_no_cruxes(monkeypatch) -> None:
 def test_returns_none_for_wrong_type(monkeypatch) -> None:
     monkeypatch.setenv(mod.CRUXSET_EMISSION_ENV_VAR, "1")
     assert mod.maybe_emit_cruxset_from_finder_result("not-a-result") is None  # type: ignore[arg-type]
+
+
+def test_malformed_finder_analysis_fails_closed(monkeypatch) -> None:
+    monkeypatch.setenv(mod.CRUXSET_EMISSION_ENV_VAR, "1")
+    malformed = _result(_analysis(_claim("c1", "S", 0.7)))
+    malformed.analysis = None
+    assert mod.maybe_emit_cruxset_from_finder_result(malformed) is None
+
+
+def test_analysis_conversion_failure_fails_closed(monkeypatch) -> None:
+    class BrokenAnalysis:
+        cruxes = [_claim("c1", "S", 0.7)]
+
+        def to_dict(self) -> dict[str, Any]:
+            raise ValueError("bad analysis payload")
+
+    monkeypatch.setenv(mod.CRUXSET_EMISSION_ENV_VAR, "1")
+    assert mod.maybe_emit_cruxset_from_finder_result(_result(BrokenAnalysis())) is None
 
 
 def test_convergence_barrier_in_counterfactual_notes(monkeypatch) -> None:

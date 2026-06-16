@@ -168,24 +168,36 @@ def maybe_emit_cruxset_from_finder_result(
         )
         return None
 
-    provenance: dict[str, Any] = {
-        "debate_id": result.debate_id,
-        "mode": "crux_finder",
-        "approach": result.metadata.get("approach", "A"),
-        "rounds": result.rounds,
-        "agents": list(result.agents),
-    }
+    try:
+        metadata = result.metadata or {}
+        analysis = result.analysis
+        analysis_payload = analysis.to_dict()
+        cruxes = list(analysis.cruxes)
+        counterfactuals = list(result.counterfactuals or [])
+        provenance: dict[str, Any] = {
+            "debate_id": result.debate_id,
+            "mode": "crux_finder",
+            "approach": metadata.get("approach", "A"),
+            "rounds": result.rounds,
+            "agents": list(result.agents),
+        }
+    except Exception as exc:  # noqa: BLE001 - malformed finder output must fail closed
+        logger.warning("maybe_emit_cruxset_from_finder_result: malformed CruxFinderResult: %s", exc)
+        return None
+
+    if counterfactuals:
+        provenance["counterfactuals"] = counterfactuals
     if extra_provenance:
         # extra_provenance intentionally overwrites base keys — caller's responsibility
         provenance.update(extra_provenance)
 
     return maybe_emit_cruxset(
         question=result.question,
-        analysis_payload=result.analysis.to_dict(),
+        analysis_payload=analysis_payload,
         decision=None,  # crux_finder never produces a verdict by design
         receipt_id=receipt_id,
         provenance=provenance,
-        top_k=max(len(result.analysis.cruxes), 1),
+        top_k=max(len(cruxes), 1),
     )
 
 
