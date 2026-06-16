@@ -4145,8 +4145,6 @@ def _dissenting_views_from_comments(
         github_author = ""
         if isinstance(author_payload, dict):
             github_author = str(author_payload.get("login", "") or "")
-        if _is_github_actions_author(github_author):
-            continue
         dissent.append(
             {
                 "agent": identity.model_family or identity.surface_reviewer_id,
