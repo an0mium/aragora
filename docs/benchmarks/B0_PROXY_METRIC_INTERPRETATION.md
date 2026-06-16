@@ -187,7 +187,7 @@ This is a code change requiring tests in
 `tests/swarm/test_terminal_truth.py` and
 `tests/swarm/test_lane_telemetry.py`. **Out of scope for this
 legibility doc.** Tracked as Move 4c in the B0 zero-headline
-diagnostic (`docs/status/B0_ZERO_HEADLINE_DIAGNOSTIC_2026-05-19.md`).
+diagnostic (`docs/archive/status/2026-05-19-B0_ZERO_HEADLINE_DIAGNOSTIC.md`).
 
 ---
 
@@ -213,9 +213,9 @@ Move 4b in the diagnostic.
 
 This doc is paired with:
 
-- `docs/status/B0_ZERO_HEADLINE_DIAGNOSTIC_2026-05-19.md` — the
+- `docs/archive/status/2026-05-19-B0_ZERO_HEADLINE_DIAGNOSTIC.md` — the
   full diagnostic that prescribes 3 moves; Move 4 is this doc
-- `docs/status/PROJECT_ASSESSMENT_2026-05-19_30D.md` — the 30-day
+- `docs/archive/status/2026-05-19-PROJECT_ASSESSMENT-30D.md` — the 30-day
   strategic assessment that flagged the 0.0% as the cheapest thing
   to move
 
