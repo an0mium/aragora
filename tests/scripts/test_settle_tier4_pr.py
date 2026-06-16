@@ -121,6 +121,36 @@ def _tier4_repair_packet_missing_settlement(pr: int = 7423) -> dict[str, Any]:
     return packet
 
 
+def _tier4_diagnostic_human_preapproval_packet(
+    head: str,
+    pr: int = 7423,
+    *,
+    counted_model_families: list[str] | None = None,
+    unresolved_dissent: bool = False,
+) -> dict[str, Any]:
+    packet = _tier4_packet(
+        pr=pr,
+        counted_reviewer_ids=["grok", "openai"],
+        dogfood_evidence=[{"reviewer_id": "grok"}, {"reviewer_id": "openai"}],
+        unresolved_dissent=unresolved_dissent,
+    )
+    entry = packet["entries"][0]
+    entry.update(
+        {
+            "head_sha": head,
+            "tier": 4,
+            "tier_name": "tier_4_preapproval_required",
+            "status": "human_preapproval_required",
+            "verdict": "tier_4_human_preapproval_required",
+            "counted_model_families": (
+                ["grok", "openai"] if counted_model_families is None else counted_model_families
+            ),
+            "requires_human_preapproval": True,
+        }
+    )
+    return packet
+
+
 def test_json_read_gh_probe_prefers_app_auth_and_preserves_cwd(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
@@ -478,6 +508,48 @@ def test_load_live_inputs_uses_rest_required_checks_when_graphql_checks_rate_lim
         required_checks=required_checks,
     )
     assert gate["ok"] is True
+
+
+def test_load_live_inputs_fetches_diagnostic_packet_for_self_quorum_failure(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    normal_packet = _tier4_repair_packet_missing_settlement()
+    diagnostic_packet = _tier4_diagnostic_human_preapproval_packet(head)
+    merge_packet_calls: list[list[str]] = []
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        if command[:3] == ["gh", "pr", "view"]:
+            return _pr_view(head, comments=[], human_settlement_state=None)
+        if command[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            merge_packet_calls.append(command)
+            return diagnostic_packet if "--ignore-own-quorum-check" in command else normal_packet
+        raise AssertionError(f"unexpected _run_json command: {command}")
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        if command[:4] == ["gh", "pr", "checks", "7423"]:
+            return [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ]
+        raise AssertionError(f"unexpected _run_json_any command: {command}")
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    _, merge_packet, required_checks = settler._load_live_inputs(
+        7423,
+        cwd=tmp_path,
+        repo="synaptent/aragora",
+    )
+
+    assert required_checks == [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "FAILURE"},
+    ]
+    assert len(merge_packet_calls) == 2
+    assert "--ignore-own-quorum-check" in merge_packet_calls[1]
+    assert merge_packet[settler.DIAGNOSTIC_MERGE_PACKET_KEY] is diagnostic_packet
 
 
 def test_load_live_inputs_fills_missing_required_check_rows_from_direct_runs(
@@ -1985,6 +2057,114 @@ def test_settle_only_allows_quorum_only_repair_packet_with_log_proof(
     assert proof_calls == [(required_checks, head)]
     assert text_commands[0][0][:3] == ["gh", "pr", "comment"]
     assert commands[0][0][:3] == ["gh", "api", "--method"]
+
+
+def test_settle_only_allows_self_quorum_failure_with_diagnostic_packet() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        diagnostic_merge_packet=_tier4_diagnostic_human_preapproval_packet(head),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+    assert result["self_quorum_missing_settlement_proven"] is True
+
+
+def test_settle_only_diagnostic_packet_does_not_hide_non_quorum_required_failure() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        diagnostic_merge_packet=_tier4_diagnostic_human_preapproval_packet(head),
+        required_checks=[
+            {"name": "lint", "state": "FAILURE"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is False
+    assert "required check lint is FAILURE" in result["blockers"]
+    assert result["self_quorum_missing_settlement_proven"] is False
+
+
+def test_settle_only_diagnostic_packet_does_not_hide_missing_model_quorum() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        diagnostic_merge_packet=_tier4_diagnostic_human_preapproval_packet(
+            head,
+            counted_model_families=["grok"],
+        ),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is False
+    assert settler.TIER4_EVIDENCE_BLOCKER in result["blockers"]
+    assert result["self_quorum_missing_settlement_proven"] is False
+
+
+def test_settle_only_diagnostic_packet_does_not_hide_unresolved_dissent() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        diagnostic_merge_packet=_tier4_diagnostic_human_preapproval_packet(
+            head,
+            unresolved_dissent=True,
+        ),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is False
+    assert settler.TIER4_EVIDENCE_BLOCKER in result["blockers"]
+    assert result["self_quorum_missing_settlement_proven"] is False
+
+
+def test_settle_only_diagnostic_packet_does_not_hide_owner_blocker() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    diagnostic_packet = _tier4_diagnostic_human_preapproval_packet(head)
+    diagnostic_packet["entries"][0]["active_owner"] = True
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        diagnostic_merge_packet=diagnostic_packet,
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is False
+    assert settler.MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER in result["blockers"]
+    assert result["self_quorum_missing_settlement_proven"] is False
 
 
 def test_quorum_failure_log_proves_missing_human_settlement(

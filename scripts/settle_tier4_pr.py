@@ -57,6 +57,8 @@ PermissionChecker = Callable[[str], bool]
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
 HUMAN_SETTLEMENT_STATUS_BLOCKER = f"missing or unsuccessful {HUMAN_SETTLEMENT_CONTEXT} status"
 MERGE_QUORUM_CONTEXT = "aragora-merge-quorum"
+DIAGNOSTIC_MERGE_PACKET_KEY = "_diagnostic_ignore_own_quorum_check"
+DIAGNOSTIC_MERGE_PACKET_ERROR_KEY = "_diagnostic_ignore_own_quorum_check_error"
 OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comment"
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER = "required_check_visibility_skew"
@@ -72,6 +74,7 @@ COMMAND_FAILURE_DETAIL_LIMIT = 1000
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
 BLOCKING_MERGE_STATES = {"DIRTY", "CONFLICTING"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
+REQUIRED_SELF_QUORUM_MODEL_FAMILIES = {"grok", "openai"}
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
     "tier4_human_risk_settlement",
@@ -653,6 +656,112 @@ def _required_quorum_only_failure(required_checks: list[dict[str, Any]] | None) 
     return saw_quorum_failure
 
 
+def _merge_packet_self_quorum_blocker(merge_packet: dict[str, Any], *, pr: int) -> bool:
+    not_ready = merge_packet.get("not_ready")
+    return isinstance(not_ready, list) and str(pr) in {str(item) for item in not_ready}
+
+
+def _diagnostic_merge_packet_from(merge_packet: dict[str, Any]) -> dict[str, Any] | None:
+    diagnostic = merge_packet.get(DIAGNOSTIC_MERGE_PACKET_KEY)
+    return diagnostic if isinstance(diagnostic, dict) else None
+
+
+def _entry_head_sha(entry: dict[str, Any]) -> str:
+    for key in ("head_sha", "headRefOid", "head"):
+        value = str(entry.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _entry_tier(entry: dict[str, Any]) -> int | None:
+    try:
+        return int(entry.get("tier"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _entry_has_owner_mailbox_blocker(entry: dict[str, Any]) -> bool:
+    for key in (
+        "owner_blocker",
+        "mailbox_blocker",
+        "active_owner",
+        "active_mailbox",
+        "owner_active",
+        "mailbox_active",
+    ):
+        if bool(entry.get(key)):
+            return True
+    return False
+
+
+def _packet_has_required_self_quorum_model_families(
+    merge_packet: dict[str, Any], *, pr: int
+) -> bool:
+    entry = _entry_for_pr(merge_packet, pr=pr)
+    if not entry:
+        return False
+    families = entry.get("counted_model_families")
+    counted = (
+        {str(item).strip().lower() for item in families if str(item).strip()}
+        if isinstance(families, list)
+        else set()
+    )
+    return REQUIRED_SELF_QUORUM_MODEL_FAMILIES.issubset(counted)
+
+
+def _diagnostic_packet_proves_self_quorum_missing_settlement(
+    diagnostic_merge_packet: dict[str, Any] | None,
+    *,
+    pr: int,
+    expected_head: str,
+    required_checks: list[dict[str, Any]] | None,
+) -> bool:
+    if not isinstance(diagnostic_merge_packet, dict):
+        return False
+    if not _required_quorum_only_failure(required_checks):
+        return False
+    entry = _entry_for_pr(diagnostic_merge_packet, pr=pr)
+    if not entry:
+        return False
+    if _entry_head_sha(entry) != expected_head:
+        return False
+    if _entry_tier(entry) != 4:
+        return False
+    if str(entry.get("status") or "") != "human_preapproval_required":
+        return False
+    if bool(entry.get("unresolved_dissent")):
+        return False
+    if _entry_has_owner_mailbox_blocker(entry):
+        return False
+    if not _packet_has_required_self_quorum_model_families(diagnostic_merge_packet, pr=pr):
+        return False
+    if not _packet_has_counted_tier4_evidence(diagnostic_merge_packet, pr=pr):
+        return False
+    return _packet_marks_tier4_human_settlement(diagnostic_merge_packet, pr=pr)
+
+
+def _effective_required_checks(
+    required_checks: list[dict[str, Any]] | None,
+    *,
+    self_quorum_missing_settlement_proven: bool,
+) -> list[dict[str, Any]] | None:
+    if not self_quorum_missing_settlement_proven or not required_checks:
+        return required_checks
+    effective: list[dict[str, Any]] = []
+    for check in required_checks:
+        if not isinstance(check, dict):
+            continue
+        if _required_check_is_merge_quorum(check):
+            patched = dict(check)
+            patched["state"] = "SUCCESS"
+            patched["self_quorum_failure_ignored"] = True
+            effective.append(patched)
+        else:
+            effective.append(check)
+    return effective
+
+
 def _packet_proves_quorum_missing_settlement(merge_packet: dict[str, Any], *, pr: int) -> bool:
     entry = _entry_for_pr(merge_packet, pr=pr)
     if not entry:
@@ -829,6 +938,7 @@ def evaluate_tier4_gate(
     expected_head: str,
     pr_view: dict[str, Any],
     merge_packet: dict[str, Any],
+    diagnostic_merge_packet: dict[str, Any] | None = None,
     required_checks: list[dict[str, Any]] | None = None,
     require_branch_protection_token: bool = False,
     repo: str = DEFAULT_REPO,
@@ -845,6 +955,22 @@ def evaluate_tier4_gate(
     if bool(pr_view.get("isDraft")):
         blockers.append(f"PR #{pr} is draft")
     merge_state = str(pr_view.get("mergeStateStatus") or "")
+    diagnostic_merge_packet = diagnostic_merge_packet or _diagnostic_merge_packet_from(merge_packet)
+    self_quorum_missing_settlement_proven = (
+        _diagnostic_packet_proves_self_quorum_missing_settlement(
+            diagnostic_merge_packet,
+            pr=pr,
+            expected_head=expected_head,
+            required_checks=required_checks,
+        )
+    )
+    effective_merge_packet = (
+        diagnostic_merge_packet if self_quorum_missing_settlement_proven else merge_packet
+    )
+    effective_required_checks = _effective_required_checks(
+        required_checks,
+        self_quorum_missing_settlement_proven=self_quorum_missing_settlement_proven,
+    )
     required_failing: list[str] = []
     blockers.extend(_mergeability_blockers(pr=pr, pr_view=pr_view))
     for check in required_checks or []:
@@ -852,12 +978,14 @@ def evaluate_tier4_gate(
         state = _required_check_state(check)
         if not _state_is_success(state):
             required_failing.append(f"{name}={state}")
+            if self_quorum_missing_settlement_proven and _required_check_is_merge_quorum(check):
+                continue
             blockers.append(f"required check {name} is {state}")
     merge_packet_blockers: list[str] = []
     not_ready = merge_packet.get("not_ready")
     if isinstance(not_ready, list):
         allowed_not_ready = set(ALLOWED_TIER4_NOT_READY)
-        if _packet_marks_tier4_human_settlement(merge_packet, pr=pr):
+        if _packet_marks_tier4_human_settlement(effective_merge_packet, pr=pr):
             allowed_not_ready.add(str(pr))
         merge_packet_blockers = sorted({str(item) for item in not_ready} - allowed_not_ready)
         if merge_packet_blockers:
@@ -865,7 +993,7 @@ def evaluate_tier4_gate(
                 f"merge-packet has unexpected blockers: {', '.join(merge_packet_blockers)}"
             )
 
-    required_checks_green = _required_checks_are_green(required_checks)
+    required_checks_green = _required_checks_are_green(effective_required_checks)
     authorization_precondition_blockers: list[str] = []
     if actual_head == expected_head:
         if not required_checks:
@@ -874,7 +1002,7 @@ def evaluate_tier4_gate(
             pass
         elif not _human_settlement_status_is_success(pr_view):
             authorization_precondition_blockers.append(HUMAN_SETTLEMENT_STATUS_BLOCKER)
-        elif not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
+        elif not _packet_has_counted_tier4_evidence(effective_merge_packet, pr=pr):
             authorization_precondition_blockers.append(TIER4_EVIDENCE_BLOCKER)
     blockers.extend(authorization_precondition_blockers)
 
@@ -900,8 +1028,8 @@ def evaluate_tier4_gate(
             pr_view,
             pr=pr,
             head=expected_head,
-            merge_packet=merge_packet,
-            required_checks=required_checks,
+            merge_packet=effective_merge_packet,
+            required_checks=effective_required_checks,
             require_branch_protection_token=require_branch_protection_token,
             repo=repo,
             cwd=cwd,
@@ -913,6 +1041,11 @@ def evaluate_tier4_gate(
             blockers.append(OPERATOR_COMMENT_BLOCKER)
 
     packet_diagnostics = _merge_packet_entry_diagnostics(merge_packet, pr=pr)
+    diagnostic_packet_diagnostics = (
+        _merge_packet_entry_diagnostics(diagnostic_merge_packet, pr=pr)
+        if diagnostic_merge_packet is not None
+        else None
+    )
     return {
         "ok": not blockers,
         "pr": pr,
@@ -924,6 +1057,8 @@ def evaluate_tier4_gate(
         "required_failing": required_failing,
         "merge_packet_blockers": merge_packet_blockers,
         "merge_packet": packet_diagnostics,
+        "diagnostic_merge_packet": diagnostic_packet_diagnostics,
+        "self_quorum_missing_settlement_proven": self_quorum_missing_settlement_proven,
         "reasons": packet_diagnostics["reasons"],
         "settle_eligible": not blockers,
         "authorized_actions": sorted(authorized_actions),
@@ -937,6 +1072,7 @@ def evaluate_tier4_settlement_preconditions(
     expected_head: str,
     pr_view: dict[str, Any],
     merge_packet: dict[str, Any],
+    diagnostic_merge_packet: dict[str, Any] | None = None,
     required_checks: list[dict[str, Any]] | None = None,
     quorum_missing_settlement_proof: bool = False,
     trusted_operator_logins: Sequence[str] | None = None,
@@ -955,6 +1091,18 @@ def evaluate_tier4_settlement_preconditions(
         blockers.append(f"PR #{pr} is draft")
     merge_state = str(pr_view.get("mergeStateStatus") or "")
     blockers.extend(_mergeability_blockers(pr=pr, pr_view=pr_view))
+    diagnostic_merge_packet = diagnostic_merge_packet or _diagnostic_merge_packet_from(merge_packet)
+    self_quorum_missing_settlement_proven = (
+        _diagnostic_packet_proves_self_quorum_missing_settlement(
+            diagnostic_merge_packet,
+            pr=pr,
+            expected_head=expected_head,
+            required_checks=required_checks,
+        )
+    )
+    effective_merge_packet = (
+        diagnostic_merge_packet if diagnostic_merge_packet is not None else merge_packet
+    )
 
     if not required_checks:
         blockers.append(REQUIRED_CHECKS_BLOCKER)
@@ -963,7 +1111,9 @@ def evaluate_tier4_settlement_preconditions(
             merge_packet, pr=pr
         )
         has_quorum_missing_settlement_proof = (
-            packet_missing_settlement_proof or quorum_missing_settlement_proof
+            packet_missing_settlement_proof
+            or quorum_missing_settlement_proof
+            or self_quorum_missing_settlement_proven
         )
         quorum_only_failure = _required_quorum_only_failure(required_checks)
         for check in required_checks:
@@ -981,7 +1131,7 @@ def evaluate_tier4_settlement_preconditions(
         if quorum_only_failure and not has_quorum_missing_settlement_proof:
             blockers.append(MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER)
 
-    not_ready = merge_packet.get("not_ready")
+    not_ready = effective_merge_packet.get("not_ready")
     if isinstance(not_ready, list):
         allowed_not_ready = set(ALLOWED_TIER4_NOT_READY)
         allowed_not_ready.add(str(pr))
@@ -989,9 +1139,14 @@ def evaluate_tier4_settlement_preconditions(
         if unexpected:
             blockers.append(f"merge-packet has unexpected blockers: {', '.join(unexpected)}")
 
-    if not _packet_marks_tier4_settlement_surface(merge_packet, pr=pr):
+    if not _packet_marks_tier4_settlement_surface(effective_merge_packet, pr=pr):
         blockers.append("merge-packet does not mark Tier 4 human-risk settlement")
-    if not _packet_has_counted_tier4_evidence(merge_packet, pr=pr):
+    if not _packet_has_counted_tier4_evidence(effective_merge_packet, pr=pr):
+        blockers.append(TIER4_EVIDENCE_BLOCKER)
+    elif (
+        diagnostic_merge_packet is not None
+        and not _packet_has_required_self_quorum_model_families(diagnostic_merge_packet, pr=pr)
+    ):
         blockers.append(TIER4_EVIDENCE_BLOCKER)
 
     allowed_logins = _trusted_operator_logins(trusted_operator_logins)
@@ -1023,6 +1178,7 @@ def evaluate_tier4_settlement_preconditions(
         "invoker_login": normalized_invoker,
         "invoker_has_admin_permission": invoker_has_admin_permission,
         "blockers": blockers,
+        "self_quorum_missing_settlement_proven": self_quorum_missing_settlement_proven,
     }
 
 
@@ -1553,6 +1709,29 @@ def _load_live_inputs(
         cwd=cwd,
     )
     required_checks = _load_required_checks(pr, cwd=cwd, repo=repo, pr_view=pr_view)
+    if _required_quorum_only_failure(required_checks) and _merge_packet_self_quorum_blocker(
+        merge_packet, pr=pr
+    ):
+        merge_packet = dict(merge_packet)
+        try:
+            merge_packet[DIAGNOSTIC_MERGE_PACKET_KEY] = _run_json(
+                [
+                    sys.executable,
+                    "-m",
+                    "aragora.cli.main",
+                    "review-queue",
+                    "merge-packet",
+                    "--pr",
+                    str(pr),
+                    "--repo",
+                    repo,
+                    "--ignore-own-quorum-check",
+                    "--json",
+                ],
+                cwd=cwd,
+            )
+        except RuntimeError as exc:
+            merge_packet[DIAGNOSTIC_MERGE_PACKET_ERROR_KEY] = str(exc)
     return pr_view, merge_packet, required_checks
 
 
@@ -1956,10 +2135,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         applied_commands: list[list[str]] = []
         if args.settle_only:
+            diagnostic_merge_packet = _diagnostic_merge_packet_from(merge_packet)
+            diagnostic_missing_settlement_proof = (
+                _diagnostic_packet_proves_self_quorum_missing_settlement(
+                    diagnostic_merge_packet,
+                    pr=args.pr,
+                    expected_head=args.head,
+                    required_checks=required_checks,
+                )
+            )
             quorum_missing_settlement_proof = False
-            if _required_quorum_only_failure(
-                required_checks
-            ) and not _packet_proves_quorum_missing_settlement(merge_packet, pr=args.pr):
+            if _required_quorum_only_failure(required_checks) and not (
+                _packet_proves_quorum_missing_settlement(merge_packet, pr=args.pr)
+                or diagnostic_missing_settlement_proof
+            ):
                 quorum_missing_settlement_proof = _quorum_failure_log_proves_missing_settlement(
                     required_checks,
                     repo=args.repo,
@@ -1971,6 +2160,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 expected_head=args.head,
                 pr_view=pr_view,
                 merge_packet=merge_packet,
+                diagnostic_merge_packet=diagnostic_merge_packet,
                 required_checks=required_checks,
                 quorum_missing_settlement_proof=quorum_missing_settlement_proof,
                 trusted_operator_logins=args.trusted_operator_login,
@@ -1991,6 +2181,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 expected_head=args.head,
                 pr_view=pr_view,
                 merge_packet=merge_packet,
+                diagnostic_merge_packet=diagnostic_merge_packet,
                 required_checks=required_checks,
                 quorum_missing_settlement_proof=quorum_missing_settlement_proof,
                 trusted_operator_logins=args.trusted_operator_login,
