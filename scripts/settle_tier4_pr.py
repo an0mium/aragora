@@ -438,6 +438,41 @@ def _status_timestamp(item: dict[str, Any]) -> datetime | None:
     return None
 
 
+def _status_state(item: dict[str, Any]) -> str:
+    return str(item.get("state") or item.get("conclusion") or "").strip().upper()
+
+
+def _status_equivalence_key(item: dict[str, Any]) -> tuple[str, str, str, str]:
+    context = str(item.get("context") or item.get("name") or "").strip()
+    return (
+        context,
+        _status_target_url(item),
+        _status_creator_login(item),
+        _status_state(item),
+    )
+
+
+def _dedupe_status_observations(items: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for item in items:
+        key = _status_equivalence_key(item)
+        previous = deduped.get(key)
+        if previous is None:
+            deduped[key] = item
+            continue
+        previous_timestamp = _status_timestamp(previous)
+        item_timestamp = _status_timestamp(item)
+        if previous_timestamp is None and item_timestamp is not None:
+            deduped[key] = item
+        elif (
+            previous_timestamp is not None
+            and item_timestamp is not None
+            and item_timestamp > previous_timestamp
+        ):
+            deduped[key] = item
+    return list(deduped.values())
+
+
 def _successful_human_settlement_status(pr_view: dict[str, Any]) -> dict[str, Any] | None:
     settlement_statuses: list[dict[str, Any]] = []
     for item in _status_signal_items(pr_view):
@@ -447,12 +482,12 @@ def _successful_human_settlement_status(pr_view: dict[str, Any]) -> dict[str, An
         if context != HUMAN_SETTLEMENT_CONTEXT:
             continue
         settlement_statuses.append(item)
+    settlement_statuses = _dedupe_status_observations(settlement_statuses)
     if not settlement_statuses:
         return None
     if len(settlement_statuses) == 1:
         item = settlement_statuses[0]
-        state = item.get("state") or item.get("conclusion")
-        return item if _state_is_success(state) else None
+        return item if _state_is_success(_status_state(item)) else None
     timestamped: list[tuple[datetime, int, dict[str, Any]]] = []
     for index, item in enumerate(settlement_statuses):
         timestamp = _status_timestamp(item)
@@ -463,8 +498,7 @@ def _successful_human_settlement_status(pr_view: dict[str, Any]) -> dict[str, An
     newest = timestamped[0]
     if len(timestamped) > 1 and timestamped[1][0] == newest[0]:
         return None
-    state = newest[2].get("state") or newest[2].get("conclusion")
-    return newest[2] if _state_is_success(state) else None
+    return newest[2] if _state_is_success(_status_state(newest[2])) else None
 
 
 def _human_settlement_status_is_success(pr_view: dict[str, Any]) -> bool:
