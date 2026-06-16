@@ -22,6 +22,8 @@ Design intent (recorded so later PRs hold the line):
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
@@ -198,9 +200,24 @@ class MissionStore:
             "items": [item.to_dict() for item in items],
         }
         dest = self.path_for(spec.mission_id)
-        tmp = dest.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        tmp.replace(dest)
+        payload = json.dumps(data, indent=2) + "\n"
+        # Unique temp name in the destination dir so two concurrent writers for
+        # the same mission_id cannot clobber each other's in-flight file; the
+        # final os.replace is atomic on POSIX.
+        fd, tmp_name = tempfile.mkstemp(
+            dir=self.state_dir, prefix=f"{dest.stem}.", suffix=".json.tmp"
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(payload)
+            os.replace(tmp_name, dest)
+        finally:
+            # On success os.replace consumed tmp_name; on failure clean the orphan.
+            if os.path.exists(tmp_name):
+                try:
+                    os.unlink(tmp_name)
+                except OSError:
+                    pass
         return dest
 
     def load_mission(self, mission_id: str) -> tuple[MissionSpec, tuple[WorkItem, ...]] | None:
