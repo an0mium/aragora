@@ -91,8 +91,18 @@ def _gather(
     for entry in read_ledgers(default_codex_home(), hours=since_hours):
         if entry.pr is not None and entry.pr > 0:
             ledger_prs.append(entry.pr)
+    ledger_targets: list[int] = []
+    seen_ledger_prs: set[int] = set()
+    if max_ledger_check > 0:
+        for pr in ledger_prs:
+            if pr in seen_ledger_prs:
+                continue
+            seen_ledger_prs.add(pr)
+            ledger_targets.append(pr)
+            if len(ledger_targets) >= max_ledger_check:
+                break
     stale: list[int] = []
-    for pr in sorted(set(ledger_prs))[:max_ledger_check]:
+    for pr in ledger_targets:
         view = _gh_json(["pr", "view", str(pr), "--repo", repo, "--json", "state"], timeout=20.0)
         if isinstance(view, dict) and str(view.get("state", "")).upper() in {"MERGED", "CLOSED"}:
             stale.append(pr)
