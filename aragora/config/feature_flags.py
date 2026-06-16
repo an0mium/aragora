@@ -442,6 +442,48 @@ class FeatureFlagRegistry:
 
     def _register_builtin_flags(self) -> None:
         """Register all built-in feature flags."""
+        # OpenRouter Fusion (multi-model council+judge). All default OFF: Fusion
+        # is ~4-5x cost and must be an explicit opt-in. Downstream phases
+        # (planning/verify/quorum tie-break) gate on their own flags so each can
+        # be enabled independently.
+        self.register(
+            "enable_fusion",
+            bool,
+            False,
+            "Enable the OpenRouter Fusion agent (multi-model council+judge) as a selectable participant/judge",
+            FlagCategory.EXPERIMENTAL,
+            FlagStatus.BETA,
+            env_var="ARAGORA_ENABLE_FUSION",
+        )
+        self.register(
+            "fusion_cost_budget_per_debate",
+            float,
+            50.0,
+            "[scaffolding; enforcement lands in the nomic-integration PR] Max USD on Fusion calls per debate before falling back to normal agents",
+            FlagCategory.BILLING,
+        )
+        self.register(
+            "fusion_cost_monthly_cap",
+            float,
+            5000.0,
+            "[scaffolding; enforcement lands in the nomic-integration PR] Monthly USD cap across all Fusion calls",
+            FlagCategory.BILLING,
+        )
+        # Codex agent bridge (cross-agent observation + advisory steering). Default
+        # OFF: reading a one-shot digest needs no flag (it touches nothing), but any
+        # orchestration use -- auto-ingesting sibling Codex state or writing advisory
+        # steering -- is an explicit opt-in. The steering channel is advisory and
+        # monotonic-restrictive: it can only ever add caution, never grant a gate
+        # bypass, so the merge-quorum gate stays the sole merge authority.
+        self.register(
+            "enable_codex_bridge",
+            bool,
+            False,
+            "Enable cross-agent ingest of local Codex session/automation state and advisory steer-back",
+            FlagCategory.EXPERIMENTAL,
+            FlagStatus.BETA,
+            env_var="ARAGORA_ENABLE_CODEX_BRIDGE",
+        )
         # Knowledge Mound flags
         self.register(
             "enable_knowledge_retrieval",

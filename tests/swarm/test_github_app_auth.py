@@ -249,6 +249,22 @@ def test_gh_subprocess_run_returns_success_immediately(monkeypatch) -> None:
     assert calls == [["gh", "pr", "list"]]
 
 
+def test_gh_subprocess_run_preserves_cwd(monkeypatch, tmp_path) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_run(cmd, **kwargs):
+        observed.update(kwargs)
+        return subprocess.CompletedProcess(cmd, 0, '{"ok": true}', "")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "github_cli_env", lambda *, prefer_app=True: {"GH_TOKEN": "x"})
+
+    result = mod.gh_subprocess_run(["pr", "list"], cwd=tmp_path)
+
+    assert result.returncode == 0
+    assert observed["cwd"] == tmp_path
+
+
 def test_gh_subprocess_run_does_not_retry_non_rate_limit_failures(monkeypatch) -> None:
     calls: list[list[str]] = []
 

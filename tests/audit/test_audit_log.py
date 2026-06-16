@@ -864,7 +864,9 @@ class TestAuditLogEdgeCases:
 
         events = audit_log.query(AuditQuery())
         assert len(events) == 1
-        assert "O'Brien" in str(events[0].details)
+        # details round-trips as a dict; check the stored field value directly
+        # (str(dict) would escape the apostrophe in its repr).
+        assert "O'Brien" in events[0].details["query"]
 
     def test_event_with_unicode(self, audit_log):
         """Test event with unicode characters."""
