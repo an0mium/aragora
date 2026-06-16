@@ -64,6 +64,16 @@ def test_scenario_rejects_non_finite_belief_age():
         _scenario(belief_age_days=float("nan"))
 
 
+def test_scenario_rejects_non_bool_belief_matches_truth():
+    with pytest.raises(ValueError, match="belief_matches_truth"):
+        _scenario(belief_matches_truth="false")
+
+
+def test_scenario_rejects_non_bool_quorum_would_flag():
+    with pytest.raises(ValueError, match="quorum_would_flag"):
+        _scenario(quorum_would_flag="false")
+
+
 def test_scenario_rejects_non_positive_freshness_ttl():
     with pytest.raises(ValueError, match="freshness_ttl_days"):
         _scenario(freshness_ttl_days=0.0)

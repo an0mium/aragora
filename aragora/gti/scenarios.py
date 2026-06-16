@@ -46,6 +46,10 @@ class Scenario:
             raise ValueError(f"invalid failure_mode: {self.failure_mode!r}")
         if self.expected not in {"detect", "correct", "halt"}:
             raise ValueError(f"invalid expected: {self.expected!r}")
+        if not isinstance(self.belief_matches_truth, bool):
+            raise ValueError(f"invalid belief_matches_truth: {self.belief_matches_truth!r}")
+        if not isinstance(self.quorum_would_flag, bool):
+            raise ValueError(f"invalid quorum_would_flag: {self.quorum_would_flag!r}")
         if (
             isinstance(self.belief_age_days, bool)
             or not isinstance(self.belief_age_days, (int, float))

@@ -65,6 +65,11 @@ def test_non_finite_ttl_is_invalid():
     assert problems == ["b1: invalid freshness_ttl_seconds"]
 
 
+def test_revalidation_flag_must_be_boolean():
+    problems = validate_belief_provenance([_belief(was_revalidated_at_decision="false")], NOW)
+    assert problems == ["b1: invalid was_revalidated_at_decision"]
+
+
 def test_past_ttl_without_revalidation_is_invalid():
     problems = validate_belief_provenance(
         [_belief(as_of="2026-06-06T11:00:00+00:00", freshness_ttl_seconds=300.0)], NOW

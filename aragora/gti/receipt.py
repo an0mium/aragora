@@ -57,6 +57,10 @@ def validate_belief_provenance(beliefs: list[BeliefProvenance], now_iso: str) ->
             problems.append(f"{b.belief_id}: invalid freshness_ttl_seconds")
             continue
 
+        if not isinstance(b.was_revalidated_at_decision, bool):
+            problems.append(f"{b.belief_id}: invalid was_revalidated_at_decision")
+            continue
+
         try:
             as_of = datetime.fromisoformat(b.as_of)
         except ValueError:
