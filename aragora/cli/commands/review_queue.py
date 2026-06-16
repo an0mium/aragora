@@ -41,6 +41,9 @@ from aragora.cli.commands.review_queue_parsers import (
     add_observe_outcomes_parser,
     add_record_settlement_parser,
 )
+from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
+)
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
     _gh_error_kind,
@@ -3103,9 +3106,15 @@ def _build_model_review_quorum(
         head_sha=head_sha,
         head_committed_at=head_committed_at,
     )
+    comment_dissenting_views = _dissenting_views_from_comments(
+        pr.get("comments") or [],
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+    )
     dissenting_views = [
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
     ]
+    dissenting_views.extend(comment_dissenting_views)
     blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
     blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
@@ -3759,104 +3768,6 @@ def _is_github_actions_author(author: str) -> bool:
     return str(author or "").strip().lower() in {"github-actions", "github-actions[bot]"}
 
 
-def _has_blocking_or_negative_verdict(body: str) -> bool:
-    """Return True for explicit evidence comments that report blockers.
-
-    Merge quorum should count independent evidence that can support readiness,
-    not a comment that visibly says the reviewer failed or blocked the PR.
-    Keep the parser deliberately label-based so ordinary prose such as
-    "no blocking findings" remains countable.
-    """
-    negative_verdict_prefixes = (
-        "fail",
-        "failed",
-        "failing",
-        "fails",
-        "failure",
-        "block",
-        "blocked",
-        "blocking",
-        "request changes",
-        "request_changes",
-        "changes requested",
-        "reject",
-        "rejected",
-        "not ready",
-        "needs repair",
-    )
-    non_blocking_prefixes = (
-        "none",
-        "none found",
-        "no",
-        "no blockers",
-        "no blocking findings",
-        "not found",
-        "0",
-        "zero",
-        "false",
-        "n/a",
-        "not applicable",
-        "[]",
-    )
-
-    def _starts_with_phrase(value: str, phrases: tuple[str, ...]) -> bool:
-        # Word-boundary matching, not raw prefixes: "no" must cover "no" /
-        # "no blockers" but never "node crashes" or "not working", and
-        # "block" must never cover "blockchain".
-        return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
-
-    def _strip_decoration(text: str) -> str:
-        # Markdown list/heading/quote decoration and numbered-list markers:
-        # "### Verdict", "1. Verdict", "> **Verdict**" all expose the label.
-        return re.sub(r"^(?:[#>\-*+\s]+|\d+[.)]\s+)+", "", text.strip())
-
-    def _normalize_value(text: str) -> str:
-        text = text.replace("**", "").replace("__", "")
-        return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
-
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
-    for idx, stripped in enumerate(lines):
-        if not stripped:
-            continue
-        line = _strip_decoration(stripped)
-        line = line.replace("**", "").replace("__", "")
-        match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
-        if not match:
-            continue
-        normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
-        normalized_label = normalized_label.strip("*_ ")
-        normalized_value = _normalize_value(match.group("value"))
-        if normalized_label in {"verdict", "decision", "recommendation"} and _starts_with_phrase(
-            normalized_value, negative_verdict_prefixes
-        ):
-            return True
-        if normalized_label in {"blocking finding", "blocking findings", "blocker", "blockers"}:
-            candidate = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", normalized_value)
-            if candidate in {"-", "*", "[]", "[ ]", "—", "–"}:
-                # An inline empty marker ("Blockers: []", "Blockers: -") is an
-                # explicit "no blockers"; never read the next line as a blocker.
-                continue
-            if not candidate:
-                # The blockers may be listed on the following lines:
-                # "Blocking findings:\n- crash on startup" must stay blocking,
-                # while "Blockers:\nNone found." must stay countable.
-                follow = next((entry for entry in lines[idx + 1 :] if entry), "")
-                is_list_item = bool(re.match(r"^(?:[-*+]\s+|\d+[.)]\s+)", follow))
-                if not is_list_item:
-                    if follow.startswith("#"):
-                        # An empty blockers section followed by a heading.
-                        continue
-                    if re.match(r"^[^:]+?:\s+\S", follow):
-                        # An empty blockers section followed by a new labeled
-                        # section ("Verdict: PASS") is not a blocker entry.
-                        continue
-                candidate = _normalize_value(_strip_decoration(follow))
-            if not candidate or _starts_with_phrase(candidate, non_blocking_prefixes):
-                continue
-            return True
-    return False
-
-
 def _normalize_model_reviewer_id(value: str) -> str:
     lower = str(value).lower()
     if not lower or "unknown_model_reviewer" in lower:
@@ -4191,6 +4102,60 @@ def _dogfood_evidence_from_comments(
             }
         )
     return evidence[:5]
+
+
+def _dissenting_views_from_comments(
+    comments: list[Any],
+    *,
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> list[dict[str, Any]]:
+    """Extract exact-head model-review comments that visibly request changes."""
+    markers = (
+        "dogfood",
+        "adversarial",
+        "cross-author",
+        "recheck",
+        "codex review",
+        "claude review",
+        "grok independent",
+        "gemini independent",
+        "independent semantic review",
+        "independent model review",
+        "model-family semantic signal",
+    )
+    dissent: list[dict[str, Any]] = []
+    for comment in comments:
+        if not isinstance(comment, dict) or not _is_comment_grounded_on_head(
+            comment, head_sha, head_committed_at
+        ):
+            continue
+        body = str(comment.get("body", "") or "")
+        lower = body.lower()
+        if not _has_blocking_or_negative_verdict(body) or not any(
+            token in lower for token in markers
+        ):
+            continue
+        identity = _resolve_model_review_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
+            identity = _resolve_dogfood_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
+            continue
+        author_payload = comment.get("author")
+        github_author = ""
+        if isinstance(author_payload, dict):
+            github_author = str(author_payload.get("login", "") or "")
+        dissent.append(
+            {
+                "agent": identity.model_family or identity.surface_reviewer_id,
+                "position": "changes_requested",
+                "reason": _first_nonempty_line(body)[:240],
+                "source": "pr_comment",
+                "github_author": github_author,
+                **identity.as_packet_fields(),
+            }
+        )
+    return dissent[:5]
 
 
 def _model_review_signals_from_comments(

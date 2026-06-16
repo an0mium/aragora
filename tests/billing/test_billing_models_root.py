@@ -193,14 +193,14 @@ class TestOrganization:
         limits = org.limits
 
         assert limits == TIER_LIMITS[SubscriptionTier.PROFESSIONAL]
-        assert limits.debates_per_month == 200
+        assert limits.debates_per_month == 1000
 
     def test_organization_debates_remaining(self):
         """Should calculate remaining debates correctly."""
         org = Organization(tier=SubscriptionTier.PROFESSIONAL)
         org.debates_used_this_month = 50
 
-        assert org.debates_remaining == 150  # 200 - 50
+        assert org.debates_remaining == 950  # 1000 - 50
 
     def test_organization_debates_remaining_at_limit(self):
         """Debates remaining should be 0 when at limit."""

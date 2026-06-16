@@ -8,7 +8,7 @@ _Post-v2.9.0 changes land here until the next stable tag._
 
 ## [2.9.0] - 2026-04-25
 
-_Promoted from `v2.9.0-rc.1` after the chronic-red CI sweep, the npm vulnerability flush, and the self-hosted runner Docker provisioning. All six chronic-red CI workflows fixed; 19 of 19 Dependabot alerts addressed; secret scanning migrated to TruffleHog. Detailed readiness record at `docs/status/2026-04-25-rc1-to-stable-receipt.md`._
+_Promoted from `v2.9.0-rc.1` after the chronic-red CI sweep, the npm vulnerability flush, and the self-hosted runner Docker provisioning. All six chronic-red CI workflows fixed; 19 of 19 Dependabot alerts addressed; secret scanning migrated to TruffleHog. Detailed readiness record at `docs/archive/status/2026-04-25-rc1-to-stable-receipt.md`._
 
 ### Added (post-rc.1)
 - **Mode 3 brief severity counts (#6505 / #6506):** `ReviewBrief` now carries `findings_severity_counts` — aggregate `{high, medium, low}` counts derived from each slot's top findings — and surfaces it in the stored brief JSON. Operators can now distinguish "1 high-severity blocker" from "5 low-severity editorial comments" without reading every finding. Legacy callers that omit the new `build_brief` kwarg get an empty map rather than a crash.
@@ -17,7 +17,7 @@ _Promoted from `v2.9.0-rc.1` after the chronic-red CI sweep, the npm vulnerabili
 - **Lane 1b rubric replay (#6552):** Replayed all 17 rc.1-window briefs through the post-#6505 rubric. 3/17 downgraded from `repair_first` to `approve_with_followups` — first observed evidence that the severity gate produces meaningful verdict variance.
 
 ### Changed (post-rc.1)
-- **Mode 3 verdict severity gate (#6505 / #6510):** `REPAIR_FIRST` is now downgraded to `APPROVE_WITH_FOLLOWUPS` when the aggregated severity map reports zero `high` findings. Fixes the calibration bias identified in `docs/status/2026-04-24-mode3-rc1-calibration.md` where 8 skeptical lenses all looking for problems always produced `REPAIR_FIRST` regardless of severity. Legacy callers without severity data preserve the old three-class behavior. `APPROVE_CANDIDATE` and `NEEDS_HUMAN_ATTENTION` paths are untouched.
+- **Mode 3 verdict severity gate (#6505 / #6510):** `REPAIR_FIRST` is now downgraded to `APPROVE_WITH_FOLLOWUPS` when the aggregated severity map reports zero `high` findings. Fixes the calibration bias identified in `docs/archive/status/2026-04-24-mode3-rc1-calibration.md` where 8 skeptical lenses all looking for problems always produced `REPAIR_FIRST` regardless of severity. Legacy callers without severity data preserve the old three-class behavior. `APPROVE_CANDIDATE` and `NEEDS_HUMAN_ATTENTION` paths are untouched.
 - **Mode 3 panel budget ceiling 8.00 → 10.00 USD (#6514):** Accommodates the ninth advocate slot at the conservative estimator rate. Real-world per-brief cost stays ~$0.18.
 
 ### Fixed (chronic-red CI sweep, 2026-04-24 → 2026-04-25)
@@ -38,7 +38,7 @@ _Promoted from `v2.9.0-rc.1` after the chronic-red CI sweep, the npm vulnerabili
 - **17 npm Dependabot alerts → 0 (#6558):** Combined npm `overrides` sweep across 5 projects (aragora/live, sdk/typescript, examples/sveltekit, ide/vscode-aragora, ide/vscode-aragora/webview-ui, docs-site). Patched packages: lodash, picomatch, postcss, serialize-javascript, uuid, vite, yaml, cookie, brace-expansion, ajv, qs, minimatch. Verified post-merge: every project reports `npm audit: found 0 vulnerabilities`.
 
 ### Documentation
-- **Release prep checklist progress (#6493):** 8 of 10 acceptance criteria addressed directly; the 48h/main-nightly evidence criteria remain pending until the next scheduled observation. Readiness receipt (`docs/status/2026-04-25-rc1-to-stable-receipt.md`) captures the rc.1 → stable readiness arc.
+- **Release prep checklist progress (#6493):** 8 of 10 acceptance criteria addressed directly; the 48h/main-nightly evidence criteria remain pending until the next scheduled observation. Readiness receipt (`docs/archive/status/2026-04-25-rc1-to-stable-receipt.md`) captures the rc.1 → stable readiness arc.
 - **Mode 3 calibration sample N≥20:** 20 briefs total ($2.71 + $0.66 = $3.37 cumulative API spend); rubric-replay (#6552) shows 3/17 downgrades on the post-fix path.
 - **Architecture reconciliation (#6580):** Updated the source and docs-site architecture narratives to match the current package layout, handler scale, operation count, and strict-mypy baseline before cutting the stable tag.
 
@@ -47,7 +47,7 @@ _Promoted from `v2.9.0-rc.1` after the chronic-red CI sweep, the npm vulnerabili
 
 ### Highlights
 
-- **Mode 3 heterogeneous PR review operational.** 8-provider panel (Claude + GPT core, Gemini / Grok / DeepSeek / Kimi / Qwen heterodox, Mistral regulatory), end-to-end regression-tested on the shipped path, ~95% precision on the calibration sample to date. Settlement ledger at `docs/status/2026-04-21-thesis-settlement-session.md`.
+- **Mode 3 heterogeneous PR review operational.** 8-provider panel (Claude + GPT core, Gemini / Grok / DeepSeek / Kimi / Qwen heterodox, Mistral regulatory), end-to-end regression-tested on the shipped path, ~95% precision on the calibration sample to date. Settlement ledger at `docs/archive/status/2026-04-21-thesis-settlement-session.md`.
 - **Dialectical Runtime Synthesis Layer (DIC-series) underway.** Executable claim manifest (DIC-13), proof-carrying code unit scanner with flag gate (DIC-19), proactive crux gardening (DIC-28), operator crux arbitration (DIC-27), and agent bridge handler landed behind feature gates.
 - **Triage auto-handle calibration gate integrated.** Low-risk `fire_and_forget` and `admin_merge_allowed` paths now consult an outcome-history SQLite store and surface drift alerts before gating merges.
 - **Mac runner fleet hardened.** Canonical `docs/runners/FLEET.md`, daily headcount monitor, TIME_WAIT LaunchAgent + weekly GH Actions check, SSM deploy pinned to workflow SHA.
