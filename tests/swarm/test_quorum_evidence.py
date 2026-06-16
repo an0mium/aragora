@@ -12,6 +12,7 @@ The compose helper is checked against the *real* evidence parser
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import subprocess
 import threading
@@ -1425,6 +1426,92 @@ def test_collect_missing_head_raises() -> None:
         collect_evidence(repo="o/r", pr=1, families=["claude"], author="me", apply=True, **fakes)
 
 
+def _prepared_outcome_file(tmp_path) -> Path:
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="dry-run; re-run with --apply to post",
+        items=[
+            EvidenceItem("claude", "claude body", True, ["claude"], [], "pass"),
+            EvidenceItem("grok", "grok body", True, ["grok"], [], "pass"),
+        ],
+    )
+    path = tmp_path / "prepared.json"
+    path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    return path
+
+
+def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[tuple[str, str]] = []
+
+    def context_fetcher(repo: str, pr: int) -> dict:
+        return {"head_sha": HEAD, "head_committed_at": COMMITTED}
+
+    def tier_fetcher(repo: str, pr: int):
+        return 1
+
+    def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        return {
+            "would_count": True,
+            "counted_reviewer_ids": [body.split()[0]],
+            "problems": [],
+        }
+
+    def poster(repo: str, pr: int, body: str) -> None:
+        posted.append((repo, body))
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        context_fetcher=context_fetcher,
+        tier_fetcher=tier_fetcher,
+        linter=linter,
+        poster=poster,
+    )
+
+    assert outcome.action == "post"
+    assert "without reviewer regeneration" in outcome.action_reason
+    assert outcome.posted == ["claude", "grok"]
+    assert posted == [("o/r", "claude body"), ("o/r", "grok body")]
+
+
+def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[tuple[str, str]] = []
+
+    def context_fetcher(repo: str, pr: int) -> dict:
+        return {"head_sha": "different-head", "head_committed_at": COMMITTED}
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        context_fetcher=context_fetcher,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=lambda *args, **kwargs: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+    )
+
+    assert outcome.action == "prepare"
+    assert "prepared head" in outcome.action_reason
+    assert outcome.posted == []
+    assert posted == []
+
+
 # --- run_collect_cli (monkeypatched orchestrator) ---------------------------
 
 
@@ -1452,6 +1539,49 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
     )
     assert rc == 0
     assert "collect_evidence" in capsys.readouterr().out
+
+
+def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    seen: dict[str, object] = {}
+
+    def boom_collect(**kwargs):
+        raise AssertionError("collect_evidence should not run for prepared_json")
+
+    def fake_apply_prepared_evidence(**kwargs) -> CollectOutcome:
+        seen.update(kwargs)
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="post",
+            action_reason="prepared exact-head evidence artifact",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+            posted=["claude", "grok"],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", boom_collect)
+    monkeypatch.setattr(qe, "apply_prepared_evidence", fake_apply_prepared_evidence)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=True,
+        json_output=True,
+        prepared_json=prepared,
+    )
+
+    assert rc == 0
+    assert seen["prepared_json"] == prepared
+    assert seen["apply"] is True
 
 
 def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:
