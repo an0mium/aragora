@@ -16,7 +16,7 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-pip install -e ".[dev,research,test]"
+pip install -e ".[dev,test]"
 
 # Run baseline deterministic test command (same as CI)
 python scripts/run_test_baseline.py
@@ -285,7 +285,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 ## Frontend Development
 
-The frontend is a Next.js app in `aragora/live/`. See [docs/FRONTEND_DEVELOPMENT.md](docs/FRONTEND_DEVELOPMENT.md) for the full guide. The TypeScript SDK lives in `aragora-js/` and is not a UI.
+The frontend is a Next.js app in `aragora/live/`. See [docs/FRONTEND_DEVELOPMENT.md](docs/FRONTEND_DEVELOPMENT.md) for the full guide. The TypeScript SDK lives in `sdk/typescript/` and is not a UI.
 
 ```bash
 cd aragora/live
