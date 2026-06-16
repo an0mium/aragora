@@ -81,6 +81,25 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
         "philosophy": 0.85,  # Rigorous reasoning
         "general": 0.85,
     },
+    # Cheap-tier coding models (Qwen Code, Kimi). Strong, low-cost; their low
+    # cost_factor (below) routes routine work here, reserving frontier subs.
+    "qwen": {
+        "debugging": 0.8,
+        "testing": 0.78,
+        "performance": 0.75,
+        "frontend": 0.78,
+        "api": 0.75,
+        "database": 0.72,
+        "general": 0.72,
+    },
+    "kimi": {
+        "reasoning": 0.8,
+        "architecture": 0.75,
+        "documentation": 0.78,
+        "data_analysis": 0.78,
+        "api": 0.72,
+        "general": 0.74,
+    },
 }
 
 # OpenRouter Fusion is NOT a default agent -- it is opt-in via the enable_fusion
@@ -97,6 +116,22 @@ FUSION_EXPERTISE: dict[str, float] = {
     "data_analysis": 0.9,
     "philosophy": 0.9,
     "general": 0.88,
+}
+
+# Relative cost multipliers for the always-on agents so the Pareto optimizer
+# reflects the real ~20-45x cheap-vs-frontier gap (Artificial Analysis v4.1:
+# DeepSeek/Qwen/Kimi ~$0.04-0.10/task vs Claude/Codex ~$1-1.8/task). Cheap-tier
+# agents get a low cost_factor so routine work routes to them, reserving the
+# frontier subscriptions' rate budget for high-stakes tasks. This serves the
+# predictable-cost (subscription-first) posture. Unlisted agents default to 1.0x.
+AGENT_COST_FACTORS: dict[str, float] = {
+    "deepseek": 0.3,
+    "qwen": 0.35,
+    "kimi": 0.4,
+    "gemini": 0.5,  # Gemini/Antigravity Flash: cheap + fast
+    "grok": 0.8,
+    "codex": 1.0,
+    "claude": 1.2,
 }
 
 if TYPE_CHECKING:
@@ -956,7 +991,12 @@ class AgentSelector:
         # Register the always-on default agents (1.0x cost / 1000ms latency).
         for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
             selector.register_agent(
-                AgentProfile(name=agent_name, agent_type=agent_name, expertise=expertise.copy())
+                AgentProfile(
+                    name=agent_name,
+                    agent_type=agent_name,
+                    expertise=expertise.copy(),
+                    cost_factor=AGENT_COST_FACTORS.get(agent_name, 1.0),
+                )
             )
 
         # Fusion is opt-in: expose it to the Pareto optimizer ONLY when

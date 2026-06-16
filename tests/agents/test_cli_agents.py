@@ -532,6 +532,33 @@ class TestAntigravityAgent:
         assert cmd[-1] == "review this PR"
 
 
+class TestKimiCLIAgent:
+    """Test KimiCLIAgent (Moonshot Kimi, cheap-tier subscription/API family)."""
+
+    def test_exists_and_inherits(self):
+        from aragora.agents.cli_agents import CLIAgent, KimiCLIAgent
+
+        assert issubclass(KimiCLIAgent, CLIAgent)
+
+    def test_generate_invokes_kimi_cli(self):
+        from unittest.mock import patch
+
+        from aragora.agents.cli_agents import KimiCLIAgent
+
+        agent = KimiCLIAgent(
+            name="kimi-test",
+            model="kimi-k2",
+            enable_fallback=False,
+            enable_circuit_breaker=False,
+        )
+        with patch.object(agent, "_run_cli", new=AsyncMock(return_value="OK")) as m:
+            out = asyncio.run(agent.generate("review this PR"))
+        assert out == "OK"
+        cmd = m.call_args.args[0]
+        assert cmd[0] == "kimi" and "-p" in cmd
+        assert cmd[-1] == "review this PR"
+
+
 class TestQwenCLIAgent:
     """Test QwenCLIAgent implementation."""
 

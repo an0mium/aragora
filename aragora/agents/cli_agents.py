@@ -76,6 +76,7 @@ __all__ = [
     "GrokCLIAgent",
     "GrokBuildAgent",
     "AntigravityAgent",
+    "KimiCLIAgent",
     "QwenCLIAgent",
     "DeepseekCLIAgent",
     "KiloCodeAgent",
@@ -1117,6 +1118,39 @@ class AntigravityAgent(CLIAgent):
             )
         return await self._generate_with_fallback(
             ["agy", "-p", full_prompt],
+            prompt,
+            context,
+        )
+
+
+@AgentRegistry.register(
+    "kimi-cli",
+    default_model="kimi-k2",
+    agent_type="CLI",
+    requires="Kimi CLI (pip install kimi-cli) or MOONSHOT_API_KEY; Moonshot Kimi (cheap tier)",
+    env_vars="MOONSHOT_API_KEY",
+)
+class KimiCLIAgent(CLIAgent):
+    """Agent that uses Moonshot's Kimi CLI (cheap-tier, distinct quorum family).
+
+    Headless ``kimi -p <prompt>`` (the exact flag should be confirmed against the
+    installed kimi-cli version; OpenRouter fallback covers a CLI miss). Kimi maps
+    to the ``moonshot``/``kimi`` model family, so it can serve as a low-cost
+    quorum reviewer or worker. Falls back to OpenRouter (Kimi) on CLI failure.
+    """
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response via the Kimi CLI."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            return await self._generate_with_fallback(
+                ["kimi", "-p", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+            )
+        return await self._generate_with_fallback(
+            ["kimi", "-p", full_prompt],
             prompt,
             context,
         )
