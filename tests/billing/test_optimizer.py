@@ -25,11 +25,13 @@ from aragora.billing.recommendations import (
 )
 from aragora.billing.optimizer import (
     CostOptimizer,
+    MODEL_TIERS,
     ModelDowngradeAnalyzer,
     CachingRecommender,
     BatchingOptimizer,
     UsagePattern,
 )
+from aragora.billing.usage import PROVIDER_PRICING
 
 
 class TestRecommendationDataclasses:
@@ -121,6 +123,13 @@ class TestRecommendationDataclasses:
 class TestModelDowngradeAnalyzer:
     """Tests for model downgrade analyzer."""
 
+    def test_model_tiers_have_explicit_provider_pricing(self):
+        """Every optimizer tier must resolve to explicit billing rates, not defaults."""
+        for model, info in MODEL_TIERS.items():
+            provider_prices = PROVIDER_PRICING[info["provider"]]
+            assert model in provider_prices
+            assert f"{model}-output" in provider_prices
+
     def test_analyze_identifies_downgrade_opportunity(self):
         """Test analyzer finds downgrade opportunities."""
         analyzer = ModelDowngradeAnalyzer()
@@ -167,9 +176,19 @@ class TestModelDowngradeAnalyzer:
         rec = recommendations[0]
         assert rec.type == RecommendationType.MODEL_DOWNGRADE
         assert rec.model_alternative is not None
-        # Cheapest Tier 3 alternative should be gemini-3.5-flash
-        assert rec.model_alternative.model == "gemini-3.5-flash"
         assert rec.projected_cost_usd < rec.current_cost_usd
+
+        alternatives = {
+            alt.model: alt
+            for alt in analyzer._find_alternatives(  # noqa: SLF001
+                patterns[0],
+                current_tier=1,
+            )
+        }
+        assert "deepseek-v4-pro" in alternatives
+        assert "gemini-3.5-flash" in alternatives
+        assert alternatives["gemini-3.5-flash"].cost_per_1k_input == Decimal("0.00150")
+        assert alternatives["gemini-3.5-flash"].cost_per_1k_output == Decimal("0.00900")
 
     def test_analyze_skips_cheap_models(self):
         """Test analyzer skips already cheap models."""

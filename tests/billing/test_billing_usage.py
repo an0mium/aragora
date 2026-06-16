@@ -51,6 +51,12 @@ class TestTokenCostCalculation:
         # $2.50 per 1M input * 0.5 + $10.00 per 1M output * 0.2 = $1.25 + $2.00 = $3.25
         assert cost == Decimal("3.25")
 
+    def test_openai_gpt55_pricing_matches_canonical_table(self):
+        """Test OpenAI GPT-5.5 pricing matches the canonical live invoker table."""
+        cost = calculate_token_cost("openai", "gpt-5.5", 1_000_000, 1_000_000)
+        # $2.50 per 1M input + $10.00 per 1M output = $12.50
+        assert cost == Decimal("12.50")
+
     def test_openai_gpt4o_mini_pricing(self):
         """Test OpenAI GPT-4o-mini pricing."""
         cost = calculate_token_cost("openai", "gpt-4o-mini", 10_000_000, 5_000_000)
@@ -62,6 +68,12 @@ class TestTokenCostCalculation:
         cost = calculate_token_cost("google", "gemini-pro", 2_000_000, 1_000_000)
         # $1.25 per 1M * 2 + $5.00 per 1M * 1 = $2.50 + $5.00 = $7.50
         assert cost == Decimal("7.50")
+
+    def test_google_gemini_35_flash_pricing_matches_documented_table(self):
+        """Test Gemini 3.5 Flash pricing matches the documented agentic-tier rate."""
+        cost = calculate_token_cost("google", "gemini-3.5-flash", 1_000_000, 1_000_000)
+        # $1.50 per 1M input + $9.00 per 1M output = $10.50
+        assert cost == Decimal("10.50")
 
     def test_deepseek_pricing(self):
         """Test DeepSeek pricing."""

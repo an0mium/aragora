@@ -50,7 +50,7 @@ MODEL_TIERS: dict[str, dict[str, Any]] = {
     "deepseek-v4-pro": {"tier": 2, "provider": "deepseek", "quality": 0.78},
     # Tier 3: Fast/cheap (simple tasks)
     "gpt-4o-mini": {"tier": 3, "provider": "openai", "quality": 0.70},
-    "claude-haiku-3": {"tier": 3, "provider": "anthropic", "quality": 0.65},
+    "claude-haiku-4.5": {"tier": 3, "provider": "anthropic", "quality": 0.65},
     "deepseek-v3": {"tier": 3, "provider": "deepseek", "quality": 0.75},
     "gemini-3.5-flash": {"tier": 3, "provider": "google", "quality": 0.72},
 }
