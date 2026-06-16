@@ -950,7 +950,7 @@ nginx proxies port 80 traffic to the Aragora server on ports 8080/8765.
 
 ### 8.2 Systemd Service Unit
 
-The base service file is at `/etc/systemd/system/aragora.service`. On the original instances it typically looks like:
+The base service file is at `/etc/systemd/system/aragora.service`. The unit invokes the `aragora` console script, so ensure `venv/bin/aragora` is installed (reinstall with `pip install -e .` when migrating a host off an older module-based unit). On the original instances it typically looks like:
 
 ```ini
 [Unit]

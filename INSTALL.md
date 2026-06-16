@@ -59,6 +59,9 @@ python scripts/nomic_loop.py
 aragora serve --api-port 8080 --ws-port 8765
 ```
 
+> For remote or production access (for example the Lightsail firewall steps below),
+> add `--host 0.0.0.0` to bind all interfaces; the default binds loopback-only `localhost`.
+
 ## Production Deployment (AWS Lightsail)
 
 For production deployments, use the provided setup script.

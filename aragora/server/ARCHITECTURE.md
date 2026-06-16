@@ -115,7 +115,7 @@ is expected in front for load balancing.
 ```bash
 uvicorn aragora.server.app:app --port 8081
 
-# Or via environment variable with legacy server:
+# Or via environment variable with the bundled server:
 ARAGORA_USE_FASTAPI=true aragora serve
 ```
 
