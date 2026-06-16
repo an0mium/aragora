@@ -51,8 +51,7 @@ and no false-negatives:
 Codex and Droid-Gemini were dispatched in parallel via
 `scripts/multi_agent_dialog.py` with the verification prompt and full JSON
 context (10 receipts + paginated timelines for each PR). The complete dialog
-transcript is archived in git under
-`docs/archive/status/2026-05-13-three-model-verification-dialog.md`.
+transcript is archived in git (three-model verification dialog).
 The JSONL remains in git under
 `docs/receipts/observe-outcomes/2026-05-13-three-model-verification-dialog.jsonl`.
 The dispatch context bundle (prompts + raw timeline events) is also preserved locally under

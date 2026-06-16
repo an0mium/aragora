@@ -6,7 +6,7 @@ existing Aragora implementations and parity targets, and provides acceptance
 criteria for each item.
 
 For SDK cross-language parity debt scheduling, see:
-`docs/archive/status/2026-02-25-SDK_CROSS_PARITY_DEBT_PLAN.md`.
+`docs/status/SDK_CROSS_PARITY_DEBT_PLAN_2026-02-25.md`.
 
 Status legend:
 - implemented: present and usable in the codebase
