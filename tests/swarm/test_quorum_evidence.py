@@ -1067,6 +1067,44 @@ def test_collect_process_timeout_starts_next_reviewer_when_slot_frees(
     assert outcome.failures[0].error.startswith("claude reviewer orchestration timed out after ")
 
 
+def test_process_reviewer_start_failure_records_family_failure(monkeypatch) -> None:
+    class FakeContext:
+        def Queue(self):
+            return qe.queue.Queue()
+
+        def Process(self, *, target, args):
+            return FakeProcess(args[0])
+
+    class FakeProcess:
+        pid = None
+        exitcode = 1
+
+        def __init__(self, family: str) -> None:
+            self.family = family
+
+        def start(self) -> None:
+            raise OSError("spawn denied")
+
+        def is_alive(self) -> bool:
+            return False
+
+        def join(self, timeout=None) -> None:
+            return None
+
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda: FakeContext())
+
+    reviews = qe._run_reviewers_in_processes(
+        supported=["grok"],
+        prompt="review",
+        reviewer_runner=lambda family, prompt: ReviewerResult(family, "unused", True),
+        overall_timeout_seconds=1,
+    )
+
+    assert reviews is not None
+    assert reviews["grok"].ok is False
+    assert reviews["grok"].error == "grok reviewer failed to start: OSError: spawn denied"
+
+
 def test_terminate_reviewer_process_kills_process_group(monkeypatch) -> None:
     calls: list[tuple[str, object]] = []
 

@@ -1200,7 +1200,16 @@ def _run_reviewers_in_processes(
                 target=_reviewer_process_worker,
                 args=(family, prompt, reviewer_runner, result_queue),
             )
-            process.start()
+            try:
+                process.start()
+            except Exception as exc:  # noqa: BLE001 - fail closed without leaking active peers.
+                reviews[family] = ReviewerResult(
+                    family,
+                    "",
+                    False,
+                    f"{family} reviewer failed to start: {type(exc).__name__}: {str(exc)[:200]}",
+                )
+                continue
             processes[family] = process
 
         # Drain completed results before checking process exit state. Queue
@@ -1283,106 +1292,17 @@ def _run_reviewers_in_processes(
         if process.is_alive():
             _terminate_reviewer_process(process)
         process.join(timeout=0.1)
-    return reviews
 
-
-def _run_reviewer_process_batch(
-    *,
-    ctx: Any,
-    supported: Sequence[str],
-    prompt: str,
-    reviewer_runner: Callable[[str, str], ReviewerResult],
-    overall_timeout_seconds: float,
-) -> dict[str, ReviewerResult]:
-    result_queue: multiprocessing.Queue = ctx.Queue()
-    processes: dict[str, multiprocessing.Process] = {}
     for family in supported:
-        process = ctx.Process(
-            target=_reviewer_process_worker,
-            args=(family, prompt, reviewer_runner, result_queue),
-        )
-        process.start()
-        processes[family] = process
-
-    reviews: dict[str, ReviewerResult] = {}
-    pending = set(supported)
-    exited_without_result_since: dict[str, float] = {}
-    deadline = time.monotonic() + overall_timeout_seconds
-    while pending:
-        # Drain any completed results before deciding whether an exited worker
-        # failed to return a payload.
-        while True:
-            try:
-                family, result = result_queue.get_nowait()
-            except queue.Empty:
-                break
-            if family not in pending:
-                continue
-            reviews[family] = (
-                result
-                if isinstance(result, ReviewerResult)
-                else ReviewerResult(family, "", False, "reviewer returned invalid result")
-            )
-            pending.remove(family)
-            exited_without_result_since.pop(family, None)
-
-        now = time.monotonic()
-        for family in list(pending):
-            process = processes[family]
-            if process.exitcode is not None and not process.is_alive():
-                first_seen = exited_without_result_since.setdefault(family, now)
-                if now - first_seen < _REVIEWER_RESULT_QUEUE_TIMEOUT:
-                    continue
-                process.join(timeout=0.1)
-                reviews[family] = ReviewerResult(
-                    family,
-                    "",
-                    False,
-                    f"{family} reviewer exited without returning a result",
-                )
-                pending.remove(family)
-                exited_without_result_since.pop(family, None)
-
-        if not pending:
-            break
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            break
-        try:
-            family, result = result_queue.get(timeout=min(0.1, remaining))
-        except queue.Empty:
-            continue
-        if family not in pending:
-            continue
-        reviews[family] = (
-            result
-            if isinstance(result, ReviewerResult)
-            else ReviewerResult(family, "", False, "reviewer returned invalid result")
-        )
-        pending.remove(family)
-        exited_without_result_since.pop(family, None)
-
-    timeout_label = _format_seconds(overall_timeout_seconds)
-    for family in list(pending):
-        process = processes[family]
-        if process.is_alive():
-            _terminate_reviewer_process(process)
-        else:
-            process.join(timeout=0.1)
-        reviews[family] = ReviewerResult(
+        reviews.setdefault(
             family,
-            "",
-            False,
-            f"{family} reviewer orchestration timed out after {timeout_label}s",
+            ReviewerResult(
+                family,
+                "",
+                False,
+                f"{family} reviewer orchestration ended without a result",
+            ),
         )
-        pending.remove(family)
-        exited_without_result_since.pop(family, None)
-
-    for process in processes.values():
-        if process.is_alive():  # pragma: no cover - defensive cleanup.
-            _terminate_reviewer_process(process)
-        process.join(timeout=0.1)
-
     return reviews
 
 
