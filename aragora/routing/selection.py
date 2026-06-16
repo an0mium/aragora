@@ -83,6 +83,22 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
     },
 }
 
+# OpenRouter Fusion is NOT a default agent -- it is opt-in via the enable_fusion
+# feature flag, so it is kept out of DEFAULT_AGENT_EXPERTISE (the always-on
+# defaults) and registered separately only when the flag is set. As a
+# multi-model council it is broadly strong rather than specialized; its high
+# cost_factor (~4.5x) means the Pareto optimizer picks it only when quality
+# outweighs cost.
+FUSION_EXPERTISE: dict[str, float] = {
+    "reasoning": 0.92,
+    "architecture": 0.9,
+    "security": 0.88,
+    "api": 0.88,
+    "data_analysis": 0.9,
+    "philosophy": 0.9,
+    "general": 0.88,
+}
+
 if TYPE_CHECKING:
     from aragora.routing.probe_filter import ProbeFilter
 
@@ -933,14 +949,32 @@ class AgentSelector:
         """
         selector = cls(elo_system=elo_system, persona_manager=persona_manager)
 
-        # Register agents with default expertise
+        # Per-agent cost/latency overrides (default 1.0x / 1000ms). Fusion runs a
+        # model panel + judge, so it is ~4.5x cost and slower; this lets the
+        # Pareto optimizer naturally skip it on low budgets and pick it only when
+        # quality outweighs cost.
+        # Register the always-on default agents (1.0x cost / 1000ms latency).
         for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
-            profile = AgentProfile(
-                name=agent_name,
-                agent_type=agent_name,
-                expertise=expertise.copy(),
+            selector.register_agent(
+                AgentProfile(name=agent_name, agent_type=agent_name, expertise=expertise.copy())
             )
-            selector.register_agent(profile)
+
+        # Fusion is opt-in: expose it to the Pareto optimizer ONLY when
+        # enable_fusion is set, so a stock install (flag OFF) never auto-selects
+        # it -- enforcing the default-OFF guarantee. Its high cost/latency make
+        # the optimizer pick it only when quality outweighs cost.
+        from aragora.config.feature_flags import is_enabled as _flag_enabled
+
+        if _flag_enabled("enable_fusion"):
+            selector.register_agent(
+                AgentProfile(
+                    name="fusion",
+                    agent_type="fusion",
+                    expertise=FUSION_EXPERTISE.copy(),
+                    cost_factor=4.5,
+                    latency_ms=4500.0,
+                )
+            )
 
         # Sync from ELO if available
         if elo_system:
@@ -963,4 +997,5 @@ __all__ = [
     "PHASE_ROLES",
     # Constants
     "DEFAULT_AGENT_EXPERTISE",
+    "FUSION_EXPERTISE",
 ]

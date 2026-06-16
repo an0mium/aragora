@@ -45,6 +45,16 @@ from aragora.observability.metrics.agents import (
 logger = logging.getLogger(__name__)
 
 DEEPSEEK_V4_PRO_MODEL = "deepseek/deepseek-v4-pro"
+# OpenRouter Fusion: a multi-model council+judge endpoint (panel of models +
+# synthesis). It is itself a *blend*, so it must never be treated as an
+# independent quorum family (see aragora.swarm.quorum_evidence) -- it is a single
+# high-confidence participant/judge option, gated behind feature flags.
+# Slug per the vendor page (openrouter.ai/openrouter/fusion); NOT yet
+# runtime-verified against the live OpenRouter API here (no key in this env).
+# Safe because the agent is gated OFF by default (see routing enforcement +
+# enable_fusion) and never dispatches until explicitly enabled; confirm the slug
+# and pricing (TODO in billing/usage.py) before enabling for real debates.
+FUSION_MODEL = "openrouter/fusion"
 
 # Fallback model chain for resilience when primary models fail
 # Maps primary model -> fallback model (used after max_retries exhausted)
@@ -1089,6 +1099,40 @@ class JambaAgent(OpenRouterAgent):
         self.agent_type = "jamba"
 
 
+@AgentRegistry.register(
+    "fusion",
+    default_model=FUSION_MODEL,
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="OpenRouter Fusion - multi-model council+judge endpoint (high cost, high confidence)",
+)
+class FusionAgent(OpenRouterAgent):
+    """OpenRouter Fusion via OpenRouter - a multi-model council that runs a panel
+    of models plus a judge and returns a synthesized answer.
+
+    Inherits OpenRouterAgent's resilience (circuit breaker, rate limiting, token
+    tracking, streaming) for free. It is ~4-5x the cost/latency of a single model
+    and is opt-in only -- callers gate it behind the ``enable_fusion`` feature
+    flag and a budget cap. Because Fusion blends multiple families internally, it
+    is NOT a distinct quorum reviewer family.
+    """
+
+    def __init__(
+        self,
+        name: str = "fusion",
+        role: AgentRole = "analyst",
+        model: str = FUSION_MODEL,
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "fusion"
+
+
 __all__ = [
     "OpenRouterAgent",
     "DeepSeekAgent",
@@ -1108,4 +1152,6 @@ __all__ = [
     "SonarAgent",
     "CommandRAgent",
     "JambaAgent",
+    "FusionAgent",
+    "FUSION_MODEL",
 ]

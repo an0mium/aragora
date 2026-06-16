@@ -4,7 +4,7 @@
   "repo": "synaptent/aragora",
   "source_packet_pr": 7263,
   "source_ui_pr": 7268,
-  "source_packet": "docs/status/settlement-packets/2026-05-17-open-queue-settlement.md",
+  "source_packet": "docs/archive/status/2026-05-17-open-queue-settlement.md",
   "source_receipt": "docs/receipts/open-queue-settlement-20260517T142811Z.json",
   "source_receipt_sha256": "b93358c76358bab8b1a41a2843bc4c7ee36446ce433ebab8ab301d0c359cf9a2",
   "decision_artifact_notice": "This UI does not mutate GitHub. It only downloads an operator decision artifact bound to the pinned receipt and this context file.",
