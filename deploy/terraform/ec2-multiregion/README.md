@@ -115,7 +115,6 @@ cp terraform.tfvars.example terraform.tfvars
   - `postgres` - PostgreSQL support
   - `redis` - Redis caching
   - `documents` - Document processing (PDF, DOCX)
-  - `research` - Web search capabilities
   - `broadcast` - TTS/audio features
   - `control-plane` - Distributed coordination
 - nginx reverse proxy
@@ -248,7 +247,7 @@ variable "supermemory_api_key" {
 aws ssm start-session --target <instance-id>
 
 # Update
-sudo -u aragora /opt/aragora/venv/bin/pip install --upgrade aragora[monitoring,observability,postgres,redis,documents,research,broadcast,control-plane]
+sudo -u aragora /opt/aragora/venv/bin/pip install --upgrade aragora[monitoring,observability,postgres,redis,documents,broadcast,control-plane]
 
 # Restart
 sudo systemctl restart aragora
