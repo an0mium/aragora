@@ -1168,7 +1168,6 @@ def collect_evidence(
         max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
         pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
         future_to_family: dict[concurrent.futures.Future[ReviewerResult], str] = {}
-        timed_out = False
         try:
             future_to_family = {
                 pool.submit(reviewer_runner, family, prompt): family for family in supported
@@ -1189,7 +1188,6 @@ def collect_evidence(
                             family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
                         )
             except concurrent.futures.TimeoutError:
-                timed_out = True
                 for future, family in future_to_family.items():
                     if family in reviews:
                         continue
@@ -1210,7 +1208,12 @@ def collect_evidence(
                         f"{family} reviewer orchestration timed out after {timeout_label}s",
                     )
         finally:
-            pool.shutdown(wait=not timed_out, cancel_futures=True)
+            # Do not return with live ThreadPoolExecutor workers. Python waits
+            # for executor threads at interpreter shutdown, and run_collect_cli
+            # scopes reviewer timeout overrides around this call. Waiting here
+            # keeps both behaviors explicit: timeout-marked futures cannot post
+            # partial quorum, but their worker threads finish before env restore.
+            pool.shutdown(wait=True, cancel_futures=True)
 
     for family in ordered_families:
         if family not in FAMILY_PROVIDERS:
