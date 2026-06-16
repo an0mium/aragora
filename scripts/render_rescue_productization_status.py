@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REPORT_ROOT = REPO_ROOT / "docs" / "status" / "generated" / "rescue_productization"
 DEFAULT_OUTPUT = REPO_ROOT / "docs" / "status" / "TW03_RESCUE_PRODUCTIZATION_STATUS.md"
+_LAST_UPDATED_PATTERN = re.compile(r"^\s*Last\s+updated\s*:\s*(?P<value>\S+)\s*$")
 
 
 def _repo_stable_path(path: Path) -> str:
@@ -26,6 +29,50 @@ def _load_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"JSON payload at {path} must be an object")
     return payload
+
+
+def _coerce_utc_timestamp(raw: str) -> dt.datetime:
+    value = raw.strip()
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    parsed = dt.datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed.astimezone(dt.timezone.utc)
+
+
+def _existing_last_updated(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = _LAST_UPDATED_PATTERN.match(line)
+        if match:
+            return match.group("value").strip()
+    return None
+
+
+def _ensure_report_not_older_than_existing_status(
+    *,
+    report_path: Path,
+    output_path: Path,
+    payload: dict[str, Any],
+) -> None:
+    generated_at = str(payload.get("generated_at") or "").strip()
+    existing_last_updated = _existing_last_updated(output_path)
+    if not generated_at or not existing_last_updated:
+        return
+
+    report_updated = _coerce_utc_timestamp(generated_at)
+    status_updated = _coerce_utc_timestamp(existing_last_updated)
+    if report_updated >= status_updated:
+        return
+
+    raise SystemExit(
+        "refusing to render stale rescue productization report: "
+        f"{_repo_stable_path(report_path)} generated_at={generated_at} is older than "
+        f"{_repo_stable_path(output_path)} Last updated={existing_last_updated}; "
+        "refresh docs/status/generated/rescue_productization/latest.json before rendering"
+    )
 
 
 def _format_value(value: Any) -> str:
@@ -181,7 +228,13 @@ def main(argv: list[str] | None = None) -> int:
     if not report_path.exists():
         raise SystemExit(f"rescue productization report not found: {report_path}")
 
-    content = render_status_markdown(report_path=report_path, payload=_load_json(report_path))
+    payload = _load_json(report_path)
+    _ensure_report_not_older_than_existing_status(
+        report_path=report_path,
+        output_path=output_path,
+        payload=payload,
+    )
+    content = render_status_markdown(report_path=report_path, payload=payload)
     written = write_output(output_path, content)
     print(str(written))
     return 0

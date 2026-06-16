@@ -51,6 +51,34 @@ if [[ "${ARAGORA_QUORUM_RECONCILER:-0}" == "1" ]]; then
         || echo "Quorum reconciler reported failures (non-fatal for the cycle)." >&2
 fi
 
+# Opt-in drain step: when the backlog is over the open-PR cap, DRAIN the queue
+# (merge fully-green PRs via the settle gate, close empty ones, PLAN repairs)
+# instead of idling/manufacturing more work. Default OFF until the operator sets
+# ARAGORA_DRAIN_ENABLED=1, so the cycle is unchanged otherwise. Dry-run (plan
+# only) unless ARAGORA_DRAIN_APPLY=1. Repair is never auto-dispatched here (no
+# --enable-repair-dispatch flag), so it only prints the bounded repair plan.
+# Best-effort: a drain hiccup never fails the cycle.
+if [[ "${boss_status}" -eq 0 && "${ARAGORA_DRAIN_ENABLED:-0}" == "1" ]]; then
+    set +e
+    "${PYTHON_BIN}" scripts/backlog_gate.py --quiet >/dev/null 2>&1
+    gate_mode=$?
+    set -e
+    if [[ "${gate_mode}" -eq 3 ]]; then
+        drain_cmd=(
+            "${PYTHON_BIN}" scripts/boss_drain_pass.py
+            --repo "${boss_repo}"
+            --off-limits-prefix structex/
+            --off-limits-prefix claude/
+            --max-repairs "${ARAGORA_DRAIN_MAX_REPAIRS:-2}"
+        )
+        [[ "${ARAGORA_DRAIN_APPLY:-0}" == "1" ]] && drain_cmd+=(--apply)
+        echo "Backlog over cap (shepherd) -> draining: ${drain_cmd[*]}"
+        "${drain_cmd[@]}" || echo "Drain pass reported failures (non-fatal for the cycle)." >&2
+    else
+        echo "Backlog under cap (generate) -> skipping drain."
+    fi
+fi
+
 if [[ "${POST_LOOP_ISSUE_REFILL}" != "1" ]]; then
     echo "Post-loop issue refill disabled."
     exit "${boss_status}"

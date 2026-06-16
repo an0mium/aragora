@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import inspect
+import json
 import logging
 import math
 import multiprocessing
@@ -237,6 +238,83 @@ class CollectOutcome:
             ],
             "failures": [{"family": f.family, "error": f.error} for f in self.failures],
         }
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item)]
+
+
+def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
+    if not isinstance(raw, dict):
+        raise ValueError("prepared evidence item must be an object")
+    family = str(raw.get("family") or "").strip().lower()
+    body = str(raw.get("body") or "")
+    if not family:
+        raise ValueError("prepared evidence item missing family")
+    if not body.strip():
+        raise ValueError(f"prepared evidence item for {family} has empty body")
+    return EvidenceItem(
+        family=family,
+        body=body,
+        would_count=bool(raw.get("would_count")),
+        counted_reviewer_ids=_string_list(raw.get("counted_reviewer_ids")),
+        problems=_string_list(raw.get("problems")),
+        verdict=str(raw.get("verdict") or "unknown"),
+    )
+
+
+def _reviewer_result_from_dict(raw: Any) -> ReviewerResult:
+    if not isinstance(raw, dict):
+        raise ValueError("prepared reviewer failure must be an object")
+    return ReviewerResult(
+        family=str(raw.get("family") or "").strip().lower(),
+        text=str(raw.get("text") or ""),
+        ok=bool(raw.get("ok", False)),
+        error=str(raw.get("error") or ""),
+        harness=str(raw.get("harness") or ""),
+    )
+
+
+def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
+    """Rehydrate the JSON emitted by :meth:`CollectOutcome.to_dict`."""
+    if not isinstance(data, dict):
+        raise ValueError("prepared evidence artifact must be a JSON object")
+    mode = data.get("mode")
+    if mode not in (None, "collect_evidence"):
+        raise ValueError(f"unsupported prepared evidence mode: {mode}")
+    repo = str(data.get("repo") or "").strip()
+    if not repo:
+        raise ValueError("prepared evidence artifact missing repo")
+    raw_pr = data.get("pr_number", data.get("pr"))
+    if raw_pr is None:
+        raise ValueError("prepared evidence artifact missing PR number")
+    try:
+        pr = int(raw_pr)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("prepared evidence artifact missing PR number") from exc
+    return CollectOutcome(
+        repo=repo,
+        pr=pr,
+        head_sha=str(data.get("head_sha") or "").strip(),
+        head_committed_at=str(data.get("head_committed_at") or ""),
+        tier=data.get("tier") if isinstance(data.get("tier"), int) else None,
+        action=str(data.get("action") or "prepare"),
+        action_reason=str(data.get("action_reason") or "prepared evidence artifact"),
+        items=[_evidence_item_from_dict(item) for item in data.get("items") or []],
+        failures=[_reviewer_result_from_dict(failure) for failure in data.get("failures") or []],
+        posted=_string_list(data.get("posted_families")),
+        post_errors=_string_list(data.get("post_errors")),
+        quorum_rerun=data.get("quorum_rerun")
+        if isinstance(data.get("quorum_rerun"), dict)
+        else None,
+    )
+
+
+def load_prepared_outcome(path: Path) -> CollectOutcome:
+    """Load a previously prepared collect-evidence JSON artifact."""
+    return collect_outcome_from_dict(json.loads(path.read_text(encoding="utf-8")))
 
 
 def decide_action(tier: int | None, apply: bool) -> tuple[str, str]:
@@ -1146,6 +1224,203 @@ def collect_evidence(
     return outcome
 
 
+def _clone_prepared_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
+    return [
+        EvidenceItem(
+            family=item.family,
+            body=item.body,
+            would_count=item.would_count,
+            counted_reviewer_ids=list(item.counted_reviewer_ids),
+            problems=list(item.problems),
+            verdict=item.verdict,
+        )
+        for item in items
+    ]
+
+
+def _clone_reviewer_failures(failures: Sequence[ReviewerResult]) -> list[ReviewerResult]:
+    return [
+        ReviewerResult(
+            family=failure.family,
+            text=failure.text,
+            ok=failure.ok,
+            error=failure.error,
+            harness=failure.harness,
+        )
+        for failure in failures
+    ]
+
+
+def _prepared_family_allowlist(families: Sequence[str] | None) -> set[str] | None:
+    if families is None:
+        return None
+    return {family.strip().lower() for family in families if family.strip()}
+
+
+def _validate_prepared_item_families(
+    items: Sequence[EvidenceItem],
+    *,
+    families: Sequence[str] | None,
+) -> None:
+    allowed = _prepared_family_allowlist(families)
+    seen: set[str] = set()
+    for item in items:
+        family = item.family.strip().lower()
+        if family not in FAMILY_PROVIDERS:
+            raise ValueError(
+                f"prepared evidence artifact has unsupported reviewer family: {family}"
+            )
+        if family in seen:
+            raise ValueError(f"prepared evidence artifact has duplicate reviewer family: {family}")
+        if allowed is not None and family not in allowed:
+            raise ValueError(
+                f"prepared evidence artifact family {family} is not in requested reviewer allowlist"
+            )
+        seen.add(family)
+
+
+def apply_prepared_evidence(
+    *,
+    repo: str,
+    pr: int,
+    prepared_json: Path,
+    author: str,
+    apply: bool,
+    families: Sequence[str] | None = None,
+    context_fetcher: Callable[[str, int], dict[str, Any]] = merge_quorum_io.fetch_pr_context,
+    tier_fetcher: Callable[[str, int], int | None] = merge_quorum_io.fetch_pr_tier,
+    linter: Callable[..., dict[str, Any]] = default_linter,
+    poster: Callable[[str, int, str], None] = default_poster,
+    quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
+    env: dict[str, str] | None = None,
+) -> CollectOutcome:
+    """Post an exact-head prepared artifact without re-running reviewers.
+
+    The artifact is treated as untrusted until it is matched to the requested
+    repo/PR, matched to the live head SHA, and re-linted against the same
+    parser inputs used immediately before posting.
+    """
+    prepared = load_prepared_outcome(prepared_json)
+    if prepared.repo != repo or prepared.pr != pr:
+        raise ValueError(
+            "prepared evidence artifact target mismatch "
+            f"({prepared.repo}#{prepared.pr} != {repo}#{pr})"
+        )
+    if not prepared.head_sha:
+        raise ValueError("prepared evidence artifact missing head SHA")
+    _validate_prepared_item_families(prepared.items, families=families)
+
+    ctx = context_fetcher(repo, pr)
+    head_sha = str(ctx.get("head_sha") or "").strip()
+    head_committed_at = str(ctx.get("head_committed_at") or "")
+    if not head_sha:
+        raise ValueError(f"could not resolve head SHA for PR #{pr} in {repo}")
+
+    tier = tier_fetcher(repo, pr)
+    action, action_reason = decide_action(tier, apply)
+    outcome = CollectOutcome(
+        repo=repo,
+        pr=pr,
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+        tier=tier,
+        action=action,
+        action_reason=action_reason,
+        items=_clone_prepared_items(prepared.items),
+        failures=_clone_reviewer_failures(prepared.failures),
+    )
+
+    if prepared.head_sha != head_sha:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            f"prepared head {prepared.head_sha[:7]} does not match current head "
+            f"{head_sha[:7]}; prepared evidence only"
+        )
+        return outcome
+
+    relinted_items: list[EvidenceItem] = []
+    for item in outcome.items:
+        lint = linter(pr, head_sha, head_committed_at, author, item.body, env or {})
+        counted_reviewer_ids = list(lint.get("counted_reviewer_ids") or [])
+        problems = list(lint.get("problems") or [])
+        lint_identity_matches = item.family in {
+            str(reviewer_id).strip().lower() for reviewer_id in counted_reviewer_ids
+        }
+        would_count = bool(lint.get("would_count"))
+        if would_count and not lint_identity_matches:
+            would_count = False
+            problems.append(
+                f"fresh lint counted reviewer ids do not include prepared family: {item.family}"
+            )
+        relinted_items.append(
+            EvidenceItem(
+                family=item.family,
+                body=item.body,
+                would_count=would_count,
+                counted_reviewer_ids=counted_reviewer_ids,
+                problems=problems,
+                verdict=_reviewer_verdict(item.body),
+            )
+        )
+    outcome.items = relinted_items
+
+    if action != "post":
+        return outcome
+    if outcome.dissenting_families:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            "reviewer dissent present "
+            f"({', '.join(outcome.dissenting_families)}); prepared evidence only"
+        )
+        return outcome
+    if not outcome.has_supportive_quorum:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            "supportive quorum incomplete "
+            f"({len(outcome.supportive_families)}/2); prepared evidence only"
+        )
+        return outcome
+
+    try:
+        recheck_head = str((context_fetcher(repo, pr) or {}).get("head_sha") or "").strip()
+        recheck_tier = tier_fetcher(repo, pr)
+    except Exception as exc:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            f"could not re-verify head/tier before posting ({str(exc)[:120]}); prepared only"
+        )
+        return outcome
+    recheck_action, recheck_reason = decide_action(recheck_tier, apply)
+    if recheck_head != head_sha or recheck_action != "post":
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            f"head/tier changed before posting "
+            f"(head {head_sha[:7]}->{recheck_head[:7] or 'none'}, "
+            f"tier {tier}->{recheck_tier}); prepared only: {recheck_reason}"
+        )
+        return outcome
+
+    outcome.action_reason = (
+        "prepared exact-head evidence artifact; posting without reviewer regeneration"
+    )
+    for item in outcome.items:
+        if not item.supportive:
+            continue
+        try:
+            poster(repo, pr, item.body)
+        except Exception as exc:
+            outcome.post_errors.append(f"{item.family}: {str(exc)[:200]}")
+            continue
+        outcome.posted.append(item.family)
+    if outcome.posted and outcome.has_supportive_quorum and quorum_reconciler is not None:
+        try:
+            outcome.quorum_rerun = quorum_reconciler(repo, pr)
+        except Exception as exc:  # noqa: BLE001 - evidence posts should remain reported.
+            outcome.quorum_rerun = {"applied": False, "error": str(exc)[:200]}
+
+    return outcome
+
+
 def _render_outcome(outcome: CollectOutcome) -> str:
     lines = [
         f"collect-evidence: PR #{outcome.pr} ({outcome.repo})",
@@ -1187,6 +1462,7 @@ def run_collect_cli(
     author: str | None,
     apply: bool,
     json_output: bool,
+    prepared_json: Path | None = None,
     printer: Callable[[str], None] = print,
 ) -> int:
     """Shared entry point for the script and ``review-queue collect-evidence``.
@@ -1200,27 +1476,35 @@ def run_collect_cli(
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()
     try:
-        outcome = collect_evidence(
-            repo=repo,
-            pr=pr,
-            families=fams,
-            author=resolved_author,
-            apply=apply,
-            env=merge_quorum_io.aragora_env(),
-            quorum_reconciler=default_quorum_reconciler if apply else None,
-        )
+        if prepared_json is None:
+            outcome = collect_evidence(
+                repo=repo,
+                pr=pr,
+                families=fams,
+                author=resolved_author,
+                apply=apply,
+                env=merge_quorum_io.aragora_env(),
+                quorum_reconciler=default_quorum_reconciler if apply else None,
+            )
+        else:
+            outcome = apply_prepared_evidence(
+                repo=repo,
+                pr=pr,
+                prepared_json=prepared_json,
+                author=resolved_author,
+                apply=apply,
+                families=fams,
+                env=merge_quorum_io.aragora_env(),
+                quorum_reconciler=default_quorum_reconciler if apply else None,
+            )
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as exc:
         if json_output:
-            import json
-
             printer(json.dumps({"mode": "collect_evidence", "error": str(exc)}, indent=2))
         else:
             printer(f"error: {exc}")
         return 1
 
     if json_output:
-        import json
-
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
