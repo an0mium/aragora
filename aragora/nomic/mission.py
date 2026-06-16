@@ -239,6 +239,11 @@ class MissionStore:
         Returns True if the item was found and updated, False if the mission or
         item does not exist. The whole mission is re-saved atomically (the only
         write path), so a single item update can never corrupt the file.
+
+        Concurrency: load-modify-save with no lock — assumes a single writer per
+        mission (the single-tick boss_loop / NativeMissionRunner). If a mission
+        store is ever shared across concurrent writers, this needs a flock/CAS
+        (mirroring billing/budget_guard) to avoid lost updates.
         """
         loaded = self.load_mission(mission_id)
         if loaded is None:

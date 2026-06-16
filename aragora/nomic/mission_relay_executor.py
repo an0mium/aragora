@@ -93,7 +93,10 @@ class MissionRelay:
         """
         if decision.action is RelayAction.PARK_AND_NOTIFY:
             parked = self.store.set_item_status(mission_id, item_id, WorkItemStatus.PARKED)
-            notified = await self._maybe_notify(mission_id, item_id, decision)
+            # Only notify when the park actually took. If the item/mission vanished
+            # (parked is False) there is nothing to set aside — sending a "parked"
+            # alert would misinform the operator. The caller still sees parked=False.
+            notified = await self._maybe_notify(mission_id, item_id, decision) if parked else False
             return RelayOutcome(decision.action, decision.reason, parked=parked, notified=notified)
         if decision.action is RelayAction.STOP_MISSION:
             notified = await self._maybe_notify(mission_id, item_id, decision)

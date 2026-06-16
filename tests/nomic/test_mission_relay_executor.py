@@ -149,6 +149,19 @@ def test_no_crash_when_notifier_absent(tmp_path: Path) -> None:
     assert outcome.notified is False
 
 
+def test_park_failure_does_not_send_misleading_notify(tmp_path: Path) -> None:
+    """If the item/mission vanished, a PARK that didn't take must not notify."""
+    store = _store(tmp_path)
+    _seed(store)
+    notifier = FakeNotifier()
+    relay = MissionRelay(RelayPolicy(relay_channel="slack"), store, notifier=notifier)
+    decision = relay.evaluate(RelayContext(item_id="ghost", needs_human=True))
+    outcome = asyncio.run(relay.apply("m1", "ghost", decision))  # item not in mission
+    assert outcome.parked is False
+    assert outcome.notified is False
+    assert notifier.calls == []  # no "parked" alert about an item we didn't park
+
+
 def test_evaluate_and_apply_end_to_end(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _seed(store)
