@@ -190,6 +190,8 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
     )
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using Gemini API."""
+        # Fail-closed monthly budget cap (no-op unless ARAGORA_MONTHLY_BUDGET_USD set).
+        self._enforce_budget_precall()
         if not self.api_key:
             logger.warning("[%s] Missing API key, attempting OpenRouter fallback", self.name)
             result = await self.fallback_generate(prompt, context, status_code=401)

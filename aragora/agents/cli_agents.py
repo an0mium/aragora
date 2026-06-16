@@ -1123,24 +1123,21 @@ class AntigravityAgent(CLIAgent):
         )
 
 
-@AgentRegistry.register(
-    "kimi-cli",
-    default_model="kimi-k2",
-    agent_type="CLI",
-    requires="Kimi CLI (pip install kimi-cli) or MOONSHOT_API_KEY; Moonshot Kimi (cheap tier)",
-    env_vars="MOONSHOT_API_KEY",
-)
 class KimiCLIAgent(CLIAgent):
     """Agent that uses Moonshot's Kimi CLI (cheap-tier, distinct quorum family).
 
-    Headless ``kimi -p <prompt>`` (the exact flag should be confirmed against the
-    installed kimi-cli version; OpenRouter fallback covers a CLI miss). Kimi maps
-    to the ``moonshot``/``kimi`` model family, so it can serve as a low-cost
-    quorum reviewer or worker. Falls back to OpenRouter (Kimi) on CLI failure.
+    NOT registered by default. Moonshot's ``kimi-cli`` is **ACP-based** with an
+    interactive ``/login``; it does **not** document a headless ``kimi -p`` mode,
+    so the ``-p`` invocation below is UNVERIFIED and a CLI miss would silently
+    fall back to OpenRouter (defeating the cheap-tier-subscription goal). Until a
+    real headless/ACP integration is verified against an installed ``kimi-cli``,
+    registration is gated behind ``ARAGORA_ENABLE_KIMI_CLI`` so a stock install
+    never auto-selects a likely-wrong command. Kimi maps to the ``moonshot``/
+    ``kimi`` model family. Falls back to OpenRouter (Kimi) on CLI failure.
     """
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response via the Kimi CLI."""
+        """Generate a response via the Kimi CLI (invocation unverified — see class docstring)."""
         full_prompt = self._build_full_prompt(prompt, context)
         if self._is_prompt_too_large_for_argv(full_prompt):
             return await self._generate_with_fallback(
@@ -1154,6 +1151,17 @@ class KimiCLIAgent(CLIAgent):
             prompt,
             context,
         )
+
+
+# Gate Kimi registration behind an explicit opt-in: the headless CLI contract is
+# unverified (kimi-cli is ACP, not `-p`), so it must not be a default agent.
+if os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
+    AgentRegistry.register(
+        "kimi-cli",
+        default_model="kimi-k2",
+        agent_type="CLI",
+        requires="Kimi CLI (pip install kimi-cli); ACP-based, headless `-p` unverified",
+    )(KimiCLIAgent)
 
 
 @AgentRegistry.register(

@@ -558,6 +558,13 @@ class TestKimiCLIAgent:
         assert cmd[0] == "kimi" and "-p" in cmd
         assert cmd[-1] == "review this PR"
 
+    def test_kimi_not_registered_by_default(self):
+        # kimi-cli's headless contract is unverified (ACP, not `-p`), so it must
+        # be opt-in via ARAGORA_ENABLE_KIMI_CLI, never a default agent.
+        from aragora.agents.registry import AgentRegistry
+
+        assert AgentRegistry.is_registered("kimi-cli") is False
+
 
 class TestQwenCLIAgent:
     """Test QwenCLIAgent implementation."""

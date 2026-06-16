@@ -10,28 +10,42 @@ Design:
 - **Default OFF.** With no cap configured (``ARAGORA_MONTHLY_BUDGET_USD`` unset or
   <= 0) every call is allowed and nothing is persisted — zero behavior change.
   Opt in by exporting ``ARAGORA_MONTHLY_BUDGET_USD=200`` (or any limit).
-- **Fail closed.** When a cap is set, :func:`assert_within_budget` raises
-  :class:`BudgetExceededError` once ``spent + estimated > cap`` for the current
-  calendar month.
-- **Self-contained + cheap.** A tiny JSON counter (``{month, spent_usd}``) under
-  the data dir; calendar-month rollover resets it. Thread-safe.
-- **Never breaks a call by accident.** :func:`record_spend` swallows its own I/O
-  errors (a guard that can't persist must not crash the agent); only the
-  deliberate :class:`BudgetExceededError` from :func:`assert_within_budget`
-  propagates.
+- **Fail closed, even on storage failure.** When a cap is set,
+  :func:`assert_within_budget` raises :class:`BudgetExceededError` once
+  ``spent + estimated >= cap``. Spend is tracked in a flock-guarded JSON counter
+  shared across processes; if the disk store cannot be read/written, a
+  **process-local in-memory total** is used so the cap can never silently reset
+  to 0 and let spend run away (a write failure logs at WARNING).
+- **Cross-process safe.** ``fcntl.flock`` serializes the read-modify-write across
+  the agent fan-out (boss_loop / swarm workers), so concurrent processes cannot
+  under-count spend by last-writer-wins.
+
+Note on precision: callers currently pass ``estimated_usd=0.0``, so the cap is
+enforced on already-recorded spend; a single in-flight call can therefore
+overshoot by at most its own cost before the *next* call is refused. Plumbing a
+conservative per-call estimate (max_tokens * output_rate) would tighten this —
+tracked as a follow-up.
 
 This complements (does not replace) ``BudgetManager``'s richer per-org/overage
-accounting — it is a process-local, always-available hard stop for the common
-single-operator case.
+accounting — it is a process-local-resilient, always-available hard stop for the
+common single-operator case.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
+
+try:
+    import fcntl  # POSIX file locking (macOS + Linux CI)
+except ImportError:  # pragma: no cover - non-POSIX fallback
+    fcntl = None  # type: ignore[assignment]
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "BudgetExceededError",
@@ -47,6 +61,9 @@ __all__ = [
 _CAP_ENV = "ARAGORA_MONTHLY_BUDGET_USD"
 _STORE_ENV = "ARAGORA_BUDGET_GUARD_STORE"
 _lock = threading.Lock()
+# Process-local fallback: survives disk-store failures so the cap can never
+# silently reset to 0. {month: spent_usd}.
+_mem_state: dict[str, float] = {}
 
 
 class BudgetExceededError(RuntimeError):
@@ -87,44 +104,97 @@ def _store_path() -> Path:
     return base / "budget_guard.json"
 
 
-def _read_state() -> dict[str, object]:
+def _mem_get() -> float:
+    """Process-local spend for the current month (fallback when disk is unusable)."""
+    return _mem_state.get(_current_month(), 0.0)
+
+
+def _mem_add(delta: float) -> float:
+    month = _current_month()
+    _mem_state.clear()  # drop stale prior-month entries
+    _mem_state[month] = _mem_state.get(month, 0.0) + delta
+    return _mem_state[month]
+
+
+def _disk_read() -> float | None:
+    """Read this month's persisted spend, or None if the store is unusable.
+
+    Returns 0.0 (not None) when the file is simply absent or from a prior month —
+    those are valid "zero so far" states. None means a real I/O error.
+    """
     path = _store_path()
     try:
-        with path.open(encoding="utf-8") as fh:
-            data = json.load(fh)
+        if not path.exists():
+            return 0.0
+        with path.open("r", encoding="utf-8") as fh:
+            if fcntl is not None:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_SH)
+            try:
+                data = json.load(fh)
+            finally:
+                if fcntl is not None:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
     except (OSError, ValueError):
-        return {"month": _current_month(), "spent_usd": 0.0}
-    month = data.get("month")
-    spent = data.get("spent_usd", 0.0)
-    if month != _current_month():  # calendar-month rollover resets the counter
-        return {"month": _current_month(), "spent_usd": 0.0}
+        return None
+    if data.get("month") != _current_month():
+        return 0.0
     try:
-        spent_val = float(spent)  # type: ignore[arg-type]
+        return float(data.get("spent_usd", 0.0))
     except (TypeError, ValueError):
-        spent_val = 0.0
-    return {"month": _current_month(), "spent_usd": spent_val}
+        return 0.0
 
 
-def _write_state(spent_usd: float) -> None:
+def _disk_add(delta: float) -> bool:
+    """Atomically add ``delta`` to this month's persisted spend (flock-guarded).
+
+    Returns True on success, False if the store could not be updated.
+    """
     path = _store_path()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        with tmp.open("w", encoding="utf-8") as fh:
-            json.dump({"month": _current_month(), "spent_usd": round(spent_usd, 6)}, fh)
-        os.replace(tmp, path)  # atomic; readers never see a partial file
+        # Open r+ (create if missing) and hold an exclusive lock across the whole
+        # read-modify-write so concurrent processes cannot clobber each other.
+        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            if fcntl is not None:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+            raw = os.read(fd, 1_000_000).decode("utf-8") or ""
+            spent = 0.0
+            if raw.strip():
+                try:
+                    data = json.loads(raw)
+                    if data.get("month") == _current_month():
+                        spent = float(data.get("spent_usd", 0.0))
+                except (ValueError, TypeError):
+                    spent = 0.0
+            new_total = round(spent + delta, 6)
+            payload = json.dumps({"month": _current_month(), "spent_usd": new_total}).encode()
+            os.lseek(fd, 0, os.SEEK_SET)
+            os.ftruncate(fd, 0)
+            os.write(fd, payload)
+            return True
+        finally:
+            if fcntl is not None:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
     except OSError:
-        # A guard that cannot persist must not crash the caller; the in-flight
-        # cap check still used the best-known total.
-        pass
+        return False
 
 
 def current_spend_usd() -> float:
-    """USD spent so far in the current calendar month (0.0 if guard disabled)."""
+    """USD spent so far this calendar month (0.0 if guard disabled).
+
+    Uses the larger of the persisted and process-local totals, so a disk failure
+    can never make the guard *under*-report spend (which would fail open).
+    """
     if not is_enabled():
         return 0.0
     with _lock:
-        return float(_read_state()["spent_usd"])  # type: ignore[arg-type]
+        disk = _disk_read()
+        mem = _mem_get()
+        if disk is None:
+            return mem
+        return max(disk, mem)
 
 
 def remaining_usd() -> float:
@@ -136,40 +206,44 @@ def remaining_usd() -> float:
 
 
 def assert_within_budget(estimated_usd: float = 0.0, *, label: str | None = None) -> None:
-    """Raise :class:`BudgetExceededError` if this spend would exceed the monthly cap.
+    """Raise :class:`BudgetExceededError` if this spend would reach the monthly cap.
 
-    No-op when the guard is disabled (no cap configured). ``estimated_usd`` is an
-    optional pre-call estimate of the next call's cost; pass 0.0 to gate purely on
-    already-recorded spend.
+    No-op when the guard is disabled. Uses ``>=`` so the cap stops AT the limit,
+    not one call past it. ``estimated_usd`` is an optional pre-call cost estimate.
     """
     cap = monthly_cap_usd()
     if cap <= 0:
         return
-    with _lock:
-        spent = float(_read_state()["spent_usd"])  # type: ignore[arg-type]
-    if spent + max(0.0, estimated_usd) > cap:
+    spent = current_spend_usd()
+    if spent + max(0.0, estimated_usd) >= cap:
         where = f" ({label})" if label else ""
         raise BudgetExceededError(
             f"Monthly budget cap reached{where}: spent ${spent:.2f} + est "
-            f"${max(0.0, estimated_usd):.2f} > cap ${cap:.2f} "
-            f"({_CAP_ENV}). Refusing the call (fail-closed). Raise the cap or wait "
-            f"for the next calendar month."
+            f"${max(0.0, estimated_usd):.2f} >= cap ${cap:.2f} ({_CAP_ENV}). "
+            f"Refusing the call (fail-closed). Raise the cap or wait for the next "
+            f"calendar month."
         )
 
 
 def record_spend(amount_usd: float) -> None:
     """Add ``amount_usd`` to the current month's running total (no-op if disabled).
 
-    Best-effort: never raises (a metering hiccup must not break an agent call).
+    Updates the process-local total first (always), then the shared disk store. A
+    disk failure is logged at WARNING but never raises — the in-memory total keeps
+    the cap enforced for this process so spend cannot run away unnoticed.
     """
     if not is_enabled() or amount_usd <= 0:
         return
-    try:
-        with _lock:
-            spent = float(_read_state()["spent_usd"])  # type: ignore[arg-type]
-            _write_state(spent + float(amount_usd))
-    except Exception:  # noqa: BLE001 - metering must never crash the caller
-        pass
+    with _lock:
+        _mem_add(float(amount_usd))
+        if not _disk_add(float(amount_usd)):
+            logger.warning(
+                "budget_guard: could not persist spend to %s; using in-memory total "
+                "($%.2f this process). Cap stays enforced but cross-process totals "
+                "may be incomplete.",
+                _store_path(),
+                _mem_get(),
+            )
 
 
 def status() -> dict[str, float | bool | str]:

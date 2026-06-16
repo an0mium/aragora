@@ -12,9 +12,10 @@ from aragora.billing.budget_guard import BudgetExceededError
 
 @pytest.fixture
 def store(tmp_path, monkeypatch):
-    """Point the guard at a temp store and return its path."""
+    """Point the guard at a temp store and reset the process-local fallback total."""
     path = tmp_path / "budget_guard.json"
     monkeypatch.setenv("ARAGORA_BUDGET_GUARD_STORE", str(path))
+    budget_guard._mem_state.clear()  # the in-memory fallback is a shared global
     return path
 
 
@@ -83,3 +84,40 @@ def test_invalid_cap_disables(store, monkeypatch):
     assert budget_guard.is_enabled() is False
     monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "-5")
     assert budget_guard.is_enabled() is False
+
+
+def test_blocks_exactly_at_cap(store, monkeypatch):
+    # `>=` means the cap stops AT the limit, not one call past it.
+    monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "100")
+    budget_guard.record_spend(100.0)
+    with pytest.raises(BudgetExceededError):
+        budget_guard.assert_within_budget(0.0)
+
+
+def test_fails_closed_when_disk_store_unwritable(tmp_path, monkeypatch):
+    # Point the store under a *file* so mkdir/open fail -> disk persistence is
+    # impossible. The in-memory fallback must still enforce the cap (NOT fail open).
+    blocker = tmp_path / "blocker"
+    blocker.write_text("i am a file, not a dir", encoding="utf-8")
+    monkeypatch.setenv("ARAGORA_BUDGET_GUARD_STORE", str(blocker / "budget.json"))
+    monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "10")
+    budget_guard._mem_state.clear()
+    budget_guard.record_spend(25.0)  # disk write fails; in-memory keeps it
+    assert budget_guard.current_spend_usd() >= 25.0
+    with pytest.raises(BudgetExceededError):
+        budget_guard.assert_within_budget(0.0)
+
+
+def test_no_metered_api_agent_bypasses_the_cap():
+    """Every metered API agent's generate() must invoke the budget gate.
+
+    Source-level guard: if a new metered agent forgets the precall, this fails.
+    (Local agents like ollama/lm_studio are free and intentionally excluded.)
+    """
+    import pathlib
+
+    base = pathlib.Path(budget_guard.__file__).resolve().parents[1] / "agents" / "api_agents"
+    needles = ("_enforce_budget_precall", "assert_within_budget")
+    for fname in ("anthropic.py", "gemini.py", "openrouter.py", "openai_compatible.py"):
+        text = (base / fname).read_text(encoding="utf-8")
+        assert any(n in text for n in needles), f"{fname} does not invoke the budget gate"
