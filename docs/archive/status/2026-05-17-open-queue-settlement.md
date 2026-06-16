@@ -510,7 +510,7 @@ print('match     :', claimed == recomputed)
 "
 
 # 2. Confirm this doc references the same SHA:
-grep -o '`b93358c7[a-f0-9]*`' docs/status/settlement-packets/2026-05-17-open-queue-settlement.md
+grep -o '`b93358c7[a-f0-9]*`' docs/archive/status/2026-05-17-open-queue-settlement.md
 
 # 3. Re-derive at any time (output differs only in generated_at_utc; per-PR head_sha pins are stable until the PR pushes):
 #    gh pr list --state open --json number,headRefOid,...   # same shape as used to produce this packet
