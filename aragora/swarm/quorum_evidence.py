@@ -1155,6 +1155,7 @@ def _run_reviewers_in_processes(
 
     reviews: dict[str, ReviewerResult] = {}
     pending = set(supported)
+    exited_without_result_since: dict[str, float] = {}
     deadline = time.monotonic() + overall_timeout_seconds
     while pending:
         # Drain any completed results before deciding whether an exited worker
@@ -1172,10 +1173,15 @@ def _run_reviewers_in_processes(
                 else ReviewerResult(family, "", False, "reviewer returned invalid result")
             )
             pending.remove(family)
+            exited_without_result_since.pop(family, None)
 
+        now = time.monotonic()
         for family in list(pending):
             process = processes[family]
             if process.exitcode is not None and not process.is_alive():
+                first_seen = exited_without_result_since.setdefault(family, now)
+                if now - first_seen < _REVIEWER_RESULT_QUEUE_TIMEOUT:
+                    continue
                 process.join(timeout=0.1)
                 reviews[family] = ReviewerResult(
                     family,
@@ -1184,6 +1190,7 @@ def _run_reviewers_in_processes(
                     f"{family} reviewer exited without returning a result",
                 )
                 pending.remove(family)
+                exited_without_result_since.pop(family, None)
 
         if not pending:
             break
@@ -1202,6 +1209,7 @@ def _run_reviewers_in_processes(
             else ReviewerResult(family, "", False, "reviewer returned invalid result")
         )
         pending.remove(family)
+        exited_without_result_since.pop(family, None)
 
     timeout_label = _format_seconds(overall_timeout_seconds)
     for family in list(pending):
@@ -1221,6 +1229,7 @@ def _run_reviewers_in_processes(
             f"{family} reviewer orchestration timed out after {timeout_label}s",
         )
         pending.remove(family)
+        exited_without_result_since.pop(family, None)
 
     for process in processes.values():
         if process.is_alive():  # pragma: no cover - defensive cleanup.
@@ -1365,6 +1374,20 @@ def collect_evidence(
             )
         if process_reviews is not None:
             reviews = process_reviews
+        elif overall_timeout_seconds is not None:
+            timeout_label = _format_seconds(overall_timeout_seconds)
+            reviews = {
+                family: ReviewerResult(
+                    family,
+                    "",
+                    False,
+                    (
+                        f"{family} reviewer orchestration requires process isolation for "
+                        f"--overall-timeout={timeout_label}s, but fork is unavailable"
+                    ),
+                )
+                for family in supported
+            }
         else:
             reviews = _run_reviewers_in_threads(
                 supported=supported,

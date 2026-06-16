@@ -1005,31 +1005,19 @@ def test_collect_overall_timeout_records_unfinished_reviewers(monkeypatch) -> No
     assert elapsed < 2.0
 
 
-def test_collect_overall_timeout_uses_thread_cleanup_when_processes_unavailable(
+def test_collect_overall_timeout_fails_closed_when_processes_unavailable(
     monkeypatch,
 ) -> None:
     fakes, _posted = _fakes(tier=1)
-    real_as_completed = qe.concurrent.futures.as_completed
-    slow_started = threading.Event()
-    slow_finished = threading.Event()
+    runner_called = False
     monkeypatch.setattr(qe, "_reviewer_process_context", lambda: None)
 
     def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            slow_started.set()
-            time.sleep(0.2)
-            slow_finished.set()
+        nonlocal runner_called
+        runner_called = True
         return ReviewerResult(family, f"Verdict: PASS from {family}", True)
 
     fakes["reviewer_runner"] = reviewer_runner
-
-    def one_done_then_timeout(futures, timeout=None):
-        futures = list(futures)
-        assert slow_started.wait(timeout=2)
-        yield futures[0]
-        raise qe.concurrent.futures.TimeoutError("timed out")
-
-    monkeypatch.setattr(qe.concurrent.futures, "as_completed", one_done_then_timeout)
 
     outcome = collect_evidence(
         repo="o/r",
@@ -1041,10 +1029,9 @@ def test_collect_overall_timeout_uses_thread_cleanup_when_processes_unavailable(
         **fakes,
     )
 
-    monkeypatch.setattr(qe.concurrent.futures, "as_completed", real_as_completed)
-
-    assert [failure.family for failure in outcome.failures] == ["grok"]
-    assert slow_finished.is_set()
+    assert not runner_called
+    assert [failure.family for failure in outcome.failures] == ["claude", "grok"]
+    assert all("requires process isolation" in failure.error for failure in outcome.failures)
 
 
 def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
