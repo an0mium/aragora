@@ -145,6 +145,32 @@ class TestModelDowngradeAnalyzer:
         assert rec.projected_cost_usd < rec.current_cost_usd
         assert rec.model_alternative is not None
 
+    def test_analyze_recommends_downgrade_to_new_models(self):
+        """Test analyzer finds new alternatives like gemini-3.5-flash and deepseek-v4-pro."""
+        analyzer = ModelDowngradeAnalyzer()
+
+        patterns = [
+            UsagePattern(
+                model="claude-opus-4.8",
+                provider="anthropic",
+                operation="summarize",
+                count=100,
+                total_tokens_in=500000,
+                total_tokens_out=100000,
+                total_cost=Decimal("50.00"),
+            ),
+        ]
+
+        recommendations = analyzer.analyze(patterns, "ws-123")
+
+        assert len(recommendations) >= 1
+        rec = recommendations[0]
+        assert rec.type == RecommendationType.MODEL_DOWNGRADE
+        assert rec.model_alternative is not None
+        # Cheapest Tier 3 alternative should be gemini-3.5-flash
+        assert rec.model_alternative.model == "gemini-3.5-flash"
+        assert rec.projected_cost_usd < rec.current_cost_usd
+
     def test_analyze_skips_cheap_models(self):
         """Test analyzer skips already cheap models."""
         analyzer = ModelDowngradeAnalyzer()

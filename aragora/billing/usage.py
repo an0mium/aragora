@@ -47,6 +47,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "claude-haiku-4.5-output": Decimal("4.00"),
     },
     "openai": {
+        "gpt-5.5": Decimal("2.00"),
+        "gpt-5.5-output": Decimal("8.00"),
         "gpt-4.1": Decimal("2.00"),
         "gpt-4.1-output": Decimal("8.00"),
         "gpt-4.1-mini": Decimal("0.40"),
@@ -57,6 +59,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "gpt-4o-mini-output": Decimal("0.60"),
     },
     "google": {
+        "gemini-3.5-flash": Decimal("0.075"),
+        "gemini-3.5-flash-output": Decimal("0.30"),
         "gemini-3.1-pro": Decimal("2.00"),
         "gemini-3.1-pro-output": Decimal("12.00"),
         "gemini-3-flash": Decimal("0.50"),
