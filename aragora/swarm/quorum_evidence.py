@@ -1100,7 +1100,7 @@ def default_quorum_reconciler(repo: str, pr: int) -> dict[str, Any]:
         return record
 
 
-def _reviewer_process_context() -> multiprocessing.context.BaseContext | None:
+def _reviewer_process_context() -> Any | None:
     """Return a fork context when available for hard-bounded reviewer runs.
 
     The collector accepts injected reviewer callables in tests and local tools;
