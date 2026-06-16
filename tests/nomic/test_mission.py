@@ -6,6 +6,9 @@ from dataclasses import dataclass
 
 import pytest
 
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
+
 from aragora.config.feature_flags import FeatureFlagRegistry
 from aragora.nomic.mission import (
     MissionSpec,
@@ -13,6 +16,8 @@ from aragora.nomic.mission import (
     WorkItem,
     WorkItemStatus,
     work_items_from_subtasks,
+    MissionStore,
+    NativeMissionRunner,
 )
 
 
@@ -139,3 +144,126 @@ def test_flag_registered_default_off(monkeypatch) -> None:
     monkeypatch.delenv("ARAGORA_ENABLE_NATIVE_MISSION", raising=False)
     reg = FeatureFlagRegistry()
     assert reg.is_enabled("enable_native_mission") is False
+
+
+def test_work_item_from_dict_roundtrip() -> None:
+    wi = WorkItem(
+        item_id="wi-1",
+        description="Write tests",
+        status=WorkItemStatus.RUNNING,
+        complexity="high",
+        file_scope=("a.py", "b.py"),
+        dependencies=("wi-0",),
+    )
+    restored = WorkItem.from_dict(wi.to_dict())
+    assert restored == wi
+
+
+def test_work_item_from_dict_defaults() -> None:
+    wi = WorkItem.from_dict({"item_id": "wi-default", "description": "desc"})
+    assert wi.status is WorkItemStatus.PENDING
+    assert wi.complexity == "low"
+    assert wi.file_scope == ()
+    assert wi.dependencies == ()
+
+
+def test_mission_store_lifecycle(tmp_path: Path) -> None:
+    store = MissionStore(state_dir=tmp_path)
+    spec = _spec(mission_id="mission-test")
+    items = [
+        WorkItem(item_id="sub-1", description="Subtask 1"),
+        WorkItem(item_id="sub-2", description="Subtask 2"),
+    ]
+
+    # Save
+    p = store.save_mission(spec, items)
+    assert p.exists()
+    assert p.name == "mission-test.json"
+
+    # List
+    assert store.list_missions() == ["mission-test"]
+
+    # Load
+    loaded = store.load_mission("mission-test")
+    assert loaded is not None
+    loaded_spec, loaded_items = loaded
+    assert loaded_spec == spec
+    assert len(loaded_items) == 2
+    assert loaded_items[0].item_id == "sub-1"
+    assert loaded_items[1].item_id == "sub-2"
+
+
+def test_mission_store_path_sanitization(tmp_path: Path) -> None:
+    store = MissionStore(state_dir=tmp_path)
+    spec = _spec(mission_id="my-cool_mission-123")
+    p = store.save_mission(spec, [])
+    assert p.name == "my-cool_mission-123.json"
+
+    with pytest.raises(ValueError, match="Invalid mission ID"):
+        store.path_for("   ")
+
+    with pytest.raises(ValueError, match="Invalid mission ID"):
+        store.path_for("../../etc/passwd")
+
+
+def test_runner_raises_when_disabled(monkeypatch) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "false")
+    runner = NativeMissionRunner()
+    spec = _spec()
+    with pytest.raises(RuntimeError, match="Native mission orchestrator is disabled"):
+        import asyncio
+
+        asyncio.run(runner.ingest_mission(spec))
+
+
+def test_runner_ingest_mission(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_NATIVE_MISSION", "true")
+
+    mock_orch = MagicMock()
+    mock_orch.decompose_goal = AsyncMock()
+
+    dummy_subtasks = [
+        _FakeSubTask(id="sub-1", title="Task 1", estimated_complexity="medium"),
+        _FakeSubTask(id="sub-2", title="Task 2", estimated_complexity="low"),
+    ]
+    from aragora.nomic.task_decomposer import TaskDecomposition
+
+    dummy_decomp = TaskDecomposition(
+        original_task="Improve codebase",
+        complexity_score=50,
+        complexity_level="medium",
+        should_decompose=True,
+        subtasks=dummy_subtasks,
+    )
+    mock_orch.decompose_goal.return_value = dummy_decomp
+
+    store = MissionStore(state_dir=tmp_path)
+    runner = NativeMissionRunner(orchestrator=mock_orch, store=store)
+
+    spec = _spec(goal="Improve codebase", mission_id="runner-test-mission")
+
+    import asyncio
+
+    items = asyncio.run(runner.ingest_mission(spec))
+
+    mock_orch.decompose_goal.assert_called_once_with("Improve codebase", tracks=None)
+
+    assert len(items) == 2
+    assert items[0].item_id == "sub-1"
+    assert items[0].complexity == "medium"
+    assert items[1].item_id == "sub-2"
+    assert items[1].complexity == "low"
+
+    loaded = store.load_mission("runner-test-mission")
+    assert loaded is not None
+    loaded_spec, loaded_items = loaded
+    assert loaded_spec == spec
+    assert len(loaded_items) == 2
+    assert loaded_items[0].item_id == "sub-1"
+
+
+def test_runner_lazy_orchestrator(monkeypatch) -> None:
+    runner = NativeMissionRunner()
+    from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+
+    assert isinstance(runner.orchestrator, AutonomousOrchestrator)
