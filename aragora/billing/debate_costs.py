@@ -65,6 +65,8 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     },
     "openrouter": {
         "default": (Decimal("2.00"), Decimal("8.00")),
+        "openai/gpt-5.5": (Decimal("2.50"), Decimal("10.00")),
+        "google/gemini-3.5-flash": (Decimal("1.50"), Decimal("9.00")),
     },
 }
 

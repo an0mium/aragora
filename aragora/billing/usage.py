@@ -89,6 +89,10 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
     "openrouter": {
         "default": Decimal("2.00"),
         "default-output": Decimal("8.00"),
+        "openai/gpt-5.5": Decimal("2.50"),
+        "openai/gpt-5.5-output": Decimal("10.00"),
+        "google/gemini-3.5-flash": Decimal("1.50"),
+        "google/gemini-3.5-flash-output": Decimal("9.00"),
         # Fusion runs a panel of models + a judge, so it costs ~4-5x a single
         # model. These are ASSUMED rates (4x the openrouter default) pending
         # confirmation against OpenRouter's published Fusion pricing; the cost

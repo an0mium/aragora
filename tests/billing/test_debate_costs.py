@@ -113,6 +113,8 @@ class TestProviderRateMirrors:
         [
             ("openai", "gpt-5.5"),
             ("google", "gemini-3.5-flash"),
+            ("openrouter", "openai/gpt-5.5"),
+            ("openrouter", "google/gemini-3.5-flash"),
         ],
     )
     def test_calibrated_v4_1_models_have_mirrored_debate_rates(self, provider, model):

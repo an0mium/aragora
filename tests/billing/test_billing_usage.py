@@ -75,6 +75,18 @@ class TestTokenCostCalculation:
         # $1.50 per 1M input + $9.00 per 1M output = $10.50
         assert cost == Decimal("10.50")
 
+    def test_openrouter_openai_gpt55_alias_uses_canonical_pricing(self):
+        """Test OpenRouter-qualified GPT-5.5 does not fall back to default pricing."""
+        cost = calculate_token_cost("openrouter", "openai/gpt-5.5", 1_000_000, 1_000_000)
+        # $2.50 per 1M input + $10.00 per 1M output = $12.50
+        assert cost == Decimal("12.50")
+
+    def test_openrouter_google_gemini_35_flash_alias_uses_canonical_pricing(self):
+        """Test OpenRouter-qualified Gemini 3.5 Flash does not fall back to default."""
+        cost = calculate_token_cost("openrouter", "google/gemini-3.5-flash", 1_000_000, 1_000_000)
+        # $1.50 per 1M input + $9.00 per 1M output = $10.50
+        assert cost == Decimal("10.50")
+
     def test_deepseek_pricing(self):
         """Test DeepSeek pricing."""
         cost = calculate_token_cost("deepseek", "deepseek-v4-pro", 10_000_000, 5_000_000)
