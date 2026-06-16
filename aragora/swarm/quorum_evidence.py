@@ -146,6 +146,35 @@ def _format_seconds(seconds: float) -> str:
     return f"{seconds:g}"
 
 
+def _positive_timeout_seconds(value: float | int | None, *, flag_name: str) -> float | None:
+    if value is None:
+        return None
+    seconds = float(value)
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise ValueError(f"{flag_name} must be a positive finite number of seconds")
+    return seconds
+
+
+@contextmanager
+def _temporary_reviewer_timeout_env(seconds: float | None) -> Iterator[None]:
+    if seconds is None:
+        yield
+        return
+    value = _format_seconds(seconds)
+    names = (_CLAUDE_TIMEOUT_ENV, _CODEX_TIMEOUT_ENV, _REVIEWER_TIMEOUT_ENV)
+    previous = {name: os.environ.get(name) for name in names}
+    try:
+        for name in names:
+            os.environ[name] = value
+        yield
+    finally:
+        for name, old_value in previous.items():
+            if old_value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = old_value
+
+
 @dataclass
 class ReviewerResult:
     """Raw output of one genuine reviewer run."""
@@ -238,6 +267,16 @@ class CollectOutcome:
             ],
             "failures": [{"family": f.family, "error": f.error} for f in self.failures],
         }
+
+
+def _reviewer_failure_summary(failures: Sequence[ReviewerResult]) -> str:
+    pieces: list[str] = []
+    for failure in failures[:3]:
+        detail = failure.error.strip() or "unknown reviewer failure"
+        pieces.append(f"{failure.family}: {detail[:120]}")
+    if len(failures) > 3:
+        pieces.append(f"+{len(failures) - 3} more")
+    return "; ".join(pieces)
 
 
 def _string_list(value: Any) -> list[str]:
@@ -1079,8 +1118,12 @@ def collect_evidence(
     poster: Callable[[str, int, str], None] = default_poster,
     quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
     env: dict[str, str] | None = None,
+    overall_timeout_seconds: float | None = None,
 ) -> CollectOutcome:
     """Run reviewers, validate evidence, and post only when tier-gating allows."""
+    overall_timeout_seconds = _positive_timeout_seconds(
+        overall_timeout_seconds, flag_name="--overall-timeout"
+    )
     ctx = context_fetcher(repo, pr)
     head_sha = str(ctx.get("head_sha") or "").strip()
     head_committed_at = str(ctx.get("head_committed_at") or "")
@@ -1123,18 +1166,51 @@ def collect_evidence(
     reviews: dict[str, ReviewerResult] = {}
     if supported:
         max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+        future_to_family: dict[concurrent.futures.Future[ReviewerResult], str] = {}
+        timed_out = False
+        try:
             future_to_family = {
                 pool.submit(reviewer_runner, family, prompt): family for family in supported
             }
-            for future in concurrent.futures.as_completed(future_to_family):
-                family = future_to_family[future]
-                try:
-                    reviews[family] = future.result()
-                except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
+            try:
+                completed = concurrent.futures.as_completed(
+                    future_to_family,
+                    timeout=overall_timeout_seconds,
+                )
+                for future in completed:
+                    family = future_to_family[future]
+                    if family in reviews:
+                        continue
+                    try:
+                        reviews[family] = future.result()
+                    except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
+                        reviews[family] = ReviewerResult(
+                            family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                        )
+            except concurrent.futures.TimeoutError:
+                timed_out = True
+                for future, family in future_to_family.items():
+                    if family in reviews:
+                        continue
+                    if future.done():
+                        try:
+                            reviews[family] = future.result()
+                        except Exception as exc:  # noqa: BLE001
+                            reviews[family] = ReviewerResult(
+                                family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                            )
+                        continue
+                    future.cancel()
+                    timeout_label = _format_seconds(overall_timeout_seconds or 0.0)
                     reviews[family] = ReviewerResult(
-                        family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                        family,
+                        "",
+                        False,
+                        f"{family} reviewer orchestration timed out after {timeout_label}s",
                     )
+        finally:
+            pool.shutdown(wait=not timed_out, cancel_futures=True)
 
     for family in ordered_families:
         if family not in FAMILY_PROVIDERS:
@@ -1178,10 +1254,12 @@ def collect_evidence(
             )
             return outcome
         if not outcome.has_supportive_quorum:
+            failure_summary = _reviewer_failure_summary(outcome.failures)
+            failure_detail = f"; reviewer failures: {failure_summary}" if failure_summary else ""
             outcome.action = "prepare"
             outcome.action_reason = (
                 "supportive quorum incomplete "
-                f"({len(outcome.supportive_families)}/2); prepared evidence only"
+                f"({len(outcome.supportive_families)}/2){failure_detail}; prepared evidence only"
             )
             return outcome
         # Reviewers can take minutes; re-verify the head and tier immediately
@@ -1463,6 +1541,8 @@ def run_collect_cli(
     apply: bool,
     json_output: bool,
     prepared_json: Path | None = None,
+    reviewer_timeout_seconds: float | None = None,
+    overall_timeout_seconds: float | None = None,
     printer: Callable[[str], None] = print,
 ) -> int:
     """Shared entry point for the script and ``review-queue collect-evidence``.
@@ -1476,16 +1556,24 @@ def run_collect_cli(
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()
     try:
+        reviewer_timeout_seconds = _positive_timeout_seconds(
+            reviewer_timeout_seconds, flag_name="--reviewer-timeout"
+        )
+        overall_timeout_seconds = _positive_timeout_seconds(
+            overall_timeout_seconds, flag_name="--overall-timeout"
+        )
         if prepared_json is None:
-            outcome = collect_evidence(
-                repo=repo,
-                pr=pr,
-                families=fams,
-                author=resolved_author,
-                apply=apply,
-                env=merge_quorum_io.aragora_env(),
-                quorum_reconciler=default_quorum_reconciler if apply else None,
-            )
+            with _temporary_reviewer_timeout_env(reviewer_timeout_seconds):
+                outcome = collect_evidence(
+                    repo=repo,
+                    pr=pr,
+                    families=fams,
+                    author=resolved_author,
+                    apply=apply,
+                    env=merge_quorum_io.aragora_env(),
+                    quorum_reconciler=default_quorum_reconciler if apply else None,
+                    overall_timeout_seconds=overall_timeout_seconds,
+                )
         else:
             outcome = apply_prepared_evidence(
                 repo=repo,

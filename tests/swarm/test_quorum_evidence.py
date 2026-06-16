@@ -970,6 +970,46 @@ def test_collect_records_raising_reviewer_as_failure() -> None:
     assert "reviewer boom" in outcome.failures[0].error
 
 
+def test_collect_overall_timeout_records_unfinished_reviewers(monkeypatch) -> None:
+    fakes, posted = _fakes(tier=1)
+    real_as_completed = qe.concurrent.futures.as_completed
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            time.sleep(0.2)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+
+    def one_done_then_timeout(futures, timeout=None):
+        assert timeout == 12
+        futures = list(futures)
+        yield futures[0]
+        raise qe.concurrent.futures.TimeoutError("timed out")
+
+    monkeypatch.setattr(qe.concurrent.futures, "as_completed", one_done_then_timeout)
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_seconds=12,
+        **fakes,
+    )
+
+    monkeypatch.setattr(qe.concurrent.futures, "as_completed", real_as_completed)
+
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete (1/2)" in outcome.action_reason
+    assert outcome.supportive_families == ["claude"]
+    assert outcome.posted == []
+    assert posted == []
+    assert [failure.family for failure in outcome.failures] == ["grok"]
+    assert "orchestration timed out after 12s" in outcome.failures[0].error
+
+
 def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
     fakes, posted = _fakes(tier=1)
     calls: list[tuple[str, int, int]] = []
@@ -1718,7 +1758,10 @@ def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
 
 
 def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
+    seen: dict[str, object] = {}
+
     def fake_collect(**kwargs) -> CollectOutcome:
+        seen.update(kwargs)
         return CollectOutcome(
             repo="o/r",
             pr=1,
@@ -1737,10 +1780,63 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
     monkeypatch.setattr(qe, "collect_evidence", fake_collect)
     monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
     rc = qe.run_collect_cli(
-        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=True
+        repo="o/r",
+        pr=1,
+        families=None,
+        author=None,
+        apply=True,
+        json_output=True,
+        reviewer_timeout_seconds=17,
+        overall_timeout_seconds=23,
     )
     assert rc == 0
     assert "collect_evidence" in capsys.readouterr().out
+    assert seen["overall_timeout_seconds"] == 23
+
+
+def test_run_collect_cli_reviewer_timeout_sets_process_env(monkeypatch) -> None:
+    seen: dict[str, str] = {}
+    monkeypatch.delenv(qe._CLAUDE_TIMEOUT_ENV, raising=False)
+    monkeypatch.delenv(qe._CODEX_TIMEOUT_ENV, raising=False)
+    monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        seen[qe._CLAUDE_TIMEOUT_ENV] = os.environ.get(qe._CLAUDE_TIMEOUT_ENV, "")
+        seen[qe._CODEX_TIMEOUT_ENV] = os.environ.get(qe._CODEX_TIMEOUT_ENV, "")
+        seen[qe._REVIEWER_TIMEOUT_ENV] = os.environ.get(qe._REVIEWER_TIMEOUT_ENV, "")
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="dry-run",
+            items=[],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=None,
+        author=None,
+        apply=False,
+        json_output=False,
+        reviewer_timeout_seconds=17,
+    )
+
+    assert rc == 1
+    assert seen == {
+        qe._CLAUDE_TIMEOUT_ENV: "17",
+        qe._CODEX_TIMEOUT_ENV: "17",
+        qe._REVIEWER_TIMEOUT_ENV: "17",
+    }
+    assert qe._CLAUDE_TIMEOUT_ENV not in os.environ
+    assert qe._CODEX_TIMEOUT_ENV not in os.environ
+    assert qe._REVIEWER_TIMEOUT_ENV not in os.environ
 
 
 def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:

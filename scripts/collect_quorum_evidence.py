@@ -57,6 +57,21 @@ def main(argv: list[str] | None = None) -> int:
         help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
     )
     parser.add_argument(
+        "--reviewer-timeout",
+        type=float,
+        default=None,
+        help=(
+            "Per-reviewer timeout in seconds. Overrides the Claude, Codex/OpenAI, "
+            "and API reviewer timeout environment variables for this invocation."
+        ),
+    )
+    parser.add_argument(
+        "--overall-timeout",
+        type=float,
+        default=None,
+        help="Overall reviewer orchestration timeout in seconds; unfinished reviewers fail closed.",
+    )
+    parser.add_argument(
         "--prepared-json",
         type=Path,
         default=None,
@@ -76,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
         apply=args.apply,
         json_output=args.json_output,
         prepared_json=args.prepared_json,
+        reviewer_timeout_seconds=args.reviewer_timeout,
+        overall_timeout_seconds=args.overall_timeout,
     )
 
 
