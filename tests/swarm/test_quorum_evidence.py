@@ -12,6 +12,7 @@ The compose helper is checked against the *real* evidence parser
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import subprocess
 import threading
@@ -1425,6 +1426,294 @@ def test_collect_missing_head_raises() -> None:
         collect_evidence(repo="o/r", pr=1, families=["claude"], author="me", apply=True, **fakes)
 
 
+def _prepared_body(family: str, verdict: str = "PASS") -> str:
+    return f"Verdict: {verdict}\n\n{family} body\n"
+
+
+def _prepared_outcome_file(tmp_path, *, items: list[EvidenceItem] | None = None) -> Path:
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="dry-run; re-run with --apply to post",
+        items=items
+        or [
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+            EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
+        ],
+    )
+    path = tmp_path / "prepared.json"
+    path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    return path
+
+
+def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[tuple[str, str]] = []
+
+    def context_fetcher(repo: str, pr: int) -> dict:
+        return {"head_sha": HEAD, "head_committed_at": COMMITTED}
+
+    def tier_fetcher(repo: str, pr: int):
+        return 1
+
+    def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        family = "claude" if "claude body" in body else "grok"
+        return {
+            "would_count": True,
+            "counted_reviewer_ids": [family],
+            "problems": [],
+        }
+
+    def poster(repo: str, pr: int, body: str) -> None:
+        posted.append((repo, body))
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=context_fetcher,
+        tier_fetcher=tier_fetcher,
+        linter=linter,
+        poster=poster,
+    )
+
+    assert outcome.action == "post"
+    assert "without reviewer regeneration" in outcome.action_reason
+    assert outcome.posted == ["claude", "grok"]
+    assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
+
+
+def test_apply_prepared_evidence_rederives_verdict_from_body(tmp_path) -> None:
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem(
+                "claude",
+                _prepared_body("claude", "CHANGES-REQUESTED"),
+                True,
+                ["claude"],
+                [],
+                "pass",
+            ),
+            EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
+        ],
+    )
+    posted: list[tuple[str, str]] = []
+
+    def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        family = "claude" if "claude body" in body else "grok"
+        return {
+            "would_count": True,
+            "counted_reviewer_ids": [family],
+            "problems": [],
+        }
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=linter,
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+    )
+
+    assert outcome.action == "prepare"
+    assert outcome.dissenting_families == ["claude"]
+    assert "reviewer dissent present" in outcome.action_reason
+    assert outcome.posted == []
+    assert posted == []
+
+
+def test_apply_prepared_evidence_uses_fresh_lint_counting(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[tuple[str, str]] = []
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=lambda *args, **kwargs: {
+            "would_count": False,
+            "counted_reviewer_ids": [],
+            "problems": ["fresh lint rejected prepared comment"],
+        },
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+    )
+
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete (0/2)" in outcome.action_reason
+    assert outcome.supportive_families == []
+    assert outcome.posted == []
+    assert posted == []
+
+
+def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[tuple[str, str]] = []
+
+    def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        family = "claude" if "claude body" in body else "grok"
+        counted = ["claude"] if family == "claude" else ["openai"]
+        return {
+            "would_count": True,
+            "counted_reviewer_ids": counted,
+            "problems": [],
+        }
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=linter,
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+    )
+
+    grok_item = next(item for item in outcome.items if item.family == "grok")
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete (1/2)" in outcome.action_reason
+    assert outcome.supportive_families == ["claude"]
+    assert not grok_item.would_count
+    assert (
+        "fresh lint counted reviewer ids do not include prepared family: grok" in grok_item.problems
+    )
+    assert outcome.posted == []
+    assert posted == []
+
+
+def test_apply_prepared_evidence_rejects_unsupported_family(tmp_path) -> None:
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("claude", "claude body", True, ["claude"], [], "pass"),
+            EvidenceItem("factory", "factory body", True, ["factory"], [], "pass"),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="unsupported reviewer family"):
+        qe.apply_prepared_evidence(
+            repo="o/r",
+            pr=1,
+            prepared_json=prepared,
+            author="me",
+            apply=True,
+            families=["claude", "factory"],
+            context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+            tier_fetcher=lambda repo, pr: 1,
+            linter=lambda *args, **kwargs: {
+                "would_count": True,
+                "counted_reviewer_ids": ["claude"],
+                "problems": [],
+            },
+            poster=lambda repo, pr, body: None,
+        )
+
+
+def test_apply_prepared_evidence_rejects_duplicate_family(tmp_path) -> None:
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("claude", "claude body one", True, ["claude"], [], "pass"),
+            EvidenceItem("claude", "claude body two", True, ["claude"], [], "pass"),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="duplicate reviewer family"):
+        qe.apply_prepared_evidence(
+            repo="o/r",
+            pr=1,
+            prepared_json=prepared,
+            author="me",
+            apply=True,
+            families=["claude"],
+            context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+            tier_fetcher=lambda repo, pr: 1,
+            linter=lambda *args, **kwargs: {
+                "would_count": True,
+                "counted_reviewer_ids": ["claude"],
+                "problems": [],
+            },
+            poster=lambda repo, pr, body: None,
+        )
+
+
+def test_apply_prepared_evidence_honors_requested_family_allowlist(tmp_path) -> None:
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("openai", "openai body", True, ["openai"], [], "pass"),
+            EvidenceItem("grok", "grok body", True, ["grok"], [], "pass"),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="not in requested reviewer allowlist"):
+        qe.apply_prepared_evidence(
+            repo="o/r",
+            pr=1,
+            prepared_json=prepared,
+            author="me",
+            apply=True,
+            families=["claude", "grok"],
+            context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+            tier_fetcher=lambda repo, pr: 1,
+            linter=lambda *args, **kwargs: {
+                "would_count": True,
+                "counted_reviewer_ids": ["openai"],
+                "problems": [],
+            },
+            poster=lambda repo, pr, body: None,
+        )
+
+
+def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[tuple[str, str]] = []
+
+    def context_fetcher(repo: str, pr: int) -> dict:
+        return {"head_sha": "different-head", "head_committed_at": COMMITTED}
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        context_fetcher=context_fetcher,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=lambda *args, **kwargs: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+    )
+
+    assert outcome.action == "prepare"
+    assert "prepared head" in outcome.action_reason
+    assert outcome.posted == []
+    assert posted == []
+
+
 # --- run_collect_cli (monkeypatched orchestrator) ---------------------------
 
 
@@ -1452,6 +1741,50 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
     )
     assert rc == 0
     assert "collect_evidence" in capsys.readouterr().out
+
+
+def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    seen: dict[str, object] = {}
+
+    def boom_collect(**kwargs):
+        raise AssertionError("collect_evidence should not run for prepared_json")
+
+    def fake_apply_prepared_evidence(**kwargs) -> CollectOutcome:
+        seen.update(kwargs)
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="post",
+            action_reason="prepared exact-head evidence artifact",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+            posted=["claude", "grok"],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", boom_collect)
+    monkeypatch.setattr(qe, "apply_prepared_evidence", fake_apply_prepared_evidence)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=True,
+        json_output=True,
+        prepared_json=prepared,
+    )
+
+    assert rc == 0
+    assert seen["prepared_json"] == prepared
+    assert seen["apply"] is True
+    assert seen["families"] == ("claude", "grok")
 
 
 def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:
