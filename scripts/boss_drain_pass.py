@@ -28,7 +28,12 @@ import json
 import subprocess
 from typing import Any
 
-from aragora.swarm.boss_drain import DEFAULT_OFF_LIMITS_PREFIXES, DrainContext, run_boss_drain
+from aragora.swarm.boss_drain import (
+    DEFAULT_OFF_LIMITS_PREFIXES,
+    DrainContext,
+    make_repair_order,
+    run_boss_drain,
+)
 from aragora.swarm.drain_pass import DrainPassPolicy
 from aragora.swarm.drain_policy import DrainAction, DrainPolicy
 
@@ -105,8 +110,80 @@ def _settle_authorized(repo: str, number: int) -> bool:
         return False
 
 
-def make_execute_fn(repo: str, *, dry_run: bool):
+def dispatch_repair(repo: str, pr: int, *, dry_run: bool, enable_repair: bool, agent: str) -> bool:
+    """Repair a red-but-useful PR. Spawns a worker ONLY with --apply AND --enable-repair-dispatch.
+
+    Otherwise (dry-run, or --apply without the explicit enable flag) it just prints the
+    bounded plan and spawns nothing — so autonomous repair workers can never start by
+    accident; turning them on is a deliberate, separate decision.
+    """
+    branch = str((view_pr(repo, pr) or {}).get("headRefName", ""))
+    order = make_repair_order(pr, branch, agent=agent)
+    if dry_run or not enable_repair:
+        gate = (
+            "dry-run" if dry_run else "repair-dispatch NOT enabled (need --enable-repair-dispatch)"
+        )
+        print(f"  [repair-plan/{gate}] #{pr} branch={branch} agent={agent}")
+        return True
+    # ENABLED apply path (bounded; isolated worktree on the PR branch).
+    import tempfile
+
+    wt = tempfile.mkdtemp(prefix=f"drain-repair-{pr}-")
+    try:
+        if (
+            subprocess.run(
+                ["git", "worktree", "add", "--force", wt, branch],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            ).returncode
+            != 0
+        ):
+            return False
+        if agent == "codex":
+            run = subprocess.run(
+                ["codex", "exec", "--full-auto", "-"],
+                input=order.prompt,
+                cwd=wt,
+                capture_output=True,
+                text=True,
+                timeout=1800,
+            )
+        else:
+            run = subprocess.run(
+                [
+                    "claude",
+                    "-p",
+                    "--strict-mcp-config",
+                    "--mcp-config",
+                    '{"mcpServers":{}}',
+                    order.prompt,
+                ],
+                cwd=wt,
+                capture_output=True,
+                text=True,
+                timeout=1800,
+            )
+        subprocess.run(
+            ["git", "-C", wt, "push", "origin", branch], capture_output=True, timeout=120
+        )
+        return run.returncode == 0
+    except Exception:  # noqa: BLE001 - one repair failure never aborts the pass
+        return False
+    finally:
+        subprocess.run(
+            ["git", "worktree", "remove", "--force", wt], capture_output=True, timeout=60
+        )
+
+
+def make_execute_fn(
+    repo: str, *, dry_run: bool, enable_repair: bool = False, repair_agent: str = "codex"
+):
     def execute(pr: int, action: DrainAction) -> bool:
+        if action is DrainAction.REPAIR:
+            return dispatch_repair(
+                repo, pr, dry_run=dry_run, enable_repair=enable_repair, agent=repair_agent
+            )
         if dry_run:
             return True  # plan only
         if action is DrainAction.MERGE:
@@ -136,14 +213,6 @@ def make_execute_fn(repo: str, *, dry_run: bool):
                 ).returncode
                 == 0
             )
-        if action is DrainAction.REPAIR:  # surface only (v1) — bounded by the pass caps
-            subprocess.run(
-                ["gh", "pr", "edit", str(pr), "--repo", repo, "--add-label", "drain-repair"],
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-            return True
         return True
 
     return execute
@@ -166,6 +235,13 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help=f"branch prefixes never touched (default: {list(DEFAULT_OFF_LIMITS_PREFIXES)})",
     )
+    p.add_argument(
+        "--enable-repair-dispatch",
+        action="store_true",
+        help="SPAWN bounded repair workers for REPAIR PRs (requires --apply too); "
+        "OFF by default so autonomous repair never starts accidentally",
+    )
+    p.add_argument("--repair-agent", default="codex", choices=["codex", "claude"])
     args = p.parse_args(argv)
     dry_run = not args.apply
 
@@ -188,7 +264,12 @@ def main(argv: list[str] | None = None) -> int:
         list_open_prs_fn=lambda: list_open_prs(args.repo, args.list_limit),
         view_pr_fn=lambda n: view_pr(args.repo, n),
         merge_authorized_fn=lambda n: _proxy_authorized(view_pr(args.repo, n) or {}),
-        execute_fn=make_execute_fn(args.repo, dry_run=dry_run),
+        execute_fn=make_execute_fn(
+            args.repo,
+            dry_run=dry_run,
+            enable_repair=args.enable_repair_dispatch,
+            repair_agent=args.repair_agent,
+        ),
         max_classify=args.max_classify,
     )
     mode = "DRY-RUN (nothing executed)" if dry_run else "APPLIED"

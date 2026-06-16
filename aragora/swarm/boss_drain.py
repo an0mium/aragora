@@ -61,6 +61,43 @@ def touches_merge_authority(
     return any(any(pat in p for pat in patterns) for p in paths)
 
 
+@dataclass(frozen=True)
+class RepairOrder:
+    """A bounded, scope-locked instruction to repair one red-but-useful PR."""
+
+    pr: int
+    branch: str
+    agent: str
+    prompt: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"pr": self.pr, "branch": self.branch, "agent": self.agent, "prompt": self.prompt}
+
+
+def make_repair_prompt(pr: int, branch: str) -> str:
+    """The tightly scope-locked repair directive a v2 dispatch worker receives. Pure."""
+    return (
+        f"Repair the EXISTING open PR #{pr} on branch `{branch}`. Goal: make its FAILING "
+        f"required CI checks pass — nothing else.\n"
+        f"HARD CONSTRAINTS (a drain-repair worker must obey all):\n"
+        f"1. Work ONLY on branch `{branch}`. Never create a new branch or touch any other PR.\n"
+        f"2. Do NOT broaden scope. Fix only what the required checks need "
+        f"(lint, typecheck, sdk-parity, Generate & Validate, TypeScript SDK Type Check). "
+        f"Keep the diff minimal.\n"
+        f"3. NEVER modify merge-authority surfaces (review_queue*, quorum_evidence, settle_*, "
+        f".github/workflows/aragora-merge-quorum*). If the fix would require that, STOP.\n"
+        f"4. Run the relevant checks locally before pushing.\n"
+        f"5. Commit and push to `{branch}` (do not force-push over others' commits).\n"
+        f"6. If you cannot fix it in a few bounded steps, STOP and leave one PR comment "
+        f"explaining the blocker — do NOT thrash."
+    )
+
+
+def make_repair_order(pr: int, branch: str, *, agent: str = "codex") -> RepairOrder:
+    """Build a bounded RepairOrder for a red-but-useful PR. Pure."""
+    return RepairOrder(pr=pr, branch=branch, agent=agent, prompt=make_repair_prompt(pr, branch))
+
+
 ListOpenPRsFn = Callable[
     [], Sequence[dict[str, Any]]
 ]  # -> PR view dicts (number, headRefName, ...)

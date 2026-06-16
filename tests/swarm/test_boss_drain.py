@@ -6,11 +6,28 @@ from aragora.swarm.boss_drain import (
     DrainContext,
     build_candidates,
     classify_candidate,
+    make_repair_order,
+    make_repair_prompt,
     run_boss_drain,
     touches_merge_authority,
 )
 from aragora.swarm.drain_pass import DrainPassPolicy
 from aragora.swarm.drain_policy import DrainAction
+
+
+def test_repair_prompt_is_scope_locked() -> None:
+    pr = make_repair_prompt(8460, "codex/red")
+    # must pin the branch, forbid scope-broadening, forbid touching gate logic, bound effort
+    assert "codex/red" in pr and "#8460" in pr
+    assert "ONLY" in pr and "branch" in pr
+    assert "review_queue" in pr and "quorum" in pr  # gate logic explicitly off-limits
+    assert "STOP" in pr  # bounded — must not thrash
+
+
+def test_make_repair_order_defaults_to_codex() -> None:
+    o = make_repair_order(8460, "codex/red")
+    assert o.pr == 8460 and o.branch == "codex/red" and o.agent == "codex"
+    assert o.to_dict()["prompt"] == o.prompt
 
 
 def test_merge_authority_files_force_off_limits() -> None:
