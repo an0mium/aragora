@@ -6,10 +6,85 @@ from aragora.swarm.boss_drain import (
     DrainContext,
     build_candidates,
     classify_candidate,
+    make_repair_order,
+    make_repair_prompt,
     run_boss_drain,
+    touches_merge_authority,
 )
 from aragora.swarm.drain_pass import DrainPassPolicy
-from aragora.swarm.drain_policy import DrainAction
+from aragora.swarm.drain_policy import (
+    DrainAction,
+    DrainCandidate,
+    DrainPolicy,
+    decide_drain_action,
+)
+
+
+def test_off_limits_pr_never_repairs_even_with_changes() -> None:
+    # A drain-repair worker spawns on DrainAction.REPAIR. An off-limits PR (Factory
+    # structex/* or claude/fusion-*) with changes must map to LEAVE, never REPAIR —
+    # otherwise dispatch_repair would push to another fleet's branch (cross-fleet
+    # collision). off_limits LEAVE must win regardless of has_changes / authority.
+    for authorized in (True, False):
+        d = decide_drain_action(
+            DrainPolicy(),
+            DrainCandidate(
+                pr=1,
+                has_changes=True,
+                off_limits=True,
+                required_checks_green=authorized,
+                quorum_satisfied=authorized,
+                mergeable=authorized,
+                tier=0,
+            ),
+        )
+        assert d.action is DrainAction.LEAVE
+
+
+def test_owned_pr_never_repairs() -> None:
+    d = decide_drain_action(
+        DrainPolicy(),
+        DrainCandidate(pr=2, has_changes=True, owned_by_other_agent=True, tier=0),
+    )
+    assert d.action is DrainAction.LEAVE
+
+
+def test_repair_prompt_is_scope_locked() -> None:
+    pr = make_repair_prompt(8460, "codex/red")
+    # must pin the branch, forbid scope-broadening, forbid touching gate logic, bound effort
+    assert "codex/red" in pr and "#8460" in pr
+    assert "ONLY" in pr and "branch" in pr
+    assert "review_queue" in pr and "quorum" in pr  # gate logic explicitly off-limits
+    assert "STOP" in pr  # bounded — must not thrash
+
+
+def test_make_repair_order_defaults_to_codex() -> None:
+    o = make_repair_order(8460, "codex/red")
+    assert o.pr == 8460 and o.branch == "codex/red" and o.agent == "codex"
+    assert o.to_dict()["prompt"] == o.prompt
+
+
+def test_merge_authority_files_force_off_limits() -> None:
+    # A green, mergeable, low-tier PR that touches the EVIDENCE PARSER (gate logic)
+    # must be LEFT — the drain may never auto-merge merge-authority surfaces (#8467 class).
+    view = {
+        "number": 8467,
+        "headRefName": "codex/evidence-fix",
+        "changedFiles": 2,
+        "files": [
+            {"path": "aragora/cli/commands/review_queue_comment_verdicts.py"},
+            {"path": "tests/cli/commands/test_review_queue.py"},
+        ],
+    }
+    c = classify_candidate(view, DrainContext(), merge_authorized=True, tier=0)
+    assert c.off_limits is True  # gate logic — never auto-merged
+
+
+def test_touches_merge_authority_patterns() -> None:
+    assert touches_merge_authority(["aragora/swarm/quorum_evidence.py"]) is True
+    assert touches_merge_authority(["scripts/settle_one_pr.py"]) is True
+    assert touches_merge_authority([".github/workflows/aragora-merge-quorum.yml"]) is True
+    assert touches_merge_authority(["aragora/debate/orchestrator.py"]) is False
 
 
 def test_classify_off_limits_branch_prefix() -> None:
@@ -67,20 +142,30 @@ def _views() -> list[dict]:
 
 def test_build_candidates_only_probes_promising_prs() -> None:
     probed: list[int] = []
+    viewed: list[int] = []
 
     def auth(n: int) -> tuple[bool, int]:
         probed.append(n)
         return (n == 10, 0)  # only #10 authorized
 
+    def view(n: int) -> dict:
+        viewed.append(n)
+        return next(v for v in _views() if v["number"] == n)
+
     cands = build_candidates(
         DrainContext(),
         list_open_prs_fn=_views,
-        view_pr_fn=lambda n: next(v for v in _views() if v["number"] == n),
+        view_pr_fn=view,
         merge_authorized_fn=auth,
         max_classify=60,
     )
     # off-limits (#12) and empty (#11) must NOT be authority-probed
     assert probed == [10, 13]
+    # cheap pre-filter: an off-limits-by-prefix PR (#12) skips the detail fetch
+    # entirely (the +300-gh-call regression fix). #11 still needs the fetch to
+    # discover it is empty.
+    assert 12 not in viewed
+    assert set(viewed) == {10, 11, 13}
     by_pr = {c.pr: c for c in cands}
     assert by_pr[10].mergeable is True
     assert by_pr[11].has_changes is False

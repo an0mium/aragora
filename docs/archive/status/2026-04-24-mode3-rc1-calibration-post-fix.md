@@ -116,7 +116,7 @@ mean panel weight-against-approve (≈ 0.8 across the sample).
 
 - Replay script: `scripts/replay_mode3_sample.py`
 - Replay tests: `tests/scripts/test_replay_mode3_sample.py`
-- Baseline (pre-fix): `docs/status/2026-04-24-mode3-rc1-calibration.md`
+- Baseline (pre-fix): `docs/archive/status/2026-04-24-mode3-rc1-calibration.md`
 - Brief storage: `.aragora/review-queue/briefs/pr-{N}-{sha}.json`
 - Severity gate implementation: `aragora/review/builder.py::_apply_severity_gate`
 - Advocate slot config: `aragora/config/pdb_panel.yaml::slots.claude_advocate`

@@ -38,6 +38,66 @@ from aragora.swarm.drain_policy import DrainCandidate
 # Default branch prefixes that belong to OTHER fleets / lanes — never drained.
 DEFAULT_OFF_LIMITS_PREFIXES: tuple[str, ...] = ("structex/", "claude/fusion-")
 
+# Path substrings identifying MERGE-AUTHORITY surfaces. A PR touching any of these
+# is the gate's OWN logic (review queue, evidence parsers, settlement helpers, the
+# quorum workflows) and must NEVER be auto-merged by the drain — it is Tier-4 /
+# human-preapproved per the operating contract. Touching one forces off_limits=LEAVE
+# regardless of tier/quorum, so the drain can never self-modify the gate.
+MERGE_AUTHORITY_PATTERNS: tuple[str, ...] = (
+    "cli/commands/review_queue",  # review_queue.py + review_queue_comment_verdicts.py + helpers
+    "swarm/quorum_evidence",
+    "review/evidence",
+    "settle_one_pr",
+    "settle_tier4",
+    "settlement",
+    ".github/workflows/aragora-merge-quorum",
+)
+
+
+def touches_merge_authority(
+    paths: Sequence[str], patterns: Sequence[str] = MERGE_AUTHORITY_PATTERNS
+) -> bool:
+    """True if any changed path is a merge-authority surface (gate logic). Pure."""
+    return any(any(pat in p for pat in patterns) for p in paths)
+
+
+@dataclass(frozen=True)
+class RepairOrder:
+    """A bounded, scope-locked instruction to repair one red-but-useful PR."""
+
+    pr: int
+    branch: str
+    agent: str
+    prompt: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"pr": self.pr, "branch": self.branch, "agent": self.agent, "prompt": self.prompt}
+
+
+def make_repair_prompt(pr: int, branch: str) -> str:
+    """The tightly scope-locked repair directive a v2 dispatch worker receives. Pure."""
+    return (
+        f"Repair the EXISTING open PR #{pr} on branch `{branch}`. Goal: make its FAILING "
+        f"required CI checks pass — nothing else.\n"
+        f"HARD CONSTRAINTS (a drain-repair worker must obey all):\n"
+        f"1. Work ONLY on branch `{branch}`. Never create a new branch or touch any other PR.\n"
+        f"2. Do NOT broaden scope. Fix only what the required checks need "
+        f"(lint, typecheck, sdk-parity, Generate & Validate, TypeScript SDK Type Check). "
+        f"Keep the diff minimal.\n"
+        f"3. NEVER modify merge-authority surfaces (review_queue*, quorum_evidence, settle_*, "
+        f".github/workflows/aragora-merge-quorum*). If the fix would require that, STOP.\n"
+        f"4. Run the relevant checks locally before pushing.\n"
+        f"5. Commit and push to `{branch}` (do not force-push over others' commits).\n"
+        f"6. If you cannot fix it in a few bounded steps, STOP and leave one PR comment "
+        f"explaining the blocker — do NOT thrash."
+    )
+
+
+def make_repair_order(pr: int, branch: str, *, agent: str = "codex") -> RepairOrder:
+    """Build a bounded RepairOrder for a red-but-useful PR. Pure."""
+    return RepairOrder(pr=pr, branch=branch, agent=agent, prompt=make_repair_prompt(pr, branch))
+
+
 ListOpenPRsFn = Callable[
     [], Sequence[dict[str, Any]]
 ]  # -> PR view dicts (number, headRefName, ...)
@@ -56,6 +116,14 @@ class DrainContext:
     off_limits_prs: frozenset[int] = field(default_factory=frozenset)
     superseded_prs: frozenset[int] = field(default_factory=frozenset)
     owned_prs: frozenset[int] = field(default_factory=frozenset)
+    authority_patterns: tuple[str, ...] = MERGE_AUTHORITY_PATTERNS
+
+    def _is_off_limits(self, number: int, branch: str, paths: Sequence[str]) -> bool:
+        return (
+            number in self.off_limits_prs
+            or any(branch.startswith(p) for p in self.off_limits_prefixes)
+            or touches_merge_authority(paths, self.authority_patterns)
+        )
 
 
 def classify_candidate(
@@ -75,9 +143,8 @@ def classify_candidate(
     branch = str(view.get("headRefName", ""))
     changed = view.get("changedFiles", view.get("changed_files", 1))
     has_changes = bool(changed and int(changed) > 0)
-    off_limits = number in ctx.off_limits_prs or any(
-        branch.startswith(p) for p in ctx.off_limits_prefixes
-    )
+    paths = [str(f.get("path", "")) for f in (view.get("files") or []) if isinstance(f, dict)]
+    off_limits = ctx._is_off_limits(number, branch, paths)
     return DrainCandidate(
         pr=number,
         has_changes=has_changes,
@@ -111,16 +178,28 @@ def build_candidates(
         if number <= 0:
             continue
         branch = str(view.get("headRefName", ""))
-        off_limits = number in ctx.off_limits_prs or any(
+        # Cheap pre-filter (no detail fetch): a PR that is off-limits by pinned-id
+        # or branch-prefix, owned by another fleet, or explicitly superseded routes
+        # to LEAVE/CLOSE on the list-view signal alone — classify_candidate re-derives
+        # the same verdict from these signals. This avoids a `gh pr view` for every
+        # structex/* and claude/* branch (a per-cycle API/rate-limit regression at
+        # queue size 60-300). Only PRs that survive this filter pay for the detail
+        # fetch, which the merge-authority file-path guard genuinely needs.
+        cheap_off_limits = number in ctx.off_limits_prs or any(
             branch.startswith(p) for p in ctx.off_limits_prefixes
         )
-        # Cheap routes first: off-limits / owned / explicitly-superseded need no authority probe.
-        if off_limits or number in ctx.owned_prs or number in ctx.superseded_prs:
+        if cheap_off_limits or number in ctx.owned_prs or number in ctx.superseded_prs:
             candidates.append(classify_candidate(view, ctx, merge_authorized=False, tier=4))
             continue
+        # Fetch detail (file paths included) so the merge-authority guard can still
+        # fence off gate-logic PRs whose off-limits status is only visible in their
+        # changed files (e.g. a codex/* branch that edits an evidence parser).
         detail = view_pr_fn(number) or view
+        paths = [str(f.get("path", "")) for f in (detail.get("files") or []) if isinstance(f, dict)]
+        off_limits = ctx._is_off_limits(number, branch, paths)
         changed = detail.get("changedFiles", detail.get("changed_files", 1))
-        if not (changed and int(changed) > 0):  # empty -> CLOSE_SUPERSEDED, no authority probe
+        has_changes = bool(changed and int(changed) > 0)
+        if off_limits or not has_changes:
             candidates.append(classify_candidate(detail, ctx, merge_authorized=False, tier=4))
             continue
         authorized, tier = merge_authorized_fn(number)

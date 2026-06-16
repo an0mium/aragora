@@ -3,7 +3,7 @@
 Scoped to the pure-function helpers: severity classifier, severity gate,
 and advocate-rebalance logic. Full-disk end-to-end replay is exercised
 implicitly by the manual ``scripts/replay_mode3_sample.py`` invocation
-captured in ``docs/status/2026-04-24-mode3-rc1-calibration-post-fix.md``.
+captured in ``docs/archive/status/2026-04-24-mode3-rc1-calibration-post-fix.md``.
 
 Mission context: epic #6505, fix #4 (re-derive precision on the 15-brief
 sample through the new post-#6510/#6514 rubric without new API spend).
