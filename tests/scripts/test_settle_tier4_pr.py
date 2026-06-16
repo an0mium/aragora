@@ -1145,7 +1145,59 @@ def test_human_status_creator_must_match_accepted_operator_comment_author() -> N
     assert "missing repo-visible Tier 4 operator settlement comment" not in result["blockers"]
 
 
-def test_pending_commit_status_does_not_mask_successful_rollup_status() -> None:
+def test_newer_pending_human_status_blocks_older_success() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    pr_view = _pr_view(head, comments=[_authorized_comment(head)])
+    pr_view["statusCheckRollup"][0]["updatedAt"] = "2026-05-22T00:04:00Z"
+    pr_view["commitStatuses"] = [
+        {
+            "context": settler.HUMAN_SETTLEMENT_CONTEXT,
+            "state": "pending",
+            "creator": {"login": "owner-user"},
+            "target_url": "https://github.example/pr/7423#issuecomment-1",
+            "updatedAt": "2026-05-22T00:06:00Z",
+        }
+    ]
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=pr_view,
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert settler.HUMAN_SETTLEMENT_STATUS_BLOCKER in result["blockers"]
+
+
+def test_newer_bound_human_success_authorizes_despite_older_pending() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    pr_view = _pr_view(head, comments=[_authorized_comment(head)])
+    pr_view["statusCheckRollup"][0]["updatedAt"] = "2026-05-22T00:06:00Z"
+    pr_view["commitStatuses"] = [
+        {
+            "context": settler.HUMAN_SETTLEMENT_CONTEXT,
+            "state": "pending",
+            "creator": {"login": "owner-user"},
+            "target_url": "https://github.example/pr/7423#issuecomment-1",
+            "updatedAt": "2026-05-22T00:04:00Z",
+        }
+    ]
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=pr_view,
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
+def test_conflicting_human_statuses_without_timestamps_fail_closed() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     pr_view = _pr_view(head, comments=[_authorized_comment(head)])
     pr_view["commitStatuses"] = [
@@ -1165,8 +1217,8 @@ def test_pending_commit_status_does_not_mask_successful_rollup_status() -> None:
         required_checks=_valid_checks(),
     )
 
-    assert result["ok"] is True
-    assert result["blockers"] == []
+    assert result["ok"] is False
+    assert settler.HUMAN_SETTLEMENT_STATUS_BLOCKER in result["blockers"]
 
 
 def test_human_status_bound_to_accepted_operator_comment_authorizes() -> None:

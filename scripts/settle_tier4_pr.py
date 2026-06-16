@@ -14,6 +14,7 @@ import shlex
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -73,6 +74,14 @@ COMMAND_FAILURE_DETAIL_LIMIT = 1000
 SUCCESS_STATES = {"SUCCESS", "PASS", "PASSED", "SKIPPED", "NEUTRAL"}
 BLOCKING_MERGE_STATES = {"DIRTY", "CONFLICTING"}
 MIN_TIER4_COUNTED_REVIEWER_IDS = 2
+STATUS_TIMESTAMP_FIELDS = (
+    "updatedAt",
+    "updated_at",
+    "createdAt",
+    "created_at",
+    "completedAt",
+    "completed_at",
+)
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
     "tier4_human_risk_settlement",
@@ -414,18 +423,48 @@ def _status_signal_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
     return items
 
 
+def _status_timestamp(item: dict[str, Any]) -> datetime | None:
+    for key in STATUS_TIMESTAMP_FIELDS:
+        text = _parse_timestamp(item.get(key))
+        if not text:
+            continue
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    return None
+
+
 def _successful_human_settlement_status(pr_view: dict[str, Any]) -> dict[str, Any] | None:
-    successes: list[dict[str, Any]] = []
+    settlement_statuses: list[dict[str, Any]] = []
     for item in _status_signal_items(pr_view):
         if not isinstance(item, dict):
             continue
         context = str(item.get("context") or item.get("name") or "")
         if context != HUMAN_SETTLEMENT_CONTEXT:
             continue
+        settlement_statuses.append(item)
+    if not settlement_statuses:
+        return None
+    if len(settlement_statuses) == 1:
+        item = settlement_statuses[0]
         state = item.get("state") or item.get("conclusion")
-        if _state_is_success(state):
-            successes.append(item)
-    return successes[0] if successes else None
+        return item if _state_is_success(state) else None
+    timestamped: list[tuple[datetime, int, dict[str, Any]]] = []
+    for index, item in enumerate(settlement_statuses):
+        timestamp = _status_timestamp(item)
+        if timestamp is None:
+            return None
+        timestamped.append((timestamp, index, item))
+    timestamped.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
+    newest = timestamped[0]
+    if len(timestamped) > 1 and timestamped[1][0] == newest[0]:
+        return None
+    state = newest[2].get("state") or newest[2].get("conclusion")
+    return newest[2] if _state_is_success(state) else None
 
 
 def _human_settlement_status_is_success(pr_view: dict[str, Any]) -> bool:
