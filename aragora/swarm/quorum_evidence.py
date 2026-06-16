@@ -1140,29 +1140,34 @@ def _reviewer_process_worker(
 
 def _terminate_reviewer_process(process: multiprocessing.Process) -> None:
     pid = process.pid
+    group_signaled = False
     if pid is not None and hasattr(os, "killpg"):
         try:
             os.killpg(pid, signal.SIGTERM)
+            group_signaled = True
         except ProcessLookupError:
             pass
         except OSError:
-            if process.is_alive():
-                process.terminate()
-    elif process.is_alive():
+            pass
+
+    if not group_signaled and process.is_alive():
         process.terminate()
 
     process.join(5)
     if not process.is_alive():
         return
 
+    group_killed = False
     if pid is not None and hasattr(os, "killpg"):
         try:
             os.killpg(pid, signal.SIGKILL)
+            group_killed = True
         except ProcessLookupError:
             pass
         except OSError:
-            process.kill()
-    else:
+            pass
+
+    if not group_killed and process.is_alive():
         process.kill()
     process.join(5)
 
@@ -1179,29 +1184,105 @@ def _run_reviewers_in_processes(
         return None
 
     reviews: dict[str, ReviewerResult] = {}
+    remaining_families = list(supported)
+    result_queue: multiprocessing.Queue = ctx.Queue()
+    processes: dict[str, multiprocessing.Process] = {}
+    exited_without_result_since: dict[str, float] = {}
     deadline = time.monotonic() + overall_timeout_seconds
-    for start in range(0, len(supported), _MAX_REVIEWER_WORKERS):
-        chunk = supported[start : start + _MAX_REVIEWER_WORKERS]
+    max_workers = max(1, _MAX_REVIEWER_WORKERS)
+
+    while remaining_families or processes:
+        while (
+            remaining_families and len(processes) < max_workers and deadline - time.monotonic() > 0
+        ):
+            family = remaining_families.pop(0)
+            process = ctx.Process(
+                target=_reviewer_process_worker,
+                args=(family, prompt, reviewer_runner, result_queue),
+            )
+            process.start()
+            processes[family] = process
+
+        # Drain completed results before checking process exit state. Queue
+        # delivery can lag process exit, so an exited worker gets a short grace
+        # period before being treated as failed.
+        while True:
+            try:
+                family, result = result_queue.get_nowait()
+            except queue.Empty:
+                break
+            process = processes.pop(family, None)
+            if process is not None:
+                process.join(timeout=0.1)
+                exited_without_result_since.pop(family, None)
+                reviews[family] = (
+                    result
+                    if isinstance(result, ReviewerResult)
+                    else ReviewerResult(family, "", False, "reviewer returned invalid result")
+                )
+
+        now = time.monotonic()
+        for family, process in list(processes.items()):
+            if process.exitcode is not None and not process.is_alive():
+                first_seen = exited_without_result_since.setdefault(family, now)
+                if now - first_seen < _REVIEWER_RESULT_QUEUE_TIMEOUT:
+                    continue
+                process.join(timeout=0.1)
+                reviews[family] = ReviewerResult(
+                    family,
+                    "",
+                    False,
+                    f"{family} reviewer exited without returning a result",
+                )
+                processes.pop(family, None)
+                exited_without_result_since.pop(family, None)
+
+        if not remaining_families and not processes:
+            break
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             timeout_label = _format_seconds(overall_timeout_seconds)
-            for family in supported[start:]:
+            for family, process in list(processes.items()):
+                _terminate_reviewer_process(process)
                 reviews[family] = ReviewerResult(
                     family,
                     "",
                     False,
                     f"{family} reviewer orchestration timed out after {timeout_label}s",
                 )
+                processes.pop(family, None)
+                exited_without_result_since.pop(family, None)
+            for family in remaining_families:
+                reviews[family] = ReviewerResult(
+                    family,
+                    "",
+                    False,
+                    (
+                        f"{family} reviewer was not started before the overall "
+                        f"orchestration timeout of {timeout_label}s elapsed"
+                    ),
+                )
+            remaining_families.clear()
             break
-        reviews.update(
-            _run_reviewer_process_batch(
-                ctx=ctx,
-                supported=chunk,
-                prompt=prompt,
-                reviewer_runner=reviewer_runner,
-                overall_timeout_seconds=remaining,
+
+        try:
+            family, result = result_queue.get(timeout=min(0.1, remaining))
+        except queue.Empty:
+            continue
+        process = processes.pop(family, None)
+        if process is not None:
+            process.join(timeout=0.1)
+            exited_without_result_since.pop(family, None)
+            reviews[family] = (
+                result
+                if isinstance(result, ReviewerResult)
+                else ReviewerResult(family, "", False, "reviewer returned invalid result")
             )
-        )
+
+    for process in processes.values():  # pragma: no cover - defensive cleanup.
+        if process.is_alive():
+            _terminate_reviewer_process(process)
+        process.join(timeout=0.1)
     return reviews
 
 
