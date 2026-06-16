@@ -56,7 +56,7 @@ ARAGORA_DATA_DIR=.nomic
 python scripts/nomic_loop.py
 
 # Run the API server
-aragora serve --host 0.0.0.0 --ws-port 8765 --api-port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ## Production Deployment (AWS Lightsail)

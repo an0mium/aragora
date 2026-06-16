@@ -964,12 +964,12 @@ User=ec2-user
 Group=ec2-user
 WorkingDirectory=/home/ec2-user/aragora
 Environment="PATH=/home/ec2-user/aragora/venv/bin:/usr/local/bin:/usr/bin"
+Environment="ARAGORA_DATA_DIR=/home/ec2-user/aragora/.nomic"
 EnvironmentFile=-/home/ec2-user/aragora/.env
-ExecStart=/home/ec2-user/aragora/venv/bin/python -m aragora.server \
+ExecStart=/home/ec2-user/aragora/venv/bin/aragora serve \
     --host 0.0.0.0 \
-    --http-port 8080 \
-    --port 8765 \
-    --nomic-dir /home/ec2-user/aragora/.nomic
+    --api-port 8080 \
+    --ws-port 8765
 Restart=always
 RestartSec=5
 StartLimitIntervalSec=300

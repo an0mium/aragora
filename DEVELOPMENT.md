@@ -22,7 +22,7 @@ pip install -e ".[dev,test]"
 python scripts/run_test_baseline.py
 
 # Start the development server
-python -m aragora.server --api-port 8080 --ws-port 8765
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ## Prerequisites
@@ -325,7 +325,7 @@ aragora/live/
 
 ```bash
 # Enable debug logging
-ARAGORA_LOG_LEVEL=DEBUG python -m aragora.server --api-port 8080 --ws-port 8765
+ARAGORA_LOG_LEVEL=DEBUG aragora serve --api-port 8080 --ws-port 8765
 
 # Profile a debate
 python -c "

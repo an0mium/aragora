@@ -246,7 +246,7 @@ Run without any API keys for evaluation:
 ```bash
 docker compose -f docker-compose.simple.yml run --rm \
   -e ARAGORA_OFFLINE=true -e ARAGORA_DEMO_MODE=true \
-  aragora python -m aragora.server --offline
+  aragora
 ```
 
 Or use the quickstart script:
