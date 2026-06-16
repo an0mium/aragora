@@ -471,11 +471,8 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            # Extract text content from response
-            from anthropic.types import TextBlock
-
             first_block = response.content[0]
-            if not isinstance(first_block, TextBlock):
+            if getattr(first_block, "type", None) != "text" or not hasattr(first_block, "text"):
                 logger.warning("Response does not contain text content")
                 return []
             content: str = first_block.text.strip()

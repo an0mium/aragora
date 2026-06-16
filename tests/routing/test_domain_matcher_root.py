@@ -5,10 +5,15 @@ Tests domain detection via keywords and caching behavior.
 """
 
 import time
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from anthropic.types import TextBlock
+
+try:
+    from anthropic.types import TextBlock
+except ModuleNotFoundError:
+    TextBlock = SimpleNamespace
 
 from aragora.routing.domain_matcher import (
     DOMAIN_KEYWORDS,
