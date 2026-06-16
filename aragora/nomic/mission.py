@@ -25,7 +25,7 @@ import json
 import os
 import tempfile
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -232,6 +232,30 @@ class MissionStore:
     def list_missions(self) -> list[str]:
         """List all active mission IDs based on files in the state directory."""
         return [p.stem for p in sorted(self.state_dir.glob("*.json"))]
+
+    def set_item_status(self, mission_id: str, item_id: str, status: WorkItemStatus) -> bool:
+        """Update one work item's status in place and persist.
+
+        Returns True if the item was found and updated, False if the mission or
+        item does not exist. The whole mission is re-saved atomically (the only
+        write path), so a single item update can never corrupt the file.
+        """
+        loaded = self.load_mission(mission_id)
+        if loaded is None:
+            return False
+        spec, items = loaded
+        updated: list[WorkItem] = []
+        found = False
+        for item in items:
+            if item.item_id == item_id:
+                updated.append(replace(item, status=status))
+                found = True
+            else:
+                updated.append(item)
+        if not found:
+            return False
+        self.save_mission(spec, updated)
+        return True
 
 
 class NativeMissionRunner:
