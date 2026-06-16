@@ -3167,6 +3167,15 @@ def test_record_settlement_passes_repo_to_review_queue(monkeypatch: Any, tmp_pat
 
     assert result == {"written": True}
     assert captured["cwd"] == tmp_path
+    assert captured["command"][:6] == [
+        sys.executable,
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "record-settlement",
+        "7423",
+    ]
+    assert "--pr" not in captured["command"]
     assert "--repo" in captured["command"]
     assert captured["command"][captured["command"].index("--repo") + 1] == "example/other-repo"
     assert "--post-github-status" in captured["command"]

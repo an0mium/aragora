@@ -1844,6 +1844,8 @@ def _record_settlement(
     post_github_status: bool = False,
 ) -> dict[str, Any]:
     """Write the durable external-settlement receipt via the review-queue CLI."""
+    # Use the worktree's Python module entrypoint for the same review-queue CLI
+    # contract documented to operators; the PR remains the positional argument.
     command = [
         sys.executable,
         "-m",
