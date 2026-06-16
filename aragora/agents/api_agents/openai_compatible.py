@@ -230,6 +230,14 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
 
         start_time = time.perf_counter()
 
+        # Fail-closed monthly budget cap (no-op unless ARAGORA_MONTHLY_BUDGET_USD
+        # is set). Covers all OpenAI-compatible agents incl. the cheap tier
+        # (DeepSeek/Kimi/Qwen via API). Called as a module function (not a base
+        # method) so the mixin does not require an APIAgent base.
+        from aragora.billing import budget_guard
+
+        budget_guard.assert_within_budget(label=getattr(self, "name", None))
+
         if not self.api_key:
             logger.warning(
                 "[%s] Missing API key, attempting OpenRouter fallback",

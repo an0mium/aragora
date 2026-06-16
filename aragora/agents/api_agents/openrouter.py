@@ -186,6 +186,9 @@ class OpenRouterAgent(APIAgent):
         Wraps _generate_with_model via @handle_agent_errors for retry/backoff,
         then falls back to an alternate model if all retries are exhausted.
         """
+        # Fail-closed monthly budget cap (no-op unless ARAGORA_MONTHLY_BUDGET_USD
+        # is set). OpenRouter is the common metered fallback path, so gate here too.
+        self._enforce_budget_precall()
         try:
             return await self._generate_with_model(self.model, prompt, context)
         except (AgentRateLimitError, AgentConnectionError, AgentTimeoutError):
