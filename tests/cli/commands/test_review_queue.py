@@ -2534,6 +2534,23 @@ class TestModelReviewQuorum:
         )
         assert ok is False
 
+    def test_creator_check_helper_requires_comment_target_url(self) -> None:
+        from aragora.cli.commands.review_queue import (
+            _human_settlement_status_creator_verified,
+        )
+
+        def _explode(args: list[str]) -> Any:
+            raise AssertionError(f"missing target_url should fail before gh call: {args}")
+
+        ok, reason = _human_settlement_status_creator_verified(
+            repo_slug="synaptent/aragora",
+            head_sha="abc123",
+            gh_json=_explode,
+        )
+
+        assert ok is False
+        assert "missing trusted settlement comment target_url" in reason
+
     # --- Finding 2: source-side filter on _dogfood_evidence_from_comments ---
 
     def test_dogfood_with_unknown_model_is_excluded_at_source(self) -> None:

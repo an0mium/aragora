@@ -44,6 +44,8 @@ def _human_settlement_status_creator_verified(
 
     if not repo_slug or not head_sha:
         return fail("missing repo slug or head sha; failing closed")
+    if not expected_target_url:
+        return fail("missing trusted settlement comment target_url; failing closed")
     try:
         payload = gh_json(["api", f"repos/{repo_slug}/commits/{head_sha}/statuses?per_page=100"])
     except _GhError as exc:

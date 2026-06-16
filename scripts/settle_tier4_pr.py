@@ -415,6 +415,7 @@ def _status_signal_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _successful_human_settlement_status(pr_view: dict[str, Any]) -> dict[str, Any] | None:
+    successes: list[dict[str, Any]] = []
     for item in _status_signal_items(pr_view):
         if not isinstance(item, dict):
             continue
@@ -423,9 +424,8 @@ def _successful_human_settlement_status(pr_view: dict[str, Any]) -> dict[str, An
             continue
         state = item.get("state") or item.get("conclusion")
         if _state_is_success(state):
-            return item
-        return None
-    return None
+            successes.append(item)
+    return successes[0] if successes else None
 
 
 def _human_settlement_status_is_success(pr_view: dict[str, Any]) -> bool:

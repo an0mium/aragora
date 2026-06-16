@@ -3184,6 +3184,9 @@ def _build_model_review_quorum(
         if requires_human_preapproval
         else ""
     )
+    # Cross-process Tier 4 settlement is repo-visible by design: it counts only
+    # when an exact-head trusted operator comment is bound to a matching
+    # aragora/human-settlement status created by that same trusted operator.
     repo_visible_human_preapproval_recorded = (
         requires_human_preapproval
         and _has_successful_status_context(pr, HUMAN_SETTLEMENT_CONTEXT)
