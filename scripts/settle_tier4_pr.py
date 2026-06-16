@@ -484,8 +484,53 @@ def _packet_requires_unrecorded_human_preapproval(merge_packet: dict[str, Any], 
     entry = _entry_for_pr(merge_packet, pr=pr)
     if not entry:
         return False
-    return bool(entry.get("requires_human_preapproval")) and not bool(
-        entry.get("human_preapproval_recorded")
+    return _packet_entry_requires_human_preapproval(
+        merge_packet,
+        entry=entry,
+        pr=pr,
+    ) and not bool(entry.get("human_preapproval_recorded"))
+
+
+def _packet_entry_requires_human_preapproval(
+    merge_packet: dict[str, Any],
+    *,
+    entry: dict[str, Any],
+    pr: int,
+) -> bool:
+    if bool(entry.get("requires_human_preapproval")):
+        return True
+    status = str(entry.get("status") or "").strip()
+    if status in ALLOWED_TIER4_ENTRY_STATUSES:
+        return True
+    if _packet_marks_tier4_settlement_surface(merge_packet, pr=pr):
+        return True
+    tier_name = _normalize_packet_signal(entry.get("tier_name"))
+    if "tier 4" in tier_name and (
+        "preapproval" in tier_name or "human risk settlement" in tier_name
+    ):
+        return True
+    reasons = entry.get("reasons")
+    if not isinstance(reasons, list):
+        return False
+    return any(_reason_indicates_human_preapproval(item) for item in reasons)
+
+
+def _normalize_packet_signal(value: Any) -> str:
+    return str(value or "").replace("_", " ").replace("-", " ").strip().lower()
+
+
+def _reason_indicates_human_preapproval(value: Any) -> bool:
+    reason = _normalize_packet_signal(value)
+    return any(
+        token in reason
+        for token in (
+            "human preapproval",
+            "human risk settlement",
+            "human settlement",
+            "operator settlement",
+            "tier 4 preapproval",
+            "tier 4 human risk settlement",
+        )
     )
 
 

@@ -936,6 +936,29 @@ def test_unrecorded_human_preapproval_blocks_check_result() -> None:
     assert result["authorized_actions"] == []
 
 
+def test_legacy_unrecorded_human_preapproval_blocks_check_result() -> None:
+    # Older merge-packet entries may omit requires_human_preapproval while still
+    # carrying the Tier-4 settlement signal. Treat them as receipt-required.
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    packet = _tier4_packet(human_preapproval_recorded=False)
+    packet["entries"][0].pop("requires_human_preapproval")
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[_authorized_comment(head, include_branch_protection=False)],
+        ),
+        merge_packet=packet,
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert settler.HUMAN_PREAPPROVAL_RECEIPT_BLOCKER in result["blockers"]
+    assert result["authorized_actions"] == []
+
+
 def test_recorded_human_preapproval_allows_check_result() -> None:
     # The same PR once the operator-controlled human-risk receipt is recorded
     # (human_preapproval_recorded=true): the receipt blocker clears.
@@ -970,10 +993,83 @@ def test_packet_requires_unrecorded_human_preapproval_helper() -> None:
         )
         is False
     )
-    # A PR that does not require preapproval is never blocked on the receipt.
+    legacy_status_packet = _tier4_packet(human_preapproval_recorded=False)
+    legacy_status_packet["entries"][0].pop("requires_human_preapproval")
+    legacy_status_packet["entries"][0]["requires_human_risk_settlement"] = False
+    legacy_status_packet["human_risk_settlement_required"] = []
     assert (
         settler._packet_requires_unrecorded_human_preapproval(
-            _tier4_packet(requires_human_preapproval=False, human_preapproval_recorded=False),
+            legacy_status_packet,
+            pr=7423,
+        )
+        is True
+    )
+
+    legacy_risk_packet = _tier4_packet(human_preapproval_recorded=False)
+    legacy_risk_packet["entries"][0].pop("requires_human_preapproval")
+    legacy_risk_packet["entries"][0].pop("human_preapproval_recorded")
+    legacy_risk_packet["entries"][0]["status"] = "repair_or_wait"
+    assert (
+        settler._packet_requires_unrecorded_human_preapproval(
+            legacy_risk_packet,
+            pr=7423,
+        )
+        is True
+    )
+
+    legacy_tier_packet = _tier4_packet(
+        requires_human_preapproval=False,
+        human_preapproval_recorded=False,
+    )
+    legacy_tier_packet["entries"][0].pop("requires_human_preapproval")
+    legacy_tier_packet["entries"][0]["status"] = "repair_or_wait"
+    legacy_tier_packet["entries"][0]["requires_human_risk_settlement"] = False
+    legacy_tier_packet["entries"][0]["tier"] = 4
+    legacy_tier_packet["human_risk_settlement_required"] = []
+    assert (
+        settler._packet_requires_unrecorded_human_preapproval(
+            legacy_tier_packet,
+            pr=7423,
+        )
+        is True
+    )
+
+    legacy_reason_packet = _tier4_packet(
+        requires_human_preapproval=False,
+        human_preapproval_recorded=False,
+    )
+    legacy_reason_packet["entries"][0].pop("requires_human_preapproval")
+    legacy_reason_packet["entries"][0]["status"] = "repair_or_wait"
+    legacy_reason_packet["entries"][0]["requires_human_risk_settlement"] = False
+    legacy_reason_packet["entries"][0]["tier_name"] = ""
+    legacy_reason_packet["entries"][0]["reasons"] = [
+        "Tier-4 human preapproval required",
+    ]
+    legacy_reason_packet["human_risk_settlement_required"] = []
+    assert (
+        settler._packet_requires_unrecorded_human_preapproval(
+            legacy_reason_packet,
+            pr=7423,
+        )
+        is True
+    )
+
+    # A PR that does not carry any preapproval or Tier-4 settlement signal is
+    # never blocked on the receipt.
+    not_preapproval_packet = _tier4_packet(
+        requires_human_preapproval=False,
+        human_preapproval_recorded=False,
+    )
+    not_preapproval_packet["not_ready"] = []
+    not_preapproval_packet["human_risk_settlement_required"] = []
+    not_preapproval_packet["entries"][0]["status"] = "ready"
+    not_preapproval_packet["entries"][0]["requires_human_risk_settlement"] = False
+    not_preapproval_packet["entries"][0]["tier"] = 2
+    not_preapproval_packet["entries"][0]["tier_name"] = "tier_2"
+    not_preapproval_packet["entries"][0]["reasons"] = ["model quorum complete"]
+    assert (
+        settler._packet_requires_unrecorded_human_preapproval(
+            not_preapproval_packet,
             pr=7423,
         )
         is False
