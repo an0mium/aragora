@@ -136,6 +136,11 @@ def _disk_read() -> float | None:
                     fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
     except (OSError, ValueError):
         return None
+    if not isinstance(data, dict):
+        # Corrupt/non-object store (null, list, scalar) — treat as unusable so
+        # current_spend_usd() falls back to the in-memory total instead of
+        # raising AttributeError on the next metered call (fail-closed, not crash).
+        return None
     if data.get("month") != _current_month():
         return 0.0
     try:
@@ -163,9 +168,9 @@ def _disk_add(delta: float) -> bool:
             if raw.strip():
                 try:
                     data = json.loads(raw)
-                    if data.get("month") == _current_month():
+                    if isinstance(data, dict) and data.get("month") == _current_month():
                         spent = float(data.get("spent_usd", 0.0))
-                except (ValueError, TypeError):
+                except (ValueError, TypeError, AttributeError):
                     spent = 0.0
             new_total = round(spent + delta, 6)
             payload = json.dumps({"month": _current_month(), "spent_usd": new_total}).encode()

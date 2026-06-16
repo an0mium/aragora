@@ -234,6 +234,10 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         # is set). Covers all OpenAI-compatible agents incl. the cheap tier
         # (DeepSeek/Kimi/Qwen via API). Called as a module function (not a base
         # method) so the mixin does not require an APIAgent base.
+        # NOTE: this is the PRE-call gate only; spend is RECORDED via
+        # _record_token_usage() on the success path (delegated to APIAgent through
+        # super()). Both halves must stay wired — a concrete agent that bypasses
+        # _record_token_usage would let the cap stop ticking down (gate no-op).
         from aragora.billing import budget_guard
 
         budget_guard.assert_within_budget(label=getattr(self, "name", None))

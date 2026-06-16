@@ -121,3 +121,23 @@ def test_no_metered_api_agent_bypasses_the_cap():
     for fname in ("anthropic.py", "gemini.py", "openrouter.py", "openai_compatible.py"):
         text = (base / fname).read_text(encoding="utf-8")
         assert any(n in text for n in needles), f"{fname} does not invoke the budget gate"
+
+
+@pytest.mark.parametrize("corrupt", ["null", "[1, 2, 3]", "42", '"a string"'])
+def test_corrupt_disk_store_falls_back_not_crash(store, monkeypatch, corrupt):
+    """A non-object store (null/list/scalar) must degrade to mem-only, never raise.
+
+    Regression: `_disk_read`/`_disk_add` called `.get()` on `json.load` output
+    without an isinstance guard, so a corrupted store raised AttributeError on the
+    next metered call (a crash, not the intended fail-closed mem fallback).
+    """
+    monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "100")
+    store.write_text(corrupt, encoding="utf-8")
+
+    # Read side: corrupt store reads as "unusable" (None), not an exception.
+    assert budget_guard._disk_read() is None
+
+    # Full surface stays callable: spend recording and the gate must not raise.
+    budget_guard.record_spend(5.0)
+    assert budget_guard.current_spend_usd() >= 5.0  # mem fallback carried the spend
+    budget_guard.assert_within_budget(1.0, label="cheap-tier")  # under cap → no raise

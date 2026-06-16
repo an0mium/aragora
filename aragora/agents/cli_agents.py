@@ -1053,7 +1053,17 @@ def _resolve_grok_build_bin() -> str:
     than relying on ``PATH``, so we never invoke the wrong ``grok``.
     """
     override = os.environ.get("ARAGORA_GROK_BUILD_BIN", "").strip()
-    return override or os.path.expanduser("~/.grok/bin/grok")
+    resolved = override or os.path.expanduser("~/.grok/bin/grok")
+    # A missing binary surfaces only as a subprocess failure → silent OpenRouter
+    # fallback (defeating the subscription-only intent). Log it so the operator
+    # can diagnose "why am I being billed for grok via API?".
+    if not os.path.isfile(resolved):
+        logger.debug(
+            "Grok Build CLI not found at %s; CLI invocation will fail and fall "
+            "back to OpenRouter (set ARAGORA_GROK_BUILD_BIN to override)",
+            resolved,
+        )
+    return resolved
 
 
 @AgentRegistry.register(
