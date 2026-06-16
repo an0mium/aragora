@@ -37,6 +37,12 @@ HEAD = "49a979d587f910aaad4fb0f0bed708dd48c97c35"
 COMMITTED = "2026-06-04T09:57:49-05:00"
 
 
+def _slow_grok_process_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+    if family == "grok":
+        time.sleep(5)
+    return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+
 # --- decide_action (tier gating) -------------------------------------------
 
 
@@ -972,23 +978,54 @@ def test_collect_records_raising_reviewer_as_failure() -> None:
 
 def test_collect_overall_timeout_records_unfinished_reviewers(monkeypatch) -> None:
     fakes, posted = _fakes(tier=1)
+    fakes["reviewer_runner"] = _slow_grok_process_reviewer_runner
+    monkeypatch.setattr(
+        qe, "_reviewer_process_context", lambda: qe.multiprocessing.get_context("fork")
+    )
+    start = time.monotonic()
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_seconds=0.25,
+        **fakes,
+    )
+    elapsed = time.monotonic() - start
+
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete (1/2)" in outcome.action_reason
+    assert outcome.supportive_families == ["claude"]
+    assert outcome.posted == []
+    assert posted == []
+    assert [failure.family for failure in outcome.failures] == ["grok"]
+    assert "orchestration timed out after 0.25s" in outcome.failures[0].error
+    assert elapsed < 2.0
+
+
+def test_collect_overall_timeout_uses_thread_cleanup_when_processes_unavailable(
+    monkeypatch,
+) -> None:
+    fakes, _posted = _fakes(tier=1)
     real_as_completed = qe.concurrent.futures.as_completed
-    slow_reviewer_started = threading.Event()
-    slow_reviewer_finished = threading.Event()
+    slow_started = threading.Event()
+    slow_finished = threading.Event()
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda: None)
 
     def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
         if family == "grok":
-            slow_reviewer_started.set()
+            slow_started.set()
             time.sleep(0.2)
-            slow_reviewer_finished.set()
+            slow_finished.set()
         return ReviewerResult(family, f"Verdict: PASS from {family}", True)
 
     fakes["reviewer_runner"] = reviewer_runner
 
     def one_done_then_timeout(futures, timeout=None):
-        assert timeout == 12
         futures = list(futures)
-        assert slow_reviewer_started.wait(timeout=2)
+        assert slow_started.wait(timeout=2)
         yield futures[0]
         raise qe.concurrent.futures.TimeoutError("timed out")
 
@@ -1006,68 +1043,8 @@ def test_collect_overall_timeout_records_unfinished_reviewers(monkeypatch) -> No
 
     monkeypatch.setattr(qe.concurrent.futures, "as_completed", real_as_completed)
 
-    assert outcome.action == "prepare"
-    assert "supportive quorum incomplete (1/2)" in outcome.action_reason
-    assert outcome.supportive_families == ["claude"]
-    assert outcome.posted == []
-    assert posted == []
     assert [failure.family for failure in outcome.failures] == ["grok"]
-    assert "orchestration timed out after 12s" in outcome.failures[0].error
-    assert slow_reviewer_finished.is_set()
-
-
-def test_collect_overall_timeout_keeps_timeout_env_until_reviewers_finish(
-    monkeypatch,
-) -> None:
-    fakes, _posted = _fakes(tier=1)
-    real_as_completed = qe.concurrent.futures.as_completed
-    slow_started = threading.Event()
-    slow_seen: dict[str, str] = {}
-
-    monkeypatch.delenv(qe._CLAUDE_TIMEOUT_ENV, raising=False)
-    monkeypatch.delenv(qe._CODEX_TIMEOUT_ENV, raising=False)
-    monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
-
-    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            slow_started.set()
-            time.sleep(0.2)
-            slow_seen[qe._CLAUDE_TIMEOUT_ENV] = os.environ.get(qe._CLAUDE_TIMEOUT_ENV, "")
-            slow_seen[qe._CODEX_TIMEOUT_ENV] = os.environ.get(qe._CODEX_TIMEOUT_ENV, "")
-            slow_seen[qe._REVIEWER_TIMEOUT_ENV] = os.environ.get(qe._REVIEWER_TIMEOUT_ENV, "")
-        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
-
-    fakes["reviewer_runner"] = reviewer_runner
-
-    def one_done_then_timeout(futures, timeout=None):
-        futures = list(futures)
-        assert slow_started.wait(timeout=2)
-        yield futures[0]
-        raise qe.concurrent.futures.TimeoutError("timed out")
-
-    monkeypatch.setattr(qe.concurrent.futures, "as_completed", one_done_then_timeout)
-
-    with qe._temporary_reviewer_timeout_env(17):
-        collect_evidence(
-            repo="o/r",
-            pr=1,
-            families=["claude", "grok"],
-            author="me",
-            apply=True,
-            overall_timeout_seconds=12,
-            **fakes,
-        )
-
-    monkeypatch.setattr(qe.concurrent.futures, "as_completed", real_as_completed)
-
-    assert slow_seen == {
-        qe._CLAUDE_TIMEOUT_ENV: "17",
-        qe._CODEX_TIMEOUT_ENV: "17",
-        qe._REVIEWER_TIMEOUT_ENV: "17",
-    }
-    assert qe._CLAUDE_TIMEOUT_ENV not in os.environ
-    assert qe._CODEX_TIMEOUT_ENV not in os.environ
-    assert qe._REVIEWER_TIMEOUT_ENV not in os.environ
+    assert slow_finished.is_set()
 
 
 def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
