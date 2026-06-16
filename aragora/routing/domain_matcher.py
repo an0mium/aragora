@@ -471,10 +471,14 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
                 messages=[{"role": "user", "content": prompt}],
             )
 
+            if not response.content:
+                logger.warning("Response does not contain content")
+                return None
+
             first_block = response.content[0]
             if getattr(first_block, "type", None) != "text" or not hasattr(first_block, "text"):
                 logger.warning("Response does not contain text content")
-                return []
+                return None
             content: str = first_block.text.strip()
 
             # Extract JSON from response

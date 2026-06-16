@@ -365,6 +365,20 @@ class TestDomainDetectorLLM:
         domains = [d for d, _ in result]
         assert "security" in domains
 
+    def test_llm_detection_empty_response_fallback(self):
+        """Test that empty LLM responses fall back to keywords."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = []
+        mock_client.messages.create.return_value = mock_response
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test_key"}):
+            detector = DomainDetector(use_llm=True, client=mock_client, use_cache=False)
+            result = detector.detect("Fix SQL injection vulnerability authentication")
+
+        domains = [d for d, _ in result]
+        assert "security" in domains
+
     def test_llm_detection_caching(self):
         """Test that LLM results are cached."""
         mock_client = MagicMock()
