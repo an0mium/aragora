@@ -5,10 +5,28 @@ Tests domain detection via keywords and caching behavior.
 """
 
 import time
+import sys
+import types
+from dataclasses import dataclass
 from unittest.mock import MagicMock, patch
 
 import pytest
-from anthropic.types import TextBlock
+
+try:
+    from anthropic.types import TextBlock
+except ModuleNotFoundError:
+
+    @dataclass
+    class TextBlock:
+        type: str
+        text: str
+
+    anthropic_module = types.ModuleType("anthropic")
+    anthropic_types_module = types.ModuleType("anthropic.types")
+    anthropic_types_module.TextBlock = TextBlock
+    anthropic_module.types = anthropic_types_module
+    sys.modules.setdefault("anthropic", anthropic_module)
+    sys.modules.setdefault("anthropic.types", anthropic_types_module)
 
 from aragora.routing.domain_matcher import (
     DOMAIN_KEYWORDS,
