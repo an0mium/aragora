@@ -628,7 +628,7 @@ class AutonomousOrchestrator:
             if self.enable_metrics and self._metrics_collector is not None:
                 try:
                     # Scope metrics to the files touched by all subtasks
-                    file_scope = []
+                    file_scope: list[str] = []
                     for a in assignments:
                         file_scope.extend(a.subtask.file_scope or [])
                     _metrics_baseline = await self._metrics_collector.collect_baseline(
@@ -838,6 +838,14 @@ class AutonomousOrchestrator:
                 success=False,
                 error=f"Orchestration failed: {type(e).__name__}",
             )
+
+    async def decompose_goal(
+        self,
+        goal: str,
+        tracks: list[str] | None = None,
+    ) -> TaskDecomposition:
+        """Decompose a high-level goal into subtasks."""
+        return await self._decompose_goal(goal, tracks)
 
     async def _decompose_goal(
         self,

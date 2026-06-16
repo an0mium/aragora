@@ -122,6 +122,48 @@ _REVIEWER_CLEANUP_TIMEOUT = 10
 # (e.g. 2x300s). Run them concurrently instead; this cap bounds the fan-out.
 _MAX_REVIEWER_WORKERS = 4
 
+# Retry a reviewer ONLY on infra failure (ok=False: timeout / CLI-not-found /
+# nonzero-exit / empty output) — transport flakiness, not a review. A returned
+# verdict (ok=True), INCLUDING changes_requested, is never retried: that is a
+# real adversarial review and must stand. This does not touch counting rules
+# (FAMILY_PROVIDERS, the 2-distinct-family minimum, Fusion-exclusion) — it only
+# stops a transient CLI timeout from masquerading as a missing/ dissenting family
+# and forcing a manual re-roll. Default 1 retry; 0 disables (env-overridable).
+_REVIEWER_INFRA_RETRIES_ENV = "ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES"
+_REVIEWER_INFRA_RETRIES_DEFAULT = 1
+
+
+def _reviewer_infra_retries() -> int:
+    raw = os.environ.get(_REVIEWER_INFRA_RETRIES_ENV, "").strip()
+    if not raw:
+        return _REVIEWER_INFRA_RETRIES_DEFAULT
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return _REVIEWER_INFRA_RETRIES_DEFAULT
+
+
+def _run_reviewer_with_infra_retry(
+    runner: Callable[[str, str], ReviewerResult],
+    family: str,
+    prompt: str,
+    *,
+    retries: int | None = None,
+) -> ReviewerResult:
+    """Invoke ``runner(family, prompt)``, retrying ONLY transport failures.
+
+    Re-runs while the result is an infra failure (``ok is False``) up to
+    ``retries`` extra attempts. A result that returned a verdict (``ok is True``)
+    — pass OR changes_requested — is returned immediately and never retried, so a
+    genuine dissent can never be "retried away". Counting/settlement are unchanged.
+    """
+    attempts_left = _reviewer_infra_retries() if retries is None else max(0, retries)
+    result = runner(family, prompt)
+    while not result.ok and attempts_left > 0:
+        attempts_left -= 1
+        result = runner(family, prompt)
+    return result
+
 
 def _cap_text(text: str) -> str:
     text = text.strip()
@@ -587,12 +629,23 @@ def build_review_prompt(
 
 
 def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
-    """Run a genuine reviewer: ``claude`` via its CLI, others via the API agent."""
+    """Run a genuine reviewer, preferring subscription CLIs over metered APIs.
+
+    ``claude`` -> claude CLI; ``openai`` -> Codex CLI (or API if OPENAI_API_KEY);
+    ``grok`` -> Grok Build CLI when installed (else API); ``gemini`` -> Antigravity
+    CLI when installed (else API); everything else -> API agent. The CLI-first
+    routing for grok/gemini lets the merge gate form a 2-family quorum from any
+    two subscription CLIs, so one provider's usage cap can't stall merges.
+    """
     fam = family.strip().lower()
     if fam == "claude":
         return _run_claude_cli(prompt)
     if fam == "openai":
         return _run_openai_reviewer(prompt)
+    if fam == "grok":
+        return _run_grok_reviewer(prompt)
+    if fam == "gemini":
+        return _run_gemini_reviewer(prompt)
     return _run_api_agent(fam, prompt)
 
 
@@ -649,6 +702,91 @@ def _run_openai_reviewer(prompt: str) -> ReviewerResult:
     if os.environ.get("OPENAI_API_KEY", "").strip():
         return _run_api_agent("openai", prompt)
     return _run_codex_openai_cli(prompt)
+
+
+_GROK_BUILD_HARNESS = "Grok Build CLI harness"
+_ANTIGRAVITY_HARNESS = "Antigravity CLI harness"
+
+
+def _resolve_grok_build_bin() -> str:
+    """Path to the Grok Build CLI, avoiding the unrelated legacy ``grok`` on PATH.
+
+    Grok Build installs to ``~/.grok/bin/grok`` (overridable via
+    ``ARAGORA_GROK_BUILD_BIN``); the legacy ``grok-cli`` often shadows it on PATH.
+    """
+    override = os.environ.get("ARAGORA_GROK_BUILD_BIN", "").strip()
+    return override or os.path.expanduser("~/.grok/bin/grok")
+
+
+def _run_argv_cli_reviewer(
+    family: str, argv: list[str], harness: str, timeout: float = _REVIEWER_TIMEOUT
+) -> ReviewerResult:
+    """Run a headless single-prompt CLI reviewer (prompt passed as an argv value).
+
+    The prompt (a head-grounded diff review request, already bounded to
+    ``_MAX_DIFF_CHARS``) is passed as the final argument; the model's stdout is
+    the review body. Same exact-head composition + evidence-lint as every other
+    reviewer decides whether the result can count.
+    """
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
+    except FileNotFoundError:
+        return ReviewerResult(family, "", False, f"{family} CLI not found: {argv[0]}")
+    except subprocess.TimeoutExpired:
+        return ReviewerResult(
+            family, "", False, f"{family} CLI timed out after {_format_seconds(timeout)}s"
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+    text = (proc.stdout or "").strip()
+    if proc.returncode != 0 or not text:
+        detail = (proc.stderr or proc.stdout or "").strip()[:200]
+        return ReviewerResult(family, "", False, f"{family} CLI exit {proc.returncode}: {detail}")
+    return ReviewerResult(family, _cap_text(text), True, harness=harness)
+
+
+def _env_key_present(*names: str) -> bool:
+    return any(os.environ.get(n, "").strip() for n in names)
+
+
+def _run_grok_reviewer(prompt: str) -> ReviewerResult:
+    """Grok evidence via the Grok Build CLI (subscription) when installed, else API.
+
+    CLI-first serves the predictable-cost posture: a local Grok Build install is
+    used without a metered xAI API key. The CLI runs ``--sandbox read-only`` so a
+    review can never write/exec in the merge-gate cwd. If the CLI is absent OR
+    fails (nonzero/timeout/cap) and an ``XAI_API_KEY``/``GROK_API_KEY`` is set, we
+    fall back to the API path so a wedged subscription CLI can't block quorum.
+    """
+    grok_bin = _resolve_grok_build_bin()
+    if os.path.isfile(grok_bin) and os.access(grok_bin, os.X_OK):
+        result = _run_argv_cli_reviewer(
+            "grok",
+            [grok_bin, "--sandbox", "read-only", "--no-plan", "-p", prompt],
+            _GROK_BUILD_HARNESS,
+        )
+        if result.ok or not _env_key_present("XAI_API_KEY", "GROK_API_KEY"):
+            return result
+    return _run_api_agent("grok", prompt)
+
+
+def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
+    """Gemini evidence via the Antigravity CLI (``agy``, subscription) when on PATH, else API.
+
+    Invokes the resolved ``agy`` path (not a bare name) with ``--sandbox`` so the
+    review can't touch the cwd. Falls back to the API path when ``agy`` is absent
+    OR fails and a ``GEMINI_API_KEY``/``GOOGLE_API_KEY`` is set.
+    """
+    import shutil
+
+    agy_path = shutil.which("agy")
+    if agy_path:
+        result = _run_argv_cli_reviewer(
+            "gemini", [agy_path, "--sandbox", "-p", prompt], _ANTIGRAVITY_HARNESS
+        )
+        if result.ok or not _env_key_present("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+            return result
+    return _run_api_agent("gemini", prompt)
 
 
 def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
@@ -1127,7 +1265,7 @@ def _reviewer_process_worker(
         except OSError:
             pass
     try:
-        result = reviewer_runner(family, prompt)
+        result = _run_reviewer_with_infra_retry(reviewer_runner, family, prompt)
     except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run.
         result = ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     try:
@@ -1319,7 +1457,8 @@ def _run_reviewers_in_threads(
     reviews: dict[str, ReviewerResult] = {}
     try:
         future_to_family = {
-            pool.submit(reviewer_runner, family, prompt): family for family in supported
+            pool.submit(_run_reviewer_with_infra_retry, reviewer_runner, family, prompt): family
+            for family in supported
         }
         try:
             completed = concurrent.futures.as_completed(

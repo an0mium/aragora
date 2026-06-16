@@ -2299,3 +2299,165 @@ def test_default_prompt_builder_empty_diff_still_raises(monkeypatch) -> None:
     monkeypatch.setattr(qe.merge_quorum_io, "run", _prompt_builder_run_stub("   \n", "D\tx\n"))
     with pytest.raises(RuntimeError, match="empty diff"):
         qe.default_prompt_builder("o/r", 8416, {"head_sha": HEAD})
+
+
+# --- Cross-provider CLI quorum (grok-build / antigravity) --------------------
+
+
+def test_dispatch_routes_grok_and_gemini_to_cli_reviewers(monkeypatch) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(
+        qe,
+        "_run_grok_reviewer",
+        lambda p: calls.append("grok") or qe.ReviewerResult("grok", "ok", True),
+    )
+    monkeypatch.setattr(
+        qe,
+        "_run_gemini_reviewer",
+        lambda p: calls.append("gemini") or qe.ReviewerResult("gemini", "ok", True),
+    )
+    qe.default_reviewer_runner("grok", "x")
+    qe.default_reviewer_runner("GEMINI", "x")  # case-insensitive
+    assert calls == ["grok", "gemini"]
+
+
+def _force_grok_bin(monkeypatch, present: bool) -> None:
+    monkeypatch.setattr(qe.os.path, "isfile", lambda p: present)
+    monkeypatch.setattr(qe.os, "access", lambda p, mode: present)
+
+
+def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None:
+    _force_grok_bin(monkeypatch, True)
+    seen: dict = {}
+
+    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+        seen["argv"] = argv
+        return qe.ReviewerResult(family, "verdict", True, harness=harness)
+
+    monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: pytest.fail("should not hit API"))
+    res = qe._run_grok_reviewer("review prompt")
+    assert res.family == "grok" and res.ok is True
+    # read-only sandbox + headless single-prompt, explicit Grok Build path.
+    assert seen["argv"][1:] == ["--sandbox", "read-only", "--no-plan", "-p", "review prompt"]
+    assert seen["argv"][0].endswith(".grok/bin/grok")
+
+
+def test_grok_build_bin_override(monkeypatch) -> None:
+    monkeypatch.setenv("ARAGORA_GROK_BUILD_BIN", "/custom/grok")
+    assert qe._resolve_grok_build_bin() == "/custom/grok"
+
+
+def test_grok_reviewer_falls_back_to_api_without_cli(monkeypatch) -> None:
+    _force_grok_bin(monkeypatch, False)
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: qe.ReviewerResult(f, "api", True))
+    res = qe._run_grok_reviewer("x")
+    assert res.family == "grok" and res.text == "api"
+
+
+def test_grok_reviewer_falls_back_to_api_on_cli_failure_when_key_present(monkeypatch) -> None:
+    _force_grok_bin(monkeypatch, True)
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    monkeypatch.setattr(
+        qe,
+        "_run_argv_cli_reviewer",
+        lambda *a, **k: qe.ReviewerResult("grok", "", False, "grok CLI exit 1: capped"),
+    )
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: qe.ReviewerResult(f, "api", True))
+    res = qe._run_grok_reviewer("x")
+    assert res.text == "api"  # wedged CLI + key present -> API fallback, quorum not blocked
+
+
+def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
+    seen: dict = {}
+
+    def fake_cli(family, argv, harness, timeout=qe._REVIEWER_TIMEOUT):
+        seen["argv"] = argv
+        return qe.ReviewerResult(family, "v", True, harness=harness)
+
+    monkeypatch.setattr(qe, "_run_argv_cli_reviewer", fake_cli)
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: pytest.fail("should not hit API"))
+    res = qe._run_gemini_reviewer("review prompt")
+    assert res.family == "gemini"
+    # resolved path (not bare "agy") + sandbox.
+    assert seen["argv"] == ["/usr/local/bin/agy", "--sandbox", "-p", "review prompt"]
+
+
+def test_gemini_reviewer_falls_back_to_api_without_agy(monkeypatch) -> None:
+    import shutil as _sh
+
+    monkeypatch.setattr(_sh, "which", lambda name: None)
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: qe.ReviewerResult(f, "api", True))
+    res = qe._run_gemini_reviewer("x")
+    assert res.family == "gemini" and res.text == "api"
+
+
+def test_cross_provider_does_not_change_counting_rules() -> None:
+    # The Tier-4 change adds reviewer BACKENDS only; family counting is unchanged.
+    assert "fusion" not in qe.FAMILY_PROVIDERS  # blend must never count as a family
+    assert qe.FAMILY_PROVIDERS["grok"] == "xai"
+    assert qe.FAMILY_PROVIDERS["gemini"] == "google"
+
+
+# --- Reviewer infra-retry hardening (Tier-4, operator-preapproved 2026-06-16) ---
+from aragora.swarm.quorum_evidence import (  # noqa: E402
+    ReviewerResult as _RR,
+    _run_reviewer_with_infra_retry as _retry,
+)
+
+
+def _seq_runner(results):
+    state = {"n": 0}
+
+    def run(family, prompt):
+        r = results[min(state["n"], len(results) - 1)]
+        state["n"] += 1
+        return r
+
+    run.state = state
+    return run
+
+
+def test_infra_retry_recovers_transient_failure(monkeypatch):
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", raising=False)
+    runner = _seq_runner([_RR("grok", "", False, "timeout"), _RR("grok", "Verdict: pass", True)])
+    res = _retry(runner, "grok", "p")
+    assert res.ok is True  # second attempt's verdict used
+    assert runner.state["n"] == 2  # retried exactly once
+
+
+def test_infra_retry_never_retries_a_real_verdict(monkeypatch):
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", raising=False)
+    # A returned changes_requested (ok=True) is a real review — must NOT be retried away.
+    runner = _seq_runner(
+        [_RR("claude", "Verdict: changes-requested", True), _RR("claude", "Verdict: pass", True)]
+    )
+    res = _retry(runner, "claude", "p")
+    assert res.ok is True
+    assert res.text.lower().startswith("verdict: changes")
+    assert runner.state["n"] == 1  # dissent stands; no re-roll
+
+
+def test_infra_retry_exhausts_and_returns_failure(monkeypatch):
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "1")
+    runner = _seq_runner([_RR("grok", "", False, "timeout")])  # always fails
+    res = _retry(runner, "grok", "p")
+    assert res.ok is False
+    assert runner.state["n"] == 2  # 1 initial + 1 retry
+
+
+def test_infra_retry_zero_disables(monkeypatch):
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "0")
+    runner = _seq_runner([_RR("grok", "", False, "x")])
+    _retry(runner, "grok", "p")
+    assert runner.state["n"] == 1  # no retry when disabled
+
+
+def test_infra_retry_env_count_respected(monkeypatch):
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "2")
+    runner = _seq_runner([_RR("grok", "", False, "x")])  # always fails
+    _retry(runner, "grok", "p")
+    assert runner.state["n"] == 3  # 1 initial + 2 retries

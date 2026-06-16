@@ -78,7 +78,7 @@ pip install aragora[dev,monitoring]
 For debates with web research and evidence collection:
 
 ```bash
-pip install aragora[research,documents]
+pip install aragora[documents]
 ```
 
 **Includes**: Core + DuckDuckGo search + PDF/DOCX parsing

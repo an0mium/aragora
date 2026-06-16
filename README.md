@@ -406,8 +406,7 @@ aragora/
 └── workflow/       # DAG-based automation engine
 ```
 
-**Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions across 5,078 test files
-(canonical, auto-regenerated numbers: [`docs/METRICS.md`](docs/METRICS.md))
+**Scale:** See [`docs/METRICS.md`](docs/METRICS.md) for canonical, auto-regenerated codebase counts (Python files, top-level modules, test functions, API operations).
 
 ### Performance and Costs
 
