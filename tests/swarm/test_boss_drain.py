@@ -7,9 +7,33 @@ from aragora.swarm.boss_drain import (
     build_candidates,
     classify_candidate,
     run_boss_drain,
+    touches_merge_authority,
 )
 from aragora.swarm.drain_pass import DrainPassPolicy
 from aragora.swarm.drain_policy import DrainAction
+
+
+def test_merge_authority_files_force_off_limits() -> None:
+    # A green, mergeable, low-tier PR that touches the EVIDENCE PARSER (gate logic)
+    # must be LEFT — the drain may never auto-merge merge-authority surfaces (#8467 class).
+    view = {
+        "number": 8467,
+        "headRefName": "codex/evidence-fix",
+        "changedFiles": 2,
+        "files": [
+            {"path": "aragora/cli/commands/review_queue_comment_verdicts.py"},
+            {"path": "tests/cli/commands/test_review_queue.py"},
+        ],
+    }
+    c = classify_candidate(view, DrainContext(), merge_authorized=True, tier=0)
+    assert c.off_limits is True  # gate logic — never auto-merged
+
+
+def test_touches_merge_authority_patterns() -> None:
+    assert touches_merge_authority(["aragora/swarm/quorum_evidence.py"]) is True
+    assert touches_merge_authority(["scripts/settle_one_pr.py"]) is True
+    assert touches_merge_authority([".github/workflows/aragora-merge-quorum.yml"]) is True
+    assert touches_merge_authority(["aragora/debate/orchestrator.py"]) is False
 
 
 def test_classify_off_limits_branch_prefix() -> None:

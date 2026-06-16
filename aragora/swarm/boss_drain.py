@@ -38,6 +38,29 @@ from aragora.swarm.drain_policy import DrainCandidate
 # Default branch prefixes that belong to OTHER fleets / lanes — never drained.
 DEFAULT_OFF_LIMITS_PREFIXES: tuple[str, ...] = ("structex/", "claude/fusion-")
 
+# Path substrings identifying MERGE-AUTHORITY surfaces. A PR touching any of these
+# is the gate's OWN logic (review queue, evidence parsers, settlement helpers, the
+# quorum workflows) and must NEVER be auto-merged by the drain — it is Tier-4 /
+# human-preapproved per the operating contract. Touching one forces off_limits=LEAVE
+# regardless of tier/quorum, so the drain can never self-modify the gate.
+MERGE_AUTHORITY_PATTERNS: tuple[str, ...] = (
+    "cli/commands/review_queue",  # review_queue.py + review_queue_comment_verdicts.py + helpers
+    "swarm/quorum_evidence",
+    "review/evidence",
+    "settle_one_pr",
+    "settle_tier4",
+    "settlement",
+    ".github/workflows/aragora-merge-quorum",
+)
+
+
+def touches_merge_authority(
+    paths: Sequence[str], patterns: Sequence[str] = MERGE_AUTHORITY_PATTERNS
+) -> bool:
+    """True if any changed path is a merge-authority surface (gate logic). Pure."""
+    return any(any(pat in p for pat in patterns) for p in paths)
+
+
 ListOpenPRsFn = Callable[
     [], Sequence[dict[str, Any]]
 ]  # -> PR view dicts (number, headRefName, ...)
@@ -56,6 +79,14 @@ class DrainContext:
     off_limits_prs: frozenset[int] = field(default_factory=frozenset)
     superseded_prs: frozenset[int] = field(default_factory=frozenset)
     owned_prs: frozenset[int] = field(default_factory=frozenset)
+    authority_patterns: tuple[str, ...] = MERGE_AUTHORITY_PATTERNS
+
+    def _is_off_limits(self, number: int, branch: str, paths: Sequence[str]) -> bool:
+        return (
+            number in self.off_limits_prs
+            or any(branch.startswith(p) for p in self.off_limits_prefixes)
+            or touches_merge_authority(paths, self.authority_patterns)
+        )
 
 
 def classify_candidate(
@@ -75,9 +106,8 @@ def classify_candidate(
     branch = str(view.get("headRefName", ""))
     changed = view.get("changedFiles", view.get("changed_files", 1))
     has_changes = bool(changed and int(changed) > 0)
-    off_limits = number in ctx.off_limits_prs or any(
-        branch.startswith(p) for p in ctx.off_limits_prefixes
-    )
+    paths = [str(f.get("path", "")) for f in (view.get("files") or []) if isinstance(f, dict)]
+    off_limits = ctx._is_off_limits(number, branch, paths)
     return DrainCandidate(
         pr=number,
         has_changes=has_changes,
@@ -110,17 +140,17 @@ def build_candidates(
         number = int(view.get("number", 0))
         if number <= 0:
             continue
-        branch = str(view.get("headRefName", ""))
-        off_limits = number in ctx.off_limits_prs or any(
-            branch.startswith(p) for p in ctx.off_limits_prefixes
-        )
-        # Cheap routes first: off-limits / owned / explicitly-superseded need no authority probe.
-        if off_limits or number in ctx.owned_prs or number in ctx.superseded_prs:
-            candidates.append(classify_candidate(view, ctx, merge_authorized=False, tier=4))
-            continue
+        # Fetch the detail view (file paths included) so the merge-authority guard
+        # can fence off gate-logic PRs before any authority probe or action.
         detail = view_pr_fn(number) or view
+        branch = str(detail.get("headRefName", view.get("headRefName", "")))
+        paths = [str(f.get("path", "")) for f in (detail.get("files") or []) if isinstance(f, dict)]
+        off_limits = ctx._is_off_limits(number, branch, paths)
         changed = detail.get("changedFiles", detail.get("changed_files", 1))
-        if not (changed and int(changed) > 0):  # empty -> CLOSE_SUPERSEDED, no authority probe
+        has_changes = bool(changed and int(changed) > 0)
+        # Cheap routes need no authority probe: off-limits (incl. gate-logic) / owned /
+        # explicitly-superseded / empty all classify on signal alone.
+        if off_limits or number in ctx.owned_prs or number in ctx.superseded_prs or not has_changes:
             candidates.append(classify_candidate(detail, ctx, merge_authorized=False, tier=4))
             continue
         authorized, tier = merge_authorized_fn(number)

@@ -72,7 +72,7 @@ def view_pr(repo: str, number: int) -> dict[str, Any] | None:
             "--repo",
             repo,
             "--json",
-            "number,headRefName,changedFiles,mergeable,headRefOid,statusCheckRollup",
+            "number,headRefName,changedFiles,files,mergeable,headRefOid,statusCheckRollup",
         ]
     )
 
@@ -160,11 +160,20 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-repairs", type=int, default=2)
     p.add_argument("--auto-settle-max-tier", type=int, default=2)
     p.add_argument("--off-limits-pr", type=int, action="append", default=[])
+    p.add_argument(
+        "--off-limits-prefix",
+        action="append",
+        default=None,
+        help=f"branch prefixes never touched (default: {list(DEFAULT_OFF_LIMITS_PREFIXES)})",
+    )
     args = p.parse_args(argv)
     dry_run = not args.apply
 
+    prefixes = (
+        tuple(args.off_limits_prefix) if args.off_limits_prefix else DEFAULT_OFF_LIMITS_PREFIXES
+    )
     ctx = DrainContext(
-        off_limits_prefixes=DEFAULT_OFF_LIMITS_PREFIXES,
+        off_limits_prefixes=prefixes,
         off_limits_prs=frozenset(args.off_limits_pr),
     )
     policy = DrainPassPolicy(
