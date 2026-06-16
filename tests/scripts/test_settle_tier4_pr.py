@@ -3156,7 +3156,7 @@ def test_rerun_failed_quorum_targets_newest_failed_run(monkeypatch: Any, tmp_pat
                 {
                     "name": "aragora-merge-quorum",
                     "conclusion": "success",
-                    "started_at": "2026-06-15T22:00:00Z",
+                    "started_at": "2026-06-15T19:00:00Z",
                     "details_url": (
                         "https://github.com/synaptent/aragora/actions/runs/"
                         "27500000000/job/81212117995"
@@ -3178,6 +3178,28 @@ def test_rerun_failed_quorum_targets_newest_failed_run(monkeypatch: Any, tmp_pat
     assert result["rerun"] is True
     assert result["run_id"] == "27499999999"
     assert commands == [["gh", "run", "rerun", "27499999999", "--failed"]]
+
+
+def test_rerun_failed_quorum_does_not_rerun_stale_failure_after_newer_success(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_quorum_run_ids",
+        lambda head, repo, cwd: [("27500000000", "success"), ("27499999999", "failure")],
+    )
+    commands: list[list[str]] = []
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+
+    result = settler._rerun_failed_quorum(head="abc", repo="synaptent/aragora", cwd=tmp_path)
+
+    assert result["rerun"] is False
+    assert "newest aragora-merge-quorum run 27500000000 is success" in result["reason"]
+    assert commands == []
 
 
 def test_record_settlement_passes_repo_to_review_queue(monkeypatch: Any, tmp_path: Path) -> None:

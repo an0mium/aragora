@@ -1948,15 +1948,14 @@ def _rerun_failed_quorum(*, head: str, repo: str, cwd: Path) -> dict[str, Any]:
             "reason": f"no {MERGE_QUORUM_CONTEXT} run found at head {head}",
             "commands": [],
         }
-    target = next(
-        (run_id for run_id, conclusion in runs if conclusion in FAILED_QUORUM_CONCLUSIONS),
-        None,
-    )
-    if target is None:
+    target, conclusion = runs[0]
+    if conclusion not in FAILED_QUORUM_CONCLUSIONS:
+        state = conclusion or "pending"
         return {
             "rerun": False,
             "reason": (
-                f"no failed {MERGE_QUORUM_CONTEXT} run to rerun "
+                f"newest {MERGE_QUORUM_CONTEXT} run {target} is {state}; "
+                "not rerunning older failed runs "
                 "(it will re-evaluate the settlement status on its own)"
             ),
             "commands": [],
