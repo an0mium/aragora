@@ -197,36 +197,55 @@ class TestModelDowngradeAnalyzer:
             "provider": "anthropic",
             "quality": 1.0,
         }
+        assert MODEL_TIERS["claude-opus-4.8"] == {
+            "tier": 1,
+            "provider": "anthropic",
+            "quality": 1.0,
+        }
+        assert MODEL_TIERS["claude-haiku-3"] == {
+            "tier": 3,
+            "provider": "anthropic",
+            "quality": 0.65,
+        }
         assert MODEL_TIERS["claude-haiku-4-5"] == {
             "tier": 3,
             "provider": "anthropic",
             "quality": 0.65,
         }
-        assert "claude-opus-4.8" not in MODEL_TIERS
-        assert "claude-haiku-4.5" not in MODEL_TIERS
+        assert MODEL_TIERS["claude-haiku-4.5"] == {
+            "tier": 3,
+            "provider": "anthropic",
+            "quality": 0.65,
+        }
+        assert MODEL_TIERS["claude-haiku-4-5-20251001"] == {
+            "tier": 3,
+            "provider": "anthropic",
+            "quality": 0.65,
+        }
 
     def test_analyze_uses_runtime_opus_model_for_downgrade(self):
         """The analyzer must not miss Opus traffic because the model ID is hyphenated."""
         analyzer = ModelDowngradeAnalyzer()
 
-        recommendations = analyzer.analyze(
-            [
-                UsagePattern(
-                    model="claude-opus-4-8",
-                    provider="anthropic",
-                    operation="summarize",
-                    count=100,
-                    total_tokens_in=500000,
-                    total_tokens_out=100000,
-                    total_cost=Decimal("50.00"),
-                ),
-            ],
-            "ws-123",
-        )
+        for model in ("claude-opus-4-8", "claude-opus-4.8"):
+            recommendations = analyzer.analyze(
+                [
+                    UsagePattern(
+                        model=model,
+                        provider="anthropic",
+                        operation="summarize",
+                        count=100,
+                        total_tokens_in=500000,
+                        total_tokens_out=100000,
+                        total_cost=Decimal("50.00"),
+                    ),
+                ],
+                "ws-123",
+            )
 
-        assert recommendations
-        assert recommendations[0].title.startswith("Use ")
-        assert "instead of claude-opus-4-8" in recommendations[0].title
+            assert recommendations
+            assert recommendations[0].title.startswith("Use ")
+            assert f"instead of {model}" in recommendations[0].title
 
     def test_runtime_haiku_model_can_be_priced_as_alternative(self):
         """Runtime Haiku IDs keep explicit rates when eligible as alternatives."""

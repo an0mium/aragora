@@ -167,12 +167,16 @@ OPENROUTER_BACKED_FAMILIES: frozenset[str] = frozenset({FAMILY_DEEPSEEK, FAMILY_
 _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     # Anthropic
     "claude-opus-4-8": (5.00, 25.00),
+    "claude-opus-4.8": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
+    "claude-opus-4.7": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-opus-4": (5.00, 25.00),
     "claude-sonnet-4-6": (3.00, 15.00),
     "claude-sonnet-4": (3.00, 15.00),
     "claude-haiku-4-5": (0.80, 4.00),
+    "claude-haiku-4.5": (0.80, 4.00),
+    "claude-haiku-4-5-20251001": (0.80, 4.00),
     # OpenAI
     "gpt-5.5": (2.50, 10.00),
     "gpt-5.4": (2.50, 10.00),

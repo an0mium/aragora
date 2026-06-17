@@ -115,6 +115,10 @@ class TestProviderRateMirrors:
             ("google", "gemini-3.5-flash"),
             ("openrouter", "openai/gpt-5.5"),
             ("openrouter", "google/gemini-3.5-flash"),
+            ("openrouter", "anthropic/claude-opus-4.8"),
+            ("openrouter", "anthropic/claude-opus-4.7"),
+            ("openrouter", "anthropic/claude-haiku-4.5"),
+            ("openrouter", "anthropic/claude-haiku-4-5-20251001"),
         ],
     )
     def test_calibrated_v4_1_models_have_mirrored_debate_rates(self, provider, model):

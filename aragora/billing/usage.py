@@ -45,6 +45,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "claude-sonnet-4.6-output": Decimal("15.00"),
         "claude-sonnet-4": Decimal("3.00"),
         "claude-sonnet-4-output": Decimal("15.00"),
+        "claude-haiku-3": Decimal("0.25"),
+        "claude-haiku-3-output": Decimal("1.25"),
         "claude-haiku-4-5": Decimal("0.80"),
         "claude-haiku-4-5-output": Decimal("4.00"),
         "claude-haiku-4-5-20251001": Decimal("0.80"),
@@ -99,6 +101,14 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "openai/gpt-5.5-output": Decimal("10.00"),
         "google/gemini-3.5-flash": Decimal("1.50"),
         "google/gemini-3.5-flash-output": Decimal("9.00"),
+        "anthropic/claude-opus-4.8": Decimal("5.00"),
+        "anthropic/claude-opus-4.8-output": Decimal("25.00"),
+        "anthropic/claude-opus-4.7": Decimal("5.00"),
+        "anthropic/claude-opus-4.7-output": Decimal("25.00"),
+        "anthropic/claude-haiku-4.5": Decimal("0.80"),
+        "anthropic/claude-haiku-4.5-output": Decimal("4.00"),
+        "anthropic/claude-haiku-4-5-20251001": Decimal("0.80"),
+        "anthropic/claude-haiku-4-5-20251001-output": Decimal("4.00"),
         # Fusion runs a panel of models + a judge, so it costs ~4-5x a single
         # model. These are ASSUMED rates (4x the openrouter default) pending
         # confirmation against OpenRouter's published Fusion pricing; the cost

@@ -87,6 +87,22 @@ class TestTokenCostCalculation:
         # $1.50 per 1M input + $9.00 per 1M output = $10.50
         assert cost == Decimal("10.50")
 
+    @pytest.mark.parametrize(
+        ("model", "expected"),
+        [
+            ("anthropic/claude-opus-4.8", Decimal("30.00")),
+            ("anthropic/claude-opus-4.7", Decimal("30.00")),
+            ("anthropic/claude-haiku-4.5", Decimal("4.80")),
+            ("anthropic/claude-haiku-4-5-20251001", Decimal("4.80")),
+        ],
+    )
+    def test_openrouter_anthropic_runtime_aliases_use_canonical_pricing(
+        self, model: str, expected: Decimal
+    ):
+        """OpenRouter-qualified Anthropic runtime IDs must not use defaults."""
+        cost = calculate_token_cost("openrouter", model, 1_000_000, 1_000_000)
+        assert cost == expected
+
     def test_deepseek_pricing(self):
         """Test DeepSeek pricing."""
         cost = calculate_token_cost("deepseek", "deepseek-v4-pro", 10_000_000, 5_000_000)
