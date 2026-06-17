@@ -47,6 +47,7 @@ class PRMergeContext:
 
     number: int
     head_sha: str
+    packet_head_sha: str
     tier: int | None
     packet_status: str
     packet_verdict: str
@@ -87,8 +88,11 @@ def decide_auto_merge(
 
     if ctx.tier is None:
         blockers.append("tier unknown (merge-packet did not classify)")
-    elif ctx.tier > max_tier:
-        blockers.append(f"tier {ctx.tier} > {max_tier}: needs human risk settlement (Tier 3-4)")
+    elif ctx.tier < 0 or ctx.tier > max_tier:
+        blockers.append(
+            f"tier {ctx.tier} outside auto-merge range 0-{max_tier} "
+            "(Tier 3-4 need human settlement; <0 is invalid)"
+        )
 
     if ctx.requires_human_risk_settlement:
         blockers.append("requires human risk settlement")
@@ -106,6 +110,14 @@ def decide_auto_merge(
 
     if ctx.unresolved_dissent:
         blockers.append("unresolved dissent present")
+
+    # The merge-packet is a separate subprocess from the gh view; if the head
+    # moved between the two fetches we'd be deciding on mismatched data. Only
+    # flag when the packet actually disclosed a head (else tier=None blocks).
+    if ctx.packet_head_sha and ctx.packet_head_sha != ctx.head_sha:
+        blockers.append(
+            f"packet head mismatch (packet={ctx.packet_head_sha[:7]} view={ctx.head_sha[:7]})"
+        )
 
     if ctx.mergeable != "MERGEABLE":
         blockers.append(f"not mergeable (mergeable={ctx.mergeable or 'unknown'})")
@@ -160,6 +172,7 @@ def context_from_gh(view: dict[str, Any], packet_entry: dict[str, Any] | None) -
     return PRMergeContext(
         number=int(view.get("number") or 0),
         head_sha=str(view.get("headRefOid") or ""),
+        packet_head_sha=str(packet.get("head_sha") or ""),
         tier=tier,
         packet_status=str(packet.get("status") or ""),
         packet_verdict=str(packet.get("verdict") or ""),

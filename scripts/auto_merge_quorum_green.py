@@ -42,6 +42,10 @@ from aragora.swarm.auto_merge_green import (
 
 _VIEW_FIELDS = "number,headRefOid,isDraft,mergeable,mergeStateStatus,statusCheckRollup"
 
+# Conservative default cap for a single unattended pass. Unbounded auto-merge is
+# intentionally not the default; raise --max-merges for larger batches.
+DEFAULT_MAX_MERGES = 10
+
 
 def _gh_json(args: list[str], timeout: int = 60) -> Any:
     try:
@@ -187,7 +191,12 @@ def main(argv: list[str] | None = None) -> int:
         "--pr", type=int, action="append", help="specific PR(s); default scans open PRs"
     )
     parser.add_argument("--limit", type=int, default=300, help="max open PRs to scan")
-    parser.add_argument("--max-merges", type=int, default=None, help="cap merges in this pass")
+    parser.add_argument(
+        "--max-merges",
+        type=int,
+        default=DEFAULT_MAX_MERGES,
+        help=f"cap merges in this pass (default {DEFAULT_MAX_MERGES}; raise N for larger batches)",
+    )
     parser.add_argument("--apply", action="store_true", help="actually merge (default: dry-run)")
     parser.add_argument("--json", action="store_true", help="emit JSON summary")
     args = parser.parse_args(argv)

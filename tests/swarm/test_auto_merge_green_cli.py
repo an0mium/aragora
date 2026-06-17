@@ -47,6 +47,7 @@ def _packet(**overrides) -> dict:
         requires_human_risk_settlement=False,
         unresolved_dissent=False,
         admin_squash_allowed=True,
+        head_sha="b" * 40,  # matches _view() headRefOid
     )
     base.update(overrides)
     return base
@@ -85,6 +86,19 @@ def test_context_from_gh_carries_human_settlement_flag():
     ctx = context_from_gh(_view(), _packet(tier=4, requires_human_risk_settlement=True))
     assert ctx.requires_human_risk_settlement is True
     assert decide_auto_merge(ctx).should_merge is False
+
+
+def test_context_from_gh_extracts_packet_head():
+    ctx = context_from_gh(_view(headRefOid="e" * 40), _packet(head_sha="e" * 40))
+    assert ctx.packet_head_sha == "e" * 40
+    assert ctx.head_sha == "e" * 40
+
+
+def test_context_from_gh_packet_head_mismatch_blocks_merge():
+    # packet computed against a different head than the view -> must not merge.
+    ctx = context_from_gh(_view(headRefOid="1" * 40), _packet(head_sha="2" * 40))
+    assert decide_auto_merge(ctx).should_merge is False
+    assert any("head" in b.lower() for b in decide_auto_merge(ctx).blockers)
 
 
 # --- merge_eligible --------------------------------------------------------

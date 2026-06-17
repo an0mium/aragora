@@ -36,6 +36,7 @@ def _authorized_context(**overrides) -> PRMergeContext:
     base = dict(
         number=8447,
         head_sha="a" * 40,
+        packet_head_sha="a" * 40,
         tier=2,
         packet_status="satisfied",
         packet_verdict="admin_squash_allowed",
@@ -57,6 +58,28 @@ def test_fully_authorized_tier2_pr_is_merged():
     assert decision.blockers == ()
     assert decision.number == 8447
     assert decision.head_sha == "a" * 40
+
+
+def test_packet_head_mismatch_is_blocked():
+    # The merge-packet is fetched in a separate subprocess from the gh view; if
+    # the head moved between them we'd be deciding on mismatched data.
+    decision = decide_auto_merge(_authorized_context(packet_head_sha="f" * 40))
+    assert decision.should_merge is False
+    assert any("head" in b.lower() for b in decision.blockers)
+
+
+def test_absent_packet_head_does_not_add_mismatch_blocker():
+    # packet=None -> packet_head_sha="" -> tier=None already blocks; no spurious
+    # head-mismatch blocker should pile on.
+    decision = decide_auto_merge(_authorized_context(packet_head_sha="", tier=None))
+    assert decision.should_merge is False
+    assert not any("head" in b.lower() and "mismatch" in b.lower() for b in decision.blockers)
+
+
+def test_negative_tier_is_blocked():
+    decision = decide_auto_merge(_authorized_context(tier=-1))
+    assert decision.should_merge is False
+    assert any("tier" in b.lower() for b in decision.blockers)
 
 
 def test_clean_merge_state_is_also_mergeable():
