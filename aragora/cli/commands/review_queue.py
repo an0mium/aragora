@@ -133,10 +133,8 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "minimax",
     "hermes",
 )
-# Western-frontier reviewer families. When a tier is settled on a single model
-# signal (Tier 0-2 under the tiered gate), that signal MUST come from one of
-# these so a cheap/non-frontier model can never solely authorize a merge — the
-# operator doctrine that a western-frontier model assesses every final action.
+# Western-frontier families: when a tier settles on a single signal (Tier 1-2),
+# it MUST be one of these so a cheap model can never solely authorize a merge.
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
 DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
     "claude": ("claude", "anthropic"),
@@ -3347,11 +3345,7 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
             "requires_human_preapproval": False,
         }
     # Tiered gate (operator-approved): Tier 1-2 settle on ONE western-frontier
-    # model signal (claude/openai) + focused adversarial dogfood + green CI,
-    # rather than two distinct families. claude Opus 4.8 is itself a frontier
-    # adversarial reviewer; the western-frontier guard keeps a cheap model from
-    # solely authorizing a merge. The full 2-family gate + human settlement is
-    # retained for Tier 3-4 (merge-authority / workflow / destructive surfaces).
+    # signal + dogfood + green CI; Tier 3-4 keep the full 2-family + human gate.
     if tier == 1:
         return {
             "required_model_signals": 1,
