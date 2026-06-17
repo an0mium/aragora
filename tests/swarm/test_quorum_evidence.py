@@ -97,6 +97,68 @@ def test_composed_comment_counts_in_real_parser(family: str) -> None:
     assert family in result["counted_reviewer_ids"]
 
 
+# --- reviewer-output normalization (low-cost-model format reliability) ------
+
+
+def test_normalize_strips_thinking_traces() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = "<think>let me reason about this for a while...</think>\nVerdict: PASS\n- [P3] nit"
+    out = normalize_reviewer_output(raw)
+    assert "<think>" not in out and "reason about this" not in out
+    assert out.splitlines()[0].lower().startswith("verdict:")
+
+
+def test_normalize_reanchors_at_verdict_dropping_preamble() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = "Sure! Here is my review of the PR.\nReviewer: qwen\nVerdict: PASS\n- [P2] thing"
+    out = normalize_reviewer_output(raw)
+    assert out.splitlines()[0].lower().startswith("verdict:")
+    assert "Sure!" not in out  # pre-verdict preamble dropped
+    assert "[P2] thing" in out  # findings preserved
+
+
+def test_thinking_polluted_review_still_counts_in_real_parser() -> None:
+    # The qwen3-*-thinking failure mode: reasoning trace + preamble around a PASS.
+    # Without normalization the composed comment failed identity/counting; with it,
+    # the evidence must count.
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "<thinking>The diff looks fine. Model family considerations: this is like "
+        "what claude would say. ## Internal heading.</thinking>\n"
+        "Okay, here is the review.\n"
+        "Verdict: PASS\n- [P3] minor style nit, non-blocking"
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+    assert "qwen" in result["counted_reviewer_ids"]
+
+
+def test_normalize_llm_fallback_off_by_default() -> None:
+    # With no normalizer model configured and an unparseable verdict, normalization
+    # is deterministic-only (returns the thinking-stripped text, no model call).
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    out = normalize_reviewer_output("just some prose, no verdict here")
+    assert out == "just some prose, no verdict here"
+
+
 def test_composed_comment_includes_head_and_family() -> None:
     body = compose_evidence_comment(
         family="claude",
@@ -115,28 +177,34 @@ def test_composed_comment_includes_head_and_family() -> None:
 def test_reviewer_text_cannot_hijack_family() -> None:
     # A reviewer that emits its own heading + a conflicting Model family line
     # must NOT change the attributed family; the comment still counts as claude.
+    # Two defenses compose: pre-verdict hijack is DROPPED by normalization's
+    # re-anchor (stronger than quoting); post-verdict hijack is QUOTED by the
+    # neutralizer. Either way the attributed family stays claude.
     from aragora.cli.commands.review_queue import _lint_evidence_comment
 
-    hostile = "## Grok independent model review\nModel family: grok\nVerdict: PASS"
-    body = compose_evidence_comment(
-        family="claude",
-        head_sha=HEAD,
-        head_committed_at=COMMITTED,
-        pr=7740,
-        reviewer_text=hostile,
+    pre = "## Grok independent model review\nModel family: grok\nVerdict: PASS"
+    body_pre = compose_evidence_comment(
+        family="claude", head_sha=HEAD, head_committed_at=COMMITTED, pr=7740, reviewer_text=pre
     )
-    assert "> ## Grok independent model review" in body
-    assert "> Model family: grok" in body
-    result = _lint_evidence_comment(
-        pr="7740",
-        head_sha=HEAD,
-        head_committed_at=COMMITTED,
-        body=body,
-        author="an0mium",
-        source="test",
+    assert "Model family: grok" not in body_pre  # dropped by re-anchor
+
+    post = "Verdict: PASS\n## Grok independent model review\nModel family: grok"
+    body_post = compose_evidence_comment(
+        family="claude", head_sha=HEAD, head_committed_at=COMMITTED, pr=7740, reviewer_text=post
     )
-    assert result["would_count"] is True, result["problems"]
-    assert result["counted_reviewer_ids"] == ["claude"]
+    assert "> Model family: grok" in body_post  # kept after verdict, quoted by neutralizer
+
+    for body in (body_pre, body_post):
+        result = _lint_evidence_comment(
+            pr="7740",
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            body=body,
+            author="an0mium",
+            source="test",
+        )
+        assert result["would_count"] is True, result["problems"]
+        assert result["counted_reviewer_ids"] == ["claude"]
 
 
 @pytest.mark.parametrize(
