@@ -8,6 +8,7 @@ Separated from command implementations for clarity and maintainability.
 import argparse
 import os
 
+from aragora.cli._mission_parser import add_mission_parser
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 DEFAULT_CAMPAIGN_MANIFEST = ".aragora/campaign_manifest.yaml"
@@ -163,6 +164,7 @@ Examples:
     _add_mcp_parser(subparsers)
     _add_marketplace_parser(subparsers)
     _add_skills_parser(subparsers)
+    add_mission_parser(subparsers, _lazy)
     _add_nomic_parser(subparsers)
     _add_workflow_parser(subparsers)
     _add_deploy_parser(subparsers)
