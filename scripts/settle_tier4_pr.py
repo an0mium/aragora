@@ -1999,8 +1999,12 @@ def _apply_settlement_signal(*, pr: int, head: str, repo: str, cwd: Path) -> lis
     ]
     try:
         comment_url = _run_text_command(comment_command, cwd=cwd).strip()
-        if comment_url:
-            status_command.extend(["-f", f"target_url={comment_url}"])
+        if not comment_url:
+            raise RuntimeError(
+                "Tier 4 settlement comment URL unavailable; refusing to post "
+                "unbound aragora/human-settlement status"
+            )
+        status_command.extend(["-f", f"target_url={comment_url}"])
         _run_command(status_command, cwd=cwd)
     except (OSError, subprocess.SubprocessError) as exc:
         raise RuntimeError(f"Tier 4 settlement signal failed: {exc}") from exc

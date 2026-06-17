@@ -2419,6 +2419,62 @@ def test_settle_only_posts_comment_and_status_without_merge(
     ]
 
 
+def test_settle_only_refuses_unbound_status_when_comment_url_missing(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[tuple[list[str], str | None]] = []
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: text_commands.append((command, input_text)) or "\n",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(
+        settler,
+        "_login_has_admin_permission",
+        lambda login, repo, cwd: login == "trusted-member",
+    )
+
+    rc = settler.main(
+        [
+            "--settle-only",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    assert text_commands[0][0][:3] == ["gh", "pr", "comment"]
+    assert commands == []
+
+
 def test_settle_only_requires_proof_for_quorum_only_repair_packet() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
 
