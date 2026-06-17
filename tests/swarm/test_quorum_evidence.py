@@ -1159,6 +1159,89 @@ def test_process_timeout_path_fails_closed_when_process_cannot_start(
     )
 
 
+def test_process_timeout_path_continues_after_initial_start_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result_queue = qe.queue.Queue()
+    events: list[str] = []
+    families = ["claude", "grok", "openai", "gemini", "deepseek", "qwen"]
+
+    class FakeProcess:
+        def __init__(self, family: str) -> None:
+            self.family = family
+            self.alive = False
+
+        def start(self) -> None:
+            events.append(f"start:{self.family}")
+            if self.family in families[:4]:
+                raise TypeError("cannot pickle local runner")
+            result_queue.put((self.family, ReviewerResult(self.family, "Verdict: PASS", True)))
+
+        def join(self, timeout: float) -> None:
+            events.append(f"join:{self.family}:{timeout:g}")
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+    class FakeContext:
+        def Queue(self):
+            return result_queue
+
+        def Process(self, *, target, args):
+            del target
+            return FakeProcess(args[0])
+
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda: FakeContext())
+
+    reviews, timed_out, timed_out_families = qe._collect_reviewer_results_with_process_timeout(
+        supported=families,
+        prompt="review prompt",
+        reviewer_runner=lambda family, prompt: ReviewerResult(family, "Verdict: PASS", True),
+        reviewer_timeout_s=7,
+        overall_timeout_s=1,
+    )
+
+    assert timed_out is False
+    assert timed_out_families == []
+    assert set(reviews) == set(families)
+    assert all(reviews[family].ok is False for family in families[:4])
+    assert all(reviews[family].ok is True for family in families[4:])
+    assert events[:6] == [f"start:{family}" for family in families]
+
+
+def test_terminate_reviewer_process_avoids_non_isolated_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeProcess:
+        pid = 123
+
+        def __init__(self) -> None:
+            self.alive = True
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+        def terminate(self) -> None:
+            events.append("terminate")
+            self.alive = False
+
+        def kill(self) -> None:
+            events.append("kill")
+            self.alive = False
+
+        def join(self, timeout: float) -> None:
+            events.append(f"join:{timeout:g}")
+
+    monkeypatch.setattr(qe.os, "getpgid", lambda pid: 456)
+    monkeypatch.setattr(qe.os, "killpg", lambda pgid, sig: events.append(f"killpg:{pgid}"))
+
+    qe._terminate_reviewer_process(FakeProcess())
+
+    assert events == ["terminate", f"join:{qe._REVIEWER_CLEANUP_TIMEOUT:g}"]
+
+
 def test_reviewer_process_worker_scopes_timeout_override_to_worker() -> None:
     result_queue: qe.queue.Queue[tuple[str, ReviewerResult]] = qe.queue.Queue()
     seen: dict[str, float] = {}

@@ -1465,9 +1465,18 @@ def _terminate_reviewer_process(process: multiprocessing.Process) -> None:
     if not process.is_alive():
         return
     pid = process.pid
+    isolated_pgid: int | None = None
     if pid and hasattr(os, "killpg"):
         try:
-            os.killpg(pid, signal.SIGTERM)
+            pgid = os.getpgid(pid)
+        except (ProcessLookupError, OSError):
+            pass
+        else:
+            if pgid == pid:
+                isolated_pgid = pgid
+    if isolated_pgid is not None:
+        try:
+            os.killpg(isolated_pgid, signal.SIGTERM)
         except ProcessLookupError:
             pass
         except OSError:
@@ -1476,9 +1485,9 @@ def _terminate_reviewer_process(process: multiprocessing.Process) -> None:
         process.terminate()
     process.join(_REVIEWER_CLEANUP_TIMEOUT)
     if process.is_alive():
-        if pid and hasattr(os, "killpg"):
+        if isolated_pgid is not None:
             try:
-                os.killpg(pid, signal.SIGKILL)
+                os.killpg(isolated_pgid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
             except OSError:
@@ -1515,27 +1524,27 @@ def _collect_reviewer_results_with_process_timeout(
 
     def start_next() -> None:
         nonlocal next_index
-        if next_index >= len(supported_list):
-            return
-        family = supported_list[next_index]
-        next_index += 1
-        process = ctx.Process(
-            target=_run_reviewer_process_worker,
-            args=(family, prompt, reviewer_runner, reviewer_timeout_s, result_queue),
-        )
-        processes[family] = process
-        try:
-            process.start()
-        except Exception as exc:  # noqa: BLE001 - fail closed for non-fork/spawn surfaces.
-            processes.pop(family, None)
-            reviews[family] = ReviewerResult(
-                family,
-                "",
-                False,
-                f"reviewer process start failed: {type(exc).__name__}: {str(exc)[:200]}",
+        while next_index < len(supported_list):
+            family = supported_list[next_index]
+            next_index += 1
+            process = ctx.Process(
+                target=_run_reviewer_process_worker,
+                args=(family, prompt, reviewer_runner, reviewer_timeout_s, result_queue),
             )
+            processes[family] = process
+            try:
+                process.start()
+            except Exception as exc:  # noqa: BLE001 - fail closed for non-fork/spawn surfaces.
+                processes.pop(family, None)
+                reviews[family] = ReviewerResult(
+                    family,
+                    "",
+                    False,
+                    f"reviewer process start failed: {type(exc).__name__}: {str(exc)[:200]}",
+                )
+                continue
+            pending.add(family)
             return
-        pending.add(family)
 
     for _ in range(min(len(supported_list), _MAX_REVIEWER_WORKERS)):
         start_next()
