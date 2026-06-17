@@ -25,6 +25,8 @@ Search for "Aragora" in the Extensions view (`Ctrl+Shift+X`).
 
 ### Build from Source
 
+Requires Node.js `^20.19.0 || >=22.12.0`.
+
 ```bash
 cd ide/vscode-aragora
 npm install
@@ -82,6 +84,7 @@ The Aragora sidebar shows:
 ## Requirements
 
 - VS Code 1.85.0 or higher
+- Node.js 20.19.0 or higher, or Node.js 22.12.0 or higher, when building from source
 - Aragora API key (get one at https://aragora.ai)
 
 ## Support

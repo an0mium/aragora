@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist',
+    target: 'chrome114',
     rollupOptions: {
       output: {
         entryFileNames: 'main.js',
