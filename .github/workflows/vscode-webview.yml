@@ -45,3 +45,6 @@ jobs:
 
       - name: Lint webview
         run: npm --prefix webview-ui run lint
+
+      - name: Package extension
+        run: npm run package

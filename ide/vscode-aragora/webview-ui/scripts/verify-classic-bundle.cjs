@@ -3,7 +3,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const distDir = path.join(__dirname, '..', 'dist');
-const expectedFiles = ['index.html', 'main.css', 'main.js', 'main.js.map'];
+const expectedFiles = ['main.css', 'main.js', 'main.js.map'];
 
 for (const fileName of expectedFiles) {
   const filePath = path.join(distDir, fileName);
@@ -26,8 +26,16 @@ if (/\bimport\.meta\b/.test(mainJs)) {
   throw new Error('main.js contains import.meta and is not classic-script safe');
 }
 
-if (/^\s*import\s/m.test(mainJs) || /^\s*export\s/m.test(mainJs)) {
+if (/(^|[;\n\r])\s*import\s*(?:["'{*]|[A-Za-z_$])/m.test(mainJs)) {
+  throw new Error('main.js contains static ESM import syntax');
+}
+
+if (/(^|[;\n\r])\s*export\b/m.test(mainJs)) {
   throw new Error('main.js contains ESM import/export syntax');
 }
 
 new vm.Script(mainJs, { filename: 'main.js' });
+
+if (!/^(?:var\s+AragoraWebview\s*=|\(?function\s*\(|!\s*function\s*\()/.test(mainJs.trimStart())) {
+  throw new Error('main.js is not emitted as an IIFE classic-script bundle');
+}
