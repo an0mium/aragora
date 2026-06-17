@@ -5,7 +5,8 @@
   "version": "2.9.0",
   "publisher": "aragora",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.85.0",
+    "node": ">=20"
   },
   "categories": [
     "Other",
