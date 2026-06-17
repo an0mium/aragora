@@ -915,7 +915,10 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
 # no-ops the fallback. Mapped to the highest-quality slug per family so a fallback
 # review is as trustworthy as the subscription path it replaces.
 _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
-    "claude": "anthropic/claude-fable-5",
+    # claude-fable-5 is in the OpenRouter catalogue but gated (returns 404 "not
+    # available" on call), so it silently broke the claude failure-fallback. Use
+    # opus-4.8 — a callable, western-frontier slug.
+    "claude": "anthropic/claude-opus-4.8",
     "openai": "openai/gpt-5-pro",
     "grok": "x-ai/grok-4.3",
     "gemini": "google/gemini-3.1-pro-preview",
@@ -923,7 +926,11 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
     "deepseek": "deepseek/deepseek-v4-pro",
-    "qwen": "qwen/qwen3-235b-a22b-thinking-2507",
+    # Use the NON-thinking instruct slug: qwen3 "-thinking-" emits reasoning traces
+    # that survive normalization and pollute the evidence body, making an otherwise
+    # supportive qwen review un-countable at the gate (1/2 instead of 2/2). The
+    # instruct slug emits a clean verdict body that counts reliably.
+    "qwen": "qwen/qwen3-235b-a22b-2507",
     "kimi": "moonshotai/kimi-k2.6",
 }
 

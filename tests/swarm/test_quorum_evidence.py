@@ -2431,3 +2431,18 @@ def test_infra_retry_env_count_respected(monkeypatch):
     runner = _seq_runner([_RR("grok", "", False, "x")])  # always fails
     _retry(runner, "grok", "p")
     assert runner.state["n"] == 3  # 1 initial + 2 retries
+
+
+def test_default_openrouter_reviewer_slugs_are_countable():
+    # Regression guards for two default slugs that silently broke the merge gate:
+    #  - claude-fable-5 is catalogue-listed but GATED (404 "not available" on call),
+    #    so it was a dead failure-fallback for the claude family.
+    #  - qwen "-thinking-" slugs emit reasoning traces that survive normalization
+    #    and pollute the evidence body, de-counting an otherwise-supportive review
+    #    (1/2 instead of 2/2). The instruct variant emits a clean countable verdict.
+    from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS as slugs
+
+    assert "fable" not in slugs["claude"], (
+        "claude fallback slug must be callable, not gated fable-5"
+    )
+    assert "thinking" not in slugs["qwen"], "qwen slug must be the non-thinking instruct variant"
