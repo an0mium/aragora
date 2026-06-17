@@ -131,9 +131,12 @@ def decide_auto_merge(
         )
 
     # Defense-in-depth: confirm the merge-packet entry actually belongs to this
-    # PR. The caller already filters by pr_number, but binding packet flags to
-    # the wrong PR would be a severe failure, so re-assert here when disclosed.
-    if ctx.packet_pr_number and ctx.packet_pr_number != ctx.number:
+    # PR. Absence or parse failure is not "unknown but okay" here: without a
+    # concrete packet PR identity, the already-authorized packet cannot be bound
+    # to the viewed PR, so unattended merge must fail closed.
+    if ctx.packet_pr_number <= 0:
+        blockers.append("packet PR number missing or invalid")
+    elif ctx.packet_pr_number != ctx.number:
         blockers.append(f"packet PR mismatch (packet=#{ctx.packet_pr_number} view=#{ctx.number})")
 
     if ctx.mergeable != "MERGEABLE":

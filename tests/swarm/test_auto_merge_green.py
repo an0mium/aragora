@@ -85,12 +85,12 @@ def test_packet_pr_number_mismatch_is_blocked():
     assert any("pr mismatch" in b.lower() for b in decision.blockers)
 
 
-def test_absent_packet_pr_number_does_not_block():
-    # packet_pr_number=0 (undisclosed) must not spuriously block an otherwise
-    # fully-authorized PR.
+def test_absent_packet_pr_number_blocks():
+    # A packet with no concrete PR identity cannot safely be bound to the gh
+    # view. Fail closed instead of treating "undisclosed" as acceptable.
     decision = decide_auto_merge(_authorized_context(packet_pr_number=0))
-    assert decision.should_merge is True
-    assert decision.blockers == ()
+    assert decision.should_merge is False
+    assert any("packet pr number" in b.lower() for b in decision.blockers)
 
 
 def test_negative_tier_is_blocked():
