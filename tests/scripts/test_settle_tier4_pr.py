@@ -1172,6 +1172,7 @@ def test_packet_requires_unrecorded_human_preapproval_helper() -> None:
         )
         is False
     )
+    assert settler._packet_marks_tier4_settlement_surface(tier3_risk_packet, pr=7423) is False
 
     # Generic statuses do not trigger the receipt blocker by themselves. They
     # only fail closed when another Tier-4 settlement signal is present, as the
@@ -1217,6 +1218,34 @@ def test_packet_requires_unrecorded_human_preapproval_helper() -> None:
     )
     # Unknown PR -> no matching entry -> not blocked.
     assert settler._packet_requires_unrecorded_human_preapproval(_tier4_packet(), pr=9999) is False
+
+
+def test_tier3_human_risk_packet_is_not_tier4_settlement_surface() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    packet = _tier4_packet(
+        requires_human_preapproval=False,
+        human_preapproval_recorded=False,
+    )
+    packet["entries"][0].pop("requires_human_preapproval")
+    packet["entries"][0]["tier"] = 3
+    packet["entries"][0]["tier_name"] = "tier_3_semantic_risk"
+    packet["entries"][0]["status"] = "repair_or_wait"
+    packet["entries"][0]["requires_human_risk_settlement"] = True
+    packet["entries"][0]["reasons"] = ["human risk settlement required"]
+    packet["human_risk_settlement_required"] = [7423]
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=packet,
+        required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-member"],
+    )
+
+    assert result["ok"] is False
+    assert "merge-packet does not mark Tier 4 human-risk settlement" in result["blockers"]
+    assert all("human preapproval" not in blocker.lower() for blocker in result["blockers"])
 
 
 def test_graphql_unknown_mergeability_does_not_block_check_result() -> None:
@@ -3516,7 +3545,7 @@ def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Pat
         "_load_live_inputs",
         lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
-            _tier4_packet(),
+            _tier4_packet(human_preapproval_recorded=False),
             [
                 {"name": "lint", "state": "SUCCESS"},
                 {"name": "aragora-merge-quorum", "state": "FAILURE"},
@@ -3598,7 +3627,7 @@ def test_settle_apply_keeps_receipt_when_comment_post_fails(
         "_load_live_inputs",
         lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
-            _tier4_packet(),
+            _tier4_packet(human_preapproval_recorded=False),
             [
                 {"name": "lint", "state": "SUCCESS"},
                 {"name": "aragora-merge-quorum", "state": "FAILURE"},
@@ -3640,7 +3669,18 @@ def test_settle_apply_keeps_receipt_when_comment_post_fails(
     assert recorded == {"pr": 7423, "head": head, "post_github_status": True}
     payload = settler.json.loads(capsys.readouterr().out)
     assert payload["ok"] is False
-    assert "Tier 4 settlement signal failed" in payload["error"]
+    assert "Tier 4 settlement comment posting failed" in payload["error"]
+    assert payload["phase"] == "settlement_comment"
+    assert payload["mutation_occurred"] is True
+    assert payload["completed_commands"] == 1
+    assert "skip duplicate receipt recording" in payload["recovery_action"]
+    assert payload["details"] == {
+        "receipt_recorded_before_apply": False,
+        "receipt_recorded_now": True,
+        "github_status_posted_by_receipt": True,
+        "settlement_status_already_present": False,
+        "settlement_comment_already_present": False,
+    }
 
 
 def test_settle_apply_does_not_post_comment_when_receipt_recording_fails(
@@ -3654,7 +3694,7 @@ def test_settle_apply_does_not_post_comment_when_receipt_recording_fails(
         "_load_live_inputs",
         lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state=None),
-            _tier4_packet(),
+            _tier4_packet(human_preapproval_recorded=False),
             [
                 {"name": "lint", "state": "SUCCESS"},
                 {"name": "aragora-merge-quorum", "state": "FAILURE"},
@@ -3708,7 +3748,7 @@ def test_settle_apply_posts_missing_comment_when_status_already_success(
         "_load_live_inputs",
         lambda pr, cwd, repo=settler.DEFAULT_REPO: (
             _pr_view(head, comments=[], human_settlement_state="SUCCESS"),
-            _tier4_packet(),
+            _tier4_packet(human_preapproval_recorded=False),
             [
                 {"name": "lint", "state": "SUCCESS"},
                 {"name": "aragora-merge-quorum", "state": "FAILURE"},
@@ -3765,7 +3805,7 @@ def test_settle_apply_posts_missing_comment_when_status_already_success(
     assert payload["settlement_already_present"] is False
 
 
-def test_settle_apply_skips_signal_when_status_and_comment_already_success(
+def test_settle_apply_posts_missing_comment_without_duplicate_receipt(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
@@ -3776,12 +3816,8 @@ def test_settle_apply_skips_signal_when_status_and_comment_already_success(
         settler,
         "_load_live_inputs",
         lambda pr, cwd, repo=settler.DEFAULT_REPO: (
-            _pr_view(
-                head,
-                comments=[_authorized_comment(head)],
-                human_settlement_state="SUCCESS",
-            ),
-            _tier4_packet(),
+            _pr_view(head, comments=[], human_settlement_state="SUCCESS"),
+            _tier4_packet(human_preapproval_recorded=True),
             [
                 {"name": "lint", "state": "SUCCESS"},
                 {"name": "aragora-merge-quorum", "state": "FAILURE"},
@@ -3790,14 +3826,11 @@ def test_settle_apply_skips_signal_when_status_and_comment_already_success(
     )
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
-    recorded: dict[str, Any] = {}
-    monkeypatch.setattr(
-        settler,
-        "_record_settlement",
-        lambda pr, head, reason, repo, cwd, post_github_status=False: (
-            recorded.update({"post_github_status": post_github_status}) or {"written": True}
-        ),
-    )
+
+    def _record_boom(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("must not duplicate receipt when it is already recorded")
+
+    monkeypatch.setattr(settler, "_record_settlement", _record_boom)
     monkeypatch.setattr(
         settler,
         "_run_text_command",
@@ -3826,7 +3859,75 @@ def test_settle_apply_skips_signal_when_status_and_comment_already_success(
     )
 
     assert rc == 0
-    assert recorded["post_github_status"] is False
+    assert text_commands and text_commands[0][:3] == ["gh", "pr", "comment"]
+    assert not any("statuses/" in (command[4] if len(command) > 4 else "") for command in commands)
+    assert ["gh", "run", "rerun", "99", "--failed"] in commands
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["human_preapproval_recorded"] is True
+    assert payload["receipt"]["skipped"] is True
+    assert payload["settlement_status_already_present"] is True
+    assert payload["settlement_comment_already_present"] is False
+    assert payload["settlement_already_present"] is False
+
+
+def test_settle_apply_skips_signal_when_status_and_comment_already_success(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[list[str]] = []
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(
+                head,
+                comments=[_authorized_comment(head)],
+                human_settlement_state="SUCCESS",
+            ),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+
+    def _record_boom(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("must not duplicate receipt when all signals are already present")
+
+    monkeypatch.setattr(settler, "_record_settlement", _record_boom)
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: text_commands.append(command) or "",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+    monkeypatch.setattr(settler, "_quorum_run_ids", lambda head, repo, cwd: [("99", "failure")])
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
     # idempotent: no comment/status re-posted when both signals are already present
     assert text_commands == []
     assert not any("statuses/" in (command[4] if len(command) > 4 else "") for command in commands)
@@ -3835,6 +3936,8 @@ def test_settle_apply_skips_signal_when_status_and_comment_already_success(
     assert payload["settlement_status_already_present"] is True
     assert payload["settlement_comment_already_present"] is True
     assert payload["settlement_already_present"] is True
+    assert payload["human_preapproval_recorded"] is True
+    assert payload["receipt"]["skipped"] is True
 
 
 def test_settle_apply_rejects_untrusted_invoker(

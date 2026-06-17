@@ -119,6 +119,7 @@ class Tier4ApplyError(RuntimeError):
         completed_commands: int,
         recovery_action: str,
         rollback_errors: Sequence[str] | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.phase = phase
@@ -126,15 +127,19 @@ class Tier4ApplyError(RuntimeError):
         self.completed_commands = completed_commands
         self.recovery_action = recovery_action
         self.rollback_errors = list(rollback_errors or [])
+        self.details = dict(details or {})
 
     def to_payload(self) -> dict[str, Any]:
-        return {
+        payload = {
             "phase": self.phase,
             "mutation_occurred": self.mutation_occurred,
             "completed_commands": self.completed_commands,
             "rollback_errors": self.rollback_errors,
             "recovery_action": self.recovery_action,
         }
+        if self.details:
+            payload["details"] = self.details
+        return payload
 
 
 def _text_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
@@ -708,6 +713,11 @@ def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: 
     if isinstance(required, list) and str(pr) in {str(item) for item in required}:
         return True
     return True
+
+
+def _packet_human_preapproval_recorded(merge_packet: dict[str, Any], *, pr: int) -> bool:
+    entry = _entry_for_pr(merge_packet, pr=pr)
+    return bool(entry and entry.get("human_preapproval_recorded"))
 
 
 def _mergeability_blockers(*, pr: int, pr_view: dict[str, Any]) -> list[str]:
@@ -2352,27 +2362,63 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cwd=args.cwd,
                 trusted_operator_logins=args.trusted_operator_login,
             )
+            human_preapproval_recorded = _packet_human_preapproval_recorded(
+                merge_packet,
+                pr=args.pr,
+            )
             extra_out["settlement_status_already_present"] = status_already_present
             extra_out["settlement_comment_already_present"] = comment_already_present
+            extra_out["human_preapproval_recorded"] = human_preapproval_recorded
             extra_out["settlement_already_present"] = (
                 status_already_present and comment_already_present
             )
-            extra_out["receipt"] = _record_settlement(
-                pr=args.pr,
-                head=args.head,
-                reason=reason,
-                repo=args.repo,
-                cwd=args.cwd,
-                post_github_status=not status_already_present,
-            )
-            if not comment_already_present:
-                applied_commands = _apply_settlement_signal(
+            if human_preapproval_recorded:
+                extra_out["receipt"] = {
+                    "skipped": True,
+                    "reason": "exact-head human preapproval receipt already recorded",
+                }
+            else:
+                extra_out["receipt"] = _record_settlement(
                     pr=args.pr,
                     head=args.head,
+                    reason=reason,
                     repo=args.repo,
                     cwd=args.cwd,
-                    post_status=False,
+                    post_github_status=not status_already_present,
                 )
+            if not comment_already_present:
+                try:
+                    applied_commands = _apply_settlement_signal(
+                        pr=args.pr,
+                        head=args.head,
+                        repo=args.repo,
+                        cwd=args.cwd,
+                        post_status=False,
+                    )
+                except RuntimeError as exc:
+                    receipt_recorded_now = not human_preapproval_recorded
+                    raise Tier4ApplyError(
+                        "Tier 4 settlement comment posting failed after receipt/status "
+                        f"state was recorded or confirmed: {exc}",
+                        phase="settlement_comment",
+                        mutation_occurred=receipt_recorded_now,
+                        completed_commands=1 if receipt_recorded_now else 0,
+                        recovery_action=(
+                            "rerun --settle-apply for the same exact head after verifying "
+                            "merge-packet reports human_preapproval_recorded=true; the retry "
+                            "will skip duplicate receipt recording, post the missing operator "
+                            "settlement comment, and rerun aragora-merge-quorum"
+                        ),
+                        details={
+                            "receipt_recorded_before_apply": human_preapproval_recorded,
+                            "receipt_recorded_now": receipt_recorded_now,
+                            "github_status_posted_by_receipt": (
+                                receipt_recorded_now and not status_already_present
+                            ),
+                            "settlement_status_already_present": status_already_present,
+                            "settlement_comment_already_present": comment_already_present,
+                        },
+                    ) from exc
             extra_out["quorum_rerun"] = _rerun_failed_quorum(
                 head=args.head, repo=args.repo, cwd=args.cwd
             )
