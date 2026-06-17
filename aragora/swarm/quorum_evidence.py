@@ -190,11 +190,16 @@ def _run_reviewer_with_infra_retry(
     return result
 
 
+# Ceiling on best-of-N sampling: each sample is a serial reviewer call (× infra
+# retries), so this bounds worst-case cost/wall-clock per family.
+_MAX_REVIEWER_BEST_OF_N = 5
+
+
 def _reviewer_best_of_n() -> int:
     """How many times to sample a reviewer's verdict (majority wins). Default 1."""
     raw = os.environ.get("ARAGORA_REVIEWER_BEST_OF_N", "").strip()
     try:
-        return max(1, int(raw))
+        return max(1, min(_MAX_REVIEWER_BEST_OF_N, int(raw)))
     except ValueError:
         return 1
 
@@ -216,7 +221,10 @@ def _run_reviewer_best_of_n(
     result carrying the winning verdict; falls back to the last result if every
     sample was an infra failure.
     """
-    n = _reviewer_best_of_n() if samples is None else max(1, samples)
+    # Clamp to a sane ceiling: each sample is a serial reviewer call (× infra
+    # retries), so an unbounded value would blow up cost/wall-clock toward the
+    # reviewer timeout.
+    n = min(_MAX_REVIEWER_BEST_OF_N, _reviewer_best_of_n() if samples is None else max(1, samples))
     first = _run_reviewer_with_infra_retry(runner, family, prompt)
     if n == 1:
         return first
@@ -236,10 +244,25 @@ def _run_reviewer_best_of_n(
     for result, verdict in zip(ok_results, verdicts, strict=False):
         if verdict == winner:
             return result
-    return ok_results[0]
+    # No sample's own verdict matched the winner (e.g. all parsed as 'unknown', so
+    # the fail-safe chose changes_requested). Synthesize the winning verdict onto a
+    # representative body so the caller re-parses the INTENDED verdict, not 'unknown'
+    # — otherwise the conservative fallback would be silently bypassed.
+    base = ok_results[0]
+    label = "PASS" if winner == "pass" else "CHANGES-REQUESTED"
+    return ReviewerResult(
+        family=base.family,
+        text=f"Verdict: {label}\n{base.text}",
+        ok=base.ok,
+        error=base.error,
+        harness=base.harness,
+    )
 
 
-_FINDING_PRIORITY_RE = re.compile(r"\[(p[0-3])\]", re.IGNORECASE)
+# A finding tag is a standalone [P0-3] marker, not a code subscript. The negative
+# lookbehind for a word char excludes `arr[p2]` / `foo[p1]` while still matching a
+# tag after whitespace/punctuation (e.g. "Note: [P1]", "- **[P2]**").
+_FINDING_PRIORITY_RE = re.compile(r"(?<!\w)\[(p[0-3])\]", re.IGNORECASE)
 
 
 def extract_findings(text: str) -> list[tuple[str, str]]:

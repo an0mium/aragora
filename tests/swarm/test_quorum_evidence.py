@@ -1638,6 +1638,15 @@ def test_extract_findings_ignores_non_finding_lines() -> None:
     assert extract_findings("Verdict: PASS\nNo blocking issues.\nSecurity: fine") == []
 
 
+def test_extract_findings_ignores_code_subscripts() -> None:
+    # A [p1]/[p2] inside a code subscript (arr[p2], foo[p1]) is NOT a finding tag.
+    from aragora.swarm.quorum_evidence import extract_findings
+
+    assert extract_findings("result = arr[p2] + cfg[p1].value") == []
+    # ...but a genuine tag after a label still surfaces.
+    assert extract_findings("Note: [P1] real finding")[0][0] == "P1"
+
+
 def test_findings_digest_counts_by_priority() -> None:
     from aragora.swarm.quorum_evidence import _findings_digest
 
@@ -1694,6 +1703,31 @@ def test_best_of_n_default_single_sample_runs_once() -> None:
 
     result = q._run_reviewer_best_of_n(runner, "grok", "p", samples=1)
     assert calls["n"] == 1 and result.ok
+
+
+def test_best_of_n_synthesizes_cr_when_all_unknown() -> None:
+    # All samples ok but with unparseable verdicts → fail-safe is changes_requested,
+    # and the returned body must carry that verdict (not silently re-parse unknown).
+    from aragora.swarm import quorum_evidence as q
+
+    def runner(family: str, _prompt: str) -> q.ReviewerResult:
+        return q.ReviewerResult(family, "some prose with no verdict line", True)
+
+    result = q._run_reviewer_best_of_n(runner, "grok", "p", samples=3)
+    assert q._reviewer_verdict(result.text) == "changes_requested"
+
+
+def test_best_of_n_clamps_to_max() -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    calls = {"n": 0}
+
+    def runner(family: str, _prompt: str) -> q.ReviewerResult:
+        calls["n"] += 1
+        return q.ReviewerResult(family, "Verdict: PASS", True)
+
+    q._run_reviewer_best_of_n(runner, "grok", "p", samples=99)
+    assert calls["n"] == q._MAX_REVIEWER_BEST_OF_N
 
 
 def test_collect_missing_head_raises() -> None:
