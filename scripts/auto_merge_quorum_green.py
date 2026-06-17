@@ -37,6 +37,7 @@ from aragora.swarm.auto_merge_green import (
     QUORUM_CHECK,
     apply_merges,
     context_from_gh,
+    first_error_line,
     merge_eligible,
 )
 
@@ -172,12 +173,7 @@ def _make_merge_fn(repo: str):
             return (False, f"merge invocation failed: {exc}")
         if out.returncode == 0:
             return (True, "merged")
-        return (
-            False,
-            (out.stderr or out.stdout or "merge failed").strip().splitlines()[0]
-            if (out.stderr or out.stdout)
-            else "merge failed",
-        )
+        return (False, first_error_line(out.stderr, out.stdout))
 
     return merge_fn
 

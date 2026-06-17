@@ -22,6 +22,7 @@ from aragora.swarm.auto_merge_green import (
     REQUIRED_CHECKS,
     PRMergeContext,
     decide_auto_merge,
+    first_error_line,
 )
 
 
@@ -227,3 +228,38 @@ def test_context_is_immutable():
     ctx = _authorized_context()
     with pytest.raises(dataclasses.FrozenInstanceError):
         ctx.tier = 4  # type: ignore[misc]
+
+
+def test_failing_non_required_check_blocks_even_when_blocked():
+    # The target population is ~always mergeStateStatus=BLOCKED, so a failing
+    # *non-required* check would otherwise pass every guard and get --admin
+    # merged. Any failing check in the rollup must block.
+    states = _green_checks()
+    states["Baseline Determinism"] = "FAILURE"  # non-required, failing
+    decision = decide_auto_merge(
+        _authorized_context(check_states=states, merge_state_status="BLOCKED")
+    )
+    assert decision.should_merge is False
+    assert any(
+        "baseline determinism" in b.lower() or "failing" in b.lower() for b in decision.blockers
+    )
+
+
+def test_cancelled_check_blocks():
+    states = _green_checks()
+    states["some-check"] = "CANCELLED"
+    decision = decide_auto_merge(_authorized_context(check_states=states))
+    assert decision.should_merge is False
+
+
+def test_first_error_line_whitespace_only_is_safe():
+    # Regression: "\n".strip().splitlines()[0] used to raise IndexError mid-pass.
+    assert first_error_line("\n", "") == "merge failed"
+    assert first_error_line("", "") == "merge failed"
+    assert first_error_line("   ", "  ") == "merge failed"
+
+
+def test_first_error_line_returns_first_line():
+    assert first_error_line("boom\nmore detail", "") == "boom"
+    assert first_error_line("", "stdout only") == "stdout only"
+    assert first_error_line("stderr wins", "stdout loses") == "stderr wins"

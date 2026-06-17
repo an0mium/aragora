@@ -101,6 +101,24 @@ def test_context_from_gh_packet_head_mismatch_blocks_merge():
     assert any("head" in b.lower() for b in decide_auto_merge(ctx).blockers)
 
 
+def test_context_fail_closed_on_missing_settlement_flag():
+    # A safety-critical auto-merge must fail CLOSED if the packet omits the
+    # human-settlement flag (e.g. a schema rename), not silently permit.
+    pkt = _packet()
+    del pkt["requires_human_risk_settlement"]
+    ctx = context_from_gh(_view(), pkt)
+    assert ctx.requires_human_risk_settlement is True
+    assert decide_auto_merge(ctx).should_merge is False
+
+
+def test_context_fail_closed_on_missing_dissent_flag():
+    pkt = _packet()
+    del pkt["unresolved_dissent"]
+    ctx = context_from_gh(_view(), pkt)
+    assert ctx.unresolved_dissent is True
+    assert decide_auto_merge(ctx).should_merge is False
+
+
 # --- merge_eligible --------------------------------------------------------
 
 

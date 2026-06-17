@@ -40,6 +40,16 @@ MAX_AUTO_MERGE_TIER = 2
 # BEHIND, UNSTABLE, UNKNOWN) is refused.
 _SAFE_MERGE_STATES = frozenset({"CLEAN", "BLOCKED"})
 
+# Any check ending in one of these conclusions blocks the merge -- even a
+# *non-required* one. The target population is ~always mergeStateStatus=BLOCKED
+# (review approval substituted by the packet), so a failing non-required check
+# would not show up as UNSTABLE; without this guard it would pass every other
+# check and be --admin-merged. This also closes the REQUIRED_CHECKS drift hazard
+# (a newly-required check failing is caught here regardless of the static list).
+_FAILING_CHECK_STATES = frozenset(
+    {"FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED"}
+)
+
 
 @dataclass(frozen=True)
 class PRMergeContext:
@@ -136,12 +146,31 @@ def decide_auto_merge(
         if state != "SUCCESS":
             blockers.append(f"required check not green: {name}={state or 'absent'}")
 
+    failing = sorted(n for n, s in ctx.check_states.items() if s in _FAILING_CHECK_STATES)
+    if failing:
+        shown = ", ".join(failing[:3])
+        blockers.append(
+            f"failing checks present (incl. non-required): {shown}{', …' if len(failing) > 3 else ''}"
+        )
+
     return MergeDecision(
         number=ctx.number,
         head_sha=ctx.head_sha,
         should_merge=not blockers,
         blockers=tuple(blockers),
     )
+
+
+def first_error_line(stderr: str, stdout: str) -> str:
+    """First non-empty line of a failed merge's output, or a safe default.
+
+    Guards the whitespace-only case: ``"\\n".strip().splitlines()[0]`` would
+    raise ``IndexError`` and crash a whole pass mid-merge. Prefer stderr.
+    """
+    text = (stderr or stdout or "").strip()
+    if not text:
+        return "merge failed"
+    return text.splitlines()[0]
 
 
 def context_from_gh(view: dict[str, Any], packet_entry: dict[str, Any] | None) -> PRMergeContext:
@@ -176,8 +205,11 @@ def context_from_gh(view: dict[str, Any], packet_entry: dict[str, Any] | None) -
         tier=tier,
         packet_status=str(packet.get("status") or ""),
         packet_verdict=str(packet.get("verdict") or ""),
-        requires_human_risk_settlement=bool(packet.get("requires_human_risk_settlement")),
-        unresolved_dissent=bool(packet.get("unresolved_dissent")),
+        # Fail CLOSED on these safety flags: an absent/renamed key -> treat as
+        # "settlement required" / "dissent present" so a schema drift blocks the
+        # merge rather than silently permitting it.
+        requires_human_risk_settlement=packet.get("requires_human_risk_settlement") is not False,
+        unresolved_dissent=packet.get("unresolved_dissent") is not False,
         admin_squash_allowed=bool(packet.get("admin_squash_allowed")),
         is_draft=bool(view.get("isDraft")),
         mergeable=str(view.get("mergeable") or ""),
