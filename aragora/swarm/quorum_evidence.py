@@ -1786,7 +1786,11 @@ def _render_outcome(outcome: CollectOutcome) -> str:
         lines.append("")
         lines.append("Advisory findings (non-counting reviewers — not part of quorum):")
         for item in advisory:
-            lines.append(f"\n----- {item.family} (advisory, does not count) -----\n{item.body}")
+            # Cap the body: it is unconstrained reviewer output, and an unbounded
+            # 100KB+ body would bloat the rendered report (OOM risk downstream).
+            lines.append(
+                f"\n----- {item.family} (advisory, does not count) -----\n{_cap_text(item.body)}"
+            )
     if outcome.action == "prepare":
         lines.append("")
         lines.append("Prepared evidence comments (not posted):")
