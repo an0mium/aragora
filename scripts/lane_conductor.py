@@ -117,8 +117,9 @@ def fetch_candidates(repo: str) -> list[dict[str, Any]]:
         if str(row.get("mergeStateStatus") or "").upper() not in _BLOCKED_STATES:
             continue
         number = row.get("number")
-        if isinstance(number, int):
-            candidates.append({"number": number, "branch": str(row.get("headRefName") or "")})
+        branch = str(row.get("headRefName") or "").strip()
+        if isinstance(number, int) and branch:
+            candidates.append({"number": number, "branch": branch})
     # Oldest-first: lower PR numbers are usually closest to done.
     candidates.sort(key=lambda c: c["number"])
     return candidates

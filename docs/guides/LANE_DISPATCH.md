@@ -34,7 +34,8 @@ most one worker, and the worker claims it atomically before doing anything.
 | Half | Module | Role |
 |------|--------|------|
 | **Front** (assign) | `aragora.swarm.lane_dispatcher` | Pick which unclaimed merge-blocked PR each free worker gets; emit its prompt. |
-| **Back** (follow up) | `aragora.swarm.conductor` | After a worker finishes, decide retry / switch / decompose / escalate / stop and generate the next prompt. |
+| **Middle** (claim + dispatch) | `aragora.swarm.lane_conductor` | Claim one free lane and drop an inspectable work order for the supervisor. |
+| **Back** (launch) | `aragora.swarm.lane_supervisor` | Drain pending work orders through the worker-launcher state machine. |
 
 `lane_dispatcher` is **pure-core**: no GitHub calls, no `lanes.json` writes, no
 process spawning. It takes the merge-blocked candidates and the set of PRs that
@@ -98,8 +99,9 @@ the escalation channel:
    `--max-workers`).
 4. For each assignment: `claim_active_agent_lane.py` (atomic), then launch the
    worker with `build_worker_prompt(...)` via `aragora.swarm.worker_launcher`.
-5. Collect each worker's structured result via `aragora.swarm.reconciler`; feed
-   it to `aragora.swarm.conductor` for the follow-up decision.
+5. Inspect each worker's completed/failed work order in
+   `.aragora/lane_dispatch/{done,failed}/` and route the next action through the
+   normal merge-gate or operator-steering path.
 6. A higher *validator* model reviews results and injects corrective steering
    into the `.aragora/operator-steering/<session>/` mailbox that
    `identify_lane_owner` already surfaces.

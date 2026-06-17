@@ -237,6 +237,19 @@ export class AgentsAPI {
   }
 
   /**
+   * Get an agent's auditable calibration report (per-domain accuracy,
+   * Brier/calibration-curve summary, sample sizes, data window). Agents with
+   * no calibration data return an explicit `{ status: 'absent', reason }`.
+   */
+  async getCalibrationReport(name: string, params?: { domain?: string }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/agents/${encodeURIComponent(name)}/calibration-report`,
+      { params }
+    );
+  }
+
+  /**
    * Get head-to-head statistics against another agent.
    */
   async getHeadToHead(name: string, opponent: string): Promise<HeadToHeadStats> {
