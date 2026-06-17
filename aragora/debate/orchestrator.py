@@ -1147,7 +1147,7 @@ class Arena(ArenaDelegatesMixin):
         """Close only DatabaseManager instances created after this arena was built."""
         from aragora.storage.schema import DatabaseManager
 
-        snapshot = getattr(self, "_db_manager_snapshot", set())
+        snapshot: set[str] = getattr(self, "_db_manager_snapshot", set())
         created_paths = DatabaseManager.instance_paths() - snapshot
         if not created_paths:
             return
