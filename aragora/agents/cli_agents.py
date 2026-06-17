@@ -1066,6 +1066,19 @@ def _resolve_grok_build_bin() -> str:
     return resolved
 
 
+def _resolve_antigravity_bin() -> str:
+    """Resolve the Antigravity CLI binary without trusting ambient PATH."""
+    override = os.environ.get("ARAGORA_ANTIGRAVITY_BIN", "").strip()
+    resolved = override or os.path.expanduser("~/.antigravity/bin/agy")
+    if not os.path.isfile(resolved):
+        logger.debug(
+            "Antigravity CLI not found at %s; CLI invocation will fail and fall "
+            "back to OpenRouter (set ARAGORA_ANTIGRAVITY_BIN to override)",
+            resolved,
+        )
+    return resolved
+
+
 @AgentRegistry.register(
     "grok-build",
     default_model="grok-build",
@@ -1119,15 +1132,16 @@ class AntigravityAgent(CLIAgent):
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response via the Antigravity CLI (``agy -p`` headless print mode)."""
         full_prompt = self._build_full_prompt(prompt, context)
+        agy_bin = _resolve_antigravity_bin()
         if self._is_prompt_too_large_for_argv(full_prompt):
             return await self._generate_with_fallback(
-                ["agy", "-p", "-"],
+                [agy_bin, "-p", "-"],
                 prompt,
                 context,
                 input_text=full_prompt,
             )
         return await self._generate_with_fallback(
-            ["agy", "-p", full_prompt],
+            [agy_bin, "-p", full_prompt],
             prompt,
             context,
         )

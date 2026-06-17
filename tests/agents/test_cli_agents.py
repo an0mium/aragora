@@ -513,7 +513,23 @@ class TestAntigravityAgent:
 
         assert issubclass(AntigravityAgent, CLIAgent)
 
+    def test_resolve_bin_defaults_to_install_path(self, monkeypatch):
+        import os
+
+        from aragora.agents.cli_agents import _resolve_antigravity_bin
+
+        monkeypatch.delenv("ARAGORA_ANTIGRAVITY_BIN", raising=False)
+        assert _resolve_antigravity_bin() == os.path.expanduser("~/.antigravity/bin/agy")
+        assert _resolve_antigravity_bin() != "agy"
+
+    def test_resolve_bin_honors_override(self, monkeypatch):
+        from aragora.agents.cli_agents import _resolve_antigravity_bin
+
+        monkeypatch.setenv("ARAGORA_ANTIGRAVITY_BIN", "/custom/path/agy")
+        assert _resolve_antigravity_bin() == "/custom/path/agy"
+
     def test_generate_invokes_agy_print_mode(self):
+        import os
         from unittest.mock import patch
 
         from aragora.agents.cli_agents import AntigravityAgent
@@ -528,7 +544,9 @@ class TestAntigravityAgent:
             out = asyncio.run(agent.generate("review this PR"))
         assert out == "OK"
         cmd = m.call_args.args[0]
-        assert cmd[0] == "agy" and "-p" in cmd
+        assert cmd[0] == os.path.expanduser("~/.antigravity/bin/agy")
+        assert cmd[0] != "agy"
+        assert "-p" in cmd
         assert cmd[-1] == "review this PR"
 
 

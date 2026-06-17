@@ -1094,9 +1094,22 @@ class TestCheapTierCostFactors:
 
         selector = AgentSelector.create_with_defaults()
         pool = selector.agent_pool
-        # qwen + kimi are now registered alongside the original defaults.
-        for name in ("deepseek", "qwen", "kimi", "claude", "codex"):
+        # qwen is registered alongside the original defaults. Kimi CLI remains
+        # opt-in until its headless contract is verified.
+        for name in ("deepseek", "qwen", "claude", "codex"):
             assert name in pool, f"{name} not registered"
             assert pool[name].cost_factor == AGENT_COST_FACTORS.get(name, 1.0)
+        assert "kimi" not in pool
         # The whole point: a cheap-tier agent is cheaper than a frontier one.
         assert pool["deepseek"].cost_factor < pool["claude"].cost_factor
+
+    def test_kimi_default_profile_requires_cli_opt_in(self, monkeypatch):
+        from aragora.routing.selection import AGENT_COST_FACTORS, AgentSelector
+
+        monkeypatch.delenv("ARAGORA_ENABLE_KIMI_CLI", raising=False)
+        assert "kimi" not in AgentSelector.create_with_defaults().agent_pool
+
+        monkeypatch.setenv("ARAGORA_ENABLE_KIMI_CLI", "1")
+        pool = AgentSelector.create_with_defaults().agent_pool
+        assert "kimi" in pool
+        assert pool["kimi"].cost_factor == AGENT_COST_FACTORS["kimi"]

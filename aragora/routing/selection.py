@@ -13,6 +13,7 @@ Routes tasks to best-fit agents by:
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -990,6 +991,8 @@ class AgentSelector:
         # quality outweighs cost.
         # Register the always-on default agents (1.0x cost / 1000ms latency).
         for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():
+            if agent_name == "kimi" and not os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
+                continue
             selector.register_agent(
                 AgentProfile(
                     name=agent_name,

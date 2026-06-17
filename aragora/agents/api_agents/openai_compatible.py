@@ -196,6 +196,39 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         """Override to add provider-specific payload fields."""
         return None
 
+    def _estimate_budget_cost_usd(self, payload: dict) -> float:
+        """Conservative budget estimate used when providers omit usage data."""
+        try:
+            from aragora.billing.usage import calculate_token_cost
+
+            provider = getattr(self, "provider", None) or self.agent_type or "openrouter"
+            max_tokens = int(
+                payload.get("max_completion_tokens")
+                or payload.get("max_tokens")
+                or getattr(self, "max_tokens", 0)
+                or 0
+            )
+            prompt_chars = 0
+            for message in payload.get("messages") or []:
+                if isinstance(message, dict):
+                    content = message.get("content", "")
+                    if isinstance(content, str):
+                        prompt_chars += len(content)
+                    elif isinstance(content, list):
+                        prompt_chars += sum(len(str(part)) for part in content)
+            estimated_input_tokens = (prompt_chars + 3) // 4 if prompt_chars else 0
+            return float(
+                calculate_token_cost(
+                    str(provider),
+                    self.model,
+                    estimated_input_tokens,
+                    max_tokens,
+                )
+            )
+        except Exception:  # noqa: BLE001 - budget estimation must not crash generation
+            logger.debug("budget_guard estimate skipped", exc_info=True)
+            return 0.0
+
     def _parse_response(self, data: dict) -> str:
         """Parse response content from API response."""
         try:
@@ -229,18 +262,6 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         import time
 
         start_time = time.perf_counter()
-
-        # Fail-closed monthly budget cap (no-op unless ARAGORA_MONTHLY_BUDGET_USD
-        # is set). Covers all OpenAI-compatible agents incl. the cheap tier
-        # (DeepSeek/Kimi/Qwen via API). Called as a module function (not a base
-        # method) so the mixin does not require an APIAgent base.
-        # NOTE: this is the PRE-call gate only; spend is RECORDED via
-        # _record_token_usage() on the success path (delegated to APIAgent through
-        # super()). Both halves must stay wired — a concrete agent that bypasses
-        # _record_token_usage would let the cap stop ticking down (gate no-op).
-        from aragora.billing import budget_guard
-
-        budget_guard.assert_within_budget(label=getattr(self, "name", None))
 
         if not self.api_key:
             logger.warning(
@@ -290,6 +311,13 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         headers = self._build_headers()
         messages = self._build_messages(full_prompt)
         payload = self._build_payload(messages, stream=False)
+        estimated_budget_usd = self._estimate_budget_cost_usd(payload)
+        from aragora.billing import budget_guard
+
+        budget_guard.assert_within_budget(
+            estimated_budget_usd,
+            label=getattr(self, "name", None),
+        )
 
         try:
             # Use shared connection pool for better resource management
@@ -415,6 +443,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                 usage = data.get("usage", {})
                 input_tokens = usage.get("prompt_tokens", 0)
                 output_tokens = usage.get("completion_tokens", 0)
+                usage_has_tokens = bool(input_tokens or output_tokens)
                 self._record_token_usage(
                     tokens_in=input_tokens,
                     tokens_out=output_tokens,
@@ -435,6 +464,9 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                         f"{self._get_error_prefix()} returned empty response",
                         agent_name=self.name,
                     )
+
+                if not usage_has_tokens and estimated_budget_usd > 0:
+                    budget_guard.record_spend(estimated_budget_usd)
 
                 # Record success for circuit breaker
                 if cb is not None:
