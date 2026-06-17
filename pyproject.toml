@@ -87,6 +87,35 @@ Homepage = "https://aragora.ai"
 Repository = "https://github.com/synaptent/aragora"
 Issues = "https://github.com/synaptent/aragora/issues"
 
+# -----------------------------------------------------------------------------
+# uv resolver constraints — security floors for transitively-pulled packages.
+#
+# These constrain the locked versions of dependencies that are NOT declared
+# directly (so they stay out of the published wheel's metadata) but must be
+# floored to non-vulnerable releases for the pip-audit security gate
+# (scripts/run_pip_audit_gate.py):
+#
+#   * cryptography >=48.0.1 — fixes GHSA-537c-gmf6-5ccf. Pulled in via
+#     pyjwt[crypto] / secretstorage and used at runtime for AES-256-GCM
+#     encryption (aragora/security/encryption.py). The floor is 48.0.1; the
+#     resolver actually lands on 49.0.0 (a 46 -> 49 jump across three majors).
+#     cryptography's hazmat AES-GCM surface is stable across this range and the
+#     46->49 deprecations are in unused legacy x509/serialization helpers;
+#     verified by exercising encrypt/decrypt + AAD on 49.0.0. pyjwt and
+#     secretstorage floor cryptography far below 48, so nothing caps the bump.
+#   * starlette >=1.3.1 — fixes CVE-2026-54283, CVE-2026-54282, CVE-2026-48818,
+#     CVE-2026-48817. Pulled in via fastapi (gateway/all extras). fastapi
+#     0.136.3 requires only ``starlette>=0.46.0`` (no upper bound) and already
+#     resolves to the starlette 1.x line, so this stays on fastapi 0.x — no
+#     FastAPI 1.x migration required. Aragora's only direct starlette usage is
+#     BaseHTTPMiddleware / Response / StreamingResponse, all stable across 1.x.
+# -----------------------------------------------------------------------------
+[tool.uv]
+constraint-dependencies = [
+    "cryptography>=48.0.1",
+    "starlette>=1.3.1",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["aragora", "aragora.core", "aragora.debate"]

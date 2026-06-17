@@ -14,7 +14,7 @@ Thank you for your interest in contributing to Aragora! This guide will help you
 
 ```bash
 # Clone the repository
-git clone https://github.com/aragora-ai/aragora.git
+git clone https://github.com/synaptent/aragora.git
 cd aragora
 
 # Install development dependencies
@@ -40,7 +40,7 @@ make serve
 
 ```bash
 # Baseline command (matches CI deterministic gate)
-python -m pip install -e ".[dev,research,test]"
+python -m pip install -e ".[dev,test]"
 python scripts/run_test_baseline.py
 
 # Run all tests
@@ -302,7 +302,7 @@ import { createClient } from '@aragora/sdk';
 import { AragoraClient } from '@aragora/client';
 ```
 
-See [aragora-js/README.md](aragora-js/README.md) and [sdk/typescript/README.md](sdk/typescript/README.md) for detailed feature comparison.
+See [sdk/typescript/README.md](sdk/typescript/README.md) for detailed feature comparison.
 
 ### Version Synchronization
 
@@ -313,7 +313,6 @@ All packages maintain version parity. The following must stay in sync:
 | `pyproject.toml` | `project.version` |
 | `aragora/__version__.py` | `__version__` |
 | `sdk/typescript/package.json` | `version` |
-| `aragora-js/package.json` | `version` |
 | `aragora/live/package.json` | `version` |
 
 CI automatically validates version parity on every build. To check locally:
@@ -324,9 +323,8 @@ python -c "
 import json, tomllib
 py = tomllib.load(open('pyproject.toml', 'rb'))['project']['version']
 sdk = json.load(open('sdk/typescript/package.json'))['version']
-client = json.load(open('aragora-js/package.json'))['version']
-print(f'Python: {py}, SDK: {sdk}, Client: {client}')
-assert py == sdk == client, 'Version mismatch!'
+print(f'Python: {py}, SDK: {sdk}')
+assert py == sdk, 'Version mismatch!'
 "
 ```
 
