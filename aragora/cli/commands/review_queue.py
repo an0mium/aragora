@@ -241,6 +241,14 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     # registration surface follow the same human-chain-of-trust rule as
     # ``review_queue.py`` itself.
     "aragora/cli/parser.py",
+    # ``aragora/swarm/quorum_evidence.py`` composes and verdict-classifies the
+    # model-quorum evidence this gate counts (supportive / dissenting / abstain).
+    # A change there directly alters what evidence the gate trusts, so — like
+    # review_queue.py itself — it must follow the human-chain-of-trust rule
+    # (operator preapproval + head-bound settlement) rather than be auto-settled
+    # by the tier-2 path. The drain merge-authority guard already treats it as
+    # such; this aligns the settlement classifier with that guard and the policy.
+    "aragora/swarm/quorum_evidence.py",
     # Settlement and merge helpers can mark human-settlement status, reconcile
     # branch protection, or merge/admin-merge PRs. A PR changing those helpers
     # is changing the authority surface that future settlement runs trust.

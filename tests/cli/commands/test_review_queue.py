@@ -6832,3 +6832,22 @@ class TestSettlementHelpers:
         )
         rc = cmd_review_queue(ns)
         assert rc == 2
+
+
+def test_quorum_evidence_is_tier4_merge_authority():
+    """quorum_evidence.py (the evidence composer/classifier) must classify Tier-4."""
+    from aragora.cli.commands.review_queue import (
+        TIER_4_PREFIXES,
+        _classify_model_review_tier,
+        _matches_prefix,
+    )
+
+    assert "aragora/swarm/quorum_evidence.py" in TIER_4_PREFIXES
+    assert _matches_prefix("aragora/swarm/quorum_evidence.py", TIER_4_PREFIXES) is True
+    # Behavioral: a changeset touching it classifies Tier 4 (not auto-settleable Tier-2).
+    tier, _verdict, _reason = _classify_model_review_tier(["aragora/swarm/quorum_evidence.py"])
+    assert tier == 4
+    # And the serialized mirror used by the merge train stays in sync (CI guard).
+    from scripts.tier4_merge_train import SERIALIZED_TIER4_PREFIXES
+
+    assert "aragora/swarm/quorum_evidence.py" in SERIALIZED_TIER4_PREFIXES

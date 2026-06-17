@@ -66,6 +66,7 @@ SERIALIZED_TIER4_PREFIXES: tuple[str, ...] = (
     "k8s/",
     "aragora/cli/commands/review_queue.py",
     "aragora/cli/parser.py",
+    "aragora/swarm/quorum_evidence.py",
     "scripts/settle_tier4_pr.py",
     "scripts/settle_one_pr.py",
     "scripts/merge_codex_automation_prs.py",
