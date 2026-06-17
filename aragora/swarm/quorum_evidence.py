@@ -463,6 +463,95 @@ def _reviewer_verdict(text: str) -> str:
     return "unknown"
 
 
+# ---------------------------------------------------------------------------
+# Reviewer-output normalization
+#
+# Low-cost models (deepseek, qwen, kimi, grok) produce useful review *content*
+# but do not reliably emit the requested *format*: they wrap the verdict in
+# reasoning traces (``<think>...</think>``), lead with prose preamble, or bury it
+# under heavy markdown. That raw text then breaks identity/verdict parsing, so the
+# evidence fails to COUNT even when the model substantively passed (observed live
+# with qwen3-*-thinking). We normalize every reviewer's output to canonical form
+# BEFORE composing the evidence comment — decoupling reviewer *capability* from
+# format *reliability*. Deterministic-first (zero cost, no new dependency); an
+# opt-in cheap-reliable-model fallback handles the rare genuinely-malformed case.
+# ---------------------------------------------------------------------------
+
+_THINKING_BLOCK_RE = re.compile(
+    r"<\s*(think|thinking|reasoning|thought|scratchpad|analysis)\s*>.*?<\s*/\s*\1\s*>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _strip_thinking_traces(text: str) -> str:
+    """Remove well-formed reasoning-trace blocks some models emit before answering."""
+    cleaned = _THINKING_BLOCK_RE.sub("", text)
+    return re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+
+def _reanchor_at_verdict(text: str) -> str:
+    """Return text from the first verdict line onward (drops pre-verdict preamble).
+
+    Findings conventionally follow the verdict, so they are preserved; only leading
+    preamble/reasoning that could confuse the identity/verdict parser is dropped.
+    """
+    lines = text.splitlines()
+    for idx, line in enumerate(lines):
+        probe = line.strip().lstrip("*#>-`0123456789.)\t ").lower()
+        if probe.startswith("verdict:"):
+            return "\n".join(lines[idx:]).strip()
+    return text.strip()
+
+
+def _llm_normalize_reviewer(raw: str, family: str) -> str | None:
+    """Opt-in cheap-reliable-model fallback for genuinely-malformed reviewer output.
+
+    When deterministic cleaning still yields no parseable verdict, a small reliable
+    model (set ``ARAGORA_REVIEWER_NORMALIZER_MODEL``, e.g. a haiku/mini slug) is
+    asked to re-express ONLY the conclusion in canonical form. Faithful by
+    construction (invent nothing); returns ``None`` when unconfigured or on any
+    failure so the caller keeps the deterministic text. Best-effort — never aborts
+    a review.
+    """
+    model = os.environ.get("ARAGORA_REVIEWER_NORMALIZER_MODEL", "").strip()
+    if not model:
+        return None
+    prompt = (
+        "You are a strict format normalizer, not a reviewer. Below is a code review "
+        "from another model that may contain reasoning traces, preamble, or irregular "
+        "formatting. Re-express ONLY its existing conclusion in this exact form and "
+        "nothing else:\n"
+        "  First line: 'Verdict: PASS' or 'Verdict: CHANGES-REQUESTED'\n"
+        "  Then a bullet list of findings, each beginning with [P1]/[P2]/[P3] and a "
+        "one-line description.\n"
+        "Do not add a heading, a model-identity line, or any commentary. Preserve the "
+        "reviewer's actual verdict and findings faithfully; invent nothing.\n\n"
+        f"--- raw review ---\n{raw}\n--- end raw review ---"
+    )
+    try:
+        result = _run_api_agent(family or "claude", prompt, model=model)
+    except Exception:  # noqa: BLE001 - normalizer is best-effort; must never abort a review
+        return None
+    if not result.ok or not result.text.strip():
+        return None
+    return _reanchor_at_verdict(_strip_thinking_traces(result.text))
+
+
+def normalize_reviewer_output(text: str, *, family: str = "") -> str:
+    """Canonicalize raw reviewer output so the composed evidence reliably counts.
+
+    1. Strip reasoning-trace blocks (``<think>`` etc.).
+    2. If a verdict line is present, re-anchor at it (drop preamble) — handles the
+       overwhelming majority of low-cost-model format noise deterministically.
+    3. Only if still unparseable, fall back to the opt-in model normalizer.
+    """
+    cleaned = _strip_thinking_traces(text)
+    if _reviewer_verdict(cleaned) != "unknown":
+        return _reanchor_at_verdict(cleaned)
+    normalized = _llm_normalize_reviewer(text, family)
+    return normalized if normalized is not None else cleaned
+
+
 def compose_evidence_comment(
     *,
     family: str,
@@ -497,7 +586,7 @@ def compose_evidence_comment(
         f"Head: {short} ({head_sha}){committed}.\n"
         f"PR: #{pr}.\n"
         f"Model family: {fam}\n\n"
-        f"{_neutralize_reviewer_text(reviewer_text)}\n\n"
+        f"{_neutralize_reviewer_text(normalize_reviewer_output(reviewer_text, family=family))}\n\n"
         f"dogfood: yes\n"
     )
 
