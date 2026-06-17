@@ -42,17 +42,17 @@ modules:
     tier: core
     py_files: 38
     importer_count: 150
-    test_file_count: 119
+    test_file_count: 121
   - name: cli
     tier: core
-    py_files: 119
+    py_files: 121
     importer_count: 6
-    test_file_count: 144
+    test_file_count: 145
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
     py_files: 17
-    importer_count: 361
+    importer_count: 362
     test_file_count: 88
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
@@ -75,8 +75,8 @@ modules:
   - name: debate
     tier: core
     py_files: 263
-    importer_count: 162
-    test_file_count: 598
+    importer_count: 163
+    test_file_count: 599
     override_reason: "Arena + DebateProtocol + consensus — mainline flow"
   - name: events
     tier: core
@@ -101,9 +101,9 @@ modules:
     override_reason: "ContinuumMemory + CritiqueStore — persistent state"
   - name: nomic
     tier: core
-    py_files: 161
-    importer_count: 91
-    test_file_count: 220
+    py_files: 162
+    importer_count: 92
+    test_file_count: 222
   - name: observability
     tier: core
     py_files: 67
@@ -129,7 +129,7 @@ modules:
     tier: core
     py_files: 19
     importer_count: 121
-    test_file_count: 109
+    test_file_count: 110
   - name: resilience
     tier: core
     py_files: 13
@@ -413,7 +413,7 @@ modules:
   - name: notifications
     tier: integrated
     py_files: 7
-    importer_count: 13
+    importer_count: 14
     test_file_count: 7
   - name: ops
     tier: integrated
@@ -428,7 +428,7 @@ modules:
   - name: persistence
     tier: integrated
     py_files: 27
-    importer_count: 136
+    importer_count: 137
     test_file_count: 26
   - name: plugins
     tier: integrated
@@ -494,7 +494,7 @@ modules:
     tier: integrated
     py_files: 13
     importer_count: 13
-    test_file_count: 24
+    test_file_count: 26
   - name: runtime
     tier: integrated
     py_files: 3
@@ -542,9 +542,9 @@ modules:
     test_file_count: 5
   - name: swarm
     tier: integrated
-    py_files: 117
+    py_files: 118
     importer_count: 32
-    test_file_count: 180
+    test_file_count: 181
   - name: templates
     tier: integrated
     py_files: 1
