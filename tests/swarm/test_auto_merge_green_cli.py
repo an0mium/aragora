@@ -119,6 +119,35 @@ def test_context_fail_closed_on_missing_dissent_flag():
     assert decide_auto_merge(ctx).should_merge is False
 
 
+def test_real_merge_packet_schema_maps_to_context():
+    # Schema lock: this packet uses the EXACT key names the producer
+    # (`review-queue merge-packet --json`) emits, verified against a live PR.
+    # If context_from_gh ever reads a renamed key, this test breaks loudly
+    # instead of the tool silently never merging anything.
+    real_packet = {
+        "pr_number": 8447,
+        "head_sha": "b" * 40,
+        "tier": 2,
+        "status": "satisfied",
+        "verdict": "admin_squash_allowed",
+        "requires_human_risk_settlement": False,
+        "unresolved_dissent": False,
+        "admin_squash_allowed": True,
+    }
+    ctx = context_from_gh(_view(number=8447, headRefOid="b" * 40), real_packet)
+    assert ctx.number == 8447
+    assert ctx.packet_pr_number == 8447
+    assert ctx.head_sha == "b" * 40
+    assert ctx.packet_head_sha == "b" * 40
+    assert ctx.tier == 2
+    assert ctx.packet_status == "satisfied"
+    assert ctx.packet_verdict == "admin_squash_allowed"
+    assert ctx.requires_human_risk_settlement is False
+    assert ctx.unresolved_dissent is False
+    assert ctx.admin_squash_allowed is True
+    assert decide_auto_merge(ctx).should_merge is True
+
+
 # --- merge_eligible --------------------------------------------------------
 
 
