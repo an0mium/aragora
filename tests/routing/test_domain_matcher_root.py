@@ -8,6 +8,7 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
+from anthropic.types import TextBlock
 
 from aragora.routing.domain_matcher import (
     DOMAIN_KEYWORDS,
@@ -301,7 +302,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            MagicMock(text='{"domains": [{"name": "security", "confidence": 0.95}]}')
+            TextBlock(type="text", text='{"domains": [{"name": "security", "confidence": 0.95}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -317,7 +318,9 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            MagicMock(text='```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```')
+            TextBlock(
+                type="text", text='```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```'
+            )
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -347,7 +350,7 @@ class TestDomainDetectorLLM:
     def test_llm_detection_failure_fallback(self):
         """Test that LLM failure falls back to keywords."""
         mock_client = MagicMock()
-        mock_client.messages.create.side_effect = Exception("API Error")
+        mock_client.messages.create.side_effect = ConnectionError("API Error")
 
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test_key"}):
             detector = DomainDetector(use_llm=True, client=mock_client, use_cache=False)
@@ -362,7 +365,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            MagicMock(text='{"domains": [{"name": "security", "confidence": 0.9}]}')
+            TextBlock(type="text", text='{"domains": [{"name": "security", "confidence": 0.9}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 

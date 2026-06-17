@@ -85,6 +85,17 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
     "openrouter": {
         "default": Decimal("2.00"),
         "default-output": Decimal("8.00"),
+        # Fusion runs a panel of models + a judge, so it costs ~4-5x a single
+        # model. These are ASSUMED rates (4x the openrouter default) pending
+        # confirmation against OpenRouter's published Fusion pricing; the cost
+        # tracker uses them so a fusion call is never billed as a cheap default.
+        # TODO(fusion-pricing, armand@synaptent.com): replace these assumed rates
+        # with OpenRouter's published Fusion pricing before the fusion agent is
+        # enabled for any real (customer-facing) debate, so billing is exact.
+        "fusion": Decimal("8.00"),
+        "fusion-output": Decimal("32.00"),
+        "openrouter/fusion": Decimal("8.00"),
+        "openrouter/fusion-output": Decimal("32.00"),
     },
 }
 
