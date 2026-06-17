@@ -2449,6 +2449,23 @@ def test_infra_retry_recovers_transient_failure(monkeypatch):
     assert runner.state["n"] == 2  # retried exactly once
 
 
+def test_infra_retry_scopes_timeout_override_per_attempt(monkeypatch):
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "1")
+    seen: list[float] = []
+
+    def runner(family, prompt):
+        del prompt
+        seen.append(qe._timeout_seconds(qe._REVIEWER_TIMEOUT_ENV, 300))
+        if len(seen) == 1:
+            return _RR(family, "", False, "timeout")
+        return _RR(family, "Verdict: pass", True)
+
+    res = _retry(runner, "grok", "p", reviewer_timeout_s=9)
+
+    assert res.ok is True
+    assert seen == [9, 9]
+
+
 def test_infra_retry_never_retries_a_real_verdict(monkeypatch):
     monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", raising=False)
     # A returned changes_requested (ok=True) is a real review — must NOT be retried away.

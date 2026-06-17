@@ -163,12 +163,18 @@ def _run_reviewer_with_infra_retry(
     genuine dissent can never be "retried away". Counting/settlement are unchanged.
     """
     attempts_left = _reviewer_infra_retries() if retries is None else max(0, retries)
-    with _reviewer_timeout_overrides(reviewer_timeout_s):
-        result = runner(family, prompt)
-        while not result.ok and attempts_left > 0:
-            attempts_left -= 1
-            result = runner(family, prompt)
-        return result
+
+    def run_once() -> ReviewerResult:
+        # Scope timeout overrides to the exact reviewer invocation. Retry counts
+        # stay identical to the legacy path: one initial attempt plus N retries.
+        with _reviewer_timeout_overrides(reviewer_timeout_s):
+            return runner(family, prompt)
+
+    result = run_once()
+    while not result.ok and attempts_left > 0:
+        attempts_left -= 1
+        result = run_once()
+    return result
 
 
 def _cap_text(text: str) -> str:
