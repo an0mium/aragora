@@ -957,7 +957,7 @@ class BaseHandler:
                     # Show public content
                     return json_response({"debates": ...})
         """
-        from aragora.billing.jwt_auth import extract_user_from_request
+        from aragora.billing import jwt_auth
 
         user_store = None
         if hasattr(handler, "user_store"):
@@ -965,7 +965,7 @@ class BaseHandler:
         elif hasattr(self.__class__, "user_store"):
             user_store = self.__class__.user_store
 
-        user_ctx = extract_user_from_request(handler, user_store)
+        user_ctx = jwt_auth.extract_user_from_request(handler, user_store)
         return user_ctx if user_ctx.is_authenticated else None
 
     def require_auth_or_error(
@@ -1177,7 +1177,8 @@ class BaseHandler:
                         return {}
                     return json.loads(bytes(raw_body))
 
-            content_length = int(handler.headers.get("Content-Length", 0))
+            content_length_header = handler.headers.get("Content-Length")
+            content_length = int(content_length_header or 0)
             is_chunked = "chunked" in (handler.headers.get("Transfer-Encoding", "") or "").lower()
 
             if content_length > max_size:
@@ -1185,8 +1186,8 @@ class BaseHandler:
 
             if content_length > 0:
                 body = handler.rfile.read(content_length)
-            elif is_chunked or content_length == 0:
-                # Missing or zero Content-Length: read available data up to max_size.
+            elif is_chunked or content_length_header is None:
+                # Missing Content-Length or chunked body: read available data up to max_size.
                 # This handles Cloudflare HTTP/2 -> HTTP/1.1 proxy scenarios.
                 body = handler.rfile.read(max_size)
             else:

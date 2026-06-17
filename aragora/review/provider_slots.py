@@ -4,6 +4,13 @@ import shutil
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+try:
+    from aragora.review import _restore_root_golden_review_export
+
+    _restore_root_golden_review_export()
+except ImportError:
+    pass
+
 _CLI_TO_BINARY: dict[str, str] = {
     "claude": "claude",
     "codex": "codex",

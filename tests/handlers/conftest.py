@@ -196,7 +196,8 @@ def mock_auth_for_handler_tests(request, monkeypatch):
             ["*", "admin", "knowledge.read", "knowledge.write", "knowledge.delete"],
         )
 
-        # Patch BaseHandler auth methods
+        # Patch BaseHandler auth methods except when the BaseHandler unit tests
+        # are explicitly asserting those helpers' real behavior.
         from aragora.server.handlers.base import BaseHandler
 
         def mock_require_auth_or_error(self, handler):
@@ -211,9 +212,17 @@ def mock_auth_for_handler_tests(request, monkeypatch):
             """Mock get_current_user that returns authenticated user."""
             return mock_user_ctx
 
-        monkeypatch.setattr(BaseHandler, "require_auth_or_error", mock_require_auth_or_error)
-        monkeypatch.setattr(BaseHandler, "require_admin_or_error", mock_require_admin_or_error)
-        monkeypatch.setattr(BaseHandler, "get_current_user", mock_get_current_user)
+        testing_base_auth_helper = request.node.name in {
+            "test_get_current_user_authenticated",
+            "test_get_current_user_not_authenticated",
+            "test_require_auth_or_error_authenticated",
+            "test_require_auth_or_error_not_authenticated",
+            "test_handler_with_auth_and_body",
+        }
+        if not testing_base_auth_helper:
+            monkeypatch.setattr(BaseHandler, "require_auth_or_error", mock_require_auth_or_error)
+            monkeypatch.setattr(BaseHandler, "require_admin_or_error", mock_require_admin_or_error)
+            monkeypatch.setattr(BaseHandler, "get_current_user", mock_get_current_user)
 
         # Also patch _check_permission to bypass permission checks in tests
         # This handles KnowledgeHandler and similar handlers that do inline permission checks

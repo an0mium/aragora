@@ -92,11 +92,6 @@ class SupabaseClient:
             key: Supabase service role key (or SUPABASE_KEY env var)
         """
         self.client: Any = None
-
-        if not _ensure_supabase():
-            logger.warning("supabase-py not installed. Run: pip install supabase")
-            return
-
         self.url = url or os.getenv("SUPABASE_URL")
         self.key = key or os.getenv("SUPABASE_KEY")
 
@@ -105,6 +100,10 @@ class SupabaseClient:
                 "Supabase credentials not configured. "
                 "Set SUPABASE_URL and SUPABASE_KEY environment variables."
             )
+            return
+
+        if not _ensure_supabase():
+            logger.warning("supabase-py not installed. Run: pip install supabase")
             return
 
         # create_client is guaranteed non-None here since SUPABASE_AVAILABLE is True

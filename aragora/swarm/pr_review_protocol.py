@@ -453,13 +453,9 @@ class PRReviewProtocol:
         reviewer_outputs: Sequence[ReviewerOutput] | None = None,
         execution_failures: Sequence[PRReviewerExecutionFailure] | None = None,
     ) -> PRReviewProtocolPacket:
-        has_live_reviewer_results = bool(reviewer_outputs or execution_failures)
-        if has_live_reviewer_results:
-            slot_resolver = ProviderSlotResolver()
-            provider_slots = slot_resolver.resolve_slots(self.provider_slots)
-            availability_summary = slot_resolver.summarize(provider_slots)
-        else:
-            provider_slots, availability_summary = self.metadata_provider_slots()
+        slot_resolver = ProviderSlotResolver()
+        provider_slots = slot_resolver.resolve_slots(self.provider_slots)
+        availability_summary = slot_resolver.summarize(provider_slots)
         findings = self._build_findings(
             has_failures=has_failures,
             has_pending=has_pending,

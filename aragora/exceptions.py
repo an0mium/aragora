@@ -208,7 +208,7 @@ class AgentConfigurationError(AragoraError):
     pass
 
 
-class ConfigurationError(AragoraError):
+class ConfigurationError(AragoraError, RuntimeError):
     """Raised when a component's configuration is missing or invalid.
 
     Used for missing callbacks, invalid settings, or incomplete setup.

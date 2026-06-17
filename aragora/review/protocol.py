@@ -28,6 +28,13 @@ from typing import Any, Mapping
 
 UTC = timezone.utc
 
+try:
+    from aragora.review import _restore_root_golden_review_export
+
+    _restore_root_golden_review_export()
+except ImportError:
+    pass
+
 
 # --- Enums ----------------------------------------------------------------
 

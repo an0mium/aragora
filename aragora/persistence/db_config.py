@@ -162,9 +162,10 @@ class DatabaseMode(Enum):
 
 def get_default_data_dir() -> Path:
     """Resolve the default data directory for SQLite artifacts."""
-    env_dir = os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")
-    if env_dir:
-        return Path(env_dir)
+    if "ARAGORA_DATA_DIR" in os.environ:
+        return Path(os.environ["ARAGORA_DATA_DIR"])
+    if "ARAGORA_NOMIC_DIR" in os.environ:
+        return Path(os.environ["ARAGORA_NOMIC_DIR"])
 
     worktree_data_dir = _linked_worktree_data_dir()
     if worktree_data_dir is not None:

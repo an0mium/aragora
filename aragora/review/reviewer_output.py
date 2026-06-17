@@ -21,6 +21,13 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Mapping, Sequence
 
+try:
+    from aragora.review import _restore_root_golden_review_export
+
+    _restore_root_golden_review_export()
+except ImportError:
+    pass
+
 from aragora.review.protocol import Recommendation
 from aragora.review.receipt import EvidenceKind, EvidenceRef
 

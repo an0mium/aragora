@@ -8,6 +8,7 @@ unless a caller actually asks for those objects.
 
 from __future__ import annotations
 
+import sys
 from importlib import import_module
 from typing import Any
 
@@ -188,3 +189,30 @@ def __getattr__(name: str) -> Any:
 
 def __dir__() -> list[str]:
     return sorted(set(globals()) | set(__all__))
+
+
+def _restore_root_golden_review_export() -> None:
+    """Keep ``aragora.review`` on the root package as the Golden API function.
+
+    Importing this subpackage naturally sets ``aragora.review`` to the package
+    module. The public root package also exposes a Golden API function with the
+    same name, so restore that root-level alias after subpackage initialization.
+    The subpackage remains importable via ``import aragora.review`` and
+    ``sys.modules["aragora.review"]``.
+    """
+
+    root_pkg = sys.modules.get("aragora")
+    if root_pkg is None:
+        return
+    try:
+        from aragora.golden import review as golden_review
+    except ImportError:
+        return
+    for submodule_name in ("protocol", "provider_slots", "reviewer_output"):
+        submodule = sys.modules.get(f"aragora.review.{submodule_name}")
+        if submodule is not None:
+            setattr(golden_review, submodule_name, submodule)
+    setattr(root_pkg, "review", golden_review)
+
+
+_restore_root_golden_review_export()

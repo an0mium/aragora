@@ -47,8 +47,8 @@ def test_provider_slot_resolver_reports_candidate_checks(
     assert resolutions[0].candidate_checks[0].provider == "claude"
     assert resolutions[0].candidate_checks[0].available is True
     assert resolutions[1].status == "available"
-    assert resolutions[1].candidate_checks[0].allowlisted is False
-    assert "not allowlisted by default" in resolutions[1].detail
+    assert resolutions[1].candidate_checks[0].allowlisted is True
+    assert "configured" in resolutions[1].detail
 
 
 def test_provider_slot_resolver_explains_unavailable_slot(

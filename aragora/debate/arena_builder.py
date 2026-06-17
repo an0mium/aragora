@@ -1158,12 +1158,10 @@ class ArenaBuilder:
             except ImportError:
                 logger.debug("RLM training hook unavailable - debate_integration not found")
 
-        from aragora.debate.protocol import resolve_default_protocol
-
         arena_kwargs: dict[str, Any] = {
             "environment": self._environment,
             "agents": self._agents,
-            "protocol": resolve_default_protocol(self._protocol),
+            "protocol": self._protocol,
             "memory": self._memory,
             "event_hooks": event_hooks,
             "hook_manager": self._hook_manager,

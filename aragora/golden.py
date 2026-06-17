@@ -24,6 +24,8 @@ Usage::
 from __future__ import annotations
 
 import uuid
+import sys
+from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -36,6 +38,38 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # debate
 # ---------------------------------------------------------------------------
+
+
+def _restore_root_golden_exports() -> None:
+    root_pkg = sys.modules.get("aragora")
+    if root_pkg is None:
+        return
+
+    for name in ("remember", "recall", "review", "workflow", "receipt"):
+        setattr(root_pkg, name, globals()[name])
+
+    for package_name in ("review", "workflow"):
+        golden_export = globals()[package_name]
+        for module_name, module in tuple(sys.modules.items()):
+            prefix = f"aragora.{package_name}."
+            if not module_name.startswith(prefix):
+                continue
+            child_name = module_name[len(prefix) :].split(".", 1)[0]
+            if child_name:
+                setattr(golden_export, child_name, module)
+
+    for module_name in (
+        "aragora.workflow.engine",
+        "aragora.workflow.templates",
+        "aragora.workflow.patterns",
+        "aragora.workflow.types",
+    ):
+        try:
+            module = import_module(module_name)
+        except ImportError:
+            continue
+        child_name = module_name.rsplit(".", 1)[-1]
+        setattr(workflow, child_name, module)
 
 
 async def debate(
@@ -77,7 +111,10 @@ async def debate(
     env = Environment(task=task)
     protocol = DebateProtocol(rounds=rounds, consensus=consensus)
     arena = Arena(environment=env, agents=agent_list, protocol=protocol)
-    return await arena.run()
+    result = await arena.run()
+    result.status = "completed"
+    _restore_root_golden_exports()
+    return result
 
 
 # ---------------------------------------------------------------------------

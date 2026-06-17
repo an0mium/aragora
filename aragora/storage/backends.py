@@ -345,7 +345,7 @@ class PostgreSQLBackend(DatabaseBackend):
             pool_size: Minimum connections in pool.
             pool_max_overflow: Maximum overflow connections.
         """
-        if not POSTGRESQL_AVAILABLE:
+        if pg_pool is None:
             raise ImportError(
                 "psycopg2 is required for PostgreSQL support. "
                 "Install with: pip install psycopg2-binary"
@@ -367,10 +367,11 @@ class PostgreSQLBackend(DatabaseBackend):
     def connection(self) -> Generator[Any, None, None]:
         """Context manager for database operations."""
         conn = self._pool.getconn()
+        pg_error_type = getattr(psycopg2, "Error", Exception)
         try:
             yield conn
             conn.commit()
-        except psycopg2.Error:
+        except pg_error_type:
             conn.rollback()
             raise
         finally:
