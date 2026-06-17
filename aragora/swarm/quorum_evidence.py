@@ -84,6 +84,32 @@ FAMILY_DISPLAY: dict[str, str] = {
     "hermes": "Hermes",
 }
 
+# Provider-equivalent CLI/product names that operators naturally type, mapped to
+# the single canonical family key. ``codex``/``gpt`` are the OpenAI family (the
+# Codex CLI is just its local transport). These MUST collapse to the canonical
+# family for BOTH routing and quorum counting via :func:`canonical_family`, so an
+# alias can never be counted as a distinct family — that would let one provider
+# satisfy the 2-distinct-family minimum on its own.
+_FAMILY_ALIASES: dict[str, str] = {
+    "codex": "openai",
+    "gpt": "openai",
+    "gpt-5": "openai",
+    "gpt5": "openai",
+    "chatgpt": "openai",
+}
+
+
+def canonical_family(name: str) -> str:
+    """Lowercase a reviewer-family name and collapse known provider aliases.
+
+    This is the only normalization that should be used for routing, validation,
+    and quorum counting. ``canonical_family("Codex") == canonical_family("openai")``
+    so the two never count as separate families.
+    """
+    fam = name.strip().lower()
+    return _FAMILY_ALIASES.get(fam, fam)
+
+
 DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "grok")
 
 # Tiers at or above this require exact-head operator settlement; never auto-post.
@@ -415,13 +441,20 @@ def _neutralize_reviewer_text(text: str) -> str:
 
 
 def _reviewer_verdict(text: str) -> str:
-    """Parse the first reviewer verdict line without inventing support."""
+    """Parse the first reviewer verdict line without inventing support.
+
+    Tolerant of common markdown decoration: reviewers frequently emit
+    ``**Verdict: PASS**`` or ``## Verdict: CHANGES-REQUESTED`` and may precede it
+    with a preamble line. Leading/trailing markdown (``*``, ``#``, ``>``, ``-``,
+    backticks) is stripped before matching so a genuine verdict is not lost.
+    """
     for line in text.splitlines():
         stripped = line.strip().lower()
         if not stripped:
             continue
-        if stripped.startswith("verdict:"):
-            verdict = stripped.split(":", 1)[1].strip()
+        probe = stripped.lstrip("*#>-` \t")
+        if probe.startswith("verdict:"):
+            verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
             if verdict.startswith("pass"):
                 return "pass"
             if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
@@ -448,7 +481,7 @@ def compose_evidence_comment(
     head. ``reviewer_text`` is the genuine reviewer output; only lines that could
     hijack the identity parser are quoted (see :func:`_neutralize_reviewer_text`).
     """
-    fam = family.strip().lower()
+    fam = canonical_family(family)
     display = FAMILY_DISPLAY.get(fam, fam.title())
     provider = FAMILY_PROVIDERS.get(fam, fam)
     short = head_sha[:7]
@@ -597,7 +630,7 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     routing for grok/gemini lets the merge gate form a 2-family quorum from any
     two subscription CLIs, so one provider's usage cap can't stall merges.
     """
-    fam = family.strip().lower()
+    fam = canonical_family(family)
     if fam == "claude":
         return _run_claude_cli(prompt)
     if fam == "openai":
@@ -1246,7 +1279,7 @@ def collect_evidence(
     seen: set[str] = set()
     ordered_families: list[str] = []
     for raw_family in families:
-        family = raw_family.strip().lower()
+        family = canonical_family(raw_family)
         if not family or family in seen:
             continue
         seen.add(family)
@@ -1393,7 +1426,7 @@ def _clone_reviewer_failures(failures: Sequence[ReviewerResult]) -> list[Reviewe
 def _prepared_family_allowlist(families: Sequence[str] | None) -> set[str] | None:
     if families is None:
         return None
-    return {family.strip().lower() for family in families if family.strip()}
+    return {canonical_family(family) for family in families if family.strip()}
 
 
 def _validate_prepared_item_families(
@@ -1404,7 +1437,7 @@ def _validate_prepared_item_families(
     allowed = _prepared_family_allowlist(families)
     seen: set[str] = set()
     for item in items:
-        family = item.family.strip().lower()
+        family = canonical_family(item.family)
         if family not in FAMILY_PROVIDERS:
             raise ValueError(
                 f"prepared evidence artifact has unsupported reviewer family: {family}"

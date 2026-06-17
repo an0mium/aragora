@@ -1420,6 +1420,62 @@ def test_collect_dedupes_families() -> None:
     assert [item.family for item in outcome.items] == ["claude", "grok"]
 
 
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("Codex", "openai"),
+        ("codex", "openai"),
+        ("gpt", "openai"),
+        ("GPT-5", "openai"),
+        ("chatgpt", "openai"),
+        ("openai", "openai"),
+        (" Grok ", "grok"),
+        ("Claude", "claude"),
+        ("gemini", "gemini"),
+    ],
+)
+def test_canonical_family_collapses_aliases(name: str, expected: str) -> None:
+    from aragora.swarm.quorum_evidence import canonical_family
+
+    assert canonical_family(name) == expected
+
+
+def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
+    # codex/gpt are the OpenAI family's CLI/product names. They must collapse to
+    # ONE canonical family so a single provider can't satisfy the 2-family quorum.
+    fakes, _ = _fakes(tier=4)
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["openai", "codex", "gpt"],
+        author="me",
+        apply=False,
+        **fakes,
+    )
+    assert [item.family for item in outcome.items] == ["openai"]
+
+
+@pytest.mark.parametrize(
+    "body,expected",
+    [
+        ("Verdict: PASS", "pass"),
+        ("**Verdict: PASS**", "pass"),
+        ("## Verdict: CHANGES-REQUESTED", "changes_requested"),
+        (
+            "Reviewing the diff...\n**Verdict: CHANGES-REQUESTED**\n- **[P2]** x",
+            "changes_requested",
+        ),
+        ("intro preamble line\nVerdict: PASS\n- note", "pass"),
+        ("`Verdict: pass`", "pass"),
+        ("no verdict at all here", "unknown"),
+    ],
+)
+def test_reviewer_verdict_tolerates_markdown_and_preamble(body: str, expected: str) -> None:
+    from aragora.swarm.quorum_evidence import _reviewer_verdict
+
+    assert _reviewer_verdict(body) == expected
+
+
 def test_collect_missing_head_raises() -> None:
     fakes, _ = _fakes(tier=1, head="")
     with pytest.raises(ValueError):
