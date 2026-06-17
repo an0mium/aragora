@@ -11,6 +11,8 @@ truthful for the ``aragora-debate`` distribution:
 from __future__ import annotations
 
 import importlib
+import sys
+from types import ModuleType
 from typing import Any
 
 __version__ = "2.8.0"
@@ -50,3 +52,50 @@ def __dir__() -> list[str]:
 
 
 __all__ = sorted(_EXPORT_MAP)
+
+
+_ROOT_GOLDEN_COLLISIONS = {"review", "workflow"}
+_GOLDEN_SUBMODULE_HINTS = {
+    "review": (
+        "aragora.review.protocol",
+        "aragora.review.provider_slots",
+        "aragora.review.reviewer_output",
+    ),
+    "workflow": (
+        "aragora.workflow.engine",
+        "aragora.workflow.templates",
+        "aragora.workflow.patterns",
+        "aragora.workflow.types",
+    ),
+}
+
+
+def _golden_collision_export(name: str) -> Any:
+    module_name, attr_name = _EXPORT_MAP[name]
+    value = getattr(importlib.import_module(module_name), attr_name)
+
+    for hint in _GOLDEN_SUBMODULE_HINTS.get(name, ()):
+        try:
+            importlib.import_module(hint)
+        except ImportError:
+            continue
+
+    prefix = f"aragora.{name}."
+    for loaded_name, loaded_module in tuple(sys.modules.items()):
+        if not loaded_name.startswith(prefix):
+            continue
+        child_name = loaded_name[len(prefix) :].split(".", 1)[0]
+        if child_name:
+            setattr(value, child_name, loaded_module)
+    globals()[name] = value
+    return value
+
+
+class _AragoraModule(ModuleType):
+    def __getattribute__(self, name: str) -> Any:
+        if name in _ROOT_GOLDEN_COLLISIONS:
+            return _golden_collision_export(name)
+        return super().__getattribute__(name)
+
+
+sys.modules[__name__].__class__ = _AragoraModule
