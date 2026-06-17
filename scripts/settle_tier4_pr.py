@@ -72,6 +72,9 @@ SETTLE_ONLY_RECEIPT_BLOCKER = (
     "human_preapproval_recorded=false; use --settle-apply or "
     "review-queue record-settlement so the operator receipt backs the signal"
 )
+SETTLE_APPLY_DIRTY_WORKTREE_BLOCKER = (
+    "--settle-apply requires a clean worktree before recording the Tier 4 preapproval receipt"
+)
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 HUMAN_PREAPPROVAL_RECEIPT_BLOCKER = (
     "Tier 4 human preapproval required but not recorded (merge-packet reports "
@@ -858,6 +861,27 @@ def _quorum_failure_log_proves_missing_settlement(
         "no human settlement signal is recorded" in lowered
         and HUMAN_SETTLEMENT_CONTEXT.lower() in lowered
         and head_prefix in lowered
+    )
+
+
+def _quorum_missing_settlement_proof_from_live_checks(
+    required_checks: list[dict[str, Any]] | None,
+    merge_packet: dict[str, Any],
+    *,
+    pr: int,
+    repo: str,
+    cwd: Path,
+    head: str,
+) -> bool:
+    if not _required_quorum_only_failure(required_checks):
+        return False
+    if _packet_proves_quorum_missing_settlement(merge_packet, pr=pr):
+        return False
+    return _quorum_failure_log_proves_missing_settlement(
+        required_checks,
+        repo=repo,
+        cwd=cwd,
+        head=head,
     )
 
 
@@ -1754,6 +1778,53 @@ def _run_text_command(command: list[str], *, cwd: Path, input_text: str | None =
     return result.stdout.strip()
 
 
+def _settle_apply_dirty_worktree_entries(*, cwd: Path) -> list[str]:
+    result = _run_process(
+        ["git", "status", "--porcelain"],
+        cwd=cwd,
+        timeout=30,
+        prefer_app=False,
+        write_op=False,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise Tier4ApplyError(
+            f"{SETTLE_APPLY_DIRTY_WORKTREE_BLOCKER}: git status failed",
+            phase="receipt_preflight",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action=(
+                "rerun --settle-apply from a clean worktree before recording "
+                "the exact-head Tier 4 receipt"
+            ),
+            details={
+                "git_status_returncode": result.returncode,
+                "git_status_detail": detail[:COMMAND_FAILURE_DETAIL_LIMIT],
+            },
+        )
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def _require_clean_receipt_worktree_for_settle_apply(*, cwd: Path) -> None:
+    dirty_entries = _settle_apply_dirty_worktree_entries(cwd=cwd)
+    if not dirty_entries:
+        return
+    raise Tier4ApplyError(
+        SETTLE_APPLY_DIRTY_WORKTREE_BLOCKER,
+        phase="receipt_preflight",
+        mutation_occurred=False,
+        completed_commands=0,
+        recovery_action=(
+            "commit, stash, or move unrelated work, then rerun --settle-apply "
+            "from a clean exact-head worktree so the receipt is attributable"
+        ),
+        details={
+            "dirty_count": len(dirty_entries),
+            "dirty_entries": dirty_entries[:20],
+        },
+    )
+
+
 def _is_not_found_error(exc: BaseException) -> bool:
     text = str(exc)
     return "HTTP 404" in text or "Not Found" in text
@@ -2211,7 +2282,7 @@ def build_parser() -> argparse.ArgumentParser:
             "the exact-head settlement comment/status, and rerun the failed "
             f"{MERGE_QUORUM_CONTEXT} run (id looked up automatically). Never merges. "
             "Requires the invoking gh login to be in the trusted operator allowlist, "
-            "exactly like --settle-only."
+            "exactly like --settle-only. Receipt recording requires a clean worktree."
         ),
     )
     parser.add_argument(
@@ -2256,16 +2327,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.settle_only:
             if _packet_requires_unrecorded_human_preapproval(merge_packet, pr=args.pr):
                 raise RuntimeError(SETTLE_ONLY_RECEIPT_BLOCKER)
-            quorum_missing_settlement_proof = False
-            if _required_quorum_only_failure(
-                required_checks
-            ) and not _packet_proves_quorum_missing_settlement(merge_packet, pr=args.pr):
-                quorum_missing_settlement_proof = _quorum_failure_log_proves_missing_settlement(
-                    required_checks,
-                    repo=args.repo,
-                    cwd=args.cwd,
-                    head=args.head,
-                )
+            quorum_missing_settlement_proof = _quorum_missing_settlement_proof_from_live_checks(
+                required_checks,
+                merge_packet,
+                pr=args.pr,
+                repo=args.repo,
+                cwd=args.cwd,
+                head=args.head,
+            )
             gate = evaluate_tier4_settlement_preconditions(
                 pr=args.pr,
                 expected_head=args.head,
@@ -2312,12 +2381,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cwd=args.cwd,
             )
         elif args.settle_apply:
+            quorum_missing_settlement_proof = _quorum_missing_settlement_proof_from_live_checks(
+                required_checks,
+                merge_packet,
+                pr=args.pr,
+                repo=args.repo,
+                cwd=args.cwd,
+                head=args.head,
+            )
             gate = evaluate_tier4_settlement_preconditions(
                 pr=args.pr,
                 expected_head=args.head,
                 pr_view=pr_view,
                 merge_packet=merge_packet,
                 required_checks=required_checks,
+                quorum_missing_settlement_proof=quorum_missing_settlement_proof,
                 trusted_operator_logins=args.trusted_operator_login,
             )
             if not gate["ok"]:
@@ -2337,6 +2415,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 pr_view=pr_view,
                 merge_packet=merge_packet,
                 required_checks=required_checks,
+                quorum_missing_settlement_proof=quorum_missing_settlement_proof,
                 trusted_operator_logins=args.trusted_operator_login,
                 invoker_login=invoker_login,
                 invoker_has_admin_permission=invoker_has_admin_permission,
@@ -2378,6 +2457,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "reason": "exact-head human preapproval receipt already recorded",
                 }
             else:
+                _require_clean_receipt_worktree_for_settle_apply(cwd=args.cwd)
                 extra_out["receipt"] = _record_settlement(
                     pr=args.pr,
                     head=args.head,
