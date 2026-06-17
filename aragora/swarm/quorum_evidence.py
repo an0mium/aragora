@@ -444,8 +444,12 @@ def _reviewer_verdict(text: str) -> str:
 _ADVISORY_CR_ENV = "ARAGORA_QUORUM_ADVISORY_CR"
 # A reviewer's own severity convention: [P0]/[P1] = blocking; [P2]/[P3] = nits.
 _BLOCKING_TAG_RE = re.compile(r"\[p[01]\]", re.IGNORECASE)
+_LOW_SEV_TAG_RE = re.compile(r"\[p[23]\]", re.IGNORECASE)
+_SEV_TAG_RE = re.compile(r"\[p[0-3]\]", re.IGNORECASE)
 _BLOCKING_WORD_RE = re.compile(r"blocking", re.IGNORECASE)
 _BLOCKING_NEGATION_RE = re.compile(r"(?:no|non|not|zero|without|n't)[\s-]*$", re.IGNORECASE)
+# An enumerated finding line (markdown bullet or numbered item).
+_FINDING_BULLET_RE = re.compile(r"^\s*(?:[-*]|\d+[.)])\s+\S", re.MULTILINE)
 
 
 def _advisory_cr_enabled() -> bool:
@@ -459,9 +463,15 @@ def _advisory_cr_enabled() -> bool:
 
 
 def _has_blocking_findings(text: str) -> bool:
-    """True if the reviewer body cites a blocking concern: any [P0]/[P1] severity
-    tag, or an un-negated 'blocking' mention. Conservative — errs toward True
-    (keep the dissent) so a genuine blocker is never reclassified to advisory."""
+    """True if the reviewer body may cite a blocking concern. Conservative — errs
+    toward True (keep the dissent) so a genuine blocker is never reclassified.
+
+    Treats as blocking: any [P0]/[P1] tag; an un-negated 'blocking' mention; OR —
+    critically — any enumerated finding bullet that carries NO severity tag. The
+    last rule answers the review that flagged absence-based inference: an untagged
+    finding like '- allows unauthorized merge' has no [P0]/[P1] and no 'blocking'
+    keyword, yet is plainly a real regression; it must keep its veto, not be
+    inferred 'findings-free'."""
     if _BLOCKING_TAG_RE.search(text):
         return True
     for m in _BLOCKING_WORD_RE.finditer(text):
@@ -469,6 +479,9 @@ def _has_blocking_findings(text: str) -> bool:
         if _BLOCKING_NEGATION_RE.search(prefix):
             continue  # "no blocking" / "non-blocking" / "not blocking" / "zero blocking"
         return True
+    for line in text.splitlines():
+        if _FINDING_BULLET_RE.match(line) and not _SEV_TAG_RE.search(line):
+            return True  # an untagged enumerated finding could be a real blocker
     return False
 
 
@@ -483,7 +496,11 @@ def _classify_verdict(text: str, *, advisory_enabled: bool | None = None) -> str
     if verdict != "changes_requested":
         return verdict
     enabled = _advisory_cr_enabled() if advisory_enabled is None else advisory_enabled
-    if enabled and not _has_blocking_findings(text):
+    # Downgrade requires POSITIVE evidence the CR is non-blocking — at least one
+    # explicit [P2]/[P3] finding AND no blocking signal (incl. untagged findings).
+    # Absence of a blocking token is NOT enough: a prose-only or untagged CR keeps
+    # its veto (the review that flagged absence-based inference).
+    if enabled and _LOW_SEV_TAG_RE.search(text) and not _has_blocking_findings(text):
         return "changes_requested_advisory"
     return verdict
 

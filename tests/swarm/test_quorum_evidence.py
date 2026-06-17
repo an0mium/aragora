@@ -2223,3 +2223,31 @@ def test_evidence_item_advisory_is_neither_supportive_nor_dissenting():
     assert adv.supportive is False
     diss = _EI(family="grok", body="b", would_count=True, verdict="changes_requested")
     assert diss.dissenting is True and diss.advisory is False
+
+
+# --- Codex P1: absence of a blocking token != findings-free (untagged blockers) ---
+def test_untagged_finding_keeps_veto_even_when_enabled():
+    # The review's own example: a real regression with no [P0]/[P1] and no "blocking".
+    body = _CR + "- allows unauthorized merge of the diff under review"
+    assert _hbf(body) is True
+    assert _cv(body, advisory_enabled=True) == "changes_requested"
+
+
+def test_prose_only_cr_keeps_veto_even_when_enabled():
+    # No severity tags at all -> no positive low-sev evidence -> not downgraded.
+    body = _CR + "This drops evidence rows on settlement; needs rework."
+    assert _cv(body, advisory_enabled=True) == "changes_requested"
+
+
+def test_mixed_tagged_and_untagged_keeps_veto():
+    body = _CR + "- [P3] unused import\n- silently disables the 2-family minimum"
+    assert _hbf(body) is True  # the untagged bullet dominates
+    assert _cv(body, advisory_enabled=True) == "changes_requested"
+
+
+def test_all_tagged_low_still_downgrades_when_enabled():
+    # Genuinely findings-free (every finding explicitly [P2]/[P3], none untagged).
+    body = _CR + "- [P3] unused import\n- [P2] minor naming nit"
+    assert _hbf(body) is False
+    assert _cv(body, advisory_enabled=True) == "changes_requested_advisory"
+    assert _cv(body, advisory_enabled=False) == "changes_requested"
