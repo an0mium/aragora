@@ -14,19 +14,15 @@ import pytest
 
 try:
     from anthropic.types import TextBlock
-except ModuleNotFoundError:
+except ImportError:
+    NEEDS_ANTHROPIC_TYPES_STUB = True
 
     @dataclass
     class TextBlock:
         type: str
         text: str
-
-    anthropic_module = types.ModuleType("anthropic")
-    anthropic_types_module = types.ModuleType("anthropic.types")
-    anthropic_types_module.TextBlock = TextBlock
-    anthropic_module.types = anthropic_types_module
-    sys.modules.setdefault("anthropic", anthropic_module)
-    sys.modules.setdefault("anthropic.types", anthropic_types_module)
+else:
+    NEEDS_ANTHROPIC_TYPES_STUB = False
 
 from aragora.routing.domain_matcher import (
     DOMAIN_KEYWORDS,
@@ -312,6 +308,23 @@ class TestDomainDetectorKeywords:
 # =============================================================================
 
 
+@pytest.fixture
+def anthropic_text_block_stub(monkeypatch):
+    """Scope the optional Anthropic TextBlock fallback to tests that need it."""
+    if not NEEDS_ANTHROPIC_TYPES_STUB:
+        return
+
+    anthropic_module = types.ModuleType("anthropic")
+    anthropic_module.__path__ = []
+    anthropic_types_module = types.ModuleType("anthropic.types")
+    anthropic_types_module.TextBlock = TextBlock
+    anthropic_module.types = anthropic_types_module
+
+    monkeypatch.setitem(sys.modules, "anthropic", anthropic_module)
+    monkeypatch.setitem(sys.modules, "anthropic.types", anthropic_types_module)
+
+
+@pytest.mark.usefixtures("anthropic_text_block_stub")
 class TestDomainDetectorLLM:
     """Tests for DomainDetector LLM-based detection."""
 
@@ -419,6 +432,13 @@ class TestDomainDetectorLLM:
         # The actual cache is module-level, so clearing always works
         cleared = DomainDetector.clear_cache()
         assert cleared == 0  # Second clear should return 0
+
+
+@pytest.mark.skipif(not NEEDS_ANTHROPIC_TYPES_STUB, reason="real anthropic package installed")
+def test_anthropic_fallback_is_not_registered_globally():
+    """The optional Anthropic fallback should not leak past mocked LLM tests."""
+    assert "anthropic" not in sys.modules
+    assert "anthropic.types" not in sys.modules
 
 
 # =============================================================================
