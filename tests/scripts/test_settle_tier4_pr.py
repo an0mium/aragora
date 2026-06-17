@@ -2210,6 +2210,30 @@ def test_settle_only_log_proof_does_not_allow_diagnostic_owner_blocker() -> None
     assert result["self_quorum_missing_settlement_proven"] is False
 
 
+def test_settle_only_log_proof_does_not_allow_diagnostic_unresolved_dissent() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        diagnostic_merge_packet=_tier4_diagnostic_human_preapproval_packet(
+            head,
+            unresolved_dissent=True,
+        ),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+        quorum_missing_settlement_proof=True,
+    )
+
+    assert result["ok"] is False
+    assert "diagnostic merge-packet reports unresolved dissent" in result["blockers"]
+    assert result["self_quorum_missing_settlement_proven"] is False
+
+
 def test_settle_only_log_proof_ignores_unproven_diagnostic_model_quorum() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
 

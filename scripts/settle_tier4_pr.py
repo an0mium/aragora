@@ -1154,6 +1154,8 @@ def evaluate_tier4_settlement_preconditions(
         blockers.append(TIER4_EVIDENCE_BLOCKER)
     if isinstance(diagnostic_entry, dict) and _entry_has_owner_mailbox_blocker(diagnostic_entry):
         blockers.append(DIAGNOSTIC_OWNER_MAILBOX_BLOCKER)
+    if isinstance(diagnostic_entry, dict) and bool(diagnostic_entry.get("unresolved_dissent")):
+        blockers.append("diagnostic merge-packet reports unresolved dissent")
 
     allowed_logins = _trusted_operator_logins(trusted_operator_logins)
     normalized_invoker = str(invoker_login or "").strip().lower()
