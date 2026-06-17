@@ -991,11 +991,9 @@ def test_collect_preserves_family_order_despite_completion_order() -> None:
 
 def test_collect_overall_timeout_fails_closed_without_posting() -> None:
     fakes, posted = _fakes(tier=1)
-    finished = threading.Event()
 
     def slow_runner(family: str, prompt: str) -> ReviewerResult:
         time.sleep(0.05)
-        finished.set()
         return ReviewerResult(family, f"Verdict: PASS from {family}", True)
 
     fakes["reviewer_runner"] = slow_runner
@@ -1011,8 +1009,7 @@ def test_collect_overall_timeout_fails_closed_without_posting() -> None:
         **fakes,
     )
 
-    assert time.monotonic() - started >= 0.05
-    assert finished.is_set()
+    assert time.monotonic() - started < 0.05
     assert outcome.action == "prepare"
     assert "overall timeout" in outcome.action_reason
     assert outcome.orchestration_timed_out is True

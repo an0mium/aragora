@@ -36,6 +36,7 @@ import multiprocessing
 import os
 import queue
 import re
+import signal
 import subprocess
 import tempfile
 import threading
@@ -1270,6 +1271,137 @@ def _run_reviewer_worker(
     result_queue.put((family, result))
 
 
+def _reviewer_process_context() -> Any:
+    """Prefer fork for local fake runners; fall back to platform default."""
+    try:
+        return multiprocessing.get_context("fork")
+    except ValueError:  # pragma: no cover - non-POSIX fallback.
+        return multiprocessing.get_context()
+
+
+def _run_reviewer_process_worker(
+    family: str,
+    prompt: str,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    reviewer_timeout_s: float | None,
+    result_queue: Any,
+) -> None:
+    if hasattr(os, "setpgrp"):
+        try:
+            os.setpgrp()
+        except OSError:
+            pass
+    _run_reviewer_worker(
+        family=family,
+        prompt=prompt,
+        reviewer_runner=reviewer_runner,
+        reviewer_timeout_s=reviewer_timeout_s,
+        result_queue=result_queue,
+    )
+
+
+def _terminate_reviewer_process(process: multiprocessing.Process) -> None:
+    if not process.is_alive():
+        return
+    pid = process.pid
+    if pid and hasattr(os, "killpg"):
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        except OSError:
+            process.terminate()
+    else:
+        process.terminate()
+    process.join(_REVIEWER_CLEANUP_TIMEOUT)
+    if process.is_alive():
+        if pid and hasattr(os, "killpg"):
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            except OSError:
+                process.kill()
+        else:
+            process.kill()
+        process.join(_REVIEWER_CLEANUP_TIMEOUT)
+
+
+def _collect_reviewer_results_with_process_timeout(
+    *,
+    supported: Sequence[str],
+    prompt: str,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    reviewer_timeout_s: float | None,
+    overall_timeout_s: float,
+) -> tuple[dict[str, ReviewerResult], bool, list[str]]:
+    reviews: dict[str, ReviewerResult] = {}
+    supported_list = list(supported)
+    if not supported_list:
+        return reviews, False, []
+
+    ctx = _reviewer_process_context()
+    result_queue = ctx.Queue()
+    processes: dict[str, multiprocessing.Process] = {}
+    pending: set[str] = set()
+    next_index = 0
+
+    def start_next() -> None:
+        nonlocal next_index
+        if next_index >= len(supported_list):
+            return
+        family = supported_list[next_index]
+        next_index += 1
+        process = ctx.Process(
+            target=_run_reviewer_process_worker,
+            args=(family, prompt, reviewer_runner, reviewer_timeout_s, result_queue),
+        )
+        processes[family] = process
+        pending.add(family)
+        process.start()
+
+    for _ in range(min(len(supported_list), _MAX_REVIEWER_WORKERS)):
+        start_next()
+
+    deadline = time.monotonic() + overall_timeout_s
+    timed_out = False
+    while pending:
+        remaining = max(0.0, deadline - time.monotonic())
+        if remaining <= 0:
+            timed_out = True
+            break
+        try:
+            family, result = result_queue.get(timeout=remaining)
+        except queue.Empty:
+            timed_out = True
+            break
+        if family not in pending:
+            continue
+        reviews[family] = result
+        pending.remove(family)
+        processes[family].join(_REVIEWER_CLEANUP_TIMEOUT)
+        start_next()
+
+    if not timed_out:
+        return reviews, False, []
+
+    timeout_label = _format_seconds(overall_timeout_s)
+    timed_out_families = sorted(
+        list(pending) + supported_list[next_index:],
+        key=supported_list.index,
+    )
+    for family in timed_out_families:
+        reviews[family] = ReviewerResult(
+            family,
+            "",
+            False,
+            f"collect-evidence overall timeout after {timeout_label}s",
+        )
+    for family in list(pending):
+        _terminate_reviewer_process(processes[family])
+    return reviews, True, timed_out_families
+
+
 def _collect_reviewer_results(
     *,
     supported: Sequence[str],
@@ -1288,6 +1420,14 @@ def _collect_reviewer_results(
     reviews: dict[str, ReviewerResult] = {}
     if not supported:
         return reviews, False, []
+    if overall_timeout_s is not None:
+        return _collect_reviewer_results_with_process_timeout(
+            supported=supported,
+            prompt=prompt,
+            reviewer_runner=reviewer_runner,
+            reviewer_timeout_s=reviewer_timeout_s,
+            overall_timeout_s=overall_timeout_s,
+        )
 
     supported_list = list(supported)
     result_queue: queue.Queue[tuple[str, ReviewerResult]] = queue.Queue()
