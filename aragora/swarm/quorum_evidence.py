@@ -632,14 +632,25 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     """
     fam = canonical_family(family)
     if fam == "claude":
-        return _run_claude_cli(prompt)
-    if fam == "openai":
-        return _run_openai_reviewer(prompt)
-    if fam == "grok":
-        return _run_grok_reviewer(prompt)
-    if fam == "gemini":
-        return _run_gemini_reviewer(prompt)
-    return _run_api_agent(fam, prompt)
+        result = _run_claude_cli(prompt)
+    elif fam == "openai":
+        result = _run_openai_reviewer(prompt)
+    elif fam == "grok":
+        result = _run_grok_reviewer(prompt)
+    elif fam == "gemini":
+        result = _run_gemini_reviewer(prompt)
+    else:
+        result = _run_api_agent(fam, prompt)
+    # Universal last-resort fallback: when the subscription CLI / family API path
+    # failed (infra failure, not a returned verdict) and an OPENROUTER_API_KEY is
+    # present, review via OpenRouter using a same-tier model for the SAME family.
+    # This keeps the heterogeneous-family invariant (same family, different
+    # transport) so one provider's outage/quota can't stall the quorum.
+    if not result.ok:
+        fallback = _run_openrouter_reviewer(fam, prompt)
+        if fallback.ok:
+            return fallback
+    return result
 
 
 def _claude_reviewer_command() -> list[str]:
@@ -699,6 +710,7 @@ def _run_openai_reviewer(prompt: str) -> ReviewerResult:
 
 _GROK_BUILD_HARNESS = "Grok Build CLI harness"
 _ANTIGRAVITY_HARNESS = "Antigravity CLI harness"
+_OPENROUTER_HARNESS = "OpenRouter API fallback harness"
 
 
 def _resolve_grok_build_bin() -> str:
@@ -780,6 +792,43 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
         if result.ok or not _env_key_present("GEMINI_API_KEY", "GOOGLE_API_KEY"):
             return result
     return _run_api_agent("gemini", prompt)
+
+
+# Same-tier OpenRouter model per family for the failure-only fallback. Mapped to
+# the highest-quality slug for each family so a fallback review is as trustworthy
+# as the subscription path it replaces (cost is bounded: only used on failure).
+_OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
+    "claude": "anthropic/claude-opus-4.8",
+    "openai": "openai/gpt-5.5",
+    "grok": "x-ai/grok-4",
+    "gemini": "google/gemini-3.1-pro",
+}
+
+
+def _openrouter_reviewer_available() -> bool:
+    return _env_key_present("OPENROUTER_API_KEY")
+
+
+def _run_openrouter_reviewer(family: str, prompt: str) -> ReviewerResult:
+    """Failure-only OpenRouter fallback so one provider's outage can't stall quorum.
+
+    Gated on ``OPENROUTER_API_KEY``; reviews as the requested ``family`` via a
+    same-tier OpenRouter model (same model family, different transport). Returns a
+    non-ok result when no key is set or no model is mapped, so the caller keeps the
+    original subscription-path failure.
+    """
+    fam = canonical_family(family)
+    if not _openrouter_reviewer_available():
+        return ReviewerResult(
+            fam, "", False, "OpenRouter fallback unavailable: no OPENROUTER_API_KEY"
+        )
+    model = _OPENROUTER_REVIEWER_MODELS.get(fam)
+    if not model:
+        return ReviewerResult(fam, "", False, f"no OpenRouter model mapped for family {fam}")
+    result = _run_api_agent(fam, prompt, model=model)
+    if result.ok:
+        return ReviewerResult(fam, result.text, True, harness=_OPENROUTER_HARNESS)
+    return result
 
 
 def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
@@ -883,11 +932,11 @@ def _codex_model_selection_failed(detail: str) -> bool:
     )
 
 
-def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
+def _run_api_agent(family: str, prompt: str, model: str | None = None) -> ReviewerResult:
     timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
     ctx = _api_agent_process_context()
     result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
-    process = _start_api_agent_worker_process(ctx, family, prompt, result_queue)
+    process = _start_api_agent_worker_process(ctx, family, prompt, result_queue, model)
     process.start()
     process.join(timeout + _REVIEWER_CLEANUP_TIMEOUT)
     if process.is_alive():
@@ -930,10 +979,11 @@ def _start_api_agent_worker_process(
     family: str,
     prompt: str,
     result_queue: multiprocessing.Queue,
+    model: str | None = None,
 ) -> multiprocessing.Process:
     return ctx.Process(
         target=_api_agent_worker,
-        args=(family, prompt, result_queue),
+        args=(family, prompt, result_queue, model),
         daemon=True,
     )
 
@@ -942,17 +992,21 @@ def _api_agent_worker(
     family: str,
     prompt: str,
     result_queue: multiprocessing.Queue,
+    model: str | None = None,
 ) -> None:
-    result_queue.put(_run_api_agent_in_current_process(family, prompt))
+    result_queue.put(_run_api_agent_in_current_process(family, prompt, model))
 
 
-def _run_api_agent_in_current_process(family: str, prompt: str) -> ReviewerResult:
+def _run_api_agent_in_current_process(
+    family: str, prompt: str, model: str | None = None
+) -> ReviewerResult:
     try:
-        from aragora.agents import create_agent
-    except Exception as exc:  # pragma: no cover - import guard
-        return ReviewerResult(family, "", False, f"create_agent import failed: {exc}")
-    try:
-        agent = create_agent(family, name=f"{family}_reviewer", role="critic")
+        if model:
+            agent = _build_openrouter_agent(family, model)
+        else:
+            from aragora.agents import create_agent
+
+            agent = create_agent(family, name=f"{family}_reviewer", role="critic")
         text = asyncio.run(_generate_with_api_agent_cleanup(agent, prompt))
     except Exception as exc:
         return ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
@@ -960,6 +1014,17 @@ def _run_api_agent_in_current_process(family: str, prompt: str) -> ReviewerResul
     if not text:
         return ReviewerResult(family, "", False, "empty reviewer output")
     return ReviewerResult(family, _cap_text(text), True)
+
+
+def _build_openrouter_agent(family: str, model: str) -> Any:
+    """Construct an OpenRouter-backed reviewer agent for ``model``.
+
+    The returned agent reviews as the requested ``family`` (same model family,
+    different transport), so its evidence still counts as that family's vote.
+    """
+    from aragora.agents.api_agents.openrouter import OpenRouterAgent
+
+    return OpenRouterAgent(name=f"{family}_openrouter_reviewer", role="critic", model=model)
 
 
 async def _generate_with_api_agent_cleanup(agent: Any, prompt: str) -> str:

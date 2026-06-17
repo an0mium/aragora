@@ -597,7 +597,7 @@ def test_run_api_agent_timeout_terminates_blocked_worker(
     monkeypatch.setattr(
         qe,
         "_start_api_agent_worker_process",
-        lambda ctx, family, prompt, result_queue: FakeProcess(),
+        lambda ctx, family, prompt, result_queue, model=None: FakeProcess(),
         raising=False,
     )
 
@@ -645,7 +645,7 @@ def test_run_api_agent_parent_timeout_honors_env_override(
     monkeypatch.setattr(
         qe,
         "_start_api_agent_worker_process",
-        lambda ctx, family, prompt, result_queue: FakeProcess(),
+        lambda ctx, family, prompt, result_queue, model=None: FakeProcess(),
         raising=False,
     )
 
@@ -1486,6 +1486,75 @@ def test_evidence_item_from_dict_canonicalizes_alias_family() -> None:
         {"family": "Codex", "body": "Verdict: PASS\nbody", "would_count": True}
     )
     assert item.family == "openai"
+
+
+# --- OpenRouter failure-only fallback ---------------------------------------
+
+
+def test_openrouter_reviewer_gated_on_key(monkeypatch) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    result = q._run_openrouter_reviewer("grok", "prompt")
+    assert not result.ok
+    assert "OPENROUTER_API_KEY" in result.error
+
+
+def test_openrouter_reviewer_rejects_unmapped_family(monkeypatch) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    result = q._run_openrouter_reviewer("deepseek", "prompt")
+    assert not result.ok
+    assert "no OpenRouter model" in result.error
+
+
+def test_default_runner_falls_back_to_openrouter_on_infra_failure(monkeypatch) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setattr(
+        q, "_run_grok_reviewer", lambda _p: q.ReviewerResult("grok", "", False, "cli down")
+    )
+    monkeypatch.setattr(
+        q,
+        "_run_openrouter_reviewer",
+        lambda fam, _p: q.ReviewerResult(fam, "Verdict: PASS via OpenRouter", True, harness="or"),
+    )
+    result = q.default_reviewer_runner("grok", "prompt")
+    assert result.ok
+    assert result.family == "grok"  # family identity preserved across transport
+    assert "OpenRouter" in result.text
+
+
+def test_default_runner_skips_openrouter_when_primary_ok(monkeypatch) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setattr(
+        q, "_run_grok_reviewer", lambda _p: q.ReviewerResult("grok", "Verdict: PASS", True)
+    )
+    called = {"openrouter": False}
+
+    def _or(fam, _p):
+        called["openrouter"] = True
+        return q.ReviewerResult(fam, "", True)
+
+    monkeypatch.setattr(q, "_run_openrouter_reviewer", _or)
+    result = q.default_reviewer_runner("grok", "prompt")
+    assert result.ok and called["openrouter"] is False
+
+
+def test_openrouter_fallback_routes_alias_to_canonical_family(monkeypatch) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setattr(
+        q, "_run_openai_reviewer", lambda _p: q.ReviewerResult("openai", "", False, "codex quota")
+    )
+    monkeypatch.setattr(
+        q, "_run_openrouter_reviewer", lambda fam, _p: q.ReviewerResult(fam, "Verdict: PASS", True)
+    )
+    # "codex" is an alias of openai; the fallback must review as the openai family.
+    result = q.default_reviewer_runner("codex", "prompt")
+    assert result.ok and result.family == "openai"
 
 
 def test_collect_missing_head_raises() -> None:
