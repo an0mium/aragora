@@ -32,8 +32,12 @@ def add_mission_parser(subparsers: Any, lazy: Callable[[str, str], Callable[...,
         "--auto-settle-max-tier",
         type=int,
         default=2,
-        choices=[0, 1, 2, 3, 4],
-        help="The maximum merge-quorum evidence quality tier to settle autonomously",
+        choices=[0, 1, 2],
+        help=(
+            "Highest merge-quorum tier the mission may settle autonomously (0-2). "
+            "Tier-3+ always parks for human risk acceptance — the gate, not the "
+            "mission, is the sole authority for Tier-3/4 settlement."
+        ),
     )
     mission_parser.add_argument(
         "--tracks", help="Comma-separated focus tracks (e.g. sme,qa,billing)"
