@@ -190,75 +190,6 @@ def _run_reviewer_with_infra_retry(
     return result
 
 
-# Ceiling on best-of-N sampling: each sample is a serial reviewer call (× infra
-# retries), so this bounds worst-case cost/wall-clock per family.
-_MAX_REVIEWER_BEST_OF_N = 5
-
-
-def _reviewer_best_of_n() -> int:
-    """How many times to sample a reviewer's verdict (majority wins). Default 1."""
-    raw = os.environ.get("ARAGORA_REVIEWER_BEST_OF_N", "").strip()
-    try:
-        return max(1, min(_MAX_REVIEWER_BEST_OF_N, int(raw)))
-    except ValueError:
-        return 1
-
-
-def _run_reviewer_best_of_n(
-    runner: Callable[[str, str], ReviewerResult],
-    family: str,
-    prompt: str,
-    *,
-    samples: int | None = None,
-) -> ReviewerResult:
-    """Sample a reviewer ``samples`` times (each infra-retried) and take the
-    majority verdict, to dampen run-to-run verdict variance (e.g. a reviewer that
-    flips PASS<->changes_requested on the same head).
-
-    Default ``samples`` is 1 (env ``ARAGORA_REVIEWER_BEST_OF_N``), so behavior is
-    unchanged unless explicitly enabled. Ties resolve to the more conservative
-    ``changes_requested`` (never invent support). Returns a representative ok
-    result carrying the winning verdict; falls back to the last result if every
-    sample was an infra failure.
-    """
-    # Clamp to a sane ceiling: each sample is a serial reviewer call (× infra
-    # retries), so an unbounded value would blow up cost/wall-clock toward the
-    # reviewer timeout.
-    n = min(_MAX_REVIEWER_BEST_OF_N, _reviewer_best_of_n() if samples is None else max(1, samples))
-    first = _run_reviewer_with_infra_retry(runner, family, prompt)
-    if n == 1:
-        return first
-    ok_results = [first] if first.ok else []
-    for _ in range(n - 1):
-        result = _run_reviewer_with_infra_retry(runner, family, prompt)
-        if result.ok:
-            ok_results.append(result)
-    if not ok_results:
-        return first
-    verdicts = [_reviewer_verdict(r.text) for r in ok_results]
-    pass_n = verdicts.count("pass")
-    cr_n = verdicts.count("changes_requested")
-    winner = "pass" if pass_n > cr_n else "changes_requested"
-    # Prefer a sample whose own verdict matches the majority so the returned body
-    # is representative; ``changes_requested`` wins ties (fail-safe).
-    for result, verdict in zip(ok_results, verdicts, strict=False):
-        if verdict == winner:
-            return result
-    # No sample's own verdict matched the winner (e.g. all parsed as 'unknown', so
-    # the fail-safe chose changes_requested). Synthesize the winning verdict onto a
-    # representative body so the caller re-parses the INTENDED verdict, not 'unknown'
-    # — otherwise the conservative fallback would be silently bypassed.
-    base = ok_results[0]
-    label = "PASS" if winner == "pass" else "CHANGES-REQUESTED"
-    return ReviewerResult(
-        family=base.family,
-        text=f"Verdict: {label}\n{base.text}",
-        ok=base.ok,
-        error=base.error,
-        harness=base.harness,
-    )
-
-
 # A finding tag is a standalone [P0-3] marker, not a code subscript. The negative
 # lookbehind for a word char excludes `arr[p2]` / `foo[p1]` while still matching a
 # tag after whitespace/punctuation (e.g. "Note: [P1]", "- **[P2]**").
@@ -1524,7 +1455,7 @@ def collect_evidence(
         max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
             future_to_family = {
-                pool.submit(_run_reviewer_best_of_n, reviewer_runner, family, prompt): family
+                pool.submit(_run_reviewer_with_infra_retry, reviewer_runner, family, prompt): family
                 for family in supported
             }
             for future in concurrent.futures.as_completed(future_to_family):
