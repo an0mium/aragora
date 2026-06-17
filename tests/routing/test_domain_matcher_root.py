@@ -4,8 +4,9 @@ Tests for the domain_matcher module.
 Tests domain detection via keywords and caching behavior.
 """
 
+import sys
 import time
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,6 +16,23 @@ from aragora.routing.domain_matcher import (
     DomainDetector,
     _DomainCache,
 )
+
+try:
+    from anthropic.types import TextBlock
+except ModuleNotFoundError:
+
+    class TextBlock:
+        """Minimal stand-in for anthropic.types.TextBlock in smoke environments."""
+
+        def __init__(self, *, type: str, text: str) -> None:
+            self.type = type
+            self.text = text
+
+    _anthropic_module = sys.modules.setdefault("anthropic", ModuleType("anthropic"))
+    _anthropic_types_module = ModuleType("anthropic.types")
+    _anthropic_types_module.TextBlock = TextBlock
+    _anthropic_module.types = _anthropic_types_module
+    sys.modules.setdefault("anthropic.types", _anthropic_types_module)
 
 
 def text_block(text: str) -> SimpleNamespace:

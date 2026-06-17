@@ -132,6 +132,63 @@ class APIAgent(CritiqueMixin, Agent):
         self._last_tokens_out = tokens_out
         self._total_tokens_in += tokens_in
         self._total_tokens_out += tokens_out
+        self._record_budget_spend(tokens_in, tokens_out)
+
+    def _record_budget_spend(self, tokens_in: int, tokens_out: int) -> None:
+        """Debit this call's estimated USD cost against the monthly budget guard.
+
+        Best-effort and default-OFF: a no-op unless ``ARAGORA_MONTHLY_BUDGET_USD``
+        is set, and it never raises (metering must not break a call). Unknown
+        providers fall back to OpenRouter pricing in ``calculate_token_cost``,
+        which is conservative (it will not under-count cheap providers).
+        """
+        try:
+            from aragora.billing import budget_guard
+
+            if not budget_guard.is_enabled():
+                return
+            from aragora.billing.usage import calculate_token_cost
+
+            provider = getattr(self, "provider", None) or self.agent_type or "openrouter"
+            cost = calculate_token_cost(str(provider), self.model, tokens_in, tokens_out)
+            budget_guard.record_spend(float(cost))
+        except Exception:  # noqa: BLE001 - budget metering must never crash the agent
+            logger.debug("budget_guard spend recording skipped", exc_info=True)
+
+    def _enforce_budget_precall(self, estimated_usd: float = 0.0) -> None:
+        """Fail-closed monthly-cap check before a metered API call.
+
+        No-op unless ``ARAGORA_MONTHLY_BUDGET_USD`` is set. When the cap is
+        reached it raises ``budget_guard.BudgetExceededError`` *before* the call,
+        so spend cannot run away (the anti-$40k guard). Callers (agent
+        ``generate``) invoke this at the top of a metered call.
+        """
+        from aragora.billing import budget_guard
+
+        budget_guard.assert_within_budget(estimated_usd, label=self.name)
+
+    def _estimate_budget_cost_from_text_usd(
+        self,
+        prompt_text: str,
+        max_output_tokens: int,
+    ) -> float:
+        """Conservative spend estimate for streaming paths without usage metadata."""
+        try:
+            from aragora.billing.usage import calculate_token_cost
+
+            provider = getattr(self, "provider", None) or self.agent_type or "openrouter"
+            estimated_input_tokens = (len(prompt_text) + 3) // 4 if prompt_text else 0
+            return float(
+                calculate_token_cost(
+                    str(provider),
+                    self.model,
+                    estimated_input_tokens,
+                    max(0, int(max_output_tokens)),
+                )
+            )
+        except Exception:  # noqa: BLE001 - budget estimation must not crash generation
+            logger.debug("budget_guard text estimate skipped", exc_info=True)
+            return 0.0
 
     @property
     def last_tokens_in(self) -> int:
