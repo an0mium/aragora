@@ -133,8 +133,7 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "minimax",
     "hermes",
 )
-# Western-frontier families: when a tier settles on a single signal (Tier 1-2),
-# it MUST be one of these so a cheap model can never solely authorize a merge.
+# Western-frontier families (Tier 1-2 single-signal bar must be one of these).
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
 DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
     "claude": ("claude", "anthropic"),
@@ -3217,10 +3216,11 @@ def _build_model_review_quorum(
     if unresolved_dissent and not settlement_recorded:
         reasons.append("unresolved model dissent is present")
     if not quorum_satisfied and not settlement_recorded:
-        reasons.append(
-            "model quorum incomplete: "
-            f"{signal_count}/{requirement['required_model_signals']} signal(s)"
-        )
+        if signal_count < requirement["required_model_signals"]:
+            reasons.append(
+                "model quorum incomplete: "
+                f"{signal_count}/{requirement['required_model_signals']} signal(s)"
+            )
         if not has_required_dogfood:
             reasons.append("focused adversarial dogfood evidence is required")
         if not western_frontier_satisfied:

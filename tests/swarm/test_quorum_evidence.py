@@ -1826,7 +1826,11 @@ def test_apply_prepared_evidence_uses_fresh_lint_counting(tmp_path) -> None:
     )
 
     assert outcome.action == "prepare"
-    assert "supportive quorum incomplete (0/2)" in outcome.action_reason
+    # Tier 1: the bar is one western-frontier signal, not "2 distinct families",
+    # so the reason names the WF requirement rather than a misleading "(0/2)".
+    assert "supportive quorum incomplete" in outcome.action_reason
+    assert "western-frontier" in outcome.action_reason
+    assert "/2" not in outcome.action_reason
     assert outcome.supportive_families == []
     assert outcome.posted == []
     assert posted == []
@@ -1869,7 +1873,9 @@ def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
 
     grok_item = next(item for item in outcome.items if item.family == "grok")
     assert outcome.action == "prepare"
-    assert "supportive quorum incomplete (1/2)" in outcome.action_reason
+    # Lone surviving supportive is cheap (qwen, non-WF) at Tier 1 -> the reason
+    # names the western-frontier requirement, not a misleading "(1/2)".
+    assert "western-frontier" in outcome.action_reason
     assert outcome.supportive_families == ["qwen"]
     assert not grok_item.would_count
     assert (
@@ -2482,3 +2488,18 @@ def test_has_supportive_quorum_is_tiered():
     assert _supportive_outcome(3, "claude", "qwen").has_supportive_quorum is True
     assert _supportive_outcome(None, "claude").has_supportive_quorum is False
     assert _supportive_outcome(None, "claude", "openai").has_supportive_quorum is True
+
+
+def test_incomplete_quorum_reason_is_tiered():
+    # Tier 1-2 settle on one western-frontier signal, so an incomplete reason
+    # names that requirement instead of a misleading "(n/2)" family denominator.
+    r12 = _supportive_outcome(2, "qwen").incomplete_quorum_reason
+    assert "western-frontier" in r12
+    assert "/2" not in r12
+    # Tier 0: any single supportive family -> report the (n/1) shortfall.
+    assert _supportive_outcome(0).incomplete_quorum_reason == (
+        "supportive quorum incomplete (0/1); prepared evidence only"
+    )
+    # Tier 3-4 / unknown tier keep the two-distinct-family denominator.
+    assert "(1/2 distinct families)" in _supportive_outcome(3, "claude").incomplete_quorum_reason
+    assert "(0/2 distinct families)" in _supportive_outcome(None).incomplete_quorum_reason

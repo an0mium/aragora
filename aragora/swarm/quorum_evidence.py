@@ -70,10 +70,11 @@ FAMILY_PROVIDERS: dict[str, str] = {
     "hermes": "nous",
 }
 
-# Western-frontier families. Under the tiered gate, a Tier 0-2 PR settles on a
+# Western-frontier families. Under the tiered gate, a Tier 1-2 PR settles on a
 # single supportive signal, which MUST be one of these (claude/openai) so a cheap
-# model can never solely authorize a merge. Mirrors WESTERN_FRONTIER_FAMILIES in
-# the review-queue gate so the auto-settle path and the merge-quorum check agree.
+# model can never solely authorize a merge (Tier 0 needs any one supportive
+# family; Tier 3-4 need two distinct families). Mirrors WESTERN_FRONTIER_FAMILIES
+# in the review-queue gate so the auto-settle path and the merge-quorum check agree.
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
 
 FAMILY_DISPLAY: dict[str, str] = {
@@ -294,6 +295,24 @@ class CollectOutcome:
         if self.tier is not None and 1 <= self.tier <= 2:
             return bool(supportive & WESTERN_FRONTIER_FAMILIES)
         return len(supportive) >= 2
+
+    @property
+    def incomplete_quorum_reason(self) -> str:
+        """Reason text when supportive evidence does not meet the tier bar.
+
+        Mirrors :meth:`has_supportive_quorum`: Tier 1-2 settle on one
+        western-frontier signal, so report that requirement rather than a
+        misleading ``(n/2)`` distinct-family denominator.
+        """
+        n = len(self.supportive_families)
+        if self.tier is not None and self.tier <= 0:
+            return f"supportive quorum incomplete ({n}/1); prepared evidence only"
+        if self.tier is not None and 1 <= self.tier <= 2:
+            return (
+                "supportive quorum incomplete "
+                "(needs a western-frontier signal: claude/openai); prepared evidence only"
+            )
+        return f"supportive quorum incomplete ({n}/2 distinct families); prepared evidence only"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1598,10 +1617,7 @@ def collect_evidence(
             return outcome
         if not outcome.has_supportive_quorum:
             outcome.action = "prepare"
-            outcome.action_reason = (
-                "supportive quorum incomplete "
-                f"({len(outcome.supportive_families)}/2); prepared evidence only"
-            )
+            outcome.action_reason = outcome.incomplete_quorum_reason
             return outcome
         # Reviewers can take minutes; re-verify the head and tier immediately
         # before posting so a head that moved or a PR promoted to a settlement
@@ -1794,10 +1810,7 @@ def apply_prepared_evidence(
         return outcome
     if not outcome.has_supportive_quorum:
         outcome.action = "prepare"
-        outcome.action_reason = (
-            "supportive quorum incomplete "
-            f"({len(outcome.supportive_families)}/2); prepared evidence only"
-        )
+        outcome.action_reason = outcome.incomplete_quorum_reason
         return outcome
 
     try:

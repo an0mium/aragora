@@ -6896,3 +6896,42 @@ def test_tier_requirement_is_tiered_for_low_tiers():
     tier0 = _tier_requirement(0)
     assert tier0["required_model_signals"] == 1
     assert tier0["requires_western_frontier_signal"] is False
+
+
+def test_western_frontier_families_match_quorum_evidence():
+    # The WF allowlist is duplicated across the merge-gate (review_queue) and the
+    # auto-settle path (quorum_evidence). A cross-module parity guard prevents the
+    # two from drifting apart, which would make the gate and collector disagree.
+    from aragora.cli.commands.review_queue import WESTERN_FRONTIER_FAMILIES as rq_wf
+    from aragora.swarm.quorum_evidence import WESTERN_FRONTIER_FAMILIES as qe_wf
+
+    assert rq_wf == qe_wf == frozenset({"claude", "openai"})
+
+
+def test_tier_two_lone_non_western_frontier_signal_omits_misleading_count():
+    # A lone grok signal meets the 1-signal count at Tier 2 but grok is not a
+    # western-frontier family. The real blocker is the WF requirement, so the
+    # reasons must NOT print the self-contradictory "1/1 signal(s)" line; they
+    # must name the western-frontier requirement instead.
+    pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+    pr["comments"] = [
+        {
+            "author": {"login": "an0mium"},
+            "body": "## Grok independent model review\nVerdict: approve.",
+        },
+    ]
+    quorum = _build_model_review_quorum(
+        pr=pr,
+        files=["aragora/cli/commands/swarm.py"],
+        protocol={"status": "metadata_heuristic"},
+        machine_recommendation="approve_candidate",
+        has_pending=False,
+        has_failures=False,
+    )
+    assert quorum["tier"] == 2
+    assert quorum["counted_reviewer_ids"] == ["grok"]
+    assert quorum["has_western_frontier_signal"] is False
+    assert quorum["status"] == "needs_model_review_quorum"
+    reasons = quorum["reasons"]
+    assert any("western-frontier" in r for r in reasons)
+    assert not any("signal(s)" in r for r in reasons)
