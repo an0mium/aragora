@@ -43,7 +43,7 @@ import threading
 import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -85,6 +85,32 @@ FAMILY_DISPLAY: dict[str, str] = {
     "minimax": "MiniMax",
     "hermes": "Hermes",
 }
+
+# Provider-equivalent CLI/product names that operators naturally type, mapped to
+# the single canonical family key. ``codex``/``gpt`` are the OpenAI family (the
+# Codex CLI is just its local transport). These MUST collapse to the canonical
+# family for BOTH routing and quorum counting via :func:`canonical_family`, so an
+# alias can never be counted as a distinct family — that would let one provider
+# satisfy the 2-distinct-family minimum on its own.
+_FAMILY_ALIASES: dict[str, str] = {
+    "codex": "openai",
+    "gpt": "openai",
+    "gpt-5": "openai",
+    "gpt5": "openai",
+    "chatgpt": "openai",
+}
+
+
+def canonical_family(name: str) -> str:
+    """Lowercase a reviewer-family name and collapse known provider aliases.
+
+    This is the only normalization that should be used for routing, validation,
+    and quorum counting. ``canonical_family("Codex") == canonical_family("openai")``
+    so the two never count as separate families.
+    """
+    fam = name.strip().lower()
+    return _FAMILY_ALIASES.get(fam, fam)
+
 
 DEFAULT_FAMILIES: tuple[str, ...] = ("claude", "grok")
 
@@ -340,7 +366,7 @@ def _string_list(value: Any) -> list[str]:
 def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
     if not isinstance(raw, dict):
         raise ValueError("prepared evidence item must be an object")
-    family = str(raw.get("family") or "").strip().lower()
+    family = canonical_family(str(raw.get("family") or ""))
     body = str(raw.get("body") or "")
     if not family:
         raise ValueError("prepared evidence item missing family")
@@ -360,7 +386,7 @@ def _reviewer_result_from_dict(raw: Any) -> ReviewerResult:
     if not isinstance(raw, dict):
         raise ValueError("prepared reviewer failure must be an object")
     return ReviewerResult(
-        family=str(raw.get("family") or "").strip().lower(),
+        family=canonical_family(str(raw.get("family") or "")),
         text=str(raw.get("text") or ""),
         ok=bool(raw.get("ok", False)),
         error=str(raw.get("error") or ""),
@@ -466,13 +492,20 @@ def _neutralize_reviewer_text(text: str) -> str:
 
 
 def _reviewer_verdict(text: str) -> str:
-    """Parse the first reviewer verdict line without inventing support."""
+    """Parse the first reviewer verdict line without inventing support.
+
+    Tolerant of common markdown decoration: reviewers frequently emit
+    ``**Verdict: PASS**`` or ``## Verdict: CHANGES-REQUESTED`` and may precede it
+    with a preamble line. Leading/trailing markdown (``*``, ``#``, ``>``, ``-``,
+    backticks) is stripped before matching so a genuine verdict is not lost.
+    """
     for line in text.splitlines():
         stripped = line.strip().lower()
         if not stripped:
             continue
-        if stripped.startswith("verdict:"):
-            verdict = stripped.split(":", 1)[1].strip()
+        probe = stripped.lstrip("*#>-`0123456789.)\t ")
+        if probe.startswith("verdict:"):
+            verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
             if verdict.startswith("pass"):
                 return "pass"
             if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
@@ -499,7 +532,7 @@ def compose_evidence_comment(
     head. ``reviewer_text`` is the genuine reviewer output; only lines that could
     hijack the identity parser are quoted (see :func:`_neutralize_reviewer_text`).
     """
-    fam = family.strip().lower()
+    fam = canonical_family(family)
     display = FAMILY_DISPLAY.get(fam, fam.title())
     provider = FAMILY_PROVIDERS.get(fam, fam)
     short = head_sha[:7]
@@ -648,16 +681,37 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     routing for grok/gemini lets the merge gate form a 2-family quorum from any
     two subscription CLIs, so one provider's usage cap can't stall merges.
     """
-    fam = family.strip().lower()
+    fam = canonical_family(family)
     if fam == "claude":
-        return _run_claude_cli(prompt)
-    if fam == "openai":
-        return _run_openai_reviewer(prompt)
-    if fam == "grok":
-        return _run_grok_reviewer(prompt)
-    if fam == "gemini":
-        return _run_gemini_reviewer(prompt)
-    return _run_api_agent(fam, prompt)
+        result = _run_claude_cli(prompt)
+    elif fam == "openai":
+        result = _run_openai_reviewer(prompt)
+    elif fam == "grok":
+        result = _run_grok_reviewer(prompt)
+    elif fam == "gemini":
+        result = _run_gemini_reviewer(prompt)
+    elif fam in _OPENROUTER_DIRECT_FAMILIES:
+        # No subscription CLI for this family: OpenRouter is the primary transport
+        # (opt-in egress gate still applies). Skip the fallback re-attempt below.
+        return _run_openrouter_reviewer(fam, prompt)
+    else:
+        result = _run_api_agent(fam, prompt)
+    # Opt-in last-resort fallback: when the subscription CLI / family API path
+    # failed (infra failure, not a returned verdict) and the OpenRouter fallback is
+    # explicitly enabled, review via OpenRouter using a same-tier model for the SAME
+    # family. Keeps the heterogeneous-family invariant (same family, different
+    # transport) so one provider's outage/quota can't stall the quorum.
+    if not result.ok:
+        fallback = _run_openrouter_reviewer(fam, prompt)
+        if fallback.ok:
+            return fallback
+        # Both paths failed: keep the primary failure but record that the fallback
+        # was attempted, so a stalled merge is attributable rather than opaque.
+        if "disabled" not in fallback.error:
+            return replace(
+                result, error=f"{result.error}; openrouter fallback also failed: {fallback.error}"
+            )
+    return result
 
 
 def _claude_reviewer_command() -> list[str]:
@@ -717,6 +771,7 @@ def _run_openai_reviewer(prompt: str) -> ReviewerResult:
 
 _GROK_BUILD_HARNESS = "Grok Build CLI harness"
 _ANTIGRAVITY_HARNESS = "Antigravity CLI harness"
+_OPENROUTER_HARNESS = "OpenRouter API fallback harness"
 
 
 def _resolve_grok_build_bin() -> str:
@@ -802,6 +857,90 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
         if result.ok or not _env_key_present("GEMINI_API_KEY", "GOOGLE_API_KEY"):
             return result
     return _run_api_agent("gemini", prompt)
+
+
+# Same-tier OpenRouter model per family for the failure-only fallback. Slugs are
+# verified against the live OpenRouter catalogue; a per-family override is read
+# from ARAGORA_OPENROUTER_REVIEWER_MODELS (JSON) so a stale slug never silently
+# no-ops the fallback. Mapped to the highest-quality slug per family so a fallback
+# review is as trustworthy as the subscription path it replaces.
+_OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
+    "claude": "anthropic/claude-fable-5",
+    "openai": "openai/gpt-5-pro",
+    "grok": "x-ai/grok-4.3",
+    "gemini": "google/gemini-3.1-pro-preview",
+    # Cost-efficient families with no subscription CLI — reviewed OpenRouter-direct
+    # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
+    # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
+    "deepseek": "deepseek/deepseek-v4-pro",
+    "qwen": "qwen/qwen3-235b-a22b-thinking-2507",
+    "kimi": "moonshotai/kimi-k2.6",
+}
+
+# Families with no subscription CLI / native API path: they review via OpenRouter
+# as their PRIMARY transport (still gated on the opt-in egress flag + key). This
+# lets cheap, distinct families (e.g. claude + deepseek/qwen/kimi) form a 2-family
+# quorum when the premium subscription CLIs are quota-/auth-blocked.
+_OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset({"deepseek", "qwen", "kimi"})
+
+
+def _openrouter_reviewer_model(family: str) -> str | None:
+    """Resolve the OpenRouter slug for ``family``, honoring an env JSON override."""
+    raw = os.environ.get("ARAGORA_OPENROUTER_REVIEWER_MODELS", "").strip()
+    if raw:
+        try:
+            override = json.loads(raw)
+            if isinstance(override, dict) and override.get(family):
+                return str(override[family])
+        except (ValueError, TypeError):
+            logger.warning("ARAGORA_OPENROUTER_REVIEWER_MODELS is not valid JSON; ignoring")
+    return _OPENROUTER_REVIEWER_MODELS.get(family)
+
+
+def _openrouter_reviewer_available() -> bool:
+    """True only when the fallback is EXPLICITLY enabled and a key is present.
+
+    Egressing the diff to a third-party aggregator is opt-in: an operator must set
+    ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK=1 AND provide OPENROUTER_API_KEY.
+    Having a key configured for other purposes never silently changes data egress.
+    """
+    enabled = str(os.environ.get("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK") or "").strip()
+    if enabled.lower() not in {"1", "true", "yes", "on"}:
+        return False
+    return _env_key_present("OPENROUTER_API_KEY")
+
+
+def _run_openrouter_reviewer(family: str, prompt: str) -> ReviewerResult:
+    """Opt-in, failure-only OpenRouter fallback so one provider's outage can't stall
+    quorum.
+
+    Requires ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK=1 + OPENROUTER_API_KEY;
+    reviews as the requested ``family`` via a same-tier OpenRouter model (same model
+    family, different transport). Returns a non-ok result when disabled or no model
+    is mapped, so the caller keeps the original subscription-path failure.
+    """
+    fam = canonical_family(family)
+    if not _openrouter_reviewer_available():
+        return ReviewerResult(
+            fam,
+            "",
+            False,
+            "OpenRouter fallback disabled (set ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK=1 "
+            "+ OPENROUTER_API_KEY to enable)",
+        )
+    model = _openrouter_reviewer_model(fam)
+    if not model:
+        return ReviewerResult(fam, "", False, f"no OpenRouter model mapped for family {fam}")
+    logger.warning(
+        "Reviewer %s: subscription path failed; attempting OpenRouter fallback via %s "
+        "(metered third-party egress, opt-in enabled)",
+        fam,
+        model,
+    )
+    result = _run_api_agent(fam, prompt, model=model)
+    if result.ok:
+        return ReviewerResult(fam, result.text, True, harness=_OPENROUTER_HARNESS)
+    return result
 
 
 def _run_codex_openai_cli(prompt: str) -> ReviewerResult:
@@ -905,11 +1044,11 @@ def _codex_model_selection_failed(detail: str) -> bool:
     )
 
 
-def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
+def _run_api_agent(family: str, prompt: str, model: str | None = None) -> ReviewerResult:
     timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
     ctx = _api_agent_process_context()
     result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
-    process = _start_api_agent_worker_process(ctx, family, prompt, result_queue, timeout)
+    process = _start_api_agent_worker_process(ctx, family, prompt, result_queue, model, timeout)
     process.start()
     process.join(timeout + _REVIEWER_CLEANUP_TIMEOUT)
     if process.is_alive():
@@ -952,11 +1091,12 @@ def _start_api_agent_worker_process(
     family: str,
     prompt: str,
     result_queue: multiprocessing.Queue,
-    timeout_s: float,
+    model: str | None = None,
+    timeout_s: float | None = None,
 ) -> multiprocessing.Process:
     return ctx.Process(
         target=_api_agent_worker,
-        args=(family, prompt, result_queue, timeout_s),
+        args=(family, prompt, result_queue, model, timeout_s),
         daemon=True,
     )
 
@@ -965,19 +1105,23 @@ def _api_agent_worker(
     family: str,
     prompt: str,
     result_queue: multiprocessing.Queue,
-    timeout_s: float,
+    model: str | None = None,
+    timeout_s: float | None = None,
 ) -> None:
     with _reviewer_timeout_overrides(timeout_s):
-        result_queue.put(_run_api_agent_in_current_process(family, prompt))
+        result_queue.put(_run_api_agent_in_current_process(family, prompt, model))
 
 
-def _run_api_agent_in_current_process(family: str, prompt: str) -> ReviewerResult:
+def _run_api_agent_in_current_process(
+    family: str, prompt: str, model: str | None = None
+) -> ReviewerResult:
     try:
-        from aragora.agents import create_agent
-    except Exception as exc:  # pragma: no cover - import guard
-        return ReviewerResult(family, "", False, f"create_agent import failed: {exc}")
-    try:
-        agent = create_agent(family, name=f"{family}_reviewer", role="critic")
+        if model:
+            agent = _build_openrouter_agent(family, model)
+        else:
+            from aragora.agents import create_agent
+
+            agent = create_agent(family, name=f"{family}_reviewer", role="critic")
         text = asyncio.run(_generate_with_api_agent_cleanup(agent, prompt))
     except Exception as exc:
         return ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
@@ -985,6 +1129,17 @@ def _run_api_agent_in_current_process(family: str, prompt: str) -> ReviewerResul
     if not text:
         return ReviewerResult(family, "", False, "empty reviewer output")
     return ReviewerResult(family, _cap_text(text), True)
+
+
+def _build_openrouter_agent(family: str, model: str) -> Any:
+    """Construct an OpenRouter-backed reviewer agent for ``model``.
+
+    The returned agent reviews as the requested ``family`` (same model family,
+    different transport), so its evidence still counts as that family's vote.
+    """
+    from aragora.agents.api_agents.openrouter import OpenRouterAgent
+
+    return OpenRouterAgent(name=f"{family}_openrouter_reviewer", role="critic", model=model)
 
 
 async def _generate_with_api_agent_cleanup(agent: Any, prompt: str) -> str:
@@ -1546,7 +1701,7 @@ def collect_evidence(
     seen: set[str] = set()
     ordered_families: list[str] = []
     for raw_family in families:
-        family = raw_family.strip().lower()
+        family = canonical_family(raw_family)
         if not family or family in seen:
             continue
         seen.add(family)
@@ -1698,7 +1853,7 @@ def _clone_reviewer_failures(failures: Sequence[ReviewerResult]) -> list[Reviewe
 def _prepared_family_allowlist(families: Sequence[str] | None) -> set[str] | None:
     if families is None:
         return None
-    return {family.strip().lower() for family in families if family.strip()}
+    return {canonical_family(family) for family in families if family.strip()}
 
 
 def _validate_prepared_item_families(
@@ -1709,7 +1864,7 @@ def _validate_prepared_item_families(
     allowed = _prepared_family_allowlist(families)
     seen: set[str] = set()
     for item in items:
-        family = item.family.strip().lower()
+        family = canonical_family(item.family)
         if family not in FAMILY_PROVIDERS:
             raise ValueError(
                 f"prepared evidence artifact has unsupported reviewer family: {family}"
