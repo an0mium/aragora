@@ -14,6 +14,7 @@ import pytest
 import typer  # noqa: F811
 from typer.testing import CliRunner
 
+import aragora.cli.training as training_cli
 from aragora.cli.training import app
 
 
@@ -74,6 +75,24 @@ class TestExportSft:
         call_kwargs = mock_exporter.export_to_file.call_args[1]
         assert call_kwargs["min_confidence"] == 0.8
         assert call_kwargs["limit"] == 500
+
+
+class TestDependencyLookup:
+    """Tests for dependency lookup assumptions used by source-module patches."""
+
+    def test_training_cli_does_not_cache_patch_target_classes(self):
+        """Source-module patch targets stay valid because commands import at call time."""
+        cached_names = {
+            "CritiqueStore",
+            "DPOExporter",
+            "EloSystem",
+            "GauntletExporter",
+            "SFTExporter",
+            "TinkerClient",
+            "TrainingScheduler",
+        }
+
+        assert cached_names.isdisjoint(vars(training_cli))
 
 
 class TestExportDpo:
