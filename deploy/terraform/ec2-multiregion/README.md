@@ -109,13 +109,16 @@ cp terraform.tfvars.example terraform.tfvars
 
 ### Software Stack
 - Python 3.11 with virtual environment
-- Production Aragora extras (`aragora[gateway,enterprise,connectors]`):
+- Aragora installed **from source**: the bootstrap clones
+  `https://github.com/synaptent/aragora.git` into `/opt/aragora/src` and runs
+  `pip install "/opt/aragora/src[gateway,enterprise,connectors]"`, which resolves
+  these production extras against the repository's own `pyproject.toml`:
   - `gateway` - FastAPI/uvicorn API server
   - `enterprise` - PostgreSQL (asyncpg), SAML SSO, Supabase persistence
   - `connectors` - Kafka and RabbitMQ streaming connectors
 - nginx reverse proxy
 - CloudWatch agent for logs/metrics
-- systemd service (aragora)
+- systemd service (`aragora`, launched with `python -m aragora.cli.main serve`)
 
 ## Post-Deployment Setup
 
@@ -242,8 +245,9 @@ variable "supermemory_api_key" {
 # Connect via SSM
 aws ssm start-session --target <instance-id>
 
-# Update
-sudo -u aragora /opt/aragora/venv/bin/pip install --upgrade aragora[gateway,enterprise,connectors]
+# Update from source
+sudo -u aragora git -C /opt/aragora/src pull
+sudo -u aragora /opt/aragora/venv/bin/pip install --upgrade "/opt/aragora/src[gateway,enterprise,connectors]"
 
 # Restart
 sudo systemctl restart aragora

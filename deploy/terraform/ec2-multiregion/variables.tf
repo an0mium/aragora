@@ -77,9 +77,3 @@ variable "enable_detailed_monitoring" {
   type        = bool
   default     = true
 }
-
-variable "aragora_extras" {
-  description = "Aragora pip extras installed by the EC2 bootstrap (keep in sync with user-data.sh / al2023-bootstrap.sh)"
-  type        = list(string)
-  default     = ["gateway", "enterprise", "connectors"]
-}

@@ -78,6 +78,13 @@ dnf install -y \
     libxml2-devel \
     libxslt-devel || echo "XML libraries not available, skipping"
 
+# SAML/xmlsec build dependencies: the `enterprise` extra pulls python3-saml,
+# which compiles a native binding against libxmlsec1.
+dnf install -y \
+    xmlsec1-devel \
+    pkgconfig || echo "xmlsec1 build libraries not available, skipping"
+dnf install -y libtool-ltdl-devel || echo "libtool-ltdl-devel not available, skipping"
+
 # =============================================================================
 # Application User and Directories
 # =============================================================================
@@ -102,11 +109,14 @@ source /opt/aragora/venv/bin/activate
 pip install --upgrade pip wheel setuptools
 
 # =============================================================================
-# Install Aragora with Production Extras
+# Install Aragora from Source with Production Extras
 # =============================================================================
 
+echo "=== Cloning Aragora repository ==="
+git clone https://github.com/synaptent/aragora.git /opt/aragora/src
+
 echo "=== Installing Aragora with production extras ==="
-pip install "aragora[gateway,enterprise,connectors]"
+pip install "/opt/aragora/src[gateway,enterprise,connectors]"
 
 # Set ownership
 chown -R aragora:aragora /opt/aragora /var/log/aragora /etc/aragora
@@ -216,7 +226,7 @@ Group=aragora
 WorkingDirectory=/opt/aragora
 Environment="PATH=/opt/aragora/venv/bin"
 EnvironmentFile=-/etc/aragora/env
-ExecStart=/opt/aragora/venv/bin/aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1
+ExecStart=/opt/aragora/venv/bin/python -m aragora.cli.main serve --api-port 8080 --ws-port 8765 --host 127.0.0.1
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5

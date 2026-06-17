@@ -107,6 +107,11 @@ dnf install -y libjpeg-devel libpng-devel 2>/dev/null || echo "Image libraries s
 # XML processing
 dnf install -y libxml2-devel libxslt-devel 2>/dev/null || echo "XML libraries skipped"
 
+# SAML/xmlsec build dependencies: the `enterprise` extra pulls python3-saml,
+# which compiles a native binding against libxmlsec1.
+dnf install -y xmlsec1-devel pkgconfig 2>/dev/null || echo "xmlsec1 build libraries skipped"
+dnf install -y libtool-ltdl-devel 2>/dev/null || echo "libtool-ltdl-devel skipped"
+
 # =============================================================================
 # Application Setup
 # =============================================================================
@@ -140,13 +145,16 @@ source /opt/aragora/venv/bin/activate
 
 pip install --upgrade pip wheel setuptools
 
+echo "Cloning Aragora repository..."
+git clone https://github.com/synaptent/aragora.git /opt/aragora/src
+
 echo "Installing Aragora with production extras..."
-pip install "aragora[gateway,enterprise,connectors]"
+pip install "/opt/aragora/src[gateway,enterprise,connectors]"
 
 # Verify installation
 echo ""
 echo "Installed packages:"
-pip list | grep -E "^(aragora|fastapi|uvicorn|aiohttp|pydantic)"
+pip list | grep -E "^(aragora-debate|fastapi|uvicorn|aiohttp|pydantic)"
 
 chown -R aragora:aragora /opt/aragora /var/log/aragora /etc/aragora
 
@@ -232,7 +240,7 @@ Group=aragora
 WorkingDirectory=/opt/aragora
 Environment="PATH=/opt/aragora/venv/bin"
 EnvironmentFile=-/etc/aragora/env
-ExecStart=/opt/aragora/venv/bin/aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1
+ExecStart=/opt/aragora/venv/bin/python -m aragora.cli.main serve --api-port 8080 --ws-port 8765 --host 127.0.0.1
 Restart=always
 RestartSec=5
 NoNewPrivileges=yes
@@ -315,7 +323,7 @@ echo "  nginx: $(nginx -v 2>&1)"
 echo ""
 echo "Aragora Installation:"
 source /opt/aragora/venv/bin/activate
-echo "  Version: $(pip show aragora 2>/dev/null | grep Version || echo 'installed')"
+echo "  Version: $(pip show aragora-debate 2>/dev/null | grep Version || echo 'installed')"
 echo "  Location: /opt/aragora/venv"
 echo ""
 echo "Next Steps:"
