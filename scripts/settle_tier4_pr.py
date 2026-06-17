@@ -1422,9 +1422,24 @@ def _fetch_direct_commit_check_runs_for_gate(
     return runs, ""
 
 
-def _normalize_rest_status_for_gate(status: dict[str, Any]) -> dict[str, Any]:
+def _rest_status_creator_login(status: dict[str, Any]) -> str:
     creator = status.get("creator")
-    creator_login = str(creator.get("login") or "").strip() if isinstance(creator, dict) else ""
+    if isinstance(creator, dict):
+        login = str(creator.get("login") or "").strip()
+        if login:
+            return login
+    for key in ("creator_login", "creatorLogin"):
+        login = str(status.get(key) or "").strip()
+        if login:
+            return login
+    user = status.get("user")
+    if isinstance(user, dict):
+        return str(user.get("login") or "").strip()
+    return ""
+
+
+def _normalize_rest_status_for_gate(status: dict[str, Any]) -> dict[str, Any]:
+    creator_login = _rest_status_creator_login(status)
     return {
         "context": str(status.get("context") or "").strip(),
         "state": str(status.get("state") or "").strip().upper(),

@@ -409,6 +409,7 @@ def test_load_live_inputs_uses_rest_pr_view_when_graphql_is_rate_limited(
     assert pr_view["headRefOid"] == head
     assert pr_view["comments"][0]["authorAssociation"] == "OWNER"
     assert pr_view["commitStatuses"][0]["context"] == settler.HUMAN_SETTLEMENT_CONTEXT
+    assert pr_view["commitStatuses"][0]["creator"] == {"login": "owner-user"}
     assert pr_view["mergeStateStatus"] == "CLEAN"
     assert merge_packet["entries"][0]["pr_number"] == 7423
     assert required_checks == _valid_checks()
@@ -420,6 +421,25 @@ def test_load_live_inputs_uses_rest_pr_view_when_graphql_is_rate_limited(
         required_checks=required_checks,
     )
     assert gate["ok"] is True
+
+
+def test_rest_normalized_human_status_without_creator_fails_closed() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    status = _rest_human_settlement_status()
+    status.pop("creator")
+    pr_view = _pr_view(head, comments=[_authorized_comment(head)], human_settlement_state=None)
+    pr_view["commitStatuses"] = [settler._normalize_rest_status_for_gate(status)]
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=pr_view,
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is False
+    assert "untrusted or unbound aragora/human-settlement status" in result["blockers"]
 
 
 def test_load_live_inputs_uses_rest_required_checks_when_graphql_checks_rate_limited(
