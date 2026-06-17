@@ -1,0 +1,206 @@
+"""Tests for the unattended Tier 0-2 auto-merge decision core.
+
+The decision core (:func:`aragora.swarm.auto_merge_green.decide_auto_merge`) is
+pure: it takes an already-fetched PR context and returns whether the PR may be
+merged unattended, plus the blockers that prevented it. It encodes the *same*
+authorization the merge-quorum gate already grants for Tier 0-2 PRs whose
+merge-packet reaches ``status=satisfied`` -- it never makes a new risk judgment,
+it only decides whether to *execute* an already-authorized merge without a human.
+
+Safety is the whole point, so every guard that keeps a not-fully-authorized PR
+from auto-merging gets its own test asserting the specific blocker.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+
+import pytest
+
+from aragora.swarm.auto_merge_green import (
+    MAX_AUTO_MERGE_TIER,
+    REQUIRED_CHECKS,
+    PRMergeContext,
+    decide_auto_merge,
+)
+
+
+def _green_checks() -> dict[str, str]:
+    states = dict.fromkeys(REQUIRED_CHECKS, "SUCCESS")
+    states["aragora-merge-quorum"] = "SUCCESS"
+    return states
+
+
+def _authorized_context(**overrides) -> PRMergeContext:
+    """A fully-authorized Tier-2 PR: every guard passes unless overridden."""
+    base = dict(
+        number=8447,
+        head_sha="a" * 40,
+        tier=2,
+        packet_status="satisfied",
+        packet_verdict="admin_squash_allowed",
+        requires_human_risk_settlement=False,
+        unresolved_dissent=False,
+        admin_squash_allowed=True,
+        is_draft=False,
+        mergeable="MERGEABLE",
+        merge_state_status="BLOCKED",
+        check_states=_green_checks(),
+    )
+    base.update(overrides)
+    return PRMergeContext(**base)
+
+
+def test_fully_authorized_tier2_pr_is_merged():
+    decision = decide_auto_merge(_authorized_context())
+    assert decision.should_merge is True
+    assert decision.blockers == ()
+    assert decision.number == 8447
+    assert decision.head_sha == "a" * 40
+
+
+def test_clean_merge_state_is_also_mergeable():
+    # A Tier-0 docs PR can reach CLEAN (no branch-protection block); still merge.
+    decision = decide_auto_merge(_authorized_context(tier=0, merge_state_status="CLEAN"))
+    assert decision.should_merge is True
+    assert decision.blockers == ()
+
+
+def test_tier_three_is_blocked_for_human_settlement():
+    decision = decide_auto_merge(_authorized_context(tier=3))
+    assert decision.should_merge is False
+    assert any("tier" in b.lower() for b in decision.blockers)
+
+
+def test_tier_four_is_blocked():
+    decision = decide_auto_merge(_authorized_context(tier=4))
+    assert decision.should_merge is False
+    assert any("tier" in b.lower() for b in decision.blockers)
+
+
+def test_unknown_tier_is_blocked():
+    decision = decide_auto_merge(_authorized_context(tier=None))
+    assert decision.should_merge is False
+    assert any("tier" in b.lower() for b in decision.blockers)
+
+
+def test_requires_human_risk_settlement_is_blocked():
+    decision = decide_auto_merge(_authorized_context(requires_human_risk_settlement=True))
+    assert decision.should_merge is False
+    assert any("human" in b.lower() for b in decision.blockers)
+
+
+def test_packet_status_not_satisfied_is_blocked():
+    decision = decide_auto_merge(_authorized_context(packet_status="needs_model_review_quorum"))
+    assert decision.should_merge is False
+    assert any("satisfied" in b.lower() for b in decision.blockers)
+
+
+def test_packet_verdict_not_admin_squash_is_blocked():
+    decision = decide_auto_merge(
+        _authorized_context(packet_verdict="collect_model_quorum_before_merge")
+    )
+    assert decision.should_merge is False
+    assert any("verdict" in b.lower() for b in decision.blockers)
+
+
+def test_admin_squash_not_allowed_is_blocked():
+    decision = decide_auto_merge(_authorized_context(admin_squash_allowed=False))
+    assert decision.should_merge is False
+    assert any("admin squash" in b.lower() for b in decision.blockers)
+
+
+def test_unresolved_dissent_is_blocked():
+    decision = decide_auto_merge(_authorized_context(unresolved_dissent=True))
+    assert decision.should_merge is False
+    assert any("dissent" in b.lower() for b in decision.blockers)
+
+
+def test_draft_is_blocked():
+    decision = decide_auto_merge(_authorized_context(is_draft=True))
+    assert decision.should_merge is False
+    assert any("draft" in b.lower() for b in decision.blockers)
+
+
+def test_conflicting_is_blocked():
+    decision = decide_auto_merge(_authorized_context(mergeable="CONFLICTING"))
+    assert decision.should_merge is False
+    assert any("mergeable" in b.lower() for b in decision.blockers)
+
+
+def test_unknown_mergeability_is_blocked():
+    decision = decide_auto_merge(_authorized_context(mergeable="UNKNOWN"))
+    assert decision.should_merge is False
+    assert any("mergeable" in b.lower() for b in decision.blockers)
+
+
+def test_dirty_merge_state_is_blocked():
+    decision = decide_auto_merge(_authorized_context(merge_state_status="DIRTY"))
+    assert decision.should_merge is False
+    assert any("merge state" in b.lower() for b in decision.blockers)
+
+
+def test_unstable_merge_state_is_blocked():
+    # UNSTABLE = a non-required check is failing; skip rather than risk it.
+    decision = decide_auto_merge(_authorized_context(merge_state_status="UNSTABLE"))
+    assert decision.should_merge is False
+    assert any("merge state" in b.lower() for b in decision.blockers)
+
+
+def test_quorum_not_green_is_blocked():
+    states = _green_checks()
+    states["aragora-merge-quorum"] = "FAILURE"
+    decision = decide_auto_merge(_authorized_context(check_states=states))
+    assert decision.should_merge is False
+    assert any("quorum" in b.lower() for b in decision.blockers)
+
+
+def test_quorum_missing_is_blocked():
+    states = _green_checks()
+    del states["aragora-merge-quorum"]
+    decision = decide_auto_merge(_authorized_context(check_states=states))
+    assert decision.should_merge is False
+    assert any("quorum" in b.lower() for b in decision.blockers)
+
+
+def test_any_failing_required_check_is_blocked():
+    states = _green_checks()
+    states["lint"] = "FAILURE"
+    decision = decide_auto_merge(_authorized_context(check_states=states))
+    assert decision.should_merge is False
+    assert any("lint" in b for b in decision.blockers)
+
+
+def test_pending_required_check_is_blocked():
+    states = _green_checks()
+    states["typecheck"] = "PENDING"
+    decision = decide_auto_merge(_authorized_context(check_states=states))
+    assert decision.should_merge is False
+    assert any("typecheck" in b for b in decision.blockers)
+
+
+def test_missing_required_check_is_blocked():
+    states = _green_checks()
+    del states["sdk-parity"]
+    decision = decide_auto_merge(_authorized_context(check_states=states))
+    assert decision.should_merge is False
+    assert any("sdk-parity" in b for b in decision.blockers)
+
+
+def test_multiple_blockers_are_all_reported():
+    decision = decide_auto_merge(
+        _authorized_context(tier=4, is_draft=True, mergeable="CONFLICTING")
+    )
+    assert decision.should_merge is False
+    # all three independent problems surface, not just the first
+    assert len(decision.blockers) >= 3
+
+
+def test_max_tier_is_two_by_default():
+    assert MAX_AUTO_MERGE_TIER == 2
+
+
+def test_context_is_immutable():
+    ctx = _authorized_context()
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        ctx.tier = 4  # type: ignore[misc]
