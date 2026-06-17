@@ -16,7 +16,6 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 ## Completed In This Pass
 
 - Fixed broken links in `docs/status/FEATURE_DISCOVERY.md` and `docs/status/STATUS.md`.
-- Verified `docs/status/NEXT_STEPS_CANONICAL.md` points at the archived six-week execution plan.
 - Reconciled `docs/EU_AI_ACT_COMPLIANCE.md` against `aragora/compliance/eu_ai_act.py`, including Article 9 artifact generation and current March 2026 timeline language.
 - Regenerated `docs/CAPABILITY_MATRIX.md` and `docs-site/docs/contributing/capability-matrix.md` from the YAML source of truth.
 - Added discoverability links for status, roadmap, gap, and hygiene docs from the main indexes.

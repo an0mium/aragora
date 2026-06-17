@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "@aragora/sdk": "file:../../sdk/typescript",
-    "@supabase/supabase-js": "^2.106.2",
+    "@supabase/supabase-js": "^2.108.1",
     "@types/d3-drag": "^3.0.7",
     "@types/d3-force": "^3.0.10",
     "@types/d3-selection": "^3.0.11",
@@ -68,7 +68,7 @@
     "@eslint/js": "^9.39.2",
     "@next/bundle-analyzer": "^16.2.6",
     "@playwright/test": "^1.60.0",
-    "@tailwindcss/postcss": "^4.3.0",
+    "@tailwindcss/postcss": "^4.3.1",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.5.0",
