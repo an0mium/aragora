@@ -1115,6 +1115,49 @@ def test_process_timeout_path_terminates_lingering_completed_reviewer(
     assert events == ["start:grok", "join:grok:0.01", "terminate:grok", "join:grok:0.01"]
 
 
+def test_process_timeout_path_fails_closed_when_process_cannot_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class FakeContext:
+        def Queue(self):
+            return qe.queue.Queue()
+
+        def Process(self, *, target, args):
+            del target
+            family = args[0]
+
+            class FakeProcess:
+                def start(self) -> None:
+                    events.append(f"start:{family}")
+                    raise TypeError("cannot pickle local runner")
+
+                def is_alive(self) -> bool:
+                    return False
+
+            return FakeProcess()
+
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda: FakeContext())
+
+    reviews, timed_out, timed_out_families = qe._collect_reviewer_results_with_process_timeout(
+        supported=["grok", "openai"],
+        prompt="review prompt",
+        reviewer_runner=lambda family, prompt: ReviewerResult(family, "Verdict: PASS", True),
+        reviewer_timeout_s=7,
+        overall_timeout_s=1,
+    )
+
+    assert timed_out is False
+    assert timed_out_families == []
+    assert events == ["start:grok", "start:openai"]
+    assert set(reviews) == {"grok", "openai"}
+    assert all(result.ok is False for result in reviews.values())
+    assert all(
+        "reviewer process start failed: TypeError" in result.error for result in reviews.values()
+    )
+
+
 def test_reviewer_process_worker_scopes_timeout_override_to_worker() -> None:
     result_queue: qe.queue.Queue[tuple[str, ReviewerResult]] = qe.queue.Queue()
     seen: dict[str, float] = {}

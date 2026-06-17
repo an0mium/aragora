@@ -1363,8 +1363,18 @@ def _collect_reviewer_results_with_process_timeout(
             args=(family, prompt, reviewer_runner, reviewer_timeout_s, result_queue),
         )
         processes[family] = process
+        try:
+            process.start()
+        except Exception as exc:  # noqa: BLE001 - fail closed for non-fork/spawn surfaces.
+            processes.pop(family, None)
+            reviews[family] = ReviewerResult(
+                family,
+                "",
+                False,
+                f"reviewer process start failed: {type(exc).__name__}: {str(exc)[:200]}",
+            )
+            return
         pending.add(family)
-        process.start()
 
     for _ in range(min(len(supported_list), _MAX_REVIEWER_WORKERS)):
         start_next()
@@ -1419,12 +1429,13 @@ def _collect_reviewer_results(
     reviewer_timeout_s: float | None,
     overall_timeout_s: float | None,
 ) -> tuple[dict[str, ReviewerResult], bool, list[str]]:
-    """Run reviewers concurrently with a fail-closed orchestration deadline.
+    """Run reviewers concurrently, using process isolation for orchestration deadlines.
 
-    If the orchestration deadline expires, the timed-out reviewers are reported
-    as failures and their late results are ignored. Active worker threads are
-    still joined before returning so no model subprocess/API work is abandoned
-    after fail-closed JSON is emitted.
+    When ``overall_timeout_s`` is provided, reviewers run in cancellable
+    subprocesses so the collector can return fail-closed JSON without leaving
+    reviewer work alive. Without an orchestration timeout, the legacy thread path
+    waits for all reviewers; each default reviewer still carries its own
+    per-reviewer timeout.
     """
     reviews: dict[str, ReviewerResult] = {}
     if not supported:
@@ -1468,41 +1479,14 @@ def _collect_reviewer_results(
     for _ in range(min(len(supported_list), _MAX_REVIEWER_WORKERS)):
         start_next()
 
-    deadline = None if overall_timeout_s is None else time.monotonic() + overall_timeout_s
-    timed_out = False
     while pending:
-        timeout = None
-        if deadline is not None:
-            timeout = max(0.0, deadline - time.monotonic())
-            if timeout <= 0:
-                timed_out = True
-                break
-        try:
-            family, result = result_queue.get(timeout=timeout)
-        except queue.Empty:
-            timed_out = True
-            break
+        family, result = result_queue.get()
         if family not in pending:
             continue
         reviews[family] = result
         pending.remove(family)
         start_next()
-
-    if timed_out:
-        timeout_label = _format_seconds(overall_timeout_s or 0)
-        timed_out_families = list(pending) + supported_list[next_index:]
-        for family in sorted(timed_out_families, key=supported_list.index):
-            reviews[family] = ReviewerResult(
-                family,
-                "",
-                False,
-                f"collect-evidence overall timeout after {timeout_label}s",
-            )
-        for family in list(pending):
-            threads[family].join()
-    else:
-        timed_out_families = []
-    return reviews, timed_out, sorted(timed_out_families, key=supported_list.index)
+    return reviews, False, []
 
 
 # --- Orchestrator ----------------------------------------------------------
