@@ -1190,6 +1190,36 @@ def test_duplicate_rest_and_rollup_human_success_authorizes() -> None:
     assert result["blockers"] == []
 
 
+def test_direct_rest_human_status_authorizes_with_incomplete_started_at_rollup() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    pr_view = _pr_view(
+        head,
+        comments=[_authorized_comment(head)],
+        human_settlement_state=None,
+    )
+    pr_view["statusCheckRollup"] = [
+        {
+            "context": settler.HUMAN_SETTLEMENT_CONTEXT,
+            "state": "SUCCESS",
+            "startedAt": "2026-05-22T00:06:00Z",
+        }
+    ]
+    pr_view["commitStatuses"] = [
+        settler._normalize_rest_status_for_gate(_rest_human_settlement_status())
+    ]
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=pr_view,
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+
+
 def test_newer_pending_human_status_blocks_older_success() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     pr_view = _pr_view(head, comments=[_authorized_comment(head)])
@@ -1219,14 +1249,15 @@ def test_newer_pending_human_status_blocks_older_success() -> None:
 def test_newer_bound_human_success_authorizes_despite_older_pending() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     pr_view = _pr_view(head, comments=[_authorized_comment(head)])
-    pr_view["statusCheckRollup"][0]["updatedAt"] = "2026-05-22T00:06:00Z"
+    pr_view["statusCheckRollup"][0]["state"] = "PENDING"
+    pr_view["statusCheckRollup"][0]["updatedAt"] = "2026-05-22T00:04:00Z"
     pr_view["commitStatuses"] = [
         {
             "context": settler.HUMAN_SETTLEMENT_CONTEXT,
-            "state": "pending",
+            "state": "success",
             "creator": {"login": "owner-user"},
             "target_url": "https://github.example/pr/7423#issuecomment-1",
-            "updatedAt": "2026-05-22T00:04:00Z",
+            "updatedAt": "2026-05-22T00:06:00Z",
         }
     ]
 

@@ -81,6 +81,8 @@ STATUS_TIMESTAMP_FIELDS = (
     "created_at",
     "completedAt",
     "completed_at",
+    "startedAt",
+    "started_at",
 )
 ALLOWED_TIER4_NOT_READY = {
     "human_risk_settlement",
@@ -413,14 +415,17 @@ def _required_checks_are_green(required_checks: list[dict[str, Any]] | None) -> 
     return True
 
 
-def _status_signal_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = []
-    for key in ("commitStatuses", "statusCheckRollup"):
-        value = pr_view.get(key)
-        if not isinstance(value, list):
+def _human_settlement_status_items(items: Any) -> list[dict[str, Any]]:
+    if not isinstance(items, list):
+        return []
+    settlement_statuses: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
             continue
-        items.extend(item for item in value if isinstance(item, dict))
-    return items
+        context = str(item.get("context") or item.get("name") or "")
+        if context == HUMAN_SETTLEMENT_CONTEXT:
+            settlement_statuses.append(item)
+    return settlement_statuses
 
 
 def _status_timestamp(item: dict[str, Any]) -> datetime | None:
@@ -474,15 +479,11 @@ def _dedupe_status_observations(items: Sequence[dict[str, Any]]) -> list[dict[st
 
 
 def _successful_human_settlement_status(pr_view: dict[str, Any]) -> dict[str, Any] | None:
-    settlement_statuses: list[dict[str, Any]] = []
-    for item in _status_signal_items(pr_view):
-        if not isinstance(item, dict):
-            continue
-        context = str(item.get("context") or item.get("name") or "")
-        if context != HUMAN_SETTLEMENT_CONTEXT:
-            continue
-        settlement_statuses.append(item)
-    settlement_statuses = _dedupe_status_observations(settlement_statuses)
+    settlement_statuses = _human_settlement_status_items(pr_view.get("commitStatuses"))
+    if not settlement_statuses:
+        settlement_statuses = _dedupe_status_observations(
+            _human_settlement_status_items(pr_view.get("statusCheckRollup"))
+        )
     if not settlement_statuses:
         return None
     if len(settlement_statuses) == 1:
