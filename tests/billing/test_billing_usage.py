@@ -75,6 +75,13 @@ class TestTokenCostCalculation:
         # $1.50 per 1M input + $9.00 per 1M output = $10.50
         assert cost == Decimal("10.50")
 
+    @pytest.mark.parametrize("model", ["gemini-3.1-pro", "gemini-3.1-pro-preview"])
+    def test_google_gemini_31_pro_pricing_matches_standard_tier(self, model: str):
+        """Gemini 3.1 Pro aliases use the canonical standard text tier."""
+        cost = calculate_token_cost("google", model, 1_000_000, 1_000_000)
+        # $2.00 per 1M input + $12.00 per 1M output = $14.00
+        assert cost == Decimal("14.00")
+
     def test_openrouter_openai_gpt55_alias_uses_canonical_pricing(self):
         """Test OpenRouter-qualified GPT-5.5 does not fall back to default pricing."""
         cost = calculate_token_cost("openrouter", "openai/gpt-5.5", 1_000_000, 1_000_000)
@@ -94,9 +101,9 @@ class TestTokenCostCalculation:
             ("anthropic/claude-opus-4.8", Decimal("30.00")),
             ("anthropic/claude-opus-4-7", Decimal("30.00")),
             ("anthropic/claude-opus-4.7", Decimal("30.00")),
-            ("anthropic/claude-haiku-4-5", Decimal("4.80")),
-            ("anthropic/claude-haiku-4.5", Decimal("4.80")),
-            ("anthropic/claude-haiku-4-5-20251001", Decimal("4.80")),
+            ("anthropic/claude-haiku-4-5", Decimal("6.00")),
+            ("anthropic/claude-haiku-4.5", Decimal("6.00")),
+            ("anthropic/claude-haiku-4-5-20251001", Decimal("6.00")),
         ],
     )
     def test_openrouter_anthropic_runtime_aliases_use_canonical_pricing(

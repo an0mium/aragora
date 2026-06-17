@@ -35,9 +35,9 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "claude-sonnet-4.6": (Decimal("3.00"), Decimal("15.00")),
         "claude-sonnet-4": (Decimal("3.00"), Decimal("15.00")),
         "claude-haiku-3": (Decimal("0.25"), Decimal("1.25")),
-        "claude-haiku-4-5": (Decimal("0.80"), Decimal("4.00")),
-        "claude-haiku-4-5-20251001": (Decimal("0.80"), Decimal("4.00")),
-        "claude-haiku-4.5": (Decimal("0.80"), Decimal("4.00")),
+        "claude-haiku-4-5": (Decimal("1.00"), Decimal("5.00")),
+        "claude-haiku-4-5-20251001": (Decimal("1.00"), Decimal("5.00")),
+        "claude-haiku-4.5": (Decimal("1.00"), Decimal("5.00")),
     },
     "openai": {
         "gpt-5.5": (Decimal("2.50"), Decimal("10.00")),
@@ -49,6 +49,7 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     "google": {
         "gemini-3.5-flash": (Decimal("1.50"), Decimal("9.00")),
         "gemini-3.1-pro": (Decimal("2.00"), Decimal("12.00")),
+        "gemini-3.1-pro-preview": (Decimal("2.00"), Decimal("12.00")),
         "gemini-3-flash": (Decimal("0.50"), Decimal("3.00")),
         "gemini-pro": (Decimal("1.25"), Decimal("5.00")),
     },
@@ -76,11 +77,11 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "anthropic/claude-opus-4.8": (Decimal("5.00"), Decimal("25.00")),
         "anthropic/claude-opus-4-7": (Decimal("5.00"), Decimal("25.00")),
         "anthropic/claude-opus-4.7": (Decimal("5.00"), Decimal("25.00")),
-        "anthropic/claude-haiku-4-5": (Decimal("0.80"), Decimal("4.00")),
-        "anthropic/claude-haiku-4.5": (Decimal("0.80"), Decimal("4.00")),
+        "anthropic/claude-haiku-4-5": (Decimal("1.00"), Decimal("5.00")),
+        "anthropic/claude-haiku-4.5": (Decimal("1.00"), Decimal("5.00")),
         "anthropic/claude-haiku-4-5-20251001": (
-            Decimal("0.80"),
-            Decimal("4.00"),
+            Decimal("1.00"),
+            Decimal("5.00"),
         ),
     },
 }

@@ -113,6 +113,8 @@ class TestProviderRateMirrors:
         [
             ("openai", "gpt-5.5"),
             ("google", "gemini-3.5-flash"),
+            ("google", "gemini-3.1-pro"),
+            ("google", "gemini-3.1-pro-preview"),
             ("openrouter", "openai/gpt-5.5"),
             ("openrouter", "google/gemini-3.5-flash"),
             ("openrouter", "anthropic/claude-opus-4-8"),

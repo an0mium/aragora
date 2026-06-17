@@ -730,7 +730,7 @@ class TestNewFamilyCostTracking:
             model="gemini-3.1-pro-preview",
             tokens_in=1_000_000,
             tokens_out=0,
-        ) == pytest.approx(1.25)
+        ) == pytest.approx(2.0)
 
     @pytest.mark.parametrize(
         ("provider", "model"),
@@ -741,6 +741,8 @@ class TestNewFamilyCostTracking:
             ("anthropic", "claude-haiku-4-5-20251001"),
             ("openai", "gpt-5.5"),
             ("google", "gemini-3.5-flash"),
+            ("google", "gemini-3.1-pro"),
+            ("google", "gemini-3.1-pro-preview"),
         ],
     )
     def test_calibrated_billing_rates_have_pdb_cost_entries(
@@ -766,6 +768,8 @@ class TestNewFamilyCostTracking:
             ("anthropic", "claude-haiku-4-5-20251001"),
             ("openai", "gpt-5.5"),
             ("google", "gemini-3.5-flash"),
+            ("google", "gemini-3.1-pro"),
+            ("google", "gemini-3.1-pro-preview"),
         ],
     )
     def test_prefixed_calibrated_models_resolve_to_pdb_cost_entries(
