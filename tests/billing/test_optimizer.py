@@ -25,11 +25,13 @@ from aragora.billing.recommendations import (
 )
 from aragora.billing.optimizer import (
     CostOptimizer,
+    MODEL_TIERS,
     ModelDowngradeAnalyzer,
     CachingRecommender,
     BatchingOptimizer,
     UsagePattern,
 )
+from aragora.billing.usage import PROVIDER_PRICING
 
 
 class TestRecommendationDataclasses:
@@ -121,6 +123,13 @@ class TestRecommendationDataclasses:
 class TestModelDowngradeAnalyzer:
     """Tests for model downgrade analyzer."""
 
+    def test_model_tiers_have_explicit_provider_pricing(self):
+        """Every optimizer tier must resolve to explicit billing rates, not defaults."""
+        for model, info in MODEL_TIERS.items():
+            provider_prices = PROVIDER_PRICING[info["provider"]]
+            assert model in provider_prices
+            assert f"{model}-output" in provider_prices
+
     def test_analyze_identifies_downgrade_opportunity(self):
         """Test analyzer finds downgrade opportunities."""
         analyzer = ModelDowngradeAnalyzer()
@@ -144,6 +153,133 @@ class TestModelDowngradeAnalyzer:
         assert rec.type == RecommendationType.MODEL_DOWNGRADE
         assert rec.projected_cost_usd < rec.current_cost_usd
         assert rec.model_alternative is not None
+
+    def test_analyze_recommends_downgrade_to_new_models(self):
+        """Test analyzer finds new alternatives like gemini-3.5-flash and deepseek-v4-pro."""
+        analyzer = ModelDowngradeAnalyzer()
+
+        patterns = [
+            UsagePattern(
+                model="claude-opus-4-8",
+                provider="anthropic",
+                operation="summarize",
+                count=100,
+                total_tokens_in=500000,
+                total_tokens_out=100000,
+                total_cost=Decimal("50.00"),
+            ),
+        ]
+
+        recommendations = analyzer.analyze(patterns, "ws-123")
+
+        assert len(recommendations) >= 1
+        rec = recommendations[0]
+        assert rec.type == RecommendationType.MODEL_DOWNGRADE
+        assert rec.model_alternative is not None
+        assert rec.projected_cost_usd < rec.current_cost_usd
+
+        alternatives = {
+            alt.model: alt
+            for alt in analyzer._find_alternatives(  # noqa: SLF001
+                patterns[0],
+                current_tier=1,
+            )
+        }
+        assert "deepseek-v4-pro" in alternatives
+        assert "gemini-3.5-flash" in alternatives
+        assert alternatives["gemini-3.5-flash"].cost_per_1k_input == Decimal("0.00150")
+        assert alternatives["gemini-3.5-flash"].cost_per_1k_output == Decimal("0.00900")
+
+    def test_runtime_claude_model_ids_have_optimizer_tiers(self):
+        """Runtime Claude IDs must hit optimizer tiers instead of being skipped."""
+        assert MODEL_TIERS["claude-opus-4-8"] == {
+            "tier": 1,
+            "provider": "anthropic",
+            "quality": 1.0,
+        }
+        assert MODEL_TIERS["claude-opus-4-7"] == {
+            "tier": 1,
+            "provider": "anthropic",
+            "quality": 1.0,
+        }
+        assert MODEL_TIERS["claude-opus-4.8"] == {
+            "tier": 1,
+            "provider": "anthropic",
+            "quality": 1.0,
+        }
+        assert MODEL_TIERS["claude-opus-4.7"] == {
+            "tier": 1,
+            "provider": "anthropic",
+            "quality": 1.0,
+        }
+        assert MODEL_TIERS["claude-haiku-3"] == {
+            "tier": 3,
+            "provider": "anthropic",
+            "quality": 0.65,
+        }
+        assert MODEL_TIERS["claude-haiku-4-5"] == {
+            "tier": 3,
+            "provider": "anthropic",
+            "quality": 0.65,
+        }
+        assert MODEL_TIERS["claude-haiku-4.5"] == {
+            "tier": 3,
+            "provider": "anthropic",
+            "quality": 0.65,
+        }
+        assert MODEL_TIERS["claude-haiku-4-5-20251001"] == {
+            "tier": 3,
+            "provider": "anthropic",
+            "quality": 0.65,
+        }
+
+    def test_analyze_uses_runtime_opus_model_for_downgrade(self):
+        """The analyzer must not miss Opus traffic because the model ID is an alias."""
+        analyzer = ModelDowngradeAnalyzer()
+
+        for model in (
+            "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-opus-4.8",
+            "claude-opus-4.7",
+        ):
+            recommendations = analyzer.analyze(
+                [
+                    UsagePattern(
+                        model=model,
+                        provider="anthropic",
+                        operation="summarize",
+                        count=100,
+                        total_tokens_in=500000,
+                        total_tokens_out=100000,
+                        total_cost=Decimal("50.00"),
+                    ),
+                ],
+                "ws-123",
+            )
+
+            assert recommendations
+            assert recommendations[0].title.startswith("Use ")
+            assert f"instead of {model}" in recommendations[0].title
+
+    def test_runtime_haiku_model_can_be_priced_as_alternative(self):
+        """Runtime Haiku IDs keep explicit rates when eligible as alternatives."""
+        analyzer = ModelDowngradeAnalyzer(quality_threshold=0.6)
+
+        alternatives = {
+            alt.model: alt
+            for alt in analyzer._find_alternatives(  # noqa: SLF001
+                UsagePattern(
+                    model="claude-opus-4-8",
+                    provider="anthropic",
+                    operation="summarize",
+                ),
+                current_tier=1,
+            )
+        }
+
+        assert alternatives["claude-haiku-4-5"].cost_per_1k_input == Decimal("0.00100")
+        assert alternatives["claude-haiku-4-5"].cost_per_1k_output == Decimal("0.00500")
 
     def test_analyze_skips_cheap_models(self):
         """Test analyzer skips already cheap models."""

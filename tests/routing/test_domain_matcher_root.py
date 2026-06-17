@@ -6,7 +6,7 @@ Tests domain detection via keywords and caching behavior.
 
 import sys
 import time
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,6 +33,11 @@ except ModuleNotFoundError:
     _anthropic_types_module.TextBlock = TextBlock
     _anthropic_module.types = _anthropic_types_module
     sys.modules.setdefault("anthropic.types", _anthropic_types_module)
+
+
+def text_block(text: str) -> SimpleNamespace:
+    """Return the minimal response shape consumed by DomainDetector."""
+    return SimpleNamespace(type="text", text=text)
 
 
 # =============================================================================
@@ -320,7 +325,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            TextBlock(type="text", text='{"domains": [{"name": "security", "confidence": 0.95}]}')
+            text_block('{"domains": [{"name": "security", "confidence": 0.95}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -336,9 +341,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            TextBlock(
-                type="text", text='```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```'
-            )
+            text_block('```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -383,7 +386,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            TextBlock(type="text", text='{"domains": [{"name": "security", "confidence": 0.9}]}')
+            text_block('{"domains": [{"name": "security", "confidence": 0.9}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 
