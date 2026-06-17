@@ -160,7 +160,7 @@ class TestModelDowngradeAnalyzer:
 
         patterns = [
             UsagePattern(
-                model="claude-opus-4.8",
+                model="claude-opus-4-8",
                 provider="anthropic",
                 operation="summarize",
                 count=100,
@@ -189,6 +189,63 @@ class TestModelDowngradeAnalyzer:
         assert "gemini-3.5-flash" in alternatives
         assert alternatives["gemini-3.5-flash"].cost_per_1k_input == Decimal("0.00150")
         assert alternatives["gemini-3.5-flash"].cost_per_1k_output == Decimal("0.00900")
+
+    def test_runtime_claude_model_ids_have_optimizer_tiers(self):
+        """Runtime Claude IDs must hit optimizer tiers instead of being skipped."""
+        assert MODEL_TIERS["claude-opus-4-8"] == {
+            "tier": 1,
+            "provider": "anthropic",
+            "quality": 1.0,
+        }
+        assert MODEL_TIERS["claude-haiku-4-5"] == {
+            "tier": 3,
+            "provider": "anthropic",
+            "quality": 0.65,
+        }
+        assert "claude-opus-4.8" not in MODEL_TIERS
+        assert "claude-haiku-4.5" not in MODEL_TIERS
+
+    def test_analyze_uses_runtime_opus_model_for_downgrade(self):
+        """The analyzer must not miss Opus traffic because the model ID is hyphenated."""
+        analyzer = ModelDowngradeAnalyzer()
+
+        recommendations = analyzer.analyze(
+            [
+                UsagePattern(
+                    model="claude-opus-4-8",
+                    provider="anthropic",
+                    operation="summarize",
+                    count=100,
+                    total_tokens_in=500000,
+                    total_tokens_out=100000,
+                    total_cost=Decimal("50.00"),
+                ),
+            ],
+            "ws-123",
+        )
+
+        assert recommendations
+        assert recommendations[0].title.startswith("Use ")
+        assert "instead of claude-opus-4-8" in recommendations[0].title
+
+    def test_runtime_haiku_model_can_be_priced_as_alternative(self):
+        """Runtime Haiku IDs keep explicit rates when eligible as alternatives."""
+        analyzer = ModelDowngradeAnalyzer(quality_threshold=0.6)
+
+        alternatives = {
+            alt.model: alt
+            for alt in analyzer._find_alternatives(  # noqa: SLF001
+                UsagePattern(
+                    model="claude-opus-4-8",
+                    provider="anthropic",
+                    operation="summarize",
+                ),
+                current_tier=1,
+            )
+        }
+
+        assert alternatives["claude-haiku-4-5"].cost_per_1k_input == Decimal("0.00080")
+        assert alternatives["claude-haiku-4-5"].cost_per_1k_output == Decimal("0.00400")
 
     def test_analyze_skips_cheap_models(self):
         """Test analyzer skips already cheap models."""

@@ -27,11 +27,13 @@ logger = logging.getLogger(__name__)
 # These mirror PROVIDER_PRICING from usage.py but can be overridden per-instance.
 DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
     "anthropic": {
+        "claude-opus-4-8": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4.8": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4.7": (Decimal("5.00"), Decimal("25.00")),
         "claude-opus-4": (Decimal("5.00"), Decimal("25.00")),
         "claude-sonnet-4.6": (Decimal("3.00"), Decimal("15.00")),
         "claude-sonnet-4": (Decimal("3.00"), Decimal("15.00")),
+        "claude-haiku-4-5": (Decimal("0.80"), Decimal("4.00")),
         "claude-haiku-4.5": (Decimal("0.80"), Decimal("4.00")),
     },
     "openai": {

@@ -33,6 +33,8 @@ class UsageEventType(Enum):
 # Provider pricing per 1M tokens.
 PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
     "anthropic": {
+        "claude-opus-4-8": Decimal("5.00"),  # Input
+        "claude-opus-4-8-output": Decimal("25.00"),
         "claude-opus-4.8": Decimal("5.00"),  # Input
         "claude-opus-4.8-output": Decimal("25.00"),
         "claude-opus-4.7": Decimal("5.00"),  # Input
@@ -43,6 +45,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "claude-sonnet-4.6-output": Decimal("15.00"),
         "claude-sonnet-4": Decimal("3.00"),
         "claude-sonnet-4-output": Decimal("15.00"),
+        "claude-haiku-4-5": Decimal("0.80"),
+        "claude-haiku-4-5-output": Decimal("4.00"),
         "claude-haiku-4.5": Decimal("0.80"),
         "claude-haiku-4.5-output": Decimal("4.00"),
     },

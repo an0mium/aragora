@@ -49,6 +49,7 @@ from aragora.pdb.real_invoker import (
     WIRED_FAMILIES,
     ProviderUnavailableError,
     RealProviderInvoker,
+    _PRICE_PER_MTOK,
     estimate_cost_usd,
 )
 from aragora.review.builder import PanelVote
@@ -745,6 +746,27 @@ class TestNewFamilyCostTracking:
         expected = float(provider_prices[model] + provider_prices[f"{model}-output"])
         assert estimate_cost_usd(
             model=model,
+            tokens_in=1_000_000,
+            tokens_out=1_000_000,
+        ) == pytest.approx(expected)
+
+    def test_gpt_5_5_pdb_price_entry_is_explicit(self) -> None:
+        assert _PRICE_PER_MTOK["gpt-5.5"] == (2.50, 10.00)
+
+    @pytest.mark.parametrize(
+        ("provider", "model"),
+        [
+            ("openai", "gpt-5.5"),
+            ("google", "gemini-3.5-flash"),
+        ],
+    )
+    def test_prefixed_calibrated_models_resolve_to_pdb_cost_entries(
+        self, provider: str, model: str
+    ) -> None:
+        provider_prices = PROVIDER_PRICING[provider]
+        expected = float(provider_prices[model] + provider_prices[f"{model}-output"])
+        assert estimate_cost_usd(
+            model=f"{provider}/{model}",
             tokens_in=1_000_000,
             tokens_out=1_000_000,
         ) == pytest.approx(expected)
