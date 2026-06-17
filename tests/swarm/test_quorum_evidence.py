@@ -1467,6 +1467,7 @@ def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
         ),
         ("intro preamble line\nVerdict: PASS\n- note", "pass"),
         ("`Verdict: pass`", "pass"),
+        ("1. Verdict: PASS", "pass"),
         ("no verdict at all here", "unknown"),
     ],
 )
@@ -1474,6 +1475,17 @@ def test_reviewer_verdict_tolerates_markdown_and_preamble(body: str, expected: s
     from aragora.swarm.quorum_evidence import _reviewer_verdict
 
     assert _reviewer_verdict(body) == expected
+
+
+def test_evidence_item_from_dict_canonicalizes_alias_family() -> None:
+    # A prepared artifact labeled with an alias must deserialize to the canonical
+    # family so apply/replay counts it (lint discloses the canonical family).
+    from aragora.swarm.quorum_evidence import _evidence_item_from_dict
+
+    item = _evidence_item_from_dict(
+        {"family": "Codex", "body": "Verdict: PASS\nbody", "would_count": True}
+    )
+    assert item.family == "openai"
 
 
 def test_collect_missing_head_raises() -> None:

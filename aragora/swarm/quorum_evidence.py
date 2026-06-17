@@ -317,7 +317,7 @@ def _string_list(value: Any) -> list[str]:
 def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
     if not isinstance(raw, dict):
         raise ValueError("prepared evidence item must be an object")
-    family = str(raw.get("family") or "").strip().lower()
+    family = canonical_family(str(raw.get("family") or ""))
     body = str(raw.get("body") or "")
     if not family:
         raise ValueError("prepared evidence item missing family")
@@ -337,7 +337,7 @@ def _reviewer_result_from_dict(raw: Any) -> ReviewerResult:
     if not isinstance(raw, dict):
         raise ValueError("prepared reviewer failure must be an object")
     return ReviewerResult(
-        family=str(raw.get("family") or "").strip().lower(),
+        family=canonical_family(str(raw.get("family") or "")),
         text=str(raw.get("text") or ""),
         ok=bool(raw.get("ok", False)),
         error=str(raw.get("error") or ""),
@@ -452,7 +452,7 @@ def _reviewer_verdict(text: str) -> str:
         stripped = line.strip().lower()
         if not stripped:
             continue
-        probe = stripped.lstrip("*#>-` \t")
+        probe = stripped.lstrip("*#>-`0123456789.)\t ")
         if probe.startswith("verdict:"):
             verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
             if verdict.startswith("pass"):

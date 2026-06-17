@@ -3814,6 +3814,13 @@ def _normalize_model_family(value: str) -> str:
         "z-ai": "glm",
         "nous-hermes": "hermes",
         "nous hermes": "hermes",
+        # OpenAI-family CLI/product names so a disclosed "Model family: codex"
+        # still counts at the gate (mirrors canonical_family in quorum_evidence).
+        "codex": "openai",
+        "gpt": "openai",
+        "gpt-5": "openai",
+        "gpt5": "openai",
+        "chatgpt": "openai",
     }
 
     def _lookup(token: str) -> str:

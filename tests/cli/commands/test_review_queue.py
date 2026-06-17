@@ -2658,6 +2658,16 @@ class TestParentheticalModelFamily:
         assert _normalize_model_family("openai") == "openai"
         assert _normalize_model_family("claude") == "claude"
 
+    def test_codex_and_gpt_aliases_resolve_to_openai(self) -> None:
+        # A disclosed "Model family: codex" / "gpt" must count at the gate, since
+        # the collector now emits canonical "openai" for those CLI/product names.
+        from aragora.cli.commands.review_queue import _normalize_model_family
+
+        assert _normalize_model_family("codex") == "openai"
+        assert _normalize_model_family("gpt") == "openai"
+        assert _normalize_model_family("chatgpt") == "openai"
+        assert _normalize_model_family("codex (gpt-5.5 harness)") == "openai"
+
     def test_aliases_still_resolve_including_multiword(self) -> None:
         from aragora.cli.commands.review_queue import _normalize_model_family
 
