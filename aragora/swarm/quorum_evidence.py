@@ -70,6 +70,12 @@ FAMILY_PROVIDERS: dict[str, str] = {
     "hermes": "nous",
 }
 
+# Western-frontier families. Under the tiered gate, a Tier 0-2 PR settles on a
+# single supportive signal, which MUST be one of these (claude/openai) so a cheap
+# model can never solely authorize a merge. Mirrors WESTERN_FRONTIER_FAMILIES in
+# the review-queue gate so the auto-settle path and the merge-quorum check agree.
+WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
+
 FAMILY_DISPLAY: dict[str, str] = {
     "claude": "Claude",
     "grok": "Grok",
@@ -275,7 +281,19 @@ class CollectOutcome:
 
     @property
     def has_supportive_quorum(self) -> bool:
-        return len(self.supportive_families) >= 2
+        """Whether the supportive evidence meets the tier's settlement bar.
+
+        Tiered gate (mirrors ``_tier_requirement`` in the review-queue gate):
+        Tier 1-2 settle on ONE supportive western-frontier signal (claude/openai);
+        Tier 3-4 (and any unknown/None tier, fail-safe) need two distinct
+        supportive families. Tier 0 needs one supportive family of any kind.
+        """
+        supportive = set(self.supportive_families)
+        if self.tier is not None and self.tier <= 0:
+            return len(supportive) >= 1
+        if self.tier is not None and 1 <= self.tier <= 2:
+            return bool(supportive & WESTERN_FRONTIER_FAMILIES)
+        return len(supportive) >= 2
 
     def to_dict(self) -> dict[str, Any]:
         return {

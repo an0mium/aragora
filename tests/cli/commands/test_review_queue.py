@@ -1098,7 +1098,11 @@ class TestModelReviewQuorum:
         assert quorum["admin_squash_allowed"] is True
         assert set(quorum["counted_reviewer_ids"]) == {"claude", "gemini", "openai"}
 
-    def test_duplicate_codex_comments_do_not_satisfy_tier_two_quorum(self) -> None:
+    def test_single_western_frontier_signal_satisfies_tier_two_quorum(self) -> None:
+        # Tiered gate: Tier 2 settles on ONE western-frontier (openai/codex) signal
+        # + dogfood. Duplicate same-family comments still dedup to a single distinct
+        # family (counted_reviewer_ids == ["openai"]); they don't inflate the count,
+        # but one western-frontier signal is sufficient at this tier.
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
             _codex_openai_comment(),
@@ -1126,10 +1130,11 @@ class TestModelReviewQuorum:
             has_failures=False,
         )
         assert quorum["tier"] == 2
-        assert quorum["status"] == "needs_model_review_quorum"
-        assert quorum["admin_squash_allowed"] is False
+        assert quorum["status"] == "satisfied"
+        assert quorum["admin_squash_allowed"] is True
         assert quorum["counted_reviewer_ids"] == ["openai"]
-        assert "model quorum incomplete: 1/2 signal(s)" in quorum["reasons"]
+        assert quorum["requires_western_frontier_signal"] is True
+        assert quorum["has_western_frontier_signal"] is True
 
     def test_codex_dogfood_and_grok_review_satisfy_tier_two_quorum(self) -> None:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
@@ -1684,7 +1689,10 @@ class TestModelReviewQuorum:
         self,
     ) -> None:
         head_sha = "abcdef1234567890abcdef1234567890abcdef12"
-        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        # Tier-3 surface (security): a lone counted western-frontier signal is NOT
+        # sufficient there, so the "review-object form does not count" intent still
+        # leaves the quorum incomplete under tiered settlement.
+        pr = _make_pr(files=["aragora/security/encryption.py"])
         pr["headRefOid"] = head_sha
         pr["commits"] = [
             {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
@@ -1713,7 +1721,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/swarm.py"],
+            files=["aragora/security/encryption.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -1731,7 +1739,9 @@ class TestModelReviewQuorum:
         self,
     ) -> None:
         head_sha = "abcdef1234567890abcdef1234567890abcdef12"
-        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        # Tier-3 surface (still requires two distinct signals) so the lone counted
+        # claude leaves the quorum incomplete and the codex-metadata warning fires.
+        pr = _make_pr(files=["aragora/security/encryption.py"])
         pr["headRefOid"] = head_sha
         pr["commits"] = [
             {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
@@ -1758,7 +1768,7 @@ class TestModelReviewQuorum:
         ]
         quorum = _build_model_review_quorum(
             pr=pr,
-            files=["aragora/cli/commands/swarm.py"],
+            files=["aragora/security/encryption.py"],
             protocol={"status": "metadata_heuristic"},
             machine_recommendation="approve_candidate",
             has_pending=False,
@@ -3946,7 +3956,9 @@ class TestBuildQueueAndPacket:
         ]
         assert quorum["status"] == "needs_model_review_quorum"
         assert quorum["verdict"] == "collect_model_quorum_before_merge"
-        assert "model quorum incomplete: 0/2 signal(s)" in quorum["reasons"]
+        # Tier 2 under the tiered gate needs one western-frontier signal; with zero
+        # model signals present the incomplete message reads 0/1.
+        assert "model quorum incomplete: 0/1 signal(s)" in quorum["reasons"]
         assert "checks are failing; repair before settlement" not in quorum["reasons"]
 
     def test_required_pr_checks_gate_keeps_non_self_required_failure_blocking(
@@ -6861,3 +6873,26 @@ def test_quorum_evidence_is_tier4_merge_authority():
     from scripts.tier4_merge_train import SERIALIZED_TIER4_PREFIXES
 
     assert "aragora/swarm/quorum_evidence.py" in SERIALIZED_TIER4_PREFIXES
+
+
+def test_tier_requirement_is_tiered_for_low_tiers():
+    # Tiered gate: Tier 1-2 settle on ONE western-frontier model signal (claude/
+    # openai) + dogfood; Tier 3-4 retain the full two-family gate + settlement.
+    from aragora.cli.commands.review_queue import _tier_requirement
+
+    for tier in (1, 2):
+        req = _tier_requirement(tier)
+        assert req["required_model_signals"] == 1, tier
+        assert req["requires_western_frontier_signal"] is True, tier
+        assert req["requires_adversarial_dogfood"] is True, tier
+        assert req["requires_human_risk_settlement"] is False, tier
+
+    for tier in (3, 4):
+        req = _tier_requirement(tier)
+        assert req["required_model_signals"] == 2, tier
+        assert req["requires_western_frontier_signal"] is False, tier
+        assert req["requires_human_risk_settlement"] is True, tier
+
+    tier0 = _tier_requirement(0)
+    assert tier0["required_model_signals"] == 1
+    assert tier0["requires_western_frontier_signal"] is False

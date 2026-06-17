@@ -1093,13 +1093,15 @@ def test_collect_low_tier_apply_prepares_only_when_reviewer_dissents() -> None:
 
 
 def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> None:
+    # Tiered gate: a lone NON-western-frontier supportive (qwen) does NOT satisfy
+    # Tier 1, so apply still prepares-only (no cheap-model-alone settlement).
     fakes, posted = _fakes(tier=1)
     calls: list[tuple[str, int]] = []
 
     def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            return ReviewerResult("grok", "Verdict: inconclusive\n- unsure", True)
-        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+        if family == "claude":
+            return ReviewerResult("claude", "Verdict: inconclusive\n- unsure", True)
+        return ReviewerResult("qwen", "Verdict: PASS\n- no blockers", True)
 
     def quorum_reconciler(repo: str, pr: int) -> dict:
         calls.append((repo, pr))
@@ -1109,7 +1111,7 @@ def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> 
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
-        families=["claude", "grok"],
+        families=["claude", "qwen"],
         author="me",
         apply=True,
         quorum_reconciler=quorum_reconciler,
@@ -1118,33 +1120,36 @@ def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> 
 
     assert outcome.action == "prepare"
     assert "supportive quorum incomplete" in outcome.action_reason
-    assert outcome.supportive_families == ["claude"]
+    assert outcome.supportive_families == ["qwen"]
     assert posted == []
     assert calls == []
     assert outcome.quorum_rerun is None
 
 
-def test_collect_success_requires_two_supportive_reviewers() -> None:
+def test_collect_tier1_lone_cheap_signal_is_not_supportive_quorum() -> None:
+    # Tiered gate: Tier 1 settles on ONE western-frontier signal. A lone cheap
+    # (non-WF) supportive — even though it counts — is NOT a supportive quorum,
+    # so a cheap model can never solely authorize a low-tier merge.
     fakes, _posted = _fakes(tier=1)
 
     def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            return ReviewerResult("grok", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
-        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+        if family == "claude":
+            return ReviewerResult("claude", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
+        return ReviewerResult("qwen", "Verdict: PASS\n- no blockers", True)
 
     fakes["reviewer_runner"] = reviewer_runner
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
-        families=["claude", "grok"],
+        families=["claude", "qwen"],
         author="me",
         apply=False,
         **fakes,
     )
 
-    assert outcome.counting_families == ["claude", "grok"]
-    assert outcome.supportive_families == ["claude"]
-    assert outcome.dissenting_families == ["grok"]
+    assert outcome.counting_families == ["claude", "qwen"]
+    assert outcome.supportive_families == ["qwen"]
+    assert outcome.dissenting_families == ["claude"]
     assert outcome.has_supportive_quorum is False
 
 
@@ -1372,18 +1377,21 @@ def test_collect_carries_reviewer_harness_into_comment() -> None:
 
 
 def test_collect_never_fabricates_on_reviewer_failure() -> None:
+    # A failed reviewer's vote is never fabricated. With the western-frontier
+    # reviewer (claude) down and only a cheap survivor (qwen), Tier 1 stays
+    # unsatisfied -> prepare, no post.
     fakes, posted = _fakes(tier=1)
 
     def failing_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            return ReviewerResult("grok", "", False, "timeout")
-        return ReviewerResult(family, "Verdict: PASS from claude", True)
+        if family == "claude":
+            return ReviewerResult("claude", "", False, "timeout")
+        return ReviewerResult(family, "Verdict: PASS from qwen", True)
 
     fakes["reviewer_runner"] = failing_runner
     outcome = collect_evidence(
-        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+        repo="o/r", pr=1, families=["claude", "qwen"], author="me", apply=True, **fakes
     )
-    assert [f.family for f in outcome.failures] == ["grok"]
+    assert [f.family for f in outcome.failures] == ["claude"]
     assert outcome.action == "prepare"
     assert "supportive quorum incomplete" in outcome.action_reason
     assert outcome.posted == []
@@ -1403,9 +1411,11 @@ def test_collect_does_not_post_uncountable_evidence() -> None:
 
 
 def test_collect_rejects_unsupported_family() -> None:
+    # Survivor is a cheap (non-WF) family, so even after rejecting the bogus
+    # family the Tier-1 western-frontier bar is unmet -> prepare.
     fakes, posted = _fakes(tier=1)
     outcome = collect_evidence(
-        repo="o/r", pr=1, families=["claude", "bogus"], author="me", apply=True, **fakes
+        repo="o/r", pr=1, families=["qwen", "bogus"], author="me", apply=True, **fakes
     )
     assert "bogus" in [f.family for f in outcome.failures]
     assert outcome.action == "prepare"
@@ -1823,12 +1833,21 @@ def test_apply_prepared_evidence_uses_fresh_lint_counting(tmp_path) -> None:
 
 
 def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
-    prepared = _prepared_outcome_file(tmp_path)
+    # A prepared grok item whose fresh lint resolves to a different family
+    # (openai) is de-counted on identity mismatch. The matching survivor here is
+    # a cheap (non-WF) family so Tier 1 stays unsatisfied -> prepare.
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("qwen", _prepared_body("qwen"), True, ["qwen"], [], "pass"),
+            EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
+        ],
+    )
     posted: list[tuple[str, str]] = []
 
     def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
-        family = "claude" if "claude body" in body else "grok"
-        counted = ["claude"] if family == "claude" else ["openai"]
+        family = "qwen" if "qwen body" in body else "grok"
+        counted = ["qwen"] if family == "qwen" else ["openai"]
         return {
             "would_count": True,
             "counted_reviewer_ids": counted,
@@ -1841,7 +1860,7 @@ def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
         prepared_json=prepared,
         author="me",
         apply=True,
-        families=["claude", "grok"],
+        families=["qwen", "grok"],
         context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
         tier_fetcher=lambda repo, pr: 1,
         linter=linter,
@@ -1851,7 +1870,7 @@ def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
     grok_item = next(item for item in outcome.items if item.family == "grok")
     assert outcome.action == "prepare"
     assert "supportive quorum incomplete (1/2)" in outcome.action_reason
-    assert outcome.supportive_families == ["claude"]
+    assert outcome.supportive_families == ["qwen"]
     assert not grok_item.would_count
     assert (
         "fresh lint counted reviewer ids do not include prepared family: grok" in grok_item.problems
@@ -2431,3 +2450,35 @@ def test_infra_retry_env_count_respected(monkeypatch):
     runner = _seq_runner([_RR("grok", "", False, "x")])  # always fails
     _retry(runner, "grok", "p")
     assert runner.state["n"] == 3  # 1 initial + 2 retries
+
+
+def _supportive_outcome(tier, *families):
+    items = [EvidenceItem(f, f"## {f.title()} review", True, [f], [], "pass") for f in families]
+    return CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=tier,
+        action="prepare",
+        action_reason="",
+        items=items,
+    )
+
+
+def test_has_supportive_quorum_is_tiered():
+    # Tier 1-2: settle on ONE western-frontier (claude/openai) supportive signal.
+    assert _supportive_outcome(1, "claude").has_supportive_quorum is True
+    assert _supportive_outcome(2, "openai").has_supportive_quorum is True
+    # ...but a lone cheap signal (or even two cheap signals) is NOT enough.
+    assert _supportive_outcome(2, "qwen").has_supportive_quorum is False
+    assert _supportive_outcome(2, "qwen", "kimi").has_supportive_quorum is False
+    # A cheap signal alongside a western-frontier one is fine.
+    assert _supportive_outcome(2, "qwen", "claude").has_supportive_quorum is True
+    # Tier 0: any single supportive family.
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
+    # Tier 3-4 and unknown/None tier: still need two distinct families (fail-safe).
+    assert _supportive_outcome(3, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(3, "claude", "qwen").has_supportive_quorum is True
+    assert _supportive_outcome(None, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(None, "claude", "openai").has_supportive_quorum is True

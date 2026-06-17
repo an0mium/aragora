@@ -133,6 +133,11 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "minimax",
     "hermes",
 )
+# Western-frontier reviewer families. When a tier is settled on a single model
+# signal (Tier 0-2 under the tiered gate), that signal MUST come from one of
+# these so a cheap/non-frontier model can never solely authorize a merge — the
+# operator doctrine that a western-frontier model assesses every final action.
+WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
 DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
     "claude": ("claude", "anthropic"),
     "openai": ("openai",),
@@ -3137,8 +3142,16 @@ def _build_model_review_quorum(
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
         _known_model_reviewer_id(item) for item in dogfood_evidence
     )
+    has_western_frontier_signal = bool(
+        {str(rid).strip().lower() for rid in counted_reviewer_ids} & WESTERN_FRONTIER_FAMILIES
+    )
+    western_frontier_satisfied = (
+        not requirement.get("requires_western_frontier_signal") or has_western_frontier_signal
+    )
     quorum_satisfied = (
-        signal_count >= requirement["required_model_signals"] and has_required_dogfood
+        signal_count >= requirement["required_model_signals"]
+        and has_required_dogfood
+        and western_frontier_satisfied
     )
     required_pr_check_surface = (
         check_surfaces.get("required_pr_checks") if isinstance(check_surfaces, dict) else {}
@@ -3212,6 +3225,10 @@ def _build_model_review_quorum(
         )
         if not has_required_dogfood:
             reasons.append("focused adversarial dogfood evidence is required")
+        if not western_frontier_satisfied:
+            reasons.append(
+                "a western-frontier model signal (claude/openai) is required to settle this tier"
+            )
         reasons.extend(review_object_warnings)
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
@@ -3265,6 +3282,10 @@ def _build_model_review_quorum(
         "tier_name": tier_name,
         "tier_reason": tier_reason,
         "required_model_signals": requirement["required_model_signals"],
+        "requires_western_frontier_signal": bool(
+            requirement.get("requires_western_frontier_signal")
+        ),
+        "has_western_frontier_signal": has_western_frontier_signal,
         "requires_adversarial_dogfood": requirement["requires_adversarial_dogfood"],
         "requires_human_risk_settlement": requires_human_risk_settlement,
         "human_risk_settlement_recorded": human_risk_settlement_recorded,
@@ -3320,20 +3341,29 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
     if tier <= 0:
         return {
             "required_model_signals": 1,
+            "requires_western_frontier_signal": False,
             "requires_adversarial_dogfood": False,
             "requires_human_risk_settlement": False,
             "requires_human_preapproval": False,
         }
+    # Tiered gate (operator-approved): Tier 1-2 settle on ONE western-frontier
+    # model signal (claude/openai) + focused adversarial dogfood + green CI,
+    # rather than two distinct families. claude Opus 4.8 is itself a frontier
+    # adversarial reviewer; the western-frontier guard keeps a cheap model from
+    # solely authorizing a merge. The full 2-family gate + human settlement is
+    # retained for Tier 3-4 (merge-authority / workflow / destructive surfaces).
     if tier == 1:
         return {
-            "required_model_signals": 2,
+            "required_model_signals": 1,
+            "requires_western_frontier_signal": True,
             "requires_adversarial_dogfood": True,
             "requires_human_risk_settlement": False,
             "requires_human_preapproval": False,
         }
     if tier == 2:
         return {
-            "required_model_signals": 2,
+            "required_model_signals": 1,
+            "requires_western_frontier_signal": True,
             "requires_adversarial_dogfood": True,
             "requires_human_risk_settlement": False,
             "requires_human_preapproval": False,
@@ -3341,12 +3371,14 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
     if tier == 3:
         return {
             "required_model_signals": 2,
+            "requires_western_frontier_signal": False,
             "requires_adversarial_dogfood": True,
             "requires_human_risk_settlement": True,
             "requires_human_preapproval": False,
         }
     return {
         "required_model_signals": 2,
+        "requires_western_frontier_signal": False,
         "requires_adversarial_dogfood": True,
         "requires_human_risk_settlement": True,
         "requires_human_preapproval": True,
