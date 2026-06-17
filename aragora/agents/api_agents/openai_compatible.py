@@ -538,6 +538,13 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         headers = self._build_headers()
         messages = self._build_messages(full_prompt)
         payload = self._build_payload(messages, stream=True)
+        estimated_budget_usd = self._estimate_budget_cost_usd(payload)
+        from aragora.billing import budget_guard
+
+        budget_guard.assert_within_budget(
+            estimated_budget_usd,
+            label=getattr(self, "name", None),
+        )
 
         # Use shared connection pool for better resource management
         async with create_client_session(timeout=self.timeout) as session:
@@ -575,6 +582,8 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                     parser = create_openai_sse_parser()
                     async for content in parser.parse_stream(response.content, self.name):
                         yield content
+                    if estimated_budget_usd > 0:
+                        budget_guard.record_spend(estimated_budget_usd)
                 except RuntimeError as e:
                     raise AgentStreamError(str(e), agent_name=self.name)
 

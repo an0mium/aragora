@@ -167,6 +167,29 @@ class APIAgent(CritiqueMixin, Agent):
 
         budget_guard.assert_within_budget(estimated_usd, label=self.name)
 
+    def _estimate_budget_cost_from_text_usd(
+        self,
+        prompt_text: str,
+        max_output_tokens: int,
+    ) -> float:
+        """Conservative spend estimate for streaming paths without usage metadata."""
+        try:
+            from aragora.billing.usage import calculate_token_cost
+
+            provider = getattr(self, "provider", None) or self.agent_type or "openrouter"
+            estimated_input_tokens = (len(prompt_text) + 3) // 4 if prompt_text else 0
+            return float(
+                calculate_token_cost(
+                    str(provider),
+                    self.model,
+                    estimated_input_tokens,
+                    max(0, int(max_output_tokens)),
+                )
+            )
+        except Exception:  # noqa: BLE001 - budget estimation must not crash generation
+            logger.debug("budget_guard text estimate skipped", exc_info=True)
+            return 0.0
+
     @property
     def last_tokens_in(self) -> int:
         """Get input tokens from last API call."""

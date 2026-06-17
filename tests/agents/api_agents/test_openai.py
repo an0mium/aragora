@@ -259,6 +259,62 @@ class TestOpenAIGenerateStream:
     """Tests for streaming generation."""
 
     @pytest.mark.asyncio
+    async def test_stream_blocks_before_network_when_budget_cap_reached(
+        self, mock_env_with_api_keys, monkeypatch, tmp_path
+    ):
+        """Streaming OpenAI-compatible calls must obey the fail-closed cap."""
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.billing import budget_guard
+        from aragora.billing.budget_guard import BudgetExceededError
+
+        monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "1")
+        monkeypatch.setenv("ARAGORA_BUDGET_GUARD_STORE", str(tmp_path / "budget.json"))
+        budget_guard._mem_state.clear()
+
+        agent = OpenAIAPIAgent()
+        monkeypatch.setattr(agent, "_estimate_budget_cost_usd", lambda payload: 2.0)
+
+        with patch(
+            "aragora.agents.api_agents.openai_compatible.create_client_session"
+        ) as create_session:
+            with pytest.raises(BudgetExceededError):
+                async for _ in agent.generate_stream("Test prompt"):
+                    pass
+
+        create_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_stream_records_conservative_budget_spend(
+        self, mock_env_with_api_keys, mock_sse_chunks, monkeypatch, tmp_path
+    ):
+        """Successful streams without usage metadata still decrement the guard."""
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.billing import budget_guard
+        from tests.agents.api_agents.conftest import MockStreamResponse
+
+        monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "100")
+        monkeypatch.setenv("ARAGORA_BUDGET_GUARD_STORE", str(tmp_path / "budget.json"))
+        budget_guard._mem_state.clear()
+
+        agent = OpenAIAPIAgent()
+        monkeypatch.setattr(agent, "_estimate_budget_cost_usd", lambda payload: 7.0)
+        mock_response = MockStreamResponse(status=200, chunks=mock_sse_chunks)
+
+        with patch(
+            "aragora.agents.api_agents.openai_compatible.create_client_session"
+        ) as mock_create:
+            mock_session = MagicMock()
+            mock_session.post = MagicMock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_create.return_value = mock_session
+
+            async for _ in agent.generate_stream("Test prompt"):
+                pass
+
+        assert budget_guard.current_spend_usd() == pytest.approx(7.0)
+
+    @pytest.mark.asyncio
     async def test_stream_yields_chunks(self, mock_env_with_api_keys, mock_sse_chunks):
         """Should yield text chunks from SSE stream."""
         from aragora.agents.api_agents.openai import OpenAIAPIAgent
