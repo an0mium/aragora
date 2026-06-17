@@ -597,7 +597,7 @@ def test_run_api_agent_timeout_terminates_blocked_worker(
     monkeypatch.setattr(
         qe,
         "_start_api_agent_worker_process",
-        lambda ctx, family, prompt, result_queue: FakeProcess(),
+        lambda ctx, family, prompt, result_queue, timeout_s: FakeProcess(),
         raising=False,
     )
 
@@ -645,7 +645,7 @@ def test_run_api_agent_parent_timeout_honors_env_override(
     monkeypatch.setattr(
         qe,
         "_start_api_agent_worker_process",
-        lambda ctx, family, prompt, result_queue: FakeProcess(),
+        lambda ctx, family, prompt, result_queue, timeout_s: FakeProcess(),
         raising=False,
     )
 
@@ -654,6 +654,44 @@ def test_run_api_agent_parent_timeout_honors_env_override(
     assert result.ok is False
     assert result.error == "grok reviewer timed out after 1200s"
     assert events == ["start", "join:1207", "terminate", "join:5", "kill", "join:5"]
+
+
+def test_run_api_agent_passes_timeout_override_to_worker_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, float] = {}
+
+    class FakeContext:
+        def Queue(self, maxsize: int):
+            assert maxsize == 1
+            return qe.queue.Queue(maxsize=maxsize)
+
+    class FakeProcess:
+        def __init__(self, result_queue) -> None:
+            self._result_queue = result_queue
+
+        def start(self) -> None:
+            self._result_queue.put(ReviewerResult("grok", "Verdict: PASS", True))
+
+        def join(self, timeout: float) -> None:
+            seen["join_timeout"] = timeout
+
+        def is_alive(self) -> bool:
+            return False
+
+    def fake_start(ctx, family, prompt, result_queue, timeout_s):
+        seen["timeout_s"] = timeout_s
+        return FakeProcess(result_queue)
+
+    monkeypatch.setattr(qe, "_api_agent_process_context", lambda: FakeContext(), raising=False)
+    monkeypatch.setattr(qe, "_start_api_agent_worker_process", fake_start, raising=False)
+
+    with qe._reviewer_timeout_overrides(7):
+        result = qe._run_api_agent("grok", "review prompt")
+
+    assert result.ok is True
+    assert seen["timeout_s"] == 7
+    assert seen["join_timeout"] == 7 + qe._REVIEWER_CLEANUP_TIMEOUT
 
 
 def test_api_agent_cleanup_does_not_hang_on_stuck_agent_close(
@@ -953,9 +991,11 @@ def test_collect_preserves_family_order_despite_completion_order() -> None:
 
 def test_collect_overall_timeout_fails_closed_without_posting() -> None:
     fakes, posted = _fakes(tier=1)
+    finished = threading.Event()
 
     def slow_runner(family: str, prompt: str) -> ReviewerResult:
-        time.sleep(0.2)
+        time.sleep(0.05)
+        finished.set()
         return ReviewerResult(family, f"Verdict: PASS from {family}", True)
 
     fakes["reviewer_runner"] = slow_runner
@@ -971,13 +1011,47 @@ def test_collect_overall_timeout_fails_closed_without_posting() -> None:
         **fakes,
     )
 
-    assert time.monotonic() - started < 0.1
+    assert time.monotonic() - started >= 0.05
+    assert finished.is_set()
     assert outcome.action == "prepare"
     assert "overall timeout" in outcome.action_reason
+    assert outcome.orchestration_timed_out is True
+    assert sorted(outcome.timed_out_families) == ["claude", "grok"]
     assert outcome.posted == []
     assert posted == []
     assert {failure.family for failure in outcome.failures} == {"claude", "grok"}
     assert all("overall timeout" in failure.error for failure in outcome.failures)
+
+
+def test_collect_partial_quorum_timeout_reports_timeout_without_posting() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def mixed_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "openai":
+            time.sleep(0.05)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = mixed_runner
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok", "openai"],
+        author="me",
+        apply=True,
+        overall_timeout_s=0.02,
+        **fakes,
+    )
+
+    assert outcome.orchestration_timed_out is True
+    assert outcome.timed_out_families == ["openai"]
+    assert outcome.has_supportive_quorum is True
+    assert outcome.action == "prepare"
+    assert outcome.posted == []
+    assert posted == []
+    payload = outcome.to_dict()
+    assert payload["orchestration_timed_out"] is True
+    assert payload["timed_out_families"] == ["openai"]
 
 
 def test_collect_records_raising_reviewer_as_failure() -> None:
@@ -1817,6 +1891,40 @@ def test_run_collect_cli_passes_timeout_controls_without_mutating_env(
     assert os.environ[qe._CLAUDE_TIMEOUT_ENV] == "11"
     assert os.environ[qe._CODEX_TIMEOUT_ENV] == "22"
     assert os.environ[qe._REVIEWER_TIMEOUT_ENV] == "33"
+
+
+def test_run_collect_cli_timeout_outcome_returns_failure(monkeypatch) -> None:
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="reviewer orchestration overall timeout after 1s",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+            orchestration_timed_out=True,
+            timed_out_families=["openai"],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok", "openai"],
+        author=None,
+        apply=True,
+        json_output=True,
+        printer=lambda text: None,
+    )
+
+    assert rc == 1
 
 
 def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:

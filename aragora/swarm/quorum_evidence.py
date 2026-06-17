@@ -271,6 +271,8 @@ class CollectOutcome:
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
     quorum_rerun: dict[str, Any] | None = None
+    orchestration_timed_out: bool = False
+    timed_out_families: list[str] = field(default_factory=list)
 
     @property
     def counting_families(self) -> list[str]:
@@ -305,6 +307,8 @@ class CollectOutcome:
             "posted_families": list(self.posted),
             "post_errors": list(self.post_errors),
             "quorum_rerun": self.quorum_rerun,
+            "orchestration_timed_out": self.orchestration_timed_out,
+            "timed_out_families": list(self.timed_out_families),
             "items": [
                 {
                     "family": item.family,
@@ -389,6 +393,8 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         quorum_rerun=data.get("quorum_rerun")
         if isinstance(data.get("quorum_rerun"), dict)
         else None,
+        orchestration_timed_out=bool(data.get("orchestration_timed_out")),
+        timed_out_families=_string_list(data.get("timed_out_families")),
     )
 
 
@@ -896,7 +902,7 @@ def _run_api_agent(family: str, prompt: str) -> ReviewerResult:
     timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
     ctx = _api_agent_process_context()
     result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
-    process = _start_api_agent_worker_process(ctx, family, prompt, result_queue)
+    process = _start_api_agent_worker_process(ctx, family, prompt, result_queue, timeout)
     process.start()
     process.join(timeout + _REVIEWER_CLEANUP_TIMEOUT)
     if process.is_alive():
@@ -939,10 +945,11 @@ def _start_api_agent_worker_process(
     family: str,
     prompt: str,
     result_queue: multiprocessing.Queue,
+    timeout_s: float,
 ) -> multiprocessing.Process:
     return ctx.Process(
         target=_api_agent_worker,
-        args=(family, prompt, result_queue),
+        args=(family, prompt, result_queue, timeout_s),
         daemon=True,
     )
 
@@ -951,8 +958,10 @@ def _api_agent_worker(
     family: str,
     prompt: str,
     result_queue: multiprocessing.Queue,
+    timeout_s: float,
 ) -> None:
-    result_queue.put(_run_api_agent_in_current_process(family, prompt))
+    with _reviewer_timeout_overrides(timeout_s):
+        result_queue.put(_run_api_agent_in_current_process(family, prompt))
 
 
 def _run_api_agent_in_current_process(family: str, prompt: str) -> ReviewerResult:
@@ -1268,20 +1277,22 @@ def _collect_reviewer_results(
     reviewer_runner: Callable[[str, str], ReviewerResult],
     reviewer_timeout_s: float | None,
     overall_timeout_s: float | None,
-) -> tuple[dict[str, ReviewerResult], bool]:
+) -> tuple[dict[str, ReviewerResult], bool, list[str]]:
     """Run reviewers concurrently with a fail-closed orchestration deadline.
 
-    Workers are daemon threads so an overall timeout can return JSON without a
-    wedged reviewer thread keeping CLI shutdown alive. Per-reviewer subprocess
-    timeouts are still enforced inside each runner.
+    If the orchestration deadline expires, the timed-out reviewers are reported
+    as failures and their late results are ignored. Active worker threads are
+    still joined before returning so no model subprocess/API work is abandoned
+    after fail-closed JSON is emitted.
     """
     reviews: dict[str, ReviewerResult] = {}
     if not supported:
-        return reviews, False
+        return reviews, False, []
 
     supported_list = list(supported)
     result_queue: queue.Queue[tuple[str, ReviewerResult]] = queue.Queue()
     pending: set[str] = set()
+    threads: dict[str, threading.Thread] = {}
     next_index = 0
 
     def start_next() -> None:
@@ -1301,8 +1312,8 @@ def _collect_reviewer_results(
                 "result_queue": result_queue,
             },
             name=f"collect-evidence-reviewer-{family}",
-            daemon=True,
         )
+        threads[family] = thread
         thread.start()
 
     for _ in range(min(len(supported_list), _MAX_REVIEWER_WORKERS)):
@@ -1338,7 +1349,11 @@ def _collect_reviewer_results(
                 False,
                 f"collect-evidence overall timeout after {timeout_label}s",
             )
-    return reviews, timed_out
+        for family in list(pending):
+            threads[family].join()
+    else:
+        timed_out_families = []
+    return reviews, timed_out, sorted(timed_out_families, key=supported_list.index)
 
 
 # --- Orchestrator ----------------------------------------------------------
@@ -1404,13 +1419,19 @@ def collect_evidence(
     # into roughly the slowest single reviewer. One reviewer raising never aborts
     # the run; it is recorded as a failure like any empty/non-ok result.
     supported = [family for family in ordered_families if family in FAMILY_PROVIDERS]
-    reviews, reviewer_orchestration_timed_out = _collect_reviewer_results(
+    (
+        reviews,
+        reviewer_orchestration_timed_out,
+        timed_out_families,
+    ) = _collect_reviewer_results(
         supported=supported,
         prompt=prompt,
         reviewer_runner=reviewer_runner,
         reviewer_timeout_s=reviewer_timeout_s,
         overall_timeout_s=overall_timeout_s,
     )
+    outcome.orchestration_timed_out = reviewer_orchestration_timed_out
+    outcome.timed_out_families = list(timed_out_families)
 
     for family in ordered_families:
         if family not in FAMILY_PROVIDERS:
@@ -1796,4 +1817,4 @@ def run_collect_cli(
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
-    return 0 if outcome.has_supportive_quorum else 1
+    return 0 if outcome.has_supportive_quorum and not outcome.orchestration_timed_out else 1
