@@ -488,6 +488,25 @@ class TestGenerateMandatorySynthesis:
         assert ctx.result.final_answer == "Generated synthesis"
 
     @pytest.mark.asyncio
+    async def test_synthesis_overwrites_placeholder_final_answer(self):
+        """Mandatory synthesis replaces earlier placeholder final answers."""
+        ctx = MockDebateContext()
+        ctx.proposals = {"agent1": "Proposal"}
+        ctx.result.final_answer = "placeholder from an earlier phase"
+        protocol = MagicMock()
+        protocol.enable_llm_synthesis = False
+
+        gen = SynthesisGenerator(protocol=protocol)
+
+        with patch("aragora.utils.env.is_offline_mode", return_value=True):
+            result = await gen.generate_mandatory_synthesis(ctx)
+
+        assert result is True
+        assert ctx.result.synthesis
+        assert ctx.result.final_answer == ctx.result.synthesis
+        assert ctx.result.final_answer != "placeholder from an earlier phase"
+
+    @pytest.mark.asyncio
     async def test_opus_output_does_not_fall_through_to_combined(self):
         """Non-empty Opus output should be accepted as synthesis."""
         ctx = MockDebateContext()

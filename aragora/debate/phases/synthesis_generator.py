@@ -127,8 +127,8 @@ class SynthesisGenerator:
         if synthesis:
             # Store synthesis in result
             result.synthesis = synthesis
-            if not result.final_answer:
-                result.final_answer = synthesis
+            # Synthesis is the definitive final answer.
+            result.final_answer = synthesis
 
             # Emit explicit synthesis event (guaranteed delivery)
             self._emit_synthesis_events(ctx, synthesis, synthesis_source)
@@ -226,9 +226,8 @@ class SynthesisGenerator:
 
         # Store synthesis in result
         result.synthesis = synthesis
-        # Only set final_answer if the consensus phase didn't already set one
-        if not result.final_answer:
-            result.final_answer = synthesis
+        # Synthesis is the definitive final answer.
+        result.final_answer = synthesis
 
         # Emit explicit synthesis event (guaranteed delivery)
         self._emit_synthesis_events(ctx, synthesis, synthesis_source)
