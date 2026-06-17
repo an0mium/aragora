@@ -34,6 +34,7 @@ class TestEvolutionHookWiring:
         config = ArenaConfig(enable_prompt_evolution=True)
         assert config.enable_prompt_evolution is True
 
+    @patch.dict("os.environ", {"ARAGORA_ALLOW_PROMPT_EVOLVE": "1"})
     @patch("aragora.debate.orchestrator.init_phases")
     @patch("aragora.evolution.evolver.PromptEvolver")
     def test_arena_auto_creates_evolver_when_enabled(self, mock_evolver_class, mock_init_phases):

@@ -344,11 +344,23 @@ def run_init_subsystems(arena: Arena) -> None:
     # Initialize phase classes for orchestrator decomposition
     arena._init_phases()
 
-    # Initialize prompt context builder (uses persona_manager, flip_detector, etc.)
-    arena._init_prompt_context_builder()
+    phase_attrs_ready = all(
+        hasattr(arena, attr)
+        for attr in (
+            "context_initializer",
+            "proposal_phase",
+            "debate_rounds_phase",
+            "consensus_phase",
+            "analytics_phase",
+            "feedback_phase",
+        )
+    )
+    if phase_attrs_ready:
+        # Initialize prompt context builder (uses persona_manager, flip_detector, etc.)
+        arena._init_prompt_context_builder()
 
-    # Initialize context delegator (after phases since it needs evidence_grounder)
-    arena._init_context_delegator()
+        # Initialize context delegator (after phases since it needs evidence_grounder)
+        arena._init_context_delegator()
 
     # Initialize termination checker
     arena._init_termination_checker()
@@ -418,8 +430,8 @@ def init_prompt_context_builder(arena: Arena) -> None:
         persona_manager=arena.persona_manager,
         flip_detector=arena.flip_detector,
         protocol=arena.protocol,
-        prompt_builder=arena.prompt_builder,
-        audience_manager=arena.audience_manager,
+        prompt_builder=getattr(arena, "prompt_builder", None),
+        audience_manager=getattr(arena, "audience_manager", None),
         spectator=arena.spectator,
         notify_callback=arena._notify_spectator,
         vertical=getattr(arena, "vertical", None),
