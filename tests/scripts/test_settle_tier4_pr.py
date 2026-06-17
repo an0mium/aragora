@@ -2079,6 +2079,26 @@ def test_settle_only_allows_self_quorum_failure_with_diagnostic_packet() -> None
     assert result["self_quorum_missing_settlement_proven"] is True
 
 
+def test_gate_requires_real_quorum_check_when_diagnostic_proves_settlement_only() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        diagnostic_merge_packet=_tier4_diagnostic_human_preapproval_packet(head),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is False
+    assert "required check aragora-merge-quorum is FAILURE" in result["blockers"]
+    assert result["self_quorum_missing_settlement_proven"] is True
+
+
 def test_settle_only_diagnostic_packet_does_not_hide_non_quorum_required_failure() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
 
@@ -2214,7 +2234,7 @@ def test_settle_only_log_proof_ignores_unproven_diagnostic_model_quorum() -> Non
     assert result["self_quorum_missing_settlement_proven"] is False
 
 
-def test_gate_blocks_unexpected_diagnostic_not_ready_when_self_quorum_proven() -> None:
+def test_gate_uses_normal_packet_when_self_quorum_diagnostic_is_settlement_only() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     diagnostic_packet = _tier4_diagnostic_human_preapproval_packet(head)
     diagnostic_packet["not_ready"] = [7423, "unexpected_diagnostic_blocker"]
@@ -2232,9 +2252,9 @@ def test_gate_blocks_unexpected_diagnostic_not_ready_when_self_quorum_proven() -
     )
 
     assert result["ok"] is False
-    assert (
-        "merge-packet has unexpected blockers: unexpected_diagnostic_blocker" in result["blockers"]
-    )
+    assert "required check aragora-merge-quorum is FAILURE" in result["blockers"]
+    assert "merge-packet has unexpected blockers: 7423" in result["blockers"]
+    assert not any("unexpected_diagnostic_blocker" in item for item in result["blockers"])
     assert result["self_quorum_missing_settlement_proven"] is True
 
 

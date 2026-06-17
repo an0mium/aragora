@@ -965,13 +965,12 @@ def evaluate_tier4_gate(
             required_checks=required_checks,
         )
     )
-    effective_merge_packet = (
-        diagnostic_merge_packet if self_quorum_missing_settlement_proven else merge_packet
-    )
-    effective_required_checks = _effective_required_checks(
-        required_checks,
-        self_quorum_missing_settlement_proven=self_quorum_missing_settlement_proven,
-    )
+    # The self-quorum diagnostic packet is only a settlement-prep escape hatch:
+    # it lets --settle-only prove that aragora-merge-quorum is failing because
+    # the human settlement artifact is missing. Final --check/--merge-apply must
+    # still require the real branch-protection checks and normal merge-packet.
+    effective_merge_packet = merge_packet
+    effective_required_checks = required_checks
     required_failing: list[str] = []
     blockers.extend(_mergeability_blockers(pr=pr, pr_view=pr_view))
     for check in required_checks or []:
@@ -979,8 +978,6 @@ def evaluate_tier4_gate(
         state = _required_check_state(check)
         if not _state_is_success(state):
             required_failing.append(f"{name}={state}")
-            if self_quorum_missing_settlement_proven and _required_check_is_merge_quorum(check):
-                continue
             blockers.append(f"required check {name} is {state}")
     merge_packet_blockers: list[str] = []
     not_ready = effective_merge_packet.get("not_ready")
