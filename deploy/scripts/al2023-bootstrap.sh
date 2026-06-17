@@ -140,8 +140,8 @@ source /opt/aragora/venv/bin/activate
 
 pip install --upgrade pip wheel setuptools
 
-echo "Installing Aragora with all optional features..."
-pip install "aragora[all]"
+echo "Installing Aragora with production extras..."
+pip install "aragora[gateway,enterprise,connectors]"
 
 # Verify installation
 echo ""

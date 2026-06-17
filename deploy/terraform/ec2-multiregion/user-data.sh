@@ -102,11 +102,11 @@ source /opt/aragora/venv/bin/activate
 pip install --upgrade pip wheel setuptools
 
 # =============================================================================
-# Install Aragora with All Optional Features
+# Install Aragora with Production Extras
 # =============================================================================
 
-echo "=== Installing Aragora with optional features ==="
-pip install "aragora[all]"
+echo "=== Installing Aragora with production extras ==="
+pip install "aragora[gateway,enterprise,connectors]"
 
 # Set ownership
 chown -R aragora:aragora /opt/aragora /var/log/aragora /etc/aragora
