@@ -1156,6 +1156,152 @@ class TestModelReviewQuorum:
         assert quorum["dogfood_evidence"][0]["surface_reviewer_id"] == "codex"
         assert quorum["dogfood_evidence"][0]["model_family"] == "openai"
 
+    def test_changes_requested_comment_blocks_even_when_quorum_satisfied(self) -> None:
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_comment(body=f"Current head: {head}\nlocal checks pass."),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    "[P1] Merge gate dissent is unresolved."
+                ),
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
+        assert "unresolved model dissent is present" in quorum["reasons"]
+
+    def test_github_actions_bot_changes_requested_comment_blocks_quorum(self) -> None:
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_comment(body=f"Current head: {head}\nlocal checks pass."),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "github-actions[bot]"},
+                "body": (
+                    "## Claude independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    "[P1] Automated exact-head dissent must block."
+                ),
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["dissenting_views"][0]["github_author"] == "github-actions[bot]"
+        assert "unresolved model dissent is present" in quorum["reasons"]
+
+    def test_p1_comment_blocks_even_without_negative_verdict(self) -> None:
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_comment(body=f"Current head: {head}\nlocal checks pass."),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent semantic review on head "
+                    f"{head}\n\n"
+                    "**Reviewer harness:** claude\n"
+                    "**Model family:** claude\n"
+                    "**Model id:** Claude Code\n"
+                    "**Receipt artifact:** /tmp/receipt.md\n\n"
+                    "[P1] Exact-head evidence still has a blocking dependency drift finding.\n\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                ),
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["counted_model_families"] == ["grok", "openai"]
+        assert quorum["dissenting_views"][0]["model_family"] == "claude"
+
+    def test_github_actions_bot_pass_comment_remains_uncounted_support(self) -> None:
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            {
+                "author": {"login": "github-actions[bot]"},
+                "body": (
+                    "## OpenAI independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: PASS\n"
+                    "Automated supportive evidence must remain advisory-only."
+                ),
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is False
+        assert quorum["reviewer_signals"][0]["reviewer_id"] == "grok"
+        assert quorum["counted_reviewer_ids"] == ["grok"]
+        assert quorum["status"] == "needs_model_review_quorum"
+
     def test_unknown_dogfood_does_not_count_or_satisfy_required_dogfood(self) -> None:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
@@ -2470,6 +2616,16 @@ class TestHasBlockingOrNegativeVerdict:
         assert not _has_blocking_or_negative_verdict("Blocking findings: no blocking findings")
         assert not _has_blocking_or_negative_verdict("#### Blockers: N/A")
         assert not _has_blocking_or_negative_verdict("Verdict: **passed**, zero findings.")
+
+    def test_high_priority_finding_markers_are_blocking(self) -> None:
+        assert _has_blocking_or_negative_verdict("[P0] settlement gate bypass")
+        assert _has_blocking_or_negative_verdict("- [P1] stale exact-head evidence")
+        assert _has_blocking_or_negative_verdict("**[P1]** dependency drift is unresolved")
+        assert _has_blocking_or_negative_verdict("1. [P1] stale exact-head evidence")
+        assert _has_blocking_or_negative_verdict("1) [P0] settlement gate bypass")
+        assert _has_blocking_or_negative_verdict("> [P1] stale exact-head evidence")
+        assert _has_blocking_or_negative_verdict("## [P1] stale exact-head evidence")
+        assert not _has_blocking_or_negative_verdict("[P2] follow-up cleanup")
 
 
 # --- parenthetical model-family disclosure ---------------------------------
@@ -5599,6 +5755,82 @@ class TestCommandDispatch:
         assert payload["dogfood_evidence"] == []
         assert "blocking_or_negative_verdict" in payload["problems"]
         assert "no_counted_model_reviewer" in payload["problems"]
+
+    def test_evidence_lint_rejects_p1_finding_without_negative_verdict(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=(
+                "## Claude independent semantic review on head "
+                "cd87c5a1b2db34f04167906553502db3ede9525e\n\n"
+                "**Reviewer harness:** claude\n"
+                "**Model family:** claude\n"
+                "**Model id:** Claude Code\n"
+                "**Receipt artifact:** /tmp/receipt.md\n\n"
+                "[P1] This exact-head diff still has a blocking dependency drift finding.\n\n"
+                "Focused adversarial dogfood: I reviewed the exact-head diff."
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["reviewer_signals"] == []
+        assert payload["dogfood_evidence"] == []
+        assert "blocking_or_negative_verdict" in payload["problems"]
+
+    @pytest.mark.parametrize(
+        "finding_line",
+        [
+            "1. [P1] This exact-head diff still has a blocking finding.",
+            "1) [P0] This exact-head diff still has a blocking finding.",
+            "> [P1] This exact-head diff still has a blocking finding.",
+            "## [P1] This exact-head diff still has a blocking finding.",
+        ],
+    )
+    def test_evidence_lint_rejects_decorated_p1_findings_without_negative_verdict(
+        self,
+        finding_line: str,
+    ) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=(
+                "## Claude independent semantic review on head "
+                "cd87c5a1b2db34f04167906553502db3ede9525e\n\n"
+                "**Reviewer harness:** claude\n"
+                "**Model family:** claude\n"
+                "**Model id:** Claude Code\n"
+                "**Receipt artifact:** /tmp/receipt.md\n\n"
+                f"{finding_line}\n\n"
+                "Focused adversarial dogfood: I reviewed the exact-head diff."
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["reviewer_signals"] == []
+        assert payload["dogfood_evidence"] == []
+        assert "blocking_or_negative_verdict" in payload["problems"]
 
     def test_evidence_lint_requires_head_sha_when_timestamp_omitted(self) -> None:
         ns = argparse.Namespace(
