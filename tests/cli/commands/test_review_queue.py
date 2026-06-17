@@ -1025,6 +1025,7 @@ class TestModelReviewQuorum:
             (["deploy/k8s/app.yaml"], 4),
             # Merge-authority self-modification: see TIER_4_PREFIXES rationale.
             (["aragora/cli/commands/review_queue.py"], 4),
+            (["aragora/swarm/quorum_evidence.py"], 4),
             (["aragora/cli/parser.py"], 4),
             (["scripts/settle_tier4_pr.py"], 4),
             (["scripts/settle_one_pr.py"], 4),
