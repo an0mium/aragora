@@ -2352,6 +2352,21 @@ def _add_review_queue_parser(subparsers) -> None:
         help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
     )
     collect_evidence_parser.add_argument(
+        "--reviewer-timeout",
+        type=float,
+        default=None,
+        help=(
+            "Per-reviewer timeout in seconds for this invocation "
+            "(overrides collect-evidence reviewer timeout env defaults)."
+        ),
+    )
+    collect_evidence_parser.add_argument(
+        "--overall-timeout",
+        type=float,
+        default=None,
+        help="Overall reviewer orchestration timeout in seconds; fails closed with JSON.",
+    )
+    collect_evidence_parser.add_argument(
         "--json", dest="json_output", action="store_true", help="Output as JSON"
     )
     collect_evidence_parser.set_defaults(

@@ -951,6 +951,35 @@ def test_collect_preserves_family_order_despite_completion_order() -> None:
     assert [item.family for item in outcome.items] == ["claude", "grok"]
 
 
+def test_collect_overall_timeout_fails_closed_without_posting() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def slow_runner(family: str, prompt: str) -> ReviewerResult:
+        time.sleep(0.2)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = slow_runner
+
+    started = time.monotonic()
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout_s=0.001,
+        **fakes,
+    )
+
+    assert time.monotonic() - started < 0.1
+    assert outcome.action == "prepare"
+    assert "overall timeout" in outcome.action_reason
+    assert outcome.posted == []
+    assert posted == []
+    assert {failure.family for failure in outcome.failures} == {"claude", "grok"}
+    assert all("overall timeout" in failure.error for failure in outcome.failures)
+
+
 def test_collect_records_raising_reviewer_as_failure() -> None:
     # A reviewer that raises is recorded as a failure (it must not abort the run
     # or crash the pool); the other reviewer's evidence is still collected.
@@ -1741,6 +1770,53 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
     )
     assert rc == 0
     assert "collect_evidence" in capsys.readouterr().out
+
+
+def test_run_collect_cli_passes_timeout_controls_without_mutating_env(
+    monkeypatch,
+) -> None:
+    seen: dict[str, object] = {}
+    monkeypatch.setenv(qe._CLAUDE_TIMEOUT_ENV, "11")
+    monkeypatch.setenv(qe._CODEX_TIMEOUT_ENV, "22")
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "33")
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        seen.update(kwargs)
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="ok",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=False,
+        json_output=True,
+        reviewer_timeout_s=90,
+        overall_timeout_s=150,
+        printer=lambda text: None,
+    )
+
+    assert rc == 0
+    assert seen["reviewer_timeout_s"] == 90
+    assert seen["overall_timeout_s"] == 150
+    assert os.environ[qe._CLAUDE_TIMEOUT_ENV] == "11"
+    assert os.environ[qe._CODEX_TIMEOUT_ENV] == "22"
+    assert os.environ[qe._REVIEWER_TIMEOUT_ENV] == "33"
 
 
 def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:

@@ -5412,6 +5412,10 @@ class TestCommandDispatch:
                 "openai",
                 "--author",
                 "an0mium",
+                "--reviewer-timeout",
+                "90",
+                "--overall-timeout",
+                "150",
                 "--json",
             ]
         )
@@ -5420,6 +5424,8 @@ class TestCommandDispatch:
         assert ns_collect.pr == 6280
         assert ns_collect.reviewers == ["claude", "openai"]
         assert ns_collect.author == "an0mium"
+        assert ns_collect.reviewer_timeout == 90
+        assert ns_collect.overall_timeout == 150
         assert ns_collect.apply is False
         assert ns_collect.json_output is True
         # run invocation parses

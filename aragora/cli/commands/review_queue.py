@@ -717,6 +717,21 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     collect_evidence_arg(
         "--apply", action="store_true", help="Post Tier 0-2 evidence; Tier 3-4 prepare only."
     )
+    collect_evidence_arg(
+        "--reviewer-timeout",
+        type=float,
+        default=None,
+        help=(
+            "Per-reviewer timeout in seconds for this invocation "
+            "(overrides collect-evidence reviewer timeout env defaults)."
+        ),
+    )
+    collect_evidence_arg(
+        "--overall-timeout",
+        type=float,
+        default=None,
+        help="Overall reviewer orchestration timeout in seconds; fails closed with JSON.",
+    )
     collect_evidence_arg("--json", dest="json_output", action="store_true", help="Output as JSON")
 
     lint_comment_p = sub.add_parser(
@@ -1352,6 +1367,8 @@ def _cmd_collect_evidence(args: argparse.Namespace) -> int:
         author=getattr(args, "author", None),
         apply=bool(getattr(args, "apply", False)),
         json_output=json_output,
+        reviewer_timeout_s=getattr(args, "reviewer_timeout", None),
+        overall_timeout_s=getattr(args, "overall_timeout", None),
     )
 
 
