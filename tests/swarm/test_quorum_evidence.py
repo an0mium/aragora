@@ -1049,6 +1049,87 @@ def test_collect_partial_quorum_timeout_reports_timeout_without_posting() -> Non
     payload = outcome.to_dict()
     assert payload["orchestration_timed_out"] is True
     assert payload["timed_out_families"] == ["openai"]
+    assert payload["posted_families"] == []
+
+
+def test_process_timeout_path_terminates_lingering_completed_reviewer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    result_queue: qe.queue.Queue[tuple[str, ReviewerResult]] = qe.queue.Queue()
+
+    class FakeProcess:
+        pid = None
+
+        def __init__(self, family: str) -> None:
+            self.family = family
+            self.alive = False
+
+        def start(self) -> None:
+            self.alive = True
+            events.append(f"start:{self.family}")
+            result_queue.put(
+                (
+                    self.family,
+                    ReviewerResult(self.family, f"Verdict: PASS from {self.family}", True),
+                )
+            )
+
+        def join(self, timeout: float) -> None:
+            events.append(f"join:{self.family}:{timeout:g}")
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+        def terminate(self) -> None:
+            events.append(f"terminate:{self.family}")
+            self.alive = False
+
+        def kill(self) -> None:
+            events.append(f"kill:{self.family}")
+            self.alive = False
+
+    class FakeContext:
+        def Queue(self):
+            return result_queue
+
+        def Process(self, *, target, args):
+            del target
+            family = args[0]
+            return FakeProcess(family)
+
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda: FakeContext())
+    monkeypatch.setattr(qe, "_REVIEWER_CLEANUP_TIMEOUT", 0.01)
+
+    reviews, timed_out, timed_out_families = qe._collect_reviewer_results_with_process_timeout(
+        supported=["grok"],
+        prompt="review prompt",
+        reviewer_runner=lambda family, prompt: ReviewerResult(family, "Verdict: PASS", True),
+        reviewer_timeout_s=7,
+        overall_timeout_s=1,
+    )
+
+    assert timed_out is False
+    assert timed_out_families == []
+    assert reviews["grok"].ok is True
+    assert events == ["start:grok", "join:grok:0.01", "terminate:grok", "join:grok:0.01"]
+
+
+def test_reviewer_process_worker_scopes_timeout_override_to_worker() -> None:
+    result_queue: qe.queue.Queue[tuple[str, ReviewerResult]] = qe.queue.Queue()
+    seen: dict[str, float] = {}
+
+    def runner(family: str, prompt: str) -> ReviewerResult:
+        del prompt
+        seen["timeout"] = qe._timeout_seconds(qe._REVIEWER_TIMEOUT_ENV, qe._REVIEWER_TIMEOUT)
+        return ReviewerResult(family, "Verdict: PASS", True)
+
+    qe._run_reviewer_process_worker("grok", "review prompt", runner, 12, result_queue)
+
+    family, result = result_queue.get_nowait()
+    assert family == "grok"
+    assert result.ok is True
+    assert seen["timeout"] == 12
 
 
 def test_collect_records_raising_reviewer_as_failure() -> None:
@@ -1890,7 +1971,7 @@ def test_run_collect_cli_passes_timeout_controls_without_mutating_env(
     assert os.environ[qe._REVIEWER_TIMEOUT_ENV] == "33"
 
 
-def test_run_collect_cli_timeout_outcome_returns_failure(monkeypatch) -> None:
+def test_run_collect_cli_timeout_outcome_returns_failure(monkeypatch, capsys) -> None:
     def fake_collect(**kwargs) -> CollectOutcome:
         return CollectOutcome(
             repo="o/r",
@@ -1918,10 +1999,14 @@ def test_run_collect_cli_timeout_outcome_returns_failure(monkeypatch) -> None:
         author=None,
         apply=True,
         json_output=True,
-        printer=lambda text: None,
     )
 
     assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["action"] == "prepare"
+    assert payload["orchestration_timed_out"] is True
+    assert payload["timed_out_families"] == ["openai"]
+    assert payload["posted_families"] == []
 
 
 def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:

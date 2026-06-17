@@ -1327,6 +1327,12 @@ def _terminate_reviewer_process(process: multiprocessing.Process) -> None:
         process.join(_REVIEWER_CLEANUP_TIMEOUT)
 
 
+def _join_or_terminate_reviewer_process(process: multiprocessing.Process) -> None:
+    process.join(_REVIEWER_CLEANUP_TIMEOUT)
+    if process.is_alive():
+        _terminate_reviewer_process(process)
+
+
 def _collect_reviewer_results_with_process_timeout(
     *,
     supported: Sequence[str],
@@ -1365,41 +1371,44 @@ def _collect_reviewer_results_with_process_timeout(
 
     deadline = time.monotonic() + overall_timeout_s
     timed_out = False
-    while pending:
-        remaining = max(0.0, deadline - time.monotonic())
-        if remaining <= 0:
-            timed_out = True
-            break
-        try:
-            family, result = result_queue.get(timeout=remaining)
-        except queue.Empty:
-            timed_out = True
-            break
-        if family not in pending:
-            continue
-        reviews[family] = result
-        pending.remove(family)
-        processes[family].join(_REVIEWER_CLEANUP_TIMEOUT)
-        start_next()
+    try:
+        while pending:
+            remaining = max(0.0, deadline - time.monotonic())
+            if remaining <= 0:
+                timed_out = True
+                break
+            try:
+                family, result = result_queue.get(timeout=remaining)
+            except queue.Empty:
+                timed_out = True
+                break
+            if family not in pending:
+                continue
+            reviews[family] = result
+            pending.remove(family)
+            _join_or_terminate_reviewer_process(processes[family])
+            start_next()
 
-    if not timed_out:
-        return reviews, False, []
+        if not timed_out:
+            return reviews, False, []
 
-    timeout_label = _format_seconds(overall_timeout_s)
-    timed_out_families = sorted(
-        list(pending) + supported_list[next_index:],
-        key=supported_list.index,
-    )
-    for family in timed_out_families:
-        reviews[family] = ReviewerResult(
-            family,
-            "",
-            False,
-            f"collect-evidence overall timeout after {timeout_label}s",
+        timeout_label = _format_seconds(overall_timeout_s)
+        timed_out_families = sorted(
+            list(pending) + supported_list[next_index:],
+            key=supported_list.index,
         )
-    for family in list(pending):
-        _terminate_reviewer_process(processes[family])
-    return reviews, True, timed_out_families
+        for family in timed_out_families:
+            reviews[family] = ReviewerResult(
+                family,
+                "",
+                False,
+                f"collect-evidence overall timeout after {timeout_label}s",
+            )
+        return reviews, True, timed_out_families
+    finally:
+        for process in processes.values():
+            if process.is_alive():
+                _terminate_reviewer_process(process)
 
 
 def _collect_reviewer_results(
