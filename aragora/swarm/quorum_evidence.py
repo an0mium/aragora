@@ -255,7 +255,10 @@ def extract_findings(text: str) -> list[tuple[str, str]]:
         if not stripped:
             continue
         probe = re.sub(r"^[*#>\-+`\d.)\s]+", "", stripped).replace("**", "").replace("__", "")
-        match = _FINDING_PRIORITY_RE.match(probe)
+        # Search (not match) so a leading label like "Note: [P1] ..." still surfaces
+        # the finding; the bracketed [P0-3] token is specific enough to avoid prose
+        # false positives.
+        match = _FINDING_PRIORITY_RE.search(probe)
         if match:
             findings.append((match.group(1).upper(), stripped))
     return findings

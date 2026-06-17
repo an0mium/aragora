@@ -1622,6 +1622,7 @@ def test_deepseek_is_openrouter_direct_with_mapped_model() -> None:
         ("1. [p3] nit here", "P3"),
         ("## [P0] critical", "P0"),
         ("  > [P2]: blockquoted finding", "P2"),
+        ("**Note**: [P1] marker after a leading label still surfaces", "P1"),
     ],
 )
 def test_extract_findings_is_markdown_tolerant(line: str, priority: str) -> None:
