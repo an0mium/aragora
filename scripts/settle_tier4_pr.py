@@ -983,7 +983,7 @@ def evaluate_tier4_gate(
                 continue
             blockers.append(f"required check {name} is {state}")
     merge_packet_blockers: list[str] = []
-    not_ready = merge_packet.get("not_ready")
+    not_ready = effective_merge_packet.get("not_ready")
     if isinstance(not_ready, list):
         allowed_not_ready = set(ALLOWED_TIER4_NOT_READY)
         if _packet_marks_tier4_human_settlement(effective_merge_packet, pr=pr):
@@ -1151,7 +1151,7 @@ def evaluate_tier4_settlement_preconditions(
     if not _packet_has_counted_tier4_evidence(effective_merge_packet, pr=pr):
         blockers.append(TIER4_EVIDENCE_BLOCKER)
     elif (
-        diagnostic_merge_packet is not None
+        self_quorum_missing_settlement_proven
         and not _packet_has_required_self_quorum_model_families(diagnostic_merge_packet, pr=pr)
     ):
         blockers.append(TIER4_EVIDENCE_BLOCKER)

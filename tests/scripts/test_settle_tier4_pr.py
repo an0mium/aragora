@@ -2190,7 +2190,7 @@ def test_settle_only_log_proof_does_not_allow_diagnostic_owner_blocker() -> None
     assert result["self_quorum_missing_settlement_proven"] is False
 
 
-def test_settle_only_log_proof_does_not_allow_missing_diagnostic_model_quorum() -> None:
+def test_settle_only_log_proof_ignores_unproven_diagnostic_model_quorum() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
 
     result = settler.evaluate_tier4_settlement_preconditions(
@@ -2209,9 +2209,33 @@ def test_settle_only_log_proof_does_not_allow_missing_diagnostic_model_quorum() 
         quorum_missing_settlement_proof=True,
     )
 
-    assert result["ok"] is False
-    assert settler.TIER4_EVIDENCE_BLOCKER in result["blockers"]
+    assert result["ok"] is True
+    assert settler.TIER4_EVIDENCE_BLOCKER not in result["blockers"]
     assert result["self_quorum_missing_settlement_proven"] is False
+
+
+def test_gate_blocks_unexpected_diagnostic_not_ready_when_self_quorum_proven() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    diagnostic_packet = _tier4_diagnostic_human_preapproval_packet(head)
+    diagnostic_packet["not_ready"] = [7423, "unexpected_diagnostic_blocker"]
+
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        diagnostic_merge_packet=diagnostic_packet,
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is False
+    assert (
+        "merge-packet has unexpected blockers: unexpected_diagnostic_blocker" in result["blockers"]
+    )
+    assert result["self_quorum_missing_settlement_proven"] is True
 
 
 def test_quorum_failure_log_proves_missing_human_settlement(
