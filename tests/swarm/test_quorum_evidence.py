@@ -1518,7 +1518,8 @@ def test_openrouter_reviewer_rejects_unmapped_family(monkeypatch) -> None:
 
     monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    result = q._run_openrouter_reviewer("deepseek", "prompt")
+    # qwen is a recognized family but has no OpenRouter slug mapped (unlike deepseek).
+    result = q._run_openrouter_reviewer("qwen", "prompt")
     assert not result.ok
     assert "no OpenRouter model" in result.error
 
@@ -1578,6 +1579,36 @@ def test_openrouter_fallback_routes_alias_to_canonical_family(monkeypatch) -> No
     # "codex" is an alias of openai; the fallback must review as the openai family.
     result = q.default_reviewer_runner("codex", "prompt")
     assert result.ok and result.family == "openai"
+
+
+def test_deepseek_routes_openrouter_direct(monkeypatch) -> None:
+    # DeepSeek has no subscription CLI: it must review OpenRouter-direct (primary),
+    # NOT via _run_api_agent, so a cheap distinct family can join the quorum.
+    from aragora.swarm import quorum_evidence as q
+
+    called = {"or": None, "api": False}
+
+    def _or(fam, _p):
+        called["or"] = fam
+        return q.ReviewerResult(fam, "Verdict: PASS via OpenRouter", True, harness="or")
+
+    def _api(fam, _p, model=None):
+        called["api"] = True
+        return q.ReviewerResult(fam, "", False, "should not be called")
+
+    monkeypatch.setattr(q, "_run_openrouter_reviewer", _or)
+    monkeypatch.setattr(q, "_run_api_agent", _api)
+    result = q.default_reviewer_runner("deepseek", "prompt")
+    assert result.ok and result.family == "deepseek"
+    assert called["or"] == "deepseek" and called["api"] is False
+
+
+def test_deepseek_is_openrouter_direct_with_mapped_model() -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    assert "deepseek" in q._OPENROUTER_DIRECT_FAMILIES
+    assert q._openrouter_reviewer_model("deepseek")  # a slug is mapped
+    assert "deepseek" in q.FAMILY_PROVIDERS  # already a recognized counting family
 
 
 def test_collect_missing_head_raises() -> None:

@@ -639,6 +639,10 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
         result = _run_grok_reviewer(prompt)
     elif fam == "gemini":
         result = _run_gemini_reviewer(prompt)
+    elif fam in _OPENROUTER_DIRECT_FAMILIES:
+        # No subscription CLI for this family: OpenRouter is the primary transport
+        # (opt-in egress gate still applies). Skip the fallback re-attempt below.
+        return _run_openrouter_reviewer(fam, prompt)
     else:
         result = _run_api_agent(fam, prompt)
     # Opt-in last-resort fallback: when the subscription CLI / family API path
@@ -810,7 +814,17 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     "openai": "openai/gpt-5-pro",
     "grok": "x-ai/grok-4.3",
     "gemini": "google/gemini-3.1-pro-preview",
+    # Cost-efficient families with no subscription CLI — reviewed OpenRouter-direct
+    # (see _OPENROUTER_DIRECT_FAMILIES). DeepSeek V4 Pro is a strong intelligence/$
+    # pick, giving a cheap, distinct second family when premium CLIs are down.
+    "deepseek": "deepseek/deepseek-v4-pro",
 }
+
+# Families with no subscription CLI / native API path: they review via OpenRouter
+# as their PRIMARY transport (still gated on the opt-in egress flag + key). This
+# lets a cheap, distinct family (e.g. claude + deepseek) form a 2-family quorum
+# when the premium subscription CLIs are quota-/auth-blocked.
+_OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset({"deepseek"})
 
 
 def _openrouter_reviewer_model(family: str) -> str | None:
