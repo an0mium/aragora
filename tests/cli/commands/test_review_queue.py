@@ -2108,6 +2108,8 @@ class TestModelReviewQuorum:
         state: str = "success",
         context: str = "aragora/human-settlement",
         target_url: str = "https://github.example/pr/7900#issuecomment-settlement",
+        updated_at: str | None = None,
+        created_at: str | None = None,
     ) -> dict[str, Any]:
         status: dict[str, Any] = {
             "context": context,
@@ -2116,6 +2118,10 @@ class TestModelReviewQuorum:
         }
         if login is not None:
             status["creator"] = {"login": login}
+        if updated_at is not None:
+            status["updated_at"] = updated_at
+        if created_at is not None:
+            status["created_at"] = created_at
         return status
 
     def _pin_quorum(
@@ -2453,8 +2459,11 @@ class TestModelReviewQuorum:
         quorum = self._pin_quorum(
             monkeypatch,
             [
-                self._settlement_status("aragora-automation-fable[bot]"),
-                self._settlement_status("scarmani"),
+                self._settlement_status(
+                    "aragora-automation-fable[bot]",
+                    updated_at="2026-06-15T02:25:41Z",
+                ),
+                self._settlement_status("scarmani", updated_at="2026-06-15T02:22:41Z"),
             ],
         )
         assert quorum["human_preapproval_recorded"] is False
@@ -2466,12 +2475,99 @@ class TestModelReviewQuorum:
         quorum = self._pin_quorum(
             monkeypatch,
             [
-                self._settlement_status("scarmani", state="pending"),
-                self._settlement_status("scarmani"),
+                self._settlement_status(
+                    "scarmani",
+                    state="pending",
+                    updated_at="2026-06-15T02:25:41Z",
+                ),
+                self._settlement_status("scarmani", updated_at="2026-06-15T02:22:41Z"),
             ],
         )
         assert quorum["human_preapproval_recorded"] is False
         assert "not success" in quorum["settlement_creator_pin"]["reason"]
+
+    @pytest.mark.parametrize("newer_state", ["pending", "failure"])
+    def test_newer_non_success_status_blocks_older_trusted_success_even_if_returned_later(
+        self, monkeypatch: pytest.MonkeyPatch, newer_state: str
+    ) -> None:
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [
+                self._settlement_status(
+                    "scarmani",
+                    updated_at="2026-06-15T02:22:41Z",
+                    created_at="2026-06-15T02:22:41Z",
+                ),
+                self._settlement_status(
+                    "scarmani",
+                    state=newer_state,
+                    updated_at="2026-06-15T02:25:41Z",
+                    created_at="2026-06-15T02:25:41Z",
+                ),
+            ],
+        )
+
+        assert quorum["human_preapproval_recorded"] is False
+        assert "not success" in quorum["settlement_creator_pin"]["reason"]
+
+    @pytest.mark.parametrize("older_state", ["pending", "failure"])
+    def test_newer_trusted_success_counts_despite_older_non_success_returned_first(
+        self, monkeypatch: pytest.MonkeyPatch, older_state: str
+    ) -> None:
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [
+                self._settlement_status(
+                    "scarmani",
+                    state=older_state,
+                    updated_at="2026-06-15T02:22:41Z",
+                    created_at="2026-06-15T02:22:41Z",
+                ),
+                self._settlement_status(
+                    "scarmani",
+                    updated_at="2026-06-15T02:25:41Z",
+                    created_at="2026-06-15T02:25:41Z",
+                ),
+            ],
+        )
+
+        assert quorum["human_preapproval_recorded"] is True
+        assert quorum["admin_squash_allowed"] is True
+
+    def test_conflicting_human_statuses_without_timestamps_fail_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [
+                self._settlement_status("scarmani"),
+                self._settlement_status("scarmani", state="pending"),
+            ],
+        )
+
+        assert quorum["human_preapproval_recorded"] is False
+        assert "timestamp" in quorum["settlement_creator_pin"]["reason"]
+
+    def test_tied_newest_human_status_timestamps_fail_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        quorum = self._pin_quorum(
+            monkeypatch,
+            [
+                self._settlement_status(
+                    "scarmani",
+                    updated_at="2026-06-15T02:25:41Z",
+                ),
+                self._settlement_status(
+                    "scarmani",
+                    state="pending",
+                    updated_at="2026-06-15T02:25:41Z",
+                ),
+            ],
+        )
+
+        assert quorum["human_preapproval_recorded"] is False
+        assert "timestamp" in quorum["settlement_creator_pin"]["reason"]
 
     def test_settlement_comment_without_matching_head_timestamp_fails_closed(
         self, monkeypatch: pytest.MonkeyPatch

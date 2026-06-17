@@ -17,6 +17,16 @@ TIER_FOUR_SETTLEMENT_MARKER = "Tier-4 Human Settlement Authorization"
 DEFAULT_TRUSTED_SETTLEMENT_CREATOR = "scarmani"
 SETTLEMENT_CREATOR_ENV_VAR = "ARAGORA_SETTLEMENT_CREATOR"
 TIER_FOUR_AUTHORIZED_MERGE_TOKENS = ("admin_squash_merge", "admin squash")
+STATUS_TIMESTAMP_FIELDS = (
+    "updated_at",
+    "updatedAt",
+    "created_at",
+    "createdAt",
+    "completed_at",
+    "completedAt",
+    "started_at",
+    "startedAt",
+)
 
 GhJson = Callable[[list[str]], Any]
 
@@ -52,32 +62,74 @@ def _human_settlement_status_creator_verified(
         return fail(f"could not fetch commit statuses ({exc}); failing closed")
     if not isinstance(payload, list):
         return fail("unexpected statuses payload shape; failing closed")
-    for status in payload:
-        if not isinstance(status, dict) or str(status.get("context") or "").strip() != context:
-            continue
-        state = str(status.get("state") or "").strip().lower()
-        creator = status.get("creator")
-        login = str(creator.get("login") or "").strip() if isinstance(creator, dict) else ""
-        if state != "success":
-            return fail(f"newest '{context}' status state is '{state}', not success")
-        if not login:
-            return fail(f"newest '{context}' status has no creator login; failing closed")
-        if login.casefold() != trusted.casefold():
-            return fail(
-                f"newest '{context}' status was created by '{login}', "
-                f"not trusted settlement creator '{trusted}'"
-            )
-        status_target_url = str(status.get("target_url") or status.get("targetUrl") or "").strip()
-        if expected_target_url and status_target_url != expected_target_url:
-            return fail(
-                f"newest '{context}' status target_url does not match the "
-                "trusted settlement comment"
-            )
-        return (
-            True,
-            f"settlement-creator pin: '{context}' status created by trusted settlement creator '{trusted}'",
+    ok, status, reason = _newest_human_settlement_status(payload, context=context)
+    if not ok:
+        return fail(reason)
+    if status is None:
+        return fail(f"no '{context}' status found on head commit; failing closed")
+    state = str(status.get("state") or "").strip().lower()
+    creator = status.get("creator")
+    login = str(creator.get("login") or "").strip() if isinstance(creator, dict) else ""
+    if state != "success":
+        return fail(f"newest '{context}' status state is '{state}', not success")
+    if not login:
+        return fail(f"newest '{context}' status has no creator login; failing closed")
+    if login.casefold() != trusted.casefold():
+        return fail(
+            f"newest '{context}' status was created by '{login}', "
+            f"not trusted settlement creator '{trusted}'"
         )
-    return fail(f"no '{context}' status found on head commit; failing closed")
+    status_target_url = str(status.get("target_url") or status.get("targetUrl") or "").strip()
+    if status_target_url != expected_target_url:
+        return fail(
+            f"newest '{context}' status target_url does not match the trusted settlement comment"
+        )
+    return (
+        True,
+        f"settlement-creator pin: '{context}' status created by trusted settlement creator '{trusted}'",
+    )
+
+
+def _status_timestamp(status: dict[str, Any]) -> datetime | None:
+    for key in STATUS_TIMESTAMP_FIELDS:
+        parsed = _parse_github_datetime(status.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _newest_human_settlement_status(
+    payload: list[Any], *, context: str
+) -> tuple[bool, dict[str, Any] | None, str]:
+    statuses = [
+        status
+        for status in payload
+        if isinstance(status, dict) and str(status.get("context") or "").strip() == context
+    ]
+    if not statuses:
+        return True, None, ""
+    if len(statuses) == 1:
+        return True, statuses[0], ""
+
+    timestamped: list[tuple[datetime, int, dict[str, Any]]] = []
+    for index, status in enumerate(statuses):
+        timestamp = _status_timestamp(status)
+        if timestamp is None:
+            return (
+                False,
+                None,
+                f"multiple '{context}' statuses include missing timestamp; failing closed",
+            )
+        timestamped.append((timestamp, index, status))
+    timestamped.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    newest = timestamped[0]
+    if len(timestamped) > 1 and timestamped[1][0] == newest[0]:
+        return (
+            False,
+            None,
+            f"multiple '{context}' statuses share newest timestamp; failing closed",
+        )
+    return True, newest[2], ""
 
 
 def _comment_author_login(comment: dict[str, Any]) -> str:
