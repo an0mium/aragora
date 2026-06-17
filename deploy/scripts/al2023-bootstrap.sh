@@ -141,7 +141,7 @@ source /opt/aragora/venv/bin/activate
 pip install --upgrade pip wheel setuptools
 
 echo "Installing Aragora with all optional features..."
-pip install "aragora[monitoring,observability,postgres,redis,documents,research,broadcast,control-plane]"
+pip install "aragora[all]"
 
 # Verify installation
 echo ""

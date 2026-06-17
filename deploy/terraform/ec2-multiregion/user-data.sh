@@ -106,7 +106,7 @@ pip install --upgrade pip wheel setuptools
 # =============================================================================
 
 echo "=== Installing Aragora with optional features ==="
-pip install "aragora[monitoring,observability,postgres,redis,documents,research,broadcast,control-plane]"
+pip install "aragora[all]"
 
 # Set ownership
 chown -R aragora:aragora /opt/aragora /var/log/aragora /etc/aragora

@@ -81,14 +81,5 @@ variable "enable_detailed_monitoring" {
 variable "aragora_extras" {
   description = "Aragora pip extras to install"
   type        = list(string)
-  default     = [
-    "monitoring",
-    "observability",
-    "postgres",
-    "redis",
-    "documents",
-    "research",
-    "broadcast",
-    "control-plane"
-  ]
+  default     = ["all"]
 }
