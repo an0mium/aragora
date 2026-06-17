@@ -1491,22 +1491,45 @@ def test_evidence_item_from_dict_canonicalizes_alias_family() -> None:
 # --- OpenRouter failure-only fallback ---------------------------------------
 
 
-def test_openrouter_reviewer_gated_on_key(monkeypatch) -> None:
+def test_openrouter_reviewer_disabled_without_optin_flag(monkeypatch) -> None:
+    # Key present but the opt-in flag is NOT set: must stay disabled (no silent
+    # third-party egress just because a key happens to be configured).
     from aragora.swarm import quorum_evidence as q
 
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.delenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", raising=False)
+    result = q._run_openrouter_reviewer("grok", "prompt")
+    assert not result.ok
+    assert "disabled" in result.error
+
+
+def test_openrouter_reviewer_disabled_without_key(monkeypatch) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     result = q._run_openrouter_reviewer("grok", "prompt")
     assert not result.ok
-    assert "OPENROUTER_API_KEY" in result.error
+    assert "disabled" in result.error
 
 
 def test_openrouter_reviewer_rejects_unmapped_family(monkeypatch) -> None:
     from aragora.swarm import quorum_evidence as q
 
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     result = q._run_openrouter_reviewer("deepseek", "prompt")
     assert not result.ok
     assert "no OpenRouter model" in result.error
+
+
+def test_openrouter_reviewer_model_env_override(monkeypatch) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setenv("ARAGORA_OPENROUTER_REVIEWER_MODELS", '{"grok": "x-ai/grok-custom"}')
+    assert q._openrouter_reviewer_model("grok") == "x-ai/grok-custom"
+    # Unspecified families fall back to the built-in (verified) map.
+    assert q._openrouter_reviewer_model("openai") == "openai/gpt-5-pro"
 
 
 def test_default_runner_falls_back_to_openrouter_on_infra_failure(monkeypatch) -> None:

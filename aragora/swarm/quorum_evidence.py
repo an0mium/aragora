@@ -41,7 +41,7 @@ import tempfile
 import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -641,15 +641,21 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
         result = _run_gemini_reviewer(prompt)
     else:
         result = _run_api_agent(fam, prompt)
-    # Universal last-resort fallback: when the subscription CLI / family API path
-    # failed (infra failure, not a returned verdict) and an OPENROUTER_API_KEY is
-    # present, review via OpenRouter using a same-tier model for the SAME family.
-    # This keeps the heterogeneous-family invariant (same family, different
+    # Opt-in last-resort fallback: when the subscription CLI / family API path
+    # failed (infra failure, not a returned verdict) and the OpenRouter fallback is
+    # explicitly enabled, review via OpenRouter using a same-tier model for the SAME
+    # family. Keeps the heterogeneous-family invariant (same family, different
     # transport) so one provider's outage/quota can't stall the quorum.
     if not result.ok:
         fallback = _run_openrouter_reviewer(fam, prompt)
         if fallback.ok:
             return fallback
+        # Both paths failed: keep the primary failure but record that the fallback
+        # was attempted, so a stalled merge is attributable rather than opaque.
+        if "disabled" not in fallback.error:
+            return replace(
+                result, error=f"{result.error}; openrouter fallback also failed: {fallback.error}"
+            )
     return result
 
 
@@ -794,37 +800,72 @@ def _run_gemini_reviewer(prompt: str) -> ReviewerResult:
     return _run_api_agent("gemini", prompt)
 
 
-# Same-tier OpenRouter model per family for the failure-only fallback. Mapped to
-# the highest-quality slug for each family so a fallback review is as trustworthy
-# as the subscription path it replaces (cost is bounded: only used on failure).
+# Same-tier OpenRouter model per family for the failure-only fallback. Slugs are
+# verified against the live OpenRouter catalogue; a per-family override is read
+# from ARAGORA_OPENROUTER_REVIEWER_MODELS (JSON) so a stale slug never silently
+# no-ops the fallback. Mapped to the highest-quality slug per family so a fallback
+# review is as trustworthy as the subscription path it replaces.
 _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
-    "claude": "anthropic/claude-opus-4.8",
-    "openai": "openai/gpt-5.5",
-    "grok": "x-ai/grok-4",
-    "gemini": "google/gemini-3.1-pro",
+    "claude": "anthropic/claude-fable-5",
+    "openai": "openai/gpt-5-pro",
+    "grok": "x-ai/grok-4.3",
+    "gemini": "google/gemini-3.1-pro-preview",
 }
 
 
+def _openrouter_reviewer_model(family: str) -> str | None:
+    """Resolve the OpenRouter slug for ``family``, honoring an env JSON override."""
+    raw = os.environ.get("ARAGORA_OPENROUTER_REVIEWER_MODELS", "").strip()
+    if raw:
+        try:
+            override = json.loads(raw)
+            if isinstance(override, dict) and override.get(family):
+                return str(override[family])
+        except (ValueError, TypeError):
+            logger.warning("ARAGORA_OPENROUTER_REVIEWER_MODELS is not valid JSON; ignoring")
+    return _OPENROUTER_REVIEWER_MODELS.get(family)
+
+
 def _openrouter_reviewer_available() -> bool:
+    """True only when the fallback is EXPLICITLY enabled and a key is present.
+
+    Egressing the diff to a third-party aggregator is opt-in: an operator must set
+    ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK=1 AND provide OPENROUTER_API_KEY.
+    Having a key configured for other purposes never silently changes data egress.
+    """
+    enabled = str(os.environ.get("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK") or "").strip()
+    if enabled.lower() not in {"1", "true", "yes", "on"}:
+        return False
     return _env_key_present("OPENROUTER_API_KEY")
 
 
 def _run_openrouter_reviewer(family: str, prompt: str) -> ReviewerResult:
-    """Failure-only OpenRouter fallback so one provider's outage can't stall quorum.
+    """Opt-in, failure-only OpenRouter fallback so one provider's outage can't stall
+    quorum.
 
-    Gated on ``OPENROUTER_API_KEY``; reviews as the requested ``family`` via a
-    same-tier OpenRouter model (same model family, different transport). Returns a
-    non-ok result when no key is set or no model is mapped, so the caller keeps the
-    original subscription-path failure.
+    Requires ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK=1 + OPENROUTER_API_KEY;
+    reviews as the requested ``family`` via a same-tier OpenRouter model (same model
+    family, different transport). Returns a non-ok result when disabled or no model
+    is mapped, so the caller keeps the original subscription-path failure.
     """
     fam = canonical_family(family)
     if not _openrouter_reviewer_available():
         return ReviewerResult(
-            fam, "", False, "OpenRouter fallback unavailable: no OPENROUTER_API_KEY"
+            fam,
+            "",
+            False,
+            "OpenRouter fallback disabled (set ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK=1 "
+            "+ OPENROUTER_API_KEY to enable)",
         )
-    model = _OPENROUTER_REVIEWER_MODELS.get(fam)
+    model = _openrouter_reviewer_model(fam)
     if not model:
         return ReviewerResult(fam, "", False, f"no OpenRouter model mapped for family {fam}")
+    logger.warning(
+        "Reviewer %s: subscription path failed; attempting OpenRouter fallback via %s "
+        "(metered third-party egress, opt-in enabled)",
+        fam,
+        model,
+    )
     result = _run_api_agent(fam, prompt, model=model)
     if result.ok:
         return ReviewerResult(fam, result.text, True, harness=_OPENROUTER_HARNESS)
