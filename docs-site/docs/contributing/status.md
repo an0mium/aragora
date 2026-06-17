@@ -8,7 +8,7 @@ description: Aragora Project Status
 *Last updated: May 14, 2026*
 
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](./status).
-> The thesis settlement ledger has been archived.
+> The thesis settlement ledger has been archived at [archive/status/2026-04-21-thesis-settlement-session.md](archive/status/2026-04-21-thesis-settlement-session.md).
 > Historical sections below are retained for continuity, but the active source of truth for current project status is `docs/status/STATUS.md`.
 > See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
 
@@ -87,7 +87,7 @@ The current bounded queue (updated 2026-04-25):
 1. ~~close [#6374](https://github.com/synaptent/aragora/issues/6374) on the canonical PR-review path~~ — **CLOSED**
 2. ~~close [#6373](https://github.com/synaptent/aragora/issues/6373) with rolling-window triage metrics~~ — **CLOSED**
 3. ~~close [#6372](https://github.com/synaptent/aragora/issues/6372) with auto-handle calibration + drift gating~~ — **CLOSED**
-4. close [#6375](https://github.com/synaptent/aragora/issues/6375) with empirical threshold grounding — **OPEN, sole remaining H1 gap**
+4. ~~close [#6375](https://github.com/synaptent/aragora/issues/6375) with empirical threshold grounding~~ — **CLOSED with complete-coverage guard; non-insufficient threshold updates require full v2 outcome observation coverage**
 
 For the full current-status narrative, use the canonical doc:
 
