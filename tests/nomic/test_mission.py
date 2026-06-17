@@ -68,10 +68,17 @@ def test_invalid_relay_rejected() -> None:
         assert _spec(relay=ok).relay == ok
 
 
-@pytest.mark.parametrize("bad", [-1, 5])
-def test_auto_settle_tier_range(bad: int) -> None:
+@pytest.mark.parametrize("bad", [-1, 3, 4, 5])
+def test_auto_settle_tier_rejects_out_of_range(bad: int) -> None:
+    # Binding guardrail: the mission may never auto-settle Tier-3+; those park
+    # for human risk acceptance. Tiers 3 and 4 must be rejected, not just <0/>4.
     with pytest.raises(ValueError, match="auto_settle_max_tier"):
         _spec(auto_settle_max_tier=bad)
+
+
+@pytest.mark.parametrize("ok", [0, 1, 2])
+def test_auto_settle_tier_allows_zero_through_two(ok: int) -> None:
+    assert _spec(auto_settle_max_tier=ok).auto_settle_max_tier == ok
 
 
 def test_spec_dict_roundtrip() -> None:

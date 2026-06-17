@@ -76,8 +76,11 @@ class MissionSpec:
             raise ValueError("max_hours must be positive or None")
         if self.relay not in _RELAY_CHANNELS:
             raise ValueError(f"relay must be one of {sorted(_RELAY_CHANNELS)}")
-        if not 0 <= self.auto_settle_max_tier <= 4:
-            raise ValueError("auto_settle_max_tier must be in [0, 4]")
+        if not 0 <= self.auto_settle_max_tier <= 2:
+            # Binding guardrail: the mission/relay can never auto-settle Tier-3+;
+            # those park for human risk acceptance and the merge-quorum gate stays
+            # the sole settlement authority. See the native-mission plan doc.
+            raise ValueError("auto_settle_max_tier must be in [0, 2] (Tier-3+ parks for human)")
 
     def to_dict(self) -> dict[str, Any]:
         return {
