@@ -207,6 +207,11 @@ class TestModelDowngradeAnalyzer:
             "provider": "anthropic",
             "quality": 1.0,
         }
+        assert MODEL_TIERS["claude-opus-4.7"] == {
+            "tier": 1,
+            "provider": "anthropic",
+            "quality": 1.0,
+        }
         assert MODEL_TIERS["claude-haiku-3"] == {
             "tier": 3,
             "provider": "anthropic",
@@ -229,10 +234,15 @@ class TestModelDowngradeAnalyzer:
         }
 
     def test_analyze_uses_runtime_opus_model_for_downgrade(self):
-        """The analyzer must not miss Opus traffic because the model ID is hyphenated."""
+        """The analyzer must not miss Opus traffic because the model ID is an alias."""
         analyzer = ModelDowngradeAnalyzer()
 
-        for model in ("claude-opus-4-8", "claude-opus-4-7", "claude-opus-4.8"):
+        for model in (
+            "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-opus-4.8",
+            "claude-opus-4.7",
+        ):
             recommendations = analyzer.analyze(
                 [
                     UsagePattern(
