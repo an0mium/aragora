@@ -47,6 +47,8 @@ PROVIDER_PRICING: dict[str, dict[str, Decimal]] = {
         "claude-sonnet-4-output": Decimal("15.00"),
         "claude-haiku-4-5": Decimal("0.80"),
         "claude-haiku-4-5-output": Decimal("4.00"),
+        "claude-haiku-4-5-20251001": Decimal("0.80"),
+        "claude-haiku-4-5-20251001-output": Decimal("4.00"),
         "claude-haiku-4.5": Decimal("0.80"),
         "claude-haiku-4.5-output": Decimal("4.00"),
     },

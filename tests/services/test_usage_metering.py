@@ -428,6 +428,48 @@ class TestTokenCostCalculation:
         assert input_cost == Decimal("15.00")
         assert output_cost == Decimal("60.00")
 
+    @pytest.mark.parametrize(
+        ("provider", "model", "input_price", "output_price"),
+        [
+            ("openai", "gpt-5.5", Decimal("2.50"), Decimal("10.00")),
+            ("google", "gemini-3.5-flash", Decimal("1.50"), Decimal("9.00")),
+            ("openrouter", "openai/gpt-5.5", Decimal("2.50"), Decimal("10.00")),
+            (
+                "openrouter",
+                "google/gemini-3.5-flash",
+                Decimal("1.50"),
+                Decimal("9.00"),
+            ),
+            ("anthropic", "claude-haiku-4-5", Decimal("0.80"), Decimal("4.00")),
+            (
+                "anthropic",
+                "claude-haiku-4-5-20251001",
+                Decimal("0.80"),
+                Decimal("4.00"),
+            ),
+        ],
+    )
+    def test_calibrated_models_use_explicit_usage_meter_prices(
+        self,
+        provider: str,
+        model: str,
+        input_price: Decimal,
+        output_price: Decimal,
+    ):
+        """Calibrated models must not fall back to provider defaults."""
+        from aragora.services.usage_metering import UsageMeter
+
+        meter = UsageMeter(db_path=Path("/tmp/test_cost_calc.db"))
+        input_cost, output_cost = meter._calculate_token_cost(
+            provider=provider,
+            model=model,
+            input_tokens=1_000_000,
+            output_tokens=1_000_000,
+        )
+
+        assert input_cost == input_price
+        assert output_cost == output_price
+
     def test_known_model_google_gemini_pro(self):
         """Test cost calculation for Gemini Pro."""
         from aragora.services.usage_metering import UsageMeter
@@ -797,6 +839,49 @@ class TestRecordTokenUsage:
         assert record.input_cost == Decimal("15.00")
         assert record.output_cost == Decimal("75.00")
         assert record.total_cost == Decimal("90.00")
+
+    @pytest.mark.parametrize(
+        ("provider", "model", "input_price", "output_price"),
+        [
+            ("openai", "gpt-5.5", Decimal("2.50"), Decimal("10.00")),
+            ("google", "gemini-3.5-flash", Decimal("1.50"), Decimal("9.00")),
+            ("openrouter", "openai/gpt-5.5", Decimal("2.50"), Decimal("10.00")),
+            (
+                "openrouter",
+                "google/gemini-3.5-flash",
+                Decimal("1.50"),
+                Decimal("9.00"),
+            ),
+            ("anthropic", "claude-haiku-4-5", Decimal("0.80"), Decimal("4.00")),
+            (
+                "anthropic",
+                "claude-haiku-4-5-20251001",
+                Decimal("0.80"),
+                Decimal("4.00"),
+            ),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_record_token_usage_uses_calibrated_prices(
+        self,
+        meter,
+        provider: str,
+        model: str,
+        input_price: Decimal,
+        output_price: Decimal,
+    ):
+        """Recording must use calibrated prices, not provider defaults."""
+        record = await meter.record_token_usage(
+            org_id="org_1",
+            input_tokens=1_000_000,
+            output_tokens=1_000_000,
+            model=model,
+            provider=provider,
+        )
+
+        assert record.input_cost == input_price
+        assert record.output_cost == output_price
+        assert record.total_cost == input_price + output_price
 
     @pytest.mark.asyncio
     async def test_record_per_model_tracking(self, meter):
