@@ -815,16 +815,18 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     "grok": "x-ai/grok-4.3",
     "gemini": "google/gemini-3.1-pro-preview",
     # Cost-efficient families with no subscription CLI — reviewed OpenRouter-direct
-    # (see _OPENROUTER_DIRECT_FAMILIES). DeepSeek V4 Pro is a strong intelligence/$
-    # pick, giving a cheap, distinct second family when premium CLIs are down.
+    # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
+    # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
     "deepseek": "deepseek/deepseek-v4-pro",
+    "qwen": "qwen/qwen3-235b-a22b-thinking-2507",
+    "kimi": "moonshotai/kimi-k2.6",
 }
 
 # Families with no subscription CLI / native API path: they review via OpenRouter
 # as their PRIMARY transport (still gated on the opt-in egress flag + key). This
-# lets a cheap, distinct family (e.g. claude + deepseek) form a 2-family quorum
-# when the premium subscription CLIs are quota-/auth-blocked.
-_OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset({"deepseek"})
+# lets cheap, distinct families (e.g. claude + deepseek/qwen/kimi) form a 2-family
+# quorum when the premium subscription CLIs are quota-/auth-blocked.
+_OPENROUTER_DIRECT_FAMILIES: frozenset[str] = frozenset({"deepseek", "qwen", "kimi"})
 
 
 def _openrouter_reviewer_model(family: str) -> str | None:

@@ -1518,8 +1518,8 @@ def test_openrouter_reviewer_rejects_unmapped_family(monkeypatch) -> None:
 
     monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    # qwen is a recognized family but has no OpenRouter slug mapped (unlike deepseek).
-    result = q._run_openrouter_reviewer("qwen", "prompt")
+    # mistral is a recognized family but has no OpenRouter slug mapped (unlike deepseek).
+    result = q._run_openrouter_reviewer("mistral", "prompt")
     assert not result.ok
     assert "no OpenRouter model" in result.error
 
