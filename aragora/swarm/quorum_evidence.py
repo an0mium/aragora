@@ -190,6 +190,86 @@ def _run_reviewer_with_infra_retry(
     return result
 
 
+def _reviewer_best_of_n() -> int:
+    """How many times to sample a reviewer's verdict (majority wins). Default 1."""
+    raw = os.environ.get("ARAGORA_REVIEWER_BEST_OF_N", "").strip()
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return 1
+
+
+def _run_reviewer_best_of_n(
+    runner: Callable[[str, str], ReviewerResult],
+    family: str,
+    prompt: str,
+    *,
+    samples: int | None = None,
+) -> ReviewerResult:
+    """Sample a reviewer ``samples`` times (each infra-retried) and take the
+    majority verdict, to dampen run-to-run verdict variance (e.g. a reviewer that
+    flips PASS<->changes_requested on the same head).
+
+    Default ``samples`` is 1 (env ``ARAGORA_REVIEWER_BEST_OF_N``), so behavior is
+    unchanged unless explicitly enabled. Ties resolve to the more conservative
+    ``changes_requested`` (never invent support). Returns a representative ok
+    result carrying the winning verdict; falls back to the last result if every
+    sample was an infra failure.
+    """
+    n = _reviewer_best_of_n() if samples is None else max(1, samples)
+    first = _run_reviewer_with_infra_retry(runner, family, prompt)
+    if n == 1:
+        return first
+    ok_results = [first] if first.ok else []
+    for _ in range(n - 1):
+        result = _run_reviewer_with_infra_retry(runner, family, prompt)
+        if result.ok:
+            ok_results.append(result)
+    if not ok_results:
+        return first
+    verdicts = [_reviewer_verdict(r.text) for r in ok_results]
+    pass_n = verdicts.count("pass")
+    cr_n = verdicts.count("changes_requested")
+    winner = "pass" if pass_n > cr_n else "changes_requested"
+    # Prefer a sample whose own verdict matches the majority so the returned body
+    # is representative; ``changes_requested`` wins ties (fail-safe).
+    for result, verdict in zip(ok_results, verdicts, strict=False):
+        if verdict == winner:
+            return result
+    return ok_results[0]
+
+
+_FINDING_PRIORITY_RE = re.compile(r"\[(p[0-3])\]", re.IGNORECASE)
+
+
+def extract_findings(text: str) -> list[tuple[str, str]]:
+    """Return ``(priority, line)`` for each [P0]-[P3] finding line in reviewer text.
+
+    Markdown-tolerant: matches a priority marker even under list/bold/heading
+    decoration — ``- **[P2]** ...``, ``1. [p1] ...``, ``[P3]: ...`` all parse.
+    Lets a reviewer's findings be surfaced even when its body is not counted.
+    """
+    findings: list[tuple[str, str]] = []
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        probe = re.sub(r"^[*#>\-+`\d.)\s]+", "", stripped).replace("**", "").replace("__", "")
+        match = _FINDING_PRIORITY_RE.match(probe)
+        if match:
+            findings.append((match.group(1).upper(), stripped))
+    return findings
+
+
+def _findings_digest(text: str) -> str:
+    """Compact ``2×P2, 1×P3`` summary of a reviewer's findings ('' if none)."""
+    counts: dict[str, int] = {}
+    for priority, _ in extract_findings(text):
+        counts[priority] = counts.get(priority, 0) + 1
+    ordered = [p for p in ("P0", "P1", "P2", "P3") if counts.get(p)]
+    return ", ".join(f"{counts[p]}×{p}" for p in ordered)
+
+
 def _cap_text(text: str) -> str:
     text = text.strip()
     if len(text) > _MAX_REVIEWER_CHARS:
@@ -1418,7 +1498,7 @@ def collect_evidence(
         max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
             future_to_family = {
-                pool.submit(_run_reviewer_with_infra_retry, reviewer_runner, family, prompt): family
+                pool.submit(_run_reviewer_best_of_n, reviewer_runner, family, prompt): family
                 for family in supported
             }
             for future in concurrent.futures.as_completed(future_to_family):
@@ -1735,9 +1815,21 @@ def _render_outcome(outcome: CollectOutcome) -> str:
         lines.append(f"  quorum rerun: {action} ({reason})")
     for item in outcome.items:
         flag = "counts" if item.would_count else f"DOES NOT count ({', '.join(item.problems)})"
-        lines.append(f"  - {item.family}: {flag}; verdict={item.verdict}")
+        digest = _findings_digest(item.body)
+        findings_note = f"; findings: {digest}" if digest else ""
+        lines.append(f"  - {item.family}: {flag}; verdict={item.verdict}{findings_note}")
     for failure in outcome.failures:
         lines.append(f"  - {failure.family}: reviewer failed ({failure.error})")
+    # Surface non-counting reviewers' findings as advisory, so a thorough critic's
+    # catches (e.g. grok's) are never lost just because its body did not count.
+    advisory = [
+        item for item in outcome.items if not item.would_count and extract_findings(item.body)
+    ]
+    if advisory:
+        lines.append("")
+        lines.append("Advisory findings (non-counting reviewers — not part of quorum):")
+        for item in advisory:
+            lines.append(f"\n----- {item.family} (advisory, does not count) -----\n{item.body}")
     if outcome.action == "prepare":
         lines.append("")
         lines.append("Prepared evidence comments (not posted):")

@@ -1611,6 +1611,90 @@ def test_deepseek_is_openrouter_direct_with_mapped_model() -> None:
     assert "deepseek" in q.FAMILY_PROVIDERS  # already a recognized counting family
 
 
+# --- findings surfacing (critic value) -------------------------------------
+
+
+@pytest.mark.parametrize(
+    "line,priority",
+    [
+        ("[P1] missing null check", "P1"),
+        ("- **[P2]** location — desc", "P2"),
+        ("1. [p3] nit here", "P3"),
+        ("## [P0] critical", "P0"),
+        ("  > [P2]: blockquoted finding", "P2"),
+    ],
+)
+def test_extract_findings_is_markdown_tolerant(line: str, priority: str) -> None:
+    from aragora.swarm.quorum_evidence import extract_findings
+
+    findings = extract_findings(line)
+    assert findings and findings[0][0] == priority
+
+
+def test_extract_findings_ignores_non_finding_lines() -> None:
+    from aragora.swarm.quorum_evidence import extract_findings
+
+    assert extract_findings("Verdict: PASS\nNo blocking issues.\nSecurity: fine") == []
+
+
+def test_findings_digest_counts_by_priority() -> None:
+    from aragora.swarm.quorum_evidence import _findings_digest
+
+    assert _findings_digest("[P2] a\n- **[P2]** b\n[P3] c") == "2×P2, 1×P3"
+    assert _findings_digest("no findings at all") == ""
+
+
+# --- best-of-N verdict sampling --------------------------------------------
+
+
+def _verdict_seq_runner(verdicts: list[str]):
+    from aragora.swarm import quorum_evidence as q
+
+    seq = iter(verdicts)
+
+    def runner(family: str, _prompt: str) -> "q.ReviewerResult":
+        return q.ReviewerResult(family, f"Verdict: {next(seq)}", True)
+
+    return runner
+
+
+def test_best_of_n_takes_majority_pass() -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    runner = _verdict_seq_runner(["PASS", "CHANGES-REQUESTED", "PASS"])
+    result = q._run_reviewer_best_of_n(runner, "grok", "p", samples=3)
+    assert q._reviewer_verdict(result.text) == "pass"
+
+
+def test_best_of_n_takes_majority_changes_requested() -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    runner = _verdict_seq_runner(["PASS", "CHANGES-REQUESTED", "CHANGES-REQUESTED"])
+    result = q._run_reviewer_best_of_n(runner, "grok", "p", samples=3)
+    assert q._reviewer_verdict(result.text) == "changes_requested"
+
+
+def test_best_of_n_tie_favors_changes_requested() -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    runner = _verdict_seq_runner(["PASS", "CHANGES-REQUESTED"])
+    result = q._run_reviewer_best_of_n(runner, "grok", "p", samples=2)
+    assert q._reviewer_verdict(result.text) == "changes_requested"
+
+
+def test_best_of_n_default_single_sample_runs_once() -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    calls = {"n": 0}
+
+    def runner(family: str, _prompt: str) -> q.ReviewerResult:
+        calls["n"] += 1
+        return q.ReviewerResult(family, "Verdict: PASS", True)
+
+    result = q._run_reviewer_best_of_n(runner, "grok", "p", samples=1)
+    assert calls["n"] == 1 and result.ok
+
+
 def test_collect_missing_head_raises() -> None:
     fakes, _ = _fakes(tier=1, head="")
     with pytest.raises(ValueError):
