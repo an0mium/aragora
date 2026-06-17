@@ -736,6 +736,7 @@ class TestNewFamilyCostTracking:
         ("provider", "model"),
         [
             ("anthropic", "claude-opus-4.8"),
+            ("anthropic", "claude-haiku-3"),
             ("anthropic", "claude-haiku-4.5"),
             ("anthropic", "claude-haiku-4-5-20251001"),
             ("openai", "gpt-5.5"),
@@ -760,6 +761,7 @@ class TestNewFamilyCostTracking:
         ("provider", "model"),
         [
             ("anthropic", "claude-opus-4.8"),
+            ("anthropic", "claude-haiku-3"),
             ("anthropic", "claude-haiku-4.5"),
             ("anthropic", "claude-haiku-4-5-20251001"),
             ("openai", "gpt-5.5"),

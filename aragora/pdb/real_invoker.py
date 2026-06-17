@@ -174,6 +174,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "claude-opus-4": (5.00, 25.00),
     "claude-sonnet-4-6": (3.00, 15.00),
     "claude-sonnet-4": (3.00, 15.00),
+    "claude-haiku-3": (0.25, 1.25),
     "claude-haiku-4-5": (0.80, 4.00),
     "claude-haiku-4.5": (0.80, 4.00),
     "claude-haiku-4-5-20251001": (0.80, 4.00),

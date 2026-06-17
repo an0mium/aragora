@@ -432,6 +432,7 @@ class TestTokenCostCalculation:
         ("provider", "model", "input_price", "output_price"),
         [
             ("anthropic", "claude-opus-4-8", Decimal("5.00"), Decimal("25.00")),
+            ("anthropic", "claude-opus-4-7", Decimal("5.00"), Decimal("25.00")),
             ("anthropic", "claude-opus-4", Decimal("5.00"), Decimal("25.00")),
             ("anthropic", "claude-haiku-4.5", Decimal("0.80"), Decimal("4.00")),
             ("openai", "gpt-5.5", Decimal("2.50"), Decimal("10.00")),
@@ -439,9 +440,21 @@ class TestTokenCostCalculation:
             ("openrouter", "openai/gpt-5.5", Decimal("2.50"), Decimal("10.00")),
             (
                 "openrouter",
+                "anthropic/claude-opus-4-8",
+                Decimal("5.00"),
+                Decimal("25.00"),
+            ),
+            (
+                "openrouter",
                 "anthropic/claude-opus-4.8",
                 Decimal("5.00"),
                 Decimal("25.00"),
+            ),
+            (
+                "openrouter",
+                "anthropic/claude-haiku-4-5",
+                Decimal("0.80"),
+                Decimal("4.00"),
             ),
             (
                 "openrouter",
@@ -872,9 +885,21 @@ class TestRecordTokenUsage:
             ("openrouter", "openai/gpt-5.5", Decimal("2.50"), Decimal("10.00")),
             (
                 "openrouter",
+                "anthropic/claude-opus-4-8",
+                Decimal("5.00"),
+                Decimal("25.00"),
+            ),
+            (
+                "openrouter",
                 "anthropic/claude-opus-4.8",
                 Decimal("5.00"),
                 Decimal("25.00"),
+            ),
+            (
+                "openrouter",
+                "anthropic/claude-haiku-4-5",
+                Decimal("0.80"),
+                Decimal("4.00"),
             ),
             (
                 "openrouter",
@@ -1874,6 +1899,7 @@ class TestModelPricing:
         ("provider", "model"),
         [
             ("anthropic", "claude-opus-4-8"),
+            ("anthropic", "claude-opus-4-7"),
             ("anthropic", "claude-opus-4.8"),
             ("anthropic", "claude-opus-4.7"),
             ("anthropic", "claude-opus-4"),
@@ -1884,8 +1910,10 @@ class TestModelPricing:
             ("google", "gemini-3.5-flash"),
             ("openrouter", "openai/gpt-5.5"),
             ("openrouter", "google/gemini-3.5-flash"),
+            ("openrouter", "anthropic/claude-opus-4-8"),
             ("openrouter", "anthropic/claude-opus-4.8"),
             ("openrouter", "anthropic/claude-opus-4.7"),
+            ("openrouter", "anthropic/claude-haiku-4-5"),
             ("openrouter", "anthropic/claude-haiku-4.5"),
             ("openrouter", "anthropic/claude-haiku-4-5-20251001"),
         ],

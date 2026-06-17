@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 MODEL_TIERS: dict[str, dict[str, Any]] = {
     # Tier 1: Most capable (complex reasoning, coding)
     "claude-opus-4-8": {"tier": 1, "provider": "anthropic", "quality": 1.0},
+    "claude-opus-4-7": {"tier": 1, "provider": "anthropic", "quality": 1.0},
     "claude-opus-4.8": {"tier": 1, "provider": "anthropic", "quality": 1.0},
     "claude-opus-4": {"tier": 1, "provider": "anthropic", "quality": 1.0},
     "gpt-5.5": {"tier": 1, "provider": "openai", "quality": 0.98},
