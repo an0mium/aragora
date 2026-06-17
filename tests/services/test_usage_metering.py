@@ -349,9 +349,9 @@ class TestTokenCostCalculation:
             input_tokens=1_000_000,
             output_tokens=1_000_000,
         )
-        # claude-opus-4 input: $15/1M, output: $75/1M
-        assert input_cost == Decimal("15.00")
-        assert output_cost == Decimal("75.00")
+        # claude-opus-4 input: $5/1M, output: $25/1M
+        assert input_cost == Decimal("5.00")
+        assert output_cost == Decimal("25.00")
 
     def test_known_model_anthropic_sonnet(self):
         """Test cost calculation for Claude Sonnet 4."""
@@ -431,6 +431,8 @@ class TestTokenCostCalculation:
     @pytest.mark.parametrize(
         ("provider", "model", "input_price", "output_price"),
         [
+            ("anthropic", "claude-opus-4-8", Decimal("5.00"), Decimal("25.00")),
+            ("anthropic", "claude-opus-4", Decimal("5.00"), Decimal("25.00")),
             ("openai", "gpt-5.5", Decimal("2.50"), Decimal("10.00")),
             ("google", "gemini-3.5-flash", Decimal("1.50"), Decimal("9.00")),
             ("openrouter", "openai/gpt-5.5", Decimal("2.50"), Decimal("10.00")),
@@ -835,14 +837,16 @@ class TestRecordTokenUsage:
             provider="anthropic",
         )
 
-        # claude-opus-4: $15/1M input, $75/1M output
-        assert record.input_cost == Decimal("15.00")
-        assert record.output_cost == Decimal("75.00")
-        assert record.total_cost == Decimal("90.00")
+        # claude-opus-4: $5/1M input, $25/1M output
+        assert record.input_cost == Decimal("5.00")
+        assert record.output_cost == Decimal("25.00")
+        assert record.total_cost == Decimal("30.00")
 
     @pytest.mark.parametrize(
         ("provider", "model", "input_price", "output_price"),
         [
+            ("anthropic", "claude-opus-4-8", Decimal("5.00"), Decimal("25.00")),
+            ("anthropic", "claude-opus-4", Decimal("5.00"), Decimal("25.00")),
             ("openai", "gpt-5.5", Decimal("2.50"), Decimal("10.00")),
             ("google", "gemini-3.5-flash", Decimal("1.50"), Decimal("9.00")),
             ("openrouter", "openai/gpt-5.5", Decimal("2.50"), Decimal("10.00")),
@@ -1530,7 +1534,7 @@ class TestMultiOrgIsolation:
 
         # org_A: expensive usage, org_B: cheap usage
         assert summary_a.token_cost > summary_b.token_cost
-        assert summary_a.token_cost > Decimal("50")  # opus is expensive
+        assert summary_a.token_cost == Decimal("17.50")
         assert summary_b.token_cost < Decimal("1")  # mini is cheap
 
     @pytest.mark.asyncio
@@ -1827,6 +1831,32 @@ class TestModelPricing:
                     assert output_price >= input_price, (
                         f"{provider}/{model_name}: output ${output_price} < input ${input_price}"
                     )
+
+    @pytest.mark.parametrize(
+        ("provider", "model"),
+        [
+            ("anthropic", "claude-opus-4-8"),
+            ("anthropic", "claude-opus-4.8"),
+            ("anthropic", "claude-opus-4.7"),
+            ("anthropic", "claude-opus-4"),
+            ("anthropic", "claude-haiku-4-5"),
+            ("anthropic", "claude-haiku-4-5-20251001"),
+            ("openai", "gpt-5.5"),
+            ("google", "gemini-3.5-flash"),
+            ("openrouter", "openai/gpt-5.5"),
+            ("openrouter", "google/gemini-3.5-flash"),
+        ],
+    )
+    def test_calibrated_billing_models_have_usage_meter_prices(self, provider, model):
+        """Calibrated billing models must stay mirrored in service metering."""
+        from aragora.billing.usage import PROVIDER_PRICING
+        from aragora.services.usage_metering import MODEL_PRICING
+
+        provider_prices = PROVIDER_PRICING[provider]
+        metering_prices = MODEL_PRICING[provider]
+
+        assert metering_prices[model] == provider_prices[model]
+        assert metering_prices[f"{model}-output"] == provider_prices[f"{model}-output"]
 
 
 # =============================================================================

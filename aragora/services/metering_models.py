@@ -49,8 +49,14 @@ class UsageType(Enum):
 # Aligned with aragora.billing.usage.PROVIDER_PRICING
 MODEL_PRICING: dict[str, dict[str, Decimal]] = {
     "anthropic": {
-        "claude-opus-4": Decimal("15.00"),
-        "claude-opus-4-output": Decimal("75.00"),
+        "claude-opus-4-8": Decimal("5.00"),
+        "claude-opus-4-8-output": Decimal("25.00"),
+        "claude-opus-4.8": Decimal("5.00"),
+        "claude-opus-4.8-output": Decimal("25.00"),
+        "claude-opus-4.7": Decimal("5.00"),
+        "claude-opus-4.7-output": Decimal("25.00"),
+        "claude-opus-4": Decimal("5.00"),
+        "claude-opus-4-output": Decimal("25.00"),
         "claude-sonnet-4": Decimal("3.00"),
         "claude-sonnet-4-output": Decimal("15.00"),
         "claude-haiku-4-5": Decimal("0.80"),
