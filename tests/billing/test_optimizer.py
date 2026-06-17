@@ -278,8 +278,8 @@ class TestModelDowngradeAnalyzer:
             )
         }
 
-        assert alternatives["claude-haiku-4-5"].cost_per_1k_input == Decimal("0.00080")
-        assert alternatives["claude-haiku-4-5"].cost_per_1k_output == Decimal("0.00400")
+        assert alternatives["claude-haiku-4-5"].cost_per_1k_input == Decimal("0.00100")
+        assert alternatives["claude-haiku-4-5"].cost_per_1k_output == Decimal("0.00500")
 
     def test_analyze_skips_cheap_models(self):
         """Test analyzer skips already cheap models."""
