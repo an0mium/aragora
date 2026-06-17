@@ -96,6 +96,8 @@ def _tier4_packet(
         "entries": [
             {
                 "pr_number": pr,
+                "tier": 4,
+                "tier_name": "tier_4_preapproval_required",
                 "status": "human_preapproval_required",
                 "requires_human_risk_settlement": True,
                 "requires_human_preapproval": requires_human_preapproval,
@@ -1152,6 +1154,25 @@ def test_packet_requires_unrecorded_human_preapproval_helper() -> None:
         is True
     )
 
+    tier3_risk_packet = _tier4_packet(
+        requires_human_preapproval=False,
+        human_preapproval_recorded=False,
+    )
+    tier3_risk_packet["entries"][0].pop("requires_human_preapproval")
+    tier3_risk_packet["entries"][0]["tier"] = 3
+    tier3_risk_packet["entries"][0]["tier_name"] = "tier_3_semantic_risk"
+    tier3_risk_packet["entries"][0]["status"] = "repair_or_wait"
+    tier3_risk_packet["entries"][0]["requires_human_risk_settlement"] = True
+    tier3_risk_packet["entries"][0]["reasons"] = ["human risk settlement required"]
+    tier3_risk_packet["human_risk_settlement_required"] = [7423]
+    assert (
+        settler._packet_requires_unrecorded_human_preapproval(
+            tier3_risk_packet,
+            pr=7423,
+        )
+        is False
+    )
+
     # Generic statuses do not trigger the receipt blocker by themselves. They
     # only fail closed when another Tier-4 settlement signal is present, as the
     # repair_or_wait packets above prove.
@@ -2100,6 +2121,58 @@ def test_settle_only_posts_comment_and_status_without_merge(
             None,
         )
     ]
+
+
+def test_settle_only_rejects_unrecorded_preapproval_without_receipt(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[tuple[list[str], str | None]] = []
+    commands: list[tuple[list[str], str | None]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(human_preapproval_recorded=False),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: text_commands.append((command, input_text)) or "",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+
+    rc = settler.main(
+        [
+            "--settle-only",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    assert text_commands == []
+    assert commands == []
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert settler.SETTLE_ONLY_RECEIPT_BLOCKER in payload["error"]
 
 
 def test_settle_only_requires_proof_for_quorum_only_repair_packet() -> None:
@@ -3217,6 +3290,43 @@ def test_quorum_run_ids_reads_paginated_check_runs(monkeypatch: Any, tmp_path: P
     assert len(calls) == 2
 
 
+def test_quorum_run_ids_normalizes_partial_results_when_later_page_is_malformed(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    def _fake_run_json(command: list[str], cwd: Path | None = None) -> dict[str, Any]:
+        endpoint = command[-1]
+        if endpoint.endswith("page=1"):
+            return {
+                "check_runs": [
+                    {
+                        "name": "aragora-merge-quorum",
+                        "conclusion": "FAILURE",
+                        "details_url": (
+                            "https://github.com/synaptent/aragora/actions/runs/"
+                            "27474838200/job/81212117993"
+                        ),
+                    },
+                    *(
+                        {
+                            "name": "lint",
+                            "conclusion": "success",
+                            "html_url": (
+                                "https://github.com/synaptent/aragora/actions/runs/1/job/2"
+                            ),
+                        }
+                        for _ in range(99)
+                    ),
+                ]
+            }
+        return {"unexpected": "shape"}
+
+    monkeypatch.setattr(settler, "_run_json", _fake_run_json)
+
+    runs = settler._quorum_run_ids(head="abc", repo="synaptent/aragora", cwd=tmp_path)
+
+    assert runs == [("27474838200", "failure")]
+
+
 def test_rerun_failed_quorum_targets_newest_failed_run(monkeypatch: Any, tmp_path: Path) -> None:
     def _fake_run_json(command: list[str], cwd: Path | None = None) -> dict[str, Any]:
         return {
@@ -3477,10 +3587,11 @@ def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Pat
     assert ["gh", "run", "rerun", "27474838200", "--failed"] in commands
 
 
-def test_settle_apply_does_not_record_receipt_when_comment_post_fails(
+def test_settle_apply_keeps_receipt_when_comment_post_fails(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    recorded: dict[str, Any] = {}
 
     monkeypatch.setattr(
         settler,
@@ -3497,13 +3608,17 @@ def test_settle_apply_does_not_record_receipt_when_comment_post_fails(
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
 
-    def _record_boom(*args: Any, **kwargs: Any) -> Any:
-        raise AssertionError("must not record receipt when comment post fails")
-
     def _comment_boom(command: list[str], cwd: Path, input_text: str | None = None) -> str:
         raise settler.subprocess.CalledProcessError(1, command)
 
-    monkeypatch.setattr(settler, "_record_settlement", _record_boom)
+    monkeypatch.setattr(
+        settler,
+        "_record_settlement",
+        lambda pr, head, reason, repo, cwd, post_github_status=False: (
+            recorded.update({"pr": pr, "head": head, "post_github_status": post_github_status})
+            or {"written": True}
+        ),
+    )
     monkeypatch.setattr(settler, "_run_text_command", _comment_boom)
 
     rc = settler.main(
@@ -3522,9 +3637,63 @@ def test_settle_apply_does_not_record_receipt_when_comment_post_fails(
     )
 
     assert rc == 2
+    assert recorded == {"pr": 7423, "head": head, "post_github_status": True}
     payload = settler.json.loads(capsys.readouterr().out)
     assert payload["ok"] is False
     assert "Tier 4 settlement signal failed" in payload["error"]
+
+
+def test_settle_apply_does_not_post_comment_when_receipt_recording_fails(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[list[str]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+
+    def _record_boom(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("receipt recording failed")
+
+    monkeypatch.setattr(settler, "_record_settlement", _record_boom)
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: text_commands.append(command) or "",
+    )
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    assert text_commands == []
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert "receipt recording failed" in payload["error"]
 
 
 def test_settle_apply_posts_missing_comment_when_status_already_success(

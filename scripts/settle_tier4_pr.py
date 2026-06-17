@@ -67,6 +67,11 @@ MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER = (
 SETTLE_ONLY_TRUSTED_OPERATOR_BLOCKER = "trusted operator allowlist is required for --settle-only"
 SETTLE_ONLY_INVOKER_BLOCKER = "could not determine gh login for --settle-only"
 SETTLE_ONLY_ADMIN_PERMISSION_BLOCKER = "admin/OWNER permission required for --settle-only"
+SETTLE_ONLY_RECEIPT_BLOCKER = (
+    "--settle-only cannot create GitHub-only Tier 4 settlement state while "
+    "human_preapproval_recorded=false; use --settle-apply or "
+    "review-queue record-settlement so the operator receipt backs the signal"
+)
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 HUMAN_PREAPPROVAL_RECEIPT_BLOCKER = (
     "Tier 4 human preapproval required but not recorded (merge-packet reports "
@@ -533,7 +538,11 @@ def _packet_entry_requires_human_preapproval(
     reasons = entry.get("reasons")
     if not isinstance(reasons, list):
         return False
-    return any(_reason_indicates_human_preapproval(item) for item in reasons)
+    if not any(_reason_indicates_human_preapproval(item) for item in reasons):
+        return False
+    if _entry_is_tier4(entry):
+        return True
+    return any("tier 4" in _normalize_packet_signal(item) for item in reasons)
 
 
 def _status_requires_human_preapproval(value: Any) -> bool:
@@ -557,6 +566,15 @@ def _reason_indicates_human_preapproval(value: Any) -> bool:
             "tier 4 human risk settlement",
         )
     )
+
+
+def _entry_is_tier4(entry: dict[str, Any]) -> bool:
+    try:
+        if int(entry.get("tier")) >= 4:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return "tier 4" in _normalize_packet_signal(entry.get("tier_name"))
 
 
 def _comment_authorizes_requested_action(
@@ -682,16 +700,14 @@ def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: 
     entry = _entry_for_pr(merge_packet, pr=pr)
     if not entry:
         return False
+    if not _entry_is_tier4(entry):
+        return False
     if bool(entry.get("requires_human_risk_settlement")):
         return True
     required = merge_packet.get("human_risk_settlement_required")
     if isinstance(required, list) and str(pr) in {str(item) for item in required}:
         return True
-    tier = entry.get("tier")
-    try:
-        return int(tier) >= 4
-    except (TypeError, ValueError):
-        return False
+    return True
 
 
 def _mergeability_blockers(*, pr: int, pr_view: dict[str, Any]) -> list[str]:
@@ -1989,7 +2005,7 @@ def _quorum_run_ids(*, head: str, repo: str, cwd: Path) -> list[tuple[str, str]]
         )
         check_runs = payload.get("check_runs")
         if not isinstance(check_runs, list):
-            return runs
+            break
         for item in check_runs:
             if not isinstance(item, dict):
                 continue
@@ -2228,6 +2244,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         applied_commands: list[list[str]] = []
         extra_out: dict[str, Any] = {}
         if args.settle_only:
+            if _packet_requires_unrecorded_human_preapproval(merge_packet, pr=args.pr):
+                raise RuntimeError(SETTLE_ONLY_RECEIPT_BLOCKER)
             quorum_missing_settlement_proof = False
             if _required_quorum_only_failure(
                 required_checks
@@ -2339,14 +2357,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             extra_out["settlement_already_present"] = (
                 status_already_present and comment_already_present
             )
-            if not comment_already_present:
-                applied_commands = _apply_settlement_signal(
-                    pr=args.pr,
-                    head=args.head,
-                    repo=args.repo,
-                    cwd=args.cwd,
-                    post_status=False,
-                )
             extra_out["receipt"] = _record_settlement(
                 pr=args.pr,
                 head=args.head,
@@ -2355,6 +2365,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cwd=args.cwd,
                 post_github_status=not status_already_present,
             )
+            if not comment_already_present:
+                applied_commands = _apply_settlement_signal(
+                    pr=args.pr,
+                    head=args.head,
+                    repo=args.repo,
+                    cwd=args.cwd,
+                    post_status=False,
+                )
             extra_out["quorum_rerun"] = _rerun_failed_quorum(
                 head=args.head, repo=args.repo, cwd=args.cwd
             )
