@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+"""Pure decision core for unattended Tier 0-2 auto-merge on green quorum.
+
+When a Tier 0-2 PR's merge-packet reaches ``status=satisfied`` the merge-quorum
+gate already authorizes an admin squash ("Model quorum satisfied; Tier 0-2
+settlement authorized" -- see ``.github/workflows/aragora-merge-quorum.yml``).
+Today a human still types ``gh pr merge`` for those. This module decides --
+purely, from already-fetched state -- whether to *execute* that
+already-authorized merge without a human in the loop.
+
+It deliberately makes NO new risk judgment. It re-checks, defense-in-depth, the
+exact conditions the existing ``auto_merge_bucket_a`` admin-squash exception
+requires (``scripts/auto_merge_bucket_a.py::_merge_packet_allows_blocked_state``)
+plus the live check predicate from ``boss_drain_pass._proxy_authorized``
+(merge-quorum green + every required check green + mergeable). Tier 3-4 PRs
+(which require human risk settlement) are never eligible here -- they continue
+to flow through ``scripts/settle_tier4_pr.py`` unchanged.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
+
+# The branch-protection required checks (mirrors boss_drain_pass._REQUIRED).
+REQUIRED_CHECKS: frozenset[str] = frozenset(
+    {"lint", "typecheck", "sdk-parity", "Generate & Validate", "TypeScript SDK Type Check"}
+)
+
+# The merge-quorum status check that encodes heterogeneous model-family consensus.
+QUORUM_CHECK = "aragora-merge-quorum"
+
+# Tiers 0-2 settle without human risk acceptance; 3-4 always need a human.
+MAX_AUTO_MERGE_TIER = 2
+
+# Merge states from which an authorized admin squash is safe. BLOCKED is allowed
+# only because a satisfied merge-packet is what substitutes for the missing
+# review approval under branch protection; every other non-CLEAN state (DIRTY,
+# BEHIND, UNSTABLE, UNKNOWN) is refused.
+_SAFE_MERGE_STATES = frozenset({"CLEAN", "BLOCKED"})
+
+# Any check ending in one of these conclusions blocks the merge -- even a
+# *non-required* one. The target population is ~always mergeStateStatus=BLOCKED
+# (review approval substituted by the packet), so a failing non-required check
+# would not show up as UNSTABLE; without this guard it would pass every other
+# check and be --admin-merged. This also closes the REQUIRED_CHECKS drift hazard
+# (a newly-required check failing is caught here regardless of the static list).
+_FAILING_CHECK_STATES = frozenset(
+    {"FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED"}
+)
+
+
+@dataclass(frozen=True)
+class PRMergeContext:
+    """Already-fetched state for one open PR. Pure input to the decision."""
+
+    number: int
+    head_sha: str
+    packet_head_sha: str
+    tier: int | None
+    packet_status: str
+    packet_verdict: str
+    requires_human_risk_settlement: bool
+    unresolved_dissent: bool
+    admin_squash_allowed: bool
+    is_draft: bool
+    mergeable: str
+    merge_state_status: str
+    check_states: dict[str, str]
+
+
+@dataclass(frozen=True)
+class MergeDecision:
+    """Verdict for one PR: whether to merge unattended, and why not if not."""
+
+    number: int
+    head_sha: str
+    should_merge: bool
+    blockers: tuple[str, ...]
+
+
+def decide_auto_merge(
+    ctx: PRMergeContext,
+    *,
+    max_tier: int = MAX_AUTO_MERGE_TIER,
+    required_checks: frozenset[str] = REQUIRED_CHECKS,
+) -> MergeDecision:
+    """Decide whether ``ctx`` may be merged unattended; collect *every* blocker.
+
+    Returns ``should_merge=True`` only when none of the guards trip. All blockers
+    are accumulated (not short-circuited) so an operator sees the full picture.
+    """
+    blockers: list[str] = []
+
+    if ctx.is_draft:
+        blockers.append("draft")
+
+    if ctx.tier is None:
+        blockers.append("tier unknown (merge-packet did not classify)")
+    elif ctx.tier < 0 or ctx.tier > max_tier:
+        blockers.append(
+            f"tier {ctx.tier} outside auto-merge range 0-{max_tier} "
+            "(Tier 3-4 need human settlement; <0 is invalid)"
+        )
+
+    if ctx.requires_human_risk_settlement:
+        blockers.append("requires human risk settlement")
+
+    if ctx.packet_status != "satisfied":
+        blockers.append(f"merge-packet status not satisfied ({ctx.packet_status or 'unknown'})")
+
+    if ctx.packet_verdict != "admin_squash_allowed":
+        blockers.append(
+            f"merge-packet verdict not admin_squash_allowed ({ctx.packet_verdict or 'unknown'})"
+        )
+
+    if not ctx.admin_squash_allowed:
+        blockers.append("admin squash not allowed by merge-packet")
+
+    if ctx.unresolved_dissent:
+        blockers.append("unresolved dissent present")
+
+    # The merge-packet is a separate subprocess from the gh view; if the head
+    # moved between the two fetches we'd be deciding on mismatched data. Only
+    # flag when the packet actually disclosed a head (else tier=None blocks).
+    if ctx.packet_head_sha and ctx.packet_head_sha != ctx.head_sha:
+        blockers.append(
+            f"packet head mismatch (packet={ctx.packet_head_sha[:7]} view={ctx.head_sha[:7]})"
+        )
+
+    if ctx.mergeable != "MERGEABLE":
+        blockers.append(f"not mergeable (mergeable={ctx.mergeable or 'unknown'})")
+
+    if ctx.merge_state_status not in _SAFE_MERGE_STATES:
+        blockers.append(
+            f"merge state not safe (mergeStateStatus={ctx.merge_state_status or 'unknown'})"
+        )
+
+    quorum_state = ctx.check_states.get(QUORUM_CHECK)
+    if quorum_state != "SUCCESS":
+        blockers.append(f"merge-quorum not green ({QUORUM_CHECK}={quorum_state or 'absent'})")
+
+    for name in sorted(required_checks):
+        state = ctx.check_states.get(name)
+        if state != "SUCCESS":
+            blockers.append(f"required check not green: {name}={state or 'absent'}")
+
+    failing = sorted(n for n, s in ctx.check_states.items() if s in _FAILING_CHECK_STATES)
+    if failing:
+        shown = ", ".join(failing[:3])
+        blockers.append(
+            f"failing checks present (incl. non-required): {shown}{', …' if len(failing) > 3 else ''}"
+        )
+
+    return MergeDecision(
+        number=ctx.number,
+        head_sha=ctx.head_sha,
+        should_merge=not blockers,
+        blockers=tuple(blockers),
+    )
+
+
+def first_error_line(stderr: str, stdout: str) -> str:
+    """First non-empty line of a failed merge's output, or a safe default.
+
+    Guards the whitespace-only case: ``"\\n".strip().splitlines()[0]`` would
+    raise ``IndexError`` and crash a whole pass mid-merge. Prefer stderr.
+    """
+    text = (stderr or stdout or "").strip()
+    if not text:
+        return "merge failed"
+    return text.splitlines()[0]
+
+
+def context_from_gh(view: dict[str, Any], packet_entry: dict[str, Any] | None) -> PRMergeContext:
+    """Build a :class:`PRMergeContext` from a ``gh pr view`` payload + packet entry.
+
+    ``statusCheckRollup`` mixes two shapes: check *runs* expose ``name`` +
+    ``conclusion``; commit *statuses* expose ``context`` + ``state``. Both are
+    normalised into ``check_states`` so the decision core sees one flat map.
+    A missing ``packet_entry`` leaves ``tier=None`` (which always blocks).
+    """
+    check_states: dict[str, str] = {}
+    for item in view.get("statusCheckRollup") or []:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name") or item.get("context")
+        if not name:
+            continue
+        state = item.get("conclusion") or item.get("state") or item.get("status")
+        check_states[str(name)] = str(state or "")
+
+    packet = packet_entry or {}
+    tier_raw = packet.get("tier")
+    try:
+        tier = int(tier_raw) if tier_raw is not None else None
+    except (TypeError, ValueError):
+        tier = None
+
+    return PRMergeContext(
+        number=int(view.get("number") or 0),
+        head_sha=str(view.get("headRefOid") or ""),
+        packet_head_sha=str(packet.get("head_sha") or ""),
+        tier=tier,
+        packet_status=str(packet.get("status") or ""),
+        packet_verdict=str(packet.get("verdict") or ""),
+        # Fail CLOSED on these safety flags: an absent/renamed key -> treat as
+        # "settlement required" / "dissent present" so a schema drift blocks the
+        # merge rather than silently permitting it.
+        requires_human_risk_settlement=packet.get("requires_human_risk_settlement") is not False,
+        unresolved_dissent=packet.get("unresolved_dissent") is not False,
+        admin_squash_allowed=bool(packet.get("admin_squash_allowed")),
+        is_draft=bool(view.get("isDraft")),
+        mergeable=str(view.get("mergeable") or ""),
+        merge_state_status=str(view.get("mergeStateStatus") or ""),
+        check_states=check_states,
+    )
+
+
+def merge_eligible(
+    contexts: list[PRMergeContext],
+    *,
+    max_tier: int = MAX_AUTO_MERGE_TIER,
+) -> list[MergeDecision]:
+    """Decide a batch of contexts (preserves order)."""
+    return [decide_auto_merge(ctx, max_tier=max_tier) for ctx in contexts]
+
+
+def apply_merges(
+    decisions: list[MergeDecision],
+    *,
+    merge_fn: Callable[[int, str], tuple[bool, str]],
+    max_merges: int | None = None,
+    dry_run: bool = True,
+) -> list[dict[str, Any]]:
+    """Bounded apply loop. The merge side-effect is injected for testability.
+
+    - Non-eligible decisions are reported as ``skip`` and never merged.
+    - ``dry_run`` (default) calls ``merge_fn`` for nothing; it reports
+      ``would-merge`` and still honours ``max_merges`` so the plan is accurate.
+    - A failed merge does NOT consume a ``max_merges`` slot.
+    """
+    results: list[dict[str, Any]] = []
+    merged = 0
+    for decision in decisions:
+        record: dict[str, Any] = {"pr": decision.number, "head": decision.head_sha}
+        if not decision.should_merge:
+            record["action"] = "skip"
+            record["blockers"] = list(decision.blockers)
+            results.append(record)
+            continue
+        if max_merges is not None and merged >= max_merges:
+            record["action"] = "deferred (max-merges reached)"
+            results.append(record)
+            continue
+        if dry_run:
+            record["action"] = "would-merge"
+            results.append(record)
+            merged += 1
+            continue
+        ok, detail = merge_fn(decision.number, decision.head_sha)
+        record["action"] = "merged" if ok else "merge-failed"
+        record["detail"] = detail
+        results.append(record)
+        if ok:
+            merged += 1
+    return results
