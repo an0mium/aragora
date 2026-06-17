@@ -29,7 +29,7 @@ Requires Node.js `^20.19.0 || >=22.12.0`.
 
 ```bash
 cd ide/vscode-aragora
-npm install
+npm ci
 npm run compile
 npm run package
 ```

@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist',
+    // VS Code 1.85 uses Electron 25 / Chromium 114; keep this aligned with engines.vscode.
     target: 'chrome114',
     rollupOptions: {
       output: {

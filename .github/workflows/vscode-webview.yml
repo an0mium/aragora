@@ -42,3 +42,6 @@ jobs:
 
       - name: Build webview
         run: npm run build:webview
+
+      - name: Lint webview
+        run: npm --prefix webview-ui run lint
