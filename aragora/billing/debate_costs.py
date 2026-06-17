@@ -74,6 +74,7 @@ DEFAULT_PROVIDER_RATES: dict[str, dict[str, tuple[Decimal, Decimal]]] = {
         "google/gemini-3.5-flash": (Decimal("1.50"), Decimal("9.00")),
         "anthropic/claude-opus-4-8": (Decimal("5.00"), Decimal("25.00")),
         "anthropic/claude-opus-4.8": (Decimal("5.00"), Decimal("25.00")),
+        "anthropic/claude-opus-4-7": (Decimal("5.00"), Decimal("25.00")),
         "anthropic/claude-opus-4.7": (Decimal("5.00"), Decimal("25.00")),
         "anthropic/claude-haiku-4-5": (Decimal("0.80"), Decimal("4.00")),
         "anthropic/claude-haiku-4.5": (Decimal("0.80"), Decimal("4.00")),

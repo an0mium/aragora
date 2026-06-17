@@ -117,6 +117,7 @@ class TestProviderRateMirrors:
             ("openrouter", "google/gemini-3.5-flash"),
             ("openrouter", "anthropic/claude-opus-4-8"),
             ("openrouter", "anthropic/claude-opus-4.8"),
+            ("openrouter", "anthropic/claude-opus-4-7"),
             ("openrouter", "anthropic/claude-opus-4.7"),
             ("openrouter", "anthropic/claude-haiku-4-5"),
             ("openrouter", "anthropic/claude-haiku-4.5"),

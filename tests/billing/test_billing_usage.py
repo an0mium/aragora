@@ -92,6 +92,7 @@ class TestTokenCostCalculation:
         [
             ("anthropic/claude-opus-4-8", Decimal("30.00")),
             ("anthropic/claude-opus-4.8", Decimal("30.00")),
+            ("anthropic/claude-opus-4-7", Decimal("30.00")),
             ("anthropic/claude-opus-4.7", Decimal("30.00")),
             ("anthropic/claude-haiku-4-5", Decimal("4.80")),
             ("anthropic/claude-haiku-4.5", Decimal("4.80")),

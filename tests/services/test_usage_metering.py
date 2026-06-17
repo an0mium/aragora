@@ -452,6 +452,12 @@ class TestTokenCostCalculation:
             ),
             (
                 "openrouter",
+                "anthropic/claude-opus-4-7",
+                Decimal("5.00"),
+                Decimal("25.00"),
+            ),
+            (
+                "openrouter",
                 "anthropic/claude-haiku-4-5",
                 Decimal("0.80"),
                 Decimal("4.00"),
@@ -892,6 +898,12 @@ class TestRecordTokenUsage:
             (
                 "openrouter",
                 "anthropic/claude-opus-4.8",
+                Decimal("5.00"),
+                Decimal("25.00"),
+            ),
+            (
+                "openrouter",
+                "anthropic/claude-opus-4-7",
                 Decimal("5.00"),
                 Decimal("25.00"),
             ),
@@ -1912,6 +1924,7 @@ class TestModelPricing:
             ("openrouter", "google/gemini-3.5-flash"),
             ("openrouter", "anthropic/claude-opus-4-8"),
             ("openrouter", "anthropic/claude-opus-4.8"),
+            ("openrouter", "anthropic/claude-opus-4-7"),
             ("openrouter", "anthropic/claude-opus-4.7"),
             ("openrouter", "anthropic/claude-haiku-4-5"),
             ("openrouter", "anthropic/claude-haiku-4.5"),
