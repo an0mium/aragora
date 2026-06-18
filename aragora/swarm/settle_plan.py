@@ -15,6 +15,7 @@ and refuses to proceed when the model quorum is not genuinely satisfied.
 
 from __future__ import annotations
 
+import math
 import shlex
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -67,6 +68,13 @@ def plan_settlement(
     if tier is None:
         route = ROUTE_BLOCKED
         blockers.append("tier unknown (merge-packet did not classify the PR)")
+    elif tier < 0:
+        # A negative tier is malformed; `tier <= 2` would pick the LESS conservative
+        # auto-merge path. Fail safe -- the composed tools also treat <0 as invalid.
+        route = ROUTE_BLOCKED
+        blockers.append(
+            f"invalid tier {tier} (negative -- merge-packet classification is malformed)"
+        )
     elif tier <= AUTO_MERGE_MAX_TIER:
         route = ROUTE_AUTO_MERGE
     else:
@@ -131,24 +139,32 @@ def tier4_settle_commands(
 
 
 def _coerce_tier(value: Any) -> int | None:
-    """Coerce a merge-packet ``tier`` to ``int`` (or ``None`` if malformed).
+    """Coerce a merge-packet ``tier`` to a non-negative ``int`` (else ``None``).
 
     ``plan_settlement`` does ``tier <= AUTO_MERGE_MAX_TIER``; a non-int tier from a
-    malformed payload would raise ``TypeError`` there. Coercing here (a bool, NaN,
-    or unparseable value becomes ``None`` -> fail-safe ``ROUTE_BLOCKED``) keeps the
-    planner total."""
+    malformed payload would raise ``TypeError`` there. Coercing here keeps the
+    planner total: a bool, a non-finite/non-integral/negative float, an
+    unparseable string, or a negative int all become ``None`` -> fail-safe
+    ``ROUTE_BLOCKED``. ``json.loads`` accepts ``NaN``/``Infinity`` by default, so
+    finiteness is checked BEFORE ``int(value)`` (which would otherwise raise
+    ``ValueError``/``OverflowError`` on them)."""
     if isinstance(value, bool):
         return None
+    coerced: int | None
     if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value) if value == int(value) else None
-    if isinstance(value, str):
+        coerced = value
+    elif isinstance(value, float):
+        coerced = int(value) if (math.isfinite(value) and value == int(value)) else None
+    elif isinstance(value, str):
         try:
-            return int(value.strip())
+            coerced = int(value.strip())
         except ValueError:
-            return None
-    return None
+            coerced = None
+    else:
+        coerced = None
+    if coerced is not None and coerced < 0:
+        return None
+    return coerced
 
 
 def summarize_collect(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -170,6 +186,10 @@ def summarize_collect(payload: Mapping[str, Any]) -> dict[str, Any]:
         }
     items = []
     for it in payload.get("items") or []:
+        if not isinstance(it, dict):
+            # A malformed (non-dict) item must not crash the flatten the way the
+            # top-level error envelope is already guarded against -- skip it.
+            continue
         items.append(
             {
                 "family": it.get("family"),

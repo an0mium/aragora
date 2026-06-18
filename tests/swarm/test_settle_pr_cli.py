@@ -115,3 +115,27 @@ def test_dry_run_ready_exits_0_without_mutating(cli, monkeypatch):
     rc = cli.main(["--repo", "owner/repo", "--pr", "8512"])  # no --apply
     assert rc == 0
     assert auto["n"] == 0  # dry-run never calls auto-merge
+
+
+def test_tier4_dry_run_previews_runbook_without_login(cli, monkeypatch, capsys):
+    # A Tier-4 dry-run with no --operator-login is blocked (exit 1) but still
+    # PREVIEWS the settle runbook so the operator sees it before resolving blockers.
+    monkeypatch.setattr(cli, "_collect", lambda *a, **k: _payload(tier=4))
+    rc = cli.main(["--repo", "owner/repo", "--pr", "8382"])  # dry-run, no login
+    out = capsys.readouterr().out
+    assert rc == 1  # blocked (no login) -> not ready
+    assert "PREVIEW" in out
+    assert "settle_tier4_pr.py" in out
+    assert "<gh-login>" in out  # placeholder for the missing login
+
+
+def test_collect_error_is_surfaced_in_text_output(cli, monkeypatch, capsys):
+    # collect's root-cause error must appear in the default text path, not only --json.
+    monkeypatch.setattr(
+        cli, "_collect", lambda *a, **k: {"mode": "collect_evidence", "error": "boom: no JSON"}
+    )
+    rc = cli.main(["--repo", "owner/repo", "--pr", "8512"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "collect error" in out
+    assert "boom: no JSON" in out

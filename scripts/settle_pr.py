@@ -18,9 +18,10 @@ secrets.
 Tier-aware behavior under ``--apply``:
   - Tier 0-2: posts evidence (via collect --apply) then runs the existing
     auto-merge-on-green tool. Fully unattended.
-  - Tier 3-4: posts the supportive evidence, then SURFACES the exact
-    ``settle_tier4_pr.py`` commands for the operator to run. The Tier-4 human
-    risk settlement is a deliberate operator act and is never automated here.
+  - Tier 3-4: collect treats --apply as prepare-only and never posts; this CLI
+    honors that invariant and only SURFACES the exact ``settle_tier4_pr.py``
+    commands for the operator to run. The Tier-4 human risk settlement is a
+    deliberate operator act and is never posted or automated here.
 """
 
 from __future__ import annotations
@@ -43,15 +44,41 @@ from aragora.swarm.settle_plan import (  # noqa: E402
     tier4_settle_commands,
 )
 
+# Bounded so a hung `gh` or a stuck reviewer collect can never stall the CLI
+# indefinitely. Collect runs real model reviewers, so its ceiling is generous.
+_GH_TIMEOUT = 60.0
+_MERGE_TIMEOUT = 300.0
+_COLLECT_TIMEOUT = 1800.0
 
-def _run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+def _run(cmd: list[str], *, timeout: float | None = None) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess, never raising on a timeout: a timed-out call returns a
+    synthetic rc=124 result (stdout/stderr preserved) so callers stay total."""
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        out = (
+            exc.stdout
+            if isinstance(exc.stdout, str)
+            else (exc.stdout or b"").decode(errors="replace")
+        )
+        err = (
+            exc.stderr
+            if isinstance(exc.stderr, str)
+            else (exc.stderr or b"").decode(errors="replace")
+        )
+        return subprocess.CompletedProcess(
+            cmd, returncode=124, stdout=out, stderr=f"{err}\n[timed out after {timeout}s]".strip()
+        )
 
 
 def _resolve_repo(repo: str | None) -> str | None:
     if repo:
         return repo
-    out = _run(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"])
+    out = _run(
+        ["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+        timeout=_GH_TIMEOUT,
+    )
     return out.stdout.strip() or None
 
 
@@ -76,7 +103,7 @@ def _collect(repo: str, pr: int, reviewers: list[str], *, apply: bool) -> dict[s
     ]
     if apply:
         cmd.append("--apply")
-    out = _run(cmd)
+    out = _run(cmd, timeout=_COLLECT_TIMEOUT)
     try:
         payload = json.loads(out.stdout)
         if isinstance(payload, dict):
@@ -89,11 +116,18 @@ def _collect(repo: str, pr: int, reviewers: list[str], *, apply: bool) -> dict[s
 
 def _auto_merge(repo: str, pr: int) -> subprocess.CompletedProcess[str]:
     script = _REPO_ROOT / "scripts" / "auto_merge_quorum_green.py"
-    return _run([sys.executable, str(script), "--repo", repo, "--pr", str(pr), "--apply"])
+    return _run(
+        [sys.executable, str(script), "--repo", repo, "--pr", str(pr), "--apply"],
+        timeout=_MERGE_TIMEOUT,
+    )
 
 
 def _render_human(summary: dict[str, Any], plan: Any) -> None:
     print(f"\nPR settlement plan  (tier={summary['tier']}  route={plan.route})")
+    if summary.get("error"):
+        # Surface collect's root cause (exception text / "no JSON") in the default
+        # text path too -- not just --json -- so a failed collect is diagnosable.
+        print(f"  collect error:         {summary['error']}")
     print(f"  head:                  {summary.get('head_sha')}")
     print(f"  supportive_families:   {summary['supportive_families']}")
     print(f"  dissenting_families:   {summary['dissenting_families']}")
@@ -178,7 +212,12 @@ def main(argv: list[str] | None = None) -> int:
             + (am.stdout.strip() or am.stderr.strip())[:300]
         )
 
-    if plan.route == ROUTE_OPERATOR_TIER4 and not plan.blockers:
+    # Surface the Tier 3-4 commands when the route is ready (no blockers), OR as a
+    # PREVIEW during a dry-run even if blocked (e.g. no --operator-login yet) so the
+    # operator can see the exact runbook before resolving blockers. Never surfaced
+    # under --apply unless genuinely ready -- a preview must not look actionable.
+    tier4_preview = plan.route == ROUTE_OPERATOR_TIER4 and bool(plan.blockers) and not args.apply
+    if plan.route == ROUTE_OPERATOR_TIER4 and (not plan.blockers or tier4_preview):
         # Tier 3-4: surface the operator settle commands; never post/settle here.
         next_steps = tier4_settle_commands(
             repo=repo,
@@ -214,6 +253,7 @@ def main(argv: list[str] | None = None) -> int:
                     "blockers": list(plan.blockers),
                     "actions": actions,
                     "next_steps": next_steps,
+                    "next_steps_preview": bool(next_steps) and bool(plan.blockers),
                     "summary": summary,
                 },
                 indent=2,
@@ -226,7 +266,12 @@ def main(argv: list[str] | None = None) -> int:
         for a in actions:
             print(f"  action: {a}")
         if next_steps:
-            print("\n  Tier 3-4 operator settle path (run these yourself):")
+            label = (
+                "Tier 3-4 operator settle path PREVIEW (resolve blockers above first):"
+                if plan.blockers
+                else "Tier 3-4 operator settle path (run these yourself):"
+            )
+            print(f"\n  {label}")
             for s in next_steps:
                 print(f"    {s}")
 

@@ -15,6 +15,7 @@ from aragora.swarm.settle_plan import (
     ROUTE_AUTO_MERGE,
     ROUTE_BLOCKED,
     ROUTE_OPERATOR_TIER4,
+    _coerce_tier,
     plan_settlement,
     summarize_collect,
     tier4_settle_commands,
@@ -130,6 +131,43 @@ def test_authority_prepare_only_reroutes_stale_tier_to_operator():
     assert blocked.route == ROUTE_OPERATOR_TIER4
     assert blocked.ready_to_mutate is False
     assert any("--operator-login" in b and "Tier 2" not in b for b in blocked.blockers)
+
+
+def test_negative_tier_is_blocked_not_auto_merged():
+    # A negative tier must NOT take `tier <= 2` into the less-conservative
+    # auto-merge path; it is malformed -> fail-safe ROUTE_BLOCKED.
+    plan = plan_settlement(tier=-1, quorum_satisfied=True, supportive_families=["claude", "grok"])
+    assert plan.route == ROUTE_BLOCKED
+    assert plan.ready_to_mutate is False
+    assert any("negative" in b for b in plan.blockers)
+
+
+def test_coerce_tier_is_total_on_nonfinite_and_negative():
+    # The helper must never propagate: json.loads yields NaN/Infinity floats, and
+    # int(NaN)/int(inf) raise -- finiteness is checked first. Negatives -> None.
+    assert _coerce_tier(float("nan")) is None
+    assert _coerce_tier(float("inf")) is None
+    assert _coerce_tier(float("-inf")) is None
+    assert _coerce_tier(2.7) is None  # non-integral
+    assert _coerce_tier(-1) is None  # negative int
+    assert _coerce_tier("-3") is None  # negative string
+    assert _coerce_tier(True) is None  # bool is not a tier
+    assert _coerce_tier(2.0) == 2  # integral float ok
+    assert _coerce_tier("3") == 3
+    assert _coerce_tier(0) == 0
+
+
+def test_summarize_collect_skips_malformed_items():
+    # A non-dict item must not crash the flatten (parity with the error envelope).
+    s = summarize_collect(
+        {
+            "tier": 2,
+            "has_supportive_quorum": True,
+            "items": [{"family": "claude", "verdict": "pass"}, "garbage", None, 42],
+        }
+    )
+    assert len(s["items"]) == 1
+    assert s["items"][0]["family"] == "claude"
 
 
 def test_unknown_tier_is_blocked_fail_safe():
