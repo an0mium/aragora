@@ -25,10 +25,10 @@ thresholds:
 
 summary:
   core: 21
-  integrated: 90
+  integrated: 91
   experimental: 29
   deprecated: 2
-  total: 142
+  total: 143
 
 modules:
   # --- core (21) ---
@@ -36,24 +36,24 @@ modules:
     tier: core
     py_files: 83
     importer_count: 184
-    test_file_count: 165
+    test_file_count: 166
     override_reason: "Agent factory, 43 registered types"
   - name: billing
     tier: core
     py_files: 38
     importer_count: 150
-    test_file_count: 118
+    test_file_count: 119
   - name: cli
     tier: core
-    py_files: 117
+    py_files: 119
     importer_count: 6
     test_file_count: 144
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
     py_files: 17
-    importer_count: 360
-    test_file_count: 86
+    importer_count: 362
+    test_file_count: 88
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
     tier: core
@@ -75,8 +75,8 @@ modules:
   - name: debate
     tier: core
     py_files: 263
-    importer_count: 162
-    test_file_count: 598
+    importer_count: 163
+    test_file_count: 599
     override_reason: "Arena + DebateProtocol + consensus — mainline flow"
   - name: events
     tier: core
@@ -101,9 +101,9 @@ modules:
     override_reason: "ContinuumMemory + CritiqueStore — persistent state"
   - name: nomic
     tier: core
-    py_files: 159
+    py_files: 162
     importer_count: 91
-    test_file_count: 218
+    test_file_count: 221
   - name: observability
     tier: core
     py_files: 67
@@ -129,7 +129,7 @@ modules:
     tier: core
     py_files: 19
     importer_count: 121
-    test_file_count: 109
+    test_file_count: 110
   - name: resilience
     tier: core
     py_files: 13
@@ -148,7 +148,7 @@ modules:
     test_file_count: 165
     override_reason: "persistence layer"
 
-  # --- integrated (90) ---
+  # --- integrated (91) ---
   - name: analysis
     tier: integrated
     py_files: 29
@@ -309,6 +309,11 @@ modules:
     py_files: 2
     importer_count: 8
     test_file_count: 18
+  - name: gti
+    tier: integrated
+    py_files: 5
+    importer_count: 0
+    test_file_count: 5
   - name: harnesses
     tier: integrated
     py_files: 5
@@ -402,13 +407,13 @@ modules:
     test_file_count: 9
   - name: modes
     tier: integrated
-    py_files: 19
+    py_files: 20
     importer_count: 14
-    test_file_count: 20
+    test_file_count: 21
   - name: notifications
     tier: integrated
     py_files: 7
-    importer_count: 13
+    importer_count: 14
     test_file_count: 7
   - name: ops
     tier: integrated
@@ -423,7 +428,7 @@ modules:
   - name: persistence
     tier: integrated
     py_files: 27
-    importer_count: 136
+    importer_count: 137
     test_file_count: 26
   - name: plugins
     tier: integrated
@@ -489,7 +494,7 @@ modules:
     tier: integrated
     py_files: 13
     importer_count: 13
-    test_file_count: 22
+    test_file_count: 24
   - name: runtime
     tier: integrated
     py_files: 3
@@ -537,9 +542,9 @@ modules:
     test_file_count: 5
   - name: swarm
     tier: integrated
-    py_files: 108
+    py_files: 118
     importer_count: 32
-    test_file_count: 172
+    test_file_count: 181
   - name: templates
     tier: integrated
     py_files: 1

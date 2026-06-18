@@ -23,10 +23,17 @@ from aragora.billing.debate_costs import (
     AgentCostBreakdown,
     DebateCostSummary,
     DebateCostTracker,
+    DEFAULT_PROVIDER_RATES,
     ModelUsage,
     RoundCostBreakdown,
     get_debate_cost_tracker,
 )
+from aragora.billing.usage import PROVIDER_PRICING
+
+
+def _usage_rate_pair(provider: str, model: str) -> tuple[Decimal, Decimal]:
+    provider_prices = PROVIDER_PRICING[provider]
+    return provider_prices[model], provider_prices[f"{model}-output"]
 
 
 # =============================================================================
@@ -74,6 +81,55 @@ def populated_tracker(tracker):
         operation="revision",
     )
     return tracker
+
+
+# =============================================================================
+# Provider Rate Mirrors
+# =============================================================================
+
+
+class TestProviderRateMirrors:
+    """Tests that debate cost defaults stay in sync with billing rates."""
+
+    def test_default_provider_rates_match_usage_pricing_for_overlapping_models(self):
+        """Every explicitly mirrored debate rate matches PROVIDER_PRICING."""
+        for provider, model_rates in DEFAULT_PROVIDER_RATES.items():
+            usage_rates = PROVIDER_PRICING.get(provider)
+            if usage_rates is None:
+                continue
+
+            for model, rate_pair in model_rates.items():
+                output_key = f"{model}-output"
+                if model not in usage_rates or output_key not in usage_rates:
+                    continue
+
+                assert rate_pair == (
+                    usage_rates[model],
+                    usage_rates[output_key],
+                ), f"{provider}/{model} debate rates drifted from PROVIDER_PRICING"
+
+    @pytest.mark.parametrize(
+        ("provider", "model"),
+        [
+            ("openai", "gpt-5.5"),
+            ("google", "gemini-3.5-flash"),
+            ("google", "gemini-3.1-pro"),
+            ("google", "gemini-3.1-pro-preview"),
+            ("openrouter", "openai/gpt-5.5"),
+            ("openrouter", "google/gemini-3.5-flash"),
+            ("openrouter", "anthropic/claude-opus-4-8"),
+            ("openrouter", "anthropic/claude-opus-4.8"),
+            ("openrouter", "anthropic/claude-opus-4-7"),
+            ("openrouter", "anthropic/claude-opus-4.7"),
+            ("openrouter", "anthropic/claude-haiku-4-5"),
+            ("openrouter", "anthropic/claude-haiku-4.5"),
+            ("openrouter", "anthropic/claude-haiku-4-5-20251001"),
+        ],
+    )
+    def test_calibrated_v4_1_models_have_mirrored_debate_rates(self, provider, model):
+        """New optimizer-tier models must be explicit in both pricing tables."""
+        assert model in DEFAULT_PROVIDER_RATES[provider]
+        assert DEFAULT_PROVIDER_RATES[provider][model] == _usage_rate_pair(provider, model)
 
 
 # =============================================================================
