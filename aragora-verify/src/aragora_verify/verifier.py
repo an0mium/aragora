@@ -73,11 +73,20 @@ class VerifyResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "ok": self.ok,
+            "authenticity_unverified": self.authenticity_unverified,
             "receipt_id": self.receipt_id,
             "odr_digest": self.odr_digest,
             "checks": [asdict(c) for c in self.checks],
             "warnings": list(self.warnings),
         }
+
+    @property
+    def authenticity_unverified(self) -> bool:
+        """True iff the receipt carries signatures that were NOT checked (no public
+        key supplied) -- i.e. the ``signature`` check is SKIP. Such a receipt is
+        structurally OK but NOT authenticated, so callers must not treat it as
+        "verified" even though no check hard-failed (PR #8388 review [P2a])."""
+        return any(c.name == "signature" and c.status == SKIP for c in self.checks)
 
 
 # ---------------------------------------------------------------------------
@@ -260,12 +269,14 @@ def _check_chain(doc: dict[str, Any], digest_hex: str, chain: list[dict[str, Any
                 broken.append(f"entry[{i}].prev != entry[{i - 1}].hash")
         last_hash = cur if cur is not None else last_hash
 
-    # Anchoring: the receipt is recorded somewhere in the chain.
-    receipt_id = str(doc.get("receipt_id") or "")
+    # Anchoring: the receipt's CONTENT DIGEST must appear in the chain. We do NOT
+    # accept the mutable, non-cryptographic ``receipt_id`` as an anchor (PR #8388
+    # review [P2b]): a tampered body could reuse a legitimate receipt_id and forge
+    # a false "anchored" assurance. Only the JCS content digest binds.
     anchored = False
     for entry in chain:
         values = {str(v) for v in entry.values() if isinstance(v, (str, int))}
-        if digest_hex in values or (receipt_id and receipt_id in values):
+        if digest_hex in values:
             anchored = True
             break
 
@@ -275,9 +286,16 @@ def _check_chain(doc: dict[str, Any], digest_hex: str, chain: list[dict[str, Any
         return Check(
             "chain_link",
             FAIL,
-            "receipt digest/receipt_id not found among chain entries (not anchored)",
+            "receipt content digest not found among chain entries (not anchored)",
         )
-    link_note = "linkage continuous" if saw_links else "no prev-hash links present"
+    # NOTE: linkage only checks declared prev_hash == declared previous hash; it
+    # asserts self-consistency of the supplied chain, not that each entry's hash
+    # was recomputed from its content. Independent re-hashing is out of scope here.
+    link_note = (
+        "declared prev/hash links self-consistent (hashes not recomputed)"
+        if saw_links
+        else "no prev-hash links present"
+    )
     return Check("chain_link", PASS, f"receipt anchored in chain; {link_note}")
 
 

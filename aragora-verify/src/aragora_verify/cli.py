@@ -2,8 +2,10 @@
 
     aragora-verify receipt.json [--pubkey key.pem] [--chain chain.jsonl] [--json]
 
-Exit status: ``0`` when the receipt verifies (no failed checks), ``1`` when any
-check fails, ``2`` for usage/input errors. With ``--json`` the structured
+Exit status: ``0`` when the receipt verifies (no failed checks and any present
+signatures were checked), ``1`` when any check fails, ``2`` for usage/input
+errors, ``3`` when the receipt is structurally OK but carries signatures that
+were never checked (no ``--pubkey`` supplied). With ``--json`` the structured
 :class:`~aragora_verify.verifier.VerifyResult` is printed instead of the report.
 """
 
@@ -22,11 +24,21 @@ _GLYPH = {"pass": "PASS", "fail": "FAIL", "warn": "WARN", "skip": "----"}
 
 def _render(result: VerifyResult) -> str:
     lines: list[str] = []
-    verdict = "VERIFIED" if result.ok else "FAILED"
+    if not result.ok:
+        verdict = "FAILED"
+    elif result.authenticity_unverified:
+        verdict = "UNVERIFIED"
+    else:
+        verdict = "VERIFIED"
     lines.append(f"Open Decision Receipt — {verdict}")
     lines.append(f"  receipt_id: {result.receipt_id or '<missing>'}")
     if result.odr_digest:
         lines.append(f"  odr_digest: sha-256:{result.odr_digest}")
+    if verdict == "UNVERIFIED":
+        lines.append(
+            "  note: signatures are present but were NOT checked (no --pubkey); "
+            "authenticity is NOT established"
+        )
     lines.append("")
     lines.append("  checks:")
     for check in result.checks:
@@ -81,7 +93,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
     else:
         print(_render(result))
-    return 0 if result.ok else 1
+    if not result.ok:
+        return 1
+    if result.authenticity_unverified:
+        return 3  # structurally OK but present signatures were never checked
+    return 0
 
 
 if __name__ == "__main__":
