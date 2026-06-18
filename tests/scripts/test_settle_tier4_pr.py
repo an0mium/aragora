@@ -1229,6 +1229,24 @@ def test_packet_requires_unrecorded_human_preapproval_helper() -> None:
     assert settler._packet_requires_unrecorded_human_preapproval(_tier4_packet(), pr=9999) is False
 
 
+def test_generic_tier4_repair_packet_is_not_settlement_surface() -> None:
+    packet = _tier4_packet(
+        requires_human_preapproval=False,
+        human_preapproval_recorded=False,
+    )
+    packet["not_ready"] = [7423]
+    packet["human_risk_settlement_required"] = []
+    packet["entries"][0].pop("requires_human_preapproval")
+    packet["entries"][0]["tier"] = 4
+    packet["entries"][0]["tier_name"] = "tier_4"
+    packet["entries"][0]["status"] = "repair_or_wait"
+    packet["entries"][0]["requires_human_risk_settlement"] = False
+    packet["entries"][0]["reasons"] = ["checks are failing; repair before settlement"]
+
+    assert settler._packet_marks_tier4_settlement_surface(packet, pr=7423) is False
+    assert settler._packet_requires_unrecorded_human_preapproval(packet, pr=7423) is False
+
+
 def test_tier3_human_risk_packet_is_not_tier4_settlement_surface() -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
     packet = _tier4_packet(
@@ -3901,6 +3919,11 @@ def test_settle_apply_does_not_post_comment_when_receipt_recording_fails(
     payload = settler.json.loads(capsys.readouterr().out)
     assert payload["ok"] is False
     assert "receipt recording failed" in payload["error"]
+    assert payload["phase"] == "settlement_receipt"
+    assert payload["mutation_occurred"] is True
+    assert "rerun --settle-apply for the same exact head" in payload["recovery_action"]
+    assert payload["details"]["receipt_recorded_before_apply"] is False
+    assert payload["details"]["github_status_requested"] is True
 
 
 def test_settle_apply_posts_missing_comment_when_status_already_success(
@@ -3970,6 +3993,9 @@ def test_settle_apply_posts_missing_comment_when_status_already_success(
     assert payload["settlement_status_already_present"] is True
     assert payload["settlement_comment_already_present"] is False
     assert payload["settlement_already_present"] is False
+    assert payload["human_preapproval_recorded_before_apply"] is False
+    assert payload["human_preapproval_recorded"] is True
+    assert payload["human_preapproval_recorded_source"] == "record_settlement"
 
 
 def test_settle_apply_posts_missing_comment_without_duplicate_receipt(

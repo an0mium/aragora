@@ -715,7 +715,17 @@ def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: 
     required = merge_packet.get("human_risk_settlement_required")
     if isinstance(required, list) and str(pr) in {str(item) for item in required}:
         return True
-    return True
+    tier_name = _normalize_packet_signal(entry.get("tier_name"))
+    if "tier 4" in tier_name and (
+        "preapproval" in tier_name or "human risk settlement" in tier_name
+    ):
+        return True
+    reasons = entry.get("reasons")
+    if isinstance(reasons, list) and any(
+        _reason_indicates_human_preapproval(item) for item in reasons
+    ):
+        return True
+    return False
 
 
 def _packet_human_preapproval_recorded(merge_packet: dict[str, Any], *, pr: int) -> bool:
@@ -2445,9 +2455,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 merge_packet,
                 pr=args.pr,
             )
+            human_preapproval_recorded_before_apply = human_preapproval_recorded
             extra_out["settlement_status_already_present"] = status_already_present
             extra_out["settlement_comment_already_present"] = comment_already_present
+            extra_out["human_preapproval_recorded_before_apply"] = (
+                human_preapproval_recorded_before_apply
+            )
             extra_out["human_preapproval_recorded"] = human_preapproval_recorded
+            extra_out["human_preapproval_recorded_source"] = "merge_packet"
             extra_out["settlement_already_present"] = (
                 status_already_present and comment_already_present
             )
@@ -2458,14 +2473,39 @@ def main(argv: Sequence[str] | None = None) -> int:
                 }
             else:
                 _require_clean_receipt_worktree_for_settle_apply(cwd=args.cwd)
-                extra_out["receipt"] = _record_settlement(
-                    pr=args.pr,
-                    head=args.head,
-                    reason=reason,
-                    repo=args.repo,
-                    cwd=args.cwd,
-                    post_github_status=not status_already_present,
-                )
+                try:
+                    extra_out["receipt"] = _record_settlement(
+                        pr=args.pr,
+                        head=args.head,
+                        reason=reason,
+                        repo=args.repo,
+                        cwd=args.cwd,
+                        post_github_status=not status_already_present,
+                    )
+                except RuntimeError as exc:
+                    raise Tier4ApplyError(
+                        "Tier 4 settlement receipt/status recording failed; "
+                        f"partial receipt or status state may exist: {exc}",
+                        phase="settlement_receipt",
+                        mutation_occurred=True,
+                        completed_commands=1,
+                        recovery_action=(
+                            "rerun --settle-apply for the same exact head after checking "
+                            "merge-packet and the aragora/human-settlement status; if "
+                            "human_preapproval_recorded=true, the retry will skip duplicate "
+                            "receipt recording and continue with the missing signal"
+                        ),
+                        details={
+                            "receipt_recorded_before_apply": human_preapproval_recorded_before_apply,
+                            "receipt_recorded_now": "unknown",
+                            "github_status_requested": not status_already_present,
+                            "settlement_status_already_present": status_already_present,
+                            "settlement_comment_already_present": comment_already_present,
+                        },
+                    ) from exc
+                human_preapproval_recorded = True
+                extra_out["human_preapproval_recorded"] = True
+                extra_out["human_preapproval_recorded_source"] = "record_settlement"
             if not comment_already_present:
                 try:
                     applied_commands = _apply_settlement_signal(
@@ -2476,7 +2516,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         post_status=False,
                     )
                 except RuntimeError as exc:
-                    receipt_recorded_now = not human_preapproval_recorded
+                    receipt_recorded_now = not human_preapproval_recorded_before_apply
                     raise Tier4ApplyError(
                         "Tier 4 settlement comment posting failed after receipt/status "
                         f"state was recorded or confirmed: {exc}",
@@ -2490,7 +2530,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             "settlement comment, and rerun aragora-merge-quorum"
                         ),
                         details={
-                            "receipt_recorded_before_apply": human_preapproval_recorded,
+                            "receipt_recorded_before_apply": human_preapproval_recorded_before_apply,
                             "receipt_recorded_now": receipt_recorded_now,
                             "github_status_posted_by_receipt": (
                                 receipt_recorded_now and not status_already_present
