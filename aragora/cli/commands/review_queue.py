@@ -3344,20 +3344,17 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
             "requires_human_risk_settlement": False,
             "requires_human_preapproval": False,
         }
-    # Tiered gate (operator-approved): Tier 1-2 settle on ONE western-frontier
-    # signal + dogfood + green CI; Tier 3-4 keep the full 2-family + human gate.
-    if tier == 1:
+    # Tiered gate (opt-in, default OFF via ARAGORA_ENABLE_TIERED_MERGE_GATE): when
+    # enabled, Tier 1-2 settle on ONE western-frontier signal + dogfood + green CI;
+    # when OFF (default) they keep the strict 2-family bar. Tier 3-4 always keep the
+    # full 2-family + human gate.
+    if tier in (1, 2):
+        from aragora.swarm.quorum_evidence import tiered_merge_gate_enabled
+
+        tiered = tiered_merge_gate_enabled()
         return {
-            "required_model_signals": 1,
-            "requires_western_frontier_signal": True,
-            "requires_adversarial_dogfood": True,
-            "requires_human_risk_settlement": False,
-            "requires_human_preapproval": False,
-        }
-    if tier == 2:
-        return {
-            "required_model_signals": 1,
-            "requires_western_frontier_signal": True,
+            "required_model_signals": 1 if tiered else 2,
+            "requires_western_frontier_signal": tiered,
             "requires_adversarial_dogfood": True,
             "requires_human_risk_settlement": False,
             "requires_human_preapproval": False,

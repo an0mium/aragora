@@ -77,6 +77,22 @@ FAMILY_PROVIDERS: dict[str, str] = {
 # in the review-queue gate so the auto-settle path and the merge-quorum check agree.
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
 
+# Opt-in flag for the tiered merge gate. Default OFF: every tier keeps the strict
+# two-distinct-family bar. When an operator sets ARAGORA_ENABLE_TIERED_MERGE_GATE=1,
+# Tier 1-2 relax to one supportive western-frontier signal. Gating the relaxation
+# behind a flag keeps this merge-authority change revertible WITHOUT a code change
+# and is the in-tree audit point for the operator's approval.
+_TIERED_GATE_ENV = "ARAGORA_ENABLE_TIERED_MERGE_GATE"
+_TIERED_GATE_TRUE = frozenset(("1", "true", "yes", "on"))
+
+
+def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in tiered merge gate (Tier 1-2 → one western-frontier
+    signal) is active. Default OFF; see :data:`_TIERED_GATE_ENV`."""
+    source = os.environ if env is None else env
+    return str(source.get(_TIERED_GATE_ENV, "")).strip().lower() in _TIERED_GATE_TRUE
+
+
 FAMILY_DISPLAY: dict[str, str] = {
     "claude": "Claude",
     "grok": "Grok",
@@ -290,10 +306,11 @@ class CollectOutcome:
         supportive families. Tier 0 needs one supportive family of any kind.
         """
         supportive = set(self.supportive_families)
-        if self.tier is not None and self.tier <= 0:
-            return len(supportive) >= 1
-        if self.tier is not None and 1 <= self.tier <= 2:
-            return bool(supportive & WESTERN_FRONTIER_FAMILIES)
+        if tiered_merge_gate_enabled():
+            if self.tier is not None and self.tier <= 0:
+                return len(supportive) >= 1
+            if self.tier is not None and 1 <= self.tier <= 2:
+                return bool(supportive & WESTERN_FRONTIER_FAMILIES)
         return len(supportive) >= 2
 
     @property
@@ -305,13 +322,14 @@ class CollectOutcome:
         misleading ``(n/2)`` distinct-family denominator.
         """
         n = len(self.supportive_families)
-        if self.tier is not None and self.tier <= 0:
-            return f"supportive quorum incomplete ({n}/1); prepared evidence only"
-        if self.tier is not None and 1 <= self.tier <= 2:
-            return (
-                "supportive quorum incomplete "
-                "(needs a western-frontier signal: claude/openai); prepared evidence only"
-            )
+        if tiered_merge_gate_enabled():
+            if self.tier is not None and self.tier <= 0:
+                return f"supportive quorum incomplete ({n}/1); prepared evidence only"
+            if self.tier is not None and 1 <= self.tier <= 2:
+                return (
+                    "supportive quorum incomplete "
+                    "(needs a western-frontier signal: claude/openai); prepared evidence only"
+                )
         return f"supportive quorum incomplete ({n}/2 distinct families); prepared evidence only"
 
     def to_dict(self) -> dict[str, Any]:

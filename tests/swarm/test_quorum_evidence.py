@@ -37,6 +37,14 @@ HEAD = "49a979d587f910aaad4fb0f0bed708dd48c97c35"
 COMMITTED = "2026-06-04T09:57:49-05:00"
 
 
+@pytest.fixture(autouse=True)
+def _enable_tiered_gate(monkeypatch):
+    # This module exercises the opt-in tiered merge gate, so enable it by default.
+    # The production default is OFF (strict 2-distinct-family); tests that assert
+    # that strict default set ARAGORA_ENABLE_TIERED_MERGE_GATE="0" explicitly.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+
+
 # --- decide_action (tier gating) -------------------------------------------
 
 
@@ -2503,3 +2511,16 @@ def test_incomplete_quorum_reason_is_tiered():
     # Tier 3-4 / unknown tier keep the two-distinct-family denominator.
     assert "(1/2 distinct families)" in _supportive_outcome(3, "claude").incomplete_quorum_reason
     assert "(0/2 distinct families)" in _supportive_outcome(None).incomplete_quorum_reason
+
+
+def test_supportive_quorum_strict_when_flag_off(monkeypatch):
+    # Production default: the tiered relaxation is OFF, so EVERY tier needs two
+    # distinct supportive families and the reason uses the family denominator.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+    assert _supportive_outcome(2, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(2, "openai").has_supportive_quorum is False
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is False
+    assert _supportive_outcome(1, "claude", "grok").has_supportive_quorum is True
+    reason = _supportive_outcome(2, "claude").incomplete_quorum_reason
+    assert "(1/2 distinct families)" in reason
+    assert "western-frontier" not in reason

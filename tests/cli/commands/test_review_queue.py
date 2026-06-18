@@ -6935,3 +6935,23 @@ def test_tier_two_lone_non_western_frontier_signal_omits_misleading_count():
     reasons = quorum["reasons"]
     assert any("western-frontier" in r for r in reasons)
     assert not any("signal(s)" in r for r in reasons)
+
+
+@pytest.fixture(autouse=True)
+def _enable_tiered_gate(monkeypatch):
+    # This module exercises the opt-in tiered merge gate, so enable it by default.
+    # The production default is OFF (strict 2-distinct-family); the strict-default
+    # test below sets ARAGORA_ENABLE_TIERED_MERGE_GATE="0" explicitly.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+
+
+def test_tier_requirement_strict_when_flag_off(monkeypatch):
+    # Production default: the tiered relaxation is OFF, so Tier 1-2 keep the full
+    # two-signal bar and impose no western-frontier requirement.
+    from aragora.cli.commands.review_queue import _tier_requirement
+
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+    for tier in (1, 2):
+        req = _tier_requirement(tier)
+        assert req["required_model_signals"] == 2, tier
+        assert req["requires_western_frontier_signal"] is False, tier
