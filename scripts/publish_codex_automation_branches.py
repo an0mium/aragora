@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -205,23 +206,33 @@ def _run(
         env = dict(os.environ if env is None else env)
         env.update(env_overrides)
     if args and args[0] == "gh":
+        timeout_env = os.environ if env is None else env
         timeout = int(
-            os.environ.get(
+            timeout_env.get(
                 "ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS",
                 str(DEFAULT_COMMAND_TIMEOUT_SECONDS),
             )
         )
-        return gh_subprocess_run(
-            args[1:],
-            timeout=timeout,
-            prefer_app=True,
-            write_op=_gh_write_op(args[1:]),
-            env=dict(os.environ if env is None else env),
-            max_retries=0,
-        )
+        try:
+            return gh_subprocess_run(
+                args[1:],
+                timeout=timeout,
+                prefer_app=True,
+                write_op=_gh_write_op(args[1:]),
+                env=dict(os.environ if env is None else env),
+                max_retries=0,
+            )
+        except subprocess.TimeoutExpired as exc:
+            stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+            stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+            message = stderr or f"command timed out after {timeout}s: {' '.join(args)}"
+            return subprocess.CompletedProcess(
+                args=args, returncode=124, stdout=stdout, stderr=message
+            )
     else:
+        timeout_env = os.environ if env is None else env
         timeout = int(
-            os.environ.get(
+            timeout_env.get(
                 "ARAGORA_AUTOMATION_GIT_TIMEOUT_SECONDS",
                 str(DEFAULT_GIT_TIMEOUT_SECONDS),
             )
@@ -992,9 +1003,28 @@ def _branch_remote_head(repo_root: Path, branch: str) -> str | None:
     return remote_head or None
 
 
-def _branches_with_pr_history(repo_root: Path, repo: str, branches: list[str]) -> set[str]:
+def _gh_timeout_override(seconds_left: float) -> dict[str, str]:
+    return {
+        "ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS": str(
+            max(1, min(DEFAULT_COMMAND_TIMEOUT_SECONDS, int(math.ceil(seconds_left))))
+        )
+    }
+
+
+def _branches_with_pr_history(
+    repo_root: Path,
+    repo: str,
+    branches: list[str],
+    *,
+    timeout_seconds: float | None = None,
+) -> set[str]:
     historical: set[str] = set()
+    budget = _related_work_lookup_budget_seconds() if timeout_seconds is None else timeout_seconds
+    deadline = time.monotonic() + max(0.0, budget)
     for branch in branches:
+        seconds_left = deadline - time.monotonic()
+        if seconds_left <= 0:
+            return historical
         proc = _run(
             [
                 "gh",
@@ -1012,6 +1042,7 @@ def _branches_with_pr_history(repo_root: Path, repo: str, branches: list[str]) -
                 "number",
             ],
             cwd=repo_root,
+            env_overrides=_gh_timeout_override(seconds_left),
         )
         if proc.returncode != 0:
             raise RuntimeError(
@@ -1123,11 +1154,7 @@ def _branches_with_resolved_related_work(
                 proc = _run(
                     command,
                     cwd=repo_root,
-                    env_overrides={
-                        "ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS": str(
-                            max(1, min(DEFAULT_COMMAND_TIMEOUT_SECONDS, int(seconds_left)))
-                        )
-                    },
+                    env_overrides=_gh_timeout_override(seconds_left),
                 )
                 if proc.returncode != 0:
                     continue

@@ -540,6 +540,38 @@ def test_select_publishable_branches_skips_branches_with_historical_prs() -> Non
     assert decisions[0].reason == "historical_pr_exists"
 
 
+def test_branches_with_pr_history_caps_each_gh_lookup(monkeypatch: Any, tmp_path: Path) -> None:
+    timeouts: list[str | None] = []
+
+    def fake_run(
+        args: list[str],
+        *,
+        cwd: Path,
+        check: bool = False,
+        env_overrides: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        timeouts.append(
+            None
+            if env_overrides is None
+            else env_overrides.get("ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS")
+        )
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    assert (
+        mod._branches_with_pr_history(
+            tmp_path,
+            "synaptent/aragora",
+            ["codex/slow-history"],
+            timeout_seconds=3,
+        )
+        == set()
+    )
+
+    assert timeouts == ["3"]
+
+
 def test_related_subjects_match_resolved_github_items() -> None:
     assert mod._looks_related_subject(
         "fix(autonomy): parse multiline github app keys",
@@ -698,6 +730,26 @@ def test_run_uses_user_auth_for_gh_write_ops(monkeypatch: Any, tmp_path: Path) -
     assert recorded["prefer_app"] is True
     assert recorded["write_op"] is True
     assert recorded["max_retries"] == 0
+
+
+def test_run_converts_gh_timeout_to_completed_process(monkeypatch: Any, tmp_path: Path) -> None:
+    recorded: dict[str, Any] = {}
+
+    def fake_gh_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        recorded["timeout"] = kwargs["timeout"]
+        raise subprocess.TimeoutExpired(["gh", "pr", "list"], timeout=2)
+
+    monkeypatch.setattr(mod, "gh_subprocess_run", fake_gh_run)
+
+    result = mod._run(
+        ["gh", "pr", "list"],
+        cwd=tmp_path,
+        env_overrides={"ARAGORA_AUTOMATION_GH_TIMEOUT_SECONDS": "2"},
+    )
+
+    assert result.returncode == 124
+    assert recorded["timeout"] == 2
+    assert "command timed out after 2s: gh pr list" in result.stderr
 
 
 def test_worktree_is_dirty_ignores_untracked_files(tmp_path: Path) -> None:
