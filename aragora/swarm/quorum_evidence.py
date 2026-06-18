@@ -716,8 +716,10 @@ def build_review_prompt(
         f"Review ONLY the changes below for PR #{pr} in {repo} at head {short}. "
         "Look hard for correctness, security, and regression risks. "
         "Begin your reply with 'Verdict: PASS' or 'Verdict: CHANGES-REQUESTED', then a terse "
-        "bullet list of concrete findings each tagged [P1]/[P2]/[P3] with a location, or state "
-        "explicitly that there are no blocking issues. Be concise.\n\n"
+        "bullet list of concrete findings, each tagged [P1]/[P2]/[P3] with a location. Include "
+        "ONLY priority levels that have a real finding: if a level has none, OMIT it entirely "
+        "-- never write a '[P1] None', '[P2] N/A', or similar no-finding line (it is misread as "
+        "a blocking finding). If there are no findings at all, write 'No findings.' Be concise.\n\n"
         f"=== CHANGED FILES (complete list, {file_count} file(s)) ===\n{file_list}\n\n"
         f"{body_header}\n{bounded}\n"
     )
