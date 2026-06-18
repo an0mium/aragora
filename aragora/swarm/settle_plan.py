@@ -45,6 +45,7 @@ def plan_settlement(
     tier: int | None,
     quorum_satisfied: bool,
     supportive_families: Sequence[str],
+    head_sha: str | None = None,
     unresolved_dissent: bool = False,
     operator_login_provided: bool = False,
 ) -> SettlementPlan:
@@ -83,6 +84,12 @@ def plan_settlement(
             f"Tier {tier} requires a human risk settlement: pass --operator-login <gh-login>"
         )
 
+    # The Tier 3-4 settle commands are head-bound (settle_tier4_pr --head <sha>);
+    # without a resolved head they would render as runnable-looking but doomed
+    # `--head <head>` placeholders. Refuse to call that route ready.
+    if route == ROUTE_OPERATOR_TIER4 and not (head_sha and str(head_sha).strip()):
+        blockers.append("head_sha unresolved (cannot emit head-bound Tier 3-4 settle commands)")
+
     ready_to_mutate = not blockers and route != ROUTE_BLOCKED
     return SettlementPlan(
         tier=tier,
@@ -119,6 +126,8 @@ def summarize_collect(payload: Mapping[str, Any]) -> dict[str, Any]:
             "tier": None,
             "head_sha": payload.get("head_sha"),
             "quorum_satisfied": False,
+            "action": payload.get("action"),
+            "action_reason": payload.get("action_reason"),
             "supportive_families": [],
             "dissenting_families": [],
             "items": [],
@@ -140,6 +149,12 @@ def summarize_collect(payload: Mapping[str, Any]) -> dict[str, Any]:
         "tier": payload.get("tier"),
         "head_sha": payload.get("head_sha"),
         "quorum_satisfied": bool(payload.get("has_supportive_quorum")),
+        # collect's OWN authority signal: "post" means it classified the PR as
+        # auto-postable (Tier 0-2); "prepare" means it refused to post (Tier >=3
+        # or a recheck tier-promotion). The CLI uses this as a cross-check so a
+        # stale top-level ``tier`` cannot misroute an auto-merge (see settle_pr).
+        "action": payload.get("action"),
+        "action_reason": payload.get("action_reason"),
         "supportive_families": list(payload.get("supportive_families") or []),
         "dissenting_families": list(payload.get("dissenting_families") or []),
         "items": items,

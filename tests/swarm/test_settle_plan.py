@@ -47,11 +47,31 @@ def test_tier_two_unresolved_dissent_blocks_auto_merge():
 
 def test_tier_four_requires_operator_login():
     # Without --operator-login the Tier-4 human settlement cannot proceed.
-    plan = plan_settlement(tier=4, quorum_satisfied=True, supportive_families=["claude", "grok"])
+    plan = plan_settlement(
+        tier=4,
+        quorum_satisfied=True,
+        supportive_families=["claude", "grok"],
+        head_sha="abc123",
+    )
     assert plan.route == ROUTE_OPERATOR_TIER4
     assert plan.requires_operator_login is True
     assert plan.ready_to_mutate is False
     assert any("--operator-login" in b for b in plan.blockers)
+
+
+def test_tier_four_missing_head_blocks_doomed_commands():
+    # Tier 3-4 commands embed `--head <sha>`; an unresolved head must block so the
+    # CLI never surfaces runnable-looking but doomed `--head <head>` placeholders.
+    plan = plan_settlement(
+        tier=4,
+        quorum_satisfied=True,
+        supportive_families=["claude", "grok"],
+        operator_login_provided=True,
+        head_sha=None,
+    )
+    assert plan.route == ROUTE_OPERATOR_TIER4
+    assert plan.ready_to_mutate is False
+    assert any("head_sha unresolved" in b for b in plan.blockers)
 
 
 def test_tier_four_unresolved_dissent_blocks_even_with_login():
@@ -61,6 +81,7 @@ def test_tier_four_unresolved_dissent_blocks_even_with_login():
         tier=4,
         quorum_satisfied=True,
         supportive_families=["claude", "grok"],
+        head_sha="abc123",
         unresolved_dissent=True,
         operator_login_provided=True,
     )
@@ -74,6 +95,7 @@ def test_tier_four_with_operator_login_is_ready():
         tier=3,
         quorum_satisfied=True,
         supportive_families=["claude", "grok"],
+        head_sha="abc123",
         operator_login_provided=True,
     )
     assert plan.route == ROUTE_OPERATOR_TIER4
@@ -120,6 +142,25 @@ def test_summarize_collect_flattens_payload():
     assert s["dissenting_families"] == []
     assert len(s["items"]) == 2
     assert s["failures"] == []
+
+
+def test_summarize_collect_preserves_action_authority_signal():
+    # collect's action/action_reason are the authority's own posted-vs-refused
+    # signal; the CLI cross-checks them against the route, so they must survive
+    # the flatten (a recheck tier-promotion shows action="prepare" here).
+    s = summarize_collect(
+        {
+            "tier": 2,
+            "head_sha": "abc123",
+            "has_supportive_quorum": True,
+            "action": "prepare",
+            "action_reason": "tier promoted to 3 on pre-post recheck",
+            "supportive_families": ["claude", "grok"],
+            "items": [],
+        }
+    )
+    assert s["action"] == "prepare"
+    assert s["action_reason"] == "tier promoted to 3 on pre-post recheck"
 
 
 def test_summarize_collect_handles_error_envelope():

@@ -152,6 +152,7 @@ def main(argv: list[str] | None = None) -> int:
         tier=summary["tier"],
         quorum_satisfied=summary["quorum_satisfied"],
         supportive_families=summary["supportive_families"],
+        head_sha=summary.get("head_sha"),
         unresolved_dissent=bool(summary["dissenting_families"]),
         operator_login_provided=bool(args.operator_login),
     )
@@ -160,14 +161,28 @@ def main(argv: list[str] | None = None) -> int:
     actions: list[str] = []
     mutate_ok = True  # set False only if an attempted auto-merge actually fails
 
+    # Authority cross-check: under --apply, collect posts (action="post") only for
+    # the tiers it deems auto-settleable; "prepare" means it refused to post (Tier
+    # >=3, including a recheck tier-promotion the top-level `tier` -- and so the
+    # plan's route -- did not reflect). Never auto-merge over that disagreement.
+    collect_prepared_only = str(summary.get("action") or "") == "prepare"
+
     if args.apply and plan.ready_to_mutate and plan.route == ROUTE_AUTO_MERGE:
-        # collect --apply already posted + reconciled the Tier 0-2 evidence; merge.
-        am = _auto_merge(repo, args.pr)
-        mutate_ok = am.returncode == 0
-        actions.append(
-            f"auto_merge_quorum_green (rc={am.returncode}): "
-            + (am.stdout.strip() or am.stderr.strip())[:300]
-        )
+        if collect_prepared_only:
+            mutate_ok = False
+            actions.append(
+                "auto-merge withheld: collect classified prepare-only "
+                f"(action_reason={summary.get('action_reason')!r}) -- the evidence "
+                "authority puts this above the auto-merge tier; operator must settle."
+            )
+        else:
+            # collect --apply already posted + reconciled the Tier 0-2 evidence; merge.
+            am = _auto_merge(repo, args.pr)
+            mutate_ok = am.returncode == 0
+            actions.append(
+                f"auto_merge_quorum_green (rc={am.returncode}): "
+                + (am.stdout.strip() or am.stderr.strip())[:300]
+            )
 
     if plan.route == ROUTE_OPERATOR_TIER4 and not plan.blockers:
         # Tier 3-4: surface the operator settle commands; never post/settle here.
@@ -215,8 +230,15 @@ def main(argv: list[str] | None = None) -> int:
             for s in next_steps:
                 print(f"    {s}")
 
-    # Exit nonzero when blocked, or when an attempted auto-merge failed -- so an
-    # automation wrapper can distinguish a real settlement from a no-op/failure.
+    # Exit codes (so an automation wrapper can tell settlement from a no-op):
+    #   3  --apply on a Tier 3-4 route: the settle commands were SURFACED, not run.
+    #      Operator action is still required -- this is NOT a completed settlement,
+    #      so a wrapper must not advance past the human settle_tier4_pr steps.
+    #   1  blocked, or an attempted Tier 0-2 auto-merge actually failed.
+    #   0  actionable: a dry-run with a ready plan, or a Tier 0-2 auto-merge that
+    #      succeeded.
+    if args.apply and plan.route == ROUTE_OPERATOR_TIER4 and plan.ready_to_mutate:
+        return 3
     return 0 if (plan.ready_to_mutate and mutate_ok) else 1
 
 
