@@ -182,12 +182,21 @@ def main(argv: list[str] | None = None) -> int:
     # settlement is surfaced, not automated.
     payload = _collect(repo, args.pr, args.reviewers, apply=args.apply)
     summary = summarize_collect(payload)
-    # Authority cross-check: under --apply, collect posts (action="post") only for
-    # the tiers it deems auto-settleable; "prepare" means it refused to post (Tier
-    # >=3, including a recheck tier-promotion the top-level `tier` did not reflect).
-    # plan_settlement re-routes such a PR to the operator path so it is never an
-    # auto-merge-withheld dead-end.
-    collect_prepared_only = str(summary.get("action") or "") == "prepare"
+    # Authority cross-check. collect emits action="prepare" whenever it does NOT
+    # post -- which on a dry-run is ALWAYS (it never posts), and under --apply can
+    # mean several things (quorum incomplete, dissent, OR a genuine Tier >=3
+    # classification incl. a recheck tier-promotion the packet `tier` missed). Only
+    # the last is a tier-authority override. So honor it as one ONLY under --apply
+    # AND when the quorum is satisfied with no dissent -- then the one remaining
+    # reason collect refused to post is a higher tier, and re-routing to the
+    # operator path avoids an auto-merge-withheld dead-end. (Without this gate a
+    # dry-run would misroute every eligible Tier 0-2 PR to operator settlement.)
+    collect_prepared_only = (
+        bool(args.apply)
+        and str(summary.get("action") or "") == "prepare"
+        and bool(summary["quorum_satisfied"])
+        and not summary["dissenting_families"]
+    )
 
     plan = plan_settlement(
         tier=summary["tier"],
@@ -225,6 +234,7 @@ def main(argv: list[str] | None = None) -> int:
             head=str(summary.get("head_sha") or "<head>"),
             operator_login=args.operator_login or "<gh-login>",
             no_app_token=args.no_app_token,
+            repo_root=str(_REPO_ROOT),
         )
         if collect_prepared_only:
             actions.append(

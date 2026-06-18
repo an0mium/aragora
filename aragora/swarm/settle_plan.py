@@ -119,7 +119,13 @@ def plan_settlement(
 
 
 def tier4_settle_commands(
-    *, repo: str, pr: int, head: str, operator_login: str, no_app_token: bool = False
+    *,
+    repo: str,
+    pr: int,
+    head: str,
+    operator_login: str,
+    no_app_token: bool = False,
+    repo_root: str | None = None,
 ) -> list[str]:
     """The exact, head-bound ``settle_tier4_pr.py`` commands a trusted operator runs
     to record the human risk settlement and merge. The CLI surfaces these rather
@@ -129,13 +135,20 @@ def tier4_settle_commands(
     Every interpolated value is ``shlex.quote``d: these strings are surfaced for
     copy-paste into a shell, so an unquoted ``repo``/``head``/``operator_login``
     bearing shell metacharacters would be a command-injection vector. ``pr`` is
-    coerced to ``int`` for the same reason."""
-    base = (
+    coerced to ``int`` for the same reason. ``repo_root``, when given, prepends a
+    ``cd <root> &&`` guard so the cwd-relative ``scripts/...`` path resolves even
+    when the operator pastes from outside the repo root."""
+    cmd = (
         f"python3 scripts/settle_tier4_pr.py --pr {int(pr)} --head {shlex.quote(str(head))} "
         f"--trusted-operator-login {shlex.quote(str(operator_login))} --repo {shlex.quote(str(repo))}"
     )
-    prefix = "ARAGORA_DISABLE_GITHUB_APP_TOKEN=1 " if no_app_token else ""
-    return [f"{base} --check", f"{base} --settle-only", f"{prefix}{base} --merge-apply"]
+    cd_prefix = f"cd {shlex.quote(str(repo_root))} && " if repo_root else ""
+    env_prefix = "ARAGORA_DISABLE_GITHUB_APP_TOKEN=1 " if no_app_token else ""
+    return [
+        f"{cd_prefix}{cmd} --check",
+        f"{cd_prefix}{cmd} --settle-only",
+        f"{cd_prefix}{env_prefix}{cmd} --merge-apply",
+    ]
 
 
 def _coerce_tier(value: Any) -> int | None:

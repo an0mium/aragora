@@ -8,6 +8,7 @@ test_settle_plan.py; this guards the glue.
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -109,12 +110,45 @@ def test_prepare_only_reroutes_to_operator_not_dead_end(cli, monkeypatch):
 
 
 def test_dry_run_ready_exits_0_without_mutating(cli, monkeypatch):
-    monkeypatch.setattr(cli, "_collect", lambda *a, **k: _payload())
+    # Real collect emits action="prepare" on a dry-run (it never posts). That must
+    # NOT be read as a tier-authority override -- an eligible Tier 0-2 dry-run must
+    # stay on the auto-merge route and exit 0, not misroute to operator settlement.
+    monkeypatch.setattr(cli, "_collect", lambda *a, **k: _payload(action="prepare"))
     auto = {"n": 0}
     monkeypatch.setattr(cli, "_auto_merge", lambda *a, **k: auto.__setitem__("n", auto["n"] + 1))
     rc = cli.main(["--repo", "owner/repo", "--pr", "8512"])  # no --apply
     assert rc == 0
     assert auto["n"] == 0  # dry-run never calls auto-merge
+
+
+def test_apply_prepare_with_unsatisfied_quorum_stays_auto_merge_route(cli, monkeypatch, capsys):
+    # Under --apply, action="prepare" caused by an INCOMPLETE quorum (not a tier
+    # promotion) must not be mislabeled as operator settlement: the route stays
+    # auto_merge_green (it is genuinely Tier 2), blocked on the quorum.
+    monkeypatch.setattr(
+        cli,
+        "_collect",
+        lambda *a, **k: _payload(
+            action="prepare", has_supportive_quorum=False, supportive_families=["claude"]
+        ),
+    )
+    rc = cli.main(["--repo", "owner/repo", "--pr", "8512", "--apply", "--json"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert json.loads(out)["route"] == "auto_merge_green"
+
+
+def test_apply_prepare_with_dissent_stays_auto_merge_route(cli, monkeypatch, capsys):
+    # Same for a dissent-caused prepare: not a tier override.
+    monkeypatch.setattr(
+        cli,
+        "_collect",
+        lambda *a, **k: _payload(action="prepare", dissenting_families=["grok"]),
+    )
+    rc = cli.main(["--repo", "owner/repo", "--pr", "8512", "--apply", "--json"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert json.loads(out)["route"] == "auto_merge_green"
 
 
 def test_tier4_dry_run_previews_runbook_without_login(cli, monkeypatch, capsys):

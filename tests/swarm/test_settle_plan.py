@@ -283,6 +283,26 @@ def test_tier4_settle_commands_are_head_bound_and_ordered():
     assert not cmds[2].startswith("ARAGORA_DISABLE_GITHUB_APP_TOKEN=1")
 
 
+def test_tier4_settle_commands_cd_guard_when_repo_root_given():
+    # repo_root prepends a `cd <root> &&` guard so the cwd-relative scripts/ path
+    # resolves from anywhere; the env override still applies to python3, not cd.
+    cmds = tier4_settle_commands(
+        repo="owner/repo",
+        pr=42,
+        head="abc123",
+        operator_login="alice",
+        no_app_token=True,
+        repo_root="/path/to repo",
+    )
+    for c in cmds:
+        assert c.startswith("cd '/path/to repo' && ")  # quoted (has a space)
+    # env override sits after the cd, before python3 (so it applies to python3)
+    assert "&& ARAGORA_DISABLE_GITHUB_APP_TOKEN=1 python3 " in cmds[2]
+    # ...and without repo_root there is no cd prefix (back-compat).
+    plain = tier4_settle_commands(repo="owner/repo", pr=42, head="abc123", operator_login="alice")
+    assert not any(c.startswith("cd ") for c in plain)
+
+
 def test_tier4_settle_commands_no_app_token_prefixes_merge_only():
     cmds = tier4_settle_commands(
         repo="owner/repo", pr=42, head="abc123", operator_login="alice", no_app_token=True
