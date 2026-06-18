@@ -93,6 +93,34 @@ def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
     return str(source.get(_TIERED_GATE_ENV, "")).strip().lower() in _TIERED_GATE_TRUE
 
 
+@dataclass(frozen=True)
+class TierQuorumRule:
+    """The per-tier model-quorum bar: how many distinct supportive families are
+    required, and whether one of them must be western-frontier."""
+
+    required_signals: int
+    requires_western_frontier: bool
+
+
+def tier_quorum_rule(tier: int | None, *, tiered_gate: bool) -> TierQuorumRule:
+    """Single source of truth for the per-tier model-quorum bar.
+
+    Both gate halves derive from this so they cannot drift: the auto-settle path
+    (:meth:`CollectOutcome.has_supportive_quorum`) and the merge-queue gate
+    (``review_queue._tier_requirement`` / ``_build_model_review_quorum``).
+
+    - Tier 0 (and below): one signal of any family — never flag-gated.
+    - Tier 1-2: with the tiered gate ON, one western-frontier signal; OFF, the
+      strict two-distinct-family bar.
+    - Tier 3-4 and unknown/None (fail-safe): two distinct families.
+    """
+    if tier is not None and tier <= 0:
+        return TierQuorumRule(required_signals=1, requires_western_frontier=False)
+    if tiered_gate and tier is not None and 1 <= tier <= 2:
+        return TierQuorumRule(required_signals=1, requires_western_frontier=True)
+    return TierQuorumRule(required_signals=2, requires_western_frontier=False)
+
+
 FAMILY_DISPLAY: dict[str, str] = {
     "claude": "Claude",
     "grok": "Grok",
@@ -310,12 +338,10 @@ class CollectOutcome:
         supportive families. Tier 0 needs one supportive family of any kind.
         """
         supportive = set(self.supportive_families)
-        if self.tiered_gate:
-            if self.tier is not None and self.tier <= 0:
-                return len(supportive) >= 1
-            if self.tier is not None and 1 <= self.tier <= 2:
-                return bool(supportive & WESTERN_FRONTIER_FAMILIES)
-        return len(supportive) >= 2
+        rule = tier_quorum_rule(self.tier, tiered_gate=self.tiered_gate)
+        if rule.requires_western_frontier and not (supportive & WESTERN_FRONTIER_FAMILIES):
+            return False
+        return len(supportive) >= rule.required_signals
 
     @property
     def incomplete_quorum_reason(self) -> str:
@@ -325,16 +351,16 @@ class CollectOutcome:
         western-frontier signal, so report that requirement rather than a
         misleading ``(n/2)`` distinct-family denominator.
         """
-        n = len(self.supportive_families)
-        if self.tiered_gate:
-            if self.tier is not None and self.tier <= 0:
-                return f"supportive quorum incomplete ({n}/1); prepared evidence only"
-            if self.tier is not None and 1 <= self.tier <= 2:
-                return (
-                    "supportive quorum incomplete "
-                    "(needs a western-frontier signal: claude/openai); prepared evidence only"
-                )
-        return f"supportive quorum incomplete ({n}/2 distinct families); prepared evidence only"
+        supportive = set(self.supportive_families)
+        rule = tier_quorum_rule(self.tier, tiered_gate=self.tiered_gate)
+        if rule.requires_western_frontier and not (supportive & WESTERN_FRONTIER_FAMILIES):
+            return (
+                "supportive quorum incomplete "
+                "(needs a western-frontier signal: claude/openai); prepared evidence only"
+            )
+        n = len(supportive)
+        suffix = " distinct families" if rule.required_signals >= 2 else ""
+        return f"supportive quorum incomplete ({n}/{rule.required_signals}{suffix}); prepared evidence only"
 
     def to_dict(self) -> dict[str, Any]:
         return {

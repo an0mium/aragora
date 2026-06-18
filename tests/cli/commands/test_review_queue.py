@@ -6955,3 +6955,22 @@ def test_tier_requirement_strict_when_flag_off(monkeypatch):
         req = _tier_requirement(tier)
         assert req["required_model_signals"] == 2, tier
         assert req["requires_western_frontier_signal"] is False, tier
+
+
+def test_tier_requirement_matches_shared_rule(monkeypatch):
+    # The merge gate (_tier_requirement) and the shared tier_quorum_rule (used by
+    # the auto-settle path's has_supportive_quorum) must agree on signals + WF for
+    # every tier under both flag states, so the two gate halves cannot drift.
+    from aragora.cli.commands.review_queue import _tier_requirement
+    from aragora.swarm.quorum_evidence import tier_quorum_rule
+
+    for flag in ("0", "1"):
+        monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", flag)
+        for tier in (0, 1, 2, 3, 4):
+            req = _tier_requirement(tier)
+            rule = tier_quorum_rule(tier, tiered_gate=(flag == "1"))
+            assert req["required_model_signals"] == rule.required_signals, (tier, flag)
+            assert req["requires_western_frontier_signal"] == rule.requires_western_frontier, (
+                tier,
+                flag,
+            )

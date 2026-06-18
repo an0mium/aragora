@@ -3336,43 +3336,19 @@ def _classify_model_review_tier(
 
 
 def _tier_requirement(tier: int) -> dict[str, Any]:
-    if tier <= 0:
-        return {
-            "required_model_signals": 1,
-            "requires_western_frontier_signal": False,
-            "requires_adversarial_dogfood": False,
-            "requires_human_risk_settlement": False,
-            "requires_human_preapproval": False,
-        }
-    # Tiered gate (opt-in, default OFF via ARAGORA_ENABLE_TIERED_MERGE_GATE): when
-    # enabled, Tier 1-2 settle on ONE western-frontier signal + dogfood + green CI;
-    # when OFF (default) they keep the strict 2-family bar. Tier 3-4 always keep the
-    # full 2-family + human gate.
-    if tier in (1, 2):
-        from aragora.swarm.quorum_evidence import tiered_merge_gate_enabled
+    # Single source of truth for the model-quorum bar: the shared tier_quorum_rule
+    # (also used by the auto-settle path's CollectOutcome.has_supportive_quorum) so
+    # the merge gate and the collector cannot drift. The tiered Tier 1-2 relaxation
+    # is opt-in, default OFF via ARAGORA_ENABLE_TIERED_MERGE_GATE.
+    from aragora.swarm.quorum_evidence import tier_quorum_rule, tiered_merge_gate_enabled
 
-        tiered = tiered_merge_gate_enabled()
-        return {
-            "required_model_signals": 1 if tiered else 2,
-            "requires_western_frontier_signal": tiered,
-            "requires_adversarial_dogfood": True,
-            "requires_human_risk_settlement": False,
-            "requires_human_preapproval": False,
-        }
-    if tier == 3:
-        return {
-            "required_model_signals": 2,
-            "requires_western_frontier_signal": False,
-            "requires_adversarial_dogfood": True,
-            "requires_human_risk_settlement": True,
-            "requires_human_preapproval": False,
-        }
+    rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())
     return {
-        "required_model_signals": 2,
-        "requires_western_frontier_signal": False,
-        "requires_adversarial_dogfood": True,
-        "requires_human_risk_settlement": True,
-        "requires_human_preapproval": True,
+        "required_model_signals": rule.required_signals,
+        "requires_western_frontier_signal": rule.requires_western_frontier,
+        "requires_adversarial_dogfood": tier > 0,
+        "requires_human_risk_settlement": tier >= 3,
+        "requires_human_preapproval": tier >= 4,
     }
 
 

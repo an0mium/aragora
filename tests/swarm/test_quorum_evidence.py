@@ -2519,7 +2519,10 @@ def test_supportive_quorum_strict_when_flag_off(monkeypatch):
     monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
     assert _supportive_outcome(2, "claude").has_supportive_quorum is False
     assert _supportive_outcome(2, "openai").has_supportive_quorum is False
-    assert _supportive_outcome(0, "qwen").has_supportive_quorum is False
+    # Tier 0 always needs just one family of any kind (flag-independent), matching
+    # review_queue._tier_requirement(0) -> required_model_signals=1. (The flag only
+    # relaxes Tier 1-2.)
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
     assert _supportive_outcome(1, "claude", "grok").has_supportive_quorum is True
     reason = _supportive_outcome(2, "claude").incomplete_quorum_reason
     assert "(1/2 distinct families)" in reason
@@ -2544,3 +2547,20 @@ def test_tiered_gate_is_captured_at_construction(monkeypatch):
     assert outcome.has_supportive_quorum is True
     monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")  # mutate mid-flow
     assert outcome.has_supportive_quorum is True  # unchanged: captured at build
+
+
+def test_tier_quorum_rule_matrix():
+    from aragora.swarm.quorum_evidence import TierQuorumRule, tier_quorum_rule
+
+    # Tier 0 (and below): one family of any kind, independent of the flag.
+    for gate in (False, True):
+        assert tier_quorum_rule(0, tiered_gate=gate) == TierQuorumRule(1, False)
+        assert tier_quorum_rule(-1, tiered_gate=gate) == TierQuorumRule(1, False)
+    # Tier 1-2: ON -> one western-frontier signal; OFF -> two distinct families.
+    for tier in (1, 2):
+        assert tier_quorum_rule(tier, tiered_gate=True) == TierQuorumRule(1, True)
+        assert tier_quorum_rule(tier, tiered_gate=False) == TierQuorumRule(2, False)
+    # Tier 3-4 and unknown/None (fail-safe): two distinct families, no WF.
+    for tier in (3, 4, None):
+        for gate in (False, True):
+            assert tier_quorum_rule(tier, tiered_gate=gate) == TierQuorumRule(2, False)
