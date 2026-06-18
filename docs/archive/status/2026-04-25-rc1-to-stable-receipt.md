@@ -95,7 +95,7 @@ Two parallel agent sessions worked the chronic-red sweep concurrently. Lane disc
 
 ## Pointers
 
-- Calibration data: `docs/status/2026-04-24-mode3-rc1-calibration.md`, `docs/status/2026-04-24-mode3-rc1-calibration-post-fix.md`
-- Thesis-merge ledger (rc.1 era): `docs/status/2026-04-21-thesis-settlement-session.md`
+- Calibration data: `docs/archive/status/2026-04-24-mode3-rc1-calibration.md`, `docs/archive/status/2026-04-24-mode3-rc1-calibration-post-fix.md`
+- Thesis-merge ledger (rc.1 era): `docs/archive/status/2026-04-21-thesis-settlement-session.md`
 - Release prep checklist: GitHub issue #6493
 - Release notes: `docs/releases/v2.9.0.md`

@@ -106,8 +106,8 @@ def _issue_numbers(value: str) -> list[int]:
 
 def test_b0_benchmark_truth_status_matches_latest_json_artifacts() -> None:
     markdown = (REPO_ROOT / "docs/status/B0_BENCHMARK_TRUTH_STATUS.md").read_text(encoding="utf-8")
-    truth_path = _published_path(markdown, "Latest truth artifact")
-    scorecard_path = _published_path(markdown, "Latest scorecard")
+    truth_path = _published_path(markdown, "Corpus-scoped truth pointer")
+    scorecard_path = _published_path(markdown, "Corpus-scoped scorecard pointer")
     revision_truth_path = _published_path(markdown, "Revision-scoped truth pointer")
     revision_scorecard_path = _published_path(markdown, "Revision-scoped scorecard pointer")
 

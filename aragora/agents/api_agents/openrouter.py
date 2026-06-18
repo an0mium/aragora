@@ -45,6 +45,16 @@ from aragora.observability.metrics.agents import (
 logger = logging.getLogger(__name__)
 
 DEEPSEEK_V4_PRO_MODEL = "deepseek/deepseek-v4-pro"
+# OpenRouter Fusion: a multi-model council+judge endpoint (panel of models +
+# synthesis). It is itself a *blend*, so it must never be treated as an
+# independent quorum family (see aragora.swarm.quorum_evidence) -- it is a single
+# high-confidence participant/judge option, gated behind feature flags.
+# Slug per the vendor page (openrouter.ai/openrouter/fusion); NOT yet
+# runtime-verified against the live OpenRouter API here (no key in this env).
+# Safe because the agent is gated OFF by default (see routing enforcement +
+# enable_fusion) and never dispatches until explicitly enabled; confirm the slug
+# and pricing (TODO in billing/usage.py) before enabling for real debates.
+FUSION_MODEL = "openrouter/fusion"
 
 # Fallback model chain for resilience when primary models fail
 # Maps primary model -> fallback model (used after max_retries exhausted)
@@ -176,6 +186,9 @@ class OpenRouterAgent(APIAgent):
         Wraps _generate_with_model via @handle_agent_errors for retry/backoff,
         then falls back to an alternate model if all retries are exhausted.
         """
+        # Fail-closed monthly budget cap (no-op unless ARAGORA_MONTHLY_BUDGET_USD
+        # is set). OpenRouter is the common metered fallback path, so gate here too.
+        self._enforce_budget_precall()
         try:
             return await self._generate_with_model(self.model, prompt, context)
         except (AgentRateLimitError, AgentConnectionError, AgentTimeoutError):
@@ -426,6 +439,13 @@ class OpenRouterAgent(APIAgent):
         if self.frequency_penalty is not None:
             payload["frequency_penalty"] = self.frequency_penalty
 
+        estimated_budget_usd = self._estimate_budget_cost_from_text_usd(
+            full_prompt,
+            int(payload["max_tokens"]),
+        )
+        self._enforce_budget_precall(estimated_budget_usd)
+        from aragora.billing import budget_guard
+
         last_error = None
         for attempt in range(max_retries):
             # Acquire rate limit token for each attempt
@@ -494,6 +514,8 @@ class OpenRouterAgent(APIAgent):
                             limiter.record_success()
                             if self._circuit_breaker is not None:
                                 self._circuit_breaker.record_success()
+                            if estimated_budget_usd > 0:
+                                budget_guard.record_spend(estimated_budget_usd)
                         except RuntimeError as e:
                             if self._circuit_breaker is not None:
                                 self._circuit_breaker.record_failure()
@@ -1089,6 +1111,40 @@ class JambaAgent(OpenRouterAgent):
         self.agent_type = "jamba"
 
 
+@AgentRegistry.register(
+    "fusion",
+    default_model=FUSION_MODEL,
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="OpenRouter Fusion - multi-model council+judge endpoint (high cost, high confidence)",
+)
+class FusionAgent(OpenRouterAgent):
+    """OpenRouter Fusion via OpenRouter - a multi-model council that runs a panel
+    of models plus a judge and returns a synthesized answer.
+
+    Inherits OpenRouterAgent's resilience (circuit breaker, rate limiting, token
+    tracking, streaming) for free. It is ~4-5x the cost/latency of a single model
+    and is opt-in only -- callers gate it behind the ``enable_fusion`` feature
+    flag and a budget cap. Because Fusion blends multiple families internally, it
+    is NOT a distinct quorum reviewer family.
+    """
+
+    def __init__(
+        self,
+        name: str = "fusion",
+        role: AgentRole = "analyst",
+        model: str = FUSION_MODEL,
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "fusion"
+
+
 __all__ = [
     "OpenRouterAgent",
     "DeepSeekAgent",
@@ -1108,4 +1164,6 @@ __all__ = [
     "SonarAgent",
     "CommandRAgent",
     "JambaAgent",
+    "FusionAgent",
+    "FUSION_MODEL",
 ]
