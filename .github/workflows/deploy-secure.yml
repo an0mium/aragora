@@ -141,7 +141,11 @@ jobs:
         run: |
           # Run from repo root; Vercel project rootDirectory is configured server-side.
           npx vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
-          DEPLOY_URL=$(npx vercel deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}")
+          # --archive=tgz: see deploy-frontend.yml. Avoids Vercel's 15000-file
+          # per-deployment cap (the monorepo ships ~15.5k files). Follow-up: narrow
+          # the upload scope (--cwd aragora/live / .vercelignore) so we stop
+          # shipping backend/tests/docs to Vercel at all.
+          DEPLOY_URL=$(npx vercel deploy --prod --yes --archive=tgz --token="${{ secrets.VERCEL_TOKEN }}")
           echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
           echo "Deployed URL: $DEPLOY_URL"
         env:
