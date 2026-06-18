@@ -25,11 +25,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 import subprocess
+import tempfile
 from typing import Any
 
 from aragora.swarm.boss_drain import (
     DEFAULT_OFF_LIMITS_PREFIXES,
+    REQUIRED_CHECK_NAMES,
     DrainContext,
     make_repair_order,
     run_boss_drain,
@@ -37,7 +41,8 @@ from aragora.swarm.boss_drain import (
 from aragora.swarm.drain_pass import DrainPassPolicy
 from aragora.swarm.drain_policy import DrainAction, DrainPolicy
 
-_REQUIRED = {"lint", "typecheck", "sdk-parity", "Generate & Validate", "TypeScript SDK Type Check"}
+# Single-sourced from boss_drain so the proxy gate and the repair prompt can't drift.
+_REQUIRED = set(REQUIRED_CHECK_NAMES)
 
 
 def _gh_json(args: list[str], timeout: int = 40) -> Any:
@@ -48,6 +53,14 @@ def _gh_json(args: list[str], timeout: int = 40) -> Any:
         return json.loads(out.stdout)
     except Exception:  # noqa: BLE001 - gh hiccup must not crash the pass
         return None
+
+
+def _git_rev(wt: str, ref: str) -> str:
+    """Resolve ``ref`` to a commit SHA inside worktree ``wt`` ("" if unresolved)."""
+    out = subprocess.run(
+        ["git", "-C", wt, "rev-parse", ref], capture_output=True, text=True, timeout=30
+    )
+    return out.stdout.strip() if out.returncode == 0 else ""
 
 
 def list_open_prs(repo: str, limit: int) -> list[dict[str, Any]]:
@@ -90,9 +103,14 @@ def _proxy_authorized(view: dict[str, Any]) -> tuple[bool, int]:
     if view.get("mergeable") != "MERGEABLE":
         return (False, 0)
     rollup = view.get("statusCheckRollup") or []
-    states = {c.get("name"): (c.get("conclusion") or c.get("status")) for c in rollup}
-    required_ok = all(states.get(name) == "SUCCESS" for name in _REQUIRED)
-    quorum_ok = states.get("aragora-merge-quorum") == "SUCCESS"
+    # any-SUCCESS per name: a check is satisfied if ANY rollup row for that name
+    # concluded SUCCESS. Re-runs append duplicate names, so a last-write-wins map
+    # would let a stale/later pending row mask an earlier green (ordering-dependent).
+    succeeded = {
+        c.get("name") for c in rollup if (c.get("conclusion") or c.get("status")) == "SUCCESS"
+    }
+    required_ok = _REQUIRED <= succeeded
+    quorum_ok = "aragora-merge-quorum" in succeeded
     return (required_ok and quorum_ok, 0)
 
 
@@ -126,10 +144,13 @@ def dispatch_repair(repo: str, pr: int, *, dry_run: bool, enable_repair: bool, a
         print(f"  [repair-plan/{gate}] #{pr} branch={branch} agent={agent}")
         return True
     # ENABLED apply path (bounded; isolated worktree on the PR branch).
-    import shutil
-    import tempfile
-
-    wt = tempfile.mkdtemp(prefix=f"drain-repair-{pr}-")
+    # mkdtemp gives a real base dir; the worktree lives at a FRESH (non-existent)
+    # subpath so `git worktree add` is not at the mercy of git-version-specific
+    # behaviour for "add --force <existing dir>". The finally rmtree(base) is the
+    # backstop that prevents a leak when `worktree add` fails (never registered, so
+    # `worktree remove` can't clean it).
+    base = tempfile.mkdtemp(prefix=f"drain-repair-{pr}-")
+    wt = os.path.join(base, "wt")
     try:
         if (
             subprocess.run(
@@ -141,6 +162,7 @@ def dispatch_repair(repo: str, pr: int, *, dry_run: bool, enable_repair: bool, a
             != 0
         ):
             return False
+        before = _git_rev(wt, f"origin/{branch}")  # the PR's current remote tip
         if agent == "codex":
             run = subprocess.run(
                 ["codex", "exec", "--full-auto", "-"],
@@ -165,23 +187,32 @@ def dispatch_repair(repo: str, pr: int, *, dry_run: bool, enable_repair: bool, a
                 text=True,
                 timeout=1800,
             )
-        # Only propagate the worker's commits if the run itself succeeded — a
-        # broken / scope-violating / timed-out agent run must NOT push whatever
-        # it left in the worktree to the PR branch. Report success only if the
-        # push also landed.
         if run.returncode != 0:
             return False
+        # The agent must have produced a NEW commit beyond the PR's remote tip;
+        # otherwise there is nothing to push and "repair" pushed nothing.
+        head = _git_rev(wt, "HEAD")
+        if not head or head == before:
+            return False
         push = subprocess.run(
-            ["git", "-C", wt, "push", "origin", branch], capture_output=True, timeout=120
+            ["git", "-C", wt, "push", "origin", branch],
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
-        return push.returncode == 0
+        if push.returncode != 0:
+            return False
+        # A successful push updates the local remote-tracking ref; confirm the remote
+        # tip actually advanced to our new commit (guards a no-op / lost push race).
+        after = _git_rev(wt, f"origin/{branch}")
+        return bool(after == head and after != before)
     except Exception:  # noqa: BLE001 - one repair failure never aborts the pass
         return False
     finally:
         subprocess.run(
             ["git", "worktree", "remove", "--force", wt], capture_output=True, timeout=60
         )
-        shutil.rmtree(wt, ignore_errors=True)  # backstop if 'worktree add' never registered wt
+        shutil.rmtree(base, ignore_errors=True)
 
 
 def make_execute_fn(

@@ -3,7 +3,7 @@
 Official TypeScript SDK for the Aragora multi-agent debate platform.
 
 Need a smaller, `/api/v1`-only client or minimal dependencies? Use
-`@aragora/client` for legacy compatibility (see `aragora-js/README.md`).
+`@aragora/client` for legacy compatibility.
 
 ## Package Comparison
 
