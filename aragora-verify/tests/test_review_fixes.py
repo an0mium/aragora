@@ -15,7 +15,7 @@ import pytest
 
 from aragora_verify import odr_content_digest, verify
 from aragora_verify.cli import main
-from aragora_verify.verifier import FAIL, PASS, VerificationError, load_public_key
+from aragora_verify.verifier import FAIL, PASS, WARN, VerificationError, load_public_key
 
 from _fixtures import make_keypair, sign_odr, valid_odr
 
@@ -136,5 +136,7 @@ def test_chain_pass_detail_documents_non_integrity_limitation():
     chain = [{"hash": odr_content_digest(doc), "prev_hash": "x" * 64}]
     result = verify(doc, chain=chain)
     chain_check = next(c for c in result.checks if c.name == "chain_link")
-    assert chain_check.status == PASS
+    # Declared links present but not recomputed -> WARN (not a green PASS), so the
+    # human verdict never overstates chain assurance.
+    assert chain_check.status == WARN
     assert "not recomputed" in chain_check.detail.lower()

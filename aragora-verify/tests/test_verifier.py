@@ -153,7 +153,10 @@ def test_chain_anchored_receipt_passes() -> None:
         {"hash": "h1", "prev_hash": "h0", "odr_digest": digest},
     ]
     result = verify(doc, chain=chain)
-    assert _check(result, "chain_link").status == PASS
+    # Anchored + declared links present but NOT recomputed -> WARN (honest about
+    # the non-integrity limitation); still does not fail verification.
+    assert _check(result, "chain_link").status == WARN
+    assert result.ok is True
 
 
 def test_chain_broken_linkage_fails() -> None:

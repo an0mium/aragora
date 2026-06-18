@@ -304,12 +304,19 @@ def _check_chain(doc: dict[str, Any], digest_hex: str, chain: list[dict[str, Any
     # NOTE: linkage only checks declared prev_hash == declared previous hash; it
     # asserts self-consistency of the supplied chain, not that each entry's hash
     # was recomputed from its content. Independent re-hashing is out of scope here.
-    link_note = (
-        "declared prev/hash links self-consistent (hashes not recomputed)"
-        if saw_links
-        else "no prev-hash links present"
-    )
-    return Check("chain_link", PASS, f"receipt anchored in chain; {link_note}")
+    if saw_links:
+        # Anchoring is real (the content digest IS in the chain), but we only
+        # checked declared prev/hash self-consistency -- no entry hash was
+        # recomputed, so this is NOT a tamper-proof integrity guarantee. Report
+        # WARN, not PASS, so the human verdict never overstates the assurance
+        # (review): an attacker who controls the chain file can fake linkage.
+        return Check(
+            "chain_link",
+            WARN,
+            "receipt anchored; declared prev/hash links are self-consistent but NOT "
+            "recomputed -- this is not an integrity proof of the chain itself",
+        )
+    return Check("chain_link", PASS, "receipt anchored in chain (no prev-hash links to verify)")
 
 
 def _weakening_warnings(doc: dict[str, Any]) -> list[str]:

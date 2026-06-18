@@ -44,8 +44,11 @@ aragora-verify receipt.odr.json --pubkey key.pem --chain intent-chain.jsonl
 aragora-verify receipt.odr.json --pubkey key.pem --json
 ```
 
-Exit code `0` means verified (no failed checks); `1` means a check failed;
-`2` is a usage/input error.
+Exit code `0` means verified (no failed checks, and any present signatures were
+checked); `1` means a check failed; `2` is a usage/input error; `3` means the
+receipt is structurally OK but carries signatures that were **not** checked
+(no `--pubkey` supplied) — authenticity is unestablished, so it is deliberately
+not reported as `0`/VERIFIED.
 
 The public key for receipts emitted by an Aragora deployment is published at
 `GET /.well-known/aragora-odr-signing-key` and `GET /api/v2/receipts/signing-key`.
@@ -57,6 +60,24 @@ are **honesty signals** — a receipt full of them is visibly weak, not a
 strong-looking fabrication. They are reported as *weakening signals* and do
 **not** fail verification; the policy thresholds (e.g. "require ≥2 model
 families", "require human attestation") are yours to apply on top.
+
+### Known limitations (v0.1)
+
+The verifier is deliberately conservative and these are documented, not silent:
+
+- **Hash-chain (`--chain`) is anchoring + self-consistency, not integrity.** It
+  confirms the receipt's content digest appears in the chain and that declared
+  `prev_hash`/`hash` links are internally consistent, but it does **not** recompute
+  entry hashes — so it reports `chain_link` as `WARN` when links are present. A
+  party who controls the chain file can fabricate consistent-looking linkage; the
+  chain is corroborating evidence, not a tamper proof on its own.
+- **Signature verification is single-key, Ed25519-only.** It verifies that at least
+  one `signatures[]` entry validates against the supplied `--pubkey` (and fails if
+  an entry targeting that key fails). Richer multi-signer / threshold policies are
+  out of scope for v0.1.
+- **I-JSON numeric range.** Canonicalization assumes IEEE-754-double-safe numbers
+  (per RFC 8785 / I-JSON). Integers at or beyond 1e21 are not expected in ODR
+  payloads and are not specially handled.
 
 ## Library
 
