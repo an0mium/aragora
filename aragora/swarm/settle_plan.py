@@ -66,10 +66,16 @@ def plan_settlement(
         blockers.append("tier unknown (merge-packet did not classify the PR)")
     elif tier <= AUTO_MERGE_MAX_TIER:
         route = ROUTE_AUTO_MERGE
-        if unresolved_dissent:
-            blockers.append("unresolved model dissent (Tier 0-2 cannot auto-merge over a dissent)")
     else:
         route = ROUTE_OPERATOR_TIER4
+
+    # Dissent blocks every route, not just auto-merge: Tier 0-2 cannot auto-merge
+    # over a dissent, and settle_tier4_pr hard-fails on unresolved_dissent too, so
+    # a Tier 3-4 plan that ignored it would surface commands doomed to fail.
+    if unresolved_dissent and route != ROUTE_BLOCKED:
+        blockers.append(
+            "unresolved model dissent (auto-merge and Tier 3-4 settlement both refuse it)"
+        )
 
     requires_operator_login = route == ROUTE_OPERATOR_TIER4
     if requires_operator_login and not operator_login_provided:

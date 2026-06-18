@@ -54,6 +54,21 @@ def test_tier_four_requires_operator_login():
     assert any("--operator-login" in b for b in plan.blockers)
 
 
+def test_tier_four_unresolved_dissent_blocks_even_with_login():
+    # settle_tier4_pr hard-fails on unresolved dissent, so a Tier 3-4 plan must
+    # also block on it (not just Tier 0-2) -- else it surfaces doomed commands.
+    plan = plan_settlement(
+        tier=4,
+        quorum_satisfied=True,
+        supportive_families=["claude", "grok"],
+        unresolved_dissent=True,
+        operator_login_provided=True,
+    )
+    assert plan.route == ROUTE_OPERATOR_TIER4
+    assert plan.ready_to_mutate is False
+    assert any("dissent" in b for b in plan.blockers)
+
+
 def test_tier_four_with_operator_login_is_ready():
     plan = plan_settlement(
         tier=3,

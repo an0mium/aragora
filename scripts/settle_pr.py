@@ -87,21 +87,6 @@ def _collect(repo: str, pr: int, reviewers: list[str], *, apply: bool) -> dict[s
     return {"mode": "collect_evidence", "error": detail[:500]}
 
 
-def _post_supportive_evidence(repo: str, pr: int, payload: dict[str, Any]) -> list[str]:
-    """Post each countable item's evidence body as a PR comment. Returns the URLs."""
-    posted: list[str] = []
-    for item in payload.get("items") or []:
-        if not item.get("would_count"):
-            continue
-        body = item.get("body") or ""
-        if not body.strip():
-            continue
-        out = _run(["gh", "pr", "comment", str(pr), "--repo", repo, "--body", body])
-        if out.returncode == 0 and out.stdout.strip():
-            posted.append(out.stdout.strip())
-    return posted
-
-
 def _auto_merge(repo: str, pr: int) -> subprocess.CompletedProcess[str]:
     script = _REPO_ROOT / "scripts" / "auto_merge_quorum_green.py"
     return _run([sys.executable, str(script), "--repo", repo, "--pr", str(pr), "--apply"])
@@ -156,7 +141,12 @@ def main(argv: list[str] | None = None) -> int:
         print("error: could not resolve repo (pass --repo owner/name)", file=sys.stderr)
         return 2
 
-    payload = _collect(repo, args.pr, args.reviewers, apply=False)
+    # ONE collect. For Tier 0-2 + --apply, collect itself posts evidence AND runs
+    # the quorum reconciler (the authority's own posting path -- we never re-post).
+    # For Tier 3-4, collect treats --apply as prepare-only and refuses to post; we
+    # honor that invariant and NEVER post Tier 3-4 evidence ourselves -- the human
+    # settlement is surfaced, not automated.
+    payload = _collect(repo, args.pr, args.reviewers, apply=args.apply)
     summary = summarize_collect(payload)
     plan = plan_settlement(
         tier=summary["tier"],
@@ -168,32 +158,19 @@ def main(argv: list[str] | None = None) -> int:
 
     next_steps: list[str] = []
     actions: list[str] = []
+    mutate_ok = True  # set False only if an attempted auto-merge actually fails
 
-    if args.apply and plan.ready_to_mutate:
-        if plan.route == ROUTE_AUTO_MERGE:
-            # Re-collect with --apply so Tier 0-2 evidence is posted, then auto-merge.
-            _collect(repo, args.pr, args.reviewers, apply=True)
-            am = _auto_merge(repo, args.pr)
-            actions.append(
-                "auto_merge_quorum_green: " + (am.stdout.strip() or am.stderr.strip())[:300]
-            )
-        elif plan.route == ROUTE_OPERATOR_TIER4:
-            # Prepare + post supportive evidence; surface (never auto-run) the settle path.
-            prepared = _collect(repo, args.pr, args.reviewers, apply=True)
-            posted = _post_supportive_evidence(repo, args.pr, prepared)
-            actions.append(f"posted {len(posted)} supportive evidence comment(s)")
-            head = (
-                summarize_collect(prepared).get("head_sha") or summary.get("head_sha") or "<head>"
-            )
-            next_steps = tier4_settle_commands(
-                repo=repo,
-                pr=args.pr,
-                head=str(head),
-                operator_login=args.operator_login or "<gh-login>",
-                no_app_token=args.no_app_token,
-            )
-    elif plan.route == ROUTE_OPERATOR_TIER4 and not plan.blockers:
-        # Dry-run informational: show the operator path even without --apply.
+    if args.apply and plan.ready_to_mutate and plan.route == ROUTE_AUTO_MERGE:
+        # collect --apply already posted + reconciled the Tier 0-2 evidence; merge.
+        am = _auto_merge(repo, args.pr)
+        mutate_ok = am.returncode == 0
+        actions.append(
+            f"auto_merge_quorum_green (rc={am.returncode}): "
+            + (am.stdout.strip() or am.stderr.strip())[:300]
+        )
+
+    if plan.route == ROUTE_OPERATOR_TIER4 and not plan.blockers:
+        # Tier 3-4: surface the operator settle commands; never post/settle here.
         next_steps = tier4_settle_commands(
             repo=repo,
             pr=args.pr,
@@ -201,6 +178,11 @@ def main(argv: list[str] | None = None) -> int:
             operator_login=args.operator_login or "<gh-login>",
             no_app_token=args.no_app_token,
         )
+        if args.apply:
+            actions.append(
+                "Tier 3-4: evidence prepared (collect refuses to auto-post it); "
+                "run the surfaced commands to settle -- never automated here."
+            )
 
     if args.json:
         print(
@@ -213,6 +195,7 @@ def main(argv: list[str] | None = None) -> int:
                     "quorum_satisfied": plan.quorum_satisfied,
                     "ready_to_mutate": plan.ready_to_mutate,
                     "applied": bool(args.apply),
+                    "mutate_ok": mutate_ok,
                     "blockers": list(plan.blockers),
                     "actions": actions,
                     "next_steps": next_steps,
@@ -232,8 +215,9 @@ def main(argv: list[str] | None = None) -> int:
             for s in next_steps:
                 print(f"    {s}")
 
-    # Exit 0 if ready (or already applied), 1 if blocked.
-    return 0 if plan.ready_to_mutate else 1
+    # Exit nonzero when blocked, or when an attempted auto-merge failed -- so an
+    # automation wrapper can distinguish a real settlement from a no-op/failure.
+    return 0 if (plan.ready_to_mutate and mutate_ok) else 1
 
 
 if __name__ == "__main__":
