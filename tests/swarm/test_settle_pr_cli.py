@@ -93,20 +93,28 @@ def test_tier4_apply_surfaces_commands_and_exits_3(cli, monkeypatch):
     assert calls["auto_merge"] == 0  # never auto-merges a Tier-4 PR
 
 
-def test_prepare_only_reroutes_to_operator_not_dead_end(cli, monkeypatch):
-    # collect refused to post (action="prepare") with a stale tier=2: must re-route
-    # to the operator path (exit 3 under --apply with a login), never silently
-    # withhold auto-merge with no surfaced settle path.
+def test_apply_prepare_clean_quorum_blocks_and_recollects(cli, monkeypatch, capsys):
+    # collect refused to post under --apply despite a clean quorum (head moved /
+    # recheck pending). "prepare" is NOT a tier signal: the PR must NOT be re-routed
+    # to operator settlement (no Tier-4 commands bound to a superseded head); it
+    # stays on auto_merge_green, BLOCKED with a re-collect instruction, exit 1, and
+    # is never auto-merged over the refusal.
     monkeypatch.setattr(
         cli,
         "_collect",
-        lambda *a, **k: _payload(action="prepare", action_reason="tier promoted on recheck"),
+        lambda *a, **k: _payload(action="prepare", action_reason="head moved since classification"),
     )
     auto = {"n": 0}
     monkeypatch.setattr(cli, "_auto_merge", lambda *a, **k: auto.__setitem__("n", auto["n"] + 1))
-    rc = cli.main(["--repo", "owner/repo", "--pr", "8511", "--apply", "--operator-login", "alice"])
-    assert rc == 3
-    assert auto["n"] == 0  # prepare-only never auto-merges
+    rc = cli.main(
+        ["--repo", "owner/repo", "--pr", "8511", "--apply", "--operator-login", "alice", "--json"]
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert auto["n"] == 0  # never auto-merges over a refusal-to-post
+    assert out["route"] == "auto_merge_green"  # NOT re-routed to operator
+    assert out["next_steps"] == []  # no Tier-4 commands surfaced
+    assert any("refused to post" in b for b in out["blockers"])
 
 
 def test_dry_run_ready_exits_0_without_mutating(cli, monkeypatch):

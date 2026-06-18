@@ -50,7 +50,7 @@ def plan_settlement(
     head_sha: str | None = None,
     unresolved_dissent: bool = False,
     operator_login_provided: bool = False,
-    authority_prepare_only: bool = False,
+    collect_refused_to_post: bool = False,
 ) -> SettlementPlan:
     """Decide the settlement route and whether it is safe to proceed.
 
@@ -80,13 +80,19 @@ def plan_settlement(
     else:
         route = ROUTE_OPERATOR_TIER4
 
-    # The evidence authority's own posted-vs-refused signal overrides a stale tier.
-    # If collect refused to post (action="prepare") yet the merge-packet tier still
-    # reads <=2 -- e.g. a pre-post recheck promoted the tier to 3+ -- trust the
-    # stricter signal and route to operator settlement. Without this the CLI would
-    # withhold auto-merge AND never surface the Tier 3-4 path: an operator dead-end.
-    if authority_prepare_only and route == ROUTE_AUTO_MERGE:
-        route = ROUTE_OPERATOR_TIER4
+    # Genuine tier escalation is handled by tier-based routing above (collect's
+    # reported tier >2 -> operator). A "prepare" verdict is NOT a reliable tier
+    # signal: collect also prepares when the head moved (tier 2->2), a recheck is
+    # pending, or a transient gh error hit -- so we never re-route an auto-merge to
+    # the operator path on it (that would surface Tier-4 commands bound to a
+    # superseded head). Instead: never auto-merge OVER a refusal-to-post. Block and
+    # tell the operator to re-run collect on the current head.
+    if collect_refused_to_post and route == ROUTE_AUTO_MERGE:
+        blockers.append(
+            "collect refused to post evidence despite a satisfied quorum "
+            "(head moved / recheck pending / tier promotion) -- re-run collect on "
+            "the current head rather than auto-merging over a refusal-to-post"
+        )
 
     # Dissent blocks every route, not just auto-merge: Tier 0-2 cannot auto-merge
     # over a dissent, and settle_tier4_pr hard-fails on unresolved_dissent too, so
@@ -98,8 +104,9 @@ def plan_settlement(
 
     requires_operator_login = route == ROUTE_OPERATOR_TIER4
     if requires_operator_login and not operator_login_provided:
-        why = "evidence authority (prepare-only)" if authority_prepare_only else f"Tier {tier}"
-        blockers.append(f"{why} requires a human risk settlement: pass --operator-login <gh-login>")
+        blockers.append(
+            f"Tier {tier} requires a human risk settlement: pass --operator-login <gh-login>"
+        )
 
     # The Tier 3-4 settle commands are head-bound (settle_tier4_pr --head <sha>);
     # without a resolved head they would render as runnable-looking but doomed

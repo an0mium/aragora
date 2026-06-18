@@ -106,31 +106,31 @@ def test_tier_four_with_operator_login_is_ready():
     assert plan.blockers == ()
 
 
-def test_authority_prepare_only_reroutes_stale_tier_to_operator():
-    # collect refused to post (action="prepare") but the packet tier still reads 2
-    # (a pre-post recheck promotion): trust the stricter authority and route to the
-    # operator path -- never auto-merge-withhold into a dead-end with no Tier-4 path.
+def test_collect_refused_to_post_blocks_auto_merge_without_rerouting():
+    # collect refused to post (action="prepare") on a Tier 0-2 PR despite a clean
+    # quorum -- head moved / recheck pending / transient. "prepare" is NOT a tier
+    # signal, so we do NOT re-route to operator (that would surface Tier-4 commands
+    # bound to a superseded head). The route stays auto-merge but is BLOCKED: never
+    # auto-merge over a refusal-to-post; re-run collect.
     plan = plan_settlement(
         tier=2,
         quorum_satisfied=True,
         supportive_families=["claude", "grok"],
         head_sha="abc123",
-        operator_login_provided=True,
-        authority_prepare_only=True,
+        collect_refused_to_post=True,
     )
-    assert plan.route == ROUTE_OPERATOR_TIER4
-    assert plan.ready_to_mutate is True  # login + head present -> surfaceable
-    # ...and without a login it blocks with a guiding message (no stale "Tier 2").
-    blocked = plan_settlement(
-        tier=2,
+    assert plan.route == ROUTE_AUTO_MERGE  # NOT escalated to operator
+    assert plan.ready_to_mutate is False
+    assert any("refused to post" in b for b in plan.blockers)
+    # Genuine escalation still comes from the reported tier, not the prepare flag.
+    tier4 = plan_settlement(
+        tier=3,
         quorum_satisfied=True,
         supportive_families=["claude", "grok"],
         head_sha="abc123",
-        authority_prepare_only=True,
+        operator_login_provided=True,
     )
-    assert blocked.route == ROUTE_OPERATOR_TIER4
-    assert blocked.ready_to_mutate is False
-    assert any("--operator-login" in b and "Tier 2" not in b for b in blocked.blockers)
+    assert tier4.route == ROUTE_OPERATOR_TIER4
 
 
 def test_negative_tier_is_blocked_not_auto_merged():

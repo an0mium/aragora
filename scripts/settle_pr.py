@@ -128,6 +128,9 @@ def _render_human(summary: dict[str, Any], plan: Any) -> None:
         # Surface collect's root cause (exception text / "no JSON") in the default
         # text path too -- not just --json -- so a failed collect is diagnosable.
         print(f"  collect error:         {summary['error']}")
+    if summary.get("action"):
+        reason = summary.get("action_reason")
+        print(f"  collect action:        {summary['action']}" + (f" ({reason})" if reason else ""))
     print(f"  head:                  {summary.get('head_sha')}")
     print(f"  supportive_families:   {summary['supportive_families']}")
     print(f"  dissenting_families:   {summary['dissenting_families']}")
@@ -182,16 +185,15 @@ def main(argv: list[str] | None = None) -> int:
     # settlement is surfaced, not automated.
     payload = _collect(repo, args.pr, args.reviewers, apply=args.apply)
     summary = summarize_collect(payload)
-    # Authority cross-check. collect emits action="prepare" whenever it does NOT
-    # post -- which on a dry-run is ALWAYS (it never posts), and under --apply can
-    # mean several things (quorum incomplete, dissent, OR a genuine Tier >=3
-    # classification incl. a recheck tier-promotion the packet `tier` missed). Only
-    # the last is a tier-authority override. So honor it as one ONLY under --apply
-    # AND when the quorum is satisfied with no dissent -- then the one remaining
-    # reason collect refused to post is a higher tier, and re-routing to the
-    # operator path avoids an auto-merge-withheld dead-end. (Without this gate a
-    # dry-run would misroute every eligible Tier 0-2 PR to operator settlement.)
-    collect_prepared_only = (
+    # collect emits action="prepare" whenever it does NOT post -- which on a dry-run
+    # is ALWAYS (it never posts), and under --apply can mean several things (quorum
+    # incomplete, dissent, head moved, recheck pending, transient gh error, OR a
+    # genuine Tier >=3). "prepare" is NOT a reliable tier signal, so we do NOT try
+    # to infer escalation from it (tier-based routing already escalates a reported
+    # tier >2). We only flag the surprising case -- collect refused to post under
+    # --apply despite a satisfied quorum and no dissent -- so the planner can block
+    # the auto-merge (never merge OVER a refusal-to-post) and ask for a re-collect.
+    collect_refused_to_post = (
         bool(args.apply)
         and str(summary.get("action") or "") == "prepare"
         and bool(summary["quorum_satisfied"])
@@ -205,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
         head_sha=summary.get("head_sha"),
         unresolved_dissent=bool(summary["dissenting_families"]),
         operator_login_provided=bool(args.operator_login),
-        authority_prepare_only=collect_prepared_only,
+        collect_refused_to_post=collect_refused_to_post,
     )
 
     next_steps: list[str] = []
@@ -236,12 +238,6 @@ def main(argv: list[str] | None = None) -> int:
             no_app_token=args.no_app_token,
             repo_root=str(_REPO_ROOT),
         )
-        if collect_prepared_only:
-            actions.append(
-                "routed to operator settlement: collect classified prepare-only "
-                f"(action_reason={summary.get('action_reason')!r}) -- the evidence "
-                "authority puts this above the auto-merge tier despite the packet tier."
-            )
         if args.apply:
             actions.append(
                 "Tier 3-4: evidence prepared (collect refuses to auto-post it); "
