@@ -159,6 +159,17 @@ def validate_structure(doc: Any) -> list[str]:
             errors.append("subject.identifier: required string")
         if "digest" not in doc["subject"]:
             errors.append("subject.digest: required (present block or absent marker)")
+        else:
+            digest = doc["subject"]["digest"]
+            present_ok = (
+                isinstance(digest, dict)
+                and digest.get("status") == "present"
+                and isinstance(digest.get("value"), str)
+            )
+            if not _is_absent_marker(digest) and not present_ok:
+                # Reproducible without the optional jsonschema extra: a plain
+                # string / malformed digest is non-conformant (review [P2]).
+                errors.append("subject.digest: must be a present block or an absent marker")
     if isinstance(doc.get("claim"), dict):
         if not isinstance(doc["claim"].get("verdict"), str) or not doc["claim"].get("verdict"):
             errors.append("claim.verdict: required non-empty string")

@@ -9,10 +9,13 @@
 from __future__ import annotations
 
 import json
+import math
+
+import pytest
 
 from aragora_verify import odr_content_digest, verify
 from aragora_verify.cli import main
-from aragora_verify.verifier import FAIL, PASS, load_public_key
+from aragora_verify.verifier import FAIL, PASS, VerificationError, load_public_key
 
 from _fixtures import make_keypair, sign_odr, valid_odr
 
@@ -80,3 +83,58 @@ def test_chain_anchored_when_digest_matches():
     chain = [{"hash": digest}]
     result = verify(doc, chain=chain)
     assert _chain_check(result).status == PASS
+
+
+# --- round-2 hardening: adversarial-input robustness ----------------------
+
+
+def test_non_ed25519_pubkey_raises_clean_error():
+    # A valid-but-wrong-type (RSA) key must raise VerificationError, not crash.
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    rsa_pub = rsa.generate_private_key(public_exponent=65537, key_size=2048).public_key()
+    pem = rsa_pub.public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    with pytest.raises(VerificationError):
+        load_public_key(pem)
+
+
+def test_garbage_pubkey_raises_clean_error():
+    with pytest.raises(VerificationError):
+        load_public_key(b"-----BEGIN PUBLIC KEY-----\nnot a real key\n-----END PUBLIC KEY-----\n")
+
+
+def test_verify_does_not_crash_on_non_finite_number():
+    # A crafted receipt with a non-finite number must fail cleanly, never raise.
+    doc = valid_odr()
+    doc["cruxes"] = {"status": "present", "items": [{"weight": math.inf}]}
+    result = verify(doc)  # must NOT raise
+    assert result.ok is False
+
+
+def test_malformed_subject_digest_fails_schema():
+    # A plain-string digest (not a present-block / absent-marker) is non-conformant.
+    doc = valid_odr()
+    doc["subject"]["digest"] = "deadbeef"
+    result = verify(doc)
+    schema = next(c for c in result.checks if c.name == "schema_conformance")
+    assert schema.status == FAIL
+
+
+def test_jcs_parity_with_canonical_emitter():
+    # The standalone JCS port MUST stay byte-identical to the canonical emitter.
+    canonical = pytest.importorskip("aragora.gauntlet.odr_export")
+    private_key, _ = make_keypair()
+    for doc in (valid_odr(), sign_odr(valid_odr(), private_key)):
+        assert odr_content_digest(doc) == canonical.odr_content_digest(doc)
+
+
+def test_chain_pass_detail_documents_non_integrity_limitation():
+    doc = valid_odr()
+    chain = [{"hash": odr_content_digest(doc), "prev_hash": "x" * 64}]
+    result = verify(doc, chain=chain)
+    chain_check = next(c for c in result.checks if c.name == "chain_link")
+    assert chain_check.status == PASS
+    assert "not recomputed" in chain_check.detail.lower()

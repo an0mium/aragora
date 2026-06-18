@@ -110,25 +110,38 @@ def _load_ed25519():  # noqa: ANN202 - lazy import keeps import errors actionabl
 def load_public_key(data: bytes):  # noqa: ANN201
     """Load an Ed25519 public key from PEM, DER, raw 32 bytes, or base64/hex text."""
     Ed25519PublicKey, serialization, _ = _load_ed25519()
-    text = data.strip()
-    # PEM / DER
-    if b"-----BEGIN" in text:
-        return serialization.load_pem_public_key(text)
-    # Raw 32-byte key
-    if len(text) == 32:
-        return Ed25519PublicKey.from_public_bytes(text)
-    # base64 or hex encoding of the raw 32-byte key
-    as_str = text.decode("ascii", errors="ignore").strip()
-    for decoder in (_maybe_b64, _maybe_hex):
-        raw = decoder(as_str)
-        if raw is not None and len(raw) == 32:
-            return Ed25519PublicKey.from_public_bytes(raw)
-    try:
-        return serialization.load_der_public_key(data)
-    except Exception as exc:  # noqa: BLE001
+    key = None
+    # PEM (wrap parse errors instead of leaking a traceback on hostile input).
+    if b"-----BEGIN" in data:
+        try:
+            key = serialization.load_pem_public_key(data.strip())
+        except (ValueError, TypeError) as exc:
+            raise VerificationError("could not parse PEM public key") from exc
+    # Raw 32-byte key -- use the UNSTRIPPED bytes (a raw key may legitimately begin
+    # or end with a whitespace-valued byte; stripping would corrupt it).
+    elif len(data) == 32:
+        key = Ed25519PublicKey.from_public_bytes(data)
+    else:
+        as_str = data.decode("ascii", errors="ignore").strip()
+        for decoder in (_maybe_b64, _maybe_hex):
+            raw = decoder(as_str)
+            if raw is not None and len(raw) == 32:
+                key = Ed25519PublicKey.from_public_bytes(raw)
+                break
+        if key is None:
+            try:
+                key = serialization.load_der_public_key(data)
+            except Exception as exc:  # noqa: BLE001
+                raise VerificationError(
+                    "could not parse public key (expected PEM/DER/raw/base64/hex)"
+                ) from exc
+    # A valid RSA/ECDSA key parses fine but is the wrong algorithm; reject it
+    # cleanly rather than crashing later in compute_key_id / verify (review [P2]).
+    if not isinstance(key, Ed25519PublicKey):
         raise VerificationError(
-            "could not parse public key (expected PEM/DER/raw/base64/hex)"
-        ) from exc
+            f"public key is not Ed25519 (got {type(key).__name__}); ODR signatures use Ed25519"
+        )
+    return key
 
 
 def compute_key_id(public_key) -> str:  # noqa: ANN001
@@ -361,7 +374,19 @@ def verify(
         )
     checks.append(Check("schema_conformance", PASS, "conforms to ODR v0.1 profile"))
 
-    digest_hex = odr_content_digest(doc)
+    try:
+        digest_hex = odr_content_digest(doc)
+    except (ValueError, TypeError) as exc:
+        # A crafted receipt (e.g. a non-finite number in an additionalProperties
+        # region) must FAIL cleanly, never crash the verifier (review [P2]).
+        checks.append(Check("canonical_digest", FAIL, f"cannot canonicalize receipt: {exc}"))
+        return VerifyResult(
+            ok=False,
+            receipt_id=receipt_id,
+            odr_digest="",
+            checks=checks,
+            warnings=_weakening_warnings(doc),
+        )
     checks.append(Check("canonical_digest", PASS, f"sha-256:{digest_hex}"))
 
     checks.append(_check_signatures(doc, digest_hex, public_key))
