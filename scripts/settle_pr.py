@@ -148,6 +148,13 @@ def main(argv: list[str] | None = None) -> int:
     # settlement is surfaced, not automated.
     payload = _collect(repo, args.pr, args.reviewers, apply=args.apply)
     summary = summarize_collect(payload)
+    # Authority cross-check: under --apply, collect posts (action="post") only for
+    # the tiers it deems auto-settleable; "prepare" means it refused to post (Tier
+    # >=3, including a recheck tier-promotion the top-level `tier` did not reflect).
+    # plan_settlement re-routes such a PR to the operator path so it is never an
+    # auto-merge-withheld dead-end.
+    collect_prepared_only = str(summary.get("action") or "") == "prepare"
+
     plan = plan_settlement(
         tier=summary["tier"],
         quorum_satisfied=summary["quorum_satisfied"],
@@ -155,34 +162,21 @@ def main(argv: list[str] | None = None) -> int:
         head_sha=summary.get("head_sha"),
         unresolved_dissent=bool(summary["dissenting_families"]),
         operator_login_provided=bool(args.operator_login),
+        authority_prepare_only=collect_prepared_only,
     )
 
     next_steps: list[str] = []
     actions: list[str] = []
     mutate_ok = True  # set False only if an attempted auto-merge actually fails
 
-    # Authority cross-check: under --apply, collect posts (action="post") only for
-    # the tiers it deems auto-settleable; "prepare" means it refused to post (Tier
-    # >=3, including a recheck tier-promotion the top-level `tier` -- and so the
-    # plan's route -- did not reflect). Never auto-merge over that disagreement.
-    collect_prepared_only = str(summary.get("action") or "") == "prepare"
-
     if args.apply and plan.ready_to_mutate and plan.route == ROUTE_AUTO_MERGE:
-        if collect_prepared_only:
-            mutate_ok = False
-            actions.append(
-                "auto-merge withheld: collect classified prepare-only "
-                f"(action_reason={summary.get('action_reason')!r}) -- the evidence "
-                "authority puts this above the auto-merge tier; operator must settle."
-            )
-        else:
-            # collect --apply already posted + reconciled the Tier 0-2 evidence; merge.
-            am = _auto_merge(repo, args.pr)
-            mutate_ok = am.returncode == 0
-            actions.append(
-                f"auto_merge_quorum_green (rc={am.returncode}): "
-                + (am.stdout.strip() or am.stderr.strip())[:300]
-            )
+        # collect --apply already posted + reconciled the Tier 0-2 evidence; merge.
+        am = _auto_merge(repo, args.pr)
+        mutate_ok = am.returncode == 0
+        actions.append(
+            f"auto_merge_quorum_green (rc={am.returncode}): "
+            + (am.stdout.strip() or am.stderr.strip())[:300]
+        )
 
     if plan.route == ROUTE_OPERATOR_TIER4 and not plan.blockers:
         # Tier 3-4: surface the operator settle commands; never post/settle here.
@@ -193,6 +187,12 @@ def main(argv: list[str] | None = None) -> int:
             operator_login=args.operator_login or "<gh-login>",
             no_app_token=args.no_app_token,
         )
+        if collect_prepared_only:
+            actions.append(
+                "routed to operator settlement: collect classified prepare-only "
+                f"(action_reason={summary.get('action_reason')!r}) -- the evidence "
+                "authority puts this above the auto-merge tier despite the packet tier."
+            )
         if args.apply:
             actions.append(
                 "Tier 3-4: evidence prepared (collect refuses to auto-post it); "

@@ -15,6 +15,7 @@ and refuses to proceed when the model quorum is not genuinely satisfied.
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -48,6 +49,7 @@ def plan_settlement(
     head_sha: str | None = None,
     unresolved_dissent: bool = False,
     operator_login_provided: bool = False,
+    authority_prepare_only: bool = False,
 ) -> SettlementPlan:
     """Decide the settlement route and whether it is safe to proceed.
 
@@ -70,6 +72,14 @@ def plan_settlement(
     else:
         route = ROUTE_OPERATOR_TIER4
 
+    # The evidence authority's own posted-vs-refused signal overrides a stale tier.
+    # If collect refused to post (action="prepare") yet the merge-packet tier still
+    # reads <=2 -- e.g. a pre-post recheck promoted the tier to 3+ -- trust the
+    # stricter signal and route to operator settlement. Without this the CLI would
+    # withhold auto-merge AND never surface the Tier 3-4 path: an operator dead-end.
+    if authority_prepare_only and route == ROUTE_AUTO_MERGE:
+        route = ROUTE_OPERATOR_TIER4
+
     # Dissent blocks every route, not just auto-merge: Tier 0-2 cannot auto-merge
     # over a dissent, and settle_tier4_pr hard-fails on unresolved_dissent too, so
     # a Tier 3-4 plan that ignored it would surface commands doomed to fail.
@@ -80,9 +90,8 @@ def plan_settlement(
 
     requires_operator_login = route == ROUTE_OPERATOR_TIER4
     if requires_operator_login and not operator_login_provided:
-        blockers.append(
-            f"Tier {tier} requires a human risk settlement: pass --operator-login <gh-login>"
-        )
+        why = "evidence authority (prepare-only)" if authority_prepare_only else f"Tier {tier}"
+        blockers.append(f"{why} requires a human risk settlement: pass --operator-login <gh-login>")
 
     # The Tier 3-4 settle commands are head-bound (settle_tier4_pr --head <sha>);
     # without a resolved head they would render as runnable-looking but doomed
@@ -107,13 +116,39 @@ def tier4_settle_commands(
     """The exact, head-bound ``settle_tier4_pr.py`` commands a trusted operator runs
     to record the human risk settlement and merge. The CLI surfaces these rather
     than executing them: the Tier-4 human settlement must be a deliberate operator
-    act, never an automated one."""
+    act, never an automated one.
+
+    Every interpolated value is ``shlex.quote``d: these strings are surfaced for
+    copy-paste into a shell, so an unquoted ``repo``/``head``/``operator_login``
+    bearing shell metacharacters would be a command-injection vector. ``pr`` is
+    coerced to ``int`` for the same reason."""
     base = (
-        f"python3 scripts/settle_tier4_pr.py --pr {pr} --head {head} "
-        f"--trusted-operator-login {operator_login} --repo {repo}"
+        f"python3 scripts/settle_tier4_pr.py --pr {int(pr)} --head {shlex.quote(str(head))} "
+        f"--trusted-operator-login {shlex.quote(str(operator_login))} --repo {shlex.quote(str(repo))}"
     )
     prefix = "ARAGORA_DISABLE_GITHUB_APP_TOKEN=1 " if no_app_token else ""
     return [f"{base} --check", f"{base} --settle-only", f"{prefix}{base} --merge-apply"]
+
+
+def _coerce_tier(value: Any) -> int | None:
+    """Coerce a merge-packet ``tier`` to ``int`` (or ``None`` if malformed).
+
+    ``plan_settlement`` does ``tier <= AUTO_MERGE_MAX_TIER``; a non-int tier from a
+    malformed payload would raise ``TypeError`` there. Coercing here (a bool, NaN,
+    or unparseable value becomes ``None`` -> fail-safe ``ROUTE_BLOCKED``) keeps the
+    planner total."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if value == int(value) else None
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return None
+    return None
 
 
 def summarize_collect(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -146,7 +181,7 @@ def summarize_collect(payload: Mapping[str, Any]) -> dict[str, Any]:
         )
     return {
         "error": None,
-        "tier": payload.get("tier"),
+        "tier": _coerce_tier(payload.get("tier")),
         "head_sha": payload.get("head_sha"),
         "quorum_satisfied": bool(payload.get("has_supportive_quorum")),
         # collect's OWN authority signal: "post" means it classified the PR as

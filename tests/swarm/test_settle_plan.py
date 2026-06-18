@@ -9,6 +9,8 @@ JSON payload into the fields the planner + diagnostics need.
 
 from __future__ import annotations
 
+from shlex import quote as shlex_quote
+
 from aragora.swarm.settle_plan import (
     ROUTE_AUTO_MERGE,
     ROUTE_BLOCKED,
@@ -103,6 +105,33 @@ def test_tier_four_with_operator_login_is_ready():
     assert plan.blockers == ()
 
 
+def test_authority_prepare_only_reroutes_stale_tier_to_operator():
+    # collect refused to post (action="prepare") but the packet tier still reads 2
+    # (a pre-post recheck promotion): trust the stricter authority and route to the
+    # operator path -- never auto-merge-withhold into a dead-end with no Tier-4 path.
+    plan = plan_settlement(
+        tier=2,
+        quorum_satisfied=True,
+        supportive_families=["claude", "grok"],
+        head_sha="abc123",
+        operator_login_provided=True,
+        authority_prepare_only=True,
+    )
+    assert plan.route == ROUTE_OPERATOR_TIER4
+    assert plan.ready_to_mutate is True  # login + head present -> surfaceable
+    # ...and without a login it blocks with a guiding message (no stale "Tier 2").
+    blocked = plan_settlement(
+        tier=2,
+        quorum_satisfied=True,
+        supportive_families=["claude", "grok"],
+        head_sha="abc123",
+        authority_prepare_only=True,
+    )
+    assert blocked.route == ROUTE_OPERATOR_TIER4
+    assert blocked.ready_to_mutate is False
+    assert any("--operator-login" in b and "Tier 2" not in b for b in blocked.blockers)
+
+
 def test_unknown_tier_is_blocked_fail_safe():
     plan = plan_settlement(tier=None, quorum_satisfied=True, supportive_families=["claude", "grok"])
     assert plan.route == ROUTE_BLOCKED
@@ -161,6 +190,36 @@ def test_summarize_collect_preserves_action_authority_signal():
     )
     assert s["action"] == "prepare"
     assert s["action_reason"] == "tier promoted to 3 on pre-post recheck"
+
+
+def test_summarize_collect_coerces_malformed_tier_to_none():
+    # A non-int tier from a malformed payload must not reach `tier <= 2` (TypeError);
+    # it coerces to None -> fail-safe ROUTE_BLOCKED.
+    s = summarize_collect({"tier": "not-a-tier", "has_supportive_quorum": True, "items": []})
+    assert s["tier"] is None
+    plan = plan_settlement(
+        tier=s["tier"], quorum_satisfied=True, supportive_families=["claude", "grok"]
+    )
+    assert plan.route == ROUTE_BLOCKED
+    # An integral string tier still parses.
+    assert summarize_collect({"tier": "3", "items": []})["tier"] == 3
+
+
+def test_tier4_settle_commands_quote_shell_metacharacters():
+    # Surfaced for copy-paste -> metacharacters in repo/head/login must be quoted,
+    # never an injection vector.
+    cmds = tier4_settle_commands(
+        repo="owner/repo;rm -rf /",
+        pr=42,
+        head="$(whoami)",
+        operator_login="alice`id`",
+    )
+    joined = "\n".join(cmds)
+    assert "rm -rf /" not in joined.replace("'owner/repo;rm -rf /'", "")
+    assert "$(whoami)" not in joined.replace("'$(whoami)'", "")
+    # the dangerous substrings only survive inside single-quotes
+    for raw in ("owner/repo;rm -rf /", "$(whoami)", "alice`id`"):
+        assert shlex_quote(raw) in joined
 
 
 def test_summarize_collect_handles_error_envelope():
