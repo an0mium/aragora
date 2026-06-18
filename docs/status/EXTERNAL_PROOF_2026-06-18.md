@@ -34,7 +34,13 @@ open('/tmp/sample.pub.pem','wb').write(pem)"
 
 # A) valid signed receipt
 PYTHONPATH=src python -m aragora_verify /tmp/sample.odr.json --pubkey /tmp/sample.pub.pem --json
-# B) tamper the claim, re-verify
+
+# B) tamper the claim, re-verify (must report ok=false)
+python -c "import json;d=json.load(open('/tmp/sample.odr.json'));d['claim']='TAMPERED'+str(d.get('claim'));json.dump(d,open('/tmp/tampered.odr.json','w'))"
+PYTHONPATH=src python -m aragora_verify /tmp/tampered.odr.json --pubkey /tmp/sample.pub.pem --json
+
+# (positive + negative paths together) re-run the package's own suite
+python -m pytest -q   # 49 passed
 ```
 
 | Case | `ok` | Checks |
@@ -43,7 +49,7 @@ PYTHONPATH=src python -m aragora_verify /tmp/sample.odr.json --pubkey /tmp/sampl
 | **Tampered claim** | `False` | schema/digest mismatch detected ❌ |
 
 **Result:** the verifier accepts a conformant signed receipt and detects tampering. Backed by
-49 passing unit tests in the package.
+the package's own suite — **49 passed** (`PYTHONPATH=src:tests python -m pytest -q`, shown above).
 
 ---
 
@@ -124,7 +130,7 @@ Result: VALID (3/3 checks passed)
 
 ## Reproducibility
 
-- Verifier (Proofs 1): `aragora-verify/`, `PYTHONPATH=src python -m aragora_verify <receipt> --pubkey <pem> --json`
+- Verifier (Proof 1): `aragora-verify/`, `PYTHONPATH=src python -m aragora_verify <receipt> --pubkey <pem> --json`
 - Classifier benchmark (Proof 2): `python scripts/score_benchmark.py`
 - Live debate (Proof 3): `aragora ask "<question>" --agents "openrouter|<model>||<role>,..." --rounds 1 --decision-integrity` (requires `OPENROUTER_API_KEY`)
 
