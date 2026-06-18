@@ -283,6 +283,10 @@ class CollectOutcome:
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
     quorum_rerun: dict[str, Any] | None = None
+    # Captured ONCE at construction (not re-read from os.environ per property
+    # access) so a security-relevant gate decision stays deterministic within a
+    # single settlement flow even if the process env mutates mid-run.
+    tiered_gate: bool = field(default_factory=tiered_merge_gate_enabled)
 
     @property
     def counting_families(self) -> list[str]:
@@ -306,7 +310,7 @@ class CollectOutcome:
         supportive families. Tier 0 needs one supportive family of any kind.
         """
         supportive = set(self.supportive_families)
-        if tiered_merge_gate_enabled():
+        if self.tiered_gate:
             if self.tier is not None and self.tier <= 0:
                 return len(supportive) >= 1
             if self.tier is not None and 1 <= self.tier <= 2:
@@ -322,7 +326,7 @@ class CollectOutcome:
         misleading ``(n/2)`` distinct-family denominator.
         """
         n = len(self.supportive_families)
-        if tiered_merge_gate_enabled():
+        if self.tiered_gate:
             if self.tier is not None and self.tier <= 0:
                 return f"supportive quorum incomplete ({n}/1); prepared evidence only"
             if self.tier is not None and 1 <= self.tier <= 2:

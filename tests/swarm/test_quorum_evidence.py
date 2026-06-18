@@ -2524,3 +2524,23 @@ def test_supportive_quorum_strict_when_flag_off(monkeypatch):
     reason = _supportive_outcome(2, "claude").incomplete_quorum_reason
     assert "(1/2 distinct families)" in reason
     assert "western-frontier" not in reason
+
+
+def test_supportive_quorum_strict_when_flag_unset(monkeypatch):
+    # The PRODUCTION default is the env var UNSET (not merely "0"); that must also
+    # be the strict gate, so an accidental default-ON regression is caught.
+    monkeypatch.delenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", raising=False)
+    assert qe.tiered_merge_gate_enabled() is False
+    assert _supportive_outcome(2, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(1, "claude", "grok").has_supportive_quorum is True
+
+
+def test_tiered_gate_is_captured_at_construction(monkeypatch):
+    # The flag is captured ONCE at outcome construction; mutating the env afterward
+    # must not flip a security-relevant decision mid-settlement-flow.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+    outcome = _supportive_outcome(2, "claude")  # tiered ON -> lone WF satisfies
+    assert outcome.tiered_gate is True
+    assert outcome.has_supportive_quorum is True
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")  # mutate mid-flow
+    assert outcome.has_supportive_quorum is True  # unchanged: captured at build
