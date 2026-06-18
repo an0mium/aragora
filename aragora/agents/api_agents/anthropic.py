@@ -211,6 +211,10 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
 
         start_time = time.perf_counter()
 
+        # Fail-closed monthly budget cap (no-op unless ARAGORA_MONTHLY_BUDGET_USD
+        # is set). Raises before the metered call once the cap is reached.
+        self._enforce_budget_precall()
+
         if not self.api_key:
             logger.warning("[%s] Missing API key, attempting OpenRouter fallback", self.name)
             record_provider_call(
