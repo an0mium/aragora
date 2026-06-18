@@ -13,15 +13,26 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from aragora.swarm.wip_budget import (
     WIP_DEGRADED,
     WIP_OVER_CAP,
     WIP_UNAVAILABLE,
     WIP_WITHIN_CAP,
     WipPolicy,
+    _as_count,
     classify_wip,
     resolve_wip_budget,
 )
+
+
+@pytest.fixture(autouse=True)
+def _clear_wip_env(monkeypatch):
+    # The env fleet-default would flip the no-ceiling / no-count assertions
+    # (missing-file -> a cap; count-only -> ok). Mirror test_loop_budget's
+    # delenv discipline so these tests are environment-independent.
+    monkeypatch.delenv("ARAGORA_WIP_OPEN_PR_CAP", raising=False)
 
 
 # --- policy load -----------------------------------------------------------
@@ -135,3 +146,37 @@ def test_classify_unavailable_allows_generation(tmp_path):
     decision = classify_wip(resolve_wip_budget(None, WipPolicy.load(tmp_path), "f"))
     assert decision.verdict == WIP_UNAVAILABLE
     assert decision.allow_generation is True
+
+
+def test_classify_self_derives_and_ignores_misleading_status():
+    # A caller cannot bypass the fail-safe by mislabelling status="ok" with a
+    # missing count: classify derives the verdict from the data, not the label.
+    degraded = classify_wip({"source_status": "ok", "open_pr_count": None, "ceiling": 20})
+    assert degraded.verdict == WIP_DEGRADED
+    assert degraded.allow_generation is True
+    # ...and an honest ok dict still gates correctly.
+    over = classify_wip({"source_status": "ok", "open_pr_count": 25, "ceiling": 20})
+    assert over.verdict == WIP_OVER_CAP
+
+
+def test_cap_zero_freezes_generation(tmp_path):
+    # cap=0 is the deliberate "freeze" knob: 0 open PRs already >= 0 -> over_cap.
+    _write_policy(tmp_path, {"fleets": {"frozen": {"cap": 0}}})
+    decision = classify_wip(resolve_wip_budget(0, WipPolicy.load(tmp_path), "frozen"))
+    assert decision.verdict == WIP_OVER_CAP
+    assert decision.allow_generation is False
+
+
+def test_as_count_rejects_untrusted_values():
+    # Parity with loop_budget._as_float regression guards: anything that isn't a
+    # clean non-negative integer reads as "unknown" (None) and so fails safe.
+    assert _as_count(True) is None  # bool is not a count
+    assert _as_count(False) is None
+    assert _as_count(-3) is None
+    assert _as_count(3.7) is None  # non-integral float
+    assert _as_count(float("nan")) is None
+    assert _as_count(float("inf")) is None
+    assert _as_count("not-an-int") is None
+    assert _as_count(3.0) == 3  # integral float ok
+    assert _as_count("12") == 12
+    assert _as_count(0) == 0

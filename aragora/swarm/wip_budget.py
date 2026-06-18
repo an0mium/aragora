@@ -43,6 +43,10 @@ from typing import Any
 POLICY_RELPATH = Path(".aragora") / "wip_budgets.json"
 ENV_FLEET_DEFAULT = "ARAGORA_WIP_OPEN_PR_CAP"
 
+# resolve_wip_budget source_status values (human-readable; classify_wip derives
+# its verdict from the data, not from this advisory label -- see classify_wip).
+WIP_OK = "ok"
+
 # classify_wip verdicts.
 WIP_WITHIN_CAP = "within_cap"
 WIP_OVER_CAP = "over_cap"
@@ -148,7 +152,15 @@ def resolve_wip_budget(
     policy: WipPolicy,
     fleet_id: str,
 ) -> dict[str, Any]:
-    """Compose one fleet's raw ``wip`` dict for :func:`classify_wip`."""
+    """Compose one fleet's raw ``wip`` dict for :func:`classify_wip`.
+
+    Unlike :mod:`loop_budget` -- which reads a persisted spend snapshot and tracks
+    its mtime freshness -- the open-PR count here is supplied live by the caller
+    (e.g. a just-run ``gh pr list``), so there is no freshness/age field: ensuring
+    the count is current is the caller's responsibility at the decision point. A
+    caller wiring this into a generation lane must measure the count immediately
+    before gating, not reuse a stale cached value.
+    """
     cap, cap_source = policy.cap_for(fleet_id)
     count = _as_count(open_pr_count)
 
@@ -181,7 +193,7 @@ def resolve_wip_budget(
         }
     return {
         "source": f"{cap_source} + count:supplied",
-        "source_status": "ok",
+        "source_status": WIP_OK,
         "open_pr_count": count,
         "ceiling": cap,
         "remaining": cap - count,
@@ -191,15 +203,18 @@ def resolve_wip_budget(
 def classify_wip(wip: dict[str, Any]) -> WipDecision:
     """Classify a ``wip`` dict into a :class:`WipDecision`.
 
-    Only the ``ok`` status (real ceiling + real count) can produce ``over_cap``
-    and withhold generation; every other status keeps ``allow_generation`` True.
+    The verdict is derived from the *data itself* (parsed count + ceiling), NOT
+    from the advisory ``source_status`` label, so a caller cannot bypass the
+    fail-safe by mislabelling a dict ``source_status="ok"`` with a missing or
+    untrusted count. Only a real ceiling AND a real count can produce ``over_cap``
+    and withhold generation; every other shape keeps ``allow_generation`` True
+    (``cap=0`` is the deliberate "freeze" case: count >= 0 is always over_cap).
     """
-    status = str(wip.get("source_status", WIP_UNAVAILABLE))
     count = _as_count(wip.get("open_pr_count"))
     ceiling = _as_count(wip.get("ceiling"))
     source = str(wip.get("source", "none"))
 
-    if status == "ok" and count is not None and ceiling is not None:
+    if count is not None and ceiling is not None:
         over = count >= ceiling
         return WipDecision(
             verdict=WIP_OVER_CAP if over else WIP_WITHIN_CAP,
@@ -209,10 +224,7 @@ def classify_wip(wip: dict[str, Any]) -> WipDecision:
             remaining=ceiling - count,
             source=source,
         )
-    if status == "unavailable":
-        verdict = WIP_UNAVAILABLE
-    else:
-        verdict = WIP_DEGRADED
+    verdict = WIP_UNAVAILABLE if (count is None and ceiling is None) else WIP_DEGRADED
     return WipDecision(
         verdict=verdict,
         allow_generation=True,
