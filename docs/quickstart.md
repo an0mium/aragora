@@ -12,26 +12,15 @@ pip install aragora-debate
 
 ## 2. Zero-Key Demo
 
-No API keys needed — runs with styled mock agents locally:
+No API keys required. The offline demo runs a complete adversarial debate with
+mock agents:
 
 ```bash
-python -c "
-from aragora_debate.arena import Arena
-from aragora_debate.styled_mock import StyledMockAgent
-import asyncio
-
-agents = [
-    StyledMockAgent('analyst', style='supportive'),
-    StyledMockAgent('critic', style='critical'),
-    StyledMockAgent('pm', style='balanced'),
-]
-arena = Arena(question='Should we migrate to microservices?', agents=agents)
-result = asyncio.run(arena.run())
-print(result.receipt.to_markdown())
-"
+python3 -m aragora.cli.main demo
 ```
 
-You'll see three agents debate, critique each other, vote, and produce an audit-ready decision receipt.
+You'll see three agents propose, critique each other, vote, reach consensus, and
+produce an audit-ready decision receipt with a SHA-256 verdict hash.
 
 ## 3. Three-Line Debate (Python)
 

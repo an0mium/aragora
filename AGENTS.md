@@ -203,7 +203,7 @@ Each agent has a role that determines its behavior in debates:
 
 ## Core Agent Interface
 
-All agents implement the abstract `Agent` class from `aragora/core.py`:
+All agents implement the abstract `Agent` class from `aragora/core/`:
 
 ```python
 class Agent(ABC):
@@ -351,7 +351,7 @@ analysis = await integration.full_post_debate_analysis(
 
 | File | Purpose |
 |------|---------|
-| `aragora/core.py` | Core abstractions (Agent, Message, Critique, Vote, DebateResult) |
+| `aragora/core/` | Core abstractions (Agent, Message, Critique, Vote, DebateResult) |
 | `aragora/agents/base.py` | Agent factory and type definitions |
 | `aragora/agents/cli_agents.py` | CLI-based agent implementations |
 | `aragora/agents/api_agents.py` | API-based agent implementations |
