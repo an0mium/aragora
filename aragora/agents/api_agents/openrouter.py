@@ -186,6 +186,9 @@ class OpenRouterAgent(APIAgent):
         Wraps _generate_with_model via @handle_agent_errors for retry/backoff,
         then falls back to an alternate model if all retries are exhausted.
         """
+        # Fail-closed monthly budget cap (no-op unless ARAGORA_MONTHLY_BUDGET_USD
+        # is set). OpenRouter is the common metered fallback path, so gate here too.
+        self._enforce_budget_precall()
         try:
             return await self._generate_with_model(self.model, prompt, context)
         except (AgentRateLimitError, AgentConnectionError, AgentTimeoutError):
@@ -436,6 +439,13 @@ class OpenRouterAgent(APIAgent):
         if self.frequency_penalty is not None:
             payload["frequency_penalty"] = self.frequency_penalty
 
+        estimated_budget_usd = self._estimate_budget_cost_from_text_usd(
+            full_prompt,
+            int(payload["max_tokens"]),
+        )
+        self._enforce_budget_precall(estimated_budget_usd)
+        from aragora.billing import budget_guard
+
         last_error = None
         for attempt in range(max_retries):
             # Acquire rate limit token for each attempt
@@ -504,6 +514,8 @@ class OpenRouterAgent(APIAgent):
                             limiter.record_success()
                             if self._circuit_breaker is not None:
                                 self._circuit_breaker.record_success()
+                            if estimated_budget_usd > 0:
+                                budget_guard.record_spend(estimated_budget_usd)
                         except RuntimeError as e:
                             if self._circuit_breaker is not None:
                                 self._circuit_breaker.record_failure()

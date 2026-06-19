@@ -117,4 +117,3 @@ Mitigation: Keep explicit unresolved state, scheduled retries, and operator repo
 
 3. Risk: Persuasion-optimized outputs pass structure checks but fail substance.
 Mitigation: Add adversarial fixtures and outcome-based calibration feedback.
-

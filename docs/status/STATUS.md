@@ -39,7 +39,7 @@ Key landings since rc.1 cut (2026-04-24):
 - 2× CRITICAL trivy CVE-2026-33634 patched (#6557).
 - 6 chronic-red workflows now have associated fixes on main; next nightly is the validation signal.
 
-Readiness receipt: [2026-04-25-rc1-to-stable-receipt.md](2026-04-25-rc1-to-stable-receipt.md).
+Readiness receipt: rc1-to-stable readiness record (archived).
 
 ## April 24, 2026 — Auto-Handle Calibration Gate Ready On #6448
 

@@ -244,9 +244,10 @@ docker compose -f docker-compose.production.yml --env-file .env.production down
 Run without any API keys for evaluation:
 
 ```bash
+# `aragora` is the compose service; `aragora serve --demo` is the command it runs.
+# --demo forces offline/demo mode (no API keys required), regardless of the image default CMD.
 docker compose -f docker-compose.simple.yml run --rm \
-  -e ARAGORA_OFFLINE=true -e ARAGORA_DEMO_MODE=true \
-  aragora python -m aragora.server --offline
+  aragora aragora serve --demo
 ```
 
 Or use the quickstart script:

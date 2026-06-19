@@ -1,0 +1,7 @@
+.nomic/
+.benchmarks/
+*.db
+*.db-shm
+*.db-wal
+dist/
+*.egg-info/
