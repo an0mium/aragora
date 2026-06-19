@@ -72,16 +72,18 @@ FAMILY_PROVIDERS: dict[str, str] = {
 
 # Western-frontier families. Under the tiered gate, a Tier 1-2 PR settles on a
 # single supportive signal, which MUST be one of these (claude/openai) so a cheap
-# model can never solely authorize a merge (Tier 0 needs any one supportive
-# family; Tier 3-4 need two distinct families). Mirrors WESTERN_FRONTIER_FAMILIES
+# model can never solely authorize a merge (with the tiered gate ON, Tier 0 needs
+# any one supportive family; Tier 3-4 always need two distinct families). Mirrors
+# WESTERN_FRONTIER_FAMILIES
 # in the review-queue gate so the auto-settle path and the merge-quorum check agree.
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
 
-# Opt-in flag for the tiered merge gate. Default OFF: every tier keeps the strict
-# two-distinct-family bar. When an operator sets ARAGORA_ENABLE_TIERED_MERGE_GATE=1,
-# Tier 1-2 relax to one supportive western-frontier signal. Gating the relaxation
-# behind a flag keeps this merge-authority change revertible WITHOUT a code change
-# and is the in-tree audit point for the operator's approval.
+# Opt-in flag for the tiered merge gate. Default OFF: EVERY tier (including Tier 0)
+# keeps the strict two-distinct-family bar. When an operator sets
+# ARAGORA_ENABLE_TIERED_MERGE_GATE=1, Tier 0 relaxes to one supportive family of any
+# kind and Tier 1-2 relax to one supportive western-frontier signal. Gating every
+# relaxation behind the flag keeps this merge-authority change revertible WITHOUT a
+# code change and is the in-tree audit point for the operator's approval.
 _TIERED_GATE_ENV = "ARAGORA_ENABLE_TIERED_MERGE_GATE"
 _TIERED_GATE_TRUE = frozenset(("1", "true", "yes", "on"))
 
@@ -109,12 +111,15 @@ def tier_quorum_rule(tier: int | None, *, tiered_gate: bool) -> TierQuorumRule:
     (:meth:`CollectOutcome.has_supportive_quorum`) and the merge-queue gate
     (``review_queue._tier_requirement`` / ``_build_model_review_quorum``).
 
-    - Tier 0 (and below): one signal of any family — never flag-gated.
-    - Tier 1-2: with the tiered gate ON, one western-frontier signal; OFF, the
-      strict two-distinct-family bar.
-    - Tier 3-4 and unknown/None (fail-safe): two distinct families.
+    Every relaxation below the strict two-distinct-family bar is gated behind the
+    opt-in flag, so with the gate OFF (production default) EVERY tier requires two
+    distinct families — i.e. default-OFF is a true no-op.
+
+    - Tier 0 (and below): gate ON → one signal of any family; OFF → strict two.
+    - Tier 1-2: gate ON → one western-frontier signal; OFF → strict two.
+    - Tier 3-4 and unknown/None (fail-safe): always two distinct families.
     """
-    if tier is not None and tier <= 0:
+    if tiered_gate and tier is not None and tier <= 0:
         return TierQuorumRule(required_signals=1, requires_western_frontier=False)
     if tiered_gate and tier is not None and 1 <= tier <= 2:
         return TierQuorumRule(required_signals=1, requires_western_frontier=True)
@@ -370,6 +375,7 @@ class CollectOutcome:
             "head_sha": self.head_sha,
             "head_committed_at": self.head_committed_at,
             "tier": self.tier,
+            "tiered_gate": self.tiered_gate,
             "action": self.action,
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,
@@ -448,6 +454,13 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         pr = int(raw_pr)
     except (TypeError, ValueError) as exc:
         raise ValueError("prepared evidence artifact missing PR number") from exc
+    # Preserve the gate regime the artifact was PREPARED under so the settlement
+    # bar cannot silently change between prepare and apply. Older artifacts that
+    # predate this field fall back to the live default (default_factory), matching
+    # their prior behavior.
+    gate_kwargs: dict[str, Any] = {}
+    if "tiered_gate" in data:
+        gate_kwargs["tiered_gate"] = bool(data.get("tiered_gate"))
     return CollectOutcome(
         repo=repo,
         pr=pr,
@@ -463,6 +476,7 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         quorum_rerun=data.get("quorum_rerun")
         if isinstance(data.get("quorum_rerun"), dict)
         else None,
+        **gate_kwargs,
     )
 
 
@@ -1799,6 +1813,19 @@ def apply_prepared_evidence(
     if not head_sha:
         raise ValueError(f"could not resolve head SHA for PR #{pr} in {repo}")
 
+    # Security: a prepared artifact carries the tiered-gate regime it was collected
+    # under. Refuse to apply it under a DIFFERENT live regime — otherwise an artifact
+    # prepared while the strict gate was in force (insufficient under strict rules)
+    # could become postable simply because the relaxing flag was flipped on between
+    # prepare and apply (grok #8507 review P1). Re-collect under the current regime.
+    live_gate = tiered_merge_gate_enabled()
+    if prepared.tiered_gate != live_gate:
+        raise ValueError(
+            "prepared evidence gate-regime mismatch: artifact prepared under "
+            f"tiered_gate={prepared.tiered_gate} but live tiered_gate={live_gate}; "
+            "re-collect under the current regime before applying"
+        )
+
     tier = tier_fetcher(repo, pr)
     action, action_reason = decide_action(tier, apply)
     outcome = CollectOutcome(
@@ -1811,6 +1838,7 @@ def apply_prepared_evidence(
         action_reason=action_reason,
         items=_clone_prepared_items(prepared.items),
         failures=_clone_reviewer_failures(prepared.failures),
+        tiered_gate=prepared.tiered_gate,
     )
 
     if prepared.head_sha != head_sha:

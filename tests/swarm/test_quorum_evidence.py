@@ -1767,6 +1767,61 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
 
 
+def test_collect_outcome_tiered_gate_roundtrips() -> None:
+    # The gate regime an artifact was prepared under must survive serialization so
+    # the settlement bar cannot silently change between prepare and apply (#8507 P1).
+    for gate in (True, False):
+        outcome = CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="x",
+            tiered_gate=gate,
+        )
+        assert outcome.to_dict()["tiered_gate"] is gate
+        assert qe.collect_outcome_from_dict(outcome.to_dict()).tiered_gate is gate
+
+
+def test_apply_prepared_evidence_refuses_gate_mismatch(tmp_path, monkeypatch) -> None:
+    # Artifact prepared under the STRICT gate (flag off); applying it while the
+    # relaxing flag is ON must be REFUSED, not silently re-evaluated (#8507 grok P1).
+    strict = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="prepared under strict gate",
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        tiered_gate=False,
+    )
+    path = tmp_path / "strict_prepared.json"
+    path.write_text(json.dumps(strict.to_dict()), encoding="utf-8")
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")  # live regime = relaxed
+
+    with pytest.raises(ValueError, match="gate-regime mismatch"):
+        qe.apply_prepared_evidence(
+            repo="o/r",
+            pr=1,
+            prepared_json=path,
+            author="me",
+            apply=True,
+            families=["claude"],
+            context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+            tier_fetcher=lambda r, p: 1,
+            linter=lambda *a, **k: {
+                "would_count": True,
+                "counted_reviewer_ids": ["claude"],
+                "problems": [],
+            },
+            poster=lambda r, p, b: None,
+        )
+
+
 def test_apply_prepared_evidence_rederives_verdict_from_body(tmp_path) -> None:
     prepared = _prepared_outcome_file(
         tmp_path,
@@ -2519,10 +2574,10 @@ def test_supportive_quorum_strict_when_flag_off(monkeypatch):
     monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
     assert _supportive_outcome(2, "claude").has_supportive_quorum is False
     assert _supportive_outcome(2, "openai").has_supportive_quorum is False
-    # Tier 0 always needs just one family of any kind (flag-independent), matching
-    # review_queue._tier_requirement(0) -> required_model_signals=1. (The flag only
-    # relaxes Tier 1-2.)
-    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
+    # Tier 0 is ALSO strict when the flag is off: the relaxation to one any-family
+    # signal is gated behind the flag too, so default-OFF is a true no-op.
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is False
+    assert _supportive_outcome(0, "claude", "grok").has_supportive_quorum is True
     assert _supportive_outcome(1, "claude", "grok").has_supportive_quorum is True
     reason = _supportive_outcome(2, "claude").incomplete_quorum_reason
     assert "(1/2 distinct families)" in reason
@@ -2552,10 +2607,12 @@ def test_tiered_gate_is_captured_at_construction(monkeypatch):
 def test_tier_quorum_rule_matrix():
     from aragora.swarm.quorum_evidence import TierQuorumRule, tier_quorum_rule
 
-    # Tier 0 (and below): one family of any kind, independent of the flag.
-    for gate in (False, True):
-        assert tier_quorum_rule(0, tiered_gate=gate) == TierQuorumRule(1, False)
-        assert tier_quorum_rule(-1, tiered_gate=gate) == TierQuorumRule(1, False)
+    # Tier 0 (and below): ON -> one family of any kind; OFF -> strict two distinct
+    # (the relaxation is gated behind the flag, so default-OFF is a true no-op).
+    assert tier_quorum_rule(0, tiered_gate=True) == TierQuorumRule(1, False)
+    assert tier_quorum_rule(-1, tiered_gate=True) == TierQuorumRule(1, False)
+    assert tier_quorum_rule(0, tiered_gate=False) == TierQuorumRule(2, False)
+    assert tier_quorum_rule(-1, tiered_gate=False) == TierQuorumRule(2, False)
     # Tier 1-2: ON -> one western-frontier signal; OFF -> two distinct families.
     for tier in (1, 2):
         assert tier_quorum_rule(tier, tiered_gate=True) == TierQuorumRule(1, True)

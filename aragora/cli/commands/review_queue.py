@@ -3139,6 +3139,16 @@ def _build_model_review_quorum(
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
         _known_model_reviewer_id(item) for item in dogfood_evidence
     )
+    # NOTE (WF-signal divergence, tracked follow-up): this merge-gate half derives
+    # the western-frontier signal from counted_reviewer_ids (reviewer ∪ dogfood),
+    # whereas the auto-settle half (CollectOutcome.has_supportive_quorum) requires a
+    # supportive WF *reviewer*. A dogfood-only WF signal can therefore satisfy this
+    # gate's WF predicate while the auto-settle collector still prepares-only. This is
+    # NOT currently a merge path: a dissenting WF reviewer is blocked separately via
+    # unresolved_dissent, and the WF requirement only applies when the tiered gate is
+    # ON (opt-in; default OFF keeps the strict two-distinct-family bar for all tiers).
+    # True reviewer-only WF parity is a focused follow-up (changes authoritative gate
+    # semantics + several gate tests) intentionally kept out of this settlement PR.
     has_western_frontier_signal = bool(
         {str(rid).strip().lower() for rid in counted_reviewer_ids} & WESTERN_FRONTIER_FAMILIES
     )
