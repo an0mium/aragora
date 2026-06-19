@@ -6,6 +6,18 @@ All receipt inputs are synthetic dicts.
 
 from __future__ import annotations
 
+import sys
+import types
+
+# yaml stub — pyyaml is absent in the hermetic uv-tool pytest venv used for
+# vision-layer CI.  Provides the subset of yaml needed by transitive imports
+# from aragora.epistemic (only yaml.safe_load is called at import time).
+if "yaml" not in sys.modules:
+    _yaml_stub = types.ModuleType("yaml")
+    _yaml_stub.safe_load = lambda stream: {}  # type: ignore[attr-defined]
+    _yaml_stub.dump = lambda data, **kw: ""  # type: ignore[attr-defined]
+    sys.modules["yaml"] = _yaml_stub
+
 import argparse
 import json
 from pathlib import Path
@@ -45,8 +57,16 @@ _RECEIPT: dict = {
 }
 
 
-def _ns(*, input_path: str, json_out: bool = False) -> argparse.Namespace:
-    return argparse.Namespace(input=input_path, json=json_out)
+def _ns(
+    *,
+    input_path: str,
+    json_out: bool = False,
+    write: bool = False,
+    output_dir: str | None = None,
+) -> argparse.Namespace:
+    return argparse.Namespace(
+        input=input_path, json=json_out, write=write, output_dir=output_dir
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -184,3 +204,63 @@ def test_jsonl_non_object_line_exits_1(
     f.write_text("1\n")
     assert cmd_crux_garden(_ns(input_path=str(f))) == 1
     assert "line 1" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# --write flag: persist report to output directory
+# ---------------------------------------------------------------------------
+
+
+def test_write_flag_creates_report_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setenv(_FLAG, "1")
+    f = tmp_path / "r.json"
+    f.write_text(json.dumps([_RECEIPT]))
+    out_dir = tmp_path / "reports"
+    rc = cmd_crux_garden(_ns(input_path=str(f), write=True, output_dir=str(out_dir)))
+    assert rc == 0
+    files = list(out_dir.glob("gardening_report_*.json"))
+    assert len(files) == 1
+
+
+def test_write_flag_report_json_is_valid(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(_FLAG, "1")
+    f = tmp_path / "r.json"
+    f.write_text(json.dumps([_RECEIPT]))
+    out_dir = tmp_path / "reports"
+    cmd_crux_garden(_ns(input_path=str(f), write=True, output_dir=str(out_dir)))
+    files = list(out_dir.glob("gardening_report_*.json"))
+    data = json.loads(files[0].read_text(encoding="utf-8"))
+    assert "generated_at" in data
+    assert "resolved_results" in data
+    assert "outstanding_results" in data
+    assert "schema_version" in data
+
+
+def test_write_flag_creates_output_dir_if_absent(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(_FLAG, "1")
+    f = tmp_path / "r.json"
+    f.write_text(json.dumps([_RECEIPT]))
+    nested = tmp_path / "a" / "b" / "c"
+    assert not nested.exists()
+    rc = cmd_crux_garden(_ns(input_path=str(f), write=True, output_dir=str(nested)))
+    assert rc == 0
+    assert nested.exists()
+    assert any(nested.glob("gardening_report_*.json"))
+
+
+def test_write_flag_off_leaves_no_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(_FLAG, "1")
+    f = tmp_path / "r.json"
+    f.write_text(json.dumps([_RECEIPT]))
+    out_dir = tmp_path / "reports"
+    rc = cmd_crux_garden(_ns(input_path=str(f), write=False, output_dir=str(out_dir)))
+    assert rc == 0
+    assert not out_dir.exists()

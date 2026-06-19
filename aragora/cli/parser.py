@@ -878,6 +878,22 @@ def _add_crux_garden_parser(subparsers) -> None:
         help="Path to a JSONL or JSON-array file of CruxReceipt dicts.",
     )
     p.add_argument("--json", action="store_true", help="Emit report as JSON.")
+    p.add_argument(
+        "--write",
+        action="store_true",
+        default=False,
+        help="Persist the gardening report to --output-dir as a timestamped JSON file.",
+    )
+    p.add_argument(
+        "--output-dir",
+        default=None,
+        dest="output_dir",
+        help=(
+            "Directory for persisted reports "
+            "(default: docs/status/generated/gardening_reports). "
+            "Only used when --write is passed."
+        ),
+    )
     p.set_defaults(func=_lazy("aragora.cli.commands.dic28_crux_garden", "cmd_crux_garden"))
 
 

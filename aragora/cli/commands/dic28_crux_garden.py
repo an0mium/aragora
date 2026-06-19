@@ -25,6 +25,7 @@ from aragora.epistemic.gardening import GardeningConfig, GardeningReport, run_ga
 
 _FLAG = "ARAGORA_CRUX_GARDENING_ENABLED"
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
+_DEFAULT_OUTPUT_DIR = "docs/status/generated/gardening_reports"
 
 
 def _flag_enabled() -> bool:
@@ -104,6 +105,18 @@ def _format_text(report: GardeningReport) -> str:
     return "\n".join(lines)
 
 
+def _write_report(report: GardeningReport, output_dir: Path) -> Path:
+    """Persist *report* as a timestamped JSON file under *output_dir*.
+
+    Creates the directory tree if absent.  Returns the path written.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    safe_ts = report.generated_at[:19].replace(":", "").replace("-", "").replace("T", "_")
+    dest = output_dir / f"gardening_report_{safe_ts}.json"
+    dest.write_text(report.to_json(), encoding="utf-8")
+    return dest
+
+
 def cmd_crux_garden(args: argparse.Namespace) -> int:
     if not _flag_enabled():
         print(f"error: {_FLAG} is not set; crux gardening is disabled", file=sys.stderr)
@@ -113,5 +126,13 @@ def cmd_crux_garden(args: argparse.Namespace) -> int:
         print(f"error: {result}", file=sys.stderr)
         return 1
     report = run_gardening_pass(result, [], config=GardeningConfig(enabled=True))
+
+    do_write: bool = getattr(args, "write", False)
+    if do_write:
+        raw_dir = getattr(args, "output_dir", None) or _DEFAULT_OUTPUT_DIR
+        dest = _write_report(report, Path(raw_dir).expanduser())
+        print(f"gardening report written: {dest}")
+        return 0
+
     print(report.to_json() if args.json else _format_text(report))
     return 0
