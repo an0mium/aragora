@@ -64,9 +64,7 @@ def _ns(
     write: bool = False,
     output_dir: str | None = None,
 ) -> argparse.Namespace:
-    return argparse.Namespace(
-        input=input_path, json=json_out, write=write, output_dir=output_dir
-    )
+    return argparse.Namespace(input=input_path, json=json_out, write=write, output_dir=output_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -224,9 +222,7 @@ def test_write_flag_creates_report_file(
     assert len(files) == 1
 
 
-def test_write_flag_report_json_is_valid(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_write_flag_report_json_is_valid(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv(_FLAG, "1")
     f = tmp_path / "r.json"
     f.write_text(json.dumps([_RECEIPT]))
@@ -254,9 +250,7 @@ def test_write_flag_creates_output_dir_if_absent(
     assert any(nested.glob("gardening_report_*.json"))
 
 
-def test_write_flag_off_leaves_no_file(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_write_flag_off_leaves_no_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv(_FLAG, "1")
     f = tmp_path / "r.json"
     f.write_text(json.dumps([_RECEIPT]))
