@@ -1368,8 +1368,23 @@ def _issue_state_response(
     state: str = "OPEN",
     state_reason: str = "",
     url: str = "https://github.com/synaptent/aragora/issues/7808",
+    key: str = "open-pr-codex-existing-issue-deadlock-abc123",
+    branch: str = "codex/existing-issue-deadlock",
+    title: str | None = None,
+    body: str | None = None,
 ) -> dict[str, Any]:
-    return {"number": number, "state": state, "stateReason": state_reason, "url": url}
+    if title is None:
+        title = f"Open a draft PR for {branch}"
+    if body is None:
+        body = f"Idempotency Key: {key}\nBranch: {branch}"
+    return {
+        "body": body,
+        "number": number,
+        "state": state,
+        "stateReason": state_reason,
+        "title": title,
+        "url": url,
+    }
 
 
 def _patch_issue_state(monkeypatch: Any, response: dict[str, Any] | None) -> list[Any]:
@@ -1471,6 +1486,31 @@ def test_existing_issue_archive_refuses_not_planned_issue(
     assert "CLOSED/NOT_PLANNED" in result["actions"][0]["reason"]
 
 
+def test_existing_issue_archive_refuses_unrelated_issue_text(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    handoff, _receipt = _write_existing_issue_deadlock_fixture(tmp_path)
+    _patch_issue_state(
+        monkeypatch,
+        _issue_state_response(
+            title="Open a draft PR for the Improver Writer wake_agent BrokenPipe fix.",
+            body=(
+                "Idempotency Key: "
+                "open-pr-codex-wake-agent-help-broken-pipe-improver-20260613-536fc72a\n"
+                "Branch: codex/wake-agent-help-broken-pipe-improver-20260613"
+            ),
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["archived_superseded_by_existing_issue"] == 0
+    assert result["counts"]["blocked_receipt_issue_only"] == 1
+    assert handoff.exists()
+    assert "does not mention this handoff" in result["actions"][0]["reason"]
+
+
 def test_existing_issue_archive_refuses_when_issue_state_unverifiable(
     tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:
@@ -1516,7 +1556,12 @@ def test_existing_issue_archive_honors_per_pass_cap(
             branch=f"codex/existing-issue-cap-{index}",
         )
         handoffs.append(handoff)
-    _patch_issue_state(monkeypatch, _issue_state_response())
+    _patch_issue_state(
+        monkeypatch,
+        _issue_state_response(
+            body="\n".join(f"Branch: codex/existing-issue-cap-{index}" for index in range(3))
+        ),
+    )
 
     assert (
         mod.main(

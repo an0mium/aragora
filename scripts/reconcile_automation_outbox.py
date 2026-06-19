@@ -514,6 +514,30 @@ def _outbox_item_age_days(path: Path, payload: Mapping[str, Any], now: datetime)
     return (now - datetime.fromtimestamp(mtime, tz=UTC)).total_seconds() / 86400.0
 
 
+def _issue_text_confirms_handoff(
+    issue_state: Mapping[str, Any],
+    payload: Mapping[str, Any],
+    receipt: Mapping[str, Any],
+) -> tuple[bool, str | None]:
+    """Return whether the linked issue visibly refers to this handoff."""
+    issue_text = "\n".join(str(issue_state.get(key) or "") for key in ("title", "body")).strip()
+    issue_url = str(issue_state.get("url") or _issue_url_from_receipt(receipt) or "issue")
+    if not issue_text:
+        return False, f"terminal-archive gate: {issue_url} has no issue text to match"
+
+    idempotency_key = str(
+        payload.get("idempotency_key") or receipt.get("idempotency_key") or ""
+    ).strip()
+    branch = _branch_from_payload(dict(payload))
+    for token in (idempotency_key, branch):
+        if token and token in issue_text:
+            return True, None
+    return False, (
+        f"terminal-archive gate: {issue_url} does not mention "
+        "this handoff's idempotency key or branch"
+    )
+
+
 class _IssueStateChecker:
     """Verify linked GitHub issue state via gh, with caching and a failure circuit.
 
@@ -562,7 +586,7 @@ class _IssueStateChecker:
                     "--repo",
                     repo,
                     "--json",
-                    "number,state,stateReason,url",
+                    "number,state,stateReason,url,title,body",
                 ],
                 cwd=self._root,
                 text=True,
@@ -626,6 +650,9 @@ def _existing_issue_terminal_candidate(
     issue_state, error = issue_checker.state(issue_url, receipt)
     if issue_state is None:
         return None, f"terminal-archive gate: issue state unverified ({error})"
+    issue_matches, issue_match_detail = _issue_text_confirms_handoff(issue_state, payload, receipt)
+    if not issue_matches:
+        return None, issue_match_detail
     state = str(issue_state.get("state") or "").strip().upper()
     state_reason = str(issue_state.get("stateReason") or "").strip().upper()
     if state != "OPEN" and not (state == "CLOSED" and state_reason == "COMPLETED"):
