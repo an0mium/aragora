@@ -66,9 +66,7 @@ class TestCanResolve:
     def test_target_ref_mismatch_returns_false(self):
         r = GitHubEventResolver()
         claim = _open_claim(target_ref="a/b#1")
-        event = GitHubEventPayload(
-            event_type="pull_request", action="closed", target_ref="a/b#99"
-        )
+        event = GitHubEventPayload(event_type="pull_request", action="closed", target_ref="a/b#99")
         assert not r.can_resolve(claim, event)
 
     def test_wrong_event_type_returns_false(self):
@@ -81,19 +79,13 @@ class TestCanResolve:
 
     def test_issue_close_event_matches(self):
         r = GitHubEventResolver()
-        claim = _open_claim(
-            question_type=QuestionType.ISSUE_CLOSE, target_ref="a/b#7"
-        )
-        event = GitHubEventPayload(
-            event_type="issues", action="closed", target_ref="a/b#7"
-        )
+        claim = _open_claim(question_type=QuestionType.ISSUE_CLOSE, target_ref="a/b#7")
+        event = GitHubEventPayload(event_type="issues", action="closed", target_ref="a/b#7")
         assert r.can_resolve(claim, event)
 
     def test_ci_pass_check_run_matches(self):
         r = GitHubEventResolver()
-        claim = _open_claim(
-            question_type=QuestionType.CI_PASS, target_ref="a/b#5"
-        )
+        claim = _open_claim(question_type=QuestionType.CI_PASS, target_ref="a/b#5")
         event = GitHubEventPayload(
             event_type="check_run",
             action="completed",
@@ -104,9 +96,7 @@ class TestCanResolve:
 
     def test_workflow_run_matches_ci_pass(self):
         r = GitHubEventResolver()
-        claim = _open_claim(
-            question_type=QuestionType.CI_PASS, target_ref="a/b#5"
-        )
+        claim = _open_claim(question_type=QuestionType.CI_PASS, target_ref="a/b#5")
         event = GitHubEventPayload(
             event_type="workflow_run",
             action="completed",
@@ -147,9 +137,7 @@ class TestFlagGate:
         monkeypatch.delenv(_FLAG, raising=False)
         r = GitHubEventResolver()
         claim = _open_claim(question_type=QuestionType.PR_MERGE, target_ref="a/b#1")
-        event = GitHubEventPayload(
-            event_type="pull_request", action="closed", target_ref="a/b#1"
-        )
+        event = GitHubEventPayload(event_type="pull_request", action="closed", target_ref="a/b#1")
         # can_resolve is pure logic — must not raise
         assert r.can_resolve(claim, event)
 
@@ -191,9 +179,7 @@ class TestPRMergeResolution:
     def test_opened_action_not_terminal(self):
         r = GitHubEventResolver()
         claim = _open_claim(target_ref="a/b#12")
-        event = GitHubEventPayload(
-            event_type="pull_request", action="opened", target_ref="a/b#12"
-        )
+        event = GitHubEventPayload(event_type="pull_request", action="opened", target_ref="a/b#12")
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
 
@@ -234,9 +220,7 @@ class TestIssueCloseResolution:
     def test_issue_closed_resolves_yes(self):
         r = GitHubEventResolver()
         claim = _open_claim(question_type=QuestionType.ISSUE_CLOSE, target_ref="x/y#3")
-        event = GitHubEventPayload(
-            event_type="issues", action="closed", target_ref="x/y#3"
-        )
+        event = GitHubEventPayload(event_type="issues", action="closed", target_ref="x/y#3")
         result = r.resolve_from_event(claim, event)
         assert result.resolved is True
         assert result.resolution_value is True
@@ -245,18 +229,14 @@ class TestIssueCloseResolution:
     def test_issue_reopened_not_terminal(self):
         r = GitHubEventResolver()
         claim = _open_claim(question_type=QuestionType.ISSUE_CLOSE, target_ref="x/y#4")
-        event = GitHubEventPayload(
-            event_type="issues", action="reopened", target_ref="x/y#4"
-        )
+        event = GitHubEventPayload(event_type="issues", action="reopened", target_ref="x/y#4")
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
 
     def test_issue_labeled_not_terminal(self):
         r = GitHubEventResolver()
         claim = _open_claim(question_type=QuestionType.ISSUE_CLOSE, target_ref="x/y#5")
-        event = GitHubEventPayload(
-            event_type="issues", action="labeled", target_ref="x/y#5"
-        )
+        event = GitHubEventPayload(event_type="issues", action="labeled", target_ref="x/y#5")
         result = r.resolve_from_event(claim, event)
         assert result.resolved is False
 
