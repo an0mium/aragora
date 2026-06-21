@@ -27,6 +27,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -462,8 +463,7 @@ def _terminal_path_receipt(payload: dict[str, Any]) -> bool:
         github_pr = reconfirmation.get("github_pr")
     if isinstance(github_pr, dict):
         state = str(github_pr.get("state") or "").strip().upper()
-        merged_at = str(github_pr.get("merged_at") or "").strip()
-        if state == "MERGED" or merged_at:
+        if state == "MERGED":
             return True
     return False
 
@@ -716,7 +716,6 @@ def branch_commits_reverse_apply_to_base(
     rev: str,
     *,
     timeout: int,
-    max_commits: int = 20,
 ) -> tuple[bool, list[str]]:
     """Return true when every unique non-merge commit is already present in base.
 
@@ -726,27 +725,46 @@ def branch_commits_reverse_apply_to_base(
     out files and never mutates the candidate worktree.
     """
 
+    deadline = monotonic() + max(timeout, 1)
+
+    def remaining_timeout() -> int | None:
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            return None
+        return max(1, int(remaining))
+
+    command_timeout = remaining_timeout()
+    if command_timeout is None:
+        return False, []
     commits_proc = run_git(
         ["rev-list", "--reverse", "--no-merges", f"{base}..{rev}"],
         repo_path,
-        timeout=timeout,
+        timeout=command_timeout,
     )
     if commits_proc.returncode != 0:
         return False, []
     commits = [line.strip() for line in commits_proc.stdout.splitlines() if line.strip()]
-    if not commits or len(commits) > max_commits:
+    if not commits:
         return False, []
 
     with tempfile.TemporaryDirectory(prefix="aragora-inventory-index-") as tmp_dir:
         env = dict(os.environ)
         env["GIT_INDEX_FILE"] = str(Path(tmp_dir) / "index")
-        read_tree = run_git(["read-tree", base], repo_path, timeout=timeout, env=env)
+        command_timeout = remaining_timeout()
+        if command_timeout is None:
+            return False, []
+        read_tree = run_git(["read-tree", base], repo_path, timeout=command_timeout, env=env)
         if read_tree.returncode != 0:
             return False, []
 
         for commit in commits:
+            command_timeout = remaining_timeout()
+            if command_timeout is None:
+                return False, []
             patch = run_git(
-                ["show", "--format=email", "--binary", commit], repo_path, timeout=timeout
+                ["show", "--format=email", "--binary", commit],
+                repo_path,
+                timeout=command_timeout,
             )
             if patch.returncode != 0:
                 return False, []
@@ -754,6 +772,9 @@ def branch_commits_reverse_apply_to_base(
             try:
                 patch_path.write_text(patch.stdout, encoding="utf-8")
             except OSError:
+                return False, []
+            command_timeout = remaining_timeout()
+            if command_timeout is None:
                 return False, []
             reverse_check = run_git(
                 [
@@ -765,7 +786,7 @@ def branch_commits_reverse_apply_to_base(
                     str(patch_path),
                 ],
                 repo_path,
-                timeout=timeout,
+                timeout=command_timeout,
                 env=env,
             )
             if reverse_check.returncode != 0:

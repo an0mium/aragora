@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
-from pathlib import Path
 from collections.abc import Generator
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -508,6 +509,42 @@ def test_terminal_receipt_path_heads_reads_merged_pr_evidence(
     assert refs[str(repo_path.resolve())] == {"abcdef123456"}
 
 
+def test_terminal_receipt_path_heads_ignores_non_merged_pr_with_merged_at(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "open-pr-with-merged-at.json").write_text(
+        json.dumps(
+            {
+                "reconfirmation": {
+                    "github_pr": {
+                        "number": 8148,
+                        "state": "OPEN",
+                        "merged_at": "2026-06-18T03:40:27Z",
+                        "head_sha": "abcdef123456",
+                    }
+                },
+                "selected_candidate": {
+                    "path": str(root),
+                    "repo_path": str(repo_path),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert str(root.resolve()) not in refs
+    assert str(repo_path.resolve()) not in refs
+
+
 def test_harvest_receipt_object_decision_blocks_reharvest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -734,6 +771,49 @@ def test_smart_merge_detection_reclassifies_reverse_applied_commits(
     assert candidate.cleanup_candidate is True
     assert "all unique commit patches reverse-apply to base" in candidate.proof
     assert candidate.links["reverse_applied_commits"] == ["abc123", "def456"]
+
+
+def test_branch_commits_reverse_apply_to_base_with_real_git_repo(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.test")
+    git("config", "user.name", "Test User")
+    (repo / "status.txt").write_text("old\n", encoding="utf-8")
+    git("add", "status.txt")
+    git("commit", "-m", "initial")
+
+    git("checkout", "-b", "feature")
+    (repo / "status.txt").write_text("new\n", encoding="utf-8")
+    git("commit", "-am", "fix(status): update pointer")
+    feature_head = git("rev-parse", "HEAD")
+
+    git("checkout", "main")
+    (repo / "status.txt").write_text("new\n", encoding="utf-8")
+    git("commit", "-am", "fix(status): update pointer (#1)")
+
+    equivalent, commits = mod.branch_commits_reverse_apply_to_base(
+        repo,
+        "main",
+        feature_head,
+        timeout=10,
+    )
+
+    assert equivalent is True
+    assert commits == [feature_head]
 
 
 def test_smart_merge_detection_keeps_failed_reverse_apply_harvestable(
