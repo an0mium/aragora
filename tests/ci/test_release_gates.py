@@ -173,6 +173,21 @@ class TestReleaseReadinessWorkflow:
         assert "--extras dev,test" in run
 
 
+class TestSharedCiInstaller:
+    """Validate shared CI installer package-name compatibility."""
+
+    def test_control_plane_root_names_include_renamed_package(self):
+        script = (PROJECT_ROOT / "scripts" / "ci_install_project.sh").read_text()
+        names_match = re.search(
+            r"LEGACY_CONTROL_PLANE_PACKAGE_NAMES=\((?P<names>[^)]*)\)",
+            script,
+        )
+        assert names_match is not None
+        names = set(re.findall(r'"([^"]+)"', names_match.group("names")))
+        assert {"aragora-debate", "aragora"} <= names
+        assert 'LEGACY_CONTROL_PLANE_MARKER_PATH="aragora/server"' in script
+
+
 class TestAragoraReviewGateWorkflow:
     """Validate Aragora PR review gate structure."""
 
@@ -617,7 +632,7 @@ class TestPipAuditGate:
         assert "pyjwt-2.12.1" not in lock_content
         assert "pyjwt-2.13.0" in lock_content
         assert "starlette-1.0.0" not in lock_content
-        assert "starlette-1.0.1" in lock_content
+        assert "starlette-1.3.1" in lock_content
 
     def test_load_ignored_vulns_skips_comments(self, tmp_path):
         allowlist = tmp_path / "allowlist.txt"
