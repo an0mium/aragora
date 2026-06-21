@@ -215,11 +215,13 @@ def _format_seconds(seconds: float) -> str:
     return f"{seconds:g}"
 
 
-def _reviewer_collection_timeout_seconds() -> float:
+def _reviewer_collection_timeout_seconds(reviewer_count: int, max_workers: int) -> float:
     attempts = 1 + _reviewer_infra_retries()
     per_attempt = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
     cleanup = max(0.0, float(_REVIEWER_CLEANUP_TIMEOUT))
-    return max(0.1, attempts * (per_attempt + cleanup))
+    worker_count = max(1, max_workers)
+    waves = max(1, math.ceil(max(0, reviewer_count) / worker_count))
+    return max(0.1, waves * attempts * (per_attempt + cleanup))
 
 
 def _run_reviewers_with_timeout(
@@ -232,8 +234,8 @@ def _run_reviewers_with_timeout(
     if not supported:
         return {}
 
-    max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
-    timeout_seconds = _reviewer_collection_timeout_seconds()
+    max_workers = max(1, min(len(supported), _MAX_REVIEWER_WORKERS))
+    timeout_seconds = _reviewer_collection_timeout_seconds(len(supported), max_workers)
     deadline = time.monotonic() + timeout_seconds
     result_queue: queue.Queue[tuple[str, ReviewerResult]] = queue.Queue()
     pending_order = list(supported)
