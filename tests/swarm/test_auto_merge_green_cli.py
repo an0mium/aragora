@@ -41,6 +41,7 @@ def _view(**overrides) -> dict:
 
 def _packet(**overrides) -> dict:
     base = dict(
+        pr_number=8447,
         tier=2,
         status="satisfied",
         verdict="admin_squash_allowed",
@@ -101,6 +102,29 @@ def test_context_from_gh_packet_head_mismatch_blocks_merge():
     assert any("head" in b.lower() for b in decide_auto_merge(ctx).blockers)
 
 
+def test_context_from_gh_packet_pr_number_mismatch_blocks_merge():
+    ctx = context_from_gh(_view(number=8447), _packet(pr_number=9999))
+    decision = decide_auto_merge(ctx)
+    assert decision.should_merge is False
+    assert any("pr mismatch" in b.lower() for b in decision.blockers)
+
+
+def test_context_from_gh_missing_packet_pr_number_blocks_merge():
+    pkt = _packet()
+    del pkt["pr_number"]
+    ctx = context_from_gh(_view(number=8447), pkt)
+    decision = decide_auto_merge(ctx)
+    assert decision.should_merge is False
+    assert any("packet pr number" in b.lower() for b in decision.blockers)
+
+
+def test_context_from_gh_invalid_packet_pr_number_blocks_merge():
+    ctx = context_from_gh(_view(number=8447), _packet(pr_number="not-a-number"))
+    decision = decide_auto_merge(ctx)
+    assert decision.should_merge is False
+    assert any("packet pr number" in b.lower() for b in decision.blockers)
+
+
 def test_context_fail_closed_on_missing_settlement_flag():
     # A safety-critical auto-merge must fail CLOSED if the packet omits the
     # human-settlement flag (e.g. a schema rename), not silently permit.
@@ -119,12 +143,41 @@ def test_context_fail_closed_on_missing_dissent_flag():
     assert decide_auto_merge(ctx).should_merge is False
 
 
+def test_real_merge_packet_schema_maps_to_context():
+    # Schema lock: this packet uses the EXACT key names the producer
+    # (`review-queue merge-packet --json`) emits, verified against a live PR.
+    # If context_from_gh ever reads a renamed key, this test breaks loudly
+    # instead of the tool silently never merging anything.
+    real_packet = {
+        "pr_number": 8447,
+        "head_sha": "b" * 40,
+        "tier": 2,
+        "status": "satisfied",
+        "verdict": "admin_squash_allowed",
+        "requires_human_risk_settlement": False,
+        "unresolved_dissent": False,
+        "admin_squash_allowed": True,
+    }
+    ctx = context_from_gh(_view(number=8447, headRefOid="b" * 40), real_packet)
+    assert ctx.number == 8447
+    assert ctx.packet_pr_number == 8447
+    assert ctx.head_sha == "b" * 40
+    assert ctx.packet_head_sha == "b" * 40
+    assert ctx.tier == 2
+    assert ctx.packet_status == "satisfied"
+    assert ctx.packet_verdict == "admin_squash_allowed"
+    assert ctx.requires_human_risk_settlement is False
+    assert ctx.unresolved_dissent is False
+    assert ctx.admin_squash_allowed is True
+    assert decide_auto_merge(ctx).should_merge is True
+
+
 # --- merge_eligible --------------------------------------------------------
 
 
 def test_merge_eligible_decides_each_context():
-    good = context_from_gh(_view(number=1), _packet())
-    bad = context_from_gh(_view(number=2), _packet(tier=4))
+    good = context_from_gh(_view(number=1), _packet(pr_number=1))
+    bad = context_from_gh(_view(number=2), _packet(pr_number=2, tier=4))
     decisions = merge_eligible([good, bad])
     by_pr = {d.number: d for d in decisions}
     assert by_pr[1].should_merge is True

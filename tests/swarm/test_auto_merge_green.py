@@ -38,6 +38,7 @@ def _authorized_context(**overrides) -> PRMergeContext:
         number=8447,
         head_sha="a" * 40,
         packet_head_sha="a" * 40,
+        packet_pr_number=8447,
         tier=2,
         packet_status="satisfied",
         packet_verdict="admin_squash_allowed",
@@ -75,6 +76,21 @@ def test_absent_packet_head_does_not_add_mismatch_blocker():
     decision = decide_auto_merge(_authorized_context(packet_head_sha="", tier=None))
     assert decision.should_merge is False
     assert not any("head" in b.lower() and "mismatch" in b.lower() for b in decision.blockers)
+
+
+def test_packet_pr_number_mismatch_is_blocked():
+    # Defense-in-depth: a packet entry bound to a different PR must not merge.
+    decision = decide_auto_merge(_authorized_context(packet_pr_number=9999))
+    assert decision.should_merge is False
+    assert any("pr mismatch" in b.lower() for b in decision.blockers)
+
+
+def test_absent_packet_pr_number_blocks():
+    # A packet with no concrete PR identity cannot safely be bound to the gh
+    # view. Fail closed instead of treating "undisclosed" as acceptable.
+    decision = decide_auto_merge(_authorized_context(packet_pr_number=0))
+    assert decision.should_merge is False
+    assert any("packet pr number" in b.lower() for b in decision.blockers)
 
 
 def test_negative_tier_is_blocked():

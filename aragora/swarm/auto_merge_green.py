@@ -58,6 +58,7 @@ class PRMergeContext:
     number: int
     head_sha: str
     packet_head_sha: str
+    packet_pr_number: int
     tier: int | None
     packet_status: str
     packet_verdict: str
@@ -129,6 +130,15 @@ def decide_auto_merge(
             f"packet head mismatch (packet={ctx.packet_head_sha[:7]} view={ctx.head_sha[:7]})"
         )
 
+    # Defense-in-depth: confirm the merge-packet entry actually belongs to this
+    # PR. Absence or parse failure is not "unknown but okay" here: without a
+    # concrete packet PR identity, the already-authorized packet cannot be bound
+    # to the viewed PR, so unattended merge must fail closed.
+    if ctx.packet_pr_number <= 0:
+        blockers.append("packet PR number missing or invalid")
+    elif ctx.packet_pr_number != ctx.number:
+        blockers.append(f"packet PR mismatch (packet=#{ctx.packet_pr_number} view=#{ctx.number})")
+
     if ctx.mergeable != "MERGEABLE":
         blockers.append(f"not mergeable (mergeable={ctx.mergeable or 'unknown'})")
 
@@ -198,10 +208,17 @@ def context_from_gh(view: dict[str, Any], packet_entry: dict[str, Any] | None) -
     except (TypeError, ValueError):
         tier = None
 
+    pr_raw = packet.get("pr_number")
+    try:
+        packet_pr_number = int(pr_raw) if pr_raw is not None else 0
+    except (TypeError, ValueError):
+        packet_pr_number = 0
+
     return PRMergeContext(
         number=int(view.get("number") or 0),
         head_sha=str(view.get("headRefOid") or ""),
         packet_head_sha=str(packet.get("head_sha") or ""),
+        packet_pr_number=packet_pr_number,
         tier=tier,
         packet_status=str(packet.get("status") or ""),
         packet_verdict=str(packet.get("verdict") or ""),

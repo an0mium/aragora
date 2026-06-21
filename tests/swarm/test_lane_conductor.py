@@ -455,6 +455,68 @@ def test_cli_execute_uses_explicit_root_for_claim_and_dispatch(
     assert roots == [tmp_path.resolve(), tmp_path.resolve()]
 
 
+def test_cli_launch_workers_execute_drains_only_dispatched_orders(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    old_pending = tmp_path / ".aragora" / "lane_dispatch" / "pending"
+    old_pending.mkdir(parents=True)
+    (old_pending / "lane-old.json").write_text(
+        json.dumps({"work_order_id": "lane-old", "branch": "codex/old"}),
+        encoding="utf-8",
+    )
+    launched: list[str] = []
+
+    monkeypatch.setattr(cli, "fetch_candidates", lambda repo: [_cand(42, "codex/x")])
+    monkeypatch.setattr(cli, "fetch_live_claims", lambda repo, candidates: {})
+    monkeypatch.setattr(cli, "default_claim", lambda wo, *, repo_root=None: True)
+    monkeypatch.setattr(
+        cli,
+        "_worker_launcher_launch",
+        lambda order, *, repo_root=None: launched.append(order["work_order_id"]),
+    )
+
+    code = cli.main(
+        ["--execute", "--launch-workers", "--root", str(tmp_path), "--max-workers", "1", "--json"]
+    )
+
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert len(launched) == 1
+    assert launched[0].startswith("lane-42-")
+    assert payload["supervisor"]["launched"] == launched
+    assert (old_pending / "lane-old.json").exists()
+
+
+def test_cli_launch_workers_dry_run_does_not_claim_dispatch_or_launch(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    claimed: list[int] = []
+    launched: list[str] = []
+
+    monkeypatch.setattr(cli, "fetch_candidates", lambda repo: [_cand(42, "codex/x")])
+    monkeypatch.setattr(cli, "fetch_live_claims", lambda repo, candidates: {})
+    monkeypatch.setattr(
+        cli,
+        "default_claim",
+        lambda wo, *, repo_root=None: claimed.append(wo.pr) or True,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_worker_launcher_launch",
+        lambda order, *, repo_root=None: launched.append(order["work_order_id"]),
+    )
+
+    code = cli.main(["--launch-workers", "--root", str(tmp_path), "--json"])
+
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["executed"] is False
+    assert payload["supervisor"]["launched"][0].startswith("lane-42-")
+    assert claimed == []
+    assert launched == []
+    assert not (tmp_path / ".aragora" / "lane_dispatch" / "pending").exists()
+
+
 # ---------------------------------------------------------------------------
 # CLI live-owner liveness parsing
 # ---------------------------------------------------------------------------
