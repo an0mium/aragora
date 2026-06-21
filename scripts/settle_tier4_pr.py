@@ -13,7 +13,7 @@ import os
 import shlex
 import subprocess
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -61,6 +61,7 @@ OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comm
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER = "required_check_visibility_skew"
 REQUIRED_CHECK_REST_VISIBILITY_CONTEXT = "required check REST visibility"
+BRANCH_PROTECTION_PREFLIGHT_BLOCKER = "branch protection preflight failed"
 MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER = (
     "aragora-merge-quorum failure is not proven to be missing human settlement"
 )
@@ -1669,6 +1670,38 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
             ) from exc
 
 
+def _branch_protection_preflight_report(
+    *,
+    repo: str,
+    cwd: Path,
+    authorized_actions: Collection[str],
+) -> dict[str, Any]:
+    """Run the merge-apply branch-protection capability probe without mutating."""
+
+    if "branch_protection" not in authorized_actions:
+        return {
+            "required": False,
+            "ok": True,
+            "skipped_reason": "branch_protection_reconcile was not authorized",
+        }
+    try:
+        _preflight_branch_protection_reconcile(repo=repo, cwd=cwd)
+    except Tier4ApplyError as exc:
+        return {
+            "required": True,
+            "ok": False,
+            "error": str(exc),
+            **exc.to_payload(),
+        }
+    return {
+        "required": True,
+        "ok": True,
+        "phase": "preflight",
+        "mutation_occurred": False,
+        "completed_commands": 0,
+    }
+
+
 def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
     base = f"repos/{repo}/branches/main/protection"
     snapshot: dict[str, Any] = {}
@@ -2023,6 +2056,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cwd=args.cwd,
                 trusted_operator_logins=args.trusted_operator_login,
             )
+            if args.check and gate["ok"]:
+                branch_protection_preflight = _branch_protection_preflight_report(
+                    repo=args.repo,
+                    cwd=args.cwd,
+                    authorized_actions=set(gate.get("authorized_actions") or []),
+                )
+                gate["branch_protection_preflight"] = branch_protection_preflight
+                preflight_required = bool(branch_protection_preflight.get("required"))
+                preflight_ok = bool(branch_protection_preflight.get("ok"))
+                if preflight_required and not preflight_ok:
+                    error = str(branch_protection_preflight.get("error") or "").strip()
+                    blocker = BRANCH_PROTECTION_PREFLIGHT_BLOCKER
+                    if error:
+                        blocker = f"{blocker}: {error}"
+                    gate["blockers"].append(blocker)
+                    gate["settle_eligible"] = False
+                    gate["ok"] = False
         if args.merge_apply:
             if not gate["ok"]:
                 raise RuntimeError("Tier 4 gate is not satisfied; refusing --merge-apply")

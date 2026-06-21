@@ -1390,6 +1390,11 @@ def test_cli_trusted_operator_login_authorizes_member_comment(
         "_login_has_admin_permission",
         lambda login, repo, cwd: login == "trusted-member",
     )
+    monkeypatch.setattr(
+        settler,
+        "_preflight_branch_protection_reconcile",
+        lambda repo, cwd: None,
+    )
 
     rc = settler.main(
         [
@@ -1813,6 +1818,91 @@ def test_check_json_includes_authorization_diagnostics(
     assert gate["authorization_diagnostics"][0]["rejection_reasons"] == [
         "MEMBER login owner-user is not in trusted operator allowlist"
     ]
+
+
+def test_check_json_blocks_on_branch_protection_preflight_failure(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+
+    def fail_preflight(*, repo: str, cwd: Path) -> None:
+        raise settler.Tier4ApplyError(
+            "Tier 4 branch-protection preflight failed before merge mutation: "
+            "repos/owner/repo/branches/main/protection: gh: Resource not accessible "
+            "by integration (HTTP 403)",
+            phase="preflight",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action="verify the active gh identity has branch-protection admin access",
+        )
+
+    monkeypatch.setattr(settler, "_preflight_branch_protection_reconcile", fail_preflight)
+
+    rc = settler.main(["--check", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"])
+
+    assert rc == 1
+    payload = settler.json.loads(capsys.readouterr().out)
+    gate = payload["gate"]
+    assert gate["ok"] is False
+    assert gate["settle_eligible"] is False
+    assert any(
+        blocker.startswith(settler.BRANCH_PROTECTION_PREFLIGHT_BLOCKER)
+        for blocker in gate["blockers"]
+    )
+    preflight = gate["branch_protection_preflight"]
+    assert preflight["required"] is True
+    assert preflight["ok"] is False
+    assert preflight["phase"] == "preflight"
+    assert preflight["mutation_occurred"] is False
+    assert preflight["completed_commands"] == 0
+    assert "HTTP 403" in preflight["error"]
+
+
+def test_check_skips_branch_protection_preflight_for_merge_only_authorization(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(
+                head,
+                comments=[
+                    _authorized_comment(
+                        head,
+                        include_branch_protection=False,
+                    )
+                ],
+            ),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_preflight_branch_protection_reconcile",
+        lambda repo, cwd: pytest.fail("merge-only authorization should not preflight"),
+    )
+
+    rc = settler.main(["--check", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"])
+
+    assert rc == 0
+    gate = settler.json.loads(capsys.readouterr().out)["gate"]
+    assert gate["ok"] is True
+    assert gate["authorized_actions"] == ["merge"]
+    assert gate["branch_protection_preflight"]["required"] is False
 
 
 def test_settle_only_posts_comment_and_status_without_merge(
