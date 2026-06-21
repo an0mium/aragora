@@ -5,16 +5,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from aragora.debate.output_quality import (
-    OutputContract,
-    compute_duplicate_existing_create_ratio,
-    validate_output_against_contract,
-)
-from aragora.debate.repo_grounding import assess_repo_grounding
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 TIMEOUT_PREFIX = "ARAGORA_TIMEOUT_JSON="
@@ -106,6 +104,13 @@ def _score_run(
     timeout_report_path: Path | None,
     repo_root: Path,
 ) -> RunMetrics:
+    from aragora.debate.output_quality import (
+        OutputContract,
+        compute_duplicate_existing_create_ratio,
+        validate_output_against_contract,
+    )
+    from aragora.debate.repo_grounding import assess_repo_grounding
+
     stdout_text = _read_text(stdout_path)
     timeout_payload = _load_timeout_payload(timeout_report_path, stdout_text)
     final_answer = _extract_final_answer(stdout_text)
