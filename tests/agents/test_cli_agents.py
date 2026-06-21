@@ -457,6 +457,133 @@ class TestGrokCLIAgent:
         assert result == "Plain text response"
 
 
+class TestGrokBuildAgent:
+    """Test GrokBuildAgent (xAI Grok Build subscription CLI)."""
+
+    def test_exists_and_inherits(self):
+        from aragora.agents.cli_agents import CLIAgent, GrokBuildAgent
+
+        assert issubclass(GrokBuildAgent, CLIAgent)
+
+    def test_resolve_bin_defaults_to_install_path(self, monkeypatch):
+        import os
+
+        from aragora.agents.cli_agents import _resolve_grok_build_bin
+
+        monkeypatch.delenv("ARAGORA_GROK_BUILD_BIN", raising=False)
+        # Must resolve the Grok Build install path, NOT the bare `grok` on PATH
+        # (which is the unrelated/deprecated legacy grok-cli).
+        assert _resolve_grok_build_bin() == os.path.expanduser("~/.grok/bin/grok")
+        assert _resolve_grok_build_bin() != "grok"
+
+    def test_resolve_bin_honors_override(self, monkeypatch):
+        from aragora.agents.cli_agents import _resolve_grok_build_bin
+
+        monkeypatch.setenv("ARAGORA_GROK_BUILD_BIN", "/custom/path/grok")
+        assert _resolve_grok_build_bin() == "/custom/path/grok"
+
+    def test_generate_invokes_grok_build_not_legacy(self, monkeypatch):
+        import os
+        from unittest.mock import patch
+
+        from aragora.agents.cli_agents import GrokBuildAgent
+
+        monkeypatch.delenv("ARAGORA_GROK_BUILD_BIN", raising=False)
+        agent = GrokBuildAgent(
+            name="grok-build-test",
+            model="grok-build",
+            enable_fallback=False,
+            enable_circuit_breaker=False,
+        )
+        with patch.object(agent, "_run_cli", new=AsyncMock(return_value="OK")) as m:
+            out = asyncio.run(agent.generate("review this PR"))
+        assert out == "OK"
+        cmd = m.call_args.args[0]
+        assert cmd[0] == os.path.expanduser("~/.grok/bin/grok")
+        assert cmd[0] != "grok"  # never the legacy PATH binary
+        assert "--no-plan" in cmd and "-p" in cmd
+        assert cmd[-1] == "review this PR"
+
+
+class TestAntigravityAgent:
+    """Test AntigravityAgent (Google Antigravity `agy` subscription CLI)."""
+
+    def test_exists_and_inherits(self):
+        from aragora.agents.cli_agents import AntigravityAgent, CLIAgent
+
+        assert issubclass(AntigravityAgent, CLIAgent)
+
+    def test_resolve_bin_defaults_to_install_path(self, monkeypatch):
+        import os
+
+        from aragora.agents.cli_agents import _resolve_antigravity_bin
+
+        monkeypatch.delenv("ARAGORA_ANTIGRAVITY_BIN", raising=False)
+        assert _resolve_antigravity_bin() == os.path.expanduser("~/.antigravity/bin/agy")
+        assert _resolve_antigravity_bin() != "agy"
+
+    def test_resolve_bin_honors_override(self, monkeypatch):
+        from aragora.agents.cli_agents import _resolve_antigravity_bin
+
+        monkeypatch.setenv("ARAGORA_ANTIGRAVITY_BIN", "/custom/path/agy")
+        assert _resolve_antigravity_bin() == "/custom/path/agy"
+
+    def test_generate_invokes_agy_print_mode(self):
+        import os
+        from unittest.mock import patch
+
+        from aragora.agents.cli_agents import AntigravityAgent
+
+        agent = AntigravityAgent(
+            name="agy-test",
+            model="gemini-3.5-flash",
+            enable_fallback=False,
+            enable_circuit_breaker=False,
+        )
+        with patch.object(agent, "_run_cli", new=AsyncMock(return_value="OK")) as m:
+            out = asyncio.run(agent.generate("review this PR"))
+        assert out == "OK"
+        cmd = m.call_args.args[0]
+        assert cmd[0] == os.path.expanduser("~/.antigravity/bin/agy")
+        assert cmd[0] != "agy"
+        assert "-p" in cmd
+        assert cmd[-1] == "review this PR"
+
+
+class TestKimiCLIAgent:
+    """Test KimiCLIAgent (Moonshot Kimi, cheap-tier subscription/API family)."""
+
+    def test_exists_and_inherits(self):
+        from aragora.agents.cli_agents import CLIAgent, KimiCLIAgent
+
+        assert issubclass(KimiCLIAgent, CLIAgent)
+
+    def test_generate_invokes_kimi_cli(self):
+        from unittest.mock import patch
+
+        from aragora.agents.cli_agents import KimiCLIAgent
+
+        agent = KimiCLIAgent(
+            name="kimi-test",
+            model="kimi-k2",
+            enable_fallback=False,
+            enable_circuit_breaker=False,
+        )
+        with patch.object(agent, "_run_cli", new=AsyncMock(return_value="OK")) as m:
+            out = asyncio.run(agent.generate("review this PR"))
+        assert out == "OK"
+        cmd = m.call_args.args[0]
+        assert cmd[0] == "kimi" and "-p" in cmd
+        assert cmd[-1] == "review this PR"
+
+    def test_kimi_not_registered_by_default(self):
+        # kimi-cli's headless contract is unverified (ACP, not `-p`), so it must
+        # be opt-in via ARAGORA_ENABLE_KIMI_CLI, never a default agent.
+        from aragora.agents.registry import AgentRegistry
+
+        assert AgentRegistry.is_registered("kimi-cli") is False
+
+
 class TestQwenCLIAgent:
     """Test QwenCLIAgent implementation."""
 

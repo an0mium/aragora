@@ -65,7 +65,7 @@ Offline mode uses SQLite and in-memory stores with demo data, requiring no
 external services or API keys:
 
 ```bash
-python -m aragora.server --offline
+aragora serve --demo
 ```
 
 This sets `ARAGORA_OFFLINE=true`, `ARAGORA_DEMO_MODE=true`, and
@@ -75,13 +75,13 @@ This sets `ARAGORA_OFFLINE=true`, `ARAGORA_DEMO_MODE=true`, and
 
 ```bash
 # HTTP API on :8080, WebSocket on :8765
-python -m aragora.server --port 8765 --http-port 8080
+aragora serve --ws-port 8765 --api-port 8080
 
 # Bind to all interfaces (for testing from other devices)
-python -m aragora.server --host 0.0.0.0
+aragora serve --host 0.0.0.0
 
 # Multi-worker production mode
-python -m aragora.server --workers 4 --host 0.0.0.0
+aragora serve --workers 4 --host 0.0.0.0
 ```
 
 The HTTP API is available at `http://localhost:8080/api/` and WebSocket

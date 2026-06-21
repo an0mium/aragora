@@ -121,6 +121,88 @@ def _tier4_repair_packet_missing_settlement(pr: int = 7423) -> dict[str, Any]:
     return packet
 
 
+def test_json_read_gh_probe_prefers_app_auth_and_preserves_cwd(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def fake_gh_subprocess_run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append({"args": args, **kwargs})
+        return subprocess.CompletedProcess(["gh", *args], 0, '{"ok": true}', "")
+
+    monkeypatch.setattr(settler, "gh_subprocess_run", fake_gh_subprocess_run)
+
+    payload = settler._run_json(["gh", "pr", "view", "7423"], cwd=tmp_path)
+
+    assert payload == {"ok": True}
+    assert calls == [
+        {
+            "args": ["pr", "view", "7423"],
+            "cwd": tmp_path,
+            "timeout": 120,
+            "prefer_app": True,
+            "write_op": False,
+            "env": settler.os.environ,
+        }
+    ]
+
+
+def test_current_gh_login_uses_user_auth_not_app_auth(monkeypatch: Any, tmp_path: Path) -> None:
+    observed: list[dict[str, Any]] = []
+
+    def fake_run_json(
+        command: list[str],
+        *,
+        cwd: Path | None = None,
+        prefer_app: bool = True,
+        write_op: bool = False,
+    ) -> dict[str, Any]:
+        observed.append(
+            {
+                "command": command,
+                "cwd": cwd,
+                "prefer_app": prefer_app,
+                "write_op": write_op,
+            }
+        )
+        return {"login": "scarmani"}
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+
+    assert settler._current_gh_login(cwd=tmp_path) == "scarmani"
+    assert observed == [
+        {
+            "command": ["gh", "api", "user"],
+            "cwd": tmp_path,
+            "prefer_app": False,
+            "write_op": False,
+        }
+    ]
+
+
+def test_write_command_uses_user_auth_not_app_auth(monkeypatch: Any, tmp_path: Path) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def fake_gh_subprocess_run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append({"args": args, **kwargs})
+        return subprocess.CompletedProcess(["gh", *args], 0, "", "")
+
+    monkeypatch.setattr(settler, "gh_subprocess_run", fake_gh_subprocess_run)
+
+    settler._run_command(["gh", "pr", "comment", "7423", "--body", "settled"], cwd=tmp_path)
+
+    assert calls == [
+        {
+            "args": ["pr", "comment", "7423", "--body", "settled"],
+            "cwd": tmp_path,
+            "timeout": 180,
+            "prefer_app": True,
+            "write_op": True,
+            "env": settler.os.environ,
+        }
+    ]
+
+
 def _valid_checks() -> list[dict[str, str]]:
     return [
         {"name": "lint", "state": "SUCCESS"},
@@ -132,6 +214,7 @@ def test_run_json_timeout_reports_runtime_error(monkeypatch: pytest.MonkeyPatch)
     def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
         raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
 
+    monkeypatch.setattr(settler, "gh_subprocess_run", None)
     monkeypatch.setattr(settler.subprocess, "run", fake_run)
 
     with pytest.raises(RuntimeError, match=r"gh pr view 7423 timed out after 120s"):
@@ -142,6 +225,7 @@ def test_run_json_timeout_preserves_zero_timeout(monkeypatch: pytest.MonkeyPatch
     def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
         raise subprocess.TimeoutExpired(cmd=args[0], timeout=0)
 
+    monkeypatch.setattr(settler, "gh_subprocess_run", None)
     monkeypatch.setattr(settler.subprocess, "run", fake_run)
 
     with pytest.raises(RuntimeError, match=r"gh pr view 7423 timed out after 0s"):
@@ -152,6 +236,7 @@ def test_run_json_any_timeout_preserves_zero_timeout(monkeypatch: pytest.MonkeyP
     def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
         raise subprocess.TimeoutExpired(cmd=args[0], timeout=0)
 
+    monkeypatch.setattr(settler, "gh_subprocess_run", None)
     monkeypatch.setattr(settler.subprocess, "run", fake_run)
 
     with pytest.raises(RuntimeError, match=r"gh pr view 7423 timed out after 0s"):
@@ -192,6 +277,7 @@ def test_main_json_reports_live_probe_timeout(
     def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
         raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
 
+    monkeypatch.setattr(settler, "gh_subprocess_run", None)
     monkeypatch.setattr(settler.subprocess, "run", fake_run)
 
     exit_code = settler.main(

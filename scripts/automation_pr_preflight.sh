@@ -65,6 +65,7 @@ changed_paths = set(lines("PREFLIGHT_CHANGED_FILES"))
 source_changes = lines("PREFLIGHT_SOURCE_CHANGES")
 test_changes = lines("PREFLIGHT_TEST_CHANGES")
 publisher_startup_changes = lines("PREFLIGHT_PUBLISHER_STARTUP_CHANGES")
+changed_paths = set(lines("PREFLIGHT_CHANGED_FILES"))
 python_sources = [path for path in source_changes if path.endswith(".py")]
 suggested_commands: list[str] = []
 if python_sources:

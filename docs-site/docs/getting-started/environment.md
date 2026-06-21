@@ -98,7 +98,7 @@ For best performance with Mistral models, use the direct API:
 
 ## Web Research (Experimental)
 
-Enable external web research during debates (requires `aragora[research]`):
+Enable external web research during debates (set the keys below):
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
