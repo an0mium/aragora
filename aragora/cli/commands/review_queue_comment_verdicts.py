@@ -4,6 +4,42 @@ from __future__ import annotations
 
 import re
 
+# Explicit "no Pn finding" heads. A `[P0]`/`[P1]` line is blocking UNLESS the text
+# before its first colon is EXACTLY one of these — models emit `"[P1] None:"`,
+# `"[P1] N/A"`, `"[P1] no issues: ..."` to declare the absence of a finding. Matched
+# exactly (not as a prefix) so a real finding that merely starts with "none"/"no"
+# (e.g. "[P1] None of the inputs are validated") still blocks.
+_NO_FINDING_HEADS = frozenset(
+    {
+        "none",
+        "none found",
+        "none identified",
+        "none noted",
+        "none here",
+        "n/a",
+        "na",
+        "nil",
+        "0",
+        "zero",
+        "false",
+        "[]",
+        "not applicable",
+        "no issues",
+        "no issue",
+        "no findings",
+        "no finding",
+        "no blockers",
+        "no blocker",
+        "no blocking",
+        "no blocking findings",
+        "no concerns",
+        "no concern",
+        "no critical issues",
+        "no critical issue",
+        "no critical findings",
+    }
+)
+
 
 def has_blocking_or_negative_verdict(body: str) -> bool:
     """Return True for explicit evidence comments that report blockers."""
@@ -58,7 +94,14 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
         if re.match(
             r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?(?:\s|$|[:.;—–-])", priority_marker_line, re.I
         ):
-            return True
+            rest = re.sub(
+                r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?\s*", "", priority_marker_line, flags=re.I
+            )
+            head = _normalize_value(rest).split(":", 1)[0].strip(" .;—–-")
+            if head not in _NO_FINDING_HEADS:
+                return True
+            # explicit "[Pn] None:/N/A/no issues" non-finding -> keep scanning
+            continue
         line = _strip_decoration(stripped).replace("**", "").replace("__", "")
         match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
         if not match:

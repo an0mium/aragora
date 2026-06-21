@@ -1,0 +1,305 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aragora.ai/specs/open-decision-receipt/v0.1/schema.json",
+  "title": "Open Decision Receipt (ODR) content profile v0.1",
+  "description": "Vendor-neutral decision-semantics receipt profile. Canonicalization basis: RFC 8785 (JCS). Designed to ride SCITT/COSE envelopes via detached signatures. See docs/specs/OPEN_DECISION_RECEIPT.md.",
+  "type": "object",
+  "required": [
+    "odr_version",
+    "profile",
+    "receipt_id",
+    "issued_at",
+    "subject",
+    "claim",
+    "reasoning",
+    "quorum",
+    "confidence",
+    "cruxes",
+    "attestation",
+    "routing",
+    "signatures"
+  ],
+  "properties": {
+    "odr_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "profile": {
+      "type": "string",
+      "const": "https://aragora.ai/specs/open-decision-receipt/v0.1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "issued_at": {
+      "type": ["string", "null"],
+      "description": "ISO-8601 timestamp from the source receipt; null when the source recorded none (never fabricated)."
+    },
+    "subject": {
+      "type": "object",
+      "required": ["identifier", "digest"],
+      "properties": {
+        "identifier": {
+          "type": "string",
+          "description": "Stable identifier of the decided subject: artifact SHA, action id, debate/gauntlet id."
+        },
+        "digest": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["status", "alg", "value"],
+              "properties": {
+                "status": { "const": "present" },
+                "alg": { "type": "string" },
+                "value": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            },
+            { "$ref": "#/$defs/absent" }
+          ]
+        },
+        "summary": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "claim": {
+      "type": "object",
+      "required": ["verdict", "statement"],
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Outcome asserted about the subject (e.g. PASS / CONDITIONAL / FAIL)."
+        },
+        "statement": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "$ref": "#/$defs/absent" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "reasoning": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["status", "summary"],
+          "properties": {
+            "status": { "const": "present" },
+            "summary": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        { "$ref": "#/$defs/absent" }
+      ]
+    },
+    "quorum": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "status",
+            "method",
+            "reached",
+            "supporting_agents",
+            "participants",
+            "independence",
+            "dissent"
+          ],
+          "properties": {
+            "status": { "const": "present" },
+            "method": { "type": "string" },
+            "reached": { "type": "boolean" },
+            "supporting_agents": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "participants": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["agent", "model_family", "model_id"],
+                "properties": {
+                  "agent": { "type": "string", "minLength": 1 },
+                  "model_family": {
+                    "type": "string",
+                    "description": "Provider/model family, or the literal string 'undisclosed' when the source recorded none."
+                  },
+                  "model_id": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "independence": {
+              "type": "object",
+              "required": ["disclosed", "distinct_model_families", "model_families"],
+              "properties": {
+                "disclosed": { "type": "boolean" },
+                "distinct_model_families": { "type": "integer", "minimum": 0 },
+                "model_families": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "note": { "type": "string" }
+              },
+              "additionalProperties": false
+            },
+            "dissent": {
+              "type": "object",
+              "required": ["present", "dissenting_agents", "views"],
+              "properties": {
+                "present": { "type": "boolean" },
+                "dissenting_agents": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "views": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        { "$ref": "#/$defs/absent" }
+      ]
+    },
+    "confidence": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["status", "value", "scale", "calibration"],
+          "properties": {
+            "status": { "const": "present" },
+            "value": { "type": "number", "minimum": 0, "maximum": 1 },
+            "scale": { "const": "unit_interval" },
+            "calibration": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["status", "provenance_ref"],
+                  "properties": {
+                    "status": { "const": "present" },
+                    "provenance_ref": {
+                      "type": "object",
+                      "required": ["type"],
+                      "properties": {
+                        "type": { "type": "string", "minLength": 1 },
+                        "receipt_id": { "type": "string" },
+                        "uri": { "type": "string" }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                { "$ref": "#/$defs/absent" }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        { "$ref": "#/$defs/absent" }
+      ]
+    },
+    "cruxes": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["status", "items"],
+          "properties": {
+            "status": { "const": "present" },
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "object" }
+            }
+          },
+          "additionalProperties": false
+        },
+        { "$ref": "#/$defs/absent" }
+      ]
+    },
+    "attestation": {
+      "type": "object",
+      "required": ["disposition"],
+      "properties": {
+        "disposition": {
+          "type": "string",
+          "enum": ["human_attested", "autonomous"]
+        },
+        "attestor": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "role": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "attested_at": { "type": "string" },
+        "method": { "type": "string" }
+      },
+      "if": {
+        "properties": { "disposition": { "const": "human_attested" } }
+      },
+      "then": {
+        "required": ["disposition", "attestor"]
+      },
+      "additionalProperties": false
+    },
+    "routing": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "const": "reserved" }
+      },
+      "additionalProperties": false,
+      "description": "Reserved block for downstream channel routing metadata. Emitters MUST set status=reserved in v0.1."
+    },
+    "signatures": {
+      "type": "array",
+      "description": "Reserved for detached signatures (Ed25519, issue #8225). Empty in v0.1; signatures cover the SHA-256 of the JCS bytes of the payload with this array removed.",
+      "items": {
+        "type": "object",
+        "required": ["alg", "key_id", "signature"],
+        "properties": {
+          "alg": { "type": "string", "enum": ["Ed25519"] },
+          "key_id": { "type": "string", "minLength": 1 },
+          "signature": { "type": "string", "minLength": 1 },
+          "signed_at": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["system", "schema", "receipt_id"],
+      "properties": {
+        "system": { "type": "string" },
+        "schema": { "type": "string" },
+        "schema_version": { "type": "string" },
+        "receipt_id": { "type": "string" },
+        "artifact_hash": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "absent": {
+      "type": "object",
+      "required": ["status", "reason"],
+      "properties": {
+        "status": { "const": "absent" },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false,
+      "description": "Explicit absent marker: the emitter's source data could not supply this field. Emitters MUST NOT fabricate values to avoid this marker."
+    }
+  }
+}

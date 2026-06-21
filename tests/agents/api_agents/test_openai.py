@@ -212,9 +212,107 @@ class TestOpenAIGenerate:
         assert agent.last_tokens_in == 100
         assert agent.last_tokens_out == 50
 
+    @pytest.mark.asyncio
+    async def test_generate_records_conservative_budget_spend_when_usage_missing(
+        self, mock_env_with_api_keys, mock_openai_response, monkeypatch, tmp_path
+    ):
+        """Successful metered calls without usage still decrement the budget guard."""
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.billing import budget_guard
+
+        store = tmp_path / "budget_guard.json"
+        monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "100")
+        monkeypatch.setenv("ARAGORA_BUDGET_GUARD_STORE", str(store))
+        budget_guard._mem_state.clear()
+
+        response_without_usage = dict(mock_openai_response)
+        response_without_usage.pop("usage", None)
+
+        agent = OpenAIAPIAgent()
+        agent.max_tokens = 1000
+        agent.reset_token_usage()
+
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value=response_without_usage)
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        with patch(
+            "aragora.agents.api_agents.openai_compatible.create_client_session",
+            return_value=mock_session,
+        ):
+            result = await agent.generate("Test prompt")
+
+        assert result
+        assert agent.last_tokens_in == 0
+        assert agent.last_tokens_out == 0
+        assert budget_guard.current_spend_usd() > 0
+
 
 class TestOpenAIGenerateStream:
     """Tests for streaming generation."""
+
+    @pytest.mark.asyncio
+    async def test_stream_blocks_before_network_when_budget_cap_reached(
+        self, mock_env_with_api_keys, monkeypatch, tmp_path
+    ):
+        """Streaming OpenAI-compatible calls must obey the fail-closed cap."""
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.billing import budget_guard
+        from aragora.billing.budget_guard import BudgetExceededError
+
+        monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "1")
+        monkeypatch.setenv("ARAGORA_BUDGET_GUARD_STORE", str(tmp_path / "budget.json"))
+        budget_guard._mem_state.clear()
+
+        agent = OpenAIAPIAgent()
+        monkeypatch.setattr(agent, "_estimate_budget_cost_usd", lambda payload: 2.0)
+
+        with patch(
+            "aragora.agents.api_agents.openai_compatible.create_client_session"
+        ) as create_session:
+            with pytest.raises(BudgetExceededError):
+                async for _ in agent.generate_stream("Test prompt"):
+                    pass
+
+        create_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_stream_records_conservative_budget_spend(
+        self, mock_env_with_api_keys, mock_sse_chunks, monkeypatch, tmp_path
+    ):
+        """Successful streams without usage metadata still decrement the guard."""
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+        from aragora.billing import budget_guard
+        from tests.agents.api_agents.conftest import MockStreamResponse
+
+        monkeypatch.setenv("ARAGORA_MONTHLY_BUDGET_USD", "100")
+        monkeypatch.setenv("ARAGORA_BUDGET_GUARD_STORE", str(tmp_path / "budget.json"))
+        budget_guard._mem_state.clear()
+
+        agent = OpenAIAPIAgent()
+        monkeypatch.setattr(agent, "_estimate_budget_cost_usd", lambda payload: 7.0)
+        mock_response = MockStreamResponse(status=200, chunks=mock_sse_chunks)
+
+        with patch(
+            "aragora.agents.api_agents.openai_compatible.create_client_session"
+        ) as mock_create:
+            mock_session = MagicMock()
+            mock_session.post = MagicMock(return_value=mock_response)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+            mock_create.return_value = mock_session
+
+            async for _ in agent.generate_stream("Test prompt"):
+                pass
+
+        assert budget_guard.current_spend_usd() == pytest.approx(7.0)
 
     @pytest.mark.asyncio
     async def test_stream_yields_chunks(self, mock_env_with_api_keys, mock_sse_chunks):
