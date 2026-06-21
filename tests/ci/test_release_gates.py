@@ -187,6 +187,17 @@ class TestSharedCiInstaller:
         assert {"aragora-debate", "aragora"} <= names
         assert 'LEGACY_CONTROL_PLANE_MARKER_PATH="aragora/server"' in script
 
+    def test_control_plane_test_deps_install_real_anthropic_sdk(self):
+        script = (PROJECT_ROOT / "scripts" / "ci_install_project.sh").read_text()
+        test_deps_match = re.search(
+            r"LEGACY_CONTROL_PLANE_TEST_EXTRA_DEPS=\((?P<deps>.*?)\n\)",
+            script,
+            re.DOTALL,
+        )
+        assert test_deps_match is not None
+        deps = set(re.findall(r'"([^"]+)"', test_deps_match.group("deps")))
+        assert "anthropic>=0.111,<1.0" in deps
+
 
 class TestAragoraReviewGateWorkflow:
     """Validate Aragora PR review gate structure."""
