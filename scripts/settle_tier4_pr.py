@@ -13,7 +13,7 @@ import os
 import shlex
 import subprocess
 import sys
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -34,7 +34,7 @@ except Exception:  # pragma: no cover - script must still run in partial checkou
     gh_subprocess_run = None  # type: ignore[assignment]
 
     def github_cli_env(
-        base_env: dict[str, str] | None = None,
+        base_env: Mapping[str, str] | None = None,
         *,
         prefer_app: bool = True,
     ) -> dict[str, str]:
@@ -574,6 +574,8 @@ def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: 
     if isinstance(required, list) and str(pr) in {str(item) for item in required}:
         return True
     tier = entry.get("tier")
+    if not isinstance(tier, str | int | float):
+        return False
     try:
         return int(tier) >= 4
     except (TypeError, ValueError):
