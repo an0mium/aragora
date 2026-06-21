@@ -241,7 +241,13 @@ def _kill_process_tree(proc: subprocess.Popen) -> None:
             pass
 
 
-def run_cmd(args: list[str], cwd: Path, *, timeout: int) -> subprocess.CompletedProcess[str]:
+def run_cmd(
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: int,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     try:
         proc = subprocess.Popen(
             args,
@@ -251,6 +257,7 @@ def run_cmd(args: list[str], cwd: Path, *, timeout: int) -> subprocess.Completed
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             start_new_session=True,
+            env=env,
         )
     except OSError as exc:
         return subprocess.CompletedProcess(args=args, returncode=124, stdout="", stderr=str(exc))
@@ -270,9 +277,13 @@ def run_cmd(args: list[str], cwd: Path, *, timeout: int) -> subprocess.Completed
 
 
 def run_git(
-    args: list[str], cwd: Path, *, timeout: int = GIT_TIMEOUT_SECONDS
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: int = GIT_TIMEOUT_SECONDS,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return run_cmd(["git", *args], cwd, timeout=timeout)
+    return run_cmd(["git", *args], cwd, timeout=timeout, env=env)
 
 
 def resolve_repo(path: Path) -> Path:
@@ -699,6 +710,69 @@ def branch_subjects_match_recent_main(
     return len(matched) == len(subjects), matched
 
 
+def branch_commits_reverse_apply_to_base(
+    repo_path: Path,
+    base: str,
+    rev: str,
+    *,
+    timeout: int,
+    max_commits: int = 20,
+) -> tuple[bool, list[str]]:
+    """Return true when every unique non-merge commit is already present in base.
+
+    Patch-id and subject matching can miss stale aliases after squash/restack
+    churn.  This probe uses a temporary index loaded at ``base`` and checks
+    whether reversing each unique commit patch would be valid.  It never checks
+    out files and never mutates the candidate worktree.
+    """
+
+    commits_proc = run_git(
+        ["rev-list", "--reverse", "--no-merges", f"{base}..{rev}"],
+        repo_path,
+        timeout=timeout,
+    )
+    if commits_proc.returncode != 0:
+        return False, []
+    commits = [line.strip() for line in commits_proc.stdout.splitlines() if line.strip()]
+    if not commits or len(commits) > max_commits:
+        return False, []
+
+    with tempfile.TemporaryDirectory(prefix="aragora-inventory-index-") as tmp_dir:
+        env = dict(os.environ)
+        env["GIT_INDEX_FILE"] = str(Path(tmp_dir) / "index")
+        read_tree = run_git(["read-tree", base], repo_path, timeout=timeout, env=env)
+        if read_tree.returncode != 0:
+            return False, []
+
+        for commit in commits:
+            patch = run_git(
+                ["show", "--format=email", "--binary", commit], repo_path, timeout=timeout
+            )
+            if patch.returncode != 0:
+                return False, []
+            patch_path = Path(tmp_dir) / f"{commit}.patch"
+            try:
+                patch_path.write_text(patch.stdout, encoding="utf-8")
+            except OSError:
+                return False, []
+            reverse_check = run_git(
+                [
+                    "apply",
+                    "--cached",
+                    "--reverse",
+                    "--check",
+                    "--whitespace=nowarn",
+                    str(patch_path),
+                ],
+                repo_path,
+                timeout=timeout,
+                env=env,
+            )
+            if reverse_check.returncode != 0:
+                return False, []
+    return True, commits
+
+
 def prefetch_open_pr_heads(
     repo: Path, *, timeout: int
 ) -> tuple[dict[str, list[dict[str, Any]]], bool, str | None]:
@@ -1007,8 +1081,19 @@ def classify_candidate(
                     )
                     links["smart_merge_matched_subjects"] = matched_subjects
                 else:
-                    classification = "unique_unharvested"
-                    proof.append("branch has unique commits or diff ahead of base")
+                    reverse_equivalent, reverse_commits = branch_commits_reverse_apply_to_base(
+                        repo_path,
+                        context.base,
+                        rev or "HEAD",
+                        timeout=context.patch_timeout,
+                    )
+                    if reverse_equivalent:
+                        classification = "patch_equivalent_or_merged"
+                        proof.append("all unique commit patches reverse-apply to base")
+                        links["reverse_applied_commits"] = reverse_commits
+                    else:
+                        classification = "unique_unharvested"
+                        proof.append("branch has unique commits or diff ahead of base")
             else:
                 classification = "unique_unharvested"
                 proof.append("branch has unique commits or diff ahead of base")

@@ -707,6 +707,62 @@ def test_smart_merge_detection_keeps_unmatched_subjects_harvestable(
     assert candidate.git.smart_merge_equivalent_to_base is False
 
 
+def test_smart_merge_detection_reclassifies_reverse_applied_commits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod, "branch_subjects_match_recent_main", lambda *_args, **_kwargs: (False, [])
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_commits_reverse_apply_to_base",
+        lambda *_args, **_kwargs: (True, ["abc123", "def456"]),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path, smart_merge_detection=True),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "patch_equivalent_or_merged"
+    assert candidate.cleanup_candidate is True
+    assert "all unique commit patches reverse-apply to base" in candidate.proof
+    assert candidate.links["reverse_applied_commits"] == ["abc123", "def456"]
+
+
+def test_smart_merge_detection_keeps_failed_reverse_apply_harvestable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod, "branch_subjects_match_recent_main", lambda *_args, **_kwargs: (False, [])
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_commits_reverse_apply_to_base",
+        lambda *_args, **_kwargs: (False, []),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path, smart_merge_detection=True),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.decision == "harvest_candidate"
+
+
 def test_smart_merge_detection_log_failure_keeps_candidate_harvestable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
