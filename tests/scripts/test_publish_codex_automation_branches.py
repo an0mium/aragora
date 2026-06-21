@@ -63,6 +63,27 @@ def _worktree(
     )
 
 
+def _allow_automation_guardrails(monkeypatch: Any) -> None:
+    def allow(
+        repo_root: Path,
+        *,
+        open_pr_count: int,
+        max_open_prs: int,
+        now: datetime | None = None,
+    ) -> mod.AutomationGuardrailReport:
+        del repo_root, now
+        return mod.AutomationGuardrailReport(
+            ok=True,
+            blockers=[],
+            metrics={
+                "open_pr_count": open_pr_count,
+                "max_open_prs": max_open_prs,
+            },
+        )
+
+    monkeypatch.setattr(mod, "evaluate_automation_guardrails", allow)
+
+
 def test_duplicate_patch_branches_skips_older_candidate(tmp_path: Path) -> None:
     _git(tmp_path, "init", "-b", "main")
     _git(tmp_path, "config", "user.email", "codex@example.invalid")
@@ -1089,6 +1110,7 @@ def test_publish_decisions_records_publish_failures_and_continues(
 def test_main_pauses_apply_when_open_codex_queue_is_unhealthy(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
+    _allow_automation_guardrails(monkeypatch)
     monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
     monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [])
     monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
@@ -1145,6 +1167,7 @@ def test_main_pauses_apply_when_open_codex_queue_is_unhealthy(
 def test_main_can_override_unhealthy_queue_pause_for_preflighted_branch(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
+    _allow_automation_guardrails(monkeypatch)
     branch = BranchSnapshot(
         branch="codex/queue-drain-fix",
         upstream=None,
@@ -1227,6 +1250,7 @@ def test_main_can_override_unhealthy_queue_pause_for_preflighted_branch(
 def test_main_does_not_pause_for_green_review_required_codex_pr(
     monkeypatch: Any, tmp_path: Path, capsys
 ) -> None:
+    _allow_automation_guardrails(monkeypatch)
     monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
     monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [])
     monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
