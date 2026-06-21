@@ -1561,7 +1561,7 @@ def _load_live_inputs(
 
 def _required_status_check_patch(*, repo: str, cwd: Path) -> tuple[list[str], str] | None:
     endpoint = f"repos/{repo}/branches/main/protection/required_status_checks"
-    current = _run_json(["gh", "api", endpoint], cwd=cwd)
+    current = _run_json(["gh", "api", endpoint], cwd=cwd, write_op=True)
     contexts = current.get("contexts")
     if not isinstance(contexts, list):
         checks = current.get("checks")
@@ -1636,7 +1636,7 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
 
     base = f"repos/{repo}/branches/main/protection"
     try:
-        top_level = _run_json(["gh", "api", base], cwd=cwd)
+        top_level = _run_json(["gh", "api", base], cwd=cwd, write_op=True)
     except RuntimeError as exc:
         raise Tier4ApplyError(
             f"Tier 4 branch-protection preflight failed before merge mutation: {base}: {exc}",
@@ -1655,7 +1655,7 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
         ("enforce_admins", f"{base}/enforce_admins"),
     ):
         try:
-            _run_json(["gh", "api", endpoint], cwd=cwd)
+            _run_json(["gh", "api", endpoint], cwd=cwd, write_op=True)
         except RuntimeError as exc:
             if _is_not_found_error(exc) and _top_level_rule_absent(top_level, key):
                 continue
@@ -1708,7 +1708,7 @@ def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
     base = f"repos/{repo}/branches/main/protection"
     snapshot: dict[str, Any] = {}
     try:
-        top_level = _run_json(["gh", "api", base], cwd=cwd)
+        top_level = _run_json(["gh", "api", base], cwd=cwd, write_op=True)
     except RuntimeError as exc:
         snapshot["branch_protection"] = {"snapshot_error": str(exc)}
         return snapshot
@@ -1719,7 +1719,7 @@ def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
         "enforce_admins": f"{base}/enforce_admins",
     }.items():
         try:
-            snapshot[key] = _run_json(["gh", "api", endpoint], cwd=cwd)
+            snapshot[key] = _run_json(["gh", "api", endpoint], cwd=cwd, write_op=True)
         except RuntimeError as exc:
             if _is_not_found_error(exc) and _top_level_rule_absent(top_level, key):
                 snapshot[key] = None

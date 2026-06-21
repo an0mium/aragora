@@ -2419,11 +2419,12 @@ def test_merge_apply_branch_protection_preflight_failure_prevents_merge(
     )
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "admin-user")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
-    monkeypatch.setattr(
-        settler,
-        "_run_json",
-        lambda command, cwd: (_ for _ in ()).throw(RuntimeError("gh: Not Found (HTTP 404)")),
-    )
+
+    def fail_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        assert write_op is True
+        raise RuntimeError("gh: Not Found (HTTP 404)")
+
+    monkeypatch.setattr(settler, "_run_json", fail_run_json)
     monkeypatch.setattr(
         settler,
         "_run_command",
@@ -2448,7 +2449,7 @@ def test_merge_apply_branch_protection_preflight_failure_prevents_merge(
 def test_branch_protection_preflight_reads_all_privileged_endpoints(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    commands: list[list[str]] = []
+    commands: list[tuple[list[str], bool]] = []
 
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "admin-user")
     monkeypatch.setattr(
@@ -2457,34 +2458,35 @@ def test_branch_protection_preflight_reads_all_privileged_endpoints(
         lambda login, repo, cwd: login == "admin-user",
     )
 
-    def fake_run_json(command: list[str], cwd: Path) -> dict[str, Any]:
-        commands.append(command)
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        commands.append((command, write_op))
         return {"ok": True}
 
     monkeypatch.setattr(settler, "_run_json", fake_run_json)
 
     settler._preflight_branch_protection_reconcile(repo="owner/repo", cwd=tmp_path)
 
-    endpoints = [command[-1] for command in commands]
+    endpoints = [command[-1] for command, _write_op in commands]
     assert endpoints == [
         "repos/owner/repo/branches/main/protection",
         "repos/owner/repo/branches/main/protection/required_pull_request_reviews",
         "repos/owner/repo/branches/main/protection/required_status_checks",
         "repos/owner/repo/branches/main/protection/enforce_admins",
     ]
+    assert [write_op for _command, write_op in commands] == [True, True, True, True]
 
 
 def test_branch_protection_preflight_allows_absent_optional_subresource_404(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    commands: list[str] = []
+    commands: list[tuple[str, bool]] = []
 
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "admin-user")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
 
-    def fake_run_json(command: list[str], cwd: Path) -> dict[str, Any]:
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
         endpoint = command[-1]
-        commands.append(endpoint)
+        commands.append((endpoint, write_op))
         if endpoint.endswith("/protection"):
             return {
                 "required_pull_request_reviews": None,
@@ -2502,10 +2504,10 @@ def test_branch_protection_preflight_allows_absent_optional_subresource_404(
     settler._preflight_branch_protection_reconcile(repo="owner/repo", cwd=tmp_path)
 
     assert commands == [
-        "repos/owner/repo/branches/main/protection",
-        "repos/owner/repo/branches/main/protection/required_pull_request_reviews",
-        "repos/owner/repo/branches/main/protection/required_status_checks",
-        "repos/owner/repo/branches/main/protection/enforce_admins",
+        ("repos/owner/repo/branches/main/protection", True),
+        ("repos/owner/repo/branches/main/protection/required_pull_request_reviews", True),
+        ("repos/owner/repo/branches/main/protection/required_status_checks", True),
+        ("repos/owner/repo/branches/main/protection/enforce_admins", True),
     ]
 
 
@@ -2515,7 +2517,8 @@ def test_branch_protection_preflight_blocks_present_optional_subresource_404(
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "admin-user")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
 
-    def fake_run_json(command: list[str], cwd: Path) -> dict[str, Any]:
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        assert write_op is True
         endpoint = command[-1]
         if endpoint.endswith("/protection"):
             return {
@@ -2545,7 +2548,9 @@ def test_branch_protection_preflight_blocks_non_admin_invoker(
     monkeypatch.setattr(
         settler,
         "_run_json",
-        lambda command, cwd: pytest.fail("branch-protection endpoints should not be read"),
+        lambda command, cwd, **kwargs: pytest.fail(
+            "branch-protection endpoints should not be read"
+        ),
     )
 
     with pytest.raises(settler.Tier4ApplyError) as exc:
@@ -2560,7 +2565,10 @@ def test_branch_protection_preflight_blocks_non_admin_invoker(
 def test_branch_protection_snapshot_records_absent_optional_subresource_404(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    def fake_run_json(command: list[str], cwd: Path) -> dict[str, Any]:
+    commands: list[bool] = []
+
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        commands.append(write_op)
         endpoint = command[-1]
         if endpoint.endswith("/protection"):
             return {
@@ -2582,6 +2590,7 @@ def test_branch_protection_snapshot_records_absent_optional_subresource_404(
     assert snapshot["required_status_checks"] is None
     assert snapshot["enforce_admins"] == {"enabled": True}
     assert settler._branch_protection_snapshot_errors(snapshot) == []
+    assert commands == [True, True, True, True]
 
 
 def test_branch_protection_top_level_snapshot_failure_prevents_merge(
@@ -2849,14 +2858,14 @@ def test_merge_apply_refuses_stale_failed_required_rollup_before_merge(
 def test_required_status_check_patch_skips_when_quorum_already_required(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(
-        settler,
-        "_run_json",
-        lambda command, cwd: {
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        assert write_op is True
+        return {
             "strict": False,
             "contexts": ["Generate & Validate", "aragora-merge-quorum", "lint"],
-        },
-    )
+        }
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
 
     patch = settler._required_status_check_patch(repo="owner/repo", cwd=tmp_path)
 
@@ -2866,17 +2875,17 @@ def test_required_status_check_patch_skips_when_quorum_already_required(
 def test_required_status_check_patch_adds_missing_quorum_from_checks(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(
-        settler,
-        "_run_json",
-        lambda command, cwd: {
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        assert write_op is True
+        return {
             "strict": False,
             "checks": [
                 {"context": "Generate & Validate", "app_id": 15368},
                 {"context": "lint", "app_id": 15368},
             ],
-        },
-    )
+        }
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
 
     command, payload = settler._required_status_check_patch(repo="owner/repo", cwd=tmp_path)
 
