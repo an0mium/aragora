@@ -6,7 +6,7 @@ PROJECT_DIR=""
 INSTALL_MODE="editable"
 INSTALL_SCOPE="system"
 
-readonly LEGACY_CONTROL_PLANE_PACKAGE_NAME="aragora-debate"
+readonly LEGACY_CONTROL_PLANE_PACKAGE_NAMES=("aragora-debate" "aragora")
 readonly LEGACY_CONTROL_PLANE_MARKER_PATH="aragora/server"
 
 # Floor pins below are kept in lockstep with `pyproject.toml`'s
@@ -19,7 +19,7 @@ LEGACY_CONTROL_PLANE_BASE_DEPS=(
   "websockets>=13.0,<15.1"
   "pyyaml>=6.0.3,<7.0"
   "pydantic>=2.13.2,<3.0"            # aligned to pyproject [test]
-  "pydantic-settings>=2.0,<3.0"
+  "pydantic-settings>=2.14.2,<3.0"   # security floor: GHSA-4xgf-cpjx-pc3j
   "bcrypt>=4.2,<6.0"                 # security floor: 4.0 -> 4.2 (defensive)
   "cryptography>=46.0.7,<48.0"       # security floor: 46.0 -> 46.0.7 (latest 46.x patch)
   "markupsafe>=2.1.0,<4.0"
@@ -218,8 +218,16 @@ PY
 
 is_legacy_control_plane_root() {
   local root="$1"
+  local name
+  local package_name
   [[ -d "$root/$LEGACY_CONTROL_PLANE_MARKER_PATH" ]] || return 1
-  [[ "$(project_name "$root")" == "$LEGACY_CONTROL_PLANE_PACKAGE_NAME" ]]
+  name="$(project_name "$root")"
+  for package_name in "${LEGACY_CONTROL_PLANE_PACKAGE_NAMES[@]}"; do
+    if [[ "$name" == "$package_name" ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 install_legacy_control_plane_deps() {
