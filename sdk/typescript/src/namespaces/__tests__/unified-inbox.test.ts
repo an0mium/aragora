@@ -34,6 +34,14 @@ describe('UnifiedInboxAPI', () => {
     );
   });
 
+  it('keeps reply as a fail-closed compatibility method', async () => {
+    await expect(api.reply('msg/1', { content: 'hello' })).rejects.toThrow(
+      'UnifiedInboxAPI.reply() is not supported'
+    );
+
+    expect(mockClient.request).not.toHaveBeenCalled();
+  });
+
   it('calls debateMessage with json body when options are provided', async () => {
     await api.debateMessage('msg/1', { rounds: 4, consensus: 'majority' });
 

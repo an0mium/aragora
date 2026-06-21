@@ -396,6 +396,29 @@ export class UnifiedInboxAPI {
   }
 
   /**
+   * Reply to a message.
+   *
+   * @deprecated The live server route registry does not expose a supported reply
+   * endpoint. This method is retained for source compatibility and fails closed
+   * instead of issuing the retired unversioned request.
+   */
+  async reply(
+    messageId: string,
+    request: { content: string }
+  ): Promise<{
+    message_id: string;
+    in_reply_to: string;
+    channel: string;
+    status: string;
+  }> {
+    void messageId;
+    void request;
+    throw new Error(
+      'UnifiedInboxAPI.reply() is not supported by the live server route registry; use send() or debateMessage() instead.'
+    );
+  }
+
+  /**
    * Start a debate on a message — trigger multi-agent analysis.
    */
   async debateMessage(
