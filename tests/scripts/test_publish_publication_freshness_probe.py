@@ -133,6 +133,29 @@ def test_scan_benchmark_truth_artifacts_flags_stale(tmp_path: Path) -> None:
     assert out["drift_count"] == 1
 
 
+def test_scan_benchmark_truth_artifacts_flags_broken_latest(tmp_path: Path) -> None:
+    truth_root = tmp_path / "tracked" / "benchmark_truth_artifacts"
+    missing_dir = truth_root / "tw-missing"
+    invalid_dir = truth_root / "tw-invalid"
+    missing_dir.mkdir(parents=True)
+    invalid_dir.mkdir(parents=True)
+    (invalid_dir / "latest.json").write_text("{not-json", encoding="utf-8")
+
+    out = publisher.scan_benchmark_truth_artifacts(
+        truth_root=truth_root, stale_hours=48.0, now=_now()
+    )
+
+    assert out["available"] is True
+    assert out["drift_count"] == 2
+    by_corpus = {row["corpus_id"]: row for row in out["corpora"]}
+    assert by_corpus["tw-missing"]["artifact_status"] == "missing_latest"
+    assert by_corpus["tw-invalid"]["artifact_status"] == "invalid_latest_json"
+    assert {row["artifact_status"] for row in out["drift_records"]} == {
+        "missing_latest",
+        "invalid_latest_json",
+    }
+
+
 def test_scan_benchmark_truth_artifacts_missing_root(tmp_path: Path) -> None:
     out = publisher.scan_benchmark_truth_artifacts(
         truth_root=tmp_path / "absent", stale_hours=48.0, now=_now()
@@ -255,7 +278,16 @@ def test_render_status_markdown_emits_sections() -> None:
                         "age_hours": 10.0,
                         "coverage_status": "complete",
                         "is_stale": False,
-                    }
+                        "artifact_status": "ok",
+                    },
+                    {
+                        "corpus_id": "tw-broken",
+                        "age_hours": None,
+                        "coverage_status": None,
+                        "is_stale": False,
+                        "artifact_status": "invalid_latest_json",
+                        "reason": "Expecting value",
+                    },
                 ],
             },
         },
@@ -266,6 +298,8 @@ def test_render_status_markdown_emits_sections() -> None:
     assert "## Canonical Metrics" in md
     assert "## Status-doc Reconciliation" in md
     assert "## Benchmark Truth Artifacts" in md
+    assert "[DRIFT]" in md
+    assert "artifact_status=invalid_latest_json" in md
     assert "ROADMAP.md" in md
 
 
@@ -292,6 +326,145 @@ def test_main_dry_run_writes_nothing(tmp_path: Path, capsys: Any) -> None:
     assert payload["verdict"] == "fresh"
     assert not out_root.exists()
     assert not status_md.exists()
+
+
+def test_main_json_suppresses_flush_time_broken_pipe(tmp_path: Path, monkeypatch: Any) -> None:
+    class FlushClosedStdout:
+        def __init__(self) -> None:
+            self.closed = False
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_stdout = FlushClosedStdout()
+    monkeypatch.setattr(publisher.sys, "stdout", fake_stdout)
+    monkeypatch.setattr(
+        publisher,
+        "build_published_report",
+        lambda **_kwargs: {"schema_version": 1, "verdict": "fresh"},
+    )
+
+    rc = publisher.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--truth-root",
+            str(tmp_path / "absent"),
+            "--json",
+            "--dry-run",
+        ]
+    )
+
+    assert rc == 0
+    assert fake_stdout.closed is True
+    assert fake_stdout.writes
+
+
+def test_main_default_suppresses_write_time_broken_pipe_after_publish(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    class WriteClosedStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError
+
+        def flush(self) -> None:
+            return None
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_stdout = WriteClosedStdout()
+    monkeypatch.setattr(publisher.sys, "stdout", fake_stdout)
+    monkeypatch.setattr(
+        publisher,
+        "build_published_report",
+        lambda **_kwargs: {"schema_version": 1, "verdict": "fresh", "total_drift": 0},
+    )
+
+    def fake_publish_report_bundle(report: dict[str, Any], *, out_root: Path) -> dict[str, Path]:
+        out_root.mkdir(parents=True, exist_ok=True)
+        latest = out_root / "latest.json"
+        snapshot = out_root / "probe-test.json"
+        latest.write_text(json.dumps(report) + "\n", encoding="utf-8")
+        snapshot.write_text(json.dumps(report) + "\n", encoding="utf-8")
+        return {"latest": latest, "snapshot": snapshot}
+
+    monkeypatch.setattr(publisher, "publish_report_bundle", fake_publish_report_bundle)
+
+    out_root = tmp_path / "out"
+    rc = publisher.main(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--out-root",
+            str(out_root),
+            "--truth-root",
+            str(tmp_path / "absent"),
+        ]
+    )
+
+    assert rc == 0
+    assert fake_stdout.closed is True
+    assert (out_root / "latest.json").exists()
+
+
+def test_write_stdout_broken_pipe_uses_fd_free_sink(monkeypatch: Any) -> None:
+    class WriteClosedStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError
+
+        def flush(self) -> None:
+            return None
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_stdout = WriteClosedStdout()
+    monkeypatch.setattr(publisher.sys, "stdout", fake_stdout)
+
+    def forbidden_open(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("broken-pipe fallback must not open a file descriptor")
+
+    monkeypatch.setattr(publisher, "open", forbidden_open, raising=False)
+
+    assert publisher._write_stdout("payload") is False
+    assert fake_stdout.closed is True
+    assert publisher._write_stdout("discarded") is True
+
+
+def test_write_stdout_propagates_unexpected_close_errors(monkeypatch: Any) -> None:
+    class RuntimeCloseStdout:
+        def write(self, _text: str) -> int:
+            raise BrokenPipeError
+
+        def flush(self) -> None:
+            return None
+
+        def close(self) -> None:
+            raise RuntimeError("unexpected close failure")
+
+    monkeypatch.setattr(publisher.sys, "stdout", RuntimeCloseStdout())
+
+    try:
+        publisher._write_stdout("payload")
+    except RuntimeError as exc:
+        assert str(exc) == "unexpected close failure"
+    else:
+        raise AssertionError("unexpected stdout close failures must not be swallowed")
 
 
 def test_main_default_publishes_to_out_root(tmp_path: Path) -> None:

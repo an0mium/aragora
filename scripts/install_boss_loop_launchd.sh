@@ -225,17 +225,21 @@ if [[ -n "${ARAGORA_DEV_COORDINATION_DB}" ]]; then
     command_string="${command_string} && export ARAGORA_DEV_COORDINATION_DB=\"${ARAGORA_DEV_COORDINATION_DB}\""
 fi
 command_string="${command_string} && export ARAGORA_POST_LOOP_ISSUE_REFILL=\"${BOSS_POST_LOOP_ISSUE_REFILL}\" && export ARAGORA_POST_LOOP_MAX_ISSUES=\"${BOSS_POST_LOOP_MAX_ISSUES}\" && export ARAGORA_POST_LOOP_DRY_RUN=\"${BOSS_POST_LOOP_DRY_RUN}\""
-command_string="${command_string} && exec \"${REPO_ROOT}/scripts/run_boss_cycle.sh\" --boss-repo \"${BOSS_REPO}\" --target-branch \"${TARGET_BRANCH}\" --worker-model \"${WORKER_MODEL}\" --review-model \"${REVIEW_MODEL}\""
+runner_string="\"${REPO_ROOT}/scripts/run_boss_cycle.sh\" --boss-repo \"${BOSS_REPO}\" --target-branch \"${TARGET_BRANCH}\" --worker-model \"${WORKER_MODEL}\" --review-model \"${REVIEW_MODEL}\""
 for label in "${LABELS[@]}"; do
-    command_string="${command_string} --label \"${label}\""
+    runner_string="${runner_string} --label \"${label}\""
 done
 if [[ -n "${CLAUDE_RUNNER_PROFILES}" ]]; then
-    command_string="${command_string} --claude-runner-profiles \"${CLAUDE_RUNNER_PROFILES}\""
+    runner_string="${runner_string} --claude-runner-profiles \"${CLAUDE_RUNNER_PROFILES}\""
 fi
-command_string="${command_string} --max-ticks \"${MAX_TICKS}\" --interval \"${INTERVAL_SECONDS}\" --max-consecutive-failures \"${MAX_CONSECUTIVE_FAILURES}\" --autonomy \"${AUTONOMY_MODE}\" --max-hours \"${MAX_HOURS}\" --boss-max-parallel-dispatches \"${MAX_PARALLEL_DISPATCHES}\""
+runner_string="${runner_string} --max-ticks \"${MAX_TICKS}\" --interval \"${INTERVAL_SECONDS}\" --max-consecutive-failures \"${MAX_CONSECUTIVE_FAILURES}\" --autonomy \"${AUTONOMY_MODE}\" --max-hours \"${MAX_HOURS}\" --boss-max-parallel-dispatches \"${MAX_PARALLEL_DISPATCHES}\""
 if [[ "${PING_PONG}" == true ]]; then
-    command_string="${command_string} --ping-pong"
+    runner_string="${runner_string} --ping-pong"
 fi
+# Jittered failure throttle: on a failed exit, sleep the configured throttle
+# plus 0-59s of jitter before exiting so a fleet of hosts sharing launchd's
+# fixed ThrottleInterval does not restart (and hit GitHub) in lockstep.
+command_string="${command_string} && export THROTTLE_SECONDS=\"${THROTTLE_SECONDS}\" && { ${runner_string}; } || { rc=\$?; sleep \$(( \${THROTTLE_SECONDS:-300} + RANDOM % 60 )); exit \"\${rc}\"; }"
 command_xml="${command_string//&/&amp;}"
 
 keepalive_block=""

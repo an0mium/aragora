@@ -197,10 +197,17 @@ def _same_git_origin(left: Path, right: Path) -> bool:
     return bool(left_proc.stdout.strip()) and left_proc.stdout.strip() == right_proc.stdout.strip()
 
 
+def _has_automation_state_dirs(state_root: Path) -> bool:
+    state_dir = state_root if state_root.name == ".aragora" else state_root / ".aragora"
+    return (state_dir / "automation-github-status").is_dir() or (
+        state_dir / "automation-outbox"
+    ).is_dir()
+
+
 def _automation_state_root(repo_root: Path) -> Path:
     """Return the checkout whose shared .aragora state should back publisher checks."""
 
-    if (repo_root / ".aragora").is_dir():
+    if _has_automation_state_dirs(repo_root):
         return repo_root
 
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
@@ -216,7 +223,7 @@ def _automation_state_root(repo_root: Path) -> Path:
             resolved = candidate
         if resolved.name == ".aragora" and resolved.is_dir():
             return resolved
-        if not (resolved / ".aragora").is_dir():
+        if not _has_automation_state_dirs(resolved):
             continue
         if explicit or _same_git_origin(repo_root, resolved):
             return resolved

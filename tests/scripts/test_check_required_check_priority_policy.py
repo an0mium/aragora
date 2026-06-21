@@ -18,6 +18,7 @@ jobs:
         with:
           script: |
             const alwaysKeepWorkflowPaths = new Set([
+              '.github/workflows/aragora-merge-quorum.yml',
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/autopilot-worktree-e2e.yml',
               '.github/workflows/build.yml',
@@ -40,6 +41,7 @@ jobs:
               '.github/workflows/required-check-priority.yml',
             ]);
             const alwaysKeepWorkflowNames = new Set([
+              'Aragora Merge Quorum',
               'Aragora Code Review',
               'Autopilot Worktree E2E',
               'Build Documentation (PR Check)',
@@ -117,6 +119,10 @@ def test_policy_detects_missing_context_marker_in_mapped_workflow(tmp_path: Path
     wf_dir = repo_root / ".github" / "workflows"
     wf_dir.mkdir(parents=True)
 
+    (wf_dir / "aragora-merge-quorum.yml").write_text(
+        "name: Aragora Merge Quorum\njobs:\n  aragora-merge-quorum:\n    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
     (wf_dir / "lint.yml").write_text(
         "name: Lint\njobs:\n  lint:\n    runs-on: ubuntu-latest\n", encoding="utf-8"
     )
@@ -205,6 +211,7 @@ jobs:
         with:
           script: |
             const alwaysKeepWorkflowPaths = new Set([
+              '.github/workflows/aragora-merge-quorum.yml',
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/autopilot-worktree-e2e.yml',
               '.github/workflows/build.yml',
@@ -227,6 +234,7 @@ jobs:
               '.github/workflows/smoke-offline.yml',
             ]);
             const alwaysKeepWorkflowNames = new Set([
+              'Aragora Merge Quorum',
               'Aragora Code Review',
               'Autopilot Worktree E2E',
               'Build Documentation (PR Check)',

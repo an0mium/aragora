@@ -206,6 +206,23 @@ def evaluate_row(
     return reasons
 
 
+def _normalize_selectors(values: Iterable[str] | None) -> set[str]:
+    return {str(value).strip() for value in values or [] if str(value).strip()}
+
+
+def _matches_selectors(
+    row: dict[str, Any],
+    *,
+    lane_ids: set[str],
+    owner_sessions: set[str],
+) -> bool:
+    if lane_ids and str(row.get("lane_id") or "") not in lane_ids:
+        return False
+    if owner_sessions and str(row.get("owner_session") or "") not in owner_sessions:
+        return False
+    return True
+
+
 def sweep(
     *,
     registry_path: Path,
@@ -216,13 +233,26 @@ def sweep(
     check_remote: bool,
     now: dt.datetime | None = None,
     branch_grace_hours: float = 1.0,
+    lane_ids: Iterable[str] | None = None,
+    owner_sessions: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     rows = _read_existing(registry_path)
     if now is None:
         now = _utc_now()
+    lane_id_selectors = _normalize_selectors(lane_ids)
+    owner_session_selectors = _normalize_selectors(owner_sessions)
     active_rows = [r for r in rows if r.get("status") in ACTIVE_STATUSES]
+    matched_active_rows = [
+        r
+        for r in active_rows
+        if _matches_selectors(
+            r,
+            lane_ids=lane_id_selectors,
+            owner_sessions=owner_session_selectors,
+        )
+    ]
     stale_records: list[dict[str, Any]] = []
-    for row in active_rows:
+    for row in matched_active_rows:
         reasons = evaluate_row(
             row,
             now=now,
@@ -265,9 +295,14 @@ def sweep(
         "scanned_at": now.isoformat().replace("+00:00", "Z"),
         "total_rows": len(rows),
         "active_rows": len(active_rows),
+        "matched_active_rows": len(matched_active_rows),
         "stale_rows": len(stale_records),
         "stale_records": stale_records,
         "applied": applied,
+        "selectors": {
+            "lane_ids": sorted(lane_id_selectors),
+            "owner_sessions": sorted(owner_session_selectors),
+        },
     }
 
 
@@ -299,6 +334,24 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Skip branch_missing detection for active rows newer than this. "
             "Allows freshly-claimed lanes time to push their branch (default 1h)"
+        ),
+    )
+    parser.add_argument(
+        "--lane-id",
+        action="append",
+        default=[],
+        help=(
+            "Only evaluate active rows with this lane_id. May be passed more than once. "
+            "When combined with --owner-session, both selectors must match."
+        ),
+    )
+    parser.add_argument(
+        "--owner-session",
+        action="append",
+        default=[],
+        help=(
+            "Only evaluate active rows with this owner_session. May be passed more than once. "
+            "When combined with --lane-id, both selectors must match."
         ),
     )
     parser.add_argument(
@@ -348,13 +401,16 @@ def main(argv: list[str] | None = None) -> int:
         check_branches=not args.skip_branch_check,
         check_remote=not args.skip_remote_check,
         branch_grace_hours=args.branch_grace_hours,
+        lane_ids=args.lane_id,
+        owner_sessions=args.owner_session,
     )
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print(
             f"registry={report['registry_path']} total={report['total_rows']} "
-            f"active={report['active_rows']} stale={report['stale_rows']} "
+            f"active={report['active_rows']} matched={report['matched_active_rows']} "
+            f"stale={report['stale_rows']} "
             f"applied={report['applied']}"
         )
         for record in report["stale_records"]:

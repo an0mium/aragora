@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -164,3 +165,18 @@ def test_cli_writes_to_shared_state_root_from_stateless_repo(
     assert json.loads(result.stdout)["lane_id"] == "Q245-primary-agent-heartbeat-shared-state"
     assert payload[0]["owner_session"] == "engineering-autopilot-Q245"
     assert not (repo_root / ".aragora").exists()
+
+
+def test_cli_help_is_pipe_safe_when_downstream_closes() -> None:
+    command = f"{shlex.quote(sys.executable)} {shlex.quote(str(SCRIPT_PATH))} --help | head -5"
+
+    result = subprocess.run(
+        ["bash", "-o", "pipefail", "-c", command],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+
+    assert result.returncode == 0
+    assert "usage: agent_heartbeat.py" in result.stdout
+    assert "BrokenPipeError" not in result.stderr

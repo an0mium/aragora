@@ -270,6 +270,12 @@ def execute_run_plan(
                 "stderr": result.stderr,
             }
         )
+    failed = [execution for execution in executed if int(execution["returncode"]) != 0]
+    if failed:
+        offenders = ", ".join(
+            f"{execution['case_id']}(returncode={execution['returncode']})" for execution in failed
+        )
+        raise ValueError(f"benchmark smoke command failed: {offenders}")
     updated = dict(plan)
     updated["guardrails"] = {**dict(plan.get("guardrails", {})), "mode": "executed"}
     updated["executions"] = executed

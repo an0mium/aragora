@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from aragora.swarm.rescue_events import RescueEvent, RescueEventLedger
 
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
@@ -109,6 +111,73 @@ def test_publish_report_bundle_writes_timestamped_and_latest(tmp_path: Path) -> 
     )
 
 
+@pytest.mark.parametrize("schema_version", [0, -1, True, "1"])
+def test_load_productization_map_rejects_invalid_schema_version(
+    tmp_path: Path,
+    schema_version: object,
+) -> None:
+    productization_map_path = tmp_path / "rescue_productization.json"
+    productization_map_path.write_text(
+        json.dumps({"schema_version": schema_version, "entries": []}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="schema_version must be a positive integer"):
+        mod.load_productization_map_payload(productization_map_path)
+
+
+def test_write_productization_map_rejects_invalid_schema_version(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="schema_version must be a positive integer"):
+        mod.write_productization_map_payload(
+            tmp_path / "rescue_productization.json",
+            {
+                "schema_version": False,
+                "entries": [
+                    {
+                        "class": "followup_prompt:needs explicit next step from founder",
+                    }
+                ],
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [
+        {"class": "not-a-list"},
+        [{"target": "#6001"}],
+        ["followup_prompt:needs explicit next step from founder"],
+    ],
+)
+def test_load_productization_map_rejects_invalid_entries(
+    tmp_path: Path,
+    entries: object,
+) -> None:
+    productization_map_path = tmp_path / "rescue_productization.json"
+    productization_map_path.write_text(
+        json.dumps({"schema_version": 1, "entries": entries}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="entries"):
+        mod.load_productization_map_payload(productization_map_path)
+
+
+def test_write_productization_map_rejects_invalid_entries(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="non-empty `class`"):
+        mod.write_productization_map_payload(
+            tmp_path / "rescue_productization.json",
+            {
+                "schema_version": 1,
+                "entries": [
+                    {
+                        "target": "#6001",
+                    }
+                ],
+            },
+        )
+
+
 def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> None:
     ledger = _ledger_with_events(
         tmp_path,
@@ -156,3 +225,33 @@ def test_main_dry_run_does_not_publish_report_bundle(tmp_path: Path, capsys) -> 
     assert "generated_at" in payload
     assert payload["summary"]["repeated_class_count"] == 1
     assert not publish_dir.exists()
+
+
+def test_home_relative_path_collapses_home_rooted_path(monkeypatch, tmp_path):
+    # Regression guard for the #7706/#7739 username leak: a $HOME-rooted path
+    # written into the committed truth surface must serialize as ~-relative.
+    monkeypatch.setenv("HOME", str(tmp_path))
+    raw = str(tmp_path / ".aragora" / "rescue_events.jsonl")
+    assert mod._home_relative_path(raw) == "~/.aragora/rescue_events.jsonl"
+
+
+def test_home_relative_path_leaves_non_home_path_untouched(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert mod._home_relative_path("/etc/ci/rescue_events.jsonl") == "/etc/ci/rescue_events.jsonl"
+
+
+def test_repo_stable_path_collapses_home_ledger_to_tilde(monkeypatch, tmp_path):
+    # _repo_stable_path resolves the path first, so use a resolved HOME to keep
+    # the assertion hermetic across platforms with symlinked temp dirs (macOS).
+    home = tmp_path.resolve()
+    monkeypatch.setenv("HOME", str(home))
+    ledger = home / ".aragora" / "rescue_events.jsonl"
+    result = mod._repo_stable_path(ledger)
+    assert result == "~/.aragora/rescue_events.jsonl"
+    assert not result.startswith("/")
+    assert home.name not in result
+
+
+def test_repo_stable_path_keeps_repo_relative_posix():
+    target = mod.REPO_ROOT / "docs" / "benchmarks" / "rescue_productization.json"
+    assert mod._repo_stable_path(target) == "docs/benchmarks/rescue_productization.json"

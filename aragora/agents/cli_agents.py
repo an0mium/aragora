@@ -74,6 +74,9 @@ __all__ = [
     "OpenAIAgent",
     "GeminiCLIAgent",
     "GrokCLIAgent",
+    "GrokBuildAgent",
+    "AntigravityAgent",
+    "KimiCLIAgent",
     "QwenCLIAgent",
     "DeepseekCLIAgent",
     "KiloCodeAgent",
@@ -1037,6 +1040,152 @@ class GrokCLIAgent(CLIAgent):
             context,
             response_extractor=self._extract_grok_response,
         )
+
+
+def _resolve_grok_build_bin() -> str:
+    """Resolve the Grok Build CLI binary.
+
+    Grok Build (xAI's headless coding agent, SuperGrok / X Premium+) installs to
+    ``~/.grok/bin/grok``. This is a DIFFERENT tool from the legacy ``grok-cli``
+    (used by :class:`GrokCLIAgent`), which is commonly first on ``PATH`` as
+    ``/opt/homebrew/bin/grok`` and is unrelated/deprecated. We therefore resolve
+    the explicit install path (overridable via ``ARAGORA_GROK_BUILD_BIN``) rather
+    than relying on ``PATH``, so we never invoke the wrong ``grok``.
+    """
+    override = os.environ.get("ARAGORA_GROK_BUILD_BIN", "").strip()
+    resolved = override or os.path.expanduser("~/.grok/bin/grok")
+    # A missing binary surfaces only as a subprocess failure → silent OpenRouter
+    # fallback (defeating the subscription-only intent). Log it so the operator
+    # can diagnose "why am I being billed for grok via API?".
+    if not os.path.isfile(resolved):
+        logger.debug(
+            "Grok Build CLI not found at %s; CLI invocation will fail and fall "
+            "back to OpenRouter (set ARAGORA_GROK_BUILD_BIN to override)",
+            resolved,
+        )
+    return resolved
+
+
+def _resolve_antigravity_bin() -> str:
+    """Resolve the Antigravity CLI binary without trusting ambient PATH."""
+    override = os.environ.get("ARAGORA_ANTIGRAVITY_BIN", "").strip()
+    resolved = override or os.path.expanduser("~/.antigravity/bin/agy")
+    if not os.path.isfile(resolved):
+        logger.debug(
+            "Antigravity CLI not found at %s; CLI invocation will fail and fall "
+            "back to OpenRouter (set ARAGORA_ANTIGRAVITY_BIN to override)",
+            resolved,
+        )
+    return resolved
+
+
+@AgentRegistry.register(
+    "grok-build",
+    default_model="grok-build",
+    agent_type="CLI",
+    requires="Grok Build CLI (~/.grok/bin/grok; install: curl -fsSL https://x.ai/cli/install.sh | bash; SuperGrok/X Premium+)",
+)
+class GrokBuildAgent(CLIAgent):
+    """Agent that uses xAI's Grok Build headless coding CLI (subscription-authed).
+
+    Distinct from :class:`GrokCLIAgent` (the legacy ``grok-cli``): Grok Build is
+    xAI's newer agentic CLI invoked headlessly as ``grok --no-plan -p <prompt>``.
+    The binary is resolved via :func:`_resolve_grok_build_bin` to avoid the
+    unrelated legacy ``grok`` on ``PATH``. Falls back to OpenRouter (xAI) on CLI
+    failure if enabled.
+    """
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response via the Grok Build CLI (``--no-plan`` headless single-shot)."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        grok_bin = _resolve_grok_build_bin()
+        # --no-plan skips the interactive plan step; -p/--single runs one prompt and exits.
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            return await self._generate_with_fallback(
+                [grok_bin, "--no-plan", "-p", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+            )
+        return await self._generate_with_fallback(
+            [grok_bin, "--no-plan", "-p", full_prompt],
+            prompt,
+            context,
+        )
+
+
+@AgentRegistry.register(
+    "antigravity",
+    default_model="gemini-3.5-flash",
+    agent_type="CLI",
+    requires="Antigravity CLI (agy; install: curl -fsSL https://antigravity.google/cli/install.sh | bash; Google AI Ultra)",
+)
+class AntigravityAgent(CLIAgent):
+    """Agent that uses Google's Antigravity CLI (``agy``), Gemini model family.
+
+    Headless single-prompt mode (``agy -p <prompt>``) prints the response. This is
+    the subscription (Google AI Ultra) surface that supersedes the legacy
+    ``gemini`` CLI for headless use. Falls back to OpenRouter on CLI failure if
+    enabled.
+    """
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response via the Antigravity CLI (``agy -p`` headless print mode)."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        agy_bin = _resolve_antigravity_bin()
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            return await self._generate_with_fallback(
+                [agy_bin, "-p", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+            )
+        return await self._generate_with_fallback(
+            [agy_bin, "-p", full_prompt],
+            prompt,
+            context,
+        )
+
+
+class KimiCLIAgent(CLIAgent):
+    """Agent that uses Moonshot's Kimi CLI (cheap-tier, distinct quorum family).
+
+    NOT registered by default. Moonshot's ``kimi-cli`` is **ACP-based** with an
+    interactive ``/login``; it does **not** document a headless ``kimi -p`` mode,
+    so the ``-p`` invocation below is UNVERIFIED and a CLI miss would silently
+    fall back to OpenRouter (defeating the cheap-tier-subscription goal). Until a
+    real headless/ACP integration is verified against an installed ``kimi-cli``,
+    registration is gated behind ``ARAGORA_ENABLE_KIMI_CLI`` so a stock install
+    never auto-selects a likely-wrong command. Kimi maps to the ``moonshot``/
+    ``kimi`` model family. Falls back to OpenRouter (Kimi) on CLI failure.
+    """
+
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
+        """Generate a response via the Kimi CLI (invocation unverified — see class docstring)."""
+        full_prompt = self._build_full_prompt(prompt, context)
+        if self._is_prompt_too_large_for_argv(full_prompt):
+            return await self._generate_with_fallback(
+                ["kimi", "-p", "-"],
+                prompt,
+                context,
+                input_text=full_prompt,
+            )
+        return await self._generate_with_fallback(
+            ["kimi", "-p", full_prompt],
+            prompt,
+            context,
+        )
+
+
+# Gate Kimi registration behind an explicit opt-in: the headless CLI contract is
+# unverified (kimi-cli is ACP, not `-p`), so it must not be a default agent.
+if os.environ.get("ARAGORA_ENABLE_KIMI_CLI", "").strip():
+    AgentRegistry.register(
+        "kimi-cli",
+        default_model="kimi-k2",
+        agent_type="CLI",
+        requires="Kimi CLI (pip install kimi-cli); ACP-based, headless `-p` unverified",
+    )(KimiCLIAgent)
 
 
 @AgentRegistry.register(

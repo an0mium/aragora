@@ -18,6 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from aragora.billing.usage import PROVIDER_PRICING
 from aragora.pdb.budget import PDBBudgetLedger
 from aragora.pdb.panel_config import (
     PDBBudgetConfig,
@@ -48,6 +49,7 @@ from aragora.pdb.real_invoker import (
     WIRED_FAMILIES,
     ProviderUnavailableError,
     RealProviderInvoker,
+    _PRICE_PER_MTOK,
     estimate_cost_usd,
 )
 from aragora.review.builder import PanelVote
@@ -728,7 +730,58 @@ class TestNewFamilyCostTracking:
             model="gemini-3.1-pro-preview",
             tokens_in=1_000_000,
             tokens_out=0,
-        ) == pytest.approx(1.25)
+        ) == pytest.approx(2.0)
+
+    @pytest.mark.parametrize(
+        ("provider", "model"),
+        [
+            ("anthropic", "claude-opus-4.8"),
+            ("anthropic", "claude-haiku-3"),
+            ("anthropic", "claude-haiku-4.5"),
+            ("anthropic", "claude-haiku-4-5-20251001"),
+            ("openai", "gpt-5.5"),
+            ("google", "gemini-3.5-flash"),
+            ("google", "gemini-3.1-pro"),
+            ("google", "gemini-3.1-pro-preview"),
+        ],
+    )
+    def test_calibrated_billing_rates_have_pdb_cost_entries(
+        self, provider: str, model: str
+    ) -> None:
+        provider_prices = PROVIDER_PRICING[provider]
+        expected = float(provider_prices[model] + provider_prices[f"{model}-output"])
+        assert estimate_cost_usd(
+            model=model,
+            tokens_in=1_000_000,
+            tokens_out=1_000_000,
+        ) == pytest.approx(expected)
+
+    def test_gpt_5_5_pdb_price_entry_is_explicit(self) -> None:
+        assert _PRICE_PER_MTOK["gpt-5.5"] == (2.50, 10.00)
+
+    @pytest.mark.parametrize(
+        ("provider", "model"),
+        [
+            ("anthropic", "claude-opus-4.8"),
+            ("anthropic", "claude-haiku-3"),
+            ("anthropic", "claude-haiku-4.5"),
+            ("anthropic", "claude-haiku-4-5-20251001"),
+            ("openai", "gpt-5.5"),
+            ("google", "gemini-3.5-flash"),
+            ("google", "gemini-3.1-pro"),
+            ("google", "gemini-3.1-pro-preview"),
+        ],
+    )
+    def test_prefixed_calibrated_models_resolve_to_pdb_cost_entries(
+        self, provider: str, model: str
+    ) -> None:
+        provider_prices = PROVIDER_PRICING[provider]
+        expected = float(provider_prices[model] + provider_prices[f"{model}-output"])
+        assert estimate_cost_usd(
+            model=f"{provider}/{model}",
+            tokens_in=1_000_000,
+            tokens_out=1_000_000,
+        ) == pytest.approx(expected)
 
     def test_grok_4_cost_nonzero(self) -> None:
         # grok-4 legacy tier: (3.00, 15.00) → 18.0 at 1M/1M

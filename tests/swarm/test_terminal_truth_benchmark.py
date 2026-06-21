@@ -8,6 +8,7 @@ directly and verifies error handling for missing/empty directories.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -29,6 +30,16 @@ RESCUE_PRODUCTIZATION_PATH = REPO_ROOT / "docs" / "benchmarks" / "rescue_product
 
 # Collect fixture files for parametrization
 _fixture_files = sorted(FIXTURES_DIR.glob("*.json")) if FIXTURES_DIR.is_dir() else []
+
+
+def _load_score_benchmark_module():
+    spec = importlib.util.spec_from_file_location("score_benchmark_script", SCORE_SCRIPT)
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules["score_benchmark_script"] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 # ---------------------------------------------------------------------------
@@ -157,6 +168,18 @@ def test_score_benchmark_empty_input() -> None:
     assert summary["no_rescue_rate"] == 0.0
 
 
+def test_score_fixtures_empty_fixture_arrays_fail_closed(tmp_path: Path) -> None:
+    """Existing fixture files with zero examples must not report PASS."""
+    (tmp_path / "empty_one.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "empty_two.json").write_text("[]", encoding="utf-8")
+
+    passed, report = _load_score_benchmark_module().score_fixtures(tmp_path)
+
+    assert passed is False
+    assert report.startswith("ERROR:")
+    assert "no benchmark examples found" in report
+
+
 def test_score_benchmark_single_success_row() -> None:
     """score_benchmark() correctly scores a single success row."""
     row = {
@@ -251,6 +274,21 @@ def test_score_script_empty_dir_exits_nonzero() -> None:
             timeout=30,
         )
         assert result.returncode != 0, "Should exit non-zero for empty dir"
+
+
+def test_score_script_empty_fixture_arrays_exit_nonzero() -> None:
+    """Fixture files with no examples must cause non-zero exit."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        Path(tmpdir, "empty_one.json").write_text("[]", encoding="utf-8")
+        Path(tmpdir, "empty_two.json").write_text("[]", encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(SCORE_SCRIPT), "--fixtures-dir", tmpdir],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 2
+        assert "no benchmark examples found" in result.stdout
 
 
 def test_score_script_mismatch_exits_nonzero() -> None:

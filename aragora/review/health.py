@@ -500,11 +500,14 @@ def _check_boss_loop_log(
                     latest_failure = stripped
                 elif _CRASH_PATTERN.search(line):
                     crashes_total += 1
+                    last_terminal_event = "crash"
                     latest_failure = stripped
                     latest_failure_signature = stripped
                 elif _EXIT_OK_PATTERN.search(line):
                     exits_ok_total += 1
                     last_terminal_event = "exit_ok"
+                    latest_failure = ""
+                    latest_failure_signature = ""
                 elif _EXIT_FAIL_PATTERN.search(line):
                     exits_fail_total += 1
                     last_terminal_event = "exit_fail"
@@ -512,7 +515,7 @@ def _check_boss_loop_log(
     except OSError:
         pass
 
-    active_failure = last_terminal_event in {"traceback", "exit_fail"}
+    active_failure = last_terminal_event in {"traceback", "crash", "exit_fail"}
     if active_failure:
         status = STATUS_STALE
 
@@ -531,7 +534,7 @@ def _check_boss_loop_log(
         extra["latest_python_warning"] = latest_python_warning[-240:]
     if latest_python_interpreter:
         extra["latest_python_interpreter"] = latest_python_interpreter[-240:]
-    if last_terminal_event in {"traceback", "exit_fail"} and runtime_repo_root is not None:
+    if last_terminal_event in {"traceback", "crash", "exit_fail"} and runtime_repo_root is not None:
         extra.update(_runtime_checkout_extra(runtime_repo_root))
     detail = (
         f"tracebacks={tracebacks_total} crashes={crashes_total} "

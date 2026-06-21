@@ -47,7 +47,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO, cast
 
 SCHEMA_VERSION = 1
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -61,12 +61,39 @@ DEFAULT_BENCHMARK_TRUTH_ROOT = (
 DEFAULT_STALE_HOURS = 48.0
 
 
+class _BrokenPipeStdout:
+    """Pure-Python sink used after stdout's downstream pipe closes."""
+
+    def write(self, text: str) -> int:
+        return len(text)
+
+    def flush(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+
 def _utc_now() -> dt.datetime:
     return dt.datetime.now(dt.UTC)
 
 
 def _iso(value: dt.datetime) -> str:
     return value.astimezone(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _write_stdout(text: str) -> bool:
+    try:
+        sys.stdout.write(text)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        try:
+            sys.stdout.close()
+        except (OSError, ValueError):
+            pass
+        sys.stdout = cast(TextIO, _BrokenPipeStdout())
+        return False
+    return True
 
 
 def _parse_iso(value: Any) -> dt.datetime | None:
@@ -239,23 +266,66 @@ def scan_benchmark_truth_artifacts(
         if not child.is_dir():
             continue
         latest = child / "latest.json"
+        latest_path = str(latest.relative_to(truth_root.parent.parent.parent))
         if not latest.exists():
+            row = {
+                "corpus_id": child.name,
+                "latest_path": latest_path,
+                "generated_at": None,
+                "age_hours": None,
+                "is_stale": False,
+                "stale_threshold_hours": stale_hours,
+                "coverage_status": None,
+                "artifact_status": "missing_latest",
+                "reason": "latest.json not present",
+            }
+            corpora.append(row)
+            drift.append(row)
             continue
         try:
             payload = json.loads(latest.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except OSError as exc:
+            row = {
+                "corpus_id": child.name,
+                "latest_path": latest_path,
+                "generated_at": None,
+                "age_hours": None,
+                "is_stale": False,
+                "stale_threshold_hours": stale_hours,
+                "coverage_status": None,
+                "artifact_status": "unreadable_latest",
+                "reason": str(exc),
+            }
+            corpora.append(row)
+            drift.append(row)
+            continue
+        except json.JSONDecodeError as exc:
+            row = {
+                "corpus_id": child.name,
+                "latest_path": latest_path,
+                "generated_at": None,
+                "age_hours": None,
+                "is_stale": False,
+                "stale_threshold_hours": stale_hours,
+                "coverage_status": None,
+                "artifact_status": "invalid_latest_json",
+                "reason": str(exc),
+            }
+            corpora.append(row)
+            drift.append(row)
             continue
         generated_at = _parse_iso(payload.get("generated_at"))
         age_hours = _hours_between(now, generated_at) if generated_at else None
         is_stale = age_hours is not None and age_hours > stale_hours
         row = {
             "corpus_id": child.name,
-            "latest_path": str(latest.relative_to(truth_root.parent.parent.parent)),
+            "latest_path": latest_path,
             "generated_at": payload.get("generated_at"),
             "age_hours": round(age_hours, 2) if age_hours is not None else None,
             "is_stale": bool(is_stale),
             "stale_threshold_hours": stale_hours,
             "coverage_status": (payload.get("coverage") or {}).get("status"),
+            "artifact_status": "ok",
         }
         corpora.append(row)
         if is_stale:
@@ -393,11 +463,19 @@ def render_status_markdown(report: dict[str, Any]) -> str:
             f"drift_count={benchmark.get('drift_count')}"
         )
         for row in benchmark.get("corpora") or []:
+            artifact_status = str(row.get("artifact_status") or "ok")
             marker = "STALE" if row.get("is_stale") else "ok"
-            lines.append(
+            if artifact_status != "ok" and not row.get("is_stale"):
+                marker = "DRIFT"
+            line = (
                 f"- [{marker:5}] {row.get('corpus_id')}: age={row.get('age_hours')}h, "
                 f"coverage={row.get('coverage_status')}"
             )
+            if artifact_status != "ok":
+                line += f", artifact_status={artifact_status}"
+            if row.get("reason"):
+                line += f", reason={row.get('reason')}"
+            lines.append(line)
     else:
         lines.append(f"unavailable: {benchmark.get('reason')}")
 
@@ -459,7 +537,7 @@ def main(argv: list[str] | None = None) -> int:
         stale_hours=args.stale_hours,
     )
     if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
+        _write_stdout(json.dumps(report, indent=2, sort_keys=True) + "\n")
     if args.dry_run:
         return 0
     paths = publish_report_bundle(report, out_root=args.out_root)
@@ -467,9 +545,9 @@ def main(argv: list[str] | None = None) -> int:
         args.status_md.parent.mkdir(parents=True, exist_ok=True)
         args.status_md.write_text(render_status_markdown(report), encoding="utf-8")
     if not args.json:
-        print(
+        _write_stdout(
             f"published: latest={paths['latest']}; snapshot={paths['snapshot']}; "
-            f"verdict={report.get('verdict')}; total_drift={report.get('total_drift')}"
+            f"verdict={report.get('verdict')}; total_drift={report.get('total_drift')}\n"
         )
     return 0
 

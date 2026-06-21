@@ -131,9 +131,10 @@ Use this repo's automation merge contract at `docs/briefs/automation-merge-contr
 Run the boss loop with shared coordination state when multiple hosts are active:
 
 ```bash
-export ARAGORA_DEV_COORDINATION_DB=~/aragora/.aragora/dev_coordination.sqlite3
+export ARAGORA_REPO_ROOT="${ARAGORA_REPO_ROOT:-$PWD}"
+export ARAGORA_DEV_COORDINATION_DB="${ARAGORA_REPO_ROOT}/.aragora/dev_coordination.sqlite3"
 export ARAGORA_BOSS_VERIFIED_RUNNER_TARGET=0
-python3.11 -u -m aragora.cli.main swarm boss-loop \
+ARAGORA_POST_LOOP_ISSUE_REFILL=0 ./scripts/run_boss_cycle.sh \
   --boss-repo synaptent/aragora \
   --target-branch main \
   --worker-model claude \

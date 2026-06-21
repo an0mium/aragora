@@ -226,6 +226,19 @@ def test_count_automation_backlog_ignores_draft_prs() -> None:
     assert mod.actionable_open_prs(prs) == prs[1:]
 
 
+def test_count_automation_backlog_includes_scoped_spec_excludes_bare_spec() -> None:
+    prs = [
+        {"headRefName": "aragora/spec/gti-20260606", "isDraft": False},
+        {"headRefName": "spec/human-design-draft", "isDraft": False},
+        {"headRefName": "codex/task", "isDraft": False},
+        {"headRefName": "feature/manual", "isDraft": False},
+    ]
+
+    # aragora/spec/ counts as automation backlog (parity with merge_arbiter);
+    # bare spec/ and feature/ do not.
+    assert mod.count_automation_backlog(prs) == 2
+
+
 def test_run_shift_cycle_defaults_to_single_merge_limit() -> None:
     state = mod.ProofFirstRuntimeState()
     repo_root = Path(".").resolve()

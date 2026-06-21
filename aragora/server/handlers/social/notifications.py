@@ -340,9 +340,15 @@ class NotificationsHandler(SecureHandler):
 
     RESOURCE_TYPE = "notification"
 
+    # NOTE: "/api/v1/notifications/history" is intentionally NOT claimed here.
+    # The working implementation lives in
+    # ``aragora.server.handlers.notifications.history.NotificationHistoryHandler``
+    # (``_get_history``, guarded by ``notifications:read``). This handler's
+    # ``handle()`` has no /history branch (it returns ``None``), so its
+    # first-wins claim on that path silently shadowed the real handler and left
+    # the endpoint broken. Dropping the dead claim restores it.
     ROUTES = [
         "/api/v1/notifications/status",
-        "/api/v1/notifications/history",
         "/api/v1/notifications/email/recipients",
         "/api/v1/notifications/email/config",
         "/api/v1/notifications/telegram/config",

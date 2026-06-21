@@ -49,7 +49,15 @@ def _get_detector() -> Any:
         return None
 
 
+def _require_positive_int(value: int, *, label: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{label} must be a positive integer")
+
+
 def run_benchmark(iterations: int, votes_per_round: int) -> StabilityBenchmarkResult:
+    _require_positive_int(iterations, label="iterations")
+    _require_positive_int(votes_per_round, label="votes_per_round")
+
     rng = random.Random(42)
     result = StabilityBenchmarkResult(iterations=iterations)
     detector = _get_detector()
@@ -74,12 +82,25 @@ def run_benchmark(iterations: int, votes_per_round: int) -> StabilityBenchmarkRe
     return result
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Benchmark adaptive stability detection")
-    parser.add_argument("--iterations", type=int, default=200)
-    parser.add_argument("--votes-per-round", type=int, default=7)
-    args = parser.parse_args()
+def _positive_int(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return value
 
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Benchmark adaptive stability detection")
+    parser.add_argument("--iterations", type=_positive_int, default=200)
+    parser.add_argument("--votes-per-round", type=_positive_int, default=7)
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     result = run_benchmark(args.iterations, args.votes_per_round)
     print("Adaptive Stability Benchmark")
     print(f"Iterations: {result.iterations}")

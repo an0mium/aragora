@@ -79,7 +79,8 @@ def split_corpus(corpus: Path, out_dir: Path, holdout_size: int, seed: int) -> t
 
 def build_mlx_dir(t_corpus: Path, out_dir: Path, seed: int, valid_frac: float = 0.10) -> Path:
     """Convert a training-corpus JSONL into mlx_lm-format {train,valid}.jsonl."""
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if not 0.0 < valid_frac < 1.0:
+        raise ValueError("valid_frac must be greater than 0 and less than 1")
     rows: list[dict] = []
     with t_corpus.open("r", encoding="utf-8") as fh:
         for line in fh:
@@ -93,11 +94,14 @@ def build_mlx_dir(t_corpus: Path, out_dir: Path, seed: int, valid_frac: float = 
             conv = aft_to_mlx_chat.convert_row(row)
             if conv is not None:
                 rows.append(conv)
+    if len(rows) < 2:
+        raise ValueError("AFT seeded MLX split requires at least two convertible training examples")
     rng = random.Random(seed)
     rng.shuffle(rows)
     n = len(rows)
-    n_valid = max(1, int(n * valid_frac))
+    n_valid = min(max(1, int(n * valid_frac)), n - 1)
     splits = {"train": rows[n_valid:], "valid": rows[:n_valid]}
+    out_dir.mkdir(parents=True, exist_ok=True)
     for name, batch in splits.items():
         path = out_dir / f"{name}.jsonl"
         with path.open("w", encoding="utf-8") as fh:

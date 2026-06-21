@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from aragora.swarm.terminal_truth import TerminalClass  # noqa: E402
+from aragora.utils.git_paths import git_common_repo_root  # noqa: E402
 from scripts.reconcile_b0_pr_truth import (  # noqa: E402
     DEFAULT_METRICS_PATH,
     GitHubTruthClient,
@@ -842,8 +843,17 @@ def detect_post_generation_issue_state_drift(
 
 def _repo_stable_path(path: Path) -> str:
     resolved = path.resolve()
+    candidate_roots = [REPO_ROOT.resolve()]
+    common_root = git_common_repo_root(REPO_ROOT)
+    if common_root is not None:
+        candidate_roots.append(common_root.resolve())
+    for root in candidate_roots:
+        try:
+            return resolved.relative_to(root).as_posix()
+        except ValueError:
+            continue
     try:
-        return resolved.relative_to(REPO_ROOT).as_posix()
+        return "~/" + resolved.relative_to(Path.home().resolve()).as_posix()
     except ValueError:
         return str(resolved)
 
@@ -863,18 +873,37 @@ def _revision_publish_dir(*, publish_dir: Path, corpus: dict[str, Any]) -> Path:
     return _corpus_publish_dir(publish_dir=publish_dir, corpus=corpus) / f"rev-{revision}"
 
 
+def _publishable_artifact_identity(artifact: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    corpus = artifact.get("corpus")
+    if not isinstance(corpus, dict):
+        raise ValueError("benchmark truth artifact must contain a corpus object before publishing")
+    corpus_id = str(corpus.get("corpus_id") or "").strip()
+    if not corpus_id:
+        raise ValueError("benchmark truth artifact corpus.corpus_id is required before publishing")
+    try:
+        revision = int(corpus.get("revision", 0) or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "benchmark truth artifact corpus.revision must be a positive integer before publishing"
+        ) from exc
+    if revision <= 0:
+        raise ValueError(
+            "benchmark truth artifact corpus.revision must be a positive integer before publishing"
+        )
+    generated_at = artifact.get("generated_at")
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        raise ValueError("benchmark truth artifact generated_at is required before publishing")
+    normalized_generated_at = normalize_generated_at(generated_at)
+    return {"corpus_id": corpus_id, "revision": revision}, normalized_generated_at
+
+
 def resolve_published_artifact_path(
     *,
     publish_dir: Path,
     artifact: dict[str, Any],
 ) -> Path:
-    corpus = artifact.get("corpus")
-    if not isinstance(corpus, dict):
-        corpus = {}
-    generated_at = artifact.get("generated_at")
-    timestamp = _coerce_utc_datetime(
-        generated_at if isinstance(generated_at, str) else None
-    ).strftime("%Y%m%dT%H%M%SZ")
+    corpus, generated_at = _publishable_artifact_identity(artifact)
+    timestamp = _coerce_utc_datetime(generated_at).strftime("%Y%m%dT%H%M%SZ")
     filename = f"truth-{timestamp}.json"
     return _revision_publish_dir(publish_dir=publish_dir, corpus=corpus) / filename
 
@@ -884,9 +913,7 @@ def resolve_latest_artifact_paths(
     publish_dir: Path,
     artifact: dict[str, Any],
 ) -> dict[str, Path]:
-    corpus = artifact.get("corpus")
-    if not isinstance(corpus, dict):
-        corpus = {}
+    corpus, _generated_at = _publishable_artifact_identity(artifact)
     return {
         "corpus_latest": _corpus_publish_dir(publish_dir=publish_dir, corpus=corpus)
         / "latest.json",

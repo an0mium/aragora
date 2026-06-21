@@ -42,6 +42,19 @@ def _write_json(path: Path, payload: dict) -> Path:
     return path
 
 
+def test_repo_stable_path_relativizes_git_common_root(tmp_path: Path, monkeypatch) -> None:
+    worktree_root = tmp_path / "worktree"
+    shared_root = tmp_path / "shared"
+    metrics_path = shared_root / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    metrics_path.parent.mkdir(parents=True)
+    metrics_path.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(mod, "REPO_ROOT", worktree_root)
+    monkeypatch.setattr(mod, "git_common_repo_root", lambda _repo_root: shared_root)
+
+    assert mod._repo_stable_path(metrics_path) == ".aragora/overnight/boss_metrics.jsonl"
+
+
 def test_build_benchmark_truth_artifact_links_corpus_revision_and_truth_metrics(
     tmp_path: Path,
 ) -> None:
@@ -1248,6 +1261,43 @@ def test_resolve_latest_artifact_paths_use_corpus_and_revision_roots() -> None:
         "corpus_latest": Path("/tmp/published/tw-01-bounded-execution-v1/latest.json"),
         "revision_latest": Path("/tmp/published/tw-01-bounded-execution-v1/rev-7/latest.json"),
     }
+
+
+def test_publish_artifact_bundle_rejects_missing_identity(tmp_path: Path) -> None:
+    valid_artifact = {
+        "generated_at": "2026-04-14T02:03:04Z",
+        "corpus": {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 7,
+            "issue_count": 1,
+        },
+        "primary_metrics": {"truth_success_rate": 1.0},
+    }
+
+    cases = [
+        (
+            {**valid_artifact, "generated_at": ""},
+            "generated_at is required",
+        ),
+        (
+            {**valid_artifact, "corpus": {**valid_artifact["corpus"], "corpus_id": ""}},
+            "corpus.corpus_id is required",
+        ),
+        (
+            {**valid_artifact, "corpus": {**valid_artifact["corpus"], "revision": 0}},
+            "corpus.revision must be a positive integer",
+        ),
+    ]
+
+    for artifact, expected_message in cases:
+        publish_dir = tmp_path / expected_message.split()[0]
+        try:
+            mod.publish_artifact_bundle(publish_dir=publish_dir, artifact=artifact)
+        except ValueError as exc:
+            assert expected_message in str(exc)
+        else:
+            raise AssertionError(f"expected ValueError containing {expected_message!r}")
+        assert not publish_dir.exists()
 
 
 def test_main_publish_dir_writes_timestamped_artifact_and_prints_path(
