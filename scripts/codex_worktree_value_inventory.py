@@ -431,9 +431,29 @@ def _terminal_path_receipt(payload: dict[str, Any]) -> bool:
     status = str(payload.get("status") or "").strip()
     if status in TERMINAL_RECEIPT_STATUSES:
         return True
-    decision = str(payload.get("decision") or "").strip()
-    if decision.startswith(TERMINAL_HARVEST_DECISION_PREFIXES):
-        return True
+    for key in ("decision", "outcome"):
+        value = payload.get(key)
+        terminal_texts: list[str] = []
+        if isinstance(value, str):
+            terminal_texts.append(value)
+        elif isinstance(value, dict):
+            for nested_key in ("decision", "outcome", "status", "result"):
+                nested_value = value.get(nested_key)
+                if isinstance(nested_value, str):
+                    terminal_texts.append(nested_value)
+        if any(
+            text.strip().startswith(TERMINAL_HARVEST_DECISION_PREFIXES) for text in terminal_texts
+        ):
+            return True
+    github_pr = payload.get("github_pr")
+    reconfirmation = payload.get("reconfirmation")
+    if isinstance(reconfirmation, dict) and not isinstance(github_pr, dict):
+        github_pr = reconfirmation.get("github_pr")
+    if isinstance(github_pr, dict):
+        state = str(github_pr.get("state") or "").strip().upper()
+        merged_at = str(github_pr.get("merged_at") or "").strip()
+        if state == "MERGED" or merged_at:
+            return True
     return False
 
 

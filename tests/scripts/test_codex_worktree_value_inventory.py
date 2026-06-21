@@ -441,6 +441,103 @@ def test_terminal_receipt_path_heads_reads_harvest_receipt_source_candidate(
     assert refs[str(repo_path.resolve())] == {"abcdef123456"}
 
 
+def test_terminal_receipt_path_heads_reads_object_decision_outcome(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "preserve-merged.json").write_text(
+        json.dumps(
+            {
+                "decision": {
+                    "outcome": "preserve_existing_merged_pr",
+                    "reason": "exact source head is already represented",
+                },
+                "selected_candidate": {
+                    "path": str(root),
+                    "repo_path": str(repo_path),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs[str(root.resolve())] == {"abcdef123456"}
+    assert refs[str(repo_path.resolve())] == {"abcdef123456"}
+
+
+def test_terminal_receipt_path_heads_reads_merged_pr_evidence(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "merged-pr.json").write_text(
+        json.dumps(
+            {
+                "reconfirmation": {
+                    "github_pr": {
+                        "number": 8148,
+                        "state": "MERGED",
+                        "head_sha": "abcdef123456",
+                    }
+                },
+                "selected_candidate": {
+                    "path": str(root),
+                    "repo_path": str(repo_path),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs[str(root.resolve())] == {"abcdef123456"}
+    assert refs[str(repo_path.resolve())] == {"abcdef123456"}
+
+
+def test_harvest_receipt_object_decision_blocks_reharvest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    _stub_clean_git(
+        monkeypatch,
+        branch="elves/run-20260610-c04-closure-floor",
+        ahead=2,
+        head="abcdef123456",
+        patch_equivalent=False,
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            terminal_receipt_path_heads={str(repo_path.resolve()): {"abcdef123456"}},
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "receipt_protected"
+    assert candidate.decision == "preserve"
+    assert "terminal receipt references path/head" in candidate.proof
+
+
 def test_unique_unharvested_when_ahead_and_not_patch_equivalent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
