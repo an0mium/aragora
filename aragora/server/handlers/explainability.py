@@ -6,7 +6,13 @@ Provides endpoints for understanding debate decisions:
 - GET /api/v1/debates/{id}/evidence - Evidence chain
 - GET /api/v1/debates/{id}/votes/pivots - Vote influence analysis
 - GET /api/v1/debates/{id}/counterfactuals - Counterfactual analysis
-- GET /api/v1/debates/{id}/summary - Human-readable summary
+
+Note: the human-readable ``/api/v1/debates/{id}/summary`` endpoint is owned by
+``DebatesHandler`` (``aragora.server.handlers.debates``), the canonical debate
+resource. This handler used to also claim ``/summary`` but was registered after
+DebatesHandler, so its claim was silently shadowed (never received traffic). The
+duplicate claim has been removed; use ``/explanation`` for the explainability
+view of a debate.
 
 Batch operations:
 - POST /api/v1/explainability/batch - Process multiple debates
@@ -268,7 +274,9 @@ class ExplainabilityHandler(BaseHandler):
         "/api/v1/debates/*/evidence",
         "/api/v1/debates/*/votes/pivots",
         "/api/v1/debates/*/counterfactuals",
-        "/api/v1/debates/*/summary",
+        # NOTE: "/api/v1/debates/*/summary" is owned by DebatesHandler (the
+        # canonical debate resource, registered earlier). This handler's claim
+        # was first-wins shadowed since registration; the duplicate is removed.
         "/api/v1/explain",
         "/api/v1/explain/*",
         # Batch endpoints
@@ -321,7 +329,7 @@ class ExplainabilityHandler(BaseHandler):
                 "/evidence",
                 "/votes/pivots",
                 "/counterfactuals",
-                "/summary",
+                # "/summary" intentionally omitted — owned by DebatesHandler.
                 "/explainability/export",
             ]
         ):
@@ -393,8 +401,7 @@ class ExplainabilityHandler(BaseHandler):
                 return await self._handle_vote_pivots(debate_id, query_params, is_legacy)
             elif endpoint == "counterfactuals":
                 return await self._handle_counterfactuals(debate_id, query_params, is_legacy)
-            elif endpoint == "summary":
-                return await self._handle_summary(debate_id, query_params, is_legacy)
+            # "summary" is owned by DebatesHandler — not dispatched here.
             elif endpoint == "explainability/export":
                 return await self._handle_export(debate_id, query_params)
 
@@ -591,89 +598,6 @@ class ExplainabilityHandler(BaseHandler):
         except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error("Counterfactual error for %s: %s", debate_id, e)
             return error_response("Counterfactual retrieval failed", 500)
-
-    async def _handle_summary(
-        self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
-    ) -> HandlerResult:
-        """Handle human-readable summary request."""
-        decision = None
-        try:
-            decision = await self._get_or_build_decision(debate_id)
-
-            if not decision:
-                return error_response(f"Debate not found: {debate_id}", 404)
-
-            from aragora.explainability import ExplanationBuilder
-
-            builder = ExplanationBuilder()
-            summary = builder.generate_summary(decision)
-
-            # Get format preference
-            format_type = get_string_param(query_params, "format", "markdown")
-
-            if format_type == "json":
-                result = json_response(
-                    {
-                        "debate_id": debate_id,
-                        "summary": summary,
-                        "confidence": decision.confidence,
-                        "consensus_reached": decision.consensus_reached,
-                    }
-                )
-            elif format_type == "html":
-                # markdown package has no type stubs; use Any for untyped module
-                import markdown as md_lib  # type: ignore[import-untyped]
-
-                html_body: str = str(md_lib.markdown(summary))
-                html_content = f"""
-<!DOCTYPE html>
-<html>
-<head><title>Decision Summary - {debate_id}</title>
-<style>
-body {{ font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 1rem; }}
-h2 {{ color: #333; }}
-h3 {{ color: #666; }}
-</style>
-</head>
-<body>
-{html_body}
-</body>
-</html>
-"""
-                result = HandlerResult(
-                    status_code=200,
-                    content_type="text/html",
-                    body=html_content.encode("utf-8"),
-                )
-            else:
-                result = HandlerResult(
-                    status_code=200,
-                    content_type="text/markdown",
-                    body=summary.encode("utf-8"),
-                )
-
-            return self._add_headers(result, is_legacy)
-
-        except ImportError:
-            # markdown not available, return plain text
-            if decision is None:
-                return error_response(f"Debate not found: {debate_id}", 404)
-
-            from aragora.explainability import ExplanationBuilder
-
-            builder = ExplanationBuilder()
-            summary = builder.generate_summary(decision)
-
-            result = HandlerResult(
-                status_code=200,
-                content_type="text/plain",
-                body=summary.encode("utf-8"),
-            )
-            return self._add_headers(result, is_legacy)
-
-        except (KeyError, ValueError, TypeError, AttributeError) as e:
-            logger.error("Summary error for %s: %s", debate_id, e)
-            return error_response("Summary generation failed", 500)
 
     async def _handle_export(self, debate_id: str, query_params: dict[str, Any]) -> HandlerResult:
         """Handle export request for decision explanation in various formats."""

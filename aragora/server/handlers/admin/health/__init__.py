@@ -3,14 +3,18 @@ Health handler package.
 
 Provides health and readiness endpoints for Kubernetes deployments.
 
-Focused handlers (recommended for new code):
+Focused handlers (for direct/standalone use):
 
 - LivenessHandler: /healthz endpoint only (liveness.py)
 - ReadinessHandler: /readyz endpoints only (readiness.py)
 - StorageHealthHandler: /api/health/stores and /api/health/database (storage_health.py)
 
-The monolithic HealthHandler remains for backward compatibility and handles
-all routes. New integrations should prefer the focused handlers above.
+The monolithic HealthHandler owns all health routes in the unified server's
+handler registry (RouteIndex is first-wins; registering the focused handlers
+alongside it only created silently shadowed duplicates, so they are not
+registered — see aragora/server/handler_registry/admin.py). The focused
+handlers delegate to the same implementation functions as HealthHandler and
+can be instantiated directly for embedding in other servers or tests.
 
 Implementation modules:
 

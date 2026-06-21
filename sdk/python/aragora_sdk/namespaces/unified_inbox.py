@@ -488,6 +488,87 @@ class UnifiedInboxAPI:
         return self._client.request("POST", "/api/v1/inbox/reprioritize", json=data)
 
     # =========================================================================
+    # Legacy ``nv_*`` aliases
+    #
+    # These previously issued requests against non-versioned ``/inbox/*``
+    # paths that the server never routed (guaranteed 404s -- the client does
+    # not prefix paths). They now delegate to the canonical ``/api/v1/inbox``
+    # methods so existing callers keep working against real endpoints.
+    # =========================================================================
+
+    def nv_get_gmail_oauth_url(
+        self,
+        redirect_uri: str,
+        state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Gmail OAuth URL (alias for :meth:`get_gmail_oauth_url`)."""
+        return self.get_gmail_oauth_url(redirect_uri, state)
+
+    def nv_get_outlook_oauth_url(
+        self,
+        redirect_uri: str,
+        state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Outlook OAuth URL (alias for :meth:`get_outlook_oauth_url`)."""
+        return self.get_outlook_oauth_url(redirect_uri, state)
+
+    def nv_connect(
+        self,
+        provider: EmailProvider,
+        auth_code: str,
+        redirect_uri: str,
+    ) -> dict[str, Any]:
+        """Connect an email account (alias for :meth:`connect`)."""
+        return self.connect(provider, auth_code, redirect_uri)
+
+    def nv_list_accounts(self) -> dict[str, Any]:
+        """List connected email accounts (alias for :meth:`list_accounts`)."""
+        return self.list_accounts()
+
+    def nv_list_messages(self, **kwargs: Any) -> dict[str, Any]:
+        """Get prioritized messages (alias for :meth:`list_messages`)."""
+        filtered = {
+            k: kwargs[k]
+            for k in ("limit", "offset", "priority", "account_id", "unread_only", "search")
+            if k in kwargs and kwargs[k] is not None
+        }
+        return self.list_messages(**filtered)
+
+    def nv_send(
+        self,
+        channel: str,
+        to: str,
+        content: str,
+        subject: str | None = None,
+    ) -> dict[str, Any]:
+        """Send a new message (alias for :meth:`send`)."""
+        return self.send(channel, to, content, subject)
+
+    def nv_triage(
+        self,
+        message_ids: list[str],
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Run triage on messages (alias for :meth:`triage`)."""
+        return self.triage(message_ids, context)
+
+    def nv_bulk_action(
+        self,
+        message_ids: list[str],
+        action: BulkAction,
+    ) -> dict[str, Any]:
+        """Execute bulk action on messages (alias for :meth:`bulk_action`)."""
+        return self.bulk_action(message_ids, action)
+
+    def nv_get_stats(self) -> dict[str, Any]:
+        """Get inbox health statistics (alias for :meth:`get_stats`)."""
+        return self.get_stats()
+
+    def nv_get_trends(self, days: int = 7) -> dict[str, Any]:
+        """Get priority trends (alias for :meth:`get_trends`)."""
+        return self.get_trends(days)
+
+    # =========================================================================
     # Convenience aliases
     # =========================================================================
 
@@ -711,6 +792,87 @@ class AsyncUnifiedInboxAPI:
         if force_tier:
             data["force_tier"] = force_tier
         return await self._client.request("POST", "/api/v1/inbox/reprioritize", json=data)
+
+    # =========================================================================
+    # Legacy ``nv_*`` aliases
+    #
+    # These previously issued requests against non-versioned ``/inbox/*``
+    # paths that the server never routed (guaranteed 404s -- the client does
+    # not prefix paths). They now delegate to the canonical ``/api/v1/inbox``
+    # methods so existing callers keep working against real endpoints.
+    # =========================================================================
+
+    async def nv_get_gmail_oauth_url(
+        self,
+        redirect_uri: str,
+        state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Gmail OAuth URL (alias for :meth:`get_gmail_oauth_url`)."""
+        return await self.get_gmail_oauth_url(redirect_uri, state)
+
+    async def nv_get_outlook_oauth_url(
+        self,
+        redirect_uri: str,
+        state: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Outlook OAuth URL (alias for :meth:`get_outlook_oauth_url`)."""
+        return await self.get_outlook_oauth_url(redirect_uri, state)
+
+    async def nv_connect(
+        self,
+        provider: EmailProvider,
+        auth_code: str,
+        redirect_uri: str,
+    ) -> dict[str, Any]:
+        """Connect an email account (alias for :meth:`connect`)."""
+        return await self.connect(provider, auth_code, redirect_uri)
+
+    async def nv_list_accounts(self) -> dict[str, Any]:
+        """List connected email accounts (alias for :meth:`list_accounts`)."""
+        return await self.list_accounts()
+
+    async def nv_list_messages(self, **kwargs: Any) -> dict[str, Any]:
+        """Get prioritized messages (alias for :meth:`list_messages`)."""
+        filtered = {
+            k: kwargs[k]
+            for k in ("limit", "offset", "priority", "account_id", "unread_only", "search")
+            if k in kwargs and kwargs[k] is not None
+        }
+        return await self.list_messages(**filtered)
+
+    async def nv_send(
+        self,
+        channel: str,
+        to: str,
+        content: str,
+        subject: str | None = None,
+    ) -> dict[str, Any]:
+        """Send a new message (alias for :meth:`send`)."""
+        return await self.send(channel, to, content, subject)
+
+    async def nv_triage(
+        self,
+        message_ids: list[str],
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Run triage on messages (alias for :meth:`triage`)."""
+        return await self.triage(message_ids, context)
+
+    async def nv_bulk_action(
+        self,
+        message_ids: list[str],
+        action: BulkAction,
+    ) -> dict[str, Any]:
+        """Execute bulk action on messages (alias for :meth:`bulk_action`)."""
+        return await self.bulk_action(message_ids, action)
+
+    async def nv_get_stats(self) -> dict[str, Any]:
+        """Get inbox health statistics (alias for :meth:`get_stats`)."""
+        return await self.get_stats()
+
+    async def nv_get_trends(self, days: int = 7) -> dict[str, Any]:
+        """Get priority trends (alias for :meth:`get_trends`)."""
+        return await self.get_trends(days)
 
     # =========================================================================
     # Convenience aliases

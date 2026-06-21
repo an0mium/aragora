@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **109**
-- Total top-level invocations (including aliases): **110**
+- Canonical top-level commands: **110**
+- Total top-level invocations (including aliases): **111**
 
 ## Installation
 
@@ -102,6 +102,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `mcp-server` | - | Run the MCP (Model Context Protocol) server | - |
 | `memory` | - | Memory management commands | `promote`, `query`, `stats`, `store` |
 | `metrics` | - | AGT-06: read VIAH and other operator metrics | `status`, `viah` |
+| `mission` | - | Run or manage native missions | - |
 | `modes` | - | List available operational modes | - |
 | `nomic` | - | Nomic loop self-improvement commands | `history`, `resume`, `run`, `status` |
 | `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `next-steps`, `policy`, `review`, `serve`, `status`, `watch` |
@@ -121,7 +122,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `review` | - | Run AI code review on a diff or PR | - |
 | `review-local` | - | Run a non-OpenAI (Claude Max pool) review on a LOCAL diff, no GitHub required | - |
 | `review-pr` | - | Review a live GitHub PR head and optionally run a fixer loop | - |
-| `review-queue` | - | PR review queue + advisory packets + human settlement | `act`, `baseline`, `build`, `collect-evidence`, `evidence-lint`, `health`, `health-alert`, `lint-comment`, `merge-packet`, `observe-outcomes`, `packet`, `record-settlement`, `run` |
+| `review-queue` | - | PR review queue + advisory packets + human settlement | `act`, `baseline`, `build`, `collect-evidence`, `conductor`, `evidence-lint`, `health`, `health-alert`, `lint-comment`, `merge-packet`, `observe-outcomes`, `packet`, `record-settlement`, `run` |
 | `rlm` | - | RLM (Recursive Language Models) operations | `clear-cache`, `compress`, `query`, `stats` |
 | `secrets` | - | Inspect AWS Secrets Manager-backed secret presence | `health`, `hydrate` |
 | `security` | - | Security operations (encryption, key rotation) | `health`, `list-tokens`, `migrate`, `rotate-key`, `rotate-token`, `status`, `verify-token` |

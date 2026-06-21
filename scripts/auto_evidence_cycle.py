@@ -29,7 +29,8 @@ Safety model (mirrors ``quorum_rerun_reconciler.py``):
   (default 15), ``--budget-seconds`` wall clock (default 1800).
 - Identical-error breaker: 3 consecutive identical collect failures abort the
   cycle (exit 2) — a systemic fault (CLI missing, auth broken) must not burn
-  the whole budget.
+  the whole budget. A run of consecutive transport-blocked merge-packet probes
+  (GitHub/GraphQL down, auth broken) feeds the same breaker.
 - Never-post-on-lint-fail is enforced *inside* collect-evidence; this wrapper
   additionally requires >=2 posted families before counting a PR as done.
 - Tier gating is enforced twice: by this wrapper's selection and again by
@@ -38,8 +39,10 @@ Safety model (mirrors ``quorum_rerun_reconciler.py``):
   ``ARAGORA_SECRETS_STRICT=false`` and ``ARAGORA_USE_SECRETS_MANAGER=false``
   forced, because API reviewer construction under strict MFA-gated AWS dies on
   an interactive MFA prompt EOF (Lane V, run-20260609).
-- Fail-closed exits: 0 clean (including empty plan), 1 any failure,
-  2 breaker tripped.
+- Fail-closed exits: 0 clean (genuinely empty plan, no transport drops), 1 any
+  failure, 2 breaker tripped, 3 INDETERMINATE — candidates were dropped because
+  a merge-packet probe could not see them (transport_blocked / fetch failure)
+  and nothing was posted, so an empty plan does NOT mean the queue is clear.
 
 Opt-in wiring: ``scripts/run_merge_arbiter.sh`` runs this before the arbiter
 when ``ARAGORA_AUTO_EVIDENCE=1`` (default off, non-fatal for the arbiter).
@@ -96,6 +99,13 @@ def _load_dogfood_module() -> Any:
 EXIT_OK = 0
 EXIT_FAILURES = 1
 EXIT_BREAKER = 2
+EXIT_INDETERMINATE = 3
+
+# Sentinel status for a packet probe that could not see the PR (GitHub/GraphQL
+# transport hiccup, subprocess failure, timeout, or unparseable output). This is
+# INDETERMINATE — not "selectable" and not "genuinely clear" — so the operator
+# can tell "no work" from "couldn't see the work".
+TRANSPORT_BLOCKED_STATUS = "transport_blocked"
 
 
 def _sanitized_env() -> dict[str, str]:
@@ -135,7 +145,15 @@ def latest_quorum_conclusion(pr_row: dict[str, Any]) -> str:
 
 
 def stage1_candidates(prs: list[dict[str, Any]]) -> list[int]:
-    """Ready (non-draft) PRs whose latest quorum check is not SUCCESS, oldest first."""
+    """Ready (non-draft) PRs whose latest quorum check is not SUCCESS, newest first.
+
+    Newest-first (#8316): the oldest-first ordering meant the low-numbered tail
+    of permanently auto-INELIGIBLE PRs (Tier 3/4, human-settlement-required)
+    consumed the entire ``--max-scan`` probe budget every run, so fresh ready
+    Tier-0-2 PRs at the high end were never probed. Probing the freshest PRs
+    first guarantees they are always reached; stage 2 also no longer lets
+    ineligible candidates consume the eligible-scan budget.
+    """
     out: list[int] = []
     for pr in prs:
         if not isinstance(pr, dict) or pr.get("isDraft"):
@@ -147,29 +165,63 @@ def stage1_candidates(prs: list[dict[str, Any]]) -> list[int]:
         if latest_quorum_conclusion(pr) == "SUCCESS":
             continue
         out.append(number)
-    return sorted(out)
+    return sorted(out, reverse=True)
+
+
+def is_transport_blocked(entry: dict[str, Any]) -> bool:
+    """Whether a packet probe came back INDETERMINATE (could not see the PR).
+
+    A transport-blocked probe is neither selectable nor a clean "no work"
+    signal: the GitHub/GraphQL hop, the subprocess, or the parser failed, so the
+    PR's real selectability is unknown. ``default_fetch_packet`` synthesizes this
+    envelope for any fetch failure/exception so the caller never silently treats
+    a hiccup as an empty queue. The canonical CLI marks the same condition with
+    ``status="transport_blocked"`` / ``transport_blocked: true`` (see
+    ``aragora/cli/commands/review_queue_transport.py``).
+    """
+    if not entry:
+        return False
+    if entry.get("transport_blocked"):
+        return True
+    return str(entry.get("status") or "").strip().lower() == TRANSPORT_BLOCKED_STATUS
+
+
+def rejection_reason(entry: dict[str, Any]) -> str | None:
+    """Reason a packet entry is *not* selectable, or ``None`` if it is selectable.
+
+    Returns a stable, low-cardinality reason string so the cycle can surface
+    ``rejected_by_reason`` counts and distinguish an empty plan (everything
+    rejected) from an exhausted scan window (budget ran out before reaching a
+    selectable PR). Callers must treat transport-blocked entries as INDETERMINATE
+    *before* asking for a rejection reason; this function assumes a real packet.
+    """
+    if not entry:
+        return "empty_packet"
+    if str(entry.get("status") or "").strip().lower() != SELECTABLE_STATUS:
+        return "wrong_status"
+    try:
+        tier = int(entry.get("tier"))
+    except (TypeError, ValueError):
+        return "unknown_tier"  # fail safe, never auto-postable anyway
+    if tier not in AUTO_POSTABLE_TIERS:
+        return "wrong_tier"
+    if entry.get("requires_human_risk_settlement"):
+        return "human_settlement_required"
+    if entry.get("unresolved_dissent"):
+        return "unresolved_dissent"
+    families = entry.get("counted_model_families")
+    if families is None:
+        families = entry.get("counted_reviewer_ids") or []
+    if len(families) >= REQUIRED_FAMILIES:
+        return "quorum_satisfied"
+    return None
 
 
 def needs_evidence(entry: dict[str, Any]) -> bool:
     """Whether a merge-packet entry is selectable for bounded auto-evidence."""
-    if not entry:
+    if is_transport_blocked(entry):
         return False
-    if str(entry.get("status") or "").strip().lower() != SELECTABLE_STATUS:
-        return False
-    try:
-        tier = int(entry.get("tier"))
-    except (TypeError, ValueError):
-        return False  # unknown tier: fail safe, never auto-postable anyway
-    if tier not in AUTO_POSTABLE_TIERS:
-        return False
-    if entry.get("requires_human_risk_settlement"):
-        return False
-    if entry.get("unresolved_dissent"):
-        return False
-    families = entry.get("counted_model_families")
-    if families is None:
-        families = entry.get("counted_reviewer_ids") or []
-    return len(families) < REQUIRED_FAMILIES
+    return rejection_reason(entry) is None
 
 
 def needs_dogfood(entry: dict[str, Any]) -> bool:
@@ -401,8 +453,31 @@ def default_list_prs(repo: str) -> list[dict[str, Any]]:
     raise RuntimeError(f"gh pr list failed for {repo} (heavy and light listings)")
 
 
+def _transport_blocked_packet(pr: int, error: str) -> dict[str, Any]:
+    """Synthesize an INDETERMINATE packet for a probe that could not see the PR.
+
+    Any fetch failure (subprocess error, non-zero exit, timeout, unparseable
+    output, or an explicit transport-blocked CLI envelope) becomes this shape so
+    the cycle counts the PR in ``transport_blocked_prs`` rather than silently
+    treating the hiccup as a clean empty queue.
+    """
+    return {
+        "pr_number": pr,
+        "status": TRANSPORT_BLOCKED_STATUS,
+        "transport_blocked": True,
+        "error": str(error or "")[:300],
+    }
+
+
 def default_fetch_packet(repo: str, pr: int) -> dict[str, Any]:
-    """Canonical per-PR probe: ``review-queue merge-packet --pr N --json``."""
+    """Canonical per-PR probe: ``review-queue merge-packet --pr N --json``.
+
+    A clean structural "not selectable" packet is returned as-is (possibly
+    ``{}``). Any *failure* to see the PR — subprocess error, timeout, non-zero
+    exit, unparseable output, or an explicit ``transport_blocked`` envelope — is
+    surfaced as an INDETERMINATE transport-blocked packet, never as ``{}``; the
+    operator must be able to tell "no work" from "couldn't see the work".
+    """
     try:
         proc = subprocess.run(
             [
@@ -423,13 +498,27 @@ def default_fetch_packet(repo: str, pr: int) -> dict[str, Any]:
             env=_sanitized_env(),
         )
     except subprocess.TimeoutExpired:
-        return {}
+        return _transport_blocked_packet(
+            pr, f"merge-packet timed out after {PACKET_TIMEOUT_SECONDS}s"
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return _transport_blocked_packet(pr, f"merge-packet subprocess error: {exc}")
     if proc.returncode != 0 or not proc.stdout.strip():
-        return {}
+        return _transport_blocked_packet(
+            pr,
+            (proc.stderr or proc.stdout or f"merge-packet exit {proc.returncode}").strip(),
+        )
     try:
         payload = json.loads(proc.stdout)
     except json.JSONDecodeError:
-        return {}
+        return _transport_blocked_packet(pr, "unparseable merge-packet output")
+    # An explicit transport-blocked envelope carries no matching entry, so detect
+    # it at the envelope level before the per-PR entry scan drops it.
+    if isinstance(payload, dict) and (
+        payload.get("transport_blocked")
+        or str(payload.get("status") or "").strip().lower() == TRANSPORT_BLOCKED_STATUS
+    ):
+        return _transport_blocked_packet(pr, payload.get("error") or "transport blocked")
     if isinstance(payload, dict):
         entries = payload.get("entries")
         entries = entries if isinstance(entries, list) else [payload]
@@ -644,6 +733,10 @@ def run_cycle(
         "mode": "apply" if apply else "dry-run",
         "plan": [],
         "dogfood_plan": [],
+        "transport_blocked_prs": [],
+        "scanned": 0,
+        "rejected_by_reason": {},
+        "unprobed_candidates": 0,
         "posted_prs": [],
         "failed_prs": [],
         "dogfood_posted_prs": [],
@@ -658,19 +751,62 @@ def run_cycle(
     }
 
     candidates = stage1_candidates(list_prs())
-    probes = 0
+    # ``--max-scan`` now bounds ELIGIBLE-or-INDETERMINATE examinations, not raw
+    # probes (#8316): cleanly-ineligible candidates (wrong tier / wrong status /
+    # human-settlement-required / unresolved-dissent / already-satisfied) no
+    # longer consume the scan budget, so a low-numbered tail of permanently
+    # ineligible Tier-3/4 PRs can never starve a fresh eligible PR further down
+    # the list. ``scanned`` records the total candidates examined.
+    examined_budget = 0  # eligible-or-indeterminate examinations against max_scan
+    transport_streak = 0  # consecutive transport-blocked probes (breaker input)
     for number in candidates:
         scan_full = len(summary["plan"]) >= max_prs and (
             run_dogfood is None or len(summary["dogfood_plan"]) >= max_dogfood
         )
-        if scan_full or probes >= max_scan:
+        if scan_full or examined_budget >= max_scan:
             break
         if over_budget():
             summary["budget_exhausted"] = True
             break
-        probes += 1
+        summary["scanned"] += 1
         entry = fetch_packet(number)
-        if needs_evidence(entry) and len(summary["plan"]) < max_prs:
+
+        if is_transport_blocked(entry):
+            # INDETERMINATE: could not see the PR. Count it (so an empty plan is
+            # distinguishable from a hiccup), consume budget, but do not select.
+            summary["transport_blocked_prs"].append(number)
+            examined_budget += 1
+            transport_streak += 1
+            # A run of identical transport failures is a systemic fault (auth
+            # broken, GraphQL down) — feed it into the same breaker the apply
+            # loop uses so the cycle aborts (exit 2) instead of grinding the
+            # whole scan budget against a dead endpoint.
+            if transport_streak >= breaker_threshold:
+                summary["breaker_tripped"] = True
+                log(
+                    json.dumps(
+                        {
+                            "result": "breaker_tripped",
+                            "stage": "scan",
+                            "transport_blocked_streak": transport_streak,
+                        }
+                    )
+                )
+                break
+            continue
+        transport_streak = 0
+
+        selectable_quorum = needs_evidence(entry)
+        selectable_dogfood = run_dogfood is not None and needs_dogfood(entry)
+        if selectable_quorum or selectable_dogfood:
+            examined_budget += 1
+        else:
+            # Cleanly ineligible: record the reason, but do NOT consume the
+            # eligible-scan budget — keep probing past it to reach fresh PRs.
+            reason = rejection_reason(entry) or "ineligible"
+            summary["rejected_by_reason"][reason] = summary["rejected_by_reason"].get(reason, 0) + 1
+
+        if selectable_quorum and len(summary["plan"]) < max_prs:
             # NB: keep this local distinct from the ``families`` parameter
             # (requested reviewer families) used by routing records below.
             counted = entry.get("counted_model_families") or entry.get("counted_reviewer_ids") or []
@@ -682,11 +818,7 @@ def run_cycle(
                     "counted_families": list(counted),
                 }
             )
-        if (
-            run_dogfood is not None
-            and needs_dogfood(entry)
-            and len(summary["dogfood_plan"]) < max_dogfood
-        ):
+        if selectable_dogfood and len(summary["dogfood_plan"]) < max_dogfood:
             summary["dogfood_plan"].append(
                 {
                     "pr": number,
@@ -695,6 +827,9 @@ def run_cycle(
                     "requires_adversarial_dogfood": True,
                 }
             )
+    # Candidates the scan never reached (loop broke on cap/budget before the
+    # end). ``scanned`` counts every candidate examined, so this is exact.
+    summary["unprobed_candidates"] = max(0, len(candidates) - summary["scanned"])
 
     for item in summary["plan"]:
         log(json.dumps({**item, "mode": summary["mode"]}))
@@ -704,11 +839,19 @@ def run_cycle(
         log(json.dumps({"plan": "empty", "mode": summary["mode"]}))
 
     if not apply:
+        # Dry-run never posts, so "transport drops + nothing posted" reduces to
+        # "transport drops occurred": an empty plan that is INDETERMINATE, not
+        # genuinely clear. The scan-phase breaker still wins (exit 2).
+        if summary["breaker_tripped"]:
+            summary["exit_code"] = EXIT_BREAKER
+        elif summary["transport_blocked_prs"]:
+            summary["exit_code"] = EXIT_INDETERMINATE
         return summary
 
     identical_errors = 0
     last_error = None
-    for item in summary["plan"]:
+    collect_plan = [] if summary["breaker_tripped"] else summary["plan"]
+    for item in collect_plan:
         if over_budget():
             summary["budget_exhausted"] = True
             break
@@ -791,10 +934,16 @@ def run_cycle(
         summary["reconciler_exit"] = run_reconciler()
         log(json.dumps({"reconciler_exit": summary["reconciler_exit"]}))
 
+    posted_anything = bool(summary["posted_prs"] or summary["dogfood_posted_prs"])
     if summary["breaker_tripped"]:
         summary["exit_code"] = EXIT_BREAKER
     elif summary["failed_prs"] or (summary["reconciler_exit"] not in (None, 0)):
         summary["exit_code"] = EXIT_FAILURES
+    elif summary["transport_blocked_prs"] and not posted_anything:
+        # Candidates were dropped because we couldn't see them and nothing was
+        # posted: INDETERMINATE, not a clean empty queue. Exit 3 so the operator
+        # distinguishes "no work" from "couldn't see the work".
+        summary["exit_code"] = EXIT_INDETERMINATE
     return summary
 
 

@@ -305,3 +305,11 @@ def test_cli_rejects_unknown_surface(mock_repo: Path) -> None:
     # argparse exits with code 2 for usage errors.
     assert proc.returncode == 2
     assert "unknown surface" in proc.stderr.lower()
+
+
+def test_gti_surface_is_registered() -> None:
+    module = _load_module()
+    assert "gti" in module.SURFACE_PATHS
+    assert module.SURFACE_PATHS["gti"] == Path("docs/status/GTI_GROUND_TRUTH_INTEGRITY_STATUS.md")
+    # gti is opt-in: it must NOT change the default surface set.
+    assert "gti" not in module.DEFAULT_SURFACES
