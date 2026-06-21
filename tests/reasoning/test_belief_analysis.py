@@ -208,7 +208,7 @@ class TestDebateBeliefAnalyzer:
         """Handles errors during belief propagation."""
         mock_network = MagicMock()
         mock_network.nodes = {"node1": {}}
-        mock_network.propagate.side_effect = ValueError("Propagation failed")
+        mock_network.propagate.side_effect = RuntimeError("Propagation failed")
 
         mock_BN = MagicMock(return_value=mock_network)
         mock_load.return_value = (mock_BN, MagicMock())
@@ -219,7 +219,7 @@ class TestDebateBeliefAnalyzer:
         result = analyzer.analyze_messages(messages)
 
         assert result.analysis_error is not None
-        assert "Propagation failed" in result.analysis_error
+        assert "Belief analysis failed" in result.analysis_error
 
     @patch("aragora.debate.phases.belief_analysis._load_belief_classes")
     def test_handles_analyzer_error(self, mock_load):
@@ -236,4 +236,4 @@ class TestDebateBeliefAnalyzer:
         result = analyzer.analyze_claims(claims)
 
         assert result.analysis_error is not None
-        assert "Analysis failed" in result.analysis_error
+        assert "Belief analysis failed" in result.analysis_error

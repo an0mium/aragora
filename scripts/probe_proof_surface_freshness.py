@@ -87,6 +87,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SURFACE_PATHS: dict[str, Path] = {
     "b0": Path("docs/status/B0_BENCHMARK_TRUTH_STATUS.md"),
     "tw03": Path("docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md"),
+    "gti": Path("docs/status/GTI_GROUND_TRUTH_INTEGRITY_STATUS.md"),
 }
 
 DEFAULT_SURFACES: tuple[str, ...] = ("b0", "tw03")

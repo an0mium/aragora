@@ -41,6 +41,9 @@ from aragora.cli.commands.review_queue_parsers import (
     add_observe_outcomes_parser,
     add_record_settlement_parser,
 )
+from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
+)
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
     _gh_error_kind,
@@ -238,6 +241,14 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     # registration surface follow the same human-chain-of-trust rule as
     # ``review_queue.py`` itself.
     "aragora/cli/parser.py",
+    # ``aragora/swarm/quorum_evidence.py`` composes and verdict-classifies the
+    # model-quorum evidence this gate counts (supportive / dissenting / abstain).
+    # A change there directly alters what evidence the gate trusts, so — like
+    # review_queue.py itself — it must follow the human-chain-of-trust rule
+    # (operator preapproval + head-bound settlement) rather than be auto-settled
+    # by the tier-2 path. The drain merge-authority guard already treats it as
+    # such; this aligns the settlement classifier with that guard and the policy.
+    "aragora/swarm/quorum_evidence.py",
     # Settlement and merge helpers can mark human-settlement status, reconcile
     # branch protection, or merge/admin-merge PRs. A PR changing those helpers
     # is changing the authority surface that future settlement runs trust.
@@ -1883,6 +1894,19 @@ def _effective_required_pr_check_count(
     )
 
 
+def _effective_required_pr_checks(
+    checks: list[dict[str, Any]], *, ignore_quorum_check: bool = False
+) -> list[dict[str, Any]]:
+    """Return required PR checks after excluding current/self quorum rows."""
+    return [
+        check
+        for check in checks
+        if isinstance(check, dict)
+        and not _is_required_pr_check_current_merge_quorum_self_check(check)
+        and not (ignore_quorum_check and _is_merge_quorum_check(check))
+    ]
+
+
 def _status_check_display_name(check: dict[str, Any]) -> str:
     workflow = str(check.get("workflowName") or check.get("workflow") or "").strip()
     name = str(check.get("name") or check.get("context") or "").strip()
@@ -2522,6 +2546,26 @@ def _build_packet(
             if ignore_own_quorum_check
             else 0
         )
+        effective_required_checks = _effective_required_pr_checks(
+            required_pr_checks, ignore_quorum_check=ignore_own_quorum_check
+        )
+        required_failing_or_cancelled_checks = [
+            check
+            for check in effective_required_checks
+            if _required_pr_check_bucket(check) in {"fail", "cancel"}
+        ]
+        required_pending_checks = [
+            check
+            for check in effective_required_checks
+            if _required_pr_check_bucket(check) == "pending"
+        ]
+        required_quorum_only_failure = (
+            required_available
+            and effective_required_count > 0
+            and bool(required_failing_or_cancelled_checks)
+            and not required_pending_checks
+            and all(_is_merge_quorum_check(check) for check in required_failing_or_cancelled_checks)
+        )
         # _rollup_non_green_diagnostics reports the raw GitHub rollup counts/sample
         # and is intentionally not filtered by ignore_own_quorum_check. The flag's
         # effect on the rollup is limited to the summary text computed above; the
@@ -2567,18 +2611,12 @@ def _build_packet(
             "gate_blocked_reason": gate_blocked_reason,
             "failing_or_cancelled": [
                 str(check.get("name") or "").strip()
-                for check in required_pr_checks
-                if _required_pr_check_bucket(check) in {"fail", "cancel"}
-                and not _is_required_pr_check_current_merge_quorum_self_check(check)
-                and not (ignore_own_quorum_check and _is_merge_quorum_check(check))
+                for check in required_failing_or_cancelled_checks
             ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
-            "pending": [
-                str(check.get("name") or "").strip()
-                for check in required_pr_checks
-                if _required_pr_check_bucket(check) == "pending"
-                and not _is_required_pr_check_current_merge_quorum_self_check(check)
-                and not (ignore_own_quorum_check and _is_merge_quorum_check(check))
-            ][:CHECK_SURFACE_DIAGNOSTIC_LIMIT],
+            "pending": [str(check.get("name") or "").strip() for check in required_pending_checks][
+                :CHECK_SURFACE_DIAGNOSTIC_LIMIT
+            ],
+            "quorum_only_failure": required_quorum_only_failure,
         }
         if required_surface.get("error"):
             check_surfaces["required_pr_checks"]["error"] = str(required_surface.get("error"))
@@ -2612,6 +2650,26 @@ def _build_packet(
             check_surfaces["remediation_prompt"] = (
                 "Continue gating on branch-protection required checks; keep "
                 "non-required shadow/advisory check failures visible but non-blocking."
+            )
+        elif required_quorum_only_failure:
+            check_surfaces["required_pr_checks"]["gate_selected"] = True
+            check_surfaces["required_pr_checks"]["gate_blocked_reason"] = ""
+            checks_summary = f"{required_summary} (required PR checks; only merge-quorum failing)"
+            has_pending = False
+            checks_unavailable = False
+            check_surfaces["effective_gate"] = {
+                "source": "required_pr_checks",
+                "summary": checks_summary,
+            }
+            check_surfaces["diagnosis"] = (
+                "The PR check rollup includes non-required non-green checks, "
+                "and GitHub reports every non-quorum branch-protection required "
+                "check green; merge-packet leaves aragora-merge-quorum to the "
+                "model quorum evidence gate."
+            )
+            check_surfaces["remediation_prompt"] = (
+                "Collect missing model quorum evidence or rerun aragora-merge-quorum "
+                "after evidence is counted; keep non-required rollup failures advisory."
             )
         elif gate_blocked_reason:
             check_surfaces["diagnosis"] = (
@@ -3056,9 +3114,15 @@ def _build_model_review_quorum(
         head_sha=head_sha,
         head_committed_at=head_committed_at,
     )
+    comment_dissenting_views = _dissenting_views_from_comments(
+        pr.get("comments") or [],
+        head_sha=head_sha,
+        head_committed_at=head_committed_at,
+    )
     dissenting_views = [
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
     ]
+    dissenting_views.extend(comment_dissenting_views)
     blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
     blocking_workflow_state = bool(blocking_workflow_reasons)
     unresolved_dissent = bool(dissenting_views)
@@ -3075,6 +3139,19 @@ def _build_model_review_quorum(
     )
     quorum_satisfied = (
         signal_count >= requirement["required_model_signals"] and has_required_dogfood
+    )
+    required_pr_check_surface = (
+        check_surfaces.get("required_pr_checks") if isinstance(check_surfaces, dict) else {}
+    )
+    quorum_only_required_failure = bool(
+        isinstance(required_pr_check_surface, dict)
+        and required_pr_check_surface.get("quorum_only_failure")
+    )
+    missing_quorum_is_active_check_blocker = (
+        quorum_only_required_failure and not quorum_satisfied and not settlement_recorded
+    )
+    stale_quorum_check_after_satisfied_evidence = (
+        quorum_only_required_failure and quorum_satisfied and not settlement_recorded
     )
     requires_human_preapproval = bool(requirement["requires_human_preapproval"])
     human_preapproval_recorded = (
@@ -3107,8 +3184,12 @@ def _build_model_review_quorum(
         reasons.append(str(settlement_creator_pin["reason"]))
     elif human_risk_settlement_recorded:
         reasons.append("exact-head human risk settlement receipt recorded")
-    if has_failures and not settlement_recorded:
+    if has_failures and not settlement_recorded and not missing_quorum_is_active_check_blocker:
         reasons.append("checks are failing; repair before settlement")
+    elif missing_quorum_is_active_check_blocker:
+        reasons.append(
+            "required aragora-merge-quorum is failing because model quorum is incomplete"
+        )
     if checks_unavailable and not settlement_recorded:
         reasons.append("checks are unavailable; wait for GitHub check rollup before settlement")
         if isinstance(check_surfaces, dict) and (
@@ -3139,10 +3220,11 @@ def _build_model_review_quorum(
         verdict = "already_merged_settlement_recorded"
         requires_human_risk_settlement = False
     elif (
-        has_failures
+        (has_failures and not missing_quorum_is_active_check_blocker)
         or has_pending
         or checks_unavailable
-        or machine_recommendation == "repair_first"
+        or (machine_recommendation == "repair_first" and not missing_quorum_is_active_check_blocker)
+        or stale_quorum_check_after_satisfied_evidence
         or blocking_workflow_state
     ):
         status = "repair_or_wait"
@@ -3694,104 +3776,6 @@ def _is_github_actions_author(author: str) -> bool:
     return str(author or "").strip().lower() in {"github-actions", "github-actions[bot]"}
 
 
-def _has_blocking_or_negative_verdict(body: str) -> bool:
-    """Return True for explicit evidence comments that report blockers.
-
-    Merge quorum should count independent evidence that can support readiness,
-    not a comment that visibly says the reviewer failed or blocked the PR.
-    Keep the parser deliberately label-based so ordinary prose such as
-    "no blocking findings" remains countable.
-    """
-    negative_verdict_prefixes = (
-        "fail",
-        "failed",
-        "failing",
-        "fails",
-        "failure",
-        "block",
-        "blocked",
-        "blocking",
-        "request changes",
-        "request_changes",
-        "changes requested",
-        "reject",
-        "rejected",
-        "not ready",
-        "needs repair",
-    )
-    non_blocking_prefixes = (
-        "none",
-        "none found",
-        "no",
-        "no blockers",
-        "no blocking findings",
-        "not found",
-        "0",
-        "zero",
-        "false",
-        "n/a",
-        "not applicable",
-        "[]",
-    )
-
-    def _starts_with_phrase(value: str, phrases: tuple[str, ...]) -> bool:
-        # Word-boundary matching, not raw prefixes: "no" must cover "no" /
-        # "no blockers" but never "node crashes" or "not working", and
-        # "block" must never cover "blockchain".
-        return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
-
-    def _strip_decoration(text: str) -> str:
-        # Markdown list/heading/quote decoration and numbered-list markers:
-        # "### Verdict", "1. Verdict", "> **Verdict**" all expose the label.
-        return re.sub(r"^(?:[#>\-*+\s]+|\d+[.)]\s+)+", "", text.strip())
-
-    def _normalize_value(text: str) -> str:
-        text = text.replace("**", "").replace("__", "")
-        return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
-
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
-    for idx, stripped in enumerate(lines):
-        if not stripped:
-            continue
-        line = _strip_decoration(stripped)
-        line = line.replace("**", "").replace("__", "")
-        match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
-        if not match:
-            continue
-        normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
-        normalized_label = normalized_label.strip("*_ ")
-        normalized_value = _normalize_value(match.group("value"))
-        if normalized_label in {"verdict", "decision", "recommendation"} and _starts_with_phrase(
-            normalized_value, negative_verdict_prefixes
-        ):
-            return True
-        if normalized_label in {"blocking finding", "blocking findings", "blocker", "blockers"}:
-            candidate = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", normalized_value)
-            if candidate in {"-", "*", "[]", "[ ]", "—", "–"}:
-                # An inline empty marker ("Blockers: []", "Blockers: -") is an
-                # explicit "no blockers"; never read the next line as a blocker.
-                continue
-            if not candidate:
-                # The blockers may be listed on the following lines:
-                # "Blocking findings:\n- crash on startup" must stay blocking,
-                # while "Blockers:\nNone found." must stay countable.
-                follow = next((entry for entry in lines[idx + 1 :] if entry), "")
-                is_list_item = bool(re.match(r"^(?:[-*+]\s+|\d+[.)]\s+)", follow))
-                if not is_list_item:
-                    if follow.startswith("#"):
-                        # An empty blockers section followed by a heading.
-                        continue
-                    if re.match(r"^[^:]+?:\s+\S", follow):
-                        # An empty blockers section followed by a new labeled
-                        # section ("Verdict: PASS") is not a blocker entry.
-                        continue
-                candidate = _normalize_value(_strip_decoration(follow))
-            if not candidate or _starts_with_phrase(candidate, non_blocking_prefixes):
-                continue
-            return True
-    return False
-
-
 def _normalize_model_reviewer_id(value: str) -> str:
     lower = str(value).lower()
     if not lower or "unknown_model_reviewer" in lower:
@@ -3830,6 +3814,13 @@ def _normalize_model_family(value: str) -> str:
         "z-ai": "glm",
         "nous-hermes": "hermes",
         "nous hermes": "hermes",
+        # OpenAI-family CLI/product names so a disclosed "Model family: codex"
+        # still counts at the gate (mirrors canonical_family in quorum_evidence).
+        "codex": "openai",
+        "gpt": "openai",
+        "gpt-5": "openai",
+        "gpt5": "openai",
+        "chatgpt": "openai",
     }
 
     def _lookup(token: str) -> str:
@@ -4126,6 +4117,60 @@ def _dogfood_evidence_from_comments(
             }
         )
     return evidence[:5]
+
+
+def _dissenting_views_from_comments(
+    comments: list[Any],
+    *,
+    head_sha: str = "",
+    head_committed_at: str = "",
+) -> list[dict[str, Any]]:
+    """Extract exact-head model-review comments that visibly request changes."""
+    markers = (
+        "dogfood",
+        "adversarial",
+        "cross-author",
+        "recheck",
+        "codex review",
+        "claude review",
+        "grok independent",
+        "gemini independent",
+        "independent semantic review",
+        "independent model review",
+        "model-family semantic signal",
+    )
+    dissent: list[dict[str, Any]] = []
+    for comment in comments:
+        if not isinstance(comment, dict) or not _is_comment_grounded_on_head(
+            comment, head_sha, head_committed_at
+        ):
+            continue
+        body = str(comment.get("body", "") or "")
+        lower = body.lower()
+        if not _has_blocking_or_negative_verdict(body) or not any(
+            token in lower for token in markers
+        ):
+            continue
+        identity = _resolve_model_review_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
+            identity = _resolve_dogfood_identity(body)
+        if identity.surface_reviewer_id == "unknown_model_reviewer":
+            continue
+        author_payload = comment.get("author")
+        github_author = ""
+        if isinstance(author_payload, dict):
+            github_author = str(author_payload.get("login", "") or "")
+        dissent.append(
+            {
+                "agent": identity.model_family or identity.surface_reviewer_id,
+                "position": "changes_requested",
+                "reason": _first_nonempty_line(body)[:240],
+                "source": "pr_comment",
+                "github_author": github_author,
+                **identity.as_packet_fields(),
+            }
+        )
+    return dissent[:5]
 
 
 def _model_review_signals_from_comments(

@@ -144,6 +144,32 @@ def test_automation_pr_preflight_json_suggests_publisher_startup_smoke(
     assert "'scripts.github_cli_health'" in startup_command
 
 
+def test_automation_pr_preflight_json_suggests_benchmark_truth_status_smoke(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    _run(["git", "switch", "-c", "codex/benchmark-truth-json"], cwd=repo)
+    source = repo / "scripts" / "render_benchmark_truth_status.py"
+    source.parent.mkdir()
+    source.write_text("print('benchmark truth')\n", encoding="utf-8")
+    _run(["git", "add", "scripts/render_benchmark_truth_status.py"], cwd=repo)
+    _run(["git", "commit", "-m", "fix: update benchmark truth status"], cwd=repo)
+
+    proc = _run(["bash", str(SCRIPT), "--json", "origin/main", "HEAD"], cwd=repo)
+
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "ok"
+    assert (
+        "python3 -m py_compile scripts/render_benchmark_truth_status.py"
+        in payload["suggested_validation_commands"]
+    )
+    assert (
+        "python3 -m pytest tests/scripts/test_render_benchmark_truth_status.py -q"
+        in payload["suggested_validation_commands"]
+    )
+
+
 def test_automation_pr_preflight_json_suggests_agent_bridge_smoke(
     tmp_path: Path,
 ) -> None:
