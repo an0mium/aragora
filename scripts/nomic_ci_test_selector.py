@@ -17,7 +17,16 @@ from pathlib import Path
 
 
 def infer_test_paths(changed_files: list[str]) -> list[str]:
-    """Map source files to test files."""
+    """Map source files to test files.
+
+    For a subdirectory file ``aragora/<module>/<file>.py`` the primary
+    mapping is ``tests/<module>/test_<file>.py``.  For a top-level
+    ``aragora/<x>.py`` the legacy root mapping ``tests/test_<x>.py`` is
+    tried first; when that file does not exist the selector ALSO probes
+    the module-mirrored ``tests/*/test_<x>.py`` (relocated by the P1
+    tests-migration) and the ``_root``-suffixed variant
+    ``tests/*/test_<x>_root.py`` (used by migration batch 3).
+    """
     test_paths = []
     for path in changed_files:
         if not path.strip():
@@ -31,13 +40,31 @@ def infer_test_paths(changed_files: list[str]) -> list[str]:
             if len(parts) == 2:
                 directory, filename = parts
                 if filename.endswith(".py"):
+                    basename = filename[:-3]  # strip ".py"
+                    # Primary subdirectory mapping
                     test_file = f"tests/{directory}/test_{filename}"
                     if Path(test_file).exists():
                         test_paths.append(test_file)
+                    # _root-suffixed variant (batch 3 convention)
+                    root_test = (
+                        f"tests/{directory}/test_{basename}_root.py"
+                    )
+                    if Path(root_test).exists():
+                        test_paths.append(root_test)
             elif len(parts) == 1 and parts[0].endswith(".py"):
+                basename = parts[0][:-3]  # strip ".py"
+                # Legacy root path
                 test_file = f"tests/test_{parts[0]}"
                 if Path(test_file).exists():
                     test_paths.append(test_file)
+                # Relocated subdir probe: tests/<module>/test_<x>.py
+                for match in Path("tests").glob(f"*/test_{parts[0]}"):
+                    test_paths.append(str(match))
+                # Root-suffixed variant: tests/<module>/test_<x>_root.py
+                for match in Path("tests").glob(
+                    f"*/test_{basename}_root.py"
+                ):
+                    test_paths.append(str(match))
     # Deduplicate
     return list(dict.fromkeys(test_paths))
 
