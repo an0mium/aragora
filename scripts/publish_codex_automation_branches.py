@@ -866,11 +866,16 @@ def _open_codex_prs_from_status_cache(
 def _flatten_rest_pages(payload: Any) -> list[dict[str, Any]]:
     if not isinstance(payload, list):
         raise RuntimeError("REST PR lookup returned unexpected JSON shape")
-    if payload and all(isinstance(item, list) for item in payload):
-        return [
-            pr for page in payload if isinstance(page, list) for pr in page if isinstance(pr, dict)
-        ]
-    return [item for item in payload if isinstance(item, dict)]
+    flattened: list[dict[str, Any]] = []
+    for item in payload:
+        if isinstance(item, dict):
+            flattened.append(item)
+            continue
+        if isinstance(item, list):
+            flattened.extend(_flatten_rest_pages(item))
+            continue
+        raise RuntimeError("REST PR lookup returned unexpected JSON shape")
+    return flattened
 
 
 def _open_codex_prs_from_rest(repo_root: Path, repo: str) -> list[dict[str, Any]]:
@@ -895,9 +900,15 @@ def _open_codex_prs_from_rest(repo_root: Path, repo: str) -> list[dict[str, Any]
     for item in _flatten_rest_pages(payload):
         head = item.get("head")
         if not isinstance(head, Mapping):
-            continue
+            number = item.get("number")
+            suffix = f" for PR #{number}" if number is not None else ""
+            raise RuntimeError(f"REST PR lookup missing head metadata{suffix}")
         branch = head.get("ref")
-        if not isinstance(branch, str) or not branch.startswith(CODEX_BRANCH_PREFIX):
+        if not isinstance(branch, str):
+            number = item.get("number")
+            suffix = f" for PR #{number}" if number is not None else ""
+            raise RuntimeError(f"REST PR lookup missing head ref{suffix}")
+        if not branch.startswith(CODEX_BRANCH_PREFIX):
             continue
         prs.append(
             {
@@ -940,6 +951,8 @@ def _open_codex_prs_with_cache_fallback(
                 "source": "rest",
                 "status": "ok",
                 "fallback_error": live_error,
+                "lookup_degraded": True,
+                "rest_result_count": len(rest_prs),
             }
             lookup_meta.update(cache_meta)
             return rest_prs, lookup_meta
@@ -1822,6 +1835,20 @@ def main(argv: list[str] | None = None) -> int:
             )
     unhealthy_open_pr_count = len(unhealthy_open_prs)
     all_open_prs_unhealthy = bool(open_codex_prs) and unhealthy_open_pr_count == len(open_codex_prs)
+    if (
+        open_pr_lookup.get("source") == "rest"
+        and open_pr_lookup.get("lookup_degraded") is True
+        and not open_codex_prs
+    ):
+        unhealthy_open_pr_count = max(unhealthy_open_pr_count, 1)
+        all_open_prs_unhealthy = True
+        unhealthy_open_prs = [
+            {
+                "reasons": [
+                    "lookup_degraded_queue_health_unknown",
+                ]
+            }
+        ]
     cache_queue_health = open_pr_lookup.get("cache_queue_health")
     if open_pr_lookup.get("source") == "cache" and isinstance(cache_queue_health, Mapping):
         cached_merge_state_counts = cache_queue_health.get("merge_state_counts")
