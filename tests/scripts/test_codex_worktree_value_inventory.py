@@ -91,6 +91,11 @@ def _stub_clean_git(
         ),
     )
     monkeypatch.setattr(mod, "is_patch_equivalent", lambda *_args, **_kwargs: patch_equivalent)
+    monkeypatch.setattr(
+        mod,
+        "branch_unique_merge_commits",
+        lambda *_args, **_kwargs: ([], None),
+    )
 
 
 def test_default_scan_preserves_foreign_repo_as_lookup_failed(
@@ -467,6 +472,32 @@ def test_terminal_receipt_path_heads_reads_object_decision_outcome(
     assert refs[str(root.resolve())] == {"abcdef123456"}
 
 
+def test_terminal_receipt_path_heads_reads_object_decision_status(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "completed.json").write_text(
+        json.dumps(
+            {
+                "decision": {"status": "completed"},
+                "selected_candidate": {
+                    "path": str(root),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs[str(root.resolve())] == {"abcdef123456"}
+
+
 def test_unique_unharvested_when_ahead_and_not_patch_equivalent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -638,6 +669,87 @@ def test_smart_merge_detection_reclassifies_already_present_patches(
     assert candidate.git.smart_merge_equivalent_to_base is True
     assert "all unique commit patches are already present on base" in candidate.proof
     assert candidate.links["smart_merge_matched_commits"] == ["2f2a1f6", "b46d5c6"]
+
+
+def test_smart_merge_detection_preserves_branches_with_merge_commits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_unique_merge_commits",
+        lambda *_args, **_kwargs: (["merge-sha"], None),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (True, ["feat: already merged"]),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (True, ["commit-sha"]),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=["feat: already merged (#123)"],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.smart_merge_equivalent_to_base is False
+    assert "smart merge detection skipped because branch contains merge commits" in candidate.proof
+    assert candidate.links["smart_merge_merge_commits"] == ["merge-sha"]
+
+
+def test_smart_merge_patch_timeout_is_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (False, []),
+    )
+
+    def fake_patches_present(
+        *_args: Any, lookup_errors: list[str] | None = None, **_kwargs: Any
+    ) -> tuple[bool, list[str]]:
+        if lookup_errors is not None:
+            lookup_errors.append("patch-present rev-list failed: command timed out after 1s")
+        return False, []
+
+    monkeypatch.setattr(mod, "branch_patches_present_on_base", fake_patches_present)
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.inspect_timeout is True
+    assert any("patch-present rev-list failed" in item for item in candidate.git.lookup_errors)
+    assert any("inspect_timeout" in item for item in candidate.proof)
 
 
 def test_smart_merge_detection_keeps_unmatched_subjects_harvestable(

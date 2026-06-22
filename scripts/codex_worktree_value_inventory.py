@@ -452,6 +452,8 @@ def _terminal_path_receipt(payload: dict[str, Any]) -> bool:
         ).strip()
     else:
         decision = str(decision_value or payload.get("outcome") or "").strip()
+    if decision in TERMINAL_RECEIPT_STATUSES:
+        return True
     if decision.startswith(TERMINAL_HARVEST_DECISION_PREFIXES):
         return True
     return False
@@ -705,6 +707,7 @@ def branch_patches_present_on_base(
     rev: str,
     *,
     timeout: int,
+    lookup_errors: list[str] | None = None,
 ) -> tuple[bool, list[str]]:
     """Return true when every unique non-merge commit patch is already in base.
 
@@ -723,6 +726,11 @@ def branch_patches_present_on_base(
         timeout=timeout,
     )
     if commits_proc.returncode != 0:
+        if lookup_errors is not None:
+            detail = (commits_proc.stderr or commits_proc.stdout or "").strip()
+            lookup_errors.append(
+                f"patch-present rev-list failed: {detail or commits_proc.returncode}"
+            )
         return False, []
     commits = [line.strip() for line in commits_proc.stdout.splitlines() if line.strip()]
     if not commits:
@@ -735,12 +743,21 @@ def branch_patches_present_on_base(
         env["GIT_INDEX_FILE"] = index_path
         read_tree = run_cmd(["git", "read-tree", base], repo_path, timeout=timeout, env=env)
         if read_tree.returncode != 0:
+            if lookup_errors is not None:
+                detail = (read_tree.stderr or read_tree.stdout or "").strip()
+                lookup_errors.append(
+                    f"patch-present read-tree failed: {detail or read_tree.returncode}"
+                )
             return False, []
 
         verified: list[str] = []
         for commit in commits:
             patch = run_git(["show", "--format=", "--binary", commit], repo_path, timeout=timeout)
             if patch.returncode != 0 or not patch.stdout.strip():
+                if lookup_errors is not None:
+                    detail = (patch.stderr or patch.stdout or "").strip()
+                    reason = "empty patch" if patch.returncode == 0 else detail or patch.returncode
+                    lookup_errors.append(f"patch-present show failed for {commit}: {reason}")
                 return False, verified
             reverse_check = run_cmd(
                 ["git", "apply", "--cached", "--reverse", "--check", "--index", "-"],
@@ -750,6 +767,12 @@ def branch_patches_present_on_base(
                 input_text=patch.stdout,
             )
             if reverse_check.returncode != 0:
+                if lookup_errors is not None:
+                    detail = (reverse_check.stderr or reverse_check.stdout or "").strip()
+                    lookup_errors.append(
+                        f"patch-present reverse-check failed for {commit}: "
+                        f"{detail or reverse_check.returncode}"
+                    )
                 return False, verified
             verified.append(commit)
         return True, verified
@@ -758,6 +781,20 @@ def branch_patches_present_on_base(
             os.unlink(index_path)
         except FileNotFoundError:
             pass
+
+
+def branch_unique_merge_commits(
+    repo_path: Path,
+    base: str,
+    rev: str,
+    *,
+    timeout: int,
+) -> tuple[list[str] | None, str | None]:
+    proc = run_git(["rev-list", "--merges", f"{base}..{rev}"], repo_path, timeout=timeout)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        return None, detail or f"git rev-list --merges exited {proc.returncode}"
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()], None
 
 
 def prefetch_open_pr_heads(
@@ -1053,35 +1090,55 @@ def classify_candidate(
                 classification = "patch_equivalent_or_merged"
                 proof.append("branch is patch-equivalent to base")
             elif context.smart_merge_detection:
-                smart_equivalent, matched_subjects = branch_subjects_match_recent_main(
+                merge_commits, merge_error = branch_unique_merge_commits(
                     repo_path,
                     context.base,
                     rev or "HEAD",
-                    context.smart_merge_main_subjects,
                     timeout=context.patch_timeout,
                 )
-                git.smart_merge_equivalent_to_base = smart_equivalent
-                if smart_equivalent:
-                    classification = "patch_equivalent_or_merged"
-                    proof.append(
-                        "all unique commit subjects match recent main squash-merge subjects"
+                if merge_error:
+                    git.lookup_errors.append(
+                        f"smart merge merge-commit lookup failed: {merge_error}"
                     )
-                    links["smart_merge_matched_subjects"] = matched_subjects
+                    classification = "unique_unharvested"
+                    proof.append("branch has unique commits or diff ahead of base")
+                elif merge_commits:
+                    classification = "unique_unharvested"
+                    proof.append(
+                        "smart merge detection skipped because branch contains merge commits"
+                    )
+                    links["smart_merge_merge_commits"] = merge_commits
                 else:
-                    patches_present, matched_commits = branch_patches_present_on_base(
+                    smart_equivalent, matched_subjects = branch_subjects_match_recent_main(
                         repo_path,
                         context.base,
                         rev or "HEAD",
+                        context.smart_merge_main_subjects,
                         timeout=context.patch_timeout,
                     )
-                    git.smart_merge_equivalent_to_base = patches_present
-                    if patches_present:
+                    git.smart_merge_equivalent_to_base = smart_equivalent
+                    if smart_equivalent:
                         classification = "patch_equivalent_or_merged"
-                        proof.append("all unique commit patches are already present on base")
-                        links["smart_merge_matched_commits"] = matched_commits
+                        proof.append(
+                            "all unique commit subjects match recent main squash-merge subjects"
+                        )
+                        links["smart_merge_matched_subjects"] = matched_subjects
                     else:
-                        classification = "unique_unharvested"
-                        proof.append("branch has unique commits or diff ahead of base")
+                        patches_present, matched_commits = branch_patches_present_on_base(
+                            repo_path,
+                            context.base,
+                            rev or "HEAD",
+                            timeout=context.patch_timeout,
+                            lookup_errors=git.lookup_errors,
+                        )
+                        git.smart_merge_equivalent_to_base = patches_present
+                        if patches_present:
+                            classification = "patch_equivalent_or_merged"
+                            proof.append("all unique commit patches are already present on base")
+                            links["smart_merge_matched_commits"] = matched_commits
+                        else:
+                            classification = "unique_unharvested"
+                            proof.append("branch has unique commits or diff ahead of base")
             else:
                 classification = "unique_unharvested"
                 proof.append("branch has unique commits or diff ahead of base")
