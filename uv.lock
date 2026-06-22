@@ -371,7 +371,7 @@ requires-dist = [
     { name = "supabase", marker = "extra == 'all'", specifier = ">=2.31.0,<3.0" },
     { name = "supabase", marker = "extra == 'enterprise'", specifier = ">=2.31.0,<3.0" },
     { name = "twine", marker = "extra == 'test'", specifier = ">=6.2.0,<7.0" },
-    { name = "typer", specifier = ">=0.12,<1.0" },
+    { name = "typer", specifier = ">=0.26.7,<1.0" },
     { name = "types-croniter", marker = "extra == 'dev'", specifier = ">=6.2.2.20260518,<7.0" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.12.20260518,<7.0" },
     { name = "uvicorn", marker = "extra == 'all'", specifier = ">=0.49.0,<1.0" },
