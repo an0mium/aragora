@@ -6,7 +6,7 @@
   "publisher": "aragora",
   "engines": {
     "vscode": "^1.85.0",
-    "node": ">=20"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "categories": [
     "Other",
@@ -483,7 +483,7 @@
     "test:watch": "jest --watch",
     "lint": "eslint src --ext ts",
     "package": "vsce package",
-    "build:webview": "cd webview-ui && npm install && npm run build"
+    "build:webview": "npm --prefix webview-ui ci && npm --prefix webview-ui run build"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",

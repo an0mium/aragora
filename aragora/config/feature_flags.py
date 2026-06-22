@@ -500,6 +500,15 @@ class FeatureFlagRegistry:
             FlagStatus.BETA,
             env_var="ARAGORA_ENABLE_CODEX_BRIDGE",
         )
+        self.register(
+            "enable_fusion_quorum_tiebreak",
+            bool,
+            False,
+            "Run an advisory, non-counting OpenRouter Fusion tie-breaker when merge-quorum reviewers split",
+            FlagCategory.EXPERIMENTAL,
+            FlagStatus.BETA,
+            env_var="ARAGORA_ENABLE_FUSION_QUORUM_TIEBREAK",
+        )
         # Knowledge Mound flags
         self.register(
             "enable_knowledge_retrieval",
