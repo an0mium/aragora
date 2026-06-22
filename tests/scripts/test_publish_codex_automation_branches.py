@@ -63,6 +63,18 @@ def _worktree(
     )
 
 
+def _allow_automation_guardrails(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        mod,
+        "evaluate_automation_guardrails",
+        lambda repo_root, open_pr_count, max_open_prs: mod.AutomationGuardrailReport(
+            ok=True,
+            blockers=[],
+            metrics={},
+        ),
+    )
+
+
 def test_duplicate_patch_branches_skips_older_candidate(tmp_path: Path) -> None:
     _git(tmp_path, "init", "-b", "main")
     _git(tmp_path, "config", "user.email", "codex@example.invalid")
@@ -1264,6 +1276,7 @@ def test_main_pauses_apply_when_open_codex_queue_is_unhealthy(
         mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
     )
     monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    _allow_automation_guardrails(monkeypatch)
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
@@ -1331,6 +1344,7 @@ def test_main_can_override_unhealthy_queue_pause_for_preflighted_branch(
     monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
     monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
     monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    _allow_automation_guardrails(monkeypatch)
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
@@ -1410,6 +1424,7 @@ def test_main_does_not_pause_for_green_review_required_codex_pr(
         mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
     )
     monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    _allow_automation_guardrails(monkeypatch)
     monkeypatch.setattr(
         mod,
         "check_github_cli_health",
