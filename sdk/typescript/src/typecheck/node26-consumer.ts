@@ -6,7 +6,7 @@ import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 const config: AragoraConfig = {
   baseUrl: 'https://api.example.com',
   apiKey: 'test-key',
-  headers: Object.fromEntries(new Headers([['X-Consumer', 'node26']]).entries()),
+  headers: { 'X-Consumer': 'node26' },
 };
 
 const client = createClient(config);
@@ -21,10 +21,18 @@ const requestInit: RequestInit = {
 const request = new Request(new URL('/api/v1/debates', config.baseUrl), requestInit);
 const nativeFetch: typeof globalThis.fetch = fetch;
 
+function headersToRecord(headers: Headers): Record<string, string> {
+  const result: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    result[key] = value;
+  });
+  return result;
+}
+
 async function checkNodeFetchConsumer(): Promise<void> {
   const response: Response = await nativeFetch(request);
   await client.request<{ ok: boolean }>('GET', '/api/health', {
-    headers: Object.fromEntries(response.headers.entries()),
+    headers: headersToRecord(response.headers),
   });
 }
 
