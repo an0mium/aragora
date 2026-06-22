@@ -600,7 +600,7 @@ def test_smart_merge_detection_default_off_preserves_unique_harvest(
     assert candidate.decision == "harvest_candidate"
 
 
-def test_smart_merge_detection_reclassifies_matching_subjects(
+def test_smart_merge_detection_keeps_matching_subjects_harvestable_without_patch_proof(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import codex_worktree_value_inventory as mod
@@ -614,6 +614,11 @@ def test_smart_merge_detection_reclassifies_matching_subjects(
             "feat(scripts): list active sessions [lane: P42]",
             "docs(status): inventory receipt [lane: P42]",
         ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (False, []),
     )
 
     candidate = mod.classify_candidate(
@@ -630,10 +635,13 @@ def test_smart_merge_detection_reclassifies_matching_subjects(
         size_lookup_failed=False,
     )
 
-    assert candidate.classification == "patch_equivalent_or_merged"
-    assert candidate.cleanup_candidate is True
-    assert candidate.git.smart_merge_equivalent_to_base is True
-    assert "all unique commit subjects match recent main squash-merge subjects" in candidate.proof
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.smart_merge_equivalent_to_base is False
+    assert (
+        "all unique commit subjects match recent main squash-merge subjects "
+        "(advisory; patch proof still required)"
+    ) in candidate.proof
     assert candidate.links["smart_merge_matched_subjects"] == [
         "feat(scripts): list active sessions [lane: P42]",
         "docs(status): inventory receipt [lane: P42]",

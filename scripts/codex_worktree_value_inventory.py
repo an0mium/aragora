@@ -1192,36 +1192,32 @@ def classify_candidate(
                             context.smart_merge_main_subjects,
                             timeout=context.patch_timeout,
                         )
-                        git.smart_merge_equivalent_to_base = smart_equivalent
                         if smart_equivalent:
-                            classification = "patch_equivalent_or_merged"
                             proof.append(
-                                "all unique commit subjects match recent main squash-merge subjects"
+                                "all unique commit subjects match recent main squash-merge subjects "
+                                "(advisory; patch proof still required)"
                             )
                             links["smart_merge_matched_subjects"] = matched_subjects
+                        error_count_before = len(git.lookup_errors)
+                        patches_present, matched_commits = branch_patches_present_on_base(
+                            repo_path,
+                            context.base,
+                            rev or "HEAD",
+                            timeout=context.patch_timeout,
+                            lookup_errors=git.lookup_errors,
+                        )
+                        git.smart_merge_equivalent_to_base = patches_present
+                        if patches_present:
+                            classification = "patch_equivalent_or_merged"
+                            proof.append("all unique commit patches are already present on base")
+                            links["smart_merge_matched_commits"] = matched_commits
+                        elif len(git.lookup_errors) > error_count_before:
+                            git.lookup_failed = True
+                            classification = "lookup_failed"
+                            proof.append("smart merge patch-present lookup failed")
                         else:
-                            error_count_before = len(git.lookup_errors)
-                            patches_present, matched_commits = branch_patches_present_on_base(
-                                repo_path,
-                                context.base,
-                                rev or "HEAD",
-                                timeout=context.patch_timeout,
-                                lookup_errors=git.lookup_errors,
-                            )
-                            git.smart_merge_equivalent_to_base = patches_present
-                            if patches_present:
-                                classification = "patch_equivalent_or_merged"
-                                proof.append(
-                                    "all unique commit patches are already present on base"
-                                )
-                                links["smart_merge_matched_commits"] = matched_commits
-                            elif len(git.lookup_errors) > error_count_before:
-                                git.lookup_failed = True
-                                classification = "lookup_failed"
-                                proof.append("smart merge patch-present lookup failed")
-                            else:
-                                classification = "unique_unharvested"
-                                proof.append("branch has unique commits or diff ahead of base")
+                            classification = "unique_unharvested"
+                            proof.append("branch has unique commits or diff ahead of base")
             else:
                 classification = "unique_unharvested"
                 proof.append("branch has unique commits or diff ahead of base")
@@ -1744,10 +1740,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--smart-merge-detection",
         action="store_true",
         help=(
-            "Reclassify ahead branches as patch_equivalent_or_merged when every "
-            "unique commit subject loosely matches a recent main squash-merge "
-            "subject, or when every unique commit patch is already present on "
-            "base. Default off to preserve legacy inventory behavior."
+            "Reclassify ahead branches as patch_equivalent_or_merged when merge-tree "
+            "or patch-presence proves the branch is already represented on base. "
+            "Loose recent-main subject matches are recorded only as advisory context. "
+            "Default off to preserve legacy inventory behavior."
         ),
     )
     parser.add_argument(
