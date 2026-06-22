@@ -40,5 +40,5 @@ Per [NEXT_STEPS_CANONICAL.md](../../status/NEXT_STEPS_CANONICAL.md), **the curre
 
 - [Track G3 in ARAGORA_EVOLUTION_ROADMAP.md](../../plans/ARAGORA_EVOLUTION_ROADMAP.md)
 - [SKIN_IN_THE_GAME_REPUTATION design doc](../../plans/SKIN_IN_THE_GAME_REPUTATION.md)
-- [Biological-timescale analogies brief (non-canonical framing for the decay metaphor)](../../research/2026-04-18-biological-timescale-analogies-brief.md)
+- Biological-timescale analogies brief (non-canonical framing for the decay metaphor; archived)
 - [NEXT_STEPS_CANONICAL.md proof-first gate](../../status/NEXT_STEPS_CANONICAL.md)

@@ -4,7 +4,9 @@ Tests for the domain_matcher module.
 Tests domain detection via keywords and caching behavior.
 """
 
+import sys
 import time
+from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,6 +16,28 @@ from aragora.routing.domain_matcher import (
     DomainDetector,
     _DomainCache,
 )
+
+try:
+    from anthropic.types import TextBlock
+except ModuleNotFoundError:
+
+    class TextBlock:
+        """Minimal stand-in for anthropic.types.TextBlock in smoke environments."""
+
+        def __init__(self, *, type: str, text: str) -> None:
+            self.type = type
+            self.text = text
+
+    _anthropic_module = sys.modules.setdefault("anthropic", ModuleType("anthropic"))
+    _anthropic_types_module = ModuleType("anthropic.types")
+    _anthropic_types_module.TextBlock = TextBlock
+    _anthropic_module.types = _anthropic_types_module
+    sys.modules.setdefault("anthropic.types", _anthropic_types_module)
+
+
+def text_block(text: str) -> SimpleNamespace:
+    """Return the minimal response shape consumed by DomainDetector."""
+    return SimpleNamespace(type="text", text=text)
 
 
 # =============================================================================
@@ -301,7 +325,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            MagicMock(text='{"domains": [{"name": "security", "confidence": 0.95}]}')
+            text_block('{"domains": [{"name": "security", "confidence": 0.95}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -317,7 +341,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            MagicMock(text='```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```')
+            text_block('```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -347,7 +371,7 @@ class TestDomainDetectorLLM:
     def test_llm_detection_failure_fallback(self):
         """Test that LLM failure falls back to keywords."""
         mock_client = MagicMock()
-        mock_client.messages.create.side_effect = Exception("API Error")
+        mock_client.messages.create.side_effect = ConnectionError("API Error")
 
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test_key"}):
             detector = DomainDetector(use_llm=True, client=mock_client, use_cache=False)
@@ -362,7 +386,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            MagicMock(text='{"domains": [{"name": "security", "confidence": 0.9}]}')
+            text_block('{"domains": [{"name": "security", "confidence": 0.9}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 
