@@ -829,7 +829,10 @@ def branch_merge_tree_matches_base(
     )
     if merge_tree.returncode != 0:
         detail = (merge_tree.stderr or merge_tree.stdout or "").strip()
-        return None, detail or f"git merge-tree exited {merge_tree.returncode}"
+        reason = detail or f"git merge-tree exited {merge_tree.returncode}"
+        if merge_tree.returncode == 124 or _TIMEOUT_ERROR_MARKER in reason:
+            return None, reason
+        return False, reason
     merged_tree_sha = merge_tree.stdout.strip().splitlines()[0] if merge_tree.stdout.strip() else ""
     if not merged_tree_sha:
         return None, "git merge-tree returned an empty tree id"
@@ -1135,7 +1138,7 @@ def classify_candidate(
                     rev or "HEAD",
                     timeout=context.patch_timeout,
                 )
-                if merge_tree_error:
+                if merge_tree_matches is None and merge_tree_error:
                     git.lookup_failed = True
                     git.lookup_errors.append(
                         f"smart merge merge-tree lookup failed: {merge_tree_error}"
@@ -1148,6 +1151,8 @@ def classify_candidate(
                     proof.append("merging branch into base leaves base tree unchanged")
                     links["smart_merge_merge_tree"] = context.base
                 else:
+                    if merge_tree_error:
+                        links["smart_merge_merge_tree_error"] = merge_tree_error
                     merge_commits, merge_error = branch_unique_merge_commits(
                         repo_path,
                         context.base,

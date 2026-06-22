@@ -707,7 +707,7 @@ def test_smart_merge_detection_reclassifies_noop_merge_tree(
     assert candidate.links["smart_merge_merge_tree"] == "origin/main"
 
 
-def test_smart_merge_detection_merge_tree_failure_is_protected(
+def test_smart_merge_detection_merge_tree_timeout_is_protected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import codex_worktree_value_inventory as mod
@@ -717,7 +717,7 @@ def test_smart_merge_detection_merge_tree_failure_is_protected(
     monkeypatch.setattr(
         mod,
         "branch_merge_tree_matches_base",
-        lambda *_args, **_kwargs: (None, "merge conflict"),
+        lambda *_args, **_kwargs: (None, "command timed out after 1s"),
     )
 
     candidate = mod.classify_candidate(
@@ -737,6 +737,46 @@ def test_smart_merge_detection_merge_tree_failure_is_protected(
     assert any(
         "smart merge merge-tree lookup failed" in item for item in candidate.git.lookup_errors
     )
+
+
+def test_smart_merge_detection_merge_tree_conflict_falls_through(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_merge_tree_matches_base",
+        lambda *_args, **_kwargs: (False, "CONFLICT (content): tracked.txt"),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (False, []),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (False, []),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.lookup_failed is False
+    assert candidate.links["smart_merge_merge_tree_error"] == "CONFLICT (content): tracked.txt"
 
 
 def test_branch_patches_present_on_base_uses_temp_index_only(tmp_path: Path) -> None:
