@@ -43,5 +43,5 @@ If the measurement does land and reports significance, the follow-up — wiring 
 ## Related
 
 - [Track E1 in ARAGORA_EVOLUTION_ROADMAP.md](../../plans/ARAGORA_EVOLUTION_ROADMAP.md)
-- [Biological-timescale analogies brief (non-canonical framing)](../../research/2026-04-18-biological-timescale-analogies-brief.md)
+- Biological-timescale analogies brief (non-canonical framing; archived)
 - [NEXT_STEPS_CANONICAL.md proof-first gate](../../status/NEXT_STEPS_CANONICAL.md)

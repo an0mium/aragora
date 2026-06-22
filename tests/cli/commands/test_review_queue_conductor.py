@@ -11,6 +11,7 @@ from aragora.cli.commands.review_queue_conductor import (
     TIER3_OR_TIER4_EVIDENCE_CLASSIFICATION,
     ConductorProviders,
     build_queue_conductor_packet,
+    render_queue_conductor_packet,
 )
 
 
@@ -703,6 +704,137 @@ def test_conductor_graphql_timeout_falls_back_to_rest_metadata_and_check_runs() 
     assert candidate["rollup"]["actionable_non_green"] is False
     assert candidate["transport_fallback"]["source"] == "rest"
     assert candidate["transport_fallback"]["check_runs_available"] is True
+
+
+def test_conductor_transport_blocked_summaries_include_rest_fallback_metadata() -> None:
+    def gh_json(args: list[str]) -> object:
+        if args[:2] == ["pr", "view"]:
+            raise _GhError("gh pr view 8313 failed: GraphQL: API rate limit already exceeded")
+        raise AssertionError(f"unexpected gh call: {args}")
+
+    def rest_json(args: list[str]) -> object:
+        if args == ["api", "repos/synaptent/aragora/pulls/8313"]:
+            return {
+                "number": 8313,
+                "title": "proof matrix failure reporting",
+                "html_url": "https://github.com/synaptent/aragora/pull/8313",
+                "head": {"ref": "codex/proof-matrix-failures", "sha": "rest-head"},
+                "base": {"ref": "main", "sha": "base-head"},
+                "draft": True,
+                "state": "open",
+                "mergeable": True,
+                "mergeable_state": "clean",
+                "updated_at": "2026-06-12T00:00:00Z",
+                "user": {"login": "codex"},
+                "labels": [],
+                "changed_files": 2,
+            }
+        if args == ["api", "repos/synaptent/aragora/pulls/8313/files?per_page=100"]:
+            return [{"filename": "scripts/generate_capability_matrix.py"}]
+        if args == [
+            "api",
+            "repos/synaptent/aragora/commits/rest-head/check-runs?per_page=100",
+        ]:
+            return {
+                "check_runs": [
+                    {
+                        "name": "required",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "html_url": "https://example.test/checks/1",
+                        "check_suite": {"app": {"name": "GitHub Actions"}},
+                    }
+                ]
+            }
+        raise AssertionError(f"unexpected REST call: {args}")
+
+    def required_transport(_pr_number: int, _repo: str | None) -> dict[str, object]:
+        return {
+            "available": False,
+            "checks": [],
+            "error": "gh pr checks failed: GraphQL: API rate limit already exceeded",
+            "error_kind": "github_transport",
+            "transport_blocked": True,
+            "preserve_no_mutate": True,
+        }
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["8313"],
+        repo_override="synaptent/aragora",
+        providers=ConductorProviders(
+            gh_json=gh_json,
+            rest_json=rest_json,
+            required_surface=required_transport,
+            merge_packet=lambda **_kwargs: (_ for _ in ()).throw(
+                _GhError("gh pr view 8313 failed: GraphQL: API rate limit already exceeded")
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "main-sha",
+            merge_tree_conflicts=lambda _base, _head: {
+                "available": False,
+                "conflict": False,
+                "conflict_files": [],
+            },
+        ),
+    )
+
+    candidate = packet["candidates"][0]
+    assert candidate["classification"] == "transport_blocked_preserve"
+    assert candidate["mutate_allowed"] is False
+    assert candidate["transport_fallback"]["source"] == "rest"
+    assert candidate["required_checks"]["rest_fallback"]["pr"]["head_sha"] == "rest-head"
+    assert candidate["merge_packet"]["rest_fallback"]["pr"]["head_sha"] == "rest-head"
+    assert candidate["merge_packet"]["rest_fallback"]["mutation_forbidden"] is True
+
+
+def test_ready_boundary_reports_merge_tree_conflict_files() -> None:
+    view = _view(
+        7821,
+        head="conflict-head",
+        draft=False,
+        mergeable="CONFLICTING",
+        merge_state="DIRTY",
+        files=["aragora/cli/commands/review_queue.py"],
+    )
+
+    packet = build_queue_conductor_packet(
+        pr_refs=["7821"],
+        mode="ready-boundary",
+        providers=ConductorProviders(
+            gh_json=lambda _args: view,
+            required_surface=_required_green,
+            merge_packet=lambda **_kwargs: _flattened_packet(
+                7821, head="conflict-head", not_ready=[7821]
+            ),
+            owner_lookup=_owner_unowned,
+            steering_lookup=_steering_empty,
+            origin_main_sha=lambda: "base-sha",
+            merge_tree_conflicts=lambda base, head: {
+                "available": True,
+                "base_sha": base,
+                "head_sha": head,
+                "conflict": True,
+                "conflict_files": [
+                    "aragora/cli/commands/review_queue.py",
+                    "docs/reference/CLI_REFERENCE.md",
+                ],
+            },
+        ),
+    )
+
+    candidate = packet["candidates"][0]
+    merge_tree = candidate["ready_boundary"]["merge_tree"]
+    assert candidate["merge_tree"]["conflict"] is True
+    assert merge_tree["base_sha"] == "base-sha"
+    assert merge_tree["head_sha"] == "conflict-head"
+    assert merge_tree["conflict_files"] == [
+        "aragora/cli/commands/review_queue.py",
+        "docs/reference/CLI_REFERENCE.md",
+    ]
+    assert "mergeable is CONFLICTING" in candidate["ready_boundary"]["blockers"]
+    rendered = render_queue_conductor_packet(packet)
+    assert "merge-tree-conflicts: aragora/cli/commands/review_queue.py" in rendered
 
 
 def test_conductor_transport_failure_classifies_preserve_no_mutate() -> None:

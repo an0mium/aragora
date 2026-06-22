@@ -1651,11 +1651,19 @@ class TestNomicHealthEdgeCases:
 
 
 class TestPostHandler:
-    """SystemHandler no longer defines POST routes.
+    """SystemHandler claims no POST routes.
 
-    Its only POST endpoint (/api/auth/revoke) moved to AuthHandler — see
-    tests/server/test_route_ownership.py for the ownership pin.
+    Its only real POST endpoint (/api/auth/revoke) moved to AuthHandler — see
+    tests/server/test_route_ownership.py for the ownership pin. A no-op
+    ``handle_post`` deliberately REMAINS on SystemHandler so OpenAPI
+    placeholder-method inference keeps emitting POST placeholders for its
+    path-only ROUTES (pinned by
+    test_system_openapi_placeholder_methods_do_not_drift_when_revoke_moves);
+    the hook must never claim a route. See issue #8325.
     """
 
-    def test_no_handle_post_defined(self):
-        assert "handle_post" not in SystemHandler.__dict__
+    def test_handle_post_is_noop_compat_hook(self):
+        assert "handle_post" in SystemHandler.__dict__
+        handler = SystemHandler(ctx={})
+        assert handler.handle_post("/api/auth/revoke", {}, None) is None
+        assert handler.handle_post("/api/system/maintenance", {}, None) is None

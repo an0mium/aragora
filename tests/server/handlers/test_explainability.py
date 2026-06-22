@@ -273,8 +273,8 @@ class TestCanHandle:
     def test_counterfactuals_get(self, handler):
         assert handler.can_handle("/api/v1/debates/abc/counterfactuals", "GET") is True
 
-    def test_summary_get(self, handler):
-        assert handler.can_handle("/api/v1/debates/abc/summary", "GET") is True
+    def test_summary_get_owned_by_debates_handler(self, handler):
+        assert handler.can_handle("/api/v1/debates/abc/summary", "GET") is False
 
     def test_explain_shortcut_get(self, handler):
         assert handler.can_handle("/api/v1/explain/abc", "GET") is True
@@ -515,60 +515,21 @@ class TestCounterfactuals:
 
 
 class TestSummary:
-    """Tests for _handle_summary."""
+    """Tests that summary remains owned by DebatesHandler."""
+
+    def test_summary_helper_not_defined(self, handler):
+        assert not hasattr(handler, "_handle_summary")
 
     @pytest.mark.asyncio
-    async def test_summary_markdown_default(self, handler, decision):
-        """Default format is markdown."""
-        with patch.object(handler, "_get_or_build_decision", return_value=decision):
-            with patch("aragora.explainability.ExplanationBuilder") as MockBuilder:
-                MockBuilder.return_value.generate_summary.return_value = (
-                    "## Decision Summary\n\nTest summary"
-                )
-                result = await handler._handle_summary("debate-123", {}, False)
+    async def test_summary_route_rejected(self, handler):
+        result = await handler.handle.__wrapped__.__wrapped__(
+            handler,
+            "/api/v1/debates/d1/summary",
+            {},
+            MagicMock(),
+        )
 
-        assert result.status_code == 200
-        assert result.content_type == "text/markdown"
-        assert b"Decision Summary" in result.body
-
-    @pytest.mark.asyncio
-    async def test_summary_json_format(self, handler, decision):
-        with patch.object(handler, "_get_or_build_decision", return_value=decision):
-            with patch("aragora.explainability.ExplanationBuilder") as MockBuilder:
-                MockBuilder.return_value.generate_summary.return_value = "summary text"
-                result = await handler._handle_summary("debate-123", {"format": "json"}, False)
-
-        assert result.status_code == 200
-        data = parse_response(result)
-        assert data["debate_id"] == "debate-123"
-        assert data["summary"] == "summary text"
-        assert data["confidence"] == 0.85
-        assert data["consensus_reached"] is True
-
-    @pytest.mark.asyncio
-    async def test_summary_html_format(self, handler, decision):
-        """HTML format works when markdown library is available."""
-        mock_md = MagicMock()
-        mock_md.markdown.return_value = "<p><strong>bold</strong> text</p>"
-
-        with patch.object(handler, "_get_or_build_decision", return_value=decision):
-            with patch("aragora.explainability.ExplanationBuilder") as MockBuilder:
-                MockBuilder.return_value.generate_summary.return_value = "**bold** text"
-                with patch.dict("sys.modules", {"markdown": mock_md}):
-                    result = await handler._handle_summary("debate-123", {"format": "html"}, False)
-
-        assert result.status_code == 200
-        assert result.content_type == "text/html"
-        body = result.body.decode("utf-8")
-        assert "<html>" in body
-        assert "Decision Summary" in body  # title includes debate id
-
-    @pytest.mark.asyncio
-    async def test_summary_not_found(self, handler):
-        with patch.object(handler, "_get_or_build_decision", return_value=None):
-            result = await handler._handle_summary("nope", {}, False)
-
-        assert result.status_code == 404
+        assert result.status_code == 400
 
 
 # ============================================================================
@@ -1057,18 +1018,15 @@ class TestHandleRouting:
         assert result.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_routes_to_summary(self, handler, decision):
-        with patch.object(handler, "_get_or_build_decision", return_value=decision):
-            with patch("aragora.explainability.ExplanationBuilder") as MockBuilder:
-                MockBuilder.return_value.generate_summary.return_value = "summary"
-                result = await handler.handle.__wrapped__.__wrapped__(
-                    handler,
-                    "/api/v1/debates/d1/summary",
-                    {},
-                    MagicMock(),
-                )
+    async def test_summary_route_owned_by_debates_handler(self, handler):
+        result = await handler.handle.__wrapped__.__wrapped__(
+            handler,
+            "/api/v1/debates/d1/summary",
+            {},
+            MagicMock(),
+        )
 
-        assert result.status_code == 200
+        assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_routes_invalid_returns_400(self, handler):

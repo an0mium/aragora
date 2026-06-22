@@ -254,7 +254,7 @@ These files require extra caution:
 
 | File | Reason | Who Can Modify |
 |------|--------|----------------|
-| `aragora/core.py` | Core types, many dependencies | Explicit approval only |
+| `aragora/core/` | Core types, many dependencies | Explicit approval only |
 | `aragora/debate/orchestrator.py` | Central debate logic | Explicit approval only |
 | `CLAUDE.md` | AI instructions | Manual only |
 | `.env*` | Secrets | Never commit |

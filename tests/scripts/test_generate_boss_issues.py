@@ -922,6 +922,103 @@ def test_main_omits_extra_labels_when_disabled(monkeypatch, capsys) -> None:
     assert created[0][4] == []
 
 
+def test_main_backpressure_signal_blocks_substrate_refill(
+    monkeypatch, capsys, tmp_path: Path
+) -> None:
+    substrate = _candidate("substrate_module", file_scope=["scripts/substrate_tool.py"])
+    product = _candidate("product_module", file_scope=["aragora/server/product_module.py"])
+    signal_file = tmp_path / "backpressure.json"
+    signal_file.write_text(
+        json.dumps(
+            {
+                "mode": "shepherd",
+                "admission": {
+                    "withhold_classes": ["maintenance"],
+                    "source": "backlog_gate",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: [substrate, product],
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(mod, "load_roadmap_priority_policy", lambda repo_root: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_boss_issues.py",
+            "--repo",
+            "org/repo",
+            "--dry-run",
+            "--max-issues",
+            "5",
+            "--label",
+            "lane:test",
+            "--backpressure-signal-file",
+            str(signal_file),
+        ],
+    )
+
+    mod.main()
+
+    out = capsys.readouterr().out
+    assert "Backpressure admission withheld maintenance" in out
+    assert "DRY RUN — would create 1 issues" in out
+    assert product.title in out
+    assert substrate.title not in out
+
+
+def test_main_legacy_shepherd_signal_does_not_block_refill(
+    monkeypatch, capsys, tmp_path: Path
+) -> None:
+    substrate = _candidate("substrate_module", file_scope=["scripts/substrate_tool.py"])
+    signal_file = tmp_path / "backpressure.json"
+    signal_file.write_text(json.dumps({"mode": "shepherd"}), encoding="utf-8")
+
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: [substrate],
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(mod, "load_roadmap_priority_policy", lambda repo_root: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_boss_issues.py",
+            "--repo",
+            "org/repo",
+            "--dry-run",
+            "--max-issues",
+            "5",
+            "--label",
+            "lane:test",
+            "--substrate-cap",
+            "1",
+            "--backpressure-signal-file",
+            str(signal_file),
+        ],
+    )
+
+    mod.main()
+
+    out = capsys.readouterr().out
+    assert "Backpressure admission withheld maintenance" not in out
+    assert "DRY RUN — would create 1 issues" in out
+    assert substrate.title in out
+
+
 class TestSelectWithSubstrateCap:
     """Substrate cap on issue creation (FOCUS.md Sprint 3 goal 2)."""
 
