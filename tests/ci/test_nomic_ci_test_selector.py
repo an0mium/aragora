@@ -26,11 +26,16 @@ _MIGRATED_TEST_MAP = selector._MIGRATED_TEST_MAP
 
 
 def _patch_exists(monkeypatch, fake_paths):
-    """Monkeypatch Path.exists to return True for paths in fake_paths, else delegate."""
+    """Monkeypatch Path.exists for repo-relative fake paths, else delegate."""
     orig_exists = Path.exists
 
     def fake_exists(self):
-        if str(self) in fake_paths:
+        path_text = str(self)
+        try:
+            rel_text = str(self.relative_to(REPO_ROOT))
+        except ValueError:
+            rel_text = path_text
+        if path_text in fake_paths or rel_text in fake_paths:
             return True
         return orig_exists(self)
 
@@ -58,6 +63,15 @@ class TestRelocatedTestPath:
             assert new.startswith("tests/")
             assert "/test_" in new
 
+    def test_mapped_destinations_exist(self):
+        """Every configured migrated target exists in the repo."""
+        missing = [
+            new_path
+            for new_path in _MIGRATED_TEST_MAP.values()
+            if not (REPO_ROOT / new_path).exists()
+        ]
+        assert missing == []
+
 
 class TestInferTestPathsTopLevel:
     """Top-level aragora/<x>.py mapping: legacy root + migration-map probe."""
@@ -79,8 +93,8 @@ class TestInferTestPathsTopLevel:
         result = infer_test_paths(["aragora/exceptions.py"])
         assert "tests/agents/test_exceptions.py" in result
 
-    def test_both_legacy_and_map_entry_prefer_existing(self, monkeypatch):
-        """When legacy root exists, it is used even if a map entry also exists."""
+    def test_both_legacy_and_map_entry_include_relocated(self, monkeypatch):
+        """A legacy root stub must not hide the relocated mapped test."""
         _patch_exists(
             monkeypatch,
             {
@@ -91,6 +105,15 @@ class TestInferTestPathsTopLevel:
 
         result = infer_test_paths(["aragora/exceptions.py"])
         assert "tests/test_exceptions.py" in result
+        assert "tests/agents/test_exceptions.py" in result
+
+    def test_repo_root_anchoring_ignores_cwd(self, monkeypatch, tmp_path):
+        """Path probes are anchored to the repository, not the caller cwd."""
+        _patch_exists(monkeypatch, {"tests/agents/test_exceptions.py"})
+        monkeypatch.chdir(tmp_path)
+
+        result = infer_test_paths(["aragora/exceptions.py"])
+        assert "tests/agents/test_exceptions.py" in result
 
     def test_no_test_found_returns_empty(self, monkeypatch):
         """When no test file exists anywhere, result is empty."""

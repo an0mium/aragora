@@ -14,6 +14,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
 # Auto-generated from the three P1 tests-migration commits (PRs #8387, #8404,
 # #8415).  Maps the pre-migration root test path to its post-migration
 # subdirectory home.  Used to resolve a top-level ``aragora/<x>.py`` whose
@@ -58,6 +60,11 @@ def _relocated_test_path(old_root_test: str) -> str | None:
     return _MIGRATED_TEST_MAP.get(old_root_test)
 
 
+def _repo_path_exists(repo_relative_path: str) -> bool:
+    """Return whether a repo-relative path exists, independent of caller cwd."""
+    return (REPO_ROOT / repo_relative_path).exists()
+
+
 def infer_test_paths(changed_files: list[str]) -> list[str]:
     """Map source files to test files.
 
@@ -87,22 +94,23 @@ def infer_test_paths(changed_files: list[str]) -> list[str]:
                     basename = filename[:-3]  # strip ".py"
                     # Primary subdirectory mapping
                     test_file = f"tests/{directory}/test_{filename}"
-                    if Path(test_file).exists():
+                    if _repo_path_exists(test_file):
                         test_paths.append(test_file)
                     # _root-suffixed variant (batch 3 convention)
                     root_test = f"tests/{directory}/test_{basename}_root.py"
-                    if Path(root_test).exists():
+                    if _repo_path_exists(root_test):
                         test_paths.append(root_test)
             elif len(parts) == 1 and parts[0].endswith(".py"):
                 # Legacy root path
                 test_file = f"tests/test_{parts[0]}"
-                if Path(test_file).exists():
+                if _repo_path_exists(test_file):
                     test_paths.append(test_file)
-                else:
-                    # Check the migration map for relocated path
-                    relocated = _relocated_test_path(test_file)
-                    if relocated and Path(relocated).exists():
-                        test_paths.append(relocated)
+                # Check the migration map for relocated path.  Include this
+                # even if a legacy root stub still exists so stale root files
+                # cannot hide the real post-migration test.
+                relocated = _relocated_test_path(test_file)
+                if relocated and _repo_path_exists(relocated):
+                    test_paths.append(relocated)
     # Deduplicate
     return list(dict.fromkeys(test_paths))
 
