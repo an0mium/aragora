@@ -203,6 +203,7 @@ class InventoryContext:
     smart_merge_main_subjects: list[str] = field(default_factory=list)
     open_pr_heads_cache: dict[str, list[dict[str, Any]]] | None = None
     open_pr_records_cache: list[dict[str, Any]] | None = None
+    branch_pr_records_cache: dict[str, list[dict[str, Any]]] | None = None
     terminal_receipt_path_heads: dict[str, set[str | None]] = field(default_factory=dict)
 
 
@@ -852,32 +853,39 @@ def branch_merge_tree_matches_base(
 
 def prefetch_open_pr_heads(
     repo: Path, *, timeout: int
-) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]], bool, str | None]:
+) -> tuple[
+    dict[str, list[dict[str, Any]]],
+    list[dict[str, Any]],
+    dict[str, list[dict[str, Any]]],
+    bool,
+    str | None,
+]:
     proc = run_cmd(
         [
             "gh",
             "pr",
             "list",
             "--state",
-            "open",
+            "all",
             "--limit",
             "500",
             "--json",
-            "number,title,url,headRefName,body",
+            "number,title,url,headRefName,body,state,headRefOid",
         ],
         repo,
         timeout=timeout,
     )
     if proc.returncode != 0:
-        return {}, [], True, proc.stderr.strip() or "gh pr prefetch failed"
+        return {}, [], {}, True, proc.stderr.strip() or "gh pr prefetch failed"
     try:
         payload = json.loads(proc.stdout or "[]")
     except json.JSONDecodeError as exc:
-        return {}, [], True, f"failed to parse gh pr prefetch output: {exc}"
+        return {}, [], {}, True, f"failed to parse gh pr prefetch output: {exc}"
     if not isinstance(payload, list):
-        return {}, [], True, "gh pr prefetch output was not a list"
+        return {}, [], {}, True, "gh pr prefetch output was not a list"
     cache: dict[str, list[dict[str, Any]]] = {}
     records: list[dict[str, Any]] = []
+    branch_records: dict[str, list[dict[str, Any]]] = {}
     for item in payload:
         if not isinstance(item, dict):
             continue
@@ -885,11 +893,16 @@ def prefetch_open_pr_heads(
         if not isinstance(head, str) or not head:
             continue
         record = {
-            k: v for k, v in item.items() if k in ("number", "title", "url", "headRefName", "body")
+            k: v
+            for k, v in item.items()
+            if k in ("number", "title", "url", "headRefName", "body", "state", "headRefOid")
         }
+        branch_records.setdefault(head, []).append(record)
+        if str(item.get("state") or "").upper() != "OPEN":
+            continue
         records.append(record)
         cache.setdefault(head, []).append(record)
-    return cache, records, False, None
+    return cache, records, branch_records, False, None
 
 
 def lookup_open_prs(
@@ -928,6 +941,7 @@ def lookup_branch_prs(
     *,
     timeout: int,
     skip_gh: bool,
+    cached_branch_prs: dict[str, list[dict[str, Any]]] | None = None,
 ) -> tuple[list[dict[str, Any]], bool, str | None]:
     """Return all GitHub PR records for a branch.
 
@@ -938,6 +952,8 @@ def lookup_branch_prs(
 
     if not branch or skip_gh:
         return [], False, None
+    if cached_branch_prs is not None:
+        return list(cached_branch_prs.get(branch, [])), False, None
     proc = run_cmd(
         [
             "gh",
@@ -994,6 +1010,7 @@ def lookup_superseding_open_prs(
     timeout: int,
     skip_gh: bool,
     open_pr_records: list[dict[str, Any]] | None,
+    branch_pr_records: dict[str, list[dict[str, Any]]] | None,
 ) -> tuple[list[dict[str, Any]], bool, str | None]:
     if not branch or skip_gh or not open_pr_records:
         return [], False, None
@@ -1003,6 +1020,7 @@ def lookup_superseding_open_prs(
         branch,
         timeout=timeout,
         skip_gh=skip_gh,
+        cached_branch_prs=branch_pr_records,
     )
     if failed:
         return [], True, error
@@ -1242,6 +1260,7 @@ def classify_candidate(
             timeout=context.gh_timeout,
             skip_gh=context.skip_gh,
             open_pr_records=context.open_pr_records_cache,
+            branch_pr_records=context.branch_pr_records_cache,
         )
         links["superseding_open_prs"] = superseding_open_prs
         if superseding_failed:
@@ -1719,11 +1738,15 @@ def inventory(
     sizes, size_failures = measure_sizes(candidate_paths, mode=size_mode, timeout=size_timeout)
     open_pr_heads_cache: dict[str, list[dict[str, Any]]] | None = None
     open_pr_records_cache: list[dict[str, Any]] | None = None
+    branch_pr_records_cache: dict[str, list[dict[str, Any]]] | None = None
     if include_pr_state:
-        cache, records, fetch_failed, _err = prefetch_open_pr_heads(repo, timeout=gh_timeout)
+        cache, records, branch_records, fetch_failed, _err = prefetch_open_pr_heads(
+            repo, timeout=gh_timeout
+        )
         if not fetch_failed:
             open_pr_heads_cache = cache
             open_pr_records_cache = records
+            branch_pr_records_cache = branch_records
     context = InventoryContext(
         repo=repo,
         base=base,
@@ -1761,6 +1784,7 @@ def inventory(
         ),
         open_pr_heads_cache=open_pr_heads_cache,
         open_pr_records_cache=open_pr_records_cache,
+        branch_pr_records_cache=branch_pr_records_cache,
     )
     candidates = [
         classify_candidate(

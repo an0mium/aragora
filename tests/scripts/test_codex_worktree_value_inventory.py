@@ -1523,27 +1523,26 @@ def test_classify_candidate_preserves_closed_pr_superseded_by_open_pr(
 
     root = _candidate(tmp_path)
     _stub_clean_git(monkeypatch, branch="feat/stale", ahead=3, patch_equivalent=False)
-    monkeypatch.setattr(
-        mod,
-        "lookup_branch_prs",
-        lambda *_args, **_kwargs: (
-            [
-                {
-                    "number": 8255,
-                    "state": "CLOSED",
-                    "title": "stale source",
-                    "url": "https://example.test/pr/8255",
-                }
-            ],
-            False,
-            None,
-        ),
-    )
+
+    def fail_if_called(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("cached branch PR records should avoid per-candidate gh calls")
+
+    monkeypatch.setattr(mod, "run_cmd", fail_if_called)
 
     candidate = mod.classify_candidate(
         root,
         context=_context(
             tmp_path,
+            branch_pr_records_cache={
+                "feat/stale": [
+                    {
+                        "number": 8255,
+                        "state": "CLOSED",
+                        "title": "stale source",
+                        "url": "https://example.test/pr/8255",
+                    }
+                ],
+            },
             open_pr_records_cache=[
                 {
                     "number": 8543,
@@ -1600,6 +1599,16 @@ def test_classify_candidate_keeps_generic_pr_reference_harvestable(
         root,
         context=_context(
             tmp_path,
+            branch_pr_records_cache={
+                "feat/stale": [
+                    {
+                        "number": 8255,
+                        "state": "CLOSED",
+                        "title": "stale source",
+                        "url": "https://example.test/pr/8255",
+                    }
+                ],
+            },
             open_pr_records_cache=[
                 {
                     "number": 8543,
