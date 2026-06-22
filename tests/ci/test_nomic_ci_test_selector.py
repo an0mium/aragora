@@ -1,8 +1,10 @@
 """Unit tests for scripts/nomic_ci_test_selector.py infer_test_paths.
 
 Covers the legacy root-path mapping (aragora/<x>.py -> tests/test_<x>.py)
-AND the new relocated-subdir probes (tests/<module>/test_<x>.py and the
-_root-suffixed variant) added by the misc-ci-test-selector-subdir-mapping fix.
+AND the relocated-subdir probe via the pre-computed migration map
+(tests/<module>/test_<x>.py) added by the misc-ci-test-selector-subdir-mapping
+fix.  Also covers the _root-suffix variant for subdirectory files (batch-3
+convention).
 """
 
 from __future__ import annotations
@@ -19,6 +21,8 @@ _spec.loader.exec_module(selector)
 
 infer_test_paths = selector.infer_test_paths
 changed_python_files = selector.changed_python_files
+_relocated_test_path = selector._relocated_test_path
+_MIGRATED_TEST_MAP = selector._MIGRATED_TEST_MAP
 
 
 def _patch_exists(monkeypatch, fake_paths):
@@ -33,8 +37,30 @@ def _patch_exists(monkeypatch, fake_paths):
     monkeypatch.setattr(Path, "exists", fake_exists)
 
 
+class TestRelocatedTestPath:
+    """Tests for _relocated_test_path helper."""
+
+    def test_known_migration_returns_new_path(self):
+        """A mapped root test returns its new subdirectory home."""
+        result = _relocated_test_path("tests/test_exceptions.py")
+        assert result == "tests/agents/test_exceptions.py"
+
+    def test_unknown_path_returns_none(self):
+        """An unmapped root test returns None."""
+        result = _relocated_test_path("tests/test_nonexistent.py")
+        assert result is None
+
+    def test_map_is_non_empty(self):
+        """The migration map contains representative entries from all 3 batches."""
+        assert len(_MIGRATED_TEST_MAP) >= 30
+        for old, new in _MIGRATED_TEST_MAP.items():
+            assert old.startswith("tests/test_")
+            assert new.startswith("tests/")
+            assert "/test_" in new
+
+
 class TestInferTestPathsTopLevel:
-    """Top-level aragora/<x>.py mapping: legacy root + relocated subdir probes."""
+    """Top-level aragora/<x>.py mapping: legacy root + migration-map probe."""
 
     def test_legacy_root_path_exists(self, monkeypatch):
         """When tests/test_<x>.py exists, it is selected (legacy behavior)."""
@@ -43,33 +69,28 @@ class TestInferTestPathsTopLevel:
         result = infer_test_paths(["aragora/resilience_config.py"])
         assert "tests/test_resilience_config.py" in result
 
-    def test_relocated_subdir_path_found(self, monkeypatch):
-        """When the root test is missing but a subdir test exists, find it."""
-        _patch_exists(monkeypatch, {"tests/resilience/test_http_client.py"})
+    def test_relocated_via_migration_map(self, monkeypatch):
+        """When legagy root is missing but the migration map has it, the
+        relocated path is selected."""
+        # tests/test_exceptions.py was relocated to tests/agents/test_exceptions.py
+        # Only the new path exists on disk
+        _patch_exists(monkeypatch, {"tests/agents/test_exceptions.py"})
 
-        result = infer_test_paths(["aragora/http_client.py"])
-        assert "tests/resilience/test_http_client.py" in result
+        result = infer_test_paths(["aragora/exceptions.py"])
+        assert "tests/agents/test_exceptions.py" in result
 
-    def test_root_suffix_variant_detected(self, monkeypatch):
-        """When only the _root-suffixed variant exists, it is found."""
-        _patch_exists(monkeypatch, {"tests/memory/test_continuum_root.py"})
-
-        result = infer_test_paths(["aragora/continuum.py"])
-        assert "tests/memory/test_continuum_root.py" in result
-
-    def test_both_legacy_and_relocated_found(self, monkeypatch):
-        """When both legacy root AND relocated subdir tests exist, both are selected."""
+    def test_both_legacy_and_map_entry_prefer_existing(self, monkeypatch):
+        """When legacy root exists, it is used even if a map entry also exists."""
         _patch_exists(
             monkeypatch,
             {
-                "tests/test_resilience_config.py",
-                "tests/resilience/test_resilience_config.py",
+                "tests/test_exceptions.py",
+                "tests/agents/test_exceptions.py",
             },
         )
 
-        result = infer_test_paths(["aragora/resilience_config.py"])
-        assert "tests/test_resilience_config.py" in result
-        assert "tests/resilience/test_resilience_config.py" in result
+        result = infer_test_paths(["aragora/exceptions.py"])
+        assert "tests/test_exceptions.py" in result
 
     def test_no_test_found_returns_empty(self, monkeypatch):
         """When no test file exists anywhere, result is empty."""
@@ -77,28 +98,6 @@ class TestInferTestPathsTopLevel:
 
         result = infer_test_paths(["aragora/nonexistent.py"])
         assert result == []
-
-    def test_multiple_top_level_files(self, monkeypatch):
-        """Multiple top-level changed files each resolve to their tests."""
-        _patch_exists(
-            monkeypatch,
-            {
-                "tests/test_resilience_config.py",
-                "tests/resilience/test_http_client.py",
-                "tests/memory/test_continuum_root.py",
-            },
-        )
-
-        result = infer_test_paths(
-            [
-                "aragora/resilience_config.py",
-                "aragora/http_client.py",
-                "aragora/continuum.py",
-            ]
-        )
-        assert "tests/test_resilience_config.py" in result
-        assert "tests/resilience/test_http_client.py" in result
-        assert "tests/memory/test_continuum_root.py" in result
 
 
 class TestInferTestPathsSubdirectory:
@@ -123,6 +122,20 @@ class TestInferTestPathsSubdirectory:
         _patch_exists(monkeypatch, {"tests/connectors/test_twitter_poster_root.py"})
 
         result = infer_test_paths(["aragora/connectors/twitter_poster.py"])
+        assert "tests/connectors/test_twitter_poster_root.py" in result
+
+    def test_both_regular_and_root_variants(self, monkeypatch):
+        """Both regular and _root suffix variants are found when both exist."""
+        _patch_exists(
+            monkeypatch,
+            {
+                "tests/connectors/test_twitter_poster.py",
+                "tests/connectors/test_twitter_poster_root.py",
+            },
+        )
+
+        result = infer_test_paths(["aragora/connectors/twitter_poster.py"])
+        assert "tests/connectors/test_twitter_poster.py" in result
         assert "tests/connectors/test_twitter_poster_root.py" in result
 
 
@@ -154,9 +167,11 @@ class TestInferTestPathsEdgeCases:
         """Duplicate test paths are deduplicated."""
         _patch_exists(monkeypatch, {"tests/debate/test_orchestrator.py"})
 
-        # Both source files map to the same test
         result = infer_test_paths(
-            ["aragora/debate/orchestrator.py", "aragora/debate/orchestrator.py"]
+            [
+                "aragora/debate/orchestrator.py",
+                "aragora/debate/orchestrator.py",
+            ]
         )
         assert result.count("tests/debate/test_orchestrator.py") == 1
 
@@ -165,7 +180,10 @@ class TestInferTestPathsEdgeCases:
         _patch_exists(monkeypatch, {"tests/debate/test_orchestrator.py"})
 
         result = infer_test_paths(
-            ["tests/debate/test_orchestrator.py", "aragora/debate/orchestrator.py"]
+            [
+                "tests/debate/test_orchestrator.py",
+                "aragora/debate/orchestrator.py",
+            ]
         )
         assert result.count("tests/debate/test_orchestrator.py") == 1
 
@@ -175,7 +193,13 @@ class TestChangedPythonFiles:
 
     def test_filters_aragora_py_only(self):
         result = changed_python_files(
-            ["aragora/foo.py", "tests/test_bar.py", "docs/README.md", "", "  "]
+            [
+                "aragora/foo.py",
+                "tests/test_bar.py",
+                "docs/README.md",
+                "",
+                "  ",
+            ]
         )
         assert result == ["aragora/foo.py"]
 
