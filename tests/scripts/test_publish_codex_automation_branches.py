@@ -606,6 +606,118 @@ def test_open_pr_heads_counts_only_codex_branches(monkeypatch: Any, tmp_path: Pa
     }
 
 
+def test_open_codex_prs_from_rest_filters_codex_branches(monkeypatch: Any, tmp_path: Path) -> None:
+    payload = json.dumps(
+        [
+            [
+                {
+                    "number": 7001,
+                    "title": "Automation fix",
+                    "head": {"ref": "codex/fix-one"},
+                    "draft": True,
+                    "mergeable_state": "clean",
+                },
+                {
+                    "number": 7002,
+                    "title": "Manual fix",
+                    "head": {"ref": "feature/manual"},
+                    "draft": False,
+                    "mergeable_state": "clean",
+                },
+            ],
+            [
+                {
+                    "number": 7003,
+                    "title": "Dependabot fix",
+                    "head": {"ref": "dependabot/npm/package"},
+                    "draft": False,
+                    "mergeable_state": "clean",
+                },
+                {
+                    "number": 7004,
+                    "title": "Automation repair",
+                    "head": {"ref": "codex/fix-two"},
+                    "draft": False,
+                },
+            ],
+        ]
+    )
+
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda args, cwd, check=False: subprocess.CompletedProcess(
+            args=args, returncode=0, stdout=payload, stderr=""
+        ),
+    )
+
+    prs = mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora")
+
+    assert [pr["headRefName"] for pr in prs] == ["codex/fix-one", "codex/fix-two"]
+    assert prs[0]["number"] == 7001
+    assert prs[0]["isDraft"] is True
+    assert prs[0]["mergeStateStatus"] == "CLEAN"
+    assert prs[1]["mergeStateStatus"] == "UNKNOWN"
+    assert all(pr["lookup_source"] == "rest" for pr in prs)
+
+
+def test_open_codex_prs_falls_back_to_rest_when_graphql_and_cache_fail(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("GraphQL 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_status_cache",
+        lambda repo_root, repo: (None, {"cache_reason": "cache_stale"}),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_rest",
+        lambda repo_root, repo: [{"headRefName": "codex/fix-one"}],
+    )
+
+    prs, meta = mod._open_codex_prs_with_cache_fallback(tmp_path, "synaptent/aragora")
+
+    assert prs == [{"headRefName": "codex/fix-one"}]
+    assert meta["source"] == "rest"
+    assert meta["status"] == "ok"
+    assert meta["fallback_error"] == "GraphQL 504"
+    assert meta["cache_reason"] == "cache_stale"
+
+
+def test_open_codex_prs_reports_rest_error_when_all_lookups_fail(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("GraphQL 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_status_cache",
+        lambda repo_root, repo: (None, {"cache_reason": "cache_stale"}),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_rest",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("REST 502")),
+    )
+
+    try:
+        mod._open_codex_prs_with_cache_fallback(tmp_path, "synaptent/aragora")
+    except mod.OpenCodexPrLookupError as exc:
+        assert exc.error == "GraphQL 504"
+        assert exc.cache_meta["cache_reason"] == "cache_stale"
+        assert exc.cache_meta["rest_error"] == "REST 502"
+    else:  # pragma: no cover - assertion helper
+        raise AssertionError("expected OpenCodexPrLookupError")
+
+
 def test_run_uses_env_overrides_for_git_timeout(monkeypatch: Any, tmp_path: Path) -> None:
     recorded: dict[str, Any] = {}
 
@@ -1332,6 +1444,11 @@ def test_main_falls_back_to_cached_open_pr_heads_when_live_listing_504s(
         "_open_codex_prs",
         lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("HTTP 504")),
     )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_rest",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("REST 502")),
+    )
     monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
     monkeypatch.setattr(
         mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
@@ -1383,6 +1500,11 @@ def test_main_reports_open_pr_lookup_failure_when_cache_is_unusable(
         "_open_codex_prs",
         lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("HTTP 504")),
     )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_rest",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("REST 502")),
+    )
     monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
     monkeypatch.setattr(
         mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
@@ -1410,6 +1532,7 @@ def test_main_reports_open_pr_lookup_failure_when_cache_is_unusable(
     assert '"status": "failed"' in out
     assert '"error": "HTTP 504"' in out
     assert '"cache_usable": false' in out
+    assert '"rest_error": "REST 502"' in out
     assert '"decisions": []' in out
 
 

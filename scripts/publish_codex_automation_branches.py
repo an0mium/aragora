@@ -863,6 +863,58 @@ def _open_codex_prs_from_status_cache(
     return prs, meta
 
 
+def _flatten_rest_pages(payload: Any) -> list[dict[str, Any]]:
+    if not isinstance(payload, list):
+        return []
+    if payload and all(isinstance(item, list) for item in payload):
+        return [
+            pr for page in payload if isinstance(page, list) for pr in page if isinstance(pr, dict)
+        ]
+    return [item for item in payload if isinstance(item, dict)]
+
+
+def _open_codex_prs_from_rest(repo_root: Path, repo: str) -> list[dict[str, Any]]:
+    proc = _run(
+        [
+            "gh",
+            "api",
+            "--paginate",
+            "--slurp",
+            f"repos/{repo}/pulls?state=open&per_page=100",
+        ],
+        cwd=repo_root,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "failed to list REST PRs")
+    try:
+        payload = json.loads(proc.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("REST PR lookup returned invalid JSON") from exc
+
+    prs: list[dict[str, Any]] = []
+    for item in _flatten_rest_pages(payload):
+        head = item.get("head")
+        if not isinstance(head, Mapping):
+            continue
+        branch = head.get("ref")
+        if not isinstance(branch, str) or not branch.startswith(CODEX_BRANCH_PREFIX):
+            continue
+        prs.append(
+            {
+                "number": item.get("number"),
+                "title": item.get("title"),
+                "headRefName": branch,
+                "isDraft": item.get("draft"),
+                "mergeStateStatus": str(item.get("mergeable_state") or "UNKNOWN").upper(),
+                "reviewDecision": None,
+                "statusCheckRollup": [],
+                "lookup_degraded": True,
+                "lookup_source": "rest",
+            }
+        )
+    return prs
+
+
 def _open_codex_prs_with_cache_fallback(
     repo_root: Path,
     repo: str,
@@ -876,7 +928,18 @@ def _open_codex_prs_with_cache_fallback(
         live_error = str(exc)
         cached_prs, cache_meta = _open_codex_prs_from_status_cache(repo_root, repo)
         if cached_prs is None:
-            raise OpenCodexPrLookupError(live_error, cache_meta) from exc
+            try:
+                rest_prs = _open_codex_prs_from_rest(repo_root, repo)
+            except RuntimeError as rest_exc:
+                cache_meta["rest_error"] = str(rest_exc)
+                raise OpenCodexPrLookupError(live_error, cache_meta) from exc
+            lookup_meta = {
+                "source": "rest",
+                "status": "ok",
+                "fallback_error": live_error,
+            }
+            lookup_meta.update(cache_meta)
+            return rest_prs, lookup_meta
         lookup_meta = {
             "source": "cache",
             "status": "ok",
