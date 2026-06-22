@@ -933,6 +933,9 @@ def _open_codex_prs_with_cache_fallback(
             except RuntimeError as rest_exc:
                 cache_meta["rest_error"] = str(rest_exc)
                 raise OpenCodexPrLookupError(live_error, cache_meta) from exc
+            for item in rest_prs:
+                item.setdefault("lookup_degraded", True)
+                item.setdefault("lookup_source", "rest")
             lookup_meta = {
                 "source": "rest",
                 "status": "ok",
@@ -1009,6 +1012,9 @@ def _unhealthy_check_rollup_items(check_rollup: Any) -> list[dict[str, Any]]:
 
 
 def _open_codex_pr_unhealthy_reasons(item: dict[str, Any]) -> list[str]:
+    if item.get("lookup_degraded") is True:
+        return ["lookup_degraded_queue_health_unknown"]
+
     merge_state = str(item.get("mergeStateStatus") or "UNKNOWN").upper()
     if merge_state == "DIRTY":
         return ["merge_state=DIRTY"]
