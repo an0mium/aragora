@@ -296,3 +296,57 @@ def test_receipt_freezes_notes_mapping() -> None:
     assert receipt.notes["mode"] == "dry-run"
     with pytest.raises(TypeError):
         receipt.notes["mode"] = "mutated"  # type: ignore[index]
+
+
+def test_schema_gap_boundary_checks() -> None:
+    now = datetime(2026, 4, 25, 12, 0, tzinfo=UTC)
+    scheduler = ThresholdRecalibrationScheduler(min_samples=50)
+
+    # (a) Complete v2 observation coverage with zero invalidations over >=50
+    # samples -> ThresholdUpdateReceipt at the 1% floor.
+    sample_v2_complete = InvalidationRecalibrationSample(
+        total_human_settled=60,
+        total_auto_handled=0,
+        source_name="fake-event-source",
+        source_version="test",
+        notes={
+            "human_invalidations_coverage": "complete",
+            "human_invalidations_source": "settlement-receipt schema-v2 outcome fields are present on all receipts in the window, but no receipt in the window fired any of the five canonical signals.",
+        },
+    )
+    receipt_v2 = scheduler.run_receipt_from_sample(sample_v2_complete, now=now)
+    assert isinstance(receipt_v2, ThresholdUpdateReceipt)
+    assert receipt_v2.proposal.is_placeholder is False
+    assert receipt_v2.proposal.threshold == pytest.approx(0.01)
+
+    # (b) Partial v2 observation coverage still means the zero numerator is not
+    # a full-window measurement.
+    sample_partial = InvalidationRecalibrationSample(
+        total_human_settled=60,
+        total_auto_handled=0,
+        source_name="fake-event-source",
+        source_version="test",
+        notes={
+            "human_invalidations_coverage": "partial",
+            "human_invalidations_source": "schema_gap_human_numerator: settlement-receipt v2 outcome fields are populated on 1/60 receipts in the window.",
+        },
+    )
+    receipt_partial = scheduler.run_receipt_from_sample(sample_partial, now=now)
+    assert isinstance(receipt_partial, InsufficiencyReceipt)
+    assert receipt_partial.insufficiency_reasons == ("schema_gap_human_numerator",)
+
+    # (c) Genuinely-absent v2 fields -> InsufficiencyReceipt with
+    # schema_gap_human_numerator.
+    sample_gap = InvalidationRecalibrationSample(
+        total_human_settled=60,
+        total_auto_handled=0,
+        source_name="fake-event-source",
+        source_version="test",
+        notes={
+            "human_invalidations_coverage": "absent",
+            "human_invalidations_source": "schema_gap_human_numerator: fields are absent",
+        },
+    )
+    receipt_gap = scheduler.run_receipt_from_sample(sample_gap, now=now)
+    assert isinstance(receipt_gap, InsufficiencyReceipt)
+    assert receipt_gap.insufficiency_reasons == ("schema_gap_human_numerator",)
