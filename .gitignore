@@ -238,6 +238,13 @@ Enterprise_Multi_Agent_Control_Plane_Report.docx
 godmod3-homepage.png
 # Test/runtime artifacts written to repo root
 coverage-handlers.json
+# Stale generated OpenAPI artifact (canonical copy lives at docs/api/openapi.json)
+/openapi.json
+# Inbox triage failure dump (contains a personal email; see docs/governance/gmail-failures-history-decision.md)
+gmail_failures.json
+# Landing-page marketing screenshots and auth captures
+/landing-*.png
+/openrouter-auth-page.png
 
 # Machine-local gt store config (workspace path is per-clone)
 .gt/config.json

@@ -91,6 +91,7 @@ class ConductorProviders:
     owner_lookup: Callable[[str, float], dict[str, Any]] | None = None
     steering_lookup: Callable[[str, float], dict[str, Any]] | None = None
     origin_main_sha: Callable[[], str] | None = None
+    merge_tree_conflicts: Callable[[str, str], dict[str, Any]] | None = None
 
 
 def build_queue_conductor_packet(
@@ -107,6 +108,7 @@ def build_queue_conductor_packet(
 
     active_providers = providers or ConductorProviders()
     conductor_mode = _normalize_mode(mode)
+    origin_main_sha = _safe_origin_main_sha(active_providers)
     pr_views = _fetch_pr_views(
         pr_refs=pr_refs or [],
         limit=limit,
@@ -132,6 +134,7 @@ def build_queue_conductor_packet(
             review_queue_root=review_queue_root,
             owner_timeout_seconds=owner_timeout_seconds,
             providers=active_providers,
+            origin_main_sha=origin_main_sha,
         )
         candidates.append(candidate)
 
@@ -145,7 +148,7 @@ def build_queue_conductor_packet(
         "mode": conductor_mode,
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "repo": repo_override or "",
-        "origin_main_sha": _safe_origin_main_sha(active_providers),
+        "origin_main_sha": origin_main_sha,
         "pr_refs": [str(ref) for ref in (pr_refs or [])],
         "limit": limit,
         "initial_heads": initial_heads,
@@ -192,6 +195,13 @@ def render_queue_conductor_packet(packet: dict[str, Any]) -> str:
             watched_rollup = ready_boundary.get("watched_rollup")
             if isinstance(watched_rollup, dict) and watched_rollup.get("summary"):
                 lines.append(f"  watched-rollup: {watched_rollup.get('summary')}")
+            merge_tree = ready_boundary.get("merge_tree")
+            if isinstance(merge_tree, dict) and merge_tree.get("conflict_files"):
+                lines.append(
+                    "  merge-tree-conflicts: {}".format(
+                        ", ".join(str(path) for path in merge_tree.get("conflict_files") or [])
+                    )
+                )
     lines.extend(["", "Best next prompt:", str(packet.get("next_prompt") or "")])
     return "\n".join(lines)
 
@@ -465,6 +475,155 @@ def _nested_str(payload: dict[str, Any], *path: str) -> str:
     return str(value or "")
 
 
+def _compact_transport_fallback(view: dict[str, Any]) -> dict[str, Any]:
+    fallback = view.get("_transport_fallback")
+    if not isinstance(fallback, dict):
+        return {}
+    rollup = view.get("statusCheckRollup") or []
+    rollup_summary = _rollup_summary(rollup if isinstance(rollup, list) else [])
+    return {
+        "source": str(fallback.get("source") or ""),
+        "available": True,
+        "transport_blocked": True,
+        "preserve_no_mutate": True,
+        "mutation_forbidden": True,
+        "graphql_error": str(fallback.get("graphql_error") or ""),
+        "pr": {
+            "number": view.get("number"),
+            "title": str(view.get("title") or ""),
+            "url": str(view.get("url") or ""),
+            "state": str(view.get("state") or ""),
+            "is_draft": bool(view.get("isDraft")),
+            "head_branch": str(view.get("headRefName") or ""),
+            "head_sha": str(view.get("headRefOid") or ""),
+            "base_branch": str(view.get("baseRefName") or ""),
+            "base_sha": str(view.get("baseRefOid") or ""),
+            "mergeable": str(view.get("mergeable") or ""),
+            "merge_state_status": str(view.get("mergeStateStatus") or ""),
+            "updated_at": str(view.get("updatedAt") or ""),
+        },
+        "files_available": bool(fallback.get("files_available")),
+        "changed_files": len(
+            _candidate_file_index([view]).get(int(view.get("number") or 0), set())
+        ),
+        "files_error": str(fallback.get("files_error") or ""),
+        "check_runs_available": bool(fallback.get("check_runs_available")),
+        "check_runs_error": str(fallback.get("check_runs_error") or ""),
+        "check_runs_summary": {
+            "total": int(rollup_summary.get("total") or 0),
+            "non_green_count": len(rollup_summary.get("actionable_rows") or []),
+            "non_green_sample": rollup_summary.get("actionable_rows") or [],
+        },
+    }
+
+
+def _merge_tree_conflict_summary(
+    *,
+    base_sha: str,
+    head_sha: str,
+    providers: ConductorProviders,
+) -> dict[str, Any]:
+    provider = providers.merge_tree_conflicts or _default_merge_tree_conflicts
+    try:
+        summary = provider(base_sha, head_sha)
+    except Exception as exc:  # noqa: BLE001 - conductor conflict reporting is advisory.
+        return {
+            "available": False,
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+            "conflict": False,
+            "conflict_files": [],
+            "error": str(exc),
+        }
+    if not isinstance(summary, dict):
+        return {
+            "available": False,
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+            "conflict": False,
+            "conflict_files": [],
+            "error": "merge-tree conflict provider returned a non-object payload",
+        }
+    return {
+        "available": bool(summary.get("available")),
+        "base_sha": str(summary.get("base_sha") or base_sha),
+        "head_sha": str(summary.get("head_sha") or head_sha),
+        "conflict": bool(summary.get("conflict")),
+        "conflict_files": [
+            str(path) for path in summary.get("conflict_files") or [] if str(path).strip()
+        ],
+        "error": str(summary.get("error") or ""),
+    }
+
+
+def _default_merge_tree_conflicts(base_sha: str, head_sha: str) -> dict[str, Any]:
+    if not base_sha or not head_sha:
+        return {
+            "available": False,
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+            "conflict": False,
+            "conflict_files": [],
+            "error": "origin/main or PR head SHA is unavailable locally",
+        }
+    cmd = [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "--name-only",
+        "--no-messages",
+        base_sha,
+        head_sha,
+    ]
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "available": False,
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+            "conflict": False,
+            "conflict_files": [],
+            "error": "git merge-tree timed out after 10s",
+        }
+    if proc.returncode not in {0, 1}:
+        return {
+            "available": False,
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+            "conflict": False,
+            "conflict_files": [],
+            "error": (
+                proc.stderr or proc.stdout or f"git merge-tree exited {proc.returncode}"
+            ).strip(),
+        }
+    conflict_files = _merge_tree_conflict_files(proc.stdout)
+    return {
+        "available": True,
+        "base_sha": base_sha,
+        "head_sha": head_sha,
+        "conflict": bool(conflict_files),
+        "conflict_files": conflict_files,
+        "error": "",
+    }
+
+
+def _merge_tree_conflict_files(output: str) -> list[str]:
+    files: list[str] = []
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line or re.fullmatch(r"[0-9a-f]{40,64}", line):
+            continue
+        files.append(line)
+    return files
+
+
 def _build_candidate(
     *,
     view: dict[str, Any],
@@ -475,13 +634,18 @@ def _build_candidate(
     review_queue_root: str | Path | None,
     owner_timeout_seconds: float,
     providers: ConductorProviders,
+    origin_main_sha: str,
 ) -> dict[str, Any]:
     pr_number = int(view.get("number") or 0)
     branch = str(view.get("headRefName") or "")
     head_sha = str(view.get("headRefOid") or "")
+    transport_fallback = view.get("_transport_fallback") or {}
+    compact_rest_fallback = _compact_transport_fallback(view)
     required = _required_summary(
         providers.required_surface(pr_number, repo_override),
     )
+    if compact_rest_fallback and required.get("transport_blocked"):
+        required["rest_fallback"] = compact_rest_fallback
     owner_lookup = providers.owner_lookup or _default_owner_lookup
     steering_lookup = providers.steering_lookup or _default_steering_lookup
     owner = owner_lookup(branch, owner_timeout_seconds) if branch else _missing_branch_owner()
@@ -494,10 +658,17 @@ def _build_candidate(
         review_queue_root=review_queue_root,
         merge_packet=providers.merge_packet,
     )
+    if compact_rest_fallback and merge_packet.get("transport_blocked"):
+        merge_packet["rest_fallback"] = compact_rest_fallback
     packet_head = str(merge_packet.get("head_sha") or "")
     head_changed = bool(initial_head and packet_head and packet_head != initial_head)
     supersession_hints = _supersession_hints(view, all_prs, file_index)
     rollup = _rollup_summary(view.get("statusCheckRollup") or [])
+    merge_tree = _merge_tree_conflict_summary(
+        base_sha=origin_main_sha,
+        head_sha=head_sha,
+        providers=providers,
+    )
     classification, mutate_allowed, next_action = _classify_candidate(
         view=view,
         required=required,
@@ -515,6 +686,7 @@ def _build_candidate(
         merge_packet=merge_packet,
         rollup=rollup,
         head_changed=head_changed,
+        merge_tree=merge_tree,
         repo_override=repo_override,
     )
     return {
@@ -531,12 +703,13 @@ def _build_candidate(
         "merge_state_status": str(view.get("mergeStateStatus") or ""),
         "updated_at": str(view.get("updatedAt") or ""),
         "files": sorted(file_index.get(pr_number, set())),
-        "transport_fallback": view.get("_transport_fallback") or {},
+        "transport_fallback": transport_fallback,
         "required_checks": required,
         "rollup": rollup,
         "owner": owner,
         "steering": steering,
         "merge_packet": merge_packet,
+        "merge_tree": merge_tree,
         "ready_boundary": ready_boundary,
         "supersession_hints": supersession_hints,
         "classification": classification,
@@ -773,6 +946,7 @@ def _ready_boundary_summary(
     merge_packet: dict[str, Any],
     rollup: dict[str, Any],
     head_changed: bool,
+    merge_tree: dict[str, Any],
     repo_override: str | None,
 ) -> dict[str, Any]:
     pr_number = int(view.get("number") or 0)
@@ -855,6 +1029,7 @@ def _ready_boundary_summary(
         "required_checks_summary": required.get("summary"),
         "actionable_rollup_rows": actionable_rows,
         "watched_rollup": watched_rollup,
+        "merge_tree": merge_tree,
         "evidence_status": {
             "tier": tier,
             "counted_model_families": families,

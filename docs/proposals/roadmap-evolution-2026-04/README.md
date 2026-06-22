@@ -47,5 +47,5 @@ These drafts were retired. Each file now carries a tombstone pointing at where t
 
 - [CANONICAL_GOALS.md](../../CANONICAL_GOALS.md) — 8 pillars; unchanged by this bundle
 - [ARAGORA_EVOLUTION_ROADMAP.md](../../plans/ARAGORA_EVOLUTION_ROADMAP.md) — Tracks A–G; the narrow surviving sub-bullets live here
-- [Biological-timescale analogies research brief (non-canonical)](../../research/2026-04-18-biological-timescale-analogies-brief.md)
+- Biological-timescale analogies research brief (non-canonical; archived)
 - [NEXT_STEPS_CANONICAL.md — proof-first Foreman gate and `boss-ready` queue governance](../../status/NEXT_STEPS_CANONICAL.md)
