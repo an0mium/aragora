@@ -1118,6 +1118,8 @@ def _classify_agent_process(command: str) -> str | None:
         return None
     if "codex_worktree_value_inventory.py" in lowered:
         return "worktree_inventory"
+    if "render_benchmark_truth_status.py" in lowered:
+        return "benchmark_truth"
     if "run_boss_cycle.sh" in lowered:
         return "boss_cycle"
     if (
@@ -1151,6 +1153,7 @@ def _process_summary_for_role(role: str) -> str:
         "claude_code": "Claude Code local session process",
         "codex_app_server": "Codex Desktop app server process",
         "codex_cli": "Codex CLI process",
+        "benchmark_truth": "benchmark-truth status and latest-pointer guard process",
         "factory_droid": "Factory/Droid local agent process",
         "multi_agent_dialog": "multi-agent review dialog process",
         "publisher": "Codex automation publisher process",

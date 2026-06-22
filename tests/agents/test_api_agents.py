@@ -339,13 +339,14 @@ class TestCreateAgentFactory:
         assert agent.role == "critic"
 
     def test_create_agent_with_model(self):
-        """Test factory respects model parameter."""
+        """Test factory preserves requested Gemini model intent while normalizing API ID."""
         from aragora.agents.base import create_agent
 
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test"}):
             agent = create_agent("gemini", model="gemini-2.5-pro")
 
-        assert agent.model == "gemini-2.5-pro"
+        assert agent.model == "gemini-3.1-pro-preview"
+        assert agent._original_model == "gemini-2.5-pro"
 
 
 class TestAgentStance:

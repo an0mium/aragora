@@ -64,11 +64,16 @@ class SurfaceCoverage:
 
 def _load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
-        return {}
+        raise FileNotFoundError(f"Capability report YAML source missing: {path}")
     with path.open("r", encoding="utf-8") as handle:
-        data = yaml.safe_load(handle) or {}
+        try:
+            data = yaml.safe_load(handle)
+        except yaml.YAMLError as exc:
+            raise ValueError(f"Malformed capability report YAML source {path}: {exc}") from exc
+    if data is None:
+        raise ValueError(f"Capability report YAML source {path} is empty")
     if not isinstance(data, dict):
-        return {}
+        raise ValueError(f"Capability report YAML source {path} must be a mapping")
     return data
 
 

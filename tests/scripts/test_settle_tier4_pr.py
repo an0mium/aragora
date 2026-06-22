@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -107,11 +108,195 @@ def _tier4_packet(
     }
 
 
+def _tier4_repair_packet_missing_settlement(pr: int = 7423) -> dict[str, Any]:
+    packet = _tier4_packet(pr=pr)
+    packet["not_ready"] = [pr]
+    packet["entries"][0]["status"] = "repair_or_wait"
+    packet["entries"][0]["verdict"] = "not_ready_for_settlement"
+    packet["entries"][0]["requires_human_risk_settlement"] = True
+    packet["entries"][0]["reasons"] = [
+        "workflow/deploy/destructive surface touched",
+        "checks are failing; repair before settlement",
+    ]
+    return packet
+
+
+def test_json_read_gh_probe_prefers_app_auth_and_preserves_cwd(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def fake_gh_subprocess_run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append({"args": args, **kwargs})
+        return subprocess.CompletedProcess(["gh", *args], 0, '{"ok": true}', "")
+
+    monkeypatch.setattr(settler, "gh_subprocess_run", fake_gh_subprocess_run)
+
+    payload = settler._run_json(["gh", "pr", "view", "7423"], cwd=tmp_path)
+
+    assert payload == {"ok": True}
+    assert calls == [
+        {
+            "args": ["pr", "view", "7423"],
+            "cwd": tmp_path,
+            "timeout": 120,
+            "prefer_app": True,
+            "write_op": False,
+            "env": settler.os.environ,
+        }
+    ]
+
+
+def test_current_gh_login_uses_user_auth_not_app_auth(monkeypatch: Any, tmp_path: Path) -> None:
+    observed: list[dict[str, Any]] = []
+
+    def fake_run_json(
+        command: list[str],
+        *,
+        cwd: Path | None = None,
+        prefer_app: bool = True,
+        write_op: bool = False,
+    ) -> dict[str, Any]:
+        observed.append(
+            {
+                "command": command,
+                "cwd": cwd,
+                "prefer_app": prefer_app,
+                "write_op": write_op,
+            }
+        )
+        return {"login": "scarmani"}
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+
+    assert settler._current_gh_login(cwd=tmp_path) == "scarmani"
+    assert observed == [
+        {
+            "command": ["gh", "api", "user"],
+            "cwd": tmp_path,
+            "prefer_app": False,
+            "write_op": False,
+        }
+    ]
+
+
+def test_write_command_uses_user_auth_not_app_auth(monkeypatch: Any, tmp_path: Path) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def fake_gh_subprocess_run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append({"args": args, **kwargs})
+        return subprocess.CompletedProcess(["gh", *args], 0, "", "")
+
+    monkeypatch.setattr(settler, "gh_subprocess_run", fake_gh_subprocess_run)
+
+    settler._run_command(["gh", "pr", "comment", "7423", "--body", "settled"], cwd=tmp_path)
+
+    assert calls == [
+        {
+            "args": ["pr", "comment", "7423", "--body", "settled"],
+            "cwd": tmp_path,
+            "timeout": 180,
+            "prefer_app": True,
+            "write_op": True,
+            "env": settler.os.environ,
+        }
+    ]
+
+
 def _valid_checks() -> list[dict[str, str]]:
     return [
         {"name": "lint", "state": "SUCCESS"},
         {"name": "aragora-merge-quorum", "state": "SUCCESS"},
     ]
+
+
+def test_run_json_timeout_reports_runtime_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(settler, "gh_subprocess_run", None)
+    monkeypatch.setattr(settler.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match=r"gh pr view 7423 timed out after 120s"):
+        settler._run_json(["gh", "pr", "view", "7423"], cwd=Path.cwd())
+
+
+def test_run_json_timeout_preserves_zero_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=0)
+
+    monkeypatch.setattr(settler, "gh_subprocess_run", None)
+    monkeypatch.setattr(settler.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match=r"gh pr view 7423 timed out after 0s"):
+        settler._run_json(["gh", "pr", "view", "7423"], cwd=Path.cwd())
+
+
+def test_run_json_any_timeout_preserves_zero_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=0)
+
+    monkeypatch.setattr(settler, "gh_subprocess_run", None)
+    monkeypatch.setattr(settler.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match=r"gh pr view 7423 timed out after 0s"):
+        settler._run_json_any(["gh", "pr", "view", "7423"], cwd=Path.cwd())
+
+
+def test_run_json_includes_stdout_json_error_when_command_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    command = [
+        sys.executable,
+        "-m",
+        "aragora.cli.main",
+        "review-queue",
+        "merge-packet",
+        "--json",
+    ]
+
+    def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        assert args[0] == command
+        assert kwargs["cwd"] == tmp_path
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout='{"ok": false, "error": "merge-packet transport blocked"}\n',
+            stderr="",
+        )
+
+    monkeypatch.setattr(settler.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="merge-packet transport blocked"):
+        settler._run_json(command, cwd=tmp_path)
+
+
+def test_main_json_reports_live_probe_timeout(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(settler, "gh_subprocess_run", None)
+    monkeypatch.setattr(settler.subprocess, "run", fake_run)
+
+    exit_code = settler.main(
+        [
+            "--check",
+            "--pr",
+            "7423",
+            "--head",
+            "57c740022e3c432718462efa12ca79f1df4f674d",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 2
+    assert payload == {
+        "error": "gh pr view 7423 --repo synaptent/aragora --json headRefOid,state,isDraft,mergeStateStatus,baseRefName,comments,reviews,commits,statusCheckRollup,url timed out after 120s",
+        "ok": False,
+    }
 
 
 def _rest_pull(head: str) -> dict[str, Any]:
@@ -293,6 +478,241 @@ def test_load_live_inputs_uses_rest_required_checks_when_graphql_checks_rate_lim
         required_checks=required_checks,
     )
     assert gate["ok"] is True
+
+
+def test_load_live_inputs_fills_missing_required_check_rows_from_direct_runs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        if command[:3] == ["gh", "pr", "view"]:
+            return {
+                "headRefOid": head,
+                "state": "OPEN",
+                "isDraft": False,
+                "mergeStateStatus": "BLOCKED",
+                "baseRefName": "main",
+                "comments": [],
+                "reviews": [],
+                "commits": [],
+                "statusCheckRollup": [],
+                "url": "https://github.example/pr/7423",
+            }
+        if command[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            return _tier4_packet()
+        raise AssertionError(f"unexpected _run_json command: {command}")
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        if command[:4] == ["gh", "pr", "checks", "7423"]:
+            return [{"name": "lint", "state": "SUCCESS"}]
+        if command[:2] != ["gh", "api"]:
+            raise AssertionError(f"unexpected _run_json_any command: {command}")
+        endpoint = command[2]
+        if endpoint == "repos/example/project/branches/main/protection/required_status_checks":
+            return {
+                "strict": False,
+                "contexts": [],
+                "checks": [
+                    {"context": "lint", "app_id": 15368},
+                    {"context": "aragora-merge-quorum", "app_id": 15368},
+                ],
+            }
+        if endpoint.startswith(f"repos/example/project/commits/{head}/check-runs"):
+            return {
+                "total_count": 2,
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "app": {"id": 15368},
+                    },
+                    {
+                        "name": "aragora-merge-quorum",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "app": {"id": 15368},
+                    },
+                ],
+            }
+        if endpoint.startswith(f"repos/example/project/commits/{head}/statuses"):
+            return []
+        raise AssertionError(f"unexpected REST endpoint: {endpoint}")
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    _, _, required_checks = settler._load_live_inputs(7423, cwd=tmp_path, repo="example/project")
+
+    assert required_checks == [
+        {"name": "lint", "state": "SUCCESS"},
+        {
+            "name": "aragora-merge-quorum",
+            "state": "SUCCESS",
+            "workflow": "direct required check-run fallback",
+            "source": "direct_commit_check_run",
+        },
+    ]
+
+
+def test_direct_required_check_fallback_preserves_strict_freshness(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        endpoint = command[2]
+        if endpoint == "repos/synaptent/aragora/branches/main/protection/required_status_checks":
+            return {
+                "strict": True,
+                "contexts": [],
+                "checks": [{"context": "lint", "app_id": 15368}],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/check-runs"):
+            return {
+                "total_count": 1,
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "app": {"id": 15368},
+                    }
+                ],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/statuses"):
+            return []
+        if endpoint == f"repos/synaptent/aragora/compare/main...{head}":
+            return {"status": "ahead"}
+        raise AssertionError(f"unexpected REST endpoint: {endpoint}")
+
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    checks = settler._required_checks_with_direct_fallback(
+        [],
+        _pr_view(head, comments=[]),
+        cwd=tmp_path,
+        repo="synaptent/aragora",
+    )
+
+    assert checks == [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "strict branch-protection freshness", "state": "SUCCESS"},
+    ]
+
+
+def test_strict_fallback_preserves_existing_failing_required_checks(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        endpoint = command[2]
+        if endpoint == "repos/synaptent/aragora/branches/main/protection/required_status_checks":
+            return {
+                "strict": True,
+                "contexts": [],
+                "checks": [{"context": "lint", "app_id": 15368}],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/check-runs"):
+            return {
+                "total_count": 1,
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "status": "completed",
+                        "conclusion": "success",
+                        "app": {"id": 15368},
+                    }
+                ],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/statuses"):
+            return []
+        if endpoint == f"repos/synaptent/aragora/compare/main...{head}":
+            return {"status": "ahead"}
+        raise AssertionError(f"unexpected REST endpoint: {endpoint}")
+
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    required_checks = settler._required_checks_with_direct_fallback(
+        [{"name": "ruleset-required", "state": "FAILURE"}],
+        _pr_view(head, comments=[]),
+        cwd=tmp_path,
+        repo="synaptent/aragora",
+    )
+
+    assert required_checks == [
+        {"name": "ruleset-required", "state": "FAILURE"},
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "strict branch-protection freshness", "state": "SUCCESS"},
+    ]
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
+        required_checks=required_checks,
+    )
+    assert result["ok"] is False
+    assert "required check ruleset-required is FAILURE" in result["blockers"]
+
+
+def test_direct_required_check_fallback_does_not_treat_completed_without_conclusion_as_success(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    def fake_run_json_any(command: list[str], *, cwd: Path | None = None) -> Any:
+        endpoint = command[2]
+        if endpoint == "repos/synaptent/aragora/branches/main/protection/required_status_checks":
+            return {
+                "strict": False,
+                "contexts": [],
+                "checks": [{"context": "lint", "app_id": 15368}],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/check-runs"):
+            return {
+                "total_count": 1,
+                "check_runs": [
+                    {
+                        "name": "lint",
+                        "status": "completed",
+                        "conclusion": "",
+                        "app": {"id": 15368},
+                    }
+                ],
+            }
+        if endpoint.startswith(f"repos/synaptent/aragora/commits/{head}/statuses"):
+            return []
+        raise AssertionError(f"unexpected REST endpoint: {endpoint}")
+
+    monkeypatch.setattr(settler, "_run_json_any", fake_run_json_any)
+
+    required_checks = settler._required_checks_with_direct_fallback(
+        [],
+        _pr_view(head, comments=[]),
+        cwd=tmp_path,
+        repo="synaptent/aragora",
+    )
+
+    assert required_checks == [
+        {
+            "name": "lint",
+            "state": "UNKNOWN",
+            "workflow": "direct required check-run fallback",
+            "source": "direct_commit_check_run",
+        }
+    ]
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[_authorized_comment(head)]),
+        merge_packet=_tier4_packet(),
+        required_checks=required_checks,
+    )
+    assert result["ok"] is False
+    assert "required check lint is UNKNOWN" in result["blockers"]
 
 
 def test_rate_limited_required_checks_fail_closed_without_rest_protection_surface(
@@ -865,6 +1285,90 @@ def test_admin_member_comment_does_not_require_explicit_allowlist() -> None:
     assert result["blockers"] == []
 
 
+def test_allowlisted_admin_collaborator_comment_authorizes() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="COLLABORATOR",
+                    author="trusted-admin",
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-admin"],
+        permission_checker=lambda login: login == "trusted-admin",
+    )
+
+    assert result["ok"] is True
+    assert result["blockers"] == []
+    diagnostic = result["authorization_diagnostics"][0]
+    assert diagnostic["accepted"] is True
+    assert diagnostic["admin_permission_required"] is True
+    assert diagnostic["admin_permission_evaluated"] is True
+
+
+def test_collaborator_comment_requires_explicit_allowlist() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="COLLABORATOR",
+                    author="admin-collaborator",
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        permission_checker=lambda login: login == "admin-collaborator",
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+    assert result["authorization_diagnostics"][0]["rejection_reasons"] == [
+        "COLLABORATOR login admin-collaborator requires explicit trusted operator allowlist"
+    ]
+
+
+def test_allowlisted_collaborator_comment_requires_admin_permission() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(
+            head,
+            comments=[
+                _authorized_comment(
+                    head,
+                    association="COLLABORATOR",
+                    author="trusted-collaborator",
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-collaborator"],
+        permission_checker=lambda login: False,
+    )
+
+    assert result["ok"] is False
+    assert "missing repo-visible Tier 4 operator settlement comment" in result["blockers"]
+    assert result["authorization_diagnostics"][0]["rejection_reasons"] == [
+        "trusted collaborator trusted-collaborator lacks admin permission"
+    ]
+
+
 def test_cli_trusted_operator_login_authorizes_member_comment(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
@@ -885,6 +1389,11 @@ def test_cli_trusted_operator_login_authorizes_member_comment(
         settler,
         "_login_has_admin_permission",
         lambda login, repo, cwd: login == "trusted-member",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_preflight_branch_protection_reconcile",
+        lambda repo, cwd: None,
     )
 
     rc = settler.main(
@@ -909,6 +1418,31 @@ def test_collaborator_permission_payload_only_treats_admin_as_admin() -> None:
     assert settler._collaborator_permission_is_admin({"role_name": "admin"}) is True
     for permission in ("maintain", "write", "triage", "read"):
         assert settler._collaborator_permission_is_admin({"permission": permission}) is False
+
+
+def test_admin_permission_check_uses_rest_collaborator_permission_endpoint(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run_json(command: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+        commands.append(command)
+        return {"permission": "admin"}
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
+
+    assert settler._login_has_admin_permission(
+        "trusted-admin@example.com",
+        "owner/repo",
+        tmp_path,
+    )
+    assert commands == [
+        [
+            "gh",
+            "api",
+            "repos/owner/repo/collaborators/trusted-admin%40example.com/permission",
+        ]
+    ]
 
 
 def test_authorization_comment_for_different_head_does_not_authorize() -> None:
@@ -997,7 +1531,7 @@ def test_head_mismatch_skips_member_permission_check(monkeypatch: Any) -> None:
     assert diagnostic["admin_permission_required"] is True
     assert diagnostic["admin_permission_evaluated"] is False
     assert (
-        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         in diagnostic["rejection_reasons"]
     )
 
@@ -1053,7 +1587,7 @@ def test_failed_required_check_skips_member_permission_check(monkeypatch: Any) -
     assert diagnostic["admin_permission_required"] is True
     assert diagnostic["admin_permission_evaluated"] is False
     assert (
-        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         in diagnostic["rejection_reasons"]
     )
 
@@ -1143,7 +1677,7 @@ def test_unexpected_packet_blocker_does_not_report_missing_trusted_member_commen
     assert diagnostic["admin_permission_required"] is True
     assert diagnostic["admin_permission_evaluated"] is False
     assert (
-        "trusted member admin permission was not evaluated because earlier gate blockers are present"
+        "trusted operator admin permission was not evaluated because earlier gate blockers are present"
         in diagnostic["rejection_reasons"]
     )
 
@@ -1286,6 +1820,192 @@ def test_check_json_includes_authorization_diagnostics(
     ]
 
 
+def test_check_json_blocks_on_branch_protection_preflight_failure(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+
+    def fail_preflight(*, repo: str, cwd: Path) -> None:
+        raise settler.Tier4ApplyError(
+            "Tier 4 branch-protection preflight failed before merge mutation: "
+            "repos/owner/repo/branches/main/protection: gh: Resource not accessible "
+            "by integration (HTTP 403)",
+            phase="preflight",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action="verify the active gh identity has branch-protection admin access",
+        )
+
+    monkeypatch.setattr(settler, "_preflight_branch_protection_reconcile", fail_preflight)
+
+    rc = settler.main(["--check", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"])
+
+    assert rc == 1
+    payload = settler.json.loads(capsys.readouterr().out)
+    gate = payload["gate"]
+    assert gate["ok"] is False
+    assert gate["settle_eligible"] is False
+    assert any(
+        blocker.startswith(settler.BRANCH_PROTECTION_PREFLIGHT_BLOCKER)
+        for blocker in gate["blockers"]
+    )
+    preflight = gate["branch_protection_preflight"]
+    assert preflight["required"] is True
+    assert preflight["ok"] is False
+    assert preflight["phase"] == "preflight"
+    assert preflight["mutation_occurred"] is False
+    assert preflight["completed_commands"] == 0
+    assert "HTTP 403" in preflight["error"]
+
+
+def test_check_json_does_not_block_on_observational_non_admin_preflight(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "reviewer-user")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: False)
+    monkeypatch.setattr(
+        settler,
+        "_run_json",
+        lambda command, cwd, **kwargs: pytest.fail(
+            "observational non-admin checks should not read branch-protection endpoints"
+        ),
+    )
+
+    rc = settler.main(["--check", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"])
+
+    assert rc == 0
+    gate = settler.json.loads(capsys.readouterr().out)["gate"]
+    assert gate["ok"] is True
+    assert gate["settle_eligible"] is True
+    preflight = gate["branch_protection_preflight"]
+    assert preflight["required"] is True
+    assert preflight["ok"] is True
+    assert preflight["advisory"] is True
+    assert "lacks admin permission" in preflight["error"]
+    assert "eventual --merge-apply operator" in preflight["non_blocking_reason"]
+
+
+def test_branch_protection_preflight_report_failure_keys_fail_closed(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    def fail_preflight(*, repo: str, cwd: Path) -> None:
+        raise settler.Tier4ApplyError(
+            "real preflight failure",
+            phase="preflight",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action="recover",
+        )
+
+    def conflicting_payload(self: Any) -> dict[str, Any]:
+        return {
+            "required": False,
+            "ok": True,
+            "error": "payload override",
+            "phase": self.phase,
+            "mutation_occurred": self.mutation_occurred,
+            "completed_commands": self.completed_commands,
+            "rollback_errors": self.rollback_errors,
+            "recovery_action": self.recovery_action,
+        }
+
+    monkeypatch.setattr(settler, "_preflight_branch_protection_reconcile", fail_preflight)
+    monkeypatch.setattr(settler.Tier4ApplyError, "to_payload", conflicting_payload)
+
+    preflight = settler._branch_protection_preflight_report(
+        repo="owner/repo",
+        cwd=tmp_path,
+        authorized_actions={"branch_protection"},
+    )
+
+    assert preflight["required"] is True
+    assert preflight["ok"] is False
+    assert preflight["error"] == "real preflight failure"
+    assert preflight["phase"] == "preflight"
+
+
+def test_branch_protection_preflight_report_wraps_auth_probe_runtime_error(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_current_gh_login",
+        lambda cwd: (_ for _ in ()).throw(RuntimeError("gh auth unavailable")),
+    )
+
+    preflight = settler._branch_protection_preflight_report(
+        repo="owner/repo",
+        cwd=tmp_path,
+        authorized_actions={"branch_protection"},
+    )
+
+    assert preflight["required"] is True
+    assert preflight["ok"] is False
+    assert preflight["phase"] == "preflight"
+    assert preflight["mutation_occurred"] is False
+    assert preflight["completed_commands"] == 0
+    assert "could not probe gh admin permission" in preflight["error"]
+    assert "gh auth unavailable" in preflight["error"]
+
+
+def test_check_skips_branch_protection_preflight_for_merge_only_authorization(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(
+                head,
+                comments=[
+                    _authorized_comment(
+                        head,
+                        include_branch_protection=False,
+                    )
+                ],
+            ),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_preflight_branch_protection_reconcile",
+        lambda repo, cwd: pytest.fail("merge-only authorization should not preflight"),
+    )
+
+    rc = settler.main(["--check", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"])
+
+    assert rc == 0
+    gate = settler.json.loads(capsys.readouterr().out)["gate"]
+    assert gate["ok"] is True
+    assert gate["authorized_actions"] == ["merge"]
+    assert gate["branch_protection_preflight"]["required"] is False
+
+
 def test_settle_only_posts_comment_and_status_without_merge(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
@@ -1364,6 +2084,155 @@ def test_settle_only_posts_comment_and_status_without_merge(
             None,
         )
     ]
+
+
+def test_settle_only_requires_proof_for_quorum_only_repair_packet() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    result = settler.evaluate_tier4_settlement_preconditions(
+        pr=7423,
+        expected_head=head,
+        pr_view=_pr_view(head, comments=[], human_settlement_state=None),
+        merge_packet=_tier4_repair_packet_missing_settlement(),
+        required_checks=[
+            {"name": "lint", "state": "SUCCESS"},
+            {"name": "aragora-merge-quorum", "state": "FAILURE"},
+        ],
+    )
+
+    assert result["ok"] is False
+    assert (
+        "aragora-merge-quorum failure is not proven to be missing human settlement"
+        in result["blockers"]
+    )
+
+
+def test_settle_only_allows_quorum_only_repair_packet_with_log_proof(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[tuple[list[str], str | None]] = []
+    commands: list[tuple[list[str], str | None]] = []
+    proof_calls: list[tuple[list[dict[str, str]], str]] = []
+    required_checks = [
+        {"name": "lint", "state": "SUCCESS"},
+        {
+            "name": "aragora-merge-quorum",
+            "state": "FAILURE",
+            "link": "https://github.example/synaptent/aragora/actions/runs/123/job/456",
+        },
+    ]
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, *, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_repair_packet_missing_settlement(),
+            required_checks,
+        ),
+    )
+
+    def fake_quorum_proof(checks: list[dict[str, str]], *, repo: str, cwd: Path, head: str) -> bool:
+        proof_calls.append((checks, head))
+        return True
+
+    monkeypatch.setattr(settler, "_quorum_failure_log_proves_missing_settlement", fake_quorum_proof)
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: (
+            text_commands.append((command, input_text))
+            or "https://github.example/pr/7423#issuecomment-1\n"
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append((command, input_text)),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(
+        settler,
+        "_login_has_admin_permission",
+        lambda login, repo, cwd: login == "trusted-member",
+    )
+
+    rc = settler.main(
+        [
+            "--settle-only",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+        ]
+    )
+
+    assert rc == 0
+    assert proof_calls == [(required_checks, head)]
+    assert text_commands[0][0][:3] == ["gh", "pr", "comment"]
+    assert commands[0][0][:3] == ["gh", "api", "--method"]
+
+
+def test_quorum_failure_log_proves_missing_human_settlement(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    calls: list[list[str]] = []
+
+    def fake_run_text_command(
+        command: list[str], *, cwd: Path, input_text: str | None = None
+    ) -> str:
+        calls.append(command)
+        return (
+            "Tier 4: model quorum prepared the risk packet, but no human "
+            f"settlement signal is recorded for head {head[:12]}. "
+            "The operator must record settlement and set the "
+            "'Aragora/Human-Settlement' commit status."
+        )
+
+    monkeypatch.setattr(settler, "_run_text_command", fake_run_text_command)
+
+    assert (
+        settler._quorum_failure_log_proves_missing_settlement(
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {
+                    "name": "aragora-merge-quorum",
+                    "state": "FAILURE",
+                    "link": "https://github.example/synaptent/aragora/actions/runs/123/job/456",
+                },
+            ],
+            repo="synaptent/aragora",
+            cwd=tmp_path,
+            head=head,
+        )
+        is True
+    )
+    assert calls == [
+        ["gh", "run", "view", "--repo", "synaptent/aragora", "--job", "456", "--log-failed"]
+    ]
+
+    assert (
+        settler._quorum_failure_log_proves_missing_settlement(
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {
+                    "name": "aragora-merge-quorum",
+                    "state": "FAILURE",
+                    "link": "https://github.example/synaptent/aragora/actions/runs/123/job/456",
+                },
+            ],
+            repo="synaptent/aragora",
+            cwd=tmp_path,
+            head="short",
+        )
+        is False
+    )
 
 
 def test_settle_only_rejects_untrusted_invoking_login(
@@ -1555,16 +2424,10 @@ def test_settle_only_rejects_unrelated_required_failure(monkeypatch: Any, tmp_pa
 
 
 def test_ambiguous_apply_mode_is_rejected() -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
     with pytest.raises(SystemExit) as exc:
-        settler.main(
-            [
-                "--apply",
-                "--pr",
-                "7423",
-                "--head",
-                "57c740022e3c432718462efa12ca79f1df4f674d",
-            ]
-        )
+        settler.main(["--apply", "--pr", "7423", "--head", head])
 
     assert exc.value.code == 2
 
@@ -1657,11 +2520,12 @@ def test_merge_apply_branch_protection_preflight_failure_prevents_merge(
     )
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "admin-user")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
-    monkeypatch.setattr(
-        settler,
-        "_run_json",
-        lambda command, cwd: (_ for _ in ()).throw(RuntimeError("gh: Not Found (HTTP 404)")),
-    )
+
+    def fail_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        assert write_op is True
+        raise RuntimeError("gh: Not Found (HTTP 404)")
+
+    monkeypatch.setattr(settler, "_run_json", fail_run_json)
     monkeypatch.setattr(
         settler,
         "_run_command",
@@ -1686,7 +2550,7 @@ def test_merge_apply_branch_protection_preflight_failure_prevents_merge(
 def test_branch_protection_preflight_reads_all_privileged_endpoints(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    commands: list[list[str]] = []
+    commands: list[tuple[list[str], bool]] = []
 
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "admin-user")
     monkeypatch.setattr(
@@ -1695,34 +2559,35 @@ def test_branch_protection_preflight_reads_all_privileged_endpoints(
         lambda login, repo, cwd: login == "admin-user",
     )
 
-    def fake_run_json(command: list[str], cwd: Path) -> dict[str, Any]:
-        commands.append(command)
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        commands.append((command, write_op))
         return {"ok": True}
 
     monkeypatch.setattr(settler, "_run_json", fake_run_json)
 
     settler._preflight_branch_protection_reconcile(repo="owner/repo", cwd=tmp_path)
 
-    endpoints = [command[-1] for command in commands]
+    endpoints = [command[-1] for command, _write_op in commands]
     assert endpoints == [
         "repos/owner/repo/branches/main/protection",
         "repos/owner/repo/branches/main/protection/required_pull_request_reviews",
         "repos/owner/repo/branches/main/protection/required_status_checks",
         "repos/owner/repo/branches/main/protection/enforce_admins",
     ]
+    assert [write_op for _command, write_op in commands] == [True, True, True, True]
 
 
 def test_branch_protection_preflight_allows_absent_optional_subresource_404(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    commands: list[str] = []
+    commands: list[tuple[str, bool]] = []
 
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "admin-user")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
 
-    def fake_run_json(command: list[str], cwd: Path) -> dict[str, Any]:
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
         endpoint = command[-1]
-        commands.append(endpoint)
+        commands.append((endpoint, write_op))
         if endpoint.endswith("/protection"):
             return {
                 "required_pull_request_reviews": None,
@@ -1740,10 +2605,10 @@ def test_branch_protection_preflight_allows_absent_optional_subresource_404(
     settler._preflight_branch_protection_reconcile(repo="owner/repo", cwd=tmp_path)
 
     assert commands == [
-        "repos/owner/repo/branches/main/protection",
-        "repos/owner/repo/branches/main/protection/required_pull_request_reviews",
-        "repos/owner/repo/branches/main/protection/required_status_checks",
-        "repos/owner/repo/branches/main/protection/enforce_admins",
+        ("repos/owner/repo/branches/main/protection", True),
+        ("repos/owner/repo/branches/main/protection/required_pull_request_reviews", True),
+        ("repos/owner/repo/branches/main/protection/required_status_checks", True),
+        ("repos/owner/repo/branches/main/protection/enforce_admins", True),
     ]
 
 
@@ -1753,7 +2618,8 @@ def test_branch_protection_preflight_blocks_present_optional_subresource_404(
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "admin-user")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
 
-    def fake_run_json(command: list[str], cwd: Path) -> dict[str, Any]:
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        assert write_op is True
         endpoint = command[-1]
         if endpoint.endswith("/protection"):
             return {
@@ -1783,7 +2649,9 @@ def test_branch_protection_preflight_blocks_non_admin_invoker(
     monkeypatch.setattr(
         settler,
         "_run_json",
-        lambda command, cwd: pytest.fail("branch-protection endpoints should not be read"),
+        lambda command, cwd, **kwargs: pytest.fail(
+            "branch-protection endpoints should not be read"
+        ),
     )
 
     with pytest.raises(settler.Tier4ApplyError) as exc:
@@ -1798,7 +2666,10 @@ def test_branch_protection_preflight_blocks_non_admin_invoker(
 def test_branch_protection_snapshot_records_absent_optional_subresource_404(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    def fake_run_json(command: list[str], cwd: Path) -> dict[str, Any]:
+    commands: list[bool] = []
+
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        commands.append(write_op)
         endpoint = command[-1]
         if endpoint.endswith("/protection"):
             return {
@@ -1820,6 +2691,7 @@ def test_branch_protection_snapshot_records_absent_optional_subresource_404(
     assert snapshot["required_status_checks"] is None
     assert snapshot["enforce_admins"] == {"enabled": True}
     assert settler._branch_protection_snapshot_errors(snapshot) == []
+    assert commands == [True, True, True, True]
 
 
 def test_branch_protection_top_level_snapshot_failure_prevents_merge(
@@ -2087,14 +2959,14 @@ def test_merge_apply_refuses_stale_failed_required_rollup_before_merge(
 def test_required_status_check_patch_skips_when_quorum_already_required(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(
-        settler,
-        "_run_json",
-        lambda command, cwd: {
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        assert write_op is True
+        return {
             "strict": False,
             "contexts": ["Generate & Validate", "aragora-merge-quorum", "lint"],
-        },
-    )
+        }
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
 
     patch = settler._required_status_check_patch(repo="owner/repo", cwd=tmp_path)
 
@@ -2104,17 +2976,17 @@ def test_required_status_check_patch_skips_when_quorum_already_required(
 def test_required_status_check_patch_adds_missing_quorum_from_checks(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(
-        settler,
-        "_run_json",
-        lambda command, cwd: {
+    def fake_run_json(command: list[str], cwd: Path, *, write_op: bool = False) -> dict[str, Any]:
+        assert write_op is True
+        return {
             "strict": False,
             "checks": [
                 {"context": "Generate & Validate", "app_id": 15368},
                 {"context": "lint", "app_id": 15368},
             ],
-        },
-    )
+        }
+
+    monkeypatch.setattr(settler, "_run_json", fake_run_json)
 
     command, payload = settler._required_status_check_patch(repo="owner/repo", cwd=tmp_path)
 
@@ -2226,3 +3098,168 @@ def test_merge_apply_merge_only_authorization_skips_branch_protection(
             None,
         )
     ]
+
+
+# --- --check merge-packet diagnostics enrichment -----------------------------
+
+HEAD_57 = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+
+def _diagnostic_packet(pr: int = 7423) -> dict[str, Any]:
+    """A not-ready Tier 4 packet carrying the rich human-readable entry fields."""
+    return {
+        "not_ready": [pr],
+        "human_risk_settlement_required": [pr],
+        "entries": [
+            {
+                "pr_number": pr,
+                "tier": 4,
+                "tier_name": "tier_4_preapproval_required",
+                "status": "repair_or_wait",
+                "verdict": "not_ready_for_settlement",
+                "machine_recommendation": "repair_first",
+                "checks_summary": "1 failing / 42 total",
+                "counted_model_families": [],
+                "requires_human_risk_settlement": True,
+                "requires_human_preapproval": True,
+                "reasons": [
+                    "merge-authority/destructive surface touched",
+                    "checks are failing; repair before settlement",
+                    "model quorum incomplete: 0/2 signal(s)",
+                    "focused adversarial dogfood evidence is required",
+                ],
+            }
+        ],
+    }
+
+
+def _failing_checks() -> list[dict[str, str]]:
+    return [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "FAILURE"},
+    ]
+
+
+def test_gate_surfaces_merge_packet_diagnostics_when_blocked() -> None:
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=HEAD_57,
+        pr_view=_pr_view(HEAD_57, comments=[]),
+        merge_packet=_diagnostic_packet(),
+        required_checks=_failing_checks(),
+    )
+
+    assert result["ok"] is False
+    assert result["settle_eligible"] is False
+    assert result["head_match"] is True
+    assert "aragora-merge-quorum=FAILURE" in result["required_failing"]
+    diag = result["merge_packet"]
+    assert diag["tier"] == 4
+    assert diag["tier_name"] == "tier_4_preapproval_required"
+    assert diag["status"] == "repair_or_wait"
+    assert diag["verdict"] == "not_ready_for_settlement"
+    assert diag["checks_summary"] == "1 failing / 42 total"
+    assert diag["counted_model_families"] == []
+    assert "model quorum incomplete: 0/2 signal(s)" in diag["reasons"]
+    # Top-level convenience mirror for downstream automation.
+    assert result["reasons"] == diag["reasons"]
+
+
+def test_gate_head_mismatch_sets_head_match_false() -> None:
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head="expected",
+        pr_view={
+            "headRefOid": "actual",
+            "state": "OPEN",
+            "isDraft": False,
+            "mergeStateStatus": "BLOCKED",
+            "headCommittedDate": HEAD_COMMITTED_AT,
+            "comments": [],
+            "reviews": [],
+        },
+        merge_packet=_diagnostic_packet(),
+    )
+
+    assert result["ok"] is False
+    assert result["head_match"] is False
+    assert result["settle_eligible"] is False
+    assert "head mismatch: expected expected, got actual" in result["blockers"]
+
+
+def test_gate_ready_case_is_settle_eligible() -> None:
+    result = settler.evaluate_tier4_gate(
+        pr=7423,
+        expected_head=HEAD_57,
+        pr_view=_pr_view(
+            HEAD_57,
+            comments=[
+                _authorized_comment(
+                    HEAD_57,
+                    association="MEMBER",
+                    author="trusted-member",
+                    include_branch_protection=False,
+                )
+            ],
+        ),
+        merge_packet=_tier4_packet(),
+        required_checks=_valid_checks(),
+        trusted_operator_logins=["trusted-member"],
+        permission_checker=lambda login: login == "trusted-member",
+    )
+
+    assert result["ok"] is True
+    assert result["settle_eligible"] is True
+    assert result["head_match"] is True
+    assert result["required_failing"] == []
+    assert result["merge_packet_blockers"] == []
+
+
+def test_check_json_includes_merge_packet_reasons(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo="synaptent/aragora": (
+            _pr_view(HEAD_57, comments=[]),
+            _diagnostic_packet(),
+            _failing_checks(),
+        ),
+    )
+
+    rc = settler.main(
+        ["--check", "--pr", "7423", "--head", HEAD_57, "--cwd", str(tmp_path), "--json"]
+    )
+
+    assert rc == 1
+    gate = settler.json.loads(capsys.readouterr().out)["gate"]
+    assert gate["head_match"] is True
+    assert gate["settle_eligible"] is False
+    assert "aragora-merge-quorum=FAILURE" in gate["required_failing"]
+    assert "model quorum incomplete: 0/2 signal(s)" in gate["reasons"]
+    assert gate["merge_packet"]["tier_name"] == "tier_4_preapproval_required"
+
+
+def test_check_text_prints_merge_packet_reasons_when_blocked(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo="synaptent/aragora": (
+            _pr_view(HEAD_57, comments=[]),
+            _diagnostic_packet(),
+            _failing_checks(),
+        ),
+    )
+
+    rc = settler.main(["--check", "--pr", "7423", "--head", HEAD_57, "--cwd", str(tmp_path)])
+
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert out.startswith("blocked")
+    assert "merge-packet: tier=4 (tier_4_preapproval_required)" in out
+    assert "checks: 1 failing / 42 total" in out
+    assert "counted_model_families: 0 []" in out
+    assert "reason: model quorum incomplete: 0/2 signal(s)" in out

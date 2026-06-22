@@ -295,7 +295,7 @@ class TestAgentProbingExtended:
         integration.prober = MagicMock()
         integration.prober.probe_agent = AsyncMock(return_value=mock_report)
 
-        weights = await integration.probe_agents([mock_agent])
+        weights = await integration.probe_agents([mock_agent], run_agent_fn=AsyncMock())
 
         # Weight should be 1.0 - 0.2 = 0.8
         assert weights[mock_agent.name] == pytest.approx(0.8, rel=0.01)
@@ -315,7 +315,7 @@ class TestAgentProbingExtended:
         integration.prober = MagicMock()
         integration.prober.probe_agent = AsyncMock(return_value=mock_report)
 
-        weights = await integration.probe_agents([mock_agent])
+        weights = await integration.probe_agents([mock_agent], run_agent_fn=AsyncMock())
 
         # Weight = (1.0 - 0.1) * 0.5 = 0.45
         assert weights[mock_agent.name] == pytest.approx(0.45, rel=0.01)
@@ -351,7 +351,7 @@ class TestAgentProbingExtended:
         integration.prober = MagicMock()
         integration.prober.probe_agent = AsyncMock(side_effect=RuntimeError("Probe failed"))
 
-        weights = await integration.probe_agents([mock_agent])
+        weights = await integration.probe_agents([mock_agent], run_agent_fn=AsyncMock())
 
         # Should get fallback weight of 0.75
         assert weights[mock_agent.name] == 0.75
@@ -371,7 +371,7 @@ class TestAgentProbingExtended:
         integration.prober = MagicMock()
         integration.prober.probe_agent = AsyncMock(return_value=mock_report)
 
-        await integration.probe_agents([mock_agent])
+        await integration.probe_agents([mock_agent], run_agent_fn=AsyncMock())
 
         assert integration._agent_weights[mock_agent.name] == pytest.approx(0.9, rel=0.01)
 
@@ -679,7 +679,9 @@ class TestErrorHandling:
 
         # Mock counterfactual orchestrator
         integration_no_checkpoint.counterfactual = MagicMock()
-        integration_no_checkpoint.counterfactual.create_branches = AsyncMock(return_value=[])
+        integration_no_checkpoint.counterfactual.create_and_run_branches = AsyncMock(
+            return_value=[]
+        )
 
         # Patch PivotClaim to handle the incorrect kwargs in the implementation
         with patch("aragora.nomic.integration.PivotClaim") as MockPivotClaim:
