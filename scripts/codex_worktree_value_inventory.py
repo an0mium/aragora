@@ -1150,9 +1150,11 @@ def classify_candidate(
                     classification = "patch_equivalent_or_merged"
                     proof.append("merging branch into base leaves base tree unchanged")
                     links["smart_merge_merge_tree"] = context.base
+                elif merge_tree_error:
+                    classification = "unique_unharvested"
+                    proof.append("merge-tree did not prove branch is already represented on base")
+                    links["smart_merge_merge_tree_error"] = merge_tree_error
                 else:
-                    if merge_tree_error:
-                        links["smart_merge_merge_tree_error"] = merge_tree_error
                     merge_commits, merge_error = branch_unique_merge_commits(
                         repo_path,
                         context.base,

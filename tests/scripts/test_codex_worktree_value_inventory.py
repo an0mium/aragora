@@ -754,12 +754,14 @@ def test_smart_merge_detection_merge_tree_conflict_falls_through(
     monkeypatch.setattr(
         mod,
         "branch_subjects_match_recent_main",
-        lambda *_args, **_kwargs: (False, []),
+        lambda *_args, **_kwargs: (True, ["feat: looks merged"]),
     )
     monkeypatch.setattr(
         mod,
         "branch_patches_present_on_base",
-        lambda *_args, **_kwargs: (False, []),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("conflicts must not fall through to patch heuristics")
+        ),
     )
 
     candidate = mod.classify_candidate(
@@ -777,6 +779,7 @@ def test_smart_merge_detection_merge_tree_conflict_falls_through(
     assert candidate.cleanup_candidate is False
     assert candidate.git.lookup_failed is False
     assert candidate.links["smart_merge_merge_tree_error"] == "CONFLICT (content): tracked.txt"
+    assert "merge-tree did not prove branch is already represented on base" in candidate.proof
 
 
 def test_branch_patches_present_on_base_uses_temp_index_only(tmp_path: Path) -> None:
