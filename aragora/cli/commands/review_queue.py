@@ -3356,8 +3356,21 @@ def _classify_model_review_tier(
 def _tier_requirement(tier: int) -> dict[str, Any]:
     # Single source of truth for the model-quorum bar: the shared tier_quorum_rule
     # (also used by the auto-settle path's CollectOutcome.has_supportive_quorum) so
-    # the merge gate and the collector cannot drift. The tiered Tier 1-2 relaxation
-    # is opt-in, default OFF via ARAGORA_ENABLE_TIERED_MERGE_GATE.
+    # the merge gate and the collector share one tier→requirement mapping and one WF
+    # allowlist; they cannot drift on WHAT each tier requires.
+    #
+    # The two paths intentionally differ on regime SELECTION, and the asymmetry is by
+    # design (claude #8507 P1):
+    #   * This live merge gate is evaluated fresh on every CI run against the PR's
+    #     current evidence, so there is no prepare→apply staleness window to reconcile.
+    #     It therefore reads the live flag directly. The flag is default OFF, and
+    #     enabling it is itself the operator's deliberate, Tier-4-gated audit point —
+    #     the global flag *is* the revocation control (flip OFF to revoke everywhere).
+    #   * The auto-settle apply path stores a prepared artifact with a real time gap
+    #     between prepare and apply, so it additionally reconciles via min(prepared,
+    #     live) to stop a flag flip from retroactively relaxing a stale artifact.
+    # Both are strict-by-default and monotonic toward the strict bar; only the apply
+    # path needs the extra reconciliation because only it has stored, deferrable state.
     from aragora.swarm.quorum_evidence import tier_quorum_rule, tiered_merge_gate_enabled
 
     rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())

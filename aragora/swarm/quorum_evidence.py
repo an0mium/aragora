@@ -1842,6 +1842,15 @@ def apply_prepared_evidence(
     # It is fail-safe rather than fail-closed: evidence that is insufficient under the
     # effective regime degrades to "prepare" below — never a hard error — so there is
     # no inconsistent-authority / operational-DoS window.
+    #
+    # Artifact trust boundary (claude #8507 P2): a prepared artifact is trusted only
+    # after it is matched to this repo/PR and to the LIVE exact-head SHA and then
+    # re-linted against the same parser used before posting. The `min(prepared, live)`
+    # rule means a forged `tiered_gate=true` cannot relax a merge while the live flag
+    # is OFF; it can only assert relaxation when the operator has ALREADY enabled it
+    # live (itself the Tier-4-gated decision). Anyone who can forge the artifact JSON
+    # can also forge reviewer bodies, so artifact integrity is the caller's trust
+    # boundary — this field grants no authority beyond what the live flag already does.
     live_gate = tiered_merge_gate_enabled()
     effective_tiered_gate = bool(prepared.tiered_gate) and live_gate
 
