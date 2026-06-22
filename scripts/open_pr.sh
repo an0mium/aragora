@@ -16,6 +16,7 @@ Behavior:
   - Fails when working tree is dirty.
   - Pushes current branch to origin.
   - Creates a draft PR with gh using --fill (unless one already exists).
+  - Pass --no-draft only when the branch is ready for live review.
 EOF
 }
 

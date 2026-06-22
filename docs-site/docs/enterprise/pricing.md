@@ -373,7 +373,7 @@ Aragora generates Article 12 (Record-Keeping), Article 13 (Transparency), and Ar
 
 ### Can I self-host?
 
-Yes. Enterprise customers can deploy on their own infrastructure with Docker Compose, Kubernetes (Helm chart included), or Terraform. Offline and air-gapped deployments are supported with `aragora serve --offline`.
+Yes. Enterprise customers can deploy on their own infrastructure with Docker Compose, Kubernetes (Helm chart included), or Terraform. Offline and air-gapped deployments are supported with `aragora serve --demo`.
 
 ### How does pricing work for teams?
 

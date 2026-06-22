@@ -27,7 +27,7 @@ budgets:
   # Nine findings slots × 0.85 conservative estimator + 1.10 synthesis ≈
   # 8.75; the 10.00 ceiling gives headroom without affecting real-world
   # runs (actual cost is ~$0.18 per brief — see
-  # docs/status/2026-04-24-mode3-rc1-calibration.md).
+  # docs/archive/status/2026-04-24-mode3-rc1-calibration.md).
   per_brief_usd: 10.0
   per_day_usd: 200.0
   reserve_for_manual_escalation_usd: 40.0
