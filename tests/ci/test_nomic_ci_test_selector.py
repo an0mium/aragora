@@ -13,9 +13,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _SELECTOR_PATH = REPO_ROOT / "scripts" / "nomic_ci_test_selector.py"
 
-_spec = importlib.util.spec_from_file_location(
-    "nomic_ci_test_selector", _SELECTOR_PATH
-)
+_spec = importlib.util.spec_from_file_location("nomic_ci_test_selector", _SELECTOR_PATH)
 selector = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(selector)
 

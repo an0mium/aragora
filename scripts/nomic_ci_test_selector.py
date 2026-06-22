@@ -46,9 +46,7 @@ def infer_test_paths(changed_files: list[str]) -> list[str]:
                     if Path(test_file).exists():
                         test_paths.append(test_file)
                     # _root-suffixed variant (batch 3 convention)
-                    root_test = (
-                        f"tests/{directory}/test_{basename}_root.py"
-                    )
+                    root_test = f"tests/{directory}/test_{basename}_root.py"
                     if Path(root_test).exists():
                         test_paths.append(root_test)
             elif len(parts) == 1 and parts[0].endswith(".py"):
@@ -61,9 +59,7 @@ def infer_test_paths(changed_files: list[str]) -> list[str]:
                 for match in Path("tests").glob(f"*/test_{parts[0]}"):
                     test_paths.append(str(match))
                 # Root-suffixed variant: tests/<module>/test_<x>_root.py
-                for match in Path("tests").glob(
-                    f"*/test_{basename}_root.py"
-                ):
+                for match in Path("tests").glob(f"*/test_{basename}_root.py"):
                     test_paths.append(str(match))
     # Deduplicate
     return list(dict.fromkeys(test_paths))
