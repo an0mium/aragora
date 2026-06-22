@@ -272,10 +272,21 @@ class TestCruxDetectionAPI:
 
 
 class TestCruxCanHandle:
-    """Tests for route matching of versioned crux endpoint."""
+    """Tests for route matching of belief-network crux endpoint.
 
-    def test_can_handle_versioned_cruxes(self, handler):
-        assert handler.can_handle("/api/v1/debates/debate-123/cruxes")
+    Note: ``/api/v1/debates/{id}/cruxes`` is now owned by ``DebatesHandler``
+    (public crux-finder exposure, #8227). ``BeliefHandler`` retains its own
+    belief-network crux analysis at ``/api/belief-network/{id}/cruxes`` and no
+    longer claims the ``/api/v1/debates/*/cruxes`` path, so the two surfaces
+    are disambiguated.
+    """
+
+    def test_can_handle_belief_network_cruxes(self, handler):
+        assert handler.can_handle("/api/belief-network/debate-123/cruxes")
+
+    def test_does_not_claim_debates_cruxes(self, handler):
+        # Owned by DebatesHandler now; BeliefHandler must not shadow it.
+        assert not handler.can_handle("/api/v1/debates/debate-123/cruxes")
 
     def test_cannot_handle_unrelated(self, handler):
         assert not handler.can_handle("/api/v1/debates/debate-123/something-else")

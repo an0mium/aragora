@@ -73,7 +73,6 @@ class BeliefHandler(BaseHandler):
         # Versioned aliases for SDK parity
         "/api/v1/belief-network/*/graph",
         "/api/v1/belief-network/*/export",
-        "/api/v1/debates/*/cruxes",
     ]
 
     def __init__(self, server_context: dict[str, Any]):
@@ -200,8 +199,6 @@ class BeliefHandler(BaseHandler):
             return True
         if normalized.startswith("/api/debate/") and normalized.endswith("/graph-stats"):
             return True
-        if normalized.startswith("/api/debates/") and normalized.endswith("/cruxes"):
-            return True
         return False
 
     def _check_belief_permission(
@@ -318,13 +315,6 @@ class BeliefHandler(BaseHandler):
             if debate_id is None:
                 return error_response("Invalid debate_id", 400)
             return self._get_debate_graph_stats(nomic_dir, debate_id)
-
-        if normalized.startswith("/api/debates/") and normalized.endswith("/cruxes"):
-            debate_id = self._extract_debate_id(normalized, 3)
-            if debate_id is None:
-                return error_response("Invalid debate_id", 400)
-            limit = get_clamped_int_param(query_params, "limit", 5, min_val=1, max_val=20)
-            return self._get_crux_analysis(nomic_dir, debate_id, limit)
 
         return None
 
