@@ -76,7 +76,7 @@ For Tier 3+, the model quorum prepares the risk packet. The human/operator accep
 
 ## Required vs Advisory Checks
 
-The merge decision should use GitHub branch protection as the authoritative hard gate. As of this contract, that means the required status checks configured on `main`, one approving review, and a scoped diff with validation evidence in the PR body.
+The merge decision should use GitHub branch protection as the authoritative hard gate. As of this contract, that means the required status checks configured on `main` — CI plus the enforcing `aragora-merge-quorum` check — and a scoped diff with validation evidence in the PR body. Branch protection does not require a human approving review: the heterogeneous model-review quorum is the technical reviewer, and the operator's recorded risk settlement carries human accountability for Tier 3-4. See `docs/governance/MERGE_GATE_RECONCILIATION.md`.
 
 Advisory workflows are still useful evidence, but they should not create a hidden second merge policy. Treat advisory checks as follows:
 
@@ -86,7 +86,7 @@ Advisory workflows are still useful evidence, but they should not create a hidde
 - Failed advisory checks are blockers only when the failure is in-scope for the PR diff or reveals a mainline regression that would be worsened by the PR.
 - Summary-only jobs such as analytics, admission signals, and AI review comments should prefer warnings and PR comments over failing statuses.
 
-Use a fast lane for docs-only, tests-only, and narrow CI reliability PRs: if the required checks pass, the diff is scoped, and one reviewer approves, the PR is mergeable even if unrelated advisory lanes are pending or skipped. Use the full lane for product, security, deploy, data migration, and cross-cutting architecture changes: relevant advisory lanes should be green or explicitly waived in the PR body before admin merge.
+Use a fast lane for docs-only, tests-only, and narrow CI reliability PRs: if the required checks pass (including `aragora-merge-quorum`) and the diff is scoped, the PR is mergeable even if unrelated advisory lanes are pending or skipped. Use the full lane for product, security, deploy, data migration, and cross-cutting architecture changes: relevant advisory lanes should be green or explicitly waived in the PR body before admin merge.
 
 ## Queue Hygiene
 
@@ -131,9 +131,10 @@ Use this repo's automation merge contract at `docs/briefs/automation-merge-contr
 Run the boss loop with shared coordination state when multiple hosts are active:
 
 ```bash
-export ARAGORA_DEV_COORDINATION_DB=/Users/armand/Development/aragora/.aragora/dev_coordination.sqlite3
+export ARAGORA_REPO_ROOT="${ARAGORA_REPO_ROOT:-$PWD}"
+export ARAGORA_DEV_COORDINATION_DB="${ARAGORA_REPO_ROOT}/.aragora/dev_coordination.sqlite3"
 export ARAGORA_BOSS_VERIFIED_RUNNER_TARGET=0
-python3.11 -u -m aragora.cli.main swarm boss-loop \
+ARAGORA_POST_LOOP_ISSUE_REFILL=0 ./scripts/run_boss_cycle.sh \
   --boss-repo synaptent/aragora \
   --target-branch main \
   --worker-model claude \

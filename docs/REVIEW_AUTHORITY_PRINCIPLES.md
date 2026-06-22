@@ -35,4 +35,55 @@ Machine reviews remain advisory in GitHub terms: they do not become bot `APPROVE
 
 A change to `aragora/cli/commands/review_queue.py` is treated as Tier 4 because the model-quorum logic that gates the change *is* the code being changed. Without the elevation, a bug or weakening introduced in the diff would be evaluated by the version of the gate it is trying to land — the artifact under review would be its own arbiter. Tier 4 keeps the human in the chain of trust for these PRs specifically.
 
+## Enforcement on GitHub
+
+Two workflows express this policy on GitHub, and they are deliberately separate.
+
+`aragora-review-gate.yml` ("Aragora Code Review") is advisory. It runs the heterogeneous model review, posts findings as a PR comment, and never fails a PR. `scripts/check_aragora_review_gate_policy.py` guards it against drift and keeps it advisory on purpose.
+
+`aragora-merge-quorum.yml` ("aragora-merge-quorum") is enforcing. It is the required status check on `main`. It builds the read-only merge-authorization packet (`review-queue merge-packet`) for the PR's exact head SHA and fails the check unless the packet authorizes the merge. For Tier 0-2 it passes when the model-quorum verdict is `admin_squash_allowed` with no unresolved dissent. For Tier 3-4 it passes only when, in addition to the model quorum, a head-SHA-bound human settlement signal is recorded — the `aragora/human-settlement` commit status, set by the operator after the local settlement receipt is written — and it fails closed until then.
+
+Branch protection on `main` therefore requires status checks (CI plus `aragora-merge-quorum`) and does not require a human approving review. This is intentional. A human `APPROVE` review by the author, or by any second GitHub identity the author controls, is a symbolic approval with no independent competence behind it: it satisfies the mechanism while defeating the four factors above. The model quorum supplies the technical review; the operator's recorded risk settlement supplies accountability and stake. Neither is a bot `APPROVE`, and neither pretends a second person reviewed the diff.
+
+A second GitHub account operated by the same person as the PR author MUST NOT be used to satisfy any review requirement. It fails the independence factor this document is built on, and in the audit trail it is indistinguishable from a genuine independent review — which makes it worse than no approval at all. Review authority on this repo comes from the model quorum and the operator's recorded settlement, never from a second login.
+
 These principles fit the repo's existing pillars rather than adding new ones. Receipts bind decisions to the exact reviewed state. Evidence-first review requires concrete validation and current-head truth before a merge decision is meaningful. Bounded scope keeps approvals legible enough that an approver can understand what is being accepted. The goal is not symbolic human presence. The goal is a reviewer with enough competence, independence, accountability, and stake to make the approval mean something.
+
+## Model family eligibility by Tier and jurisdiction
+
+The model-quorum gate counts signals from a known set of model families. As the routing layer (`aragora/agents/api_agents/`) grows to include heterogeneous Chinese open-weight families (DeepSeek, Qwen, Kimi, GLM, MiniMax, Yi) alongside the Western families (Anthropic, OpenAI, Google, xAI, Mistral, Nous Hermes), the gate must distinguish *which families count for which Tier* and *which payloads may be routed to which jurisdictions*. Without this distinction, expanding the recognizer would silently weaken Tier 3+ review (calibration concerns) and could leak PII across jurisdictional boundaries.
+
+### Tier-eligibility for quorum counting
+
+| Tier | Western families count? | Chinese-routed families count? |
+| --- | --- | --- |
+| 0 — docs, status, tests-only | ✓ | ✓ |
+| 1 — additive internal, no live caller | ✓ | ✓ |
+| 2 — live automation, CLI, observability, retry, cache | ✓ | ✓; **at least one of the two required signals must be a Western family** |
+| 3 — semantic correctness, persistence, security, public API, migrations | ✓ | **Advisory-only — not counted toward quorum**; may still post evidence comments |
+| 4 — secrets, deployment, workflow policy, destructive ops, merge-authority self-mod | ✓ — **Western-only counted quorum required** | **Advisory-only — not counted** |
+
+Rationale: mixed quorums realize the cost advantage of open-weight Chinese families on routine Tier 0-2 work; Western-only counted quorums for Tier 3+ preserve the calibration-trained-on-Western-OSS prior that high-stakes governance and security review depend on. At Tier 4, the requirement is strictly Western-only (not just "at least one Western signal") because merge-authority self-modifications are the highest-stakes class of change in this repo and the entire counted quorum must originate from training-data lineages with documented Western alignment work. Chinese reviewers are never silenced at any Tier — their comments still post and remain readable — but they do not satisfy the quorum-count condition for Tier 3-4 merges.
+
+### Payload-jurisdiction routing rule
+
+Independent of Tier, the *content being sent to the reviewer* determines which jurisdictions may receive it:
+
+| Payload type | Western families | Chinese-routed families |
+| --- | --- | --- |
+| Public OSS PR title + diff | ✓ | ✓ |
+| Private repo PR title + diff (no PII) | ✓ | ✓ if repo policy permits |
+| Inbox triage features (low-information, no body, AFT-style) | ✓ | ✓ |
+| Inbox triage *raw email body* | ✓ where AWS Secrets Manager loaded | **✗ never** |
+| Customer PII, financials, credentials | ✓ subject to data-residency policy | **✗ never** |
+| Secrets, encryption keys, OAuth tokens | ✓ subject to data-residency policy | **✗ never** |
+| Private legal material (contracts, settlements, NDAs) | ✓ subject to data-residency policy | **✗ never** |
+| Healthcare or regulated data | Vertical-specific allowlist only | **✗ never** |
+
+The payload boundary is hard, not a soft preference. It is enforced at the routing layer (`aragora/agents/api_agents/openrouter.py` and any future provider router), not at the quorum-counting layer. A reviewer that should not see a payload must never receive the payload, regardless of whether it would be counted.
+
+### Family-additive change governance
+
+A change that adds a new family marker to the recognizer in `aragora/cli/commands/review_queue.py::_infer_model_reviewer_from_text`, or changes which family counts at which Tier, is a Tier 4 merge-authority self-modification per the Tier table above. It requires human preapproval before implementation and before merge. The pre-approval artifact for such a change is a design document in `docs/specs/` that enumerates the families being added, their proposed Tier eligibility, their proposed jurisdictional payload constraints, and governance tests in `tests/governance/` that characterize the current gate behavior and pin the gap to be inverted by the implementation.
+
+Removing a family marker, demoting a family to advisory-only, or restricting a family's payload eligibility is Tier 4 by the same rule. Loosening any of these constraints in CI (e.g., counting an advisory family at Tier 3) requires the same preapproval discipline as the original addition.

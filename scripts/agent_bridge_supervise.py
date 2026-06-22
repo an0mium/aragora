@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -51,6 +52,7 @@ _WAIT_MARKERS = (
 )
 _BLOCKED_MARKERS = ("blocked", "stuck", "needs human", "conflict")
 _REVIEW_MARKERS = ("ready for review", "re-review", "green", "merge when green")
+_DEFAULT_MAX_RECORDS = 20
 
 
 @dataclass(slots=True)
@@ -106,6 +108,37 @@ class SupervisorSnapshot:
             "lanes": [decision.to_dict() for decision in self.decisions],
         }
 
+    def to_summary_dict(self, *, top_lanes_limit: int = 5) -> dict[str, Any]:
+        action_counts: dict[str, int] = {}
+        status_counts: dict[str, int] = {}
+        for decision in self.decisions:
+            action_counts[decision.next_action] = action_counts.get(decision.next_action, 0) + 1
+            status_counts[decision.status] = status_counts.get(decision.status, 0) + 1
+        return {
+            "generated_at": self.generated_at,
+            "warning_count": len(self.warnings),
+            "warnings": list(self.warnings),
+            "lane_count": len(self.decisions),
+            "action_counts": dict(sorted(action_counts.items())),
+            "status_counts": dict(sorted(status_counts.items())),
+            "top_lanes": [
+                {
+                    key: value
+                    for key, value in {
+                        "lane_id": decision.lane_id,
+                        "owner_session": decision.owner_session,
+                        "status": decision.status,
+                        "next_action": decision.next_action,
+                        "branch": decision.branch,
+                        "pr_number": decision.pr_number,
+                    }.items()
+                    if value not in ("", None)
+                }
+                for decision in self.decisions[:top_lanes_limit]
+            ],
+            "details_omitted": True,
+        }
+
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
@@ -141,6 +174,11 @@ def _session_text(session: agent_bridge.Session | None) -> str:
     except OSError:
         pass
     return "\n".join(line for line in lines if line)
+
+
+def _session_is_current(session: agent_bridge.Session) -> bool:
+    lifecycle = session.lifecycle or session.status
+    return session.status == "alive" or lifecycle in agent_bridge.CURRENT_SESSION_LIFECYCLES
 
 
 def _run_git(worktree: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -403,7 +441,7 @@ def _decide_lane(
             evidence=evidence,
         )
 
-    if session.status != "alive":
+    if not _session_is_current(session):
         return LaneDecision(
             lane_id=record.lane_id,
             owner_session=record.owner_session,
@@ -601,17 +639,58 @@ def _decide_lane(
     )
 
 
-def collect_supervisor_snapshot() -> SupervisorSnapshot:
-    sessions = agent_bridge.discover()
-    agent_bridge._enrich_prs(sessions)  # noqa: SLF001
-    records = agent_bridge._sync_lane_records(  # noqa: SLF001
-        agent_bridge._load_lane_registry(),  # noqa: SLF001
-        sessions,
-    )
+def _discover_current_sessions() -> list[agent_bridge.Session]:
+    if hasattr(agent_bridge, "_discover_with_broker_state"):
+        sessions, _broker_runs, _active_broker_ids = agent_bridge._discover_with_broker_state(  # noqa: SLF001
+            include_historical=False
+        )
+        return sessions
+    try:
+        return agent_bridge.discover(include_historical=False)
+    except TypeError:
+        return agent_bridge.discover()
+
+
+def collect_supervisor_snapshot(*, max_records: int | None = None) -> SupervisorSnapshot:
+    warnings: list[str] = []
+    if max_records is None:
+        try:
+            max_records = int(
+                os.environ.get("ARAGORA_AGENT_BRIDGE_SUPERVISE_MAX_RECORDS", _DEFAULT_MAX_RECORDS)
+            )
+        except ValueError:
+            max_records = _DEFAULT_MAX_RECORDS
+    try:
+        sessions = _discover_current_sessions()
+    except Exception as exc:
+        return SupervisorSnapshot(
+            generated_at=_now_iso(),
+            decisions=[],
+            warnings=[f"session discovery degraded: {exc}"],
+        )
+
+    try:
+        agent_bridge._enrich_prs(sessions)  # noqa: SLF001
+        records = agent_bridge._sync_lane_records(  # noqa: SLF001
+            agent_bridge._load_lane_registry(),  # noqa: SLF001
+            sessions,
+        )
+    except Exception as exc:
+        warnings.append(f"lane registry degraded: {exc}")
+        records = []
     if not records:
         records = _synthetic_lane_records(sessions)
 
-    pr_truth_by_branch, warnings = _load_pr_truth(records)
+    if len(records) > max_records:
+        warnings.append(f"supervisor record cap applied: {max_records}/{len(records)}")
+        records = records[:max_records]
+
+    try:
+        pr_truth_by_branch, pr_warnings = _load_pr_truth(records)
+        warnings.extend(pr_warnings)
+    except Exception as exc:
+        pr_truth_by_branch = {}
+        warnings.append(f"pr truth degraded: {exc}")
     session_map = {session.name: session for session in sessions}
     decisions: list[LaneDecision] = []
 
@@ -653,6 +732,25 @@ def _render_text(snapshot: SupervisorSnapshot) -> str:
         for warning in snapshot.warnings:
             lines.append(f"- {warning}")
     return "\n".join(lines)
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        sys.stdout.close()
+    except OSError:
+        pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_text(output: str) -> int:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+    return 0
 
 
 _SAFE_AUTO_ACTIONS = frozenset(
@@ -776,6 +874,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true", help="Render machine-readable JSON.")
     parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With JSON output, omit full lane records and render compact counts.",
+    )
+    parser.add_argument(
         "--execute",
         action="store_true",
         help="Execute safe bounded actions (approve prompts, send followups). Without this flag, only reports.",
@@ -806,27 +909,27 @@ def main(argv: list[str] | None = None) -> int:
                     result = _execute_decision(decision, dry_run=args.dry_run)
                     actions_taken.append(result)
 
-            if args.json:
-                print(
-                    json.dumps(
-                        {
-                            **snapshot.to_dict(),
-                            "actions_taken": actions_taken,
-                        },
-                        indent=2,
-                    )
-                )
+            if args.json or args.summary_only:
+                payload = snapshot.to_summary_dict() if args.summary_only else snapshot.to_dict()
+                _emit_text(json.dumps({**payload, "actions_taken": actions_taken}, indent=2))
             else:
-                print(_render_text(snapshot))
+                output = _render_text(snapshot)
                 if actions_taken:
-                    print("\n--- Actions ---")
-                    for action in actions_taken:
-                        print(f"  {action}")
+                    output = "\n".join(
+                        [
+                            output,
+                            "",
+                            "--- Actions ---",
+                            *[f"  {action}" for action in actions_taken],
+                        ]
+                    )
+                _emit_text(output)
         else:
-            if args.json:
-                print(json.dumps(snapshot.to_dict(), indent=2))
+            if args.json or args.summary_only:
+                payload = snapshot.to_summary_dict() if args.summary_only else snapshot.to_dict()
+                _emit_text(json.dumps(payload, indent=2))
             else:
-                print(_render_text(snapshot))
+                _emit_text(_render_text(snapshot))
 
         if run_once:
             return 0

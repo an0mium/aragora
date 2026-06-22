@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -19,6 +20,91 @@ FORCE_FULL_EXACT_PATHS = {
     "scripts/test_tiers.sh",
 }
 FORCE_FULL_PREFIXES = (".github/actions/pr-scope-classifier/",)
+
+
+class ChangedFilesError(RuntimeError):
+    """Raised when changed files cannot be computed truthfully from git refs."""
+
+
+def _git_stdout(*, repo_root: Path, args: list[str]) -> str:
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return proc.stdout.strip()
+
+
+def _is_no_merge_base_failure(details: str) -> bool:
+    lowered = details.lower()
+    return "no merge base" in lowered or "no merge-base" in lowered
+
+
+def _run_git_fetch(*, repo_root: Path, args: list[str]) -> bool:
+    proc = subprocess.run(
+        ["git", "fetch", *args],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return proc.returncode == 0
+
+
+def _history_recovery_fetches(*, base: str) -> list[list[str]]:
+    base_branch = base.removeprefix("origin/")
+    fetches = [["--no-tags", "--deepen=128", "origin", base_branch]]
+    head_branch = os.environ.get("GITHUB_HEAD_REF")
+    if head_branch:
+        fetches.append(["--no-tags", "--deepen=128", "origin", head_branch])
+    fetches.append(["--no-tags", "--deepen=512", "origin", base_branch])
+    if head_branch:
+        fetches.append(["--no-tags", "--deepen=512", "origin", head_branch])
+    return fetches
+
+
+def _diff_changed_files(*, repo_root: Path, diff_spec: str) -> list[str]:
+    proc = subprocess.run(
+        ["git", "diff", "--name-only", diff_spec],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [line for line in proc.stdout.splitlines() if line.strip()]
+
+
+def _recover_changed_files_from_shallow_history(
+    *, repo_root: Path, base: str, diff_spec: str
+) -> list[str] | None:
+    if os.environ.get("GITHUB_EVENT_NAME") not in {"pull_request", "pull_request_target"}:
+        return None
+    for fetch_args in _history_recovery_fetches(base=base):
+        if not _run_git_fetch(repo_root=repo_root, args=fetch_args):
+            continue
+        try:
+            return _diff_changed_files(repo_root=repo_root, diff_spec=diff_spec)
+        except subprocess.CalledProcessError as exc:
+            details = (exc.stderr or exc.stdout or "").strip()
+            if exc.returncode != 128 or not _is_no_merge_base_failure(details):
+                raise
+    return None
+
+
+def _diff_head_for_changed_files(*, repo_root: Path, base: str, head_ref: str) -> str:
+    if os.environ.get("GITHUB_EVENT_NAME") not in {"pull_request", "pull_request_target"}:
+        return head_ref
+    try:
+        base_tip = _git_stdout(repo_root=repo_root, args=["rev-parse", base])
+        first_parent = _git_stdout(repo_root=repo_root, args=["rev-parse", f"{head_ref}^1"])
+        second_parent = _git_stdout(repo_root=repo_root, args=["rev-parse", f"{head_ref}^2"])
+    except subprocess.CalledProcessError:
+        return head_ref
+    if first_parent and second_parent and first_parent != base_tip:
+        return second_parent
+    return head_ref
 
 
 @dataclass(frozen=True)
@@ -117,25 +203,34 @@ def build_typecheck_plan(*, repo_root: Path, changed_files: list[str]) -> Typech
 
 def get_changed_files(*, repo_root: Path, base_ref: str, head_ref: str = "HEAD") -> list[str]:
     base = base_ref if base_ref.startswith("origin/") else f"origin/{base_ref}"
+    diff_head = _diff_head_for_changed_files(repo_root=repo_root, base=base, head_ref=head_ref)
+    diff_spec = f"{base}...{diff_head}"
     try:
-        proc = subprocess.run(
-            ["git", "diff", "--name-only", f"{base}...{head_ref}"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        return _diff_changed_files(repo_root=repo_root, diff_spec=diff_spec)
     except subprocess.CalledProcessError as exc:
         if exc.returncode != 128:
             raise
-        proc = subprocess.run(
-            ["git", "diff", "--name-only", f"{base}..{head_ref}"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=True,
+        details = (exc.stderr or exc.stdout or "").strip()
+        if _is_no_merge_base_failure(details):
+            recovered = _recover_changed_files_from_shallow_history(
+                repo_root=repo_root,
+                base=base,
+                diff_spec=diff_spec,
+            )
+            if recovered is not None:
+                return recovered
+        message = (
+            f"Unable to compute changed files with merge-base diff {diff_spec}. "
+            f"Refusing to fall back to {base}..{head_ref} because stale or shallow "
+            "PR merge refs can include unrelated mainline files in the phase-1 "
+            "typecheck gate. A bounded history-deepening retry did not recover a "
+            "truthful merge base. Regenerate the PR merge ref, fetch sufficient "
+            "history, or pass explicit changed files with --files from the PR API "
+            "or workflow changed-file output."
         )
-    return [line for line in proc.stdout.splitlines() if line.strip()]
+        if details:
+            message = f"{message} Git reported: {details}"
+        raise ChangedFilesError(message) from exc
 
 
 def write_github_outputs(*, plan: TypecheckPlan, output_path: Path) -> None:
@@ -205,11 +300,14 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if not args.base_ref:
             raise SystemExit("--base-ref is required unless --files is provided.")
-        changed_files = get_changed_files(
-            repo_root=repo_root,
-            base_ref=args.base_ref,
-            head_ref=args.head_ref,
-        )
+        try:
+            changed_files = get_changed_files(
+                repo_root=repo_root,
+                base_ref=args.base_ref,
+                head_ref=args.head_ref,
+            )
+        except ChangedFilesError as exc:
+            raise SystemExit(str(exc)) from exc
 
     plan = build_typecheck_plan(repo_root=repo_root, changed_files=changed_files)
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
@@ -12,6 +13,13 @@ from pathlib import Path
 from typing import Any
 
 import codex_worktree_autopilot as autopilot
+
+BRANCH_LOOKUP_FAILED = "__branch_lookup_failed__"
+DEFAULT_GIT_TIMEOUT_SECONDS = float(os.environ.get("SAFE_WORKTREE_CLEANUP_GIT_TIMEOUT", "20"))
+DEFAULT_GH_TIMEOUT_SECONDS = float(os.environ.get("SAFE_WORKTREE_CLEANUP_GH_TIMEOUT", "20"))
+DEFAULT_PATCH_EQUIV_TIMEOUT_SECONDS = int(
+    float(os.environ.get("SAFE_WORKTREE_CLEANUP_PATCH_EQUIV_TIMEOUT", "45"))
+)
 
 
 @dataclass
@@ -25,9 +33,131 @@ class WorktreeInspection:
     dirty: bool
     unique_commits_ahead: int
     ahead_lookup_failed: bool
+    patch_equivalent_to_origin_main: bool
+    patch_equivalence_lookup_failed: bool
     open_prs: list[dict[str, Any]]
     pr_lookup_failed: bool
     blockers: list[str]
+
+
+_BLOCKER_DETAILS: dict[str, tuple[str, str, str]] = {
+    "missing_path": (
+        "absent",
+        "Path no longer exists; there is nothing for this helper to remove.",
+        "verify registry state separately before pruning metadata",
+    ),
+    "active_session": (
+        "owned",
+        "An active session marker was detected for this worktree.",
+        "preserve and route cleanup through the live owner",
+    ),
+    "dirty_worktree": (
+        "unsafe_to_delete",
+        "The worktree has uncommitted changes or git status could not prove cleanliness.",
+        "preserve until dirty state is harvested, discarded by owner, or independently proven safe",
+    ),
+    "branch_ahead_of_origin_main": (
+        "unsafe_to_delete",
+        "The branch has commits not proven present or patch-equivalent on origin/main.",
+        "harvest or reconcile branch value before cleanup",
+    ),
+    "patch_equivalence_lookup_failed": (
+        "unknown",
+        "Patch-equivalence lookup failed, so duplicate/harvested status is unproven.",
+        "rerun inspection when patch-equivalence helper is healthy",
+    ),
+    "branch_lookup_failed": (
+        "unknown",
+        "Branch lookup timed out or failed, so ownership and value checks are incomplete.",
+        "preserve until branch identity can be recovered",
+    ),
+    "open_pr": (
+        "referenced",
+        "A live open PR references this branch.",
+        "preserve until the PR is merged, closed, or explicitly superseded",
+    ),
+    "ahead_lookup_failed": (
+        "unknown",
+        "Ahead/behind lookup failed, so unique-commit status is unproven.",
+        "preserve until git history lookup succeeds",
+    ),
+    "pr_lookup_failed": (
+        "unknown",
+        "Open-PR lookup failed while the branch may still contain unique work.",
+        "preserve until GitHub lookup succeeds or local proof is sufficient",
+    ),
+}
+
+
+def cleanup_safety(inspection: WorktreeInspection) -> dict[str, Any]:
+    """Return structured deletion-safety diagnostics for cleanup agents.
+
+    ``blockers`` remains the stable fail-closed contract.  This derived
+    payload explains *why* each blocker matters and classifies clear cases
+    such as owned, harvested, stale, referenced, and unsafe-to-delete.
+    """
+
+    blocker_details = [
+        {
+            "blocker": blocker,
+            "category": _BLOCKER_DETAILS.get(blocker, ("unknown", "", ""))[0],
+            "reason": _BLOCKER_DETAILS.get(blocker, ("unknown", "Unclassified blocker.", ""))[1],
+            "next_action": _BLOCKER_DETAILS.get(
+                blocker, ("unknown", "", "preserve until manually reviewed")
+            )[2],
+        }
+        for blocker in inspection.blockers
+    ]
+    categories = {detail["category"] for detail in blocker_details}
+
+    if "owned" in categories:
+        classification = "owned"
+        decision = "preserve"
+    elif "unsafe_to_delete" in categories:
+        classification = "unsafe_to_delete"
+        decision = "preserve"
+    elif "unknown" in categories:
+        classification = "unknown_preserve"
+        decision = "preserve"
+    elif "referenced" in categories:
+        classification = "referenced_preserve"
+        decision = "preserve"
+    elif "absent" in categories:
+        classification = "absent_noop"
+        decision = "noop"
+    elif inspection.patch_equivalent_to_origin_main:
+        classification = "harvested_or_duplicate"
+        decision = "cleanup_candidate"
+    elif inspection.branch and inspection.unique_commits_ahead == 0:
+        classification = "stale_or_merged"
+        decision = "cleanup_candidate"
+    elif inspection.exists and not inspection.tracked_worktree:
+        classification = "untracked_residue"
+        decision = "cleanup_candidate"
+    else:
+        classification = "cleanup_candidate"
+        decision = "cleanup_candidate"
+
+    return {
+        "removable": not inspection.blockers,
+        "classification": classification,
+        "decision": decision,
+        "blocker_details": blocker_details,
+        "signals": {
+            "exists": inspection.exists,
+            "tracked_worktree": inspection.tracked_worktree,
+            "branch": inspection.branch,
+            "active_session": inspection.active_session,
+            "lock_files": inspection.lock_files,
+            "dirty": inspection.dirty,
+            "unique_commits_ahead": inspection.unique_commits_ahead,
+            "ahead_lookup_failed": inspection.ahead_lookup_failed,
+            "patch_equivalent_to_origin_main": inspection.patch_equivalent_to_origin_main,
+            "patch_equivalence_lookup_failed": inspection.patch_equivalence_lookup_failed,
+            "open_pr_count": len(inspection.open_prs),
+            "pr_lookup_failed": inspection.pr_lookup_failed,
+        },
+    }
 
 
 def _active_lock_files(path: Path) -> list[str]:
@@ -40,10 +170,27 @@ def _active_lock_files(path: Path) -> list[str]:
 
 def _get_worktree_entry(repo_root: Path, path: Path) -> autopilot.WorktreeEntry | None:
     target = path.resolve()
-    for entry in autopilot._get_worktree_entries(repo_root):
+    for entry in _get_worktree_entries(repo_root):
         if entry.path.resolve() == target:
             return entry
     return None
+
+
+def _get_worktree_entries(repo_root: Path) -> list[autopilot.WorktreeEntry]:
+    try:
+        proc = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return []
+    if proc.returncode != 0:
+        return []
+    return autopilot._parse_worktree_porcelain(proc.stdout)
 
 
 def _branch_for_path(path: Path, entry: autopilot.WorktreeEntry | None) -> str | None:
@@ -53,13 +200,17 @@ def _branch_for_path(path: Path, entry: autopilot.WorktreeEntry | None) -> str |
         return None
     if not (path / ".git").exists():
         return None
-    proc = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=path,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=path,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return BRANCH_LOOKUP_FAILED
     if proc.returncode != 0:
         return None
     branch = proc.stdout.strip()
@@ -86,8 +237,9 @@ def _lookup_open_prs(repo_root: Path, branch: str | None) -> tuple[list[dict[str
             text=True,
             capture_output=True,
             check=False,
+            timeout=DEFAULT_GH_TIMEOUT_SECONDS,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return [], True
     if proc.returncode != 0:
         return [], True
@@ -100,16 +252,49 @@ def _lookup_open_prs(repo_root: Path, branch: str | None) -> tuple[list[dict[str
     return payload, False
 
 
+_WRAPPER_SENTINEL_FILENAMES = frozenset(
+    {
+        ".claude-session-anchor",
+        ".codex-session-anchor",
+        ".codex-session",
+        ".droid-session-anchor",
+        ".session-anchor",
+    }
+)
+
+
+def _is_empty_nested_wrapper(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    try:
+        has_any_file = False
+        for entry in path.rglob("*"):
+            if entry.is_file():
+                has_any_file = True
+                if entry.name not in _WRAPPER_SENTINEL_FILENAMES:
+                    return False
+        return has_any_file
+    except OSError:
+        return False
+
+
 def _worktree_is_dirty(path: Path) -> bool:
     if not path.exists():
         return False
-    proc = subprocess.run(
-        ["git", "status", "--short"],
-        cwd=path,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    if _is_empty_nested_wrapper(path):
+        return False
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--short"],
+            cwd=path,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        # Conservatively treat status timeouts as dirty so cleanup is blocked.
+        return True
     if proc.returncode != 0:
         return False
     return bool(proc.stdout.strip())
@@ -121,7 +306,19 @@ def _unique_commits_ahead_of_main(
 ) -> tuple[int, bool]:
     if not branch:
         return 0, False
-    proc = autopilot._run_git(repo_root, "rev-list", "--count", f"origin/main..{branch}")
+    if branch == BRANCH_LOOKUP_FAILED:
+        return 0, True
+    try:
+        proc = subprocess.run(
+            ["git", "rev-list", "--count", f"origin/main..{branch}"],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return 0, True
     if proc.returncode != 0:
         return 0, True
     try:
@@ -130,16 +327,40 @@ def _unique_commits_ahead_of_main(
         return 0, True
 
 
+def _patch_equivalent_to_main(repo_root: Path, branch: str | None) -> tuple[bool, bool]:
+    if not branch:
+        return False, False
+    try:
+        from audit_codex_branch_backlog import is_patch_equivalent
+    except Exception:
+        return False, True
+    try:
+        return (
+            is_patch_equivalent(
+                repo_root,
+                "origin/main",
+                branch,
+                timeout=DEFAULT_PATCH_EQUIV_TIMEOUT_SECONDS,
+            ),
+            False,
+        )
+    except subprocess.TimeoutExpired:
+        return False, True
+
+
 def _pr_lookup_failure_blocks(
     branch: str | None,
     *,
     unique_commits_ahead: int,
     ahead_lookup_failed: bool,
+    patch_equivalent_to_main: bool,
 ) -> bool:
     if not branch:
         return False
     if ahead_lookup_failed:
         return True
+    if patch_equivalent_to_main:
+        return False
     return unique_commits_ahead > 0
 
 
@@ -155,6 +376,12 @@ def inspect_worktree(
     lock_files = _active_lock_files(path) if exists else []
     dirty = _worktree_is_dirty(path) if exists else False
     unique_commits_ahead, ahead_lookup_failed = _unique_commits_ahead_of_main(repo_root, branch)
+    patch_equivalent_to_main = False
+    patch_equivalence_lookup_failed = False
+    if branch and unique_commits_ahead > 0 and not ahead_lookup_failed and not dirty:
+        patch_equivalent_to_main, patch_equivalence_lookup_failed = _patch_equivalent_to_main(
+            repo_root, branch
+        )
     open_prs, pr_lookup_failed = _lookup_open_prs(repo_root, branch)
 
     blockers: list[str] = []
@@ -162,12 +389,14 @@ def inspect_worktree(
         blockers.append("missing_path")
     if active_session:
         blockers.append("active_session")
-    if lock_files:
-        blockers.append("session_lock_present")
     if dirty:
         blockers.append("dirty_worktree")
-    if unique_commits_ahead > 0:
+    if unique_commits_ahead > 0 and not patch_equivalent_to_main:
         blockers.append("branch_ahead_of_origin_main")
+    if patch_equivalence_lookup_failed:
+        blockers.append("patch_equivalence_lookup_failed")
+    if branch == BRANCH_LOOKUP_FAILED:
+        blockers.append("branch_lookup_failed")
     if open_prs:
         blockers.append("open_pr")
     if branch and ahead_lookup_failed:
@@ -176,6 +405,7 @@ def inspect_worktree(
         branch,
         unique_commits_ahead=unique_commits_ahead,
         ahead_lookup_failed=ahead_lookup_failed,
+        patch_equivalent_to_main=patch_equivalent_to_main,
     ):
         blockers.append("pr_lookup_failed")
 
@@ -189,6 +419,8 @@ def inspect_worktree(
         dirty=dirty,
         unique_commits_ahead=unique_commits_ahead,
         ahead_lookup_failed=ahead_lookup_failed,
+        patch_equivalent_to_origin_main=patch_equivalent_to_main,
+        patch_equivalence_lookup_failed=patch_equivalence_lookup_failed,
         open_prs=open_prs,
         pr_lookup_failed=pr_lookup_failed,
         blockers=blockers,
@@ -198,6 +430,7 @@ def inspect_worktree(
 def _print_inspection(inspection: WorktreeInspection, *, as_json: bool) -> None:
     payload = asdict(inspection)
     payload["removable"] = not inspection.blockers
+    payload["cleanup_safety"] = cleanup_safety(inspection)
     if as_json:
         print(json.dumps(payload, indent=2))
         return
@@ -213,21 +446,36 @@ def _print_inspection(inspection: WorktreeInspection, *, as_json: bool) -> None:
     if inspection.branch:
         print(f"unique_commits_ahead: {inspection.unique_commits_ahead}")
         print(f"ahead_lookup_failed: {inspection.ahead_lookup_failed}")
+        print(f"patch_equivalent_to_origin_main: {inspection.patch_equivalent_to_origin_main}")
+        print(f"patch_equivalence_lookup_failed: {inspection.patch_equivalence_lookup_failed}")
     print(f"open_prs: {len(inspection.open_prs)}")
     if inspection.open_prs:
         for pr in inspection.open_prs:
             print(f"  - #{pr.get('number')} {pr.get('title')} :: {pr.get('url')}")
     print(f"removable: {not inspection.blockers}")
+    safety = cleanup_safety(inspection)
+    print(f"cleanup_classification: {safety['classification']}")
+    print(f"cleanup_decision: {safety['decision']}")
     if inspection.blockers:
         print("blockers:")
-        for blocker in inspection.blockers:
-            print(f"  - {blocker}")
+        for detail in safety["blocker_details"]:
+            print(f"  - {detail['blocker']} [{detail['category']}]: {detail['next_action']}")
 
 
 def _delete_branch(repo_root: Path, branch: str) -> bool:
     if not autopilot._branch_exists(repo_root, branch):
         return True
-    proc = autopilot._run_git(repo_root, "branch", "-D", branch)
+    try:
+        proc = subprocess.run(
+            ["git", "branch", "-D", branch],
+            cwd=repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return proc.returncode == 0
 
 
@@ -246,6 +494,7 @@ def remove_worktree(
         "branch_deleted": False,
         "path_purged": False,
         "blockers": list(inspection.blockers),
+        "cleanup_safety": cleanup_safety(inspection),
     }
     path = Path(inspection.path)
     if inspection.blockers and not force:
@@ -253,7 +502,19 @@ def remove_worktree(
         return result
 
     if inspection.tracked_worktree:
-        proc = autopilot._run_git(repo_root, "worktree", "remove", "--force", inspection.path)
+        try:
+            proc = subprocess.run(
+                ["git", "worktree", "remove", "--force", inspection.path],
+                cwd=repo_root,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=DEFAULT_GIT_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            result["status"] = "remove_failed"
+            result["stderr"] = f"git worktree remove timed out after {exc.timeout}s"
+            return result
         if proc.returncode != 0:
             result["status"] = "remove_failed"
             result["stderr"] = proc.stderr.strip()

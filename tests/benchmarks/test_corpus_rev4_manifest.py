@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -136,6 +137,17 @@ def test_rev4_issue_ids_are_unique() -> None:
     payload = _load()
     ids = [int(issue["issue_id"]) for issue in payload["issues"]]
     assert len(ids) == len(set(ids)), "rev-4 corpus must not contain duplicate issue_ids"
+
+
+def test_rev4_source_reference_matches_issue_id() -> None:
+    payload = _load()
+    for issue in payload["issues"]:
+        issue_id = int(issue["issue_id"])
+        match = re.search(r"/issues/(\d+)$", str(issue["source_reference"]))
+        assert match, f"issue #{issue_id} source_reference must point at a GitHub issue URL"
+        assert int(match.group(1)) == issue_id, (
+            f"issue #{issue_id} source_reference points at issue #{match.group(1)}"
+        )
 
 
 def test_rev4_execution_class_targets_are_met() -> None:

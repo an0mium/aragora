@@ -1,4 +1,4 @@
-module github.com/an0mium/aragora-operator
+module github.com/synaptent/aragora-operator
 
 go 1.24.0
 

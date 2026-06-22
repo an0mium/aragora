@@ -198,7 +198,7 @@ docker compose up -d
 
 ```bash
 # Step 1: Clone repository
-git clone https://github.com/an0mium/aragora.git
+git clone https://github.com/synaptent/aragora.git
 cd aragora/deploy/self-hosted
 
 # Step 2: Download latest backup

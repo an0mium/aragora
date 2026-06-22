@@ -40,6 +40,7 @@ from build_benchmark_truth_artifact import (
     load_corpus as load_benchmark_corpus,
     publish_artifact_bundle as publish_truth_artifact_bundle,
 )
+from aragora.utils.git_paths import git_common_repo_root
 from reconcile_b0_pr_truth import GitHubTruthClient, resolve_metrics_path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -88,8 +89,17 @@ def normalize_generated_at(value: str | None = None) -> str:
 
 def _repo_stable_path(path: Path) -> str:
     resolved = path.resolve()
+    candidate_roots = [REPO_ROOT.resolve()]
+    common_root = git_common_repo_root(REPO_ROOT)
+    if common_root is not None:
+        candidate_roots.append(common_root.resolve())
+    for root in candidate_roots:
+        try:
+            return resolved.relative_to(root).as_posix()
+        except ValueError:
+            continue
     try:
-        return resolved.relative_to(REPO_ROOT).as_posix()
+        return "~/" + resolved.relative_to(Path.home().resolve()).as_posix()
     except ValueError:
         return str(resolved)
 
@@ -422,11 +432,20 @@ def load_metrics(path: Path, window: int | None = None) -> list[dict[str, Any]]:
         return []
     rows: list[dict[str, Any]] = []
     try:
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-            try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError:
+        for line_number, line in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(),
+            start=1,
+        ):
+            raw = line.strip()
+            if not raw:
                 continue
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"malformed JSONL row at {path}:{line_number}: {exc.msg}") from exc
+            if not isinstance(payload, dict):
+                raise ValueError(f"JSONL row at {path}:{line_number} must be an object")
+            rows.append(payload)
     except OSError:
         return []
     if window and window > 0:
@@ -649,6 +668,7 @@ def main(argv: list[str] | None = None) -> int:
     corpus_issue_numbers: set[int] | None = None
     corpus_metadata_payload: dict[str, Any] | None = None
     corpus_metadata_source_path: Path | None = None
+    truth_payload: dict[str, Any] | None = None
     if corpus_path is not None:
         if not corpus_path.exists():
             raise SystemExit(f"corpus file not found: {corpus_path}")
@@ -687,7 +707,17 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
 
-    incomplete_corpus = (scorecard.get("coverage") or {}).get("is_complete") is False
+    truth_artifact_coverage = (
+        dict(truth_payload.get("coverage") or {})
+        if truth_artifact_path is not None and truth_payload is not None
+        else {}
+    )
+    if "is_complete" in truth_artifact_coverage:
+        incomplete_corpus = truth_artifact_coverage.get("is_complete") is False
+        incomplete_coverage = truth_artifact_coverage
+    else:
+        incomplete_corpus = (scorecard.get("coverage") or {}).get("is_complete") is False
+        incomplete_coverage = dict(scorecard.get("coverage") or {})
 
     published_scorecard: dict[str, Any] | None = None
     published_path: Path | None = None
@@ -738,7 +768,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(published_scorecard or scorecard, indent=2, sort_keys=True))
     elif args.ci:
         print(render_ci_summary(scorecard, threshold=args.threshold))
-        is_complete = bool((scorecard.get("coverage") or {}).get("is_complete", True))
+        is_complete = not incomplete_corpus
         return (
             0
             if scorecard.get("status") != "no_data"
@@ -750,9 +780,7 @@ def main(argv: list[str] | None = None) -> int:
         print_scorecard(scorecard)
 
     if args.fail_incomplete and incomplete_corpus:
-        missing_issue_numbers = list(
-            (scorecard.get("coverage") or {}).get("missing_issue_numbers") or []
-        )
+        missing_issue_numbers = list(incomplete_coverage.get("missing_issue_numbers") or [])
         missing_suffix = ", ".join(str(item) for item in missing_issue_numbers) or "unknown"
         print(
             f"incomplete corpus coverage: missing issue numbers {missing_suffix}",

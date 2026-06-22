@@ -39,7 +39,7 @@ function buildRunDetail(overrides: Partial<AgentBridgeRunDetail> = {}): AgentBri
     worktree_cleanup_mode: 'operator_triggered',
     participants: [
       { role: 'implementer', harness: 'codex', model: 'gpt-5.4' },
-      { role: 'reviewer', harness: 'claude', model: 'claude-opus-4-7' },
+      { role: 'reviewer', harness: 'claude', model: 'claude-opus-4-8' },
     ],
     last_event_id: 'bridge:event:002',
     worktree_path: '/tmp/bridge-worktree',
@@ -61,7 +61,7 @@ function buildRunDetail(overrides: Partial<AgentBridgeRunDetail> = {}): AgentBri
       reviewer: {
         role: 'reviewer',
         harness: 'claude',
-        model: 'claude-opus-4-7',
+        model: 'claude-opus-4-8',
         session_id: null,
         worktree_agent_slug: 'bridge-pr6306-reviewer',
         worktree_path: '/tmp/bridge-worktree/reviewer',

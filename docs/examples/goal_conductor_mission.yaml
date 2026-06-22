@@ -1,0 +1,90 @@
+# Example mission for scripts/goal_conductor.py.
+#
+# Prefer generating this shape from the existing spec pipeline:
+#   aragora spec "publish H1-01 rev-4 benchmark result" --to-mission /tmp/h1-mission.yaml
+#
+# Dry-run first:
+#   python3 scripts/goal_conductor.py run-once --mission docs/examples/goal_conductor_mission.yaml --json
+#
+# Execute only after the dry-run handoff is correct:
+#   python3 scripts/goal_conductor.py loop --mission docs/examples/goal_conductor_mission.yaml --execute --max-cycles 3 --interval-seconds 300 --json
+name: publish-h1-01-rev-4-benchmark-result
+objective: >
+  Publish the H1-01 rev-4 benchmark result as a public truth-surface artifact.
+stop_condition: >
+  Stop when the open PR queue reaches cap, root becomes dirty, a Tier-4 or
+  human/non-author settlement gate is encountered, or every lane reaches PR,
+  blocker, or handoff.
+checkpoints:
+  - Snapshot root, open PRs, publisher, proof-loop health, and agent lanes.
+  - Assign no more than two implementation lanes and one review lane.
+  - Validate claimed benchmark outputs from live repo/GitHub truth before settlement.
+  - Emit JSONL transcript and markdown handoff each cycle.
+external_references:
+  - https://developers.openai.com/codex/use-cases/follow-goals
+  - https://github.com/Dicklesworthstone/agentic_coding_flywheel_setup
+  - https://github.com/Dicklesworthstone/mcp_agent_mail
+base_branch: main
+output_dir: .aragora/goal-conductor
+limits:
+  queue_cap: 6
+  max_implementation_lanes: 2
+  max_review_lanes: 1
+allowed_mutations:
+  - draft_pr
+  - bounded_repo_patch
+  - status_artifact
+collect_merge_packets: true
+max_merge_packets: 5
+stop_conditions:
+  - root_dirty
+  - queue_at_cap
+  - tier4_gate
+  - destructive_or_live_spend_request
+lanes:
+  - id: implementation-1
+    agent: codex
+    mode: implementation
+    goal: Run the existing H1-01 benchmark publication path.
+    cwd: .
+    autonomous: true
+    source: goal-conductor
+    status: active
+    next_action: Open one draft PR or report one blocker, then stop.
+    prompt: |
+      You are an Aragora implementation worker.
+
+      Rebuild live repo and queue truth first. Identify the current H1-01
+      rev-4 benchmark status, run only existing benchmark/truth publication
+      commands needed for a dry-run or draft artifact, and stop after one draft
+      PR or one precise blocker report. Do not merge PRs. Do not run
+      observe-outcomes --write. Do not install launchd jobs. Do not close issues.
+
+  - id: implementation-2
+    agent: claude
+    mode: implementation
+    goal: Draft the public benchmark result artifact.
+    cwd: .
+    autonomous: true
+    source: goal-conductor
+    status: active
+    next_action: Open one draft PR or report one blocker, then stop.
+    prompt: |
+      You are an Aragora implementation worker in a separate lane.
+
+      Coordinate by lane ownership. Draft the public-facing H1-01 benchmark
+      result/status artifact from measured truth only. Do not touch files
+      assigned to another active lane. Keep the work additive and reversible.
+      Stop after one draft PR or one blocker.
+
+  - id: adversarial-review
+    mode: panel
+    agents_spec: heterogeneous
+    goal: Bounded cross-model review of the H1-01 benchmark publication gate.
+    round_id: h1-01-benchmark-publication-review
+    prompt: |
+      Review the H1-01 rev-4 benchmark publication gate.
+
+      Focus on hidden safety, settlement, evidence, queue-cap, and validation
+      risks. Do not propose broad new work. Output concise findings, required
+      evidence, and whether the gate should proceed, hold, or narrow.

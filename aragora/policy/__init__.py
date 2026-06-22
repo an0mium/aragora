@@ -52,6 +52,26 @@ from aragora.policy.tools import (
     ToolCapability,
     ToolRegistry,
 )
+from aragora.policy.delegation_contract import (
+    CONTRACT_SCHEMA_VERSION,
+    GOAL_SPEC_SCHEMA_VERSION,
+    AcceptanceCriterion,
+    AllowedSurfaces,
+    ContractBudget,
+    ContractValidationError,
+    DelegationContract,
+    GoalSpec,
+    make_root_contract,
+    narrow_for_child,
+)
+from aragora.policy.predicate_oracle import (
+    EVALUATORS,
+    PredicateParseError,
+    PredicateResult,
+    evaluate_all,
+    evaluate_predicate,
+    parse_predicate,
+)
 
 __all__ = [
     "PolicyEngine",
@@ -64,4 +84,22 @@ __all__ = [
     "RiskLevel",
     "BlastRadius",
     "RiskBudget",
+    # Delegation Contract v0.1
+    "DelegationContract",
+    "GoalSpec",
+    "AcceptanceCriterion",
+    "AllowedSurfaces",
+    "ContractBudget",
+    "ContractValidationError",
+    "CONTRACT_SCHEMA_VERSION",
+    "GOAL_SPEC_SCHEMA_VERSION",
+    "narrow_for_child",
+    "make_root_contract",
+    # Predicate oracle
+    "PredicateResult",
+    "PredicateParseError",
+    "EVALUATORS",
+    "parse_predicate",
+    "evaluate_predicate",
+    "evaluate_all",
 ]

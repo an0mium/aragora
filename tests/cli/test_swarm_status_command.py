@@ -6,14 +6,18 @@ from pathlib import Path
 import sqlite3
 from unittest.mock import patch
 
+import pytest
+
 from aragora.cli.commands.swarm import cmd_swarm
 from aragora.cli.commands.swarm_status import (
     _optional_float,
     _optional_int,
+    _resolve_terminal_class,
     load_operator_status,
     render_operator_status,
 )
 from aragora.swarm.shift_ledger import ShiftLedger
+from aragora.swarm.terminal_truth import TerminalClass
 
 
 def _write_metrics(metrics_path: Path, rows: list[dict[str, object]]) -> None:
@@ -98,6 +102,25 @@ def test_numeric_coercion_helpers_accept_common_object_inputs() -> None:
     assert _optional_float(7) == 7.0
     assert _optional_float("9.5") == 9.5
     assert _optional_float(object()) is None
+
+
+def test_resolve_terminal_class_falls_back_for_metric_coercion_errors() -> None:
+    assert (
+        _resolve_terminal_class({"files_changed": "not-an-int", "elapsed_seconds": 5})
+        == TerminalClass.RESCUE_NO_DELIVERABLE.value
+    )
+
+
+def test_resolve_terminal_class_does_not_mask_unexpected_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def boom(row: dict[str, object]) -> TerminalClass:
+        raise RuntimeError("unexpected classifier defect")
+
+    monkeypatch.setattr("aragora.cli.commands.swarm_status.classify_from_metrics", boom)
+
+    with pytest.raises(RuntimeError, match="unexpected classifier defect"):
+        _resolve_terminal_class({})
 
 
 def test_load_operator_status_reports_unknown_queue_depth_when_probe_unavailable(

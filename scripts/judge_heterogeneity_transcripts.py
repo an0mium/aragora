@@ -26,6 +26,7 @@ from aragora.heterogeneity.prompts import (  # noqa: E402
     load_prompt_set,
     select_pilot_prompts,
 )
+from aragora.heterogeneity.receipt import build_source_artifact  # noqa: E402
 
 DEFAULT_PROMPT_ROOT = Path("tests/heterogeneity/probe_prompts")
 DEFAULT_JUDGE_COMMAND = "claude -p {prompt}"
@@ -315,15 +316,26 @@ def build_classifications(args: argparse.Namespace) -> dict[str, Any]:
     prompts = _select_prompts(args)
     raw_output_dir = args.raw_output_dir or args.transcript_dir.parent / "judge-raw"
     results: list[dict[str, Any]] = []
+    source_artifacts: list[dict[str, Any]] = []
     panel_models: list[str] | None = None
     for prompt in prompts:
+        transcript_path = _transcript_for_prompt(args.transcript_dir, prompt.prompt_id)
         classifications, prompt_panel = classify_prompt(
             prompt=prompt,
-            transcript_path=_transcript_for_prompt(args.transcript_dir, prompt.prompt_id),
+            transcript_path=transcript_path,
             raw_output_dir=raw_output_dir,
             judge_command=args.judge_command,
             timeout_seconds=args.timeout_seconds,
             reuse_raw=args.reuse_raw,
+        )
+        source_artifacts.append(
+            build_source_artifact(
+                transcript_path,
+                format="dialog_jsonl_transcript.v1",
+                root=ROOT,
+                required_for_rejudge=True,
+                text_capture="full",
+            )
         )
         if panel_models is None:
             panel_models = prompt_panel
@@ -335,6 +347,7 @@ def build_classifications(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "judge_model": args.judge_model,
         "panel_models": panel_models or [],
+        "source_artifacts": source_artifacts,
         "results": results,
     }
 
@@ -349,6 +362,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "output": str(output),
         "judge_model": payload["judge_model"],
         "panel_models": payload["panel_models"],
+        "source_artifact_count": len(payload.get("source_artifacts", [])),
         "prompt_count": len(payload["results"]),
         "classification_count": sum(len(item["classifications"]) for item in payload["results"]),
     }

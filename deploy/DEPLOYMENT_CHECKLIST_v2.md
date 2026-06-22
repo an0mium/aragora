@@ -135,7 +135,7 @@ newgrp docker
 
 ```bash
 cd /opt
-sudo git clone https://github.com/an0mium/aragora.git
+sudo git clone https://github.com/synaptent/aragora.git
 sudo chown -R ubuntu:ubuntu aragora
 cd aragora
 

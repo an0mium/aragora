@@ -407,7 +407,11 @@ def _cmd_report(args: argparse.Namespace) -> None:
     framework_ids = [f.strip() for f in frameworks_str.split(",")] if frameworks_str else None
 
     manager = ComplianceFrameworkManager()
-    result = manager.check(content, frameworks=framework_ids)
+    try:
+        result = manager.check(content, frameworks=framework_ids)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
     output_format = getattr(args, "output_format", "text")
 
@@ -469,7 +473,11 @@ def _cmd_check(args: argparse.Namespace) -> None:
     min_severity = severity_map.get(min_severity_str, ComplianceSeverity.LOW)
 
     manager = ComplianceFrameworkManager()
-    result = manager.check(content, frameworks=framework_ids, min_severity=min_severity)
+    try:
+        result = manager.check(content, frameworks=framework_ids, min_severity=min_severity)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
     if as_json:
         print(json.dumps(result.to_dict(), indent=2, default=str))

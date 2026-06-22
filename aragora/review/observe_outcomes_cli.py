@@ -68,6 +68,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -89,6 +90,19 @@ UTC = timezone.utc
 DEFAULT_WINDOW_DAYS = 14
 DEFAULT_MAX_RECEIPTS = 20
 DEFAULT_PER_RECEIPT_EVENT_CAP = 100
+DEFAULT_GH_API_MAX_ATTEMPTS = 3
+DEFAULT_GH_API_THROTTLE_SECONDS = 0.15
+DEFAULT_GH_SEARCH_API_THROTTLE_SECONDS = 2.1
+DEFAULT_GH_API_BACKOFF_MAX_SECONDS = 30.0
+
+_GH_RATE_LIMIT_NEEDLES = (
+    "api rate limit exceeded",
+    "secondary rate limit",
+    "rate limit exceeded",
+    "rate limited",
+    "abuse detection",
+)
+_GH_LAST_CALL_AT_BY_BUCKET: dict[str, float] = {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +122,7 @@ class _ObserveResult:
     signals_after: dict[str, Any]
     written: bool
     skipped_reason: str | None = None
+    fetch_error_class: str | None = None  # "rate_limit" | "other" | None when fetch_error is None
 
 
 # ---------------------------------------------------------------------------
@@ -180,24 +195,98 @@ TimelineProvider = Callable[[int, str, int], tuple[list[Mapping[str, Any]], str 
 """Signature: (pr_number, head_sha, event_cap) -> (events, fetch_error_or_None)."""
 
 
-def _run_gh_json(args: list[str], *, timeout: int = 20) -> tuple[Any, str | None]:
-    """Run a bounded ``gh`` command and parse JSON, returning (payload, error)."""
-    try:
-        proc = subprocess.run(
+def _looks_like_github_rate_limit_error(message: str) -> bool:
+    lowered = message.lower()
+    return any(needle in lowered for needle in _GH_RATE_LIMIT_NEEDLES)
+
+
+def _gh_throttle_seconds_for(args: list[str]) -> float:
+    if _gh_throttle_bucket(args) == "search":
+        # GitHub search endpoints are more aggressively limited than
+        # ordinary API reads; 2.1s keeps sustained runs below 30/minute.
+        return DEFAULT_GH_SEARCH_API_THROTTLE_SECONDS
+    return DEFAULT_GH_API_THROTTLE_SECONDS
+
+
+def _gh_throttle_bucket(args: list[str]) -> str:
+    if "search/issues" in args or "search/commits" in args:
+        return "search"
+    return "default"
+
+
+def _pace_gh_call(
+    args: list[str],
+    *,
+    throttle_seconds: float,
+    sleep: Callable[[float], None],
+    clock: Callable[[], float],
+) -> None:
+    if throttle_seconds <= 0:
+        return
+    bucket = _gh_throttle_bucket(args)
+    now = clock()
+    last = _GH_LAST_CALL_AT_BY_BUCKET.get(bucket)
+    if last is not None:
+        delay = throttle_seconds - (now - last)
+        if delay > 0:
+            sleep(delay)
+            now += delay
+    _GH_LAST_CALL_AT_BY_BUCKET[bucket] = now
+
+
+def _run_gh_json(
+    args: list[str],
+    *,
+    timeout: int = 20,
+    attempts: int = DEFAULT_GH_API_MAX_ATTEMPTS,
+    throttle_seconds: float | None = None,
+    sleep: Callable[[float], None] | None = None,
+    clock: Callable[[], float] | None = None,
+) -> tuple[Any, str | None]:
+    """Run a bounded ``gh`` command and parse JSON, returning (payload, error).
+
+    ``observe-outcomes`` can issue several read-only GitHub API requests per
+    receipt. Keep calls below GitHub's secondary-rate-limit burst envelope and
+    retry the transient rate-limit failures instead of marking clean receipts
+    as fetch errors.
+    """
+    max_attempts = max(1, attempts)
+    throttle = _gh_throttle_seconds_for(args) if throttle_seconds is None else throttle_seconds
+    sleeper = sleep or time.sleep
+    monotonic = clock or time.monotonic
+    for attempt in range(1, max_attempts + 1):
+        _pace_gh_call(
             args,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
+            throttle_seconds=throttle,
+            sleep=sleeper,
+            clock=monotonic,
         )
-    except (subprocess.SubprocessError, OSError) as exc:
-        return None, f"{args[:3]} raised {type(exc).__name__}: {exc}"
-    if proc.returncode != 0:
-        return None, f"{args[:3]} returned {proc.returncode}: {proc.stderr.strip()[:200]}"
-    try:
-        return json.loads(proc.stdout or "null"), None
-    except json.JSONDecodeError as exc:
-        return None, f"{args[:3]} JSON parse error: {exc}"
+        try:
+            proc = subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+        except (subprocess.SubprocessError, OSError) as exc:
+            return None, f"{args[:3]} raised {type(exc).__name__}: {exc}"
+        if proc.returncode == 0:
+            try:
+                return json.loads(proc.stdout or "null"), None
+            except json.JSONDecodeError as exc:
+                return None, f"{args[:3]} JSON parse error: {exc}"
+
+        error_text = " ".join(
+            part.strip() for part in (proc.stderr, proc.stdout) if part and part.strip()
+        )
+        error = f"{args[:3]} returned {proc.returncode}: {error_text[:300]}"
+        if attempt >= max_attempts or not _looks_like_github_rate_limit_error(error):
+            return None, error
+        backoff = min(throttle * (2 ** (attempt - 1)), DEFAULT_GH_API_BACKOFF_MAX_SECONDS)
+        if backoff > 0:
+            sleeper(backoff)
+    return None, f"{args[:3]} failed after {max_attempts} attempts"
 
 
 def _gh_repo_slug() -> tuple[str | None, str | None]:
@@ -488,6 +577,8 @@ def _build_insufficiency_receipt(
     receipts_with_signals: int,
     receipts_written: int,
     fetch_errors: int,
+    rate_limit_fetch_errors: int = 0,
+    other_fetch_errors: int = 0,
     v2_now_present: bool,
 ) -> dict[str, Any]:
     reasons: list[str] = []
@@ -502,11 +593,18 @@ def _build_insufficiency_receipt(
             "signals; either the window is genuinely clean or the timeline "
             "fetch did not surface revert/incident/redo events"
         )
-    if fetch_errors > 0:
+    if rate_limit_fetch_errors > 0:
         reasons.append(
-            f"github_fetch_errors: {fetch_errors} of {receipts_examined} "
-            "receipts had timeline fetch errors; rerun with network "
-            "connectivity verified"
+            f"github_rate_limit_fetch_errors: {rate_limit_fetch_errors} of "
+            f"{receipts_examined} receipts hit GitHub API rate limits during "
+            "timeline fetch; wait for the rate limit window to reset "
+            "(check 'gh api rate_limit') and rerun"
+        )
+    if other_fetch_errors > 0:
+        reasons.append(
+            f"github_fetch_errors: {other_fetch_errors} of {receipts_examined} "
+            "receipts had non-rate-limit timeline fetch errors; rerun with "
+            "network connectivity verified"
         )
     if max_receipts <= receipts_examined:
         reasons.append(
@@ -523,6 +621,8 @@ def _build_insufficiency_receipt(
         "receipts_with_signals_fired": receipts_with_signals,
         "receipts_written": receipts_written,
         "github_fetch_errors": fetch_errors,
+        "github_rate_limit_fetch_errors": rate_limit_fetch_errors,
+        "github_other_fetch_errors": other_fetch_errors,
         "v2_outcome_fields_now_present_in_window": v2_now_present,
         "remaining_blockers": reasons,
         "next_action_advice": (
@@ -601,6 +701,9 @@ def _observe_one(
         )
     events, fetch_error = timeline_provider(pr_number, head_sha, per_receipt_event_cap)
     if fetch_error is not None:
+        fetch_error_class = (
+            "rate_limit" if _looks_like_github_rate_limit_error(fetch_error) else "other"
+        )
         return _ObserveResult(
             receipt_path=receipt.path,
             pr_number=pr_number,
@@ -611,6 +714,7 @@ def _observe_one(
             signals_after=_signal_extract(payload),
             written=False,
             skipped_reason="github fetch error",
+            fetch_error_class=fetch_error_class,
         )
     observed = observe_outcome(
         receipt_obj,
@@ -706,6 +810,10 @@ def run_observe_outcomes(
     )
     receipts_written = sum(1 for r in results if r.written)
     fetch_errors = sum(1 for r in results if r.fetch_error is not None)
+    rate_limit_fetch_errors = sum(1 for r in results if r.fetch_error_class == "rate_limit")
+    other_fetch_errors = sum(
+        1 for r in results if r.fetch_error is not None and r.fetch_error_class != "rate_limit"
+    )
 
     # If we wrote any v2 fields, the next baseline measurement should
     # see them. Probe defensively.
@@ -730,6 +838,8 @@ def run_observe_outcomes(
             receipts_with_signals=receipts_with_signals,
             receipts_written=receipts_written,
             fetch_errors=fetch_errors,
+            rate_limit_fetch_errors=rate_limit_fetch_errors,
+            other_fetch_errors=other_fetch_errors,
             v2_now_present=v2_now_present,
         )
         insufficiency_path = insufficiency_receipt_path or _resolve_insufficiency_receipt_path(
@@ -758,6 +868,8 @@ def run_observe_outcomes(
         "receipts_with_signals_fired": receipts_with_signals,
         "receipts_written": receipts_written,
         "github_fetch_errors": fetch_errors,
+        "github_rate_limit_fetch_errors": rate_limit_fetch_errors,
+        "github_other_fetch_errors": other_fetch_errors,
         "v2_outcome_fields_now_present_in_window": v2_now_present,
         "insufficiency_receipt_path": (str(insufficiency_path) if insufficiency_path else None),
         "insufficiency_receipt": insufficiency_payload,
@@ -768,6 +880,7 @@ def run_observe_outcomes(
                 "head_sha": r.head_sha,
                 "fetched_event_count": r.fetched_event_count,
                 "fetch_error": r.fetch_error,
+                "fetch_error_class": r.fetch_error_class,
                 "signals_before": r.signals_before,
                 "signals_after": r.signals_after,
                 "written": r.written,

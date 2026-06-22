@@ -40,12 +40,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/an0mium/aragora.git",
+    "url": "https://github.com/synaptent/aragora.git",
     "directory": "sdk/typescript"
   },
-  "homepage": "https://github.com/an0mium/aragora/blob/main/docs/START_HERE.md",
+  "homepage": "https://github.com/synaptent/aragora/blob/main/docs/START_HERE.md",
   "bugs": {
-    "url": "https://github.com/an0mium/aragora/issues"
+    "url": "https://github.com/synaptent/aragora/issues"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -98,12 +98,12 @@ def test_clean_h1_readiness_prompt_matches_status_doc() -> None:
     assert status_match is not None
     status = status_match.group(1)
     dispatched = _read_status_metric(
-        status_doc, "Staged issues with dispatch evidence (any source)"
+        status_doc, "Metrics-backed staged issues eligible for canonical promotion"
     )
-    missing = _read_status_metric(status_doc, "Staged issues still missing dispatch evidence")
-    needed = _read_status_metric(status_doc, "Additional dispatches needed")
+    missing = _read_status_metric(status_doc, "Staged issues still missing metrics-backed evidence")
+    needed = _read_status_metric(status_doc, "Additional metrics-backed dispatches needed")
 
     assert f"verdict is `{status}`" in prompt.body
-    assert f"{dispatched} staged issues with dispatch evidence" in prompt.body
+    assert f"{dispatched} metrics-backed staged issues" in prompt.body
     assert f"{missing} still missing" in prompt.body
-    assert f"{needed} more dispatches" in prompt.body
+    assert f"{needed} more metrics-backed dispatches" in prompt.body

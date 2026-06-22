@@ -5,14 +5,14 @@ description: TW-03 Rescue Productization Status
 
 # TW-03 Rescue Productization Status
 
-Last updated: 2026-04-17T12:57:28Z
+Last updated: 2026-06-14T03:48:49Z
 
-This repo-tracked recurring `TW-03` status captures repeated rescue-class harvest, conversion, and ledger-consistency validation.
+This is the repo-tracked recurring `TW-03` publication surface for repeated rescue-class harvest and conversion.
 
 ## Summary
 
 - Latest report: `docs/status/generated/rescue_productization/latest.json`
-- Rescue ledger path: `/Users/armand/.aragora/rescue_events.jsonl`
+- Rescue ledger path: `~/.aragora/rescue_events.jsonl`
 - Productization map: `docs/benchmarks/rescue_productization.json`
 - Repeated rescue classes: `0`
 - Linked repeated classes: `0`

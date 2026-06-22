@@ -86,6 +86,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--require-source-artifacts",
+        action="store_true",
+        help="Fail closed unless the classifications file carries bound transcript artifacts.",
+    )
+    parser.add_argument(
         "--dispatch-live-transcripts",
         action="store_true",
         help=(
@@ -145,13 +150,14 @@ def _synthetic_results(prompts: Sequence[ProbePrompt]) -> list[PromptProbeResult
 def _results_from_classifications_file(
     prompts: Sequence[ProbePrompt],
     path: Path,
-) -> tuple[list[PromptProbeResult], list[str], str]:
+) -> tuple[list[PromptProbeResult], list[str], str, list[dict[str, object]]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("classifications file must contain a JSON object")
     panel_models = payload.get("panel_models", DEFAULT_PANEL_MODELS)
     judge_model = payload.get("judge_model", "external-judge")
     raw_results = payload.get("results")
+    raw_source_artifacts = payload.get("source_artifacts", [])
     if not isinstance(panel_models, list) or not all(
         isinstance(item, str) for item in panel_models
     ):
@@ -160,6 +166,10 @@ def _results_from_classifications_file(
         raise ValueError("classifications file judge_model must be a non-empty string")
     if not isinstance(raw_results, list):
         raise ValueError("classifications file results must be a list")
+    if not isinstance(raw_source_artifacts, list) or not all(
+        isinstance(item, dict) for item in raw_source_artifacts
+    ):
+        raise ValueError("classifications file source_artifacts must be a list of objects")
 
     prompts_by_id = {prompt.prompt_id: prompt for prompt in prompts}
     results: list[PromptProbeResult] = []
@@ -219,7 +229,7 @@ def _results_from_classifications_file(
         raise ValueError(
             "classifications file missing results for prompt_ids: " + ", ".join(missing_prompt_ids)
         )
-    return results, panel_models, judge_model
+    return results, panel_models, judge_model, [dict(artifact) for artifact in raw_source_artifacts]
 
 
 async def _dispatch_live_transcripts(
@@ -285,14 +295,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.synthetic_fixture or args.classifications_file is not None:
         if args.classifications_file is not None:
-            results, panel_models, judge_model = _results_from_classifications_file(
-                prompts, args.classifications_file
+            results, panel_models, judge_model, source_artifacts = (
+                _results_from_classifications_file(prompts, args.classifications_file)
             )
             caveats = ["receipt computed from external judged classifications file"]
         else:
             results = _synthetic_results(prompts)
             panel_models = list(DEFAULT_PANEL_MODELS)
             judge_model = "synthetic-fixture"
+            source_artifacts = []
             caveats = [
                 "synthetic fixture only; not a live model or judge result",
                 "used for receipt plumbing and deterministic metric tests",
@@ -303,11 +314,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             panel_models=panel_models,
             judge_model=judge_model,
             scope_caveats=caveats,
+            source_artifacts=source_artifacts,
         )
-        receipt_path = write_receipt(receipt, args.output_root / run_id)
+        receipt_path = write_receipt(
+            receipt,
+            args.output_root / run_id,
+            require_bound_source_artifacts=args.require_source_artifacts,
+            artifact_base_dir=ROOT,
+        )
         payload["receipt_path"] = str(receipt_path)
         payload["receipt_verdict"] = receipt["verdict"]
         payload["receipt_id"] = receipt["receipt_id"]
+        payload["source_artifact_count"] = len(source_artifacts)
 
     if args.dispatch_live_transcripts:
         transcripts = asyncio.run(

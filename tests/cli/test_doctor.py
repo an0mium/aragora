@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -22,6 +23,15 @@ from aragora.cli.doctor import (
     main,
     print_section,
 )
+
+from aragora.config.provider_readiness import PROVIDER_CREDENTIAL_SPECS
+
+
+def _clear_provider_env(monkeypatch):
+    for spec in PROVIDER_CREDENTIAL_SPECS:
+        for env_var in spec.env_vars:
+            monkeypatch.setenv(env_var, "")
+    monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "false")
 
 
 # ===========================================================================
@@ -121,8 +131,7 @@ class TestCheckApiKeys:
 
     def test_returns_list(self, monkeypatch):
         """Test returns a list of tuples."""
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        _clear_provider_env(monkeypatch)
 
         result = check_api_keys()
         assert isinstance(result, list)
@@ -130,8 +139,7 @@ class TestCheckApiKeys:
 
     def test_no_llm_keys_shows_warning(self, monkeypatch):
         """Test warning when no LLM keys are set."""
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        _clear_provider_env(monkeypatch)
 
         result = check_api_keys()
         names = [name for name, _, _ in result]
@@ -142,8 +150,8 @@ class TestCheckApiKeys:
 
     def test_anthropic_key_configured(self, monkeypatch):
         """Test Anthropic key detection."""
+        _clear_provider_env(monkeypatch)
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
         result = check_api_keys()
         anthropic = [item for item in result if item[0] == "ANTHROPIC_API_KEY"]
@@ -154,7 +162,7 @@ class TestCheckApiKeys:
 
     def test_openai_key_configured(self, monkeypatch):
         """Test OpenAI key detection."""
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        _clear_provider_env(monkeypatch)
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         result = check_api_keys()
@@ -166,8 +174,7 @@ class TestCheckApiKeys:
 
     def test_optional_keys_detected(self, monkeypatch):
         """Test optional API keys are detected."""
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        _clear_provider_env(monkeypatch)
         monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
 
         result = check_api_keys()
@@ -176,6 +183,291 @@ class TestCheckApiKeys:
         assert len(openrouter) == 1
         assert openrouter[0][1] == "configured"
         assert openrouter[0][2] is True
+
+    def test_gemini_only_counts_as_llm_provider(self, monkeypatch):
+        """Gemini must satisfy the same provider requirement as validate-env."""
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+        result = check_api_keys()
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert llm_provider == [("LLM Provider", "configured: gemini", True)]
+
+    def test_google_and_grok_aliases_count_as_llm_providers(self, monkeypatch):
+        """Provider aliases should not produce a doctor/validate-env disagreement."""
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+        monkeypatch.setenv("GROK_API_KEY", "test-key")
+
+        result = check_api_keys()
+        gemini = [item for item in result if item[0] == "GEMINI_API_KEY/GOOGLE_API_KEY"]
+        xai = [item for item in result if item[0] == "XAI_API_KEY/GROK_API_KEY"]
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert gemini == [("GEMINI_API_KEY/GOOGLE_API_KEY", "configured", True)]
+        assert xai == [("XAI_API_KEY/GROK_API_KEY", "configured", True)]
+        assert llm_provider == [("LLM Provider", "configured: gemini, xai", True)]
+
+    def test_aws_secrets_posture_recognized_when_no_env_keys(self, monkeypatch):
+        """Canonical local posture (keys in AWS Secrets Manager, not env) must not FAIL.
+
+        Per project policy, provider keys live in AWS Secrets Manager and are
+        loaded via aragora.config.secrets. When the AWS posture is configured and
+        a provider key is resolvable there, doctor must report OK/INFO, not FAIL.
+        """
+        _clear_provider_env(monkeypatch)
+
+        def fake_posture():
+            return SimpleNamespace(
+                available=True,
+                providers=("anthropic",),
+                detail="via AWS Secrets Manager",
+                honored_by_runtime=True,
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.doctor._aws_secrets_provider_posture",
+            fake_posture,
+        )
+
+        result = check_api_keys()
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert len(llm_provider) == 1
+        _name, status, ok = llm_provider[0]
+        # Must NOT be a hard failure.
+        assert ok is not False
+        assert "NO API KEY SET" not in status
+        assert "AWS Secrets Manager" in status
+
+    def test_no_env_keys_and_no_aws_posture_still_fails(self, monkeypatch):
+        """A genuinely keyless machine (no env keys, no AWS posture) must still FAIL."""
+        _clear_provider_env(monkeypatch)
+
+        def fake_posture():
+            return SimpleNamespace(
+                available=False, providers=(), detail="", honored_by_runtime=False
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.doctor._aws_secrets_provider_posture",
+            fake_posture,
+        )
+
+        result = check_api_keys()
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert llm_provider
+        assert llm_provider[0][2] is False
+        assert "NO API KEY SET" in llm_provider[0][1]
+
+    def test_aws_posture_present_but_runtime_disabled_warns_not_ok(self, monkeypatch):
+        """Keys in AWS but use_aws disabled => WARN (None), not a green OK.
+
+        Guards the P1 finding: doctor must not green-light a posture that
+        hydrate_env_from_secrets will not actually honor.
+        """
+        _clear_provider_env(monkeypatch)
+
+        def fake_posture():
+            return SimpleNamespace(
+                available=True,
+                providers=("anthropic",),
+                detail="via AWS Secrets Manager: anthropic",
+                honored_by_runtime=False,
+            )
+
+        monkeypatch.setattr("aragora.cli.doctor._aws_secrets_provider_posture", fake_posture)
+
+        result = check_api_keys()
+        _name, status, ok = [i for i in result if i[0] == "LLM Provider"][0]
+        assert ok is None  # optional/warn, not True and not False
+        assert "not enabled for this runtime" in status
+
+    def _patch_secrets(self, monkeypatch, *, base, source_for):
+        """Patch the secrets layer used by _aws_secrets_provider_posture."""
+        manager = MagicMock()
+        manager.presence.side_effect = lambda env_var: SimpleNamespace(source=source_for(env_var))
+        secrets_mod = MagicMock()
+        secrets_mod.SecretsConfig.from_env.return_value = base
+        secrets_mod.SecretsConfig.side_effect = lambda **kw: SimpleNamespace(**kw)
+        secrets_mod.SecretManager.return_value = manager
+        monkeypatch.setitem(sys.modules, "aragora.config.secrets", secrets_mod)
+        return secrets_mod
+
+    def _base(self, **over):
+        defaults = dict(
+            aws_region="us-east-1",
+            aws_regions=["us-east-1"],
+            secret_name="aragora/production",
+            use_aws=True,
+            cache_ttl_seconds=60,
+            aws_connect_timeout_seconds=2.0,
+            aws_read_timeout_seconds=2.0,
+            aws_max_attempts=1,
+        )
+        defaults.update(over)
+        return SimpleNamespace(**defaults)
+
+    def test_probe_honored_when_runtime_use_aws_true(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        self._patch_secrets(monkeypatch, base=self._base(use_aws=True), source_for=lambda e: "aws")
+        posture = _aws_secrets_provider_posture()
+        assert posture.available is True
+        assert posture.honored_by_runtime is True
+
+    def test_probe_available_but_not_honored_when_use_aws_false(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        monkeypatch.setenv("AWS_REGION", "us-east-1")
+        self._patch_secrets(monkeypatch, base=self._base(use_aws=False), source_for=lambda e: "aws")
+        posture = _aws_secrets_provider_posture()
+        assert posture.available is True
+        assert posture.honored_by_runtime is False
+
+    def test_probe_skips_default_local_without_explicit_aws_signal(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        for env_var in (
+            "ARAGORA_USE_SECRETS_MANAGER",
+            "ARAGORA_SECRET_NAME",
+            "ARAGORA_SECRET_REGIONS",
+            "AWS_REGION",
+            "AWS_DEFAULT_REGION",
+            "AWS_PROFILE",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_WEB_IDENTITY_TOKEN_FILE",
+            "AWS_ROLE_ARN",
+            "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+            "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+            "AWS_EXECUTION_ENV",
+            "AWS_LAMBDA_FUNCTION_NAME",
+        ):
+            monkeypatch.delenv(env_var, raising=False)
+
+        secrets_mod = self._patch_secrets(
+            monkeypatch,
+            base=self._base(use_aws=False),
+            source_for=lambda e: "aws",
+        )
+
+        posture = _aws_secrets_provider_posture()
+
+        assert posture.available is False
+        secrets_mod.SecretManager.assert_not_called()
+
+    def test_probe_skips_when_no_region_configured(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        self._patch_secrets(
+            monkeypatch,
+            base=self._base(aws_region="", aws_regions=[], secret_name=""),
+            source_for=lambda e: "aws",
+        )
+        posture = _aws_secrets_provider_posture()
+        assert posture.available is False
+
+    def test_probe_unavailable_when_no_provider_present(self, monkeypatch):
+        from aragora.cli.doctor import _aws_secrets_provider_posture
+
+        self._patch_secrets(monkeypatch, base=self._base(), source_for=lambda e: "env")
+        posture = _aws_secrets_provider_posture()
+        assert posture.available is False
+
+    def test_live_validation_marks_rejected_provider_unready(self, monkeypatch):
+        """doctor --validate should not treat an expired configured key as ready."""
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+        def fake_validate_provider_key(provider: str) -> SimpleNamespace:
+            assert provider == "gemini"
+            return SimpleNamespace(
+                remote_status="invalid",
+                is_valid=False,
+                message="Provider rejected the API key",
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.api_keys.validate_provider_key",
+            fake_validate_provider_key,
+        )
+
+        result = check_api_keys(validate_live=True)
+        gemini = [item for item in result if item[0] == "GEMINI_API_KEY/GOOGLE_API_KEY"]
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert gemini == [
+            (
+                "GEMINI_API_KEY/GOOGLE_API_KEY",
+                "configured; live invalid: Provider rejected the API key",
+                False,
+            )
+        ]
+        assert llm_provider == [("LLM Provider", "invalid provider(s): gemini", False)]
+
+    def test_live_validation_unverified_key_is_not_a_green_pass(self, monkeypatch):
+        """A configured key whose live validation is skipped must render as
+        optional/unverified (ok is None), never a green pass (ok is True).
+
+        Regression: a fabricated DeepSeek key previously showed a green
+        ``✓ configured; live skipped`` check counting toward "ready to use".
+        """
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-totallyfakekey1234567890abcdef")
+
+        def fake_validate_provider_key(provider: str) -> SimpleNamespace:
+            assert provider == "deepseek"
+            return SimpleNamespace(
+                remote_status="skipped",
+                is_valid=False,
+                unverified=True,
+                message="live validation is unavailable",
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.api_keys.validate_provider_key",
+            fake_validate_provider_key,
+        )
+
+        result = check_api_keys(validate_live=True)
+        deepseek = [item for item in result if item[0] == "DEEPSEEK_API_KEY"]
+
+        assert len(deepseek) == 1
+        label, status, ok = deepseek[0]
+        # Must NOT be a green pass.
+        assert ok is not True
+        # Optional/unverified — yellow circle, not green check, not red X.
+        assert ok is None
+        assert "unverified" in status.lower()
+
+    def test_live_validation_marks_rejected_deepseek_unready(self, monkeypatch):
+        """A bogus DeepSeek key rejected by a real live probe is a failure,
+        not a pass — DeepSeek now makes an actual test call."""
+        _clear_provider_env(monkeypatch)
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-totallyfakekey1234567890abcdef")
+
+        def fake_validate_provider_key(provider: str) -> SimpleNamespace:
+            assert provider == "deepseek"
+            return SimpleNamespace(
+                remote_status="invalid",
+                is_valid=False,
+                unverified=False,
+                message="Provider rejected the API key",
+            )
+
+        monkeypatch.setattr(
+            "aragora.cli.api_keys.validate_provider_key",
+            fake_validate_provider_key,
+        )
+
+        result = check_api_keys(validate_live=True)
+        deepseek = [item for item in result if item[0] == "DEEPSEEK_API_KEY"]
+        llm_provider = [item for item in result if item[0] == "LLM Provider"]
+
+        assert deepseek[0][2] is False
+        assert llm_provider == [("LLM Provider", "invalid provider(s): deepseek", False)]
 
 
 # ===========================================================================
@@ -377,9 +669,8 @@ class TestMain:
 
     def test_returns_1_when_checks_fail(self, monkeypatch):
         """Test returns 1 when checks fail."""
-        # Remove all LLM keys to cause failure
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        # Remove all provider keys to cause failure
+        _clear_provider_env(monkeypatch)
 
         with patch("aragora.cli.doctor.check_server", new=AsyncMock(return_value=[])):
             result = main()

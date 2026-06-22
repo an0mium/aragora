@@ -1,0 +1,130 @@
+{
+  "_comment": "Baseline of pre-existing portability violations. The guard (scripts/check_portability.py) only fails on violations NOT listed here. Prune entries as cleanup PRs remove the underlying paths; do not add new entries by hand. Regenerate with --update-baseline.",
+  "files": {
+    ".pre-commit-config.yaml": [
+      "legacy_slug",
+      "venv_python"
+    ],
+    "aragora/live/e2e/admin.spec.ts": [
+      "users_home"
+    ],
+    "benchmarks/bench_readiness/README.md": [
+      "venv_python"
+    ],
+    "benchmarks/bench_readiness/flag_ablation_smoke.py": [
+      "venv_python"
+    ],
+    "benchmarks/bench_readiness/manifest.json": [
+      "venv_python"
+    ],
+    "benchmarks/bench_readiness/write_manifest.py": [
+      "venv_python"
+    ],
+    "docs-site/docs/guides/connectors.md": [
+      "users_home"
+    ],
+    "docs/examples/boss-lane-manifest-2026-03-19.yaml": [
+      "users_home"
+    ],
+    "docs/examples/decision-quality-delta-benchmark-prompt-pack.yaml": [
+      "users_home"
+    ],
+    "docs/examples/founder-overnight-prompt-pack.yaml": [
+      "users_home"
+    ],
+    "docs/examples/inbox-trust-wedge-activation-prompt-pack.yaml": [
+      "users_home"
+    ],
+    "docs/examples/pmf-tranche-prompt-pack.yaml": [
+      "users_home"
+    ],
+    "docs/guides/ISSUE_TRIAGE.md": [
+      "venv_python"
+    ],
+    "docs/integrations/CONNECTORS.md": [
+      "users_home"
+    ],
+    "docs/status/P03-lane-registry-claim-helper-rebase_RECEIPT_droid-DC5A5821.md": [
+      "venv_python"
+    ],
+    "docs/status/P05-publication-freshness-probe-rebase_RECEIPT_droid-A5312D6A.md": [
+      "venv_python"
+    ],
+    "scripts/inspect_cold_review_surface.py": [
+      "legacy_slug"
+    ],
+    "scripts/run_offline_golden_path.sh": [
+      "venv_python"
+    ],
+    "sdk/python/tests/test_scim.py": [
+      "users_home"
+    ],
+    "sdk/typescript/src/namespaces/__tests__/scim.test.ts": [
+      "users_home"
+    ],
+    "test_debate.py": [
+      "users_home"
+    ],
+    "tests/auth/scim/test_scim.py": [
+      "users_home"
+    ],
+    "tests/benchmarks/test_rescue_productization.py": [
+      "users_home"
+    ],
+    "tests/codex/conftest.py": [
+      "users_home"
+    ],
+    "tests/debate/test_graph.py": [
+      "users_home"
+    ],
+    "tests/handlers/test_scim_handler.py": [
+      "users_home"
+    ],
+    "tests/nomic/test_dev_coordination.py": [
+      "users_home"
+    ],
+    "tests/ralph/test_classifier.py": [
+      "users_home"
+    ],
+    "tests/review/test_health.py": [
+      "users_home",
+      "venv_python"
+    ],
+    "tests/scripts/test_agent_bridge.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_agent_bridge_sessions.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_claim_active_agent_lane.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_disk_recovery_coordinator.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_identify_lane_owner.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_list_active_agent_sessions.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_probe_boss_loop_launchd.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_render_rescue_productization_status.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_render_worktree_harvest_unblock_map.py": [
+      "users_home"
+    ],
+    "tests/scripts/test_run_proof_first_shift.py": [
+      "users_home"
+    ],
+    "tests/server/handlers/test_scim_handler.py": [
+      "users_home"
+    ],
+    "tests/workflow/test_checkpoint.py": [
+      "users_home"
+    ]
+  }
+}

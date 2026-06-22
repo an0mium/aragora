@@ -25,46 +25,46 @@ thresholds:
 
 summary:
   core: 21
-  integrated: 88
-  experimental: 25
+  integrated: 91
+  experimental: 29
   deprecated: 2
-  total: 136
+  total: 143
 
 modules:
   # --- core (21) ---
   - name: agents
     tier: core
-    py_files: 80
-    importer_count: 181
-    test_file_count: 156
+    py_files: 83
+    importer_count: 184
+    test_file_count: 166
     override_reason: "Agent factory, 43 registered types"
   - name: billing
     tier: core
     py_files: 38
     importer_count: 150
-    test_file_count: 118
+    test_file_count: 119
   - name: cli
     tier: core
-    py_files: 100
+    py_files: 119
     importer_count: 6
-    test_file_count: 111
+    test_file_count: 144
     override_reason: "aragora CLI — primary developer surface"
   - name: config
     tier: core
-    py_files: 15
-    importer_count: 329
-    test_file_count: 78
+    py_files: 17
+    importer_count: 362
+    test_file_count: 88
     override_reason: "Pydantic settings + allowlist — load bearing"
   - name: connectors
     tier: core
     py_files: 266
-    importer_count: 140
+    importer_count: 142
     test_file_count: 256
   - name: core
     tier: core
     py_files: 19
     importer_count: 207
-    test_file_count: 195
+    test_file_count: 196
     override_reason: "root type hierarchy + Agent base class"
   - name: db
     tier: core
@@ -75,35 +75,35 @@ modules:
   - name: debate
     tier: core
     py_files: 263
-    importer_count: 160
-    test_file_count: 596
+    importer_count: 163
+    test_file_count: 599
     override_reason: "Arena + DebateProtocol + consensus — mainline flow"
   - name: events
     tier: core
     py_files: 32
-    importer_count: 124
+    importer_count: 123
     test_file_count: 51
   - name: gauntlet
     tier: core
-    py_files: 36
-    importer_count: 64
-    test_file_count: 98
+    py_files: 37
+    importer_count: 66
+    test_file_count: 103
   - name: knowledge
     tier: core
     py_files: 177
     importer_count: 179
-    test_file_count: 227
+    test_file_count: 229
   - name: memory
     tier: core
     py_files: 56
     importer_count: 114
-    test_file_count: 115
+    test_file_count: 117
     override_reason: "ContinuumMemory + CritiqueStore — persistent state"
   - name: nomic
     tier: core
-    py_files: 158
-    importer_count: 90
-    test_file_count: 216
+    py_files: 162
+    importer_count: 91
+    test_file_count: 221
   - name: observability
     tier: core
     py_files: 67
@@ -116,9 +116,9 @@ modules:
     test_file_count: 125
   - name: ranking
     tier: core
-    py_files: 25
-    importer_count: 72
-    test_file_count: 54
+    py_files: 26
+    importer_count: 74
+    test_file_count: 58
     override_reason: "ELO skill tracking — feeds team selection"
   - name: rbac
     tier: core
@@ -128,27 +128,27 @@ modules:
   - name: reasoning
     tier: core
     py_files: 19
-    importer_count: 120
-    test_file_count: 108
+    importer_count: 121
+    test_file_count: 110
   - name: resilience
     tier: core
     py_files: 13
     importer_count: 154
-    test_file_count: 96
+    test_file_count: 97
   - name: server
     tier: core
     py_files: 1115
     importer_count: 180
-    test_file_count: 1877
+    test_file_count: 1887
     override_reason: "FastAPI server + 3K+ API operations"
   - name: storage
     tier: core
     py_files: 104
     importer_count: 227
-    test_file_count: 164
+    test_file_count: 165
     override_reason: "persistence layer"
 
-  # --- integrated (88) ---
+  # --- integrated (91) ---
   - name: analysis
     tier: integrated
     py_files: 29
@@ -166,9 +166,9 @@ modules:
     test_file_count: 6
   - name: audit
     tier: integrated
-    py_files: 43
+    py_files: 44
     importer_count: 85
-    test_file_count: 35
+    test_file_count: 36
   - name: auth
     tier: integrated
     py_files: 15
@@ -187,8 +187,8 @@ modules:
   - name: blockchain
     tier: integrated
     py_files: 17
-    importer_count: 9
-    test_file_count: 20
+    importer_count: 10
+    test_file_count: 21
   - name: bots
     tier: integrated
     py_files: 7
@@ -218,7 +218,7 @@ modules:
     tier: integrated
     py_files: 41
     importer_count: 8
-    test_file_count: 47
+    test_file_count: 49
   - name: compat
     tier: integrated
     py_files: 13
@@ -226,9 +226,9 @@ modules:
     test_file_count: 16
   - name: compliance
     tier: integrated
-    py_files: 9
+    py_files: 10
     importer_count: 20
-    test_file_count: 19
+    test_file_count: 20
   - name: computer_use
     tier: integrated
     py_files: 9
@@ -257,8 +257,8 @@ modules:
   - name: epistemic
     tier: integrated
     py_files: 21
-    importer_count: 2
-    test_file_count: 20
+    importer_count: 12
+    test_file_count: 25
   - name: essay
     tier: integrated
     py_files: 6
@@ -309,6 +309,11 @@ modules:
     py_files: 2
     importer_count: 8
     test_file_count: 18
+  - name: gti
+    tier: integrated
+    py_files: 5
+    importer_count: 0
+    test_file_count: 5
   - name: harnesses
     tier: integrated
     py_files: 5
@@ -346,9 +351,9 @@ modules:
     test_file_count: 8
   - name: integrations
     tier: integrated
-    py_files: 40
+    py_files: 41
     importer_count: 26
-    test_file_count: 51
+    test_file_count: 52
   - name: interrogation
     tier: integrated
     py_files: 8
@@ -377,14 +382,19 @@ modules:
     test_file_count: 10
   - name: markets
     tier: integrated
-    py_files: 5
+    py_files: 6
     importer_count: 6
-    test_file_count: 10
+    test_file_count: 12
   - name: mcp
     tier: integrated
     py_files: 27
     importer_count: 6
     test_file_count: 35
+  - name: metrics
+    tier: integrated
+    py_files: 7
+    importer_count: 1
+    test_file_count: 9
   - name: migrations
     tier: integrated
     py_files: 21
@@ -397,13 +407,13 @@ modules:
     test_file_count: 9
   - name: modes
     tier: integrated
-    py_files: 19
+    py_files: 20
     importer_count: 14
-    test_file_count: 20
+    test_file_count: 21
   - name: notifications
     tier: integrated
     py_files: 7
-    importer_count: 13
+    importer_count: 14
     test_file_count: 7
   - name: ops
     tier: integrated
@@ -418,13 +428,18 @@ modules:
   - name: persistence
     tier: integrated
     py_files: 27
-    importer_count: 136
-    test_file_count: 25
+    importer_count: 137
+    test_file_count: 26
   - name: plugins
     tier: integrated
     py_files: 11
     importer_count: 2
     test_file_count: 9
+  - name: policy
+    tier: integrated
+    py_files: 6
+    importer_count: 1
+    test_file_count: 6
   - name: privacy
     tier: integrated
     py_files: 8
@@ -437,9 +452,9 @@ modules:
     test_file_count: 12
   - name: protocols
     tier: integrated
-    py_files: 15
+    py_files: 16
     importer_count: 23
-    test_file_count: 6
+    test_file_count: 7
   - name: pulse
     tier: integrated
     py_files: 10
@@ -459,27 +474,27 @@ modules:
     tier: integrated
     py_files: 6
     importer_count: 2
-    test_file_count: 7
+    test_file_count: 8
   - name: reputation
     tier: integrated
-    py_files: 10
-    importer_count: 2
-    test_file_count: 12
+    py_files: 11
+    importer_count: 3
+    test_file_count: 15
   - name: review
     tier: integrated
-    py_files: 12
+    py_files: 14
     importer_count: 13
-    test_file_count: 26
+    test_file_count: 28
   - name: rlm
     tier: integrated
     py_files: 31
     importer_count: 39
-    test_file_count: 40
+    test_file_count: 41
   - name: routing
     tier: integrated
     py_files: 13
     importer_count: 13
-    test_file_count: 22
+    test_file_count: 24
   - name: runtime
     tier: integrated
     py_files: 3
@@ -498,8 +513,8 @@ modules:
   - name: security
     tier: integrated
     py_files: 23
-    importer_count: 61
-    test_file_count: 40
+    importer_count: 62
+    test_file_count: 41
   - name: services
     tier: integrated
     py_files: 44
@@ -527,9 +542,9 @@ modules:
     test_file_count: 5
   - name: swarm
     tier: integrated
-    py_files: 102
-    importer_count: 31
-    test_file_count: 157
+    py_files: 118
+    importer_count: 32
+    test_file_count: 181
   - name: templates
     tier: integrated
     py_files: 1
@@ -547,9 +562,9 @@ modules:
     test_file_count: 12
   - name: triage
     tier: integrated
-    py_files: 5
+    py_files: 8
     importer_count: 5
-    test_file_count: 8
+    test_file_count: 9
   - name: types
     tier: integrated
     py_files: 2
@@ -591,7 +606,12 @@ modules:
     importer_count: 16
     test_file_count: 11
 
-  # --- experimental (25) ---
+  # --- experimental (29) ---
+  - name: advocates
+    tier: experimental
+    py_files: 2
+    importer_count: 0
+    test_file_count: 1
   - name: approvals
     tier: experimental
     py_files: 5
@@ -602,6 +622,11 @@ modules:
     py_files: 7
     importer_count: 7
     test_file_count: 3
+  - name: codex
+    tier: experimental
+    py_files: 7
+    importer_count: 3
+    test_file_count: 2
   - name: embeddings
     tier: experimental
     py_files: 1
@@ -611,7 +636,12 @@ modules:
     tier: experimental
     py_files: 2
     importer_count: 4
-    test_file_count: 3
+    test_file_count: 4
+  - name: factory
+    tier: experimental
+    py_files: 2
+    importer_count: 1
+    test_file_count: 1
   - name: fixtures
     tier: experimental
     py_files: 1
@@ -621,11 +651,6 @@ modules:
     tier: experimental
     py_files: 2
     importer_count: 2
-    test_file_count: 3
-  - name: metrics
-    tier: experimental
-    py_files: 4
-    importer_count: 1
     test_file_count: 3
   - name: moderation
     tier: experimental
@@ -652,11 +677,11 @@ modules:
     py_files: 3
     importer_count: 2
     test_file_count: 4
-  - name: policy
+  - name: prediction
     tier: experimental
-    py_files: 4
-    importer_count: 1
-    test_file_count: 4
+    py_files: 2
+    importer_count: 0
+    test_file_count: 1
   - name: prompts
     tier: experimental
     py_files: 2
@@ -701,7 +726,12 @@ modules:
     tier: experimental
     py_files: 3
     importer_count: 1
-    test_file_count: 2
+    test_file_count: 3
+  - name: trail
+    tier: experimental
+    py_files: 3
+    importer_count: 0
+    test_file_count: 4
   - name: transcription
     tier: experimental
     py_files: 3
@@ -715,6 +745,11 @@ modules:
   - name: webhooks
     tier: experimental
     py_files: 2
+    importer_count: 1
+    test_file_count: 1
+  - name: work
+    tier: experimental
+    py_files: 5
     importer_count: 1
     test_file_count: 1
 

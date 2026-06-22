@@ -18,6 +18,7 @@ class Violation:
 WORKFLOW_PATH = Path(".github/workflows/required-check-priority.yml")
 
 REQUIRED_KEEP_WORKFLOW_PATHS = {
+    ".github/workflows/aragora-merge-quorum.yml",
     ".github/workflows/aragora-review-gate.yml",
     ".github/workflows/autopilot-worktree-e2e.yml",
     ".github/workflows/core-suites.yml",
@@ -38,6 +39,7 @@ REQUIRED_KEEP_WORKFLOW_PATHS = {
 }
 
 REQUIRED_KEEP_WORKFLOW_NAMES = {
+    "Aragora Merge Quorum",
     "Aragora Code Review",
     "Autopilot Worktree E2E",
     "Core Suites (Decision Integrity)",

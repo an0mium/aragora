@@ -16,7 +16,7 @@ If you want the shortest path to a first debate, start at [docs/guides/GETTING_S
 
 ```bash
 # Clone the repository
-git clone https://github.com/an0mium/aragora.git
+git clone https://github.com/synaptent/aragora.git
 cd aragora
 
 # Create and activate virtual environment
@@ -56,8 +56,11 @@ ARAGORA_DATA_DIR=.nomic
 python scripts/nomic_loop.py
 
 # Run the API server
-aragora serve --host 0.0.0.0 --ws-port 8765 --api-port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
+
+> For remote or production access (for example the Lightsail firewall steps below),
+> add `--host 0.0.0.0` to bind all interfaces; the default binds loopback-only `localhost`.
 
 ## Production Deployment (AWS Lightsail)
 
@@ -74,14 +77,14 @@ For production deployments, use the provided setup script.
 SSH into your instance and run:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/an0mium/aragora/main/deploy/lightsail-setup.sh | bash
+curl -sSL https://raw.githubusercontent.com/synaptent/aragora/main/deploy/lightsail-setup.sh | bash
 ```
 
 Or manually:
 
 ```bash
 cd /home/ubuntu
-git clone https://github.com/an0mium/aragora.git
+git clone https://github.com/synaptent/aragora.git
 cd aragora
 ./deploy/lightsail-setup.sh
 ```
@@ -201,5 +204,5 @@ sudo ufw allow 8765
 
 ### Getting Help
 
-- Check existing issues: https://github.com/an0mium/aragora/issues
+- Check existing issues: https://github.com/synaptent/aragora/issues
 - Open a new issue with logs and environment details

@@ -560,3 +560,61 @@ class TestValidationIntegration:
             assert len(result2) == 2
             assert isinstance(result2[0], bool)
             assert isinstance(result2[1], str)
+
+
+# ---------------------------------------------------------------------------
+# is_connectivity_skipped tests (skip != connected)
+# ---------------------------------------------------------------------------
+
+
+class TestConnectivitySkipSignal:
+    """The skip case must be distinguishable from a validated connection.
+
+    Regression: ``validate-env`` reported Redis/PostgreSQL as "connected" when
+    they were merely unconfigured (connectivity probe skipped). The validators
+    return ``(True, <skip message>)`` for startup-gating reasons, so a truthy
+    success bool does NOT imply a real connection.
+    """
+
+    async def test_redis_skip_message_is_detected_as_skipped(self):
+        from aragora.server.startup.validation import (
+            REDIS_SKIP_MESSAGE,
+            is_connectivity_skipped,
+        )
+
+        with patch.dict("os.environ", {}, clear=True):
+            success, message = await validate_redis_connectivity()
+        # Success is True (does not fail startup) ...
+        assert success is True
+        # ... but the message is the skip sentinel, NOT a connection.
+        assert message == REDIS_SKIP_MESSAGE
+        assert is_connectivity_skipped(message) is True
+
+    async def test_database_skip_message_is_detected_as_skipped(self):
+        from aragora.server.startup.validation import (
+            DATABASE_SKIP_MESSAGE,
+            is_connectivity_skipped,
+        )
+
+        with patch.dict("os.environ", {}, clear=True):
+            success, message = await validate_database_connectivity()
+        assert success is True
+        assert message == DATABASE_SKIP_MESSAGE
+        assert is_connectivity_skipped(message) is True
+
+    def test_real_connection_message_is_not_skipped(self):
+        from aragora.server.startup.validation import is_connectivity_skipped
+
+        assert is_connectivity_skipped("Redis connected (version 7.2.13)") is False
+        assert is_connectivity_skipped("PostgreSQL connected (PostgreSQL 15.4)") is False
+
+    def test_failure_message_is_not_skipped(self):
+        from aragora.server.startup.validation import is_connectivity_skipped
+
+        assert is_connectivity_skipped("Redis connection failed: refused") is False
+        assert is_connectivity_skipped("PostgreSQL connection timed out after 5.0s") is False
+
+    def test_predicate_is_exported_from_package(self):
+        from aragora.server.startup import is_connectivity_skipped as exported
+
+        assert callable(exported)

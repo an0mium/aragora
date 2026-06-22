@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import tomllib
@@ -25,6 +26,13 @@ PROMPT_WORDS_BY_ROLE = {
 }
 
 
+def _default_automation_root() -> Path:
+    configured = os.environ.get("CODEX_HOME")
+    if configured:
+        return Path(configured).expanduser() / "automations"
+    return Path.home() / ".codex" / "automations"
+
+
 @dataclass(frozen=True)
 class AutomationRecord:
     id: str
@@ -36,6 +44,8 @@ class AutomationRecord:
     path: str
     byminute: int | None
     role: str
+    memory_path: str
+    memory_present: bool
 
 
 @dataclass(frozen=True)
@@ -67,12 +77,17 @@ def _role_for(record_id: str, name: str) -> str:
     return "other"
 
 
+def _normalized_status(record: AutomationRecord) -> str:
+    return record.status.upper()
+
+
 def _load_record(path: Path) -> AutomationRecord:
     payload = tomllib.loads(path.read_text(encoding="utf-8"))
     record_id = str(payload.get("id") or path.parent.name)
     name = str(payload.get("name") or record_id)
     rrule = str(payload.get("rrule") or "")
     role = _role_for(record_id, name)
+    memory_path = path.parent / "memory.md"
     return AutomationRecord(
         id=record_id,
         name=name,
@@ -83,11 +98,36 @@ def _load_record(path: Path) -> AutomationRecord:
         path=str(path),
         byminute=_parse_byminute(rrule),
         role=role,
+        memory_path=str(memory_path),
+        memory_present=memory_path.is_file(),
     )
 
 
+def _load_records_with_issues(root: Path) -> tuple[list[AutomationRecord], list[AuditIssue]]:
+    records: list[AutomationRecord] = []
+    issues: list[AuditIssue] = []
+    for path in sorted(root.glob("*/automation.toml")):
+        try:
+            records.append(_load_record(path))
+        except (OSError, tomllib.TOMLDecodeError, UnicodeError) as exc:
+            issues.append(
+                AuditIssue(
+                    path.parent.name,
+                    "error",
+                    "invalid_automation_toml",
+                    f"failed to read {path}: {exc}",
+                )
+            )
+    return records, issues
+
+
 def load_automations(root: Path) -> list[AutomationRecord]:
-    return [_load_record(path) for path in sorted(root.glob("*/automation.toml"))]
+    records, _issues = _load_records_with_issues(root)
+    return records
+
+
+def _automation_file_count(root: Path) -> int:
+    return sum(1 for _path in root.glob("*/automation.toml"))
 
 
 def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
@@ -101,10 +141,20 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
                 AuditIssue(writer_id, "error", "missing_core_writer", "core writer is absent")
             )
             continue
-        if record.status != "ACTIVE":
-            issues.append(
-                AuditIssue(writer_id, "error", "core_writer_inactive", "core writer is not active")
-            )
+        if _normalized_status(record) != "ACTIVE":
+            if _normalized_status(record) == "PAUSED":
+                issues.append(
+                    AuditIssue(writer_id, "warning", "core_writer_paused", "core writer is paused")
+                )
+            else:
+                issues.append(
+                    AuditIssue(
+                        writer_id,
+                        "error",
+                        "core_writer_inactive",
+                        "core writer is not active",
+                    )
+                )
         if record.kind != "cron":
             issues.append(
                 AuditIssue(writer_id, "error", "core_writer_not_cron", "core writer is not cron")
@@ -122,7 +172,8 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
     active_writer_minutes: dict[int, list[str]] = {}
     for record in records:
         prompt_lower = record.prompt.lower()
-        if record.status == "ACTIVE" and "paused" in prompt_lower:
+        is_active = _normalized_status(record) == "ACTIVE"
+        if is_active and "paused" in prompt_lower:
             issues.append(
                 AuditIssue(
                     record.id,
@@ -131,11 +182,20 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
                     "automation is active but prompt says paused",
                 )
             )
-        if record.role == "writer" and record.status == "ACTIVE" and record.byminute is not None:
+        if record.role == "writer" and is_active and record.byminute is not None:
             active_writer_minutes.setdefault(record.byminute, []).append(record.id)
+        if record.role == "writer" and is_active and not record.memory_present:
+            issues.append(
+                AuditIssue(
+                    record.id,
+                    "warning",
+                    "missing_memory_file",
+                    f"active writer memory file is absent: {record.memory_path}",
+                )
+            )
         required_words = PROMPT_WORDS_BY_ROLE.get(record.role, ())
         for word in required_words:
-            if record.status == "ACTIVE" and word not in prompt_lower:
+            if is_active and word not in prompt_lower:
                 issues.append(
                     AuditIssue(
                         record.id,
@@ -160,21 +220,25 @@ def audit(records: list[AutomationRecord]) -> list[AuditIssue]:
 
 
 def build_payload(root: Path) -> dict[str, Any]:
-    records = load_automations(root)
-    issues = audit(records)
+    records, load_issues = _load_records_with_issues(root)
+    issues = [*load_issues, *audit(records)]
+    summary = {
+        "error_count": sum(1 for issue in issues if issue.severity == "error"),
+        "warning_count": sum(1 for issue in issues if issue.severity == "warning"),
+        "active_count": sum(1 for record in records if _normalized_status(record) == "ACTIVE"),
+    }
     return {
         "root": str(root),
-        "automation_count": len(records),
+        "automation_count": _automation_file_count(root),
+        "active_count": summary["active_count"],
+        "error_count": summary["error_count"],
+        "warning_count": summary["warning_count"],
         "core_writers": {
             writer_id: next((asdict(r) for r in records if r.id == writer_id), None)
             for writer_id in CORE_WRITERS
         },
         "issues": [asdict(issue) for issue in issues],
-        "summary": {
-            "error_count": sum(1 for issue in issues if issue.severity == "error"),
-            "warning_count": sum(1 for issue in issues if issue.severity == "warning"),
-            "active_count": sum(1 for record in records if record.status == "ACTIVE"),
-        },
+        "summary": summary,
     }
 
 
@@ -186,7 +250,17 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
         writer_id: (
             {
                 key: record[key]
-                for key in ("id", "name", "kind", "status", "path", "byminute", "role")
+                for key in (
+                    "id",
+                    "name",
+                    "kind",
+                    "status",
+                    "path",
+                    "byminute",
+                    "role",
+                    "memory_path",
+                    "memory_present",
+                )
                 if key in record
             }
             if isinstance(record, dict)
@@ -198,13 +272,32 @@ def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return compact
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path.home() / ".codex" / "automations",
-        help="Codex Desktop automation directory",
+        default=_default_automation_root(),
+        help="Codex Desktop automation directory (default: $CODEX_HOME/automations or ~/.codex/automations)",
     )
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
@@ -218,18 +311,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.summary_only:
         payload = summary_only_payload(payload)
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _emit_output(json.dumps(payload, indent=2, sort_keys=True))
     else:
         summary = payload["summary"]
-        print(
+        lines = [
             f"{payload['automation_count']} automations; "
             f"{summary['error_count']} error(s), {summary['warning_count']} warning(s)"
-        )
+        ]
         for issue in payload["issues"]:
-            print(
+            lines.append(
                 f"{issue['severity'].upper():<7} {issue['automation_id']:<30} "
                 f"{issue['code']}: {issue['message']}"
             )
+        _emit_output("\n".join(lines))
     return 1 if payload["summary"]["error_count"] else 0
 
 

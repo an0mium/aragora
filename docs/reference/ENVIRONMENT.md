@@ -69,7 +69,7 @@ At least one AI provider key is required.
 | `MISTRAL_API_KEY` | Optional | Mistral AI API key (Large, Codestral) | - |
 | `OPENROUTER_API_KEY` | Optional | OpenRouter for multi-model access | - |
 | `DEEPSEEK_API_KEY` | Optional | DeepSeek CLI key (for `deepseek-cli`) | - |
-| `ARAGORA_OPENROUTER_FALLBACK_ENABLED` | Optional | Enable OpenRouter fallback for supported providers | `false` |
+| `ARAGORA_OPENROUTER_FALLBACK_ENABLED` | Optional | OpenRouter fallback toggle for supported providers; set `false` to opt out | `true` |
 
 **Note:** Never commit your `.env` file. It's gitignored for security.
 
@@ -93,7 +93,7 @@ For best performance with Mistral models, use the direct API:
 
 ## Web Research (Experimental)
 
-Enable external web research during debates (requires `aragora[research]`):
+Enable external web research during debates (set the keys below):
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
@@ -501,6 +501,28 @@ explicitly if you need consistent pooling across subsystems.
 | `ARAGORA_WS_MSG_BURST` | Optional | WS message burst size | `20` |
 | `ARAGORA_AUDIENCE_INBOX_MAX_SIZE` | Optional | Audience inbox queue size | `1000` |
 | `ARAGORA_MAX_EVENT_QUEUE_SIZE` | Optional | Event queue size (server) | `10000` |
+
+## Automation Trust (Auto-Merge & Triage)
+
+The merge arbiter and PR triage / auto-merge tooling gate decisions on an
+allowlist of trusted author / reviewer logins. The committed defaults contain
+only generic automation identities (bot accounts) and **no personal GitHub
+login**, so a public fork never auto-trusts an operator's handle. Operators opt
+their own logins in via environment variables (comma-separated, whitespace
+trimmed):
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_TRUSTED_AUTHORS` | Optional | Logins trusted for auto-merge / triage and treated as automation authors. Unioned with the generic defaults. | _(empty)_ |
+| `ARAGORA_BUCKET_A_TRUSTED_AUTHORS` | Optional | Extra logins trusted specifically by `scripts/auto_merge_bucket_a.py` (unioned with `ARAGORA_TRUSTED_AUTHORS`). | _(empty)_ |
+
+Consumed by `aragora/swarm/merge_arbiter.py`, `aragora/triage/evidence.py`,
+`scripts/triage_open_prs.py`, and `scripts/auto_merge_bucket_a.py` through the
+shared resolver `aragora.config.trusted_authors.resolve_trusted_authors`.
+
+**Migration note:** earlier releases hardcoded `an0mium` as a default trusted
+login. To preserve that behavior set `ARAGORA_TRUSTED_AUTHORS=an0mium` in your
+`.env` (and in any CI / launchd environment where this tooling runs).
 
 ## Reserved / Not Yet Wired
 
@@ -1256,6 +1278,8 @@ See [BOT_INTEGRATIONS.md](../integrations/BOT_INTEGRATIONS.md) for detailed setu
 | `ARAGORA_AUDIT_SIGNING_KEY` | Optional | Key for signing audit log entries | - |
 | `ARAGORA_METRICS_TOKEN` | Optional | Auth token for metrics endpoint | - |
 | `ARAGORA_SECRET_NAME` | Optional | AWS Secrets Manager secret name | - |
+| `ARAGORA_USE_SECRETS_MANAGER` | Optional | Enable AWS Secrets Manager loading | `false` locally, auto in prod/staging/AWS runtimes |
+| `ARAGORA_SECRETS_STRICT` | Optional | Block critical-secret env fallback | `false` locally, auto in prod/staging |
 | `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS` | Optional | Allow unverified webhooks (dev only) | `false` |
 
 **Security Notes:**
@@ -1265,6 +1289,7 @@ See [BOT_INTEGRATIONS.md](../integrations/BOT_INTEGRATIONS.md) for detailed setu
 - Secrets Manager is auto-enabled in production/staging or AWS-managed runtimes.
   For local development, set `ARAGORA_USE_SECRETS_MANAGER=true` to opt in.
   `ARAGORA_SECRET_NAME` still falls back to `aragora/production` when Secrets Manager is enabled.
+- Use `python3 -m aragora.cli.main secrets health --json` to verify source status without printing secret values.
 
 ## Knowledge System
 

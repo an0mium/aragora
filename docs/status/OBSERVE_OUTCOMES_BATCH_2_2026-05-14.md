@@ -1,0 +1,129 @@
+# Observe-Outcomes Batch #2 Verified — 2026-05-14
+
+*Round 30g phase A; follow-on to OBSERVE_OUTCOMES_FIRST_WRITE_VERIFIED_2026-05-13.md*
+
+## Summary
+
+The second canonical `review-queue observe-outcomes --write` batch ran over
+18 settled receipts and produced the **first real fired outcome signal**
+since the proof loop became operational.
+
+| Metric | Batch #1 (2026-05-13) | Batch #2 (2026-05-14) |
+| --- | --- | --- |
+| Receipts examined | 10 | 18 |
+| Receipts written | 10 | 18 |
+| GitHub fetch errors | 0 | 0 |
+| **Signals fired** | **0** | **1** |
+| Cross-family verifier consensus | 3-of-3 CLEAN | n/a (no fired signal in batch #1) |
+
+After batch #2: **29 of 35 settlement receipts have v2 outcome fields
+populated**; the remaining 6 are within the autonomous boss-loop's normal
+catch-up window.
+
+## The Fired Signal
+
+PR **#7146** (`[AGT-03] Manifold Brier bridge — ResolutionEvent → ManifoldBrierScorer (SD-2)`)
+fired the `outcome_human_override_redo` signal.
+
+Trigger: PR **#7153** was opened with body:
+
+> *"Supersedes #7146. That PR's normal head branch disappeared; recreating
+> `vision-incubator/agt-03-manifold-brier-bridge` did not reattach the PR
+> ... The fixed branch head is `45f7c01753391c9ebb7063e2aa99a254b9622afc`."*
+
+The exact match phrase `Supersedes #7146` triggered the
+`_is_human_override_redo` matcher in
+`aragora/review/settlement_outcome.py`. This is a **correct identification**
+of a real follow-on remediation: #7146 had a stale head and #7153 is its
+metrics-equivalent replacement with an additional codex-review fix
+(`record_resolution()` now rejects mismatched market IDs).
+
+The receipt for #7146 now records:
+
+```json
+{
+  "pr_number": 7146,
+  "outcome_observed_at": "2026-05-14T19:24:38Z",
+  "outcome_human_override_redo": true,
+  "outcome_revert_within_window": false,
+  "outcome_post_merge_incident": false,
+  "outcome_rollback": false,
+  "outcome_reopened_pr": false
+}
+```
+
+## Why This Matters
+
+This is the **first fired signal** in the canonical proof loop. The first
+`--write` batch (2026-05-13) observed 10 CLEAN PRs; batch #2 demonstrates
+the loop also correctly detects real human-override-redo situations
+without operator help.
+
+The proof loop has now demonstrated, end-to-end on real data:
+
+1. Receipts are written by humans and `record-settlement` (substrate)
+2. `observe-outcomes --write` mutates receipt v2 fields with GitHub
+   timeline-derived signals (mechanics)
+3. Independently verified by three frontier models, all CLEAN, on the
+   first batch (calibration on the negative case)
+4. Successfully detects a real positive case — `human_override_redo`
+   from a `Supersedes #7146` reference (calibration on the positive case)
+
+This closes the open question from 2026-05-13: *"the loop ran clean over
+10 receipts — does it actually detect real follow-on remediations, or did
+it just confirm we happened to pick 10 clean PRs?"* The answer is now
+explicit: yes, it detects them, and the detection is conservative
+(literal-phrase match against `closes/fixes/resolves/supersedes/replaces
+#<num>`).
+
+## Receipts Observed
+
+| PR | Receipt observed_at (UTC) | Fired signals |
+| --- | --- | --- |
+| 6894 | 2026-05-14T19:24:38Z | — |
+| 6918 | 2026-05-14T19:24:38Z | — |
+| 6944 | 2026-05-14T19:24:38Z | — |
+| 7133 | 2026-05-14T19:24:38Z | — |
+| 7134 | 2026-05-14T19:24:38Z | — |
+| 7136 | 2026-05-14T19:24:38Z | — |
+| 7137 | 2026-05-14T19:24:38Z | — |
+| 7138 | 2026-05-14T19:24:38Z | — |
+| 7139 | 2026-05-14T19:24:38Z | — |
+| 7141 | 2026-05-14T19:24:38Z | — |
+| 7142 | 2026-05-14T19:24:38Z | — |
+| 7144 | 2026-05-14T19:24:38Z | — |
+| 7145 | 2026-05-14T19:24:38Z | — |
+| **7146** | **2026-05-14T19:24:38Z** | **human_override_redo** |
+| 7147 | 2026-05-14T19:24:38Z | — |
+| 7149 | 2026-05-14T19:24:38Z | — |
+| 7152 | 2026-05-14T19:24:38Z | — |
+| 7153 | 2026-05-14T19:24:38Z | — |
+
+## Operator Notes
+
+* `--max-receipts` is honoured as a cap; the cmd sorts by filename
+  lexicographically (so by PR number ascending), which means a small cap
+  with a wide window favours older PRs. The autonomous boss-loop runs
+  `observe-outcomes` regularly with rotating windows, so all receipts
+  catch up over time.
+* The 6 remaining un-observed receipts (#7127–#7132 from 2026-05-13 15:00–16:00 UTC)
+  are within the normal catch-up window and will be picked up by the next
+  autonomous tick. No operator action needed.
+* No GitHub fetch errors, no rate-limit hits, no timeline-event cap
+  violations across the 18-receipt batch.
+
+## Out of Scope
+
+* Closing #6375 — this batch does not promote H1-01 rev-4 or settle the
+  H2 panel. Operator decisions remain operator decisions.
+* Replacing the 5% placeholder threshold — that is the recalibration
+  workstream, not this observation cycle.
+* Auto-acting on the fired signal — `outcome_human_override_redo=true` on
+  #7146 is an audit-trail signal; whether to surface it for review or
+  feed it into the per-agent Brier scorer is a separate decision.
+
+---
+
+*Generated by an autonomous worker session 2026-05-14. The full batch
+output is preserved at `.aragora/evolve-round/observe-outcomes/`
+insufficiency-receipt JSON paths.*

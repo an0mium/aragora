@@ -9,7 +9,7 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 > freely; never break main / public API / release flow / CI" rule, and main-red
 > incident mode. That contract governs *how* agents execute against the repo. This
 > document describes *what* agents are registered as runtime debate participants
-> (the 43-agent registry).
+> (the 46-agent registry).
 
 ## Worktree Autopilot (High-Churn Sessions)
 
@@ -41,6 +41,10 @@ For Codex-driven automations in this repo, default to maximum safe autonomy. Fin
   inspect `--help`, adapt to the actual helper interface, and try the next practical route before declaring a blocker.
 - Use layered fallbacks:
   move between shell git/gh, MCP connectors, local repo inspection, and browser flows when one surface is degraded.
+- Do not launch Factory/Droid in interactive Auto Off mode for normal Aragora work.
+  Prompted Droid/Factory lanes should go through `scripts/tmux_session_launcher.sh`
+  or `scripts/agent_bridge.py launch`, which route them through `droid exec --auto high`.
+  Only use `ARAGORA_ALLOW_DROID_AUTO_OFF=1` for an explicit manual-debugging exception.
 - Recover cleanly from partial failure:
   if publish or inbox delivery fails, still leave a clean committed branch or an exact handoff with the compare URL, blocker, and next action.
 - Treat founder guidance as strong but verify it:
@@ -49,20 +53,56 @@ For Codex-driven automations in this repo, default to maximum safe autonomy. Fin
   use disposable worktrees, branch-scoped commits, additive edits, and non-destructive cleanup. Never delete worktrees or branches with uncommitted changes, unique commits, or open PRs.
 - Keep scope bounded:
   prefer measurable improvements on live paths over speculative breadth, and use Aragora itself when it improves decisions without dominating a small direct fix.
+- Before lane work, check your operator-steering mailbox with
+  `python3 scripts/read_operator_steering.py --lane-id <LANE_ID> --json` (or
+  `--pr` / `--branch` when that is the only selector you know). If you read a
+  message, write an outcome receipt with `--outcome obeyed|held|stale|superseded|blocked|completed`
+  before mutating lane state. `_read_receipts/` is proof-of-read/outcome only;
+  it is not an ack protocol, and top-level message files remain pending until a
+  future explicit ack/move protocol exists.
+- Active lanes must expose their next action and owner liveness. Claim/refresh
+  lanes with `next_action`, `last_heartbeat_at`, and `last_steering_outcome`;
+  long-running harnesses should also run `python3 scripts/agent_heartbeat.py`
+  so other sessions can see owner_session, pid/thread hints, cwd, worktree,
+  branch, PR number, and last_seen_at without opening raw transcripts.
+- Do not paste old transcripts or accumulated logs into new prompts. Use
+  `python3 scripts/build_next_prompt.py` plus the live queue/owner tools to
+  rebuild concise, owner-specific prompts that begin with mailbox checking.
+- Resolve stale conflict rows only through
+  `python3 scripts/resolve_lane_conflicts.py --dry-run` and, when safe,
+  `--apply`; it marks conflicts `superseded` with append-only receipts rather
+  than deleting or rewriting unrelated ownership rows.
+- Tier 4 merge/protection work can be prepared autonomously but not applied
+  without exact-head, repo-visible operator settlement. Use
+  `python3 scripts/settle_tier4_pr.py --check --pr <N> --head <SHA>` before
+  any Tier 4 merge/protection mutation.
+
+### Amend-guard helper
+
+Before running `git commit --amend` (or any rebase that rewrites the
+current tip), check that HEAD is not already published. Run
+`bash scripts/guard_amend_pushed.sh` from the branch worktree; it exits
+non-zero with `AMEND-BLOCKED: ...` when `HEAD` equals the
+`origin/<branch>` tip and exits `0` when the branch is local-only or
+ahead of the remote. Pass `--remote NAME` / `--branch NAME` to override
+the defaults. This implements rule **R19** ("never `--amend` a pushed
+commit") from the v12/v13 lessons; soft-reset and re-commit instead.
 
 ## Agent Types
 
-Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 34 types as of 2026-02-12). Entries marked **opt-in** are registered but not allowlisted by default.
+Aragora currently registers 46 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 35 types as of 2026-06-06). Entries marked **opt-in** are registered but not allowlisted by default.
 
 ### CLI-Based Agents (allowlisted)
 
 | Agent Type | CLI Tool | Default Model | Notes |
 |------------|----------|---------------|-------|
-| `claude` | `claude` (claude-code) | claude-opus-4-7 | Opus 4.6, 200K context, 128K output |
+| `claude` | `claude` (claude-code) | claude-opus-4-8 | Opus 4.8, 1M context, 128K output |
 | `codex` | `codex` | gpt-4.1-codex | GPT-4.1 Codex, 1M context |
 | `openai` | `openai` | gpt-4.1 | GPT-4.1, 1M context |
 | `gemini-cli` | `gemini` | gemini-3.1-pro-preview | Gemini 3.1 Pro, 1M context |
 | `grok-cli` | `grok` | grok-4-latest | Grok 4, 256K context |
+| `grok-build` | `grok` (Grok Build CLI) | grok-build | Opt-in subscription CLI; resolves `~/.grok/bin/grok` or `ARAGORA_GROK_BUILD_BIN` |
+| `antigravity` | `agy` | gemini-3.5-flash | Opt-in subscription CLI; resolves `~/.antigravity/bin/agy` or `ARAGORA_ANTIGRAVITY_BIN` |
 | `qwen-cli` | `qwen` | qwen3-coder | |
 | `deepseek-cli` | `deepseek` | deepseek-v4-pro | Requires `DEEPSEEK_API_KEY` |
 | `kilocode` | `kilocode` | provider-specific | Defaults to `openrouter/google/gemini-3.1-pro-preview` via `provider_id` |
@@ -71,11 +111,11 @@ Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, l
 
 | Agent Type | Provider | Default Model | Env Var | Allowlist |
 |------------|----------|---------------|---------|-----------|
-| `anthropic-api` | Anthropic | claude-opus-4-7 | `ANTHROPIC_API_KEY` | allowlisted |
+| `anthropic-api` | Anthropic | claude-opus-4-8 | `ANTHROPIC_API_KEY` | allowlisted |
 | `openai-api` | OpenAI | gpt-4.1 | `OPENAI_API_KEY` | allowlisted |
 | `gemini` | Google | gemini-3.1-pro-preview | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | allowlisted |
 | `grok` | xAI | grok-4-latest | `XAI_API_KEY` or `GROK_API_KEY` | allowlisted |
-| `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` | opt-in |
+| `mistral-api` | Mistral | mistral-large-2512 | `MISTRAL_API_KEY` | allowlisted |
 | `codestral` | Mistral | codestral-latest | `MISTRAL_API_KEY` | opt-in |
 
 ### Local & Legacy Direct Agents
@@ -107,6 +147,7 @@ All OpenRouter agents require `OPENROUTER_API_KEY`.
 | `sonar` | perplexity/sonar-reasoning | Sonar (reasoning + web search) |
 | `command-r` | cohere/command-r-plus | Command R+ (RAG-optimized) |
 | `jamba` | ai21/jamba-1.6-large | Jamba (SSM-Transformer hybrid) |
+| `fusion` | openrouter/fusion | OpenRouter Fusion multi-model council+judge endpoint (opt-in, not a quorum family) |
 | `openrouter` | deepseek/deepseek-v4-pro | Generic OpenRouter default |
 
 ### External Framework Proxies
@@ -165,7 +206,7 @@ Each agent has a role that determines its behavior in debates:
 
 ## Core Agent Interface
 
-All agents implement the abstract `Agent` class from `aragora/core.py`:
+All agents implement the abstract `Agent` class from `aragora/core/`:
 
 ```python
 class Agent(ABC):
@@ -313,7 +354,7 @@ analysis = await integration.full_post_debate_analysis(
 
 | File | Purpose |
 |------|---------|
-| `aragora/core.py` | Core abstractions (Agent, Message, Critique, Vote, DebateResult) |
+| `aragora/core/` | Core abstractions (Agent, Message, Critique, Vote, DebateResult) |
 | `aragora/agents/base.py` | Agent factory and type definitions |
 | `aragora/agents/cli_agents.py` | CLI-based agent implementations |
 | `aragora/agents/api_agents.py` | API-based agent implementations |

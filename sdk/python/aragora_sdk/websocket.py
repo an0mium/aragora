@@ -381,6 +381,13 @@ class AragoraWebSocket:
 
     def _schedule_reconnect(self) -> None:
         """Schedule a reconnection with exponential back-off."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            logger.debug("Skipping reconnect scheduling because no event loop is running")
+            self._state = _STATE_DISCONNECTED
+            return
+
         self._state = _STATE_RECONNECTING
         delay = self.options.reconnect_delay * (2**self._reconnect_attempts)
         self._reconnect_attempts += 1
@@ -392,7 +399,7 @@ class AragoraWebSocket:
             except Exception:
                 pass  # connect() will emit errors and trigger disconnect
 
-        self._reconnect_task = asyncio.ensure_future(_do_reconnect())
+        self._reconnect_task = loop.create_task(_do_reconnect())
 
     def _cleanup(self) -> None:
         """Cancel background tasks."""

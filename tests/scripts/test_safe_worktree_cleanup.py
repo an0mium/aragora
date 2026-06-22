@@ -30,7 +30,7 @@ def test_inspect_reports_open_pr_blocker(tmp_path: Path, monkeypatch: pytest.Mon
 
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
     monkeypatch.setattr(
-        mod.autopilot,
+        mod,
         "_get_worktree_entries",
         lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/test")],
     )
@@ -75,6 +75,8 @@ def test_remove_refuses_blocked_worktree_without_force(
         dirty=False,
         unique_commits_ahead=0,
         ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
         open_prs=[{"number": 1361, "title": "Open PR", "url": "https://example.com/pr/1361"}],
         pr_lookup_failed=False,
         blockers=["open_pr"],
@@ -113,7 +115,7 @@ def test_inspect_accepts_branch_override_for_orphaned_path(
     orphan_path = tmp_path / "manual-orphan"
     orphan_path.mkdir()
 
-    monkeypatch.setattr(mod.autopilot, "_get_worktree_entries", lambda _repo: [])
+    monkeypatch.setattr(mod, "_get_worktree_entries", lambda _repo: [])
     monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: False)
     monkeypatch.setattr(mod, "_worktree_is_dirty", lambda _path: False)
     monkeypatch.setattr(mod, "_unique_commits_ahead_of_main", lambda _repo, _branch: (0, False))
@@ -146,6 +148,55 @@ def test_branch_detection_requires_local_git_metadata(tmp_path: Path) -> None:
     assert mod._branch_for_path(orphan_path, None) is None
 
 
+def test_branch_detection_timeout_returns_preservation_sentinel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    orphan_path = tmp_path / "orphan"
+    orphan_path.mkdir()
+    (orphan_path / ".git").mkdir()
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    assert mod._branch_for_path(orphan_path, None) == mod.BRANCH_LOOKUP_FAILED
+
+
+def test_open_pr_lookup_timeout_is_lookup_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    open_prs, failed = mod._lookup_open_prs(tmp_path, "codex/test")
+
+    assert open_prs == []
+    assert failed is True
+
+
+def test_status_timeout_blocks_cleanup_as_dirty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    assert mod._worktree_is_dirty(worktree) is True
+
+
 def test_remove_purges_residual_path_after_failed_git_remove(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -167,6 +218,8 @@ def test_remove_purges_residual_path_after_failed_git_remove(
         dirty=False,
         unique_commits_ahead=0,
         ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
         open_prs=[],
         pr_lookup_failed=False,
         blockers=[],
@@ -218,21 +271,23 @@ def test_remove_deletes_branch_when_requested(
         dirty=False,
         unique_commits_ahead=0,
         ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
         open_prs=[],
         pr_lookup_failed=False,
         blockers=[],
     )
     monkeypatch.setattr(mod.autopilot, "_branch_exists", lambda *_args, **_kwargs: True)
-    monkeypatch.setattr(
-        mod.autopilot,
-        "_run_git",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            args=["git", "branch", "-D", "codex/test"],
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
             returncode=0,
             stdout="Deleted branch codex/test\n",
             stderr="",
-        ),
-    )
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
     result = mod.remove_worktree(
         repo_root,
@@ -258,7 +313,7 @@ def test_inspect_blocks_dirty_and_ahead_worktrees(
 
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
     monkeypatch.setattr(
-        mod.autopilot,
+        mod,
         "_get_worktree_entries",
         lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/test")],
     )
@@ -272,6 +327,13 @@ def test_inspect_blocks_dirty_and_ahead_worktrees(
     assert inspection.dirty is True
     assert inspection.unique_commits_ahead == 2
     assert inspection.blockers == ["dirty_worktree", "branch_ahead_of_origin_main"]
+    safety = mod.cleanup_safety(inspection)
+    assert safety["classification"] == "unsafe_to_delete"
+    assert safety["decision"] == "preserve"
+    assert [row["category"] for row in safety["blocker_details"]] == [
+        "unsafe_to_delete",
+        "unsafe_to_delete",
+    ]
 
 
 def test_inspect_allows_pr_lookup_failure_for_branch_with_no_unique_commits(
@@ -286,7 +348,7 @@ def test_inspect_allows_pr_lookup_failure_for_branch_with_no_unique_commits(
 
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
     monkeypatch.setattr(
-        mod.autopilot,
+        mod,
         "_get_worktree_entries",
         lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/merged")],
     )
@@ -300,9 +362,76 @@ def test_inspect_allows_pr_lookup_failure_for_branch_with_no_unique_commits(
     assert inspection.pr_lookup_failed is True
     assert inspection.unique_commits_ahead == 0
     assert inspection.blockers == []
+    safety = mod.cleanup_safety(inspection)
+    assert safety["classification"] == "stale_or_merged"
+    assert safety["decision"] == "cleanup_candidate"
+    assert safety["removable"] is True
 
 
-def test_inspect_blocks_lock_files_and_history_lookup_failure(
+def test_inspect_allows_patch_equivalent_branch_when_pr_lookup_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+
+    monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/replayed")],
+    )
+    monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(mod, "_worktree_is_dirty", lambda _path: False)
+    monkeypatch.setattr(mod, "_unique_commits_ahead_of_main", lambda _repo, _branch: (4, False))
+    monkeypatch.setattr(mod, "_patch_equivalent_to_main", lambda _repo, _branch: (True, False))
+    monkeypatch.setattr(mod, "_lookup_open_prs", lambda _repo, _branch: ([], True))
+
+    inspection = mod.inspect_worktree(repo_root, worktree)
+
+    assert inspection.pr_lookup_failed is True
+    assert inspection.unique_commits_ahead == 4
+    assert inspection.patch_equivalent_to_origin_main is True
+    assert inspection.blockers == []
+    safety = mod.cleanup_safety(inspection)
+    assert safety["classification"] == "harvested_or_duplicate"
+    assert safety["decision"] == "cleanup_candidate"
+    assert safety["signals"]["patch_equivalent_to_origin_main"] is True
+
+
+def test_inspect_reports_stale_lock_files_without_blocking_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    (worktree / ".codex_session_active").write_text("pid=12345\n")
+
+    monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/test")],
+    )
+    monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(mod, "_worktree_is_dirty", lambda _path: False)
+    monkeypatch.setattr(mod, "_unique_commits_ahead_of_main", lambda _repo, _branch: (0, False))
+    monkeypatch.setattr(mod, "_lookup_open_prs", lambda _repo, _branch: ([], False))
+
+    inspection = mod.inspect_worktree(repo_root, worktree)
+
+    assert inspection.lock_files == [".codex_session_active"]
+    assert inspection.active_session is False
+    assert inspection.blockers == []
+
+
+def test_inspect_blocks_active_session_and_history_lookup_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import safe_worktree_cleanup as mod
@@ -315,11 +444,11 @@ def test_inspect_blocks_lock_files_and_history_lookup_failure(
 
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
     monkeypatch.setattr(
-        mod.autopilot,
+        mod,
         "_get_worktree_entries",
         lambda _repo: [mod.autopilot.WorktreeEntry(path=worktree, branch="codex/test")],
     )
-    monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: True)
     monkeypatch.setattr(mod, "_worktree_is_dirty", lambda _path: False)
     monkeypatch.setattr(mod, "_unique_commits_ahead_of_main", lambda _repo, _branch: (0, True))
     monkeypatch.setattr(mod, "_lookup_open_prs", lambda _repo, _branch: ([], False))
@@ -327,5 +456,92 @@ def test_inspect_blocks_lock_files_and_history_lookup_failure(
     inspection = mod.inspect_worktree(repo_root, worktree)
 
     assert inspection.lock_files == [".codex_session_active"]
+    assert inspection.active_session is True
     assert inspection.ahead_lookup_failed is True
-    assert inspection.blockers == ["session_lock_present", "ahead_lookup_failed"]
+    assert inspection.blockers == ["active_session", "ahead_lookup_failed"]
+    safety = mod.cleanup_safety(inspection)
+    assert safety["classification"] == "owned"
+    assert safety["decision"] == "preserve"
+    assert [row["category"] for row in safety["blocker_details"]] == ["owned", "unknown"]
+    assert safety["blocker_details"][0]["next_action"] == (
+        "preserve and route cleanup through the live owner"
+    )
+
+
+def test_inspect_json_includes_cleanup_safety_payload(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[{"number": 1361, "title": "Open PR", "url": "https://example.com/pr/1361"}],
+        pr_lookup_failed=False,
+        blockers=["open_pr"],
+    )
+
+    mod._print_inspection(inspection, as_json=True)
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["removable"] is False
+    assert payload["cleanup_safety"]["classification"] == "referenced_preserve"
+    assert payload["cleanup_safety"]["decision"] == "preserve"
+    assert payload["cleanup_safety"]["blocker_details"] == [
+        {
+            "blocker": "open_pr",
+            "category": "referenced",
+            "reason": "A live open PR references this branch.",
+            "next_action": "preserve until the PR is merged, closed, or explicitly superseded",
+        }
+    ]
+
+
+def test_worktree_is_not_dirty_for_empty_nested_wrapper(tmp_path: Path) -> None:
+    import safe_worktree_cleanup as mod
+
+    wrapper = tmp_path / "wrapper"
+    nested = wrapper / ".worktrees" / "preflight-preflight-20260418-184346"
+    nested.mkdir(parents=True)
+    (nested / ".claude-session-anchor").write_text("")
+    second_nested = wrapper / ".worktrees" / "preflight-preflight-20260418-201113"
+    second_nested.mkdir(parents=True)
+    (second_nested / ".claude-session-anchor").write_text("")
+
+    assert mod._is_empty_nested_wrapper(wrapper) is True
+    assert mod._worktree_is_dirty(wrapper) is False
+
+
+def test_worktree_is_dirty_when_wrapper_has_real_files(tmp_path: Path) -> None:
+    import safe_worktree_cleanup as mod
+
+    wrapper = tmp_path / "wrapper"
+    nested = wrapper / ".worktrees" / "preflight-preflight-20260418-184346"
+    nested.mkdir(parents=True)
+    (nested / ".claude-session-anchor").write_text("")
+    (wrapper / "real_file.py").write_text("print('hello')")
+
+    assert mod._is_empty_nested_wrapper(wrapper) is False
+
+
+def test_worktree_is_not_dirty_for_flat_anchor_only_wrapper(tmp_path: Path) -> None:
+    import safe_worktree_cleanup as mod
+
+    wrapper = tmp_path / "wrapper"
+    wrapper.mkdir()
+    (wrapper / ".claude-session-anchor").write_text("session anchor\n")
+
+    assert mod._is_empty_nested_wrapper(wrapper) is True
+    assert mod._worktree_is_dirty(wrapper) is False

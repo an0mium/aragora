@@ -9,9 +9,9 @@
 > and [CANONICAL_GOALS.md](../CANONICAL_GOALS.md).
 >
 > **How to use:** paste the "Mission Prompt" block below as the first message
-> to a fresh Droid session on `/Users/armand/Development/aragora`. Append a
-> mission id (e.g. `mission-id: h1-YYYY-MM-DD-<slot>`) so ledger filenames
-> don't collide across runs.
+> to a fresh Droid session from the Aragora repo root or a managed worktree.
+> Append a mission id (e.g. `mission-id: h1-YYYY-MM-DD-<slot>`) so ledger
+> filenames don't collide across runs.
 
 ## Mission Prompt
 
@@ -166,7 +166,7 @@ Body template:
 
 ### 7. Record (target: 2 min, cap: 5 min)
 Append one line to docs/status/mission-ledgers/YYYY-MM-DD-<mission-id>.md
-(create the file with a header on first iteration):
+(create the directory and file with a header on first iteration; completed historical ledgers may later be archived under docs/archive/status/):
     | ISO timestamp | issue | branch | PR url | files | preflight | reconcile | next |
 Update epic #6226 body to check off the completed H1 subtask box if it is done.
 

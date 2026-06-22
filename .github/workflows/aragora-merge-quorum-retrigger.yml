@@ -1,0 +1,118 @@
+name: Aragora Merge Quorum Retrigger
+
+# Helper workflow (B1): when a model-review evidence comment is posted on a PR,
+# re-run the enforcing "Aragora Merge Quorum" check for that PR's CURRENT head so
+# the gate reflects the freshly-posted evidence instead of a stale pre-evidence
+# result. This addresses root cause #1/#5 (stale-check race) in
+# docs/governance/BOSS_LOOP_MERGE_GATE_RESILIENCE.md.
+#
+# Scope guarantees:
+#   * It NEVER evaluates the quorum, posts comments, approves, or merges.
+#   * Its only privileged action is `gh run rerun` on the existing
+#     "Aragora Merge Quorum" workflow run for the PR's current head.
+#   * It does NOT check out or execute any PR code, so fork-PR comment events
+#     (which run from the BASE repo's workflow definition) cannot inject code.
+#
+# This file lives under .github/workflows/, so per REVIEW_AUTHORITY_PRINCIPLES.md
+# every change to it is a Tier 4 "merge-authority self-modification" and requires
+# explicit human preapproval before implementation and before merge.
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to re-run merge-quorum for (debug/rehearsal)"
+        required: true
+        type: string
+
+concurrency:
+  group: aragora-merge-quorum-retrigger-${{ github.event.issue.number || github.event.inputs.pr_number }}
+  # Match the enforcing workflow: never self-cancel into a misleading state.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: write
+
+jobs:
+  retrigger:
+    name: aragora-merge-quorum-retrigger
+    # Only act on PR comments from trusted authors (or a manual dispatch).
+    # Random/untrusted comments must not be able to burn CI minutes by forcing
+    # reruns. author_association is evaluated against the BASE repo.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request &&
+       github.event.comment.user.type != 'Bot' &&
+       contains(fromJSON('["OWNER","MEMBER"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Evidence-shape pre-filter
+        id: shape
+        if: github.event_name == 'issue_comment'
+        env:
+          # Pass the body via env (not inline ${{ }}) to avoid script injection.
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Cheap pre-filter mirroring evidence-lint's hard requirements: a known
+          # reviewer-heading marker AND a 7+ hex head-SHA citation. The enforcing
+          # merge-quorum check stays the source of truth for what actually counts,
+          # so a rare false-positive only causes a harmless honest re-evaluation.
+          heading_re='(focused dogfood|adversarial dogfood|independent model review|model review|verdict:)'
+          sha_re='[0-9a-f]{7,40}'
+          if grep -qiE "$heading_re" <<<"$COMMENT_BODY" \
+            && grep -qiE "$sha_re" <<<"$COMMENT_BODY"; then
+            echo "match=true" >> "$GITHUB_OUTPUT"
+            echo "Comment matches evidence shape; will re-run merge-quorum."
+          else
+            echo "match=false" >> "$GITHUB_OUTPUT"
+            echo "Comment does not match evidence shape; skipping retrigger."
+          fi
+
+      - name: Re-run merge-quorum for the PR's current head
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          steps.shape.outputs.match == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number || github.event.inputs.pr_number }}
+          WORKFLOW_NAME: "Aragora Merge Quorum"
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          head_sha="$(gh pr view "$PR_NUMBER" --repo "$GH_REPO" --json headRefOid --jq .headRefOid)"
+          if [[ -z "$head_sha" ]]; then
+            echo "::warning::could not resolve head SHA for PR #${PR_NUMBER}; nothing to do."
+            exit 0
+          fi
+          echo "PR #${PR_NUMBER} current head: ${head_sha}"
+
+          # Most recent COMPLETED enforcing merge-quorum run for this exact head.
+          # gh run rerun only works on completed runs; an in-progress run will
+          # already evaluate the current head, so skipping it is correct.
+          # head_sha is bound through jq --arg (never interpolated into the program)
+          # so the selection is independent of upstream API formatting guarantees.
+          run_id="$(gh run list --repo "$GH_REPO" --workflow "$WORKFLOW_NAME" \
+            --limit 100 \
+            --json databaseId,headSha,status,createdAt \
+            | jq -r --arg head "$head_sha" \
+                '[.[] | select(.headSha==$head and .status=="completed")]
+                 | sort_by(.createdAt) | last | .databaseId // empty')"
+
+          if [[ -z "$run_id" || "$run_id" == "null" ]]; then
+            echo "No completed merge-quorum run for head ${head_sha}; nothing to re-run."
+            echo "(A pull_request-triggered run will evaluate this head on its own.)"
+            exit 0
+          fi
+
+          echo "Re-running merge-quorum run ${run_id} for head ${head_sha}"
+          gh run rerun "$run_id" --repo "$GH_REPO"

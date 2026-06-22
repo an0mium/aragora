@@ -191,7 +191,7 @@ def cmd_query(args: Namespace) -> int:
         options = QueryOptions(
             use_agents=args.debate,
             use_debate=args.debate,
-            max_facts=args.limit,
+            max_chunks=args.limit,
         )
 
         result = await engine.query(
@@ -204,12 +204,15 @@ def cmd_query(args: Namespace) -> int:
 
     result = asyncio.run(run_query())
 
+    facts = result.facts
+    chunks_searched = result.metadata.get("chunks_searched", 0)
+
     if args.json:
         output = {
             "answer": result.answer,
             "confidence": result.confidence,
-            "facts_used": len(result.facts_used),
-            "chunks_used": len(result.chunks_used),
+            "facts_used": len(facts),
+            "chunks_used": chunks_searched,
         }
         print(json.dumps(output, indent=2))
     else:
@@ -218,14 +221,14 @@ def cmd_query(args: Namespace) -> int:
         print("=" * 60)
         print(result.answer)
         print(f"\nConfidence: {result.confidence:.1%}")
-        print(f"Facts used: {len(result.facts_used)}")
-        print(f"Chunks used: {len(result.chunks_used)}")
+        print(f"Facts used: {len(facts)}")
+        print(f"Chunks used: {chunks_searched}")
 
-        if result.facts_used:
+        if facts:
             print("\n" + "-" * 60)
             print("SUPPORTING FACTS")
             print("-" * 60)
-            for fact in result.facts_used[:5]:
+            for fact in facts[:5]:
                 print(f"  - {fact.statement}")
 
     return 0

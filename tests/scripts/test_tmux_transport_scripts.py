@@ -145,7 +145,8 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     assert any(
         call[:2] == ["send-keys", "-t"]
         and call[2] == "@17"
-        and "./scripts/codex_session.sh --agent 'testpane'" in call[3]
+        and "./scripts/codex_session.sh" in call[3]
+        and "--agent testpane" in call[3]
         for call in calls
     )
     registry_payload = json.loads(
@@ -153,6 +154,199 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     )
     assert "testpane" in registry_payload["sessions"]
     assert registry_payload["sessions"]["testpane"]["tmux_window"] == "@17"
+
+
+def test_tmux_session_launcher_autonomous_codex_prompt_uses_exec(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "codex-auto",
+            "--agent",
+            "codex",
+            "--autonomous",
+            "--task-id",
+            "Q123",
+            "--claimed-path",
+            "scripts/tmux_session_launcher.sh",
+            "--prompt",
+            "report git status only",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "Waiting up to" not in result.stdout
+    calls = _load_tmux_calls(env)
+    assert any(
+        call[:2] == ["send-keys", "-t"]
+        and call[2] == "@17"
+        and "bash '" in call[3]
+        and "codex-auto.launch.sh" in call[3]
+        and "--full-auto" not in call[3]
+        for call in calls
+    )
+    launch_script = Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.launch.sh"
+    launch_body = launch_script.read_text(encoding="utf-8")
+    assert "--task-id Q123" in launch_body
+    assert "--claimed-path scripts/tmux_session_launcher.sh" in launch_body
+    assert "codex exec --dangerously-bypass-approvals-and-sandbox - <" in launch_body
+    assert "--ask-for-approval" not in launch_body
+    assert "--full-auto" not in launch_body
+    assert not any("report git status only" in json.dumps(call) for call in calls)
+    assert (Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.prompt.md").read_text(
+        encoding="utf-8"
+    ) == "report git status only\n"
+    meta = json.loads(
+        (Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.meta.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert meta["has_prompt"] is True
+    assert meta["prompt_file"].endswith("codex-auto.prompt.md")
+
+
+def test_tmux_session_launcher_rejects_autonomous_codex_without_lease(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "codex-auto",
+            "--agent",
+            "codex",
+            "--autonomous",
+            "--prompt",
+            "report git status only",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "Refusing unleased autonomous Codex launch." in result.stderr
+
+
+def test_tmux_session_launcher_rejects_autonomous_codex_with_title_only(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "codex-auto",
+            "--agent",
+            "codex",
+            "--autonomous",
+            "--title",
+            "descriptive goal only",
+            "--prompt",
+            "report git status only",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "requires --task-id plus at least one concrete" in result.stderr
+
+
+def test_tmux_session_launcher_rejects_autonomous_codex_with_task_id_only(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "codex-auto",
+            "--agent",
+            "codex",
+            "--autonomous",
+            "--task-id",
+            "Q123",
+            "--prompt",
+            "report git status only",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "requires --task-id plus at least one concrete" in result.stderr
+
+
+def test_tmux_session_launcher_accepts_autonomous_codex_with_task_id_and_scope(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "codex-auto",
+            "--agent",
+            "codex",
+            "--autonomous",
+            "--task-id",
+            "Q123",
+            "--claimed-path",
+            "scripts/tmux_session_launcher.sh",
+            "--prompt",
+            "report git status only",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "Refusing unleased autonomous Codex launch." not in result.stderr
+    launch_script = Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.launch.sh"
+    launch_body = launch_script.read_text(encoding="utf-8")
+    assert "--task-id Q123" in launch_body
+    assert "--claimed-path scripts/tmux_session_launcher.sh" in launch_body
 
 
 def test_tmux_session_launcher_accepts_new_codex_readiness_markers(tmp_path: Path) -> None:
@@ -198,7 +392,7 @@ def test_tmux_session_launcher_does_not_treat_codex_banner_as_ready(tmp_path: Pa
     log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
     log_dir.mkdir(parents=True)
     (log_dir / "testpane.log").write_text(
-        "boot\nOpenAI Codex (v0.125.0)\n",
+        "boot\nOpenAI Codex (v0.125.0)\nUse /rename to rename your threads\n",
         encoding="utf-8",
     )
 
@@ -223,6 +417,9 @@ def test_tmux_session_launcher_does_not_treat_codex_banner_as_ready(tmp_path: Pa
     assert "Timed out waiting for readiness markers for testpane; prompt not sent." in result.stdout
     calls = _load_tmux_calls(env)
     assert ["load-buffer", "-"] not in calls
+    assert not any(
+        call[:2] == ["send-keys", "-t"] and "hello from launcher" in call for call in calls
+    )
 
 
 def test_tmux_session_launcher_supports_droid_agent(tmp_path: Path) -> None:
@@ -253,16 +450,91 @@ def test_tmux_session_launcher_supports_droid_agent(tmp_path: Path) -> None:
         check=True,
     )
 
-    assert "Readiness markers detected for factory-review." in result.stdout
     calls = _load_tmux_calls(env)
     assert any(
-        call[:2] == ["send-keys", "-t"] and call[2] == "@17" and "droid --cwd" in call[3]
+        call[:2] == ["send-keys", "-t"]
+        and call[2] == "@17"
+        and "droid exec --auto 'high'" in call[3]
+        and "-f" in call[3]
         for call in calls
     )
+    assert not any("review only" in json.dumps(call) for call in calls)
+    meta = json.loads(
+        (Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "factory-review.meta.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert meta["has_prompt"] is True
+    assert meta["prompt_file"].endswith("factory-review.prompt.md")
+    assert Path(meta["prompt_file"]).read_text(encoding="utf-8") == "review only\n"
+
+
+def test_tmux_session_launcher_supports_droid_prompt_file(tmp_path: Path) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+    prompt_file = tmp_path / "review.md"
+    prompt_file.write_text("review from file", encoding="utf-8")
+
+    log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
+    log_dir.mkdir(parents=True)
+    (log_dir / "factory-review.log").write_text("boot\nDroid\n", encoding="utf-8")
+
+    subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "factory-review",
+            "--agent",
+            "factory",
+            "--prompt-file",
+            str(prompt_file),
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    calls = _load_tmux_calls(env)
     assert any(
-        call[:2] == ["send-keys", "-t"] and call[2] == "@17" and "review only" in call
+        call[:2] == ["send-keys", "-t"]
+        and call[2] == "@17"
+        and "droid exec --auto 'high'" in call[3]
+        and f"-f '{prompt_file}'" in call[3]
         for call in calls
     )
+    assert not any("review from file" in json.dumps(call) for call in calls)
+
+
+def test_tmux_session_launcher_rejects_unprompted_droid_auto_off_by_default(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "factory-review",
+            "--agent",
+            "droid",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "interactive Droid starts Auto Off" in result.stderr
 
 
 def test_tmux_session_launcher_does_not_send_prompt_before_readiness_by_default(

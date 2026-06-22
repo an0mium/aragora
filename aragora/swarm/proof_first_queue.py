@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -59,6 +61,7 @@ _DRIFT_TERMS = (
     "outrun",
     "current gate",
 )
+_REV4_STAGING_CORPUS_PATH = Path("tests/benchmarks/corpus_rev4.json")
 
 
 @dataclass(frozen=True)
@@ -91,11 +94,54 @@ def _load_policy(
     return load_roadmap_priority_policy(Path(repo_root))
 
 
+@lru_cache(maxsize=8)
+def _staged_rev4_issue_numbers(repo_root: str) -> frozenset[int]:
+    path = Path(repo_root) / _REV4_STAGING_CORPUS_PATH
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return frozenset()
+    issues = payload.get("issues") if isinstance(payload, dict) else None
+    if not isinstance(issues, list):
+        return frozenset()
+    numbers: set[int] = set()
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        try:
+            issue_number = int(issue.get("issue_id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if issue_number > 0:
+            numbers.add(issue_number)
+    return frozenset(numbers)
+
+
+def _is_explicit_staged_rev4_issue(
+    *,
+    issue_number: int | None,
+    labels: list[str] | tuple[str, ...] | set[str],
+    repo_root: Path | str | None,
+) -> bool:
+    if "boss-ready" not in {str(label).strip() for label in labels}:
+        return False
+    if issue_number is None or repo_root is None:
+        return False
+    try:
+        normalized_issue_number = int(issue_number)
+    except (TypeError, ValueError):
+        return False
+    if normalized_issue_number <= 0:
+        return False
+    return normalized_issue_number in _staged_rev4_issue_numbers(str(Path(repo_root)))
+
+
 def classify_proof_first_queue_issue(
     title: str,
     body: str = "",
     *,
     labels: list[str] | tuple[str, ...] | set[str] = (),
+    issue_number: int | None = None,
     repo_root: Path | str | None = None,
     roadmap_policy: RoadmapPriorityPolicy | None = None,
 ) -> ProofFirstQueueDecision:
@@ -125,6 +171,20 @@ def classify_proof_first_queue_issue(
                 roadmap_codes=priority.codes,
                 blocked_codes=priority.blocked_codes,
             )
+
+    if _is_explicit_staged_rev4_issue(
+        issue_number=issue_number,
+        labels=labels,
+        repo_root=repo_root,
+    ):
+        return ProofFirstQueueDecision(
+            allowed=True,
+            lane="staged_rev4_corpus",
+            reason="explicit boss-ready issue is present in the staged rev-4 corpus",
+            matched_terms=("boss-ready", "corpus_rev4"),
+            roadmap_codes=roadmap_codes,
+            blocked_codes=(),
+        )
 
     benchmark_matches = _matched_terms(normalized_text, _BENCHMARK_TERMS)
     if "[tw-02]" in normalized_text or (
@@ -205,6 +265,7 @@ def filter_noncanonical_boss_ready_issues(
             issue.title,
             issue.body or "",
             labels=issue.labels,
+            issue_number=issue.number,
             repo_root=repo_root,
         )
         if decision.allowed:

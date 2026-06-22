@@ -13,11 +13,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from aragora.config import get_api_key
 from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ import Mathlib.Algebra.Ring.Basic
             timeout: Request timeout in seconds
             max_tokens: Maximum tokens for response
         """
-        self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
+        self.api_key = api_key or get_api_key("OPENROUTER_API_KEY", required=False)
         self.timeout = timeout
         self.max_tokens = max_tokens
         self._model_available: bool | None = None

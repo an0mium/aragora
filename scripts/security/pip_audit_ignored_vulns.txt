@@ -1,0 +1,10 @@
+# Central allowlist for pip-audit vulnerability IDs used by CI and local release gates.
+# Format: VULN-ID YYYY-MM-DD # rationale
+# Keep entries narrow, documented, and temporary. Remove each entry once the
+# underlying dependency or runner image can be updated without blocking unrelated PRs.
+
+# Pre-existing legacy ignore carried by the release/security gates.
+CVE-2025-14009 2026-08-31 # legacy inherited gate debt; sunset through a focused dependency refresh before expiry.
+
+# Hosted CI image pip advisory; Aragora does not import pip at runtime.
+CVE-2026-3219 2026-08-31 # CI runner/tooling image only; not a product runtime dependency.

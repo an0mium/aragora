@@ -4,6 +4,11 @@
 This is a read-only bridge inventory tool. It combines:
 - tmux-managed session metadata/logs under ``~/.aragora/tmux-sessions``
 - Claude Code transcript tails under ``~/.claude/projects/.../*.jsonl``
+- Codex rollout sessions under ``~/.codex/sessions/**/*.jsonl`` (both manual
+  Codex CLI runs and Codex Desktop automations; the ``session_meta`` payload's
+  ``originator == "Codex Desktop"`` is what marks a desktop-automation run, so
+  Codex activity is attributed to ``codex`` rather than being omitted or
+  surfaced only through the ``claude -p`` reviewer transcripts it spawns)
 
 The goal is to give a small supervisor process one machine-readable view of:
 - which sessions exist
@@ -34,14 +39,23 @@ TAG_RE = re.compile(
     re.DOTALL,
 )
 SEPARATOR_RE = re.compile(r"^[\s\-\u2500-\u257f=\ufffd]+$")
+CONTROL_RESIDUE_RE = re.compile(r"^(?:<u>[0-9;]*u>[0-9;]*m)+$", re.I)
 MODEL_STATUS_RE = re.compile(
     r"^(?:gpt|claude|codex|openai|gemini)-[^\s]+(?:\s+\S+)?\s+·\s+.+$",
     re.I,
 )
 UI_CHROME_RE = re.compile(
     r"\bnavigate\s+enter\s+select\s+esc\s+cancel\b"
-    r"|\bshift\+tab\s+to\s+cycle\b"
-    r"|\?\s+for\s+help\b.*\bide\b",
+    r"|\bshift\+tab\s*(?:to)?\s*cycle\b"
+    r"|\?\s+for\s+help\b.*\bide\b"
+    r"|^\W*no,\s+cancel(?:\s|$)"
+    r"|\balways\s+allow\s+(?:low|medium|high)\s+impact\s+commands\b"
+    r"|\bpermissions?\s*dialog\s*dismissed\b"
+    r"|\bauto\s*\((?:low|medium|high)\)\s*-\s*"
+    r"(?:edits(?: and read-only commands)?|all commands that are reversible)\b"
+    r"|\bmcp\s*server\s*failed\b(?:\s*[·:-]?\s*/mcp)?"
+    r"|mcpserverfailed\s*[·:-]?\s*/?mcp"
+    r"|^\W*streaming\.\.\.\s*\(press\s+esc\s+to\s+stop\)\s*$",
     re.I,
 )
 
@@ -122,14 +136,23 @@ def _safe_repo_root(candidate: str | None) -> Path | None:
 
 
 def _tail_lines(path: Path, *, max_bytes: int = TAIL_BYTES) -> list[str]:
-    if not path.exists():
+    # Seek to the tail instead of slurping the whole file: Codex rollouts can be
+    # hundreds of MB, and only the trailing ``max_bytes`` are ever needed.
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            if size > max_bytes:
+                handle.seek(size - max_bytes)
+                data = handle.read()
+                newline = data.find(b"\n")
+                if newline >= 0:
+                    data = data[newline + 1 :]
+            else:
+                handle.seek(0)
+                data = handle.read()
+    except OSError:
         return []
-    data = path.read_bytes()
-    if len(data) > max_bytes:
-        data = data[-max_bytes:]
-        newline = data.find(b"\n")
-        if newline >= 0:
-            data = data[newline + 1 :]
     return data.decode("utf-8", errors="replace").splitlines()
 
 
@@ -152,6 +175,8 @@ def _clean_display_line(text: str, *, max_chars: int = 220) -> str:
     text = re.sub(r"^[•›■]+\s*", "", text)
     text = re.sub(r"\s*·\s*(?:gpt|claude|openai|gemini|codex)-.*$", "", text, flags=re.I)
     if not text or SEPARATOR_RE.fullmatch(text):
+        return ""
+    if CONTROL_RESIDUE_RE.fullmatch(text):
         return ""
     if UI_CHROME_RE.search(text):
         return ""
@@ -234,6 +259,69 @@ def _extract_text(content: Any) -> str:
             if text:
                 parts.append(text)
     return _collapse("\n".join(parts))
+
+
+def _content_has_text(content: Any) -> bool:
+    if isinstance(content, str):
+        return bool(content.strip())
+    if not isinstance(content, list):
+        return False
+    for item in content:
+        if isinstance(item, str) and item.strip():
+            return True
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "text" and str(item.get("text", "")).strip():
+            return True
+    return False
+
+
+def _extract_recent_claude_metadata(path: Path) -> dict[str, Any] | None:
+    updated_at: str | None = None
+    cwd: str | None = None
+    branch: str | None = None
+    has_text_turn = False
+    session_id = path.stem
+
+    for raw in reversed(_tail_lines(path)):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        if cwd is None:
+            raw_cwd = payload.get("cwd")
+            if isinstance(raw_cwd, str) and raw_cwd.strip():
+                cwd = raw_cwd
+        if branch is None:
+            raw_branch = payload.get("gitBranch")
+            if isinstance(raw_branch, str) and raw_branch.strip():
+                branch = raw_branch
+        if updated_at is None:
+            raw_ts = payload.get("timestamp")
+            if isinstance(raw_ts, str) and raw_ts.strip():
+                updated_at = raw_ts
+
+        if not has_text_turn and payload.get("type") in {"user", "assistant"}:
+            message = payload.get("message")
+            if isinstance(message, dict) and _content_has_text(message.get("content")):
+                has_text_turn = True
+
+        if has_text_turn and updated_at and (cwd or branch):
+            break
+
+    if not has_text_turn:
+        return None
+
+    return {
+        "session_id": session_id,
+        "updated_at": updated_at or datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(),
+        "cwd": cwd,
+        "branch": branch,
+    }
 
 
 def _extract_recent_claude_turns(path: Path) -> dict[str, Any] | None:
@@ -342,7 +430,9 @@ def _latest_log_line(log_file: Path) -> str:
     return _select_summary(_tail_lines(log_file, max_bytes=64 * 1024))
 
 
-def load_tmux_sessions(*, repo_root: Path, tmux_dir: Path) -> list[SessionRecord]:
+def load_tmux_sessions(
+    *, repo_root: Path, tmux_dir: Path, include_summaries: bool = True
+) -> list[SessionRecord]:
     records: list[SessionRecord] = []
     if not tmux_dir.exists():
         return records
@@ -380,9 +470,11 @@ def load_tmux_sessions(*, repo_root: Path, tmux_dir: Path) -> list[SessionRecord
                 updated_at = started
 
         status = _tmux_alive(name)
-        summary = _capture_tmux_summary(name) if status == "alive" else ""
-        if not summary and log_file.exists():
-            summary = _latest_log_line(log_file)
+        summary = ""
+        if include_summaries:
+            summary = _capture_tmux_summary(name) if status == "alive" else ""
+            if not summary and log_file.exists():
+                summary = _latest_log_line(log_file)
 
         records.append(
             SessionRecord(
@@ -402,14 +494,20 @@ def load_tmux_sessions(*, repo_root: Path, tmux_dir: Path) -> list[SessionRecord
     return records
 
 
-def _candidate_claude_logs(*, repo_root: Path, projects_root: Path) -> list[Path]:
+def _candidate_claude_logs(
+    *, repo_root: Path, projects_root: Path, include_summaries: bool = True
+) -> list[Path]:
     preferred = projects_root / _claude_project_slug(repo_root)
     if preferred.exists():
         return sorted(preferred.glob("*.jsonl"))
 
     candidates: list[Path] = []
     for path in projects_root.glob("*/*.jsonl"):
-        transcript = _extract_recent_claude_turns(path)
+        transcript = (
+            _extract_recent_claude_turns(path)
+            if include_summaries
+            else _extract_recent_claude_metadata(path)
+        )
         if transcript is None:
             continue
         cwd = transcript.get("cwd")
@@ -418,14 +516,29 @@ def _candidate_claude_logs(*, repo_root: Path, projects_root: Path) -> list[Path
     return sorted(candidates)
 
 
-def load_claude_sessions(*, repo_root: Path, projects_root: Path) -> list[SessionRecord]:
+def load_claude_sessions(
+    *, repo_root: Path, projects_root: Path, include_summaries: bool = True
+) -> list[SessionRecord]:
     records: list[SessionRecord] = []
-    for jsonl_path in _candidate_claude_logs(repo_root=repo_root, projects_root=projects_root):
-        transcript = _extract_recent_claude_turns(jsonl_path)
+    preferred_project_exists = (projects_root / _claude_project_slug(repo_root)).exists()
+    for jsonl_path in _candidate_claude_logs(
+        repo_root=repo_root,
+        projects_root=projects_root,
+        include_summaries=include_summaries,
+    ):
+        transcript = (
+            _extract_recent_claude_turns(jsonl_path)
+            if include_summaries
+            else _extract_recent_claude_metadata(jsonl_path)
+        )
         if transcript is None:
             continue
         cwd = transcript.get("cwd")
-        if isinstance(cwd, str) and not _repo_match(_safe_repo_root(cwd), repo_root):
+        if (
+            isinstance(cwd, str)
+            and not preferred_project_exists
+            and not _repo_match(_safe_repo_root(cwd), repo_root)
+        ):
             continue
 
         session_id = str(transcript["session_id"])
@@ -441,7 +554,7 @@ def load_claude_sessions(*, repo_root: Path, projects_root: Path) -> list[Sessio
                 branch=str(branch) if branch else None,
                 cwd=str(cwd) if cwd else None,
                 prompt_file=None,
-                summary=str(transcript["last_text"]),
+                summary=str(transcript.get("last_text") or ""),
                 transcript_file=str(jsonl_path),
                 last_role=str(transcript.get("last_role") or ""),
                 last_user_text=(
@@ -457,24 +570,222 @@ def load_claude_sessions(*, repo_root: Path, projects_root: Path) -> list[Sessio
     return records
 
 
+DEFAULT_CODEX_HOME = Path.home() / ".codex"
+DEFAULT_CODEX_SCAN_LIMIT = 500
+CODEX_DESKTOP_ORIGINATOR = "codex desktop"
+_CODEX_NOISE_TYPES = frozenset(
+    {"function_call", "function_call_output", "token_count", "reasoning"}
+)
+
+
+def _read_codex_session_meta(path: Path, *, max_lines: int = 50) -> dict[str, str]:
+    """Extract identifying metadata from a Codex rollout JSONL file.
+
+    Only the ``session_meta`` payload is inspected (cwd, git branch, originator,
+    thread id) — message content is ignored here. ``originator == "Codex
+    Desktop"`` distinguishes a Codex Desktop automation run from a manual Codex
+    CLI session. Field names mirror ``list_active_agent_sessions.py`` so the two
+    tools that surface these files agree on attribution.
+    """
+    try:
+        handle = path.open("r", encoding="utf-8")
+    except OSError:
+        return {}
+    with handle:
+        for index, line in enumerate(handle):
+            if index >= max_lines:
+                break
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(obj, dict) or obj.get("type") != "session_meta":
+                continue
+            payload = obj.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            git = payload.get("git")
+            git_payload = git if isinstance(git, dict) else {}
+            branch = git_payload.get("branch")
+            if isinstance(branch, str):
+                branch = re.sub(r"^refs/heads/", "", branch.strip())
+            meta: dict[str, str] = {}
+            for key, value in (
+                ("thread_id", payload.get("id")),
+                ("originator", payload.get("originator")),
+                ("cwd", payload.get("cwd")),
+                ("branch", branch),
+                ("commit_hash", git_payload.get("commit_hash")),
+            ):
+                if isinstance(value, str) and value.strip():
+                    meta[key] = value.strip()
+            if meta:
+                return meta
+    return {}
+
+
+def _codex_line_text(obj: Any) -> str:
+    if not isinstance(obj, dict):
+        return ""
+    payload = obj.get("payload")
+    if not isinstance(payload, dict) or payload.get("type") in _CODEX_NOISE_TYPES:
+        return ""
+    content = payload.get("content")
+    if isinstance(content, list):
+        parts = [
+            block.get("text") or block.get("output_text")
+            for block in content
+            if isinstance(block, dict)
+        ]
+        joined = " ".join(part for part in parts if isinstance(part, str) and part.strip())
+        if joined.strip():
+            return joined
+    text = payload.get("text")
+    if isinstance(text, str) and text.strip():
+        return text
+    return ""
+
+
+def _extract_codex_summary(path: Path) -> str:
+    """Best-effort last visible message text from a Codex rollout tail.
+
+    Bounded to the trailing ``TAIL_BYTES`` so it stays cheap even on multi-hundred
+    megabyte rollouts. Prefers the most recent assistant message, falling back to
+    the most recent visible text; tool-call/token-count noise lines are skipped.
+    """
+    fallback = ""
+    for line in reversed(_tail_lines(path)):
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        text = _codex_line_text(obj)
+        if not text:
+            continue
+        cleaned = _collapse(_clean_display_line(text))
+        if not cleaned:
+            continue
+        payload = obj.get("payload") if isinstance(obj, dict) else None
+        role = str(payload.get("role") or "") if isinstance(payload, dict) else ""
+        if role == "assistant":
+            return cleaned
+        if not fallback:
+            fallback = cleaned
+    return fallback
+
+
+def load_codex_sessions(
+    *,
+    repo_root: Path,
+    codex_home: Path,
+    include_summaries: bool = True,
+    scan_limit: int = DEFAULT_CODEX_SCAN_LIMIT,
+) -> list[SessionRecord]:
+    sessions_dir = codex_home / "sessions"
+    if not sessions_dir.exists():
+        return []
+    limit = max(0, int(scan_limit))
+    if limit == 0:
+        return []
+    try:
+        all_paths = list(sessions_dir.rglob("*.jsonl"))
+    except OSError:
+        return []
+    # Codex writes rollouts under a date-partitioned tree with an ISO timestamp
+    # embedded in each filename, so lexical name order tracks creation order.
+    # Sort by name (no stat), bound to a window around scan_limit, then do the
+    # precise mtime ordering on just that window -- keeping stat() work O(limit)
+    # even when ~/.codex/sessions holds thousands of multi-hundred-MB rollouts.
+    all_paths.sort(key=lambda p: p.name, reverse=True)
+    window = all_paths[: limit * 4]
+
+    def _mtime(path: Path) -> float:
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return -1.0
+
+    window.sort(key=_mtime, reverse=True)
+    records: list[SessionRecord] = []
+    for path in window[:limit]:
+        meta = _read_codex_session_meta(path)
+        if not meta:
+            continue
+        cwd = meta.get("cwd")
+        if not _repo_match(_safe_repo_root(cwd), repo_root):
+            continue
+        # Match by containment so a versioned originator ("Codex Desktop 1.2")
+        # still classifies as desktop rather than silently falling back to cli.
+        is_desktop = CODEX_DESKTOP_ORIGINATOR in (meta.get("originator") or "").strip().lower()
+        try:
+            updated_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).isoformat()
+        except OSError:
+            updated_at = ""
+        thread_id = meta.get("thread_id")
+        name = f"codex-{thread_id[:8]}" if thread_id else path.stem
+        records.append(
+            SessionRecord(
+                source="codex_desktop" if is_desktop else "codex_cli",
+                session_id=thread_id or path.stem,
+                name=name,
+                agent="codex",
+                status="unknown",
+                updated_at=updated_at,
+                branch=meta.get("branch"),
+                cwd=cwd,
+                prompt_file=None,
+                summary=_extract_codex_summary(path) if include_summaries else "",
+                transcript_file=str(path),
+                last_role=None,
+                last_user_text=None,
+                last_assistant_text=None,
+            )
+        )
+    return records
+
+
 def collect_sessions(
     *,
     repo_root: Path,
     tmux_dir: Path,
     claude_projects_root: Path,
+    codex_home: Path = DEFAULT_CODEX_HOME,
     source: str = "all",
     limit: int = 100,
     resolve_repo: bool = True,
+    include_summaries: bool = True,
+    codex_scan_limit: int = DEFAULT_CODEX_SCAN_LIMIT,
 ) -> list[SessionRecord]:
     normalized_repo = (
         resolve_canonical_repo_root(repo_root) if resolve_repo else repo_root.resolve()
     )
     records: list[SessionRecord] = []
     if source in {"all", "tmux"}:
-        records.extend(load_tmux_sessions(repo_root=normalized_repo, tmux_dir=tmux_dir))
+        records.extend(
+            load_tmux_sessions(
+                repo_root=normalized_repo,
+                tmux_dir=tmux_dir,
+                include_summaries=include_summaries,
+            )
+        )
     if source in {"all", "claude"}:
         records.extend(
-            load_claude_sessions(repo_root=normalized_repo, projects_root=claude_projects_root)
+            load_claude_sessions(
+                repo_root=normalized_repo,
+                projects_root=claude_projects_root,
+                include_summaries=include_summaries,
+            )
+        )
+    if source in {"all", "codex"}:
+        records.extend(
+            load_codex_sessions(
+                repo_root=normalized_repo,
+                codex_home=codex_home,
+                include_summaries=include_summaries,
+                scan_limit=codex_scan_limit,
+            )
         )
     records.sort(key=lambda item: item.updated_at or "", reverse=True)
     return records[:limit]
@@ -500,7 +811,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repo", default=".", help="Repo path or worktree path (default: cwd)")
     parser.add_argument(
         "--source",
-        choices=("all", "tmux", "claude"),
+        choices=("all", "tmux", "claude", "codex"),
         default="all",
         help="Which local session sources to read",
     )
@@ -516,6 +827,17 @@ def _build_parser() -> argparse.ArgumentParser:
         default=str(Path.home() / ".claude" / "projects"),
         help="Claude project transcript root",
     )
+    parser.add_argument(
+        "--codex-home",
+        default=str(DEFAULT_CODEX_HOME),
+        help="Codex home directory (rollout sessions read from <home>/sessions)",
+    )
+    parser.add_argument(
+        "--codex-scan-limit",
+        type=int,
+        default=DEFAULT_CODEX_SCAN_LIMIT,
+        help="Maximum Codex rollout files to scan (most-recent first)",
+    )
     return parser
 
 
@@ -526,9 +848,11 @@ def main() -> int:
         repo_root=repo_root,
         tmux_dir=Path(args.tmux_dir).expanduser(),
         claude_projects_root=Path(args.claude_projects_root).expanduser(),
+        codex_home=Path(args.codex_home).expanduser(),
         source=args.source,
         limit=max(1, int(args.limit)),
         resolve_repo=False,
+        codex_scan_limit=max(0, int(args.codex_scan_limit)),
     )
 
     payload = {

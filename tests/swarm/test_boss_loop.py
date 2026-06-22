@@ -110,6 +110,7 @@ def _boss_config(**overrides: Any) -> BossLoopConfig:
         "freshness_ttl_seconds": 3600.0,
         "max_consecutive_failures": 2,
         "max_retries_per_issue": 2,
+        "metrics_jsonl_path": None,
     }
     defaults.update(overrides)
     return BossLoopConfig(**defaults)
@@ -1600,6 +1601,167 @@ class TestBossLoop:
         assert result.iterations_completed == 1
         assert len(result.issues_attempted) == 0
         assert "No suitable open issue" in result.needs_human_reasons[0]
+
+    def test_no_suitable_issue_appends_metrics_heartbeat(self, tmp_path: Path):
+        from aragora.swarm.terminal_truth import TerminalClass
+
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = []
+        metrics_path = tmp_path / "boss_metrics.jsonl"
+
+        config = _boss_config(
+            auto_refill_threshold=0,
+            metrics_jsonl_path=str(metrics_path),
+        )
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NO_SUITABLE_ISSUE.value
+        payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+        assert payload["issue_number"] is None
+        assert payload["worker_status"] == "blocked"
+        assert payload["worker_outcome"] == "blocked"
+        assert payload["blocker_kind"] == BossStopReason.NO_SUITABLE_ISSUE.value
+        assert payload["failure_reason"].startswith("No suitable open issue")
+        assert payload["dispatch_skip_reason"] == "no_work_orders"
+        assert payload["terminal_class"] == TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED.value
+
+    def test_parallel_no_suitable_issue_appends_one_metrics_heartbeat(self, tmp_path: Path):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = []
+        metrics_path = tmp_path / "boss_metrics.jsonl"
+
+        config = _boss_config(
+            auto_refill_threshold=0,
+            max_parallel_dispatches=2,
+            metrics_jsonl_path=str(metrics_path),
+        )
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NO_SUITABLE_ISSUE.value
+        rows = [
+            json.loads(line)
+            for line in metrics_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        assert len(rows) == 1
+        assert rows[0]["blocker_kind"] == BossStopReason.NO_SUITABLE_ISSUE.value
+
+    @pytest.mark.asyncio
+    async def test_backpressure_admission_skips_maintenance_issue_but_dispatches_product(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        signal_file = tmp_path / "backpressure.json"
+        signal_file.write_text(
+            json.dumps(
+                {
+                    "mode": "shepherd",
+                    "admission": {
+                        "withhold_classes": ["maintenance"],
+                        "source": "backlog_gate",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        maintenance = _make_issue(2801, "repair lane gate")
+        product = _make_issue(
+            2802,
+            "Add ODR receipt endpoint",
+        )
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [maintenance, product]
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1, backpressure_signal_path=str(signal_file)),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._existing_open_pr_skip_status = lambda **kwargs: None
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        status = await loop._run_iteration(1)
+
+        assert status.worker_status == "completed"
+        assert status.selected_issue["number"] == product.number
+        loop._dispatch_issue.assert_awaited_once_with(product, ANY)
+
+    @pytest.mark.asyncio
+    async def test_legacy_backpressure_shepherd_without_admission_is_advisory_only(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        signal_file = tmp_path / "backpressure.json"
+        signal_file.write_text(json.dumps({"mode": "shepherd"}), encoding="utf-8")
+        issue = _make_issue(2803, "repair lane gate")
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [issue]
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1, backpressure_signal_path=str(signal_file)),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._existing_open_pr_skip_status = lambda **kwargs: None
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        status = await loop._run_iteration(1)
+
+        assert status.worker_status == "completed"
+        assert status.selected_issue["number"] == issue.number
+        loop._dispatch_issue.assert_awaited_once_with(issue, ANY)
+
+    @pytest.mark.asyncio
+    async def test_backpressure_admission_allows_pending_handoff_followthrough(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        signal_file = tmp_path / "backpressure.json"
+        signal_file.write_text(
+            json.dumps(
+                {
+                    "mode": "shepherd",
+                    "admission": {
+                        "withhold_classes": ["maintenance"],
+                        "source": "backlog_gate",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        issue = _make_issue(2804, "repair lane gate")
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [issue]
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1, backpressure_signal_path=str(signal_file)),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._pending_handoff_prompts[issue.number] = ("handoff prompt", "codex")
+        loop._existing_open_pr_skip_status = lambda **kwargs: None
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        status = await loop._run_iteration(1)
+
+        assert status.worker_status == "completed"
+        assert status.selected_issue["number"] == issue.number
+        loop._dispatch_issue.assert_awaited_once_with(issue, ANY)
 
     def test_no_suitable_issue_keepalive_continues_until_max_iterations(self):
         """With keepalive on, empty queues should not terminate the run."""
@@ -3281,6 +3443,12 @@ def test_filter_noncanonical_boss_ready_issues_strips_label_and_excludes_issue()
         body="Refresh benchmark corpus freshness after stale closed issues were detected.",
         labels=["boss-ready"],
     )
+    staged_rev4 = _make_issue(
+        5788,
+        "Narrow broad except Exception in performance_monitor.py",
+        body="Single-file exception hygiene task.",
+        labels=["boss-ready", "autonomous"],
+    )
     loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
     commands: list[list[str]] = []
     comments: list[str] = []
@@ -3295,11 +3463,18 @@ def test_filter_noncanonical_boss_ready_issues_strips_label_and_excludes_issue()
             comments.append(cmd[cmd.index("--body") + 1])
         return result
 
-    with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=_run):
-        kept = loop._filter_noncanonical_boss_ready_issues([generic, canonical])
+    with (
+        patch("aragora.swarm.boss_loop.subprocess.run", side_effect=_run),
+        patch(
+            "aragora.swarm.proof_first_queue._staged_rev4_issue_numbers",
+            return_value=frozenset({5788}),
+        ),
+    ):
+        kept = loop._filter_noncanonical_boss_ready_issues([generic, canonical, staged_rev4])
 
-    assert kept == [canonical]
+    assert kept == [canonical, staged_rev4]
     assert "boss-ready" not in generic.labels
+    assert "boss-ready" in staged_rev4.labels
     assert comments
     assert "outside the canonical proof-first queue" in comments[-1]
     assert any(cmd[:3] == ["gh", "issue", "edit"] for cmd in commands)

@@ -1,6 +1,6 @@
 # H1-01 Rev-4 Promotion Readiness
 
-Last updated: 2026-04-30T19:54:46Z
+Last updated: 2026-05-13T03:27:10Z
 
 This is the operator-facing readiness surface for promoting the staged rev-4 benchmark corpus into the canonical B0 truth loop.
 
@@ -25,35 +25,38 @@ This is the operator-facing readiness surface for promoting the staged rev-4 ben
 | Metric | Value |
 | --- | --- |
 | Dispatch floor for first canonical slice | 15 |
-| Staged issues with dispatch evidence (any source) | 16 |
-| Staged issues still missing dispatch evidence | 17 |
-| Additional dispatches needed | 0 |
-| ...via metrics ledger only | 1 |
-| ...via merged/open boss-harvest PR only | 4 |
+| Metrics-backed staged issues eligible for canonical promotion | 15 |
+| Staged issues still missing metrics-backed evidence | 18 |
+| Additional metrics-backed dispatches needed | 0 |
+| Advisory dispatch evidence from any source | 15 |
+| ...via metrics ledger only | 15 |
+| ...via merged/open boss-harvest PR only (advisory) | 0 |
 
-## Next Dispatch Targets
+## Next Metrics Evidence Gaps
 
-`#5788`, `#5789`, `#5790`, `#5791`, `#5792`, `#5793`, `#5794`, `#5801`, `#5808`, `#5809`
+`#5128`, `#5130`, `#5188`, `#5788`, `#5791`, `#5792`, `#5793`, `#5794`, `#5801`, `#5808`
+
+These are the earliest staged issues missing metrics-backed `worker_outcome` rows; verify live issue state before dispatching new work.
 
 ## Execution-Class Coverage
 
 | Execution class | Dispatched | Total | Missing |
 | --- | ---: | ---: | ---: |
 | `docs_reconciliation` | 1 | 2 | 1 |
-| `exception_narrowing` | 0 | 8 | 8 |
-| `missing_test_coverage` | 10 | 10 | 0 |
+| `exception_narrowing` | 2 | 8 | 6 |
+| `missing_test_coverage` | 7 | 10 | 3 |
 | `silent_exception_replacement` | 0 | 8 | 8 |
 | `small_refactor` | 3 | 3 | 0 |
 | `validation_tightening` | 2 | 2 | 0 |
 
 ## Dispatched Issues
 
-`#5126`, `#5128`, `#5130`, `#5176`, `#5180`, `#5185`, `#5187`, `#5188`, `#5197`, `#5198`, `#5426`, `#5427`, `#5428`, `#5764`, `#5765`, `#5844`
+`#5176`, `#5180`, `#5185`, `#5187`, `#5197`, `#5198`, `#5200`, `#5426`, `#5427`, `#5428`, `#5764`, `#5765`, `#5789`, `#5790`, `#5844`
 
 ## Missing Evidence
 
-`#5788`, `#5789`, `#5790`, `#5791`, `#5792`, `#5793`, `#5794`, `#5801`, `#5808`, `#5809`, `#5810`, `#5811`, `#5812`, `#5821`, `#5823`, `#5825`, `#5883`
+`#5128`, `#5130`, `#5188`, `#5788`, `#5791`, `#5792`, `#5793`, `#5794`, `#5801`, `#5808`, `#5809`, `#5810`, `#5811`, `#5812`, `#5821`, `#5823`, `#5825`, `#5883`
 
 ## Promotion Rule
 
-Promote only a first canonical rev-4 slice after at least 15 staged entries have dispatch evidence. Dispatch evidence is satisfied by either (a) at least one row in `boss_metrics.jsonl` for the issue or (b) a merged or open pull request on the boss-loop's deterministic branch pattern `aragora/boss-harvest/issue-N-*`. Keep undispatched entries staged until they also accumulate evidence.
+Promote only a first canonical rev-4 slice after at least 15 staged entries have metrics-backed dispatch evidence: at least one `boss_metrics.jsonl` row for the issue with a recorded `worker_outcome`. Merged or open boss-harvest PRs are useful advisory evidence, but they are not sufficient for canonical corpus promotion because `tests/benchmarks/test_corpus_freshness.py` requires metrics-backed dispatch history for every `in_progress` entry.

@@ -45,11 +45,17 @@ if [[ "$review_exit" -ne 0 ]]; then
   if [[ -s /tmp/review.stderr ]]; then
     cat /tmp/review.stderr
   fi
-  exit "$review_exit"
+  echo "Aragora advisory review command failed"
+  echo "skip=true" >> "$GITHUB_OUTPUT"
+  echo "review_failed=true" >> "$GITHUB_OUTPUT"
+  exit 0
 fi
 review_json="$review_output_dir/review.json"
 if [[ ! -f "$review_json" ]]; then
-  exit 1
+  echo "Aragora advisory review did not produce $review_json"
+  echo "skip=true" >> "$GITHUB_OUTPUT"
+  echo "review_failed=true" >> "$GITHUB_OUTPUT"
+  exit 0
 fi
 python3 - <<'PY2'
 import json
@@ -91,11 +97,17 @@ jobs:
             if [[ -s /tmp/review.stderr ]]; then
               cat /tmp/review.stderr
             fi
-            exit "$review_exit"
+            echo "Aragora advisory review command failed"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "review_failed=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           review_json="$review_output_dir/review.json"
           if [[ ! -f "$review_json" ]]; then
-            exit 1
+            echo "Aragora advisory review did not produce $review_json"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "review_failed=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           python3 - <<'PY2'
           import json
@@ -113,7 +125,8 @@ jobs:
             exit 0
           fi
           if [[ "$REVIEW_RESULT" != "success" ]]; then
-            exit 1
+            echo "::warning::Advisory review job concluded with $REVIEW_RESULT; not blocking merge."
+            exit 0
           fi
 """
 
@@ -187,7 +200,7 @@ python -m pip install -e .
 def test_policy_rejects_missing_review_exit_capture() -> None:
     gate = _valid_gate_data()
     _review_step(gate)["run"] = _review_step(gate)["run"].replace(
-        'review_exit=$?\nset -e\nif [[ "$review_exit" -ne 0 ]]; then\n  if [[ -s /tmp/review.stderr ]]; then\n    cat /tmp/review.stderr\n  fi\n  exit "$review_exit"\nfi\n',
+        'review_exit=$?\nset -e\nif [[ "$review_exit" -ne 0 ]]; then\n  if [[ -s /tmp/review.stderr ]]; then\n    cat /tmp/review.stderr\n  fi\n  echo "Aragora advisory review command failed"\n  echo "skip=true" >> "$GITHUB_OUTPUT"\n  echo "review_failed=true" >> "$GITHUB_OUTPUT"\n  exit 0\nfi\n',
         "",
     )
     text = _valid_gate_text().replace(
@@ -197,13 +210,16 @@ def test_policy_rejects_missing_review_exit_capture() -> None:
         "            if [[ -s /tmp/review.stderr ]]; then\n"
         "              cat /tmp/review.stderr\n"
         "            fi\n"
-        '            exit "$review_exit"\n'
+        '            echo "Aragora advisory review command failed"\n'
+        '            echo "skip=true" >> "$GITHUB_OUTPUT"\n'
+        '            echo "review_failed=true" >> "$GITHUB_OUTPUT"\n'
+        "            exit 0\n"
         "          fi\n",
         "",
     )
     violations = find_review_gate_policy_violations(gate, text, _valid_manual_data())
     assert "review execution must capture the review command exit code explicitly" in violations
-    assert "review execution must fail closed after surfacing review command stderr" in violations
+    assert "review execution must handle nonzero review command explicitly" in violations
 
 
 def test_policy_rejects_outdated_review_cli_contract() -> None:

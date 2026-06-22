@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11, GitHub Actions composite actions, Next.js 14 (App Router), TypeScript, pytest
 
-**Working directory:** `/Users/armand/Development/aragora/.worktrees/codex-auto/claude-20260305-070153-6cf1bbf3`
+**Working directory:** `~/aragora/.worktrees/codex-auto/claude-20260305-070153-6cf1bbf3`
 
 ---
 

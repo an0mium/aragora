@@ -21,7 +21,19 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
+from aragora.config.trusted_authors import resolve_trusted_authors
 from aragora.swarm.github_app_auth import gh_subprocess_run
+from aragora.swarm.merge_quorum_io import (
+    fetch_evidence_comments,
+    fetch_pr_context,
+    fetch_pr_tier,
+)
+from aragora.swarm.merge_quorum_reconcile import TIER_REQUIREMENTS, counted_reviewer_ids
+from aragora.swarm.quorum_evidence import (
+    DEFAULT_FAMILIES,
+    collect_evidence,
+    resolve_author,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +62,10 @@ REDUCED_LANE_ONLY_CHECKS = frozenset(
         "changes",
     }
 )
-AUTOMATION_REVIEWER_LOGINS = frozenset(
+# Generic automation identities only; operators add personal logins via
+# ARAGORA_TRUSTED_AUTHORS (comma separated) so a public fork trusts no handle.
+AUTOMATION_REVIEWER_LOGINS = resolve_trusted_authors(
     {
-        "an0mium",
         "github-actions[bot]",
         "dependabot[bot]",
         "aragora-automation[bot]",
@@ -70,6 +83,12 @@ class MergeArbiterConfig:
     max_runtime_hours: float = 12.0
     max_consecutive_failures: int = 3
     dry_run: bool = False
+    # When True, the arbiter auto-collects model-quorum evidence for ready
+    # candidates blocked solely on the quorum check (Tier 0-2 only). Posting is
+    # tier-gated inside collect_evidence; high-tier PRs never auto-post.
+    auto_collect_evidence: bool = True
+    # Reviewer families for auto-collection; falls back to DEFAULT_FAMILIES.
+    reviewer_families: list[str] | None = None
 
 
 @dataclass
@@ -231,8 +250,18 @@ def _run_gh(
     return gh_subprocess_run(args, timeout=timeout, write_op=write_op)
 
 
+class ArbiterOperationalError(RuntimeError):
+    """A genuine arbiter-operational fault (e.g. cannot list PRs), as opposed to a
+    PR merely not being ready. Only these faults feed the circuit breaker."""
+
+
 def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
-    """Return open PRs whose head branch matches any configured prefix."""
+    """Return open PRs whose head branch matches any configured prefix.
+
+    Raises ``ArbiterOperationalError`` when the underlying ``gh pr list`` call or
+    its JSON output cannot be obtained — a transient/operational fault that the
+    poll loop counts toward the circuit breaker. An *empty* list means the fetch
+    succeeded but no open PR matched a configured prefix (not a fault)."""
     prefixes = _normalize_branch_prefixes(config.branch_prefixes)
     result = _run_gh(
         [
@@ -249,13 +278,11 @@ def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
         ]
     )
     if result.returncode != 0:
-        logger.warning("gh pr list failed: %s", result.stderr.strip())
-        return []
+        raise ArbiterOperationalError(f"gh pr list failed: {result.stderr.strip()}")
     try:
         prs = json.loads(result.stdout)
-    except (json.JSONDecodeError, TypeError):
-        logger.warning("Failed to parse gh pr list output")
-        return []
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ArbiterOperationalError("failed to parse gh pr list output") from exc
     candidates = []
     for pr in prs:
         branch = pr.get("headRefName", "")
@@ -268,7 +295,10 @@ def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
     """Return a mapping of check-name -> conclusion for a PR.
 
     Merges both status checks and GitHub Actions check runs.
-    """
+
+    Raises ``ArbiterOperationalError`` when ``gh pr checks`` fails without
+    producing parseable JSON (transport/auth fault). An empty mapping means
+    the call succeeded but reported no checks (a normal not-ready state)."""
     result = _run_gh(
         [
             "pr",
@@ -280,12 +310,21 @@ def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
             "name,state",
         ]
     )
-    if result.returncode != 0:
-        logger.debug("gh pr checks failed for #%d: %s", pr_number, result.stderr.strip())
-        return {}
+    # gh pr checks uses non-zero exits for pending/failing checks too, so the
+    # exit code alone does not distinguish "checks are red" from "gh broke".
+    # Parseable JSON output is the truth regardless of exit code; no JSON plus
+    # a non-zero exit is an operational fault, not a not-ready PR.
     try:
-        checks = json.loads(result.stdout)
+        checks = json.loads(result.stdout) if result.stdout else None
     except (json.JSONDecodeError, TypeError):
+        checks = None
+    if not isinstance(checks, list):
+        checks = None
+    if checks is None:
+        if result.returncode != 0:
+            raise ArbiterOperationalError(
+                f"gh pr checks failed for #{pr_number}: {result.stderr.strip()}"
+            )
         return {}
     return {c["name"]: c.get("state", "").upper() for c in checks if "name" in c}
 
@@ -505,12 +544,124 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
     return MergeResult(pr_number, branch, ok, reason)
 
 
+QUORUM_REQUIRED_CHECK = "aragora-merge-quorum"
+
+
+def _required_model_signals(tier: int | None) -> int:
+    """Number of distinct countable model families a PR's tier requires."""
+    return TIER_REQUIREMENTS.get(tier if tier is not None else -1, (2, True, True))[0]
+
+
+def _result_blocked_only_on_quorum(result: MergeResult) -> bool:
+    """True when a not-ready PR is blocked solely on the merge-quorum check.
+
+    The quorum check is a branch-protection required context, so the arbiter
+    reports a quorum-only block as a 'failing'/'missing required checks' reason
+    naming exactly ``aragora-merge-quorum``. Any other failing/missing required
+    check (a real functional failure) returns False — we never spend reviewers
+    on a PR that is broken for other reasons.
+    """
+    if result.success:
+        return False
+    for prefix in ("failing required checks: ", "missing required checks: "):
+        if result.reason.startswith(prefix):
+            entries = [e.strip() for e in result.reason[len(prefix) :].split(",") if e.strip()]
+            return bool(entries) and all(
+                e.split("=", 1)[0].strip() == QUORUM_REQUIRED_CHECK for e in entries
+            )
+    return False
+
+
+def _should_collect_evidence(
+    pr: dict,
+    result: MergeResult,
+    *,
+    config: MergeArbiterConfig,
+    tier_fetcher,
+    context_fetcher,
+    evidence_reader,
+) -> bool:
+    """Decide whether to auto-collect quorum evidence for a not-ready candidate.
+
+    True iff the flag is on; the PR is blocked only on the quorum check; its tier
+    is auto-postable (0-2); and it has fewer countable model families than its
+    tier requires. All I/O is injected so this is fully testable with fakes.
+    """
+    if not config.auto_collect_evidence:
+        return False
+    if not _result_blocked_only_on_quorum(result):
+        return False
+    pr_number = pr.get("number")
+    if pr_number is None:
+        return False
+    tier = tier_fetcher(config.repo, pr_number)
+    if tier is None or tier < 0 or tier > 2:
+        return False
+    ctx = context_fetcher(config.repo, pr_number) or {}
+    head_sha = str(ctx.get("head_sha") or "")
+    if not head_sha:
+        return False
+    head_committed_at = str(ctx.get("head_committed_at") or "")
+    comments = evidence_reader(config.repo, pr_number, head_sha, head_committed_at)
+    return len(counted_reviewer_ids(comments)) < _required_model_signals(tier)
+
+
 class MergeArbiter:
     """Polling loop that auto-merges boss-loop PRs when CI passes."""
 
-    def __init__(self, config: MergeArbiterConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: MergeArbiterConfig | None = None,
+        *,
+        tier_fetcher=fetch_pr_tier,
+        context_fetcher=fetch_pr_context,
+        evidence_reader=fetch_evidence_comments,
+        collector=collect_evidence,
+        author_resolver=resolve_author,
+    ) -> None:
         self.config = config or MergeArbiterConfig()
         self._consecutive_failures = 0
+        self._collected_heads: set[str] = set()
+        self._tier_fetcher = tier_fetcher
+        self._context_fetcher = context_fetcher
+        self._evidence_reader = evidence_reader
+        self._collector = collector
+        self._author_resolver = author_resolver
+
+    def _maybe_collect_evidence(self, pr: dict, result: MergeResult) -> bool:
+        """Collect quorum evidence at most once per head for a quorum-blocked PR.
+
+        Returns True iff a collection was attempted. Posting is tier-gated inside
+        ``collect_evidence`` (Tier 3+ never posts). The head is recorded before
+        collecting so a transient fault never re-triggers the costly multi-model
+        collection on the same head every poll.
+        """
+        head_sha = str(pr.get("headRefOid") or "")
+        if head_sha and head_sha in self._collected_heads:
+            return False
+        if not _should_collect_evidence(
+            pr,
+            result,
+            config=self.config,
+            tier_fetcher=self._tier_fetcher,
+            context_fetcher=self._context_fetcher,
+            evidence_reader=self._evidence_reader,
+        ):
+            return False
+        self._collected_heads.add(head_sha)
+        try:
+            self._collector(
+                repo=self.config.repo,
+                pr=pr["number"],
+                families=self.config.reviewer_families or list(DEFAULT_FAMILIES),
+                author=self._author_resolver(),
+                apply=True,
+            )
+        except Exception as exc:  # noqa: BLE001 - best-effort resilience boundary: one bad collection must not abort the poll loop
+            logger.warning("evidence collection fault for #%s: %s", pr.get("number"), exc)
+            return False
+        logger.info("Auto-collected quorum evidence for #%s", pr.get("number"))
+        return True
 
     async def run(self) -> ArbiterSummary:
         """Run the polling loop until max runtime or circuit breaker trips."""
@@ -529,28 +680,46 @@ class MergeArbiter:
 
         while time.monotonic() < deadline:
             summary.polls += 1
-            any_failure_this_poll = False
-            any_merge_this_poll = False
+            collected_this_poll = False
+            list_fault_this_poll = False
+            eval_faults_this_poll = 0
+            clean_evaluations_this_poll = 0
 
-            candidates = _list_candidate_prs(self.config)
+            try:
+                candidates = _list_candidate_prs(self.config)
+            except ArbiterOperationalError as exc:
+                list_fault_this_poll = True
+                candidates = []
+                logger.warning("Poll %d: candidate fetch fault: %s", summary.polls, exc)
             logger.debug("Poll %d: %d candidate PRs", summary.polls, len(candidates))
 
             for pr in candidates:
-                result = _evaluate_pr(pr, self.config)
+                try:
+                    result = _evaluate_pr(pr, self.config)
+                except ArbiterOperationalError as exc:
+                    # Genuine evaluation fault (not "PR not ready"): count it, skip
+                    # this PR, keep polling the rest.
+                    eval_faults_this_poll += 1
+                    logger.warning(
+                        "Poll %d: evaluation fault for #%s: %s",
+                        summary.polls,
+                        pr.get("number"),
+                        exc,
+                    )
+                    continue
+                clean_evaluations_this_poll += 1
                 if result.success:
                     summary.merged.append(result.pr_number)
-                    any_merge_this_poll = True
-                    logger.info(
-                        "PR #%d: %s (%s)",
-                        result.pr_number,
-                        result.reason,
-                        result.branch,
-                    )
+                    logger.info("PR #%d: %s (%s)", result.pr_number, result.reason, result.branch)
                 elif "failing" in result.reason or "failed" in result.reason:
+                    # A PR with failing/missing required checks is NOT ready — a
+                    # normal waiting state, NOT an arbiter fault. Record it for
+                    # reporting, but it must never trip the circuit breaker: a
+                    # normal all-red queue would otherwise stop the engine before
+                    # it can post the very evidence that turns those checks green.
                     summary.failed.append(result.pr_number)
-                    any_failure_this_poll = True
                     logger.info(
-                        "PR #%d skipped: %s (%s)",
+                        "PR #%d not ready: %s (%s)",
                         result.pr_number,
                         result.reason,
                         result.branch,
@@ -564,15 +733,32 @@ class MergeArbiter:
                         result.branch,
                     )
 
-            # Circuit breaker: track consecutive polls with only failures
-            if any_failure_this_poll and not any_merge_this_poll:
+                # Auto-collect quorum evidence for a candidate blocked only on the
+                # quorum check (at most one collection per poll, once per head).
+                if (
+                    not result.success
+                    and not collected_this_poll
+                    and self._maybe_collect_evidence(pr, result)
+                ):
+                    collected_this_poll = True
+
+            # Circuit breaker: trip only on consecutive polls with a *systemic*
+            # operational fault, never on not-ready PRs. A list-fetch fault is
+            # always systemic. Evaluation faults are systemic only when every
+            # evaluation in the poll faulted: a single PR that consistently
+            # faults (a poison pill) must not halt the arbiter for the healthy
+            # rest of the queue.
+            operational_fault_this_poll = list_fault_this_poll or (
+                eval_faults_this_poll > 0 and clean_evaluations_this_poll == 0
+            )
+            if operational_fault_this_poll:
                 self._consecutive_failures += 1
             else:
                 self._consecutive_failures = 0
 
             if self._consecutive_failures >= self.config.max_consecutive_failures:
                 summary.stop_reason = (
-                    f"circuit breaker: {self._consecutive_failures} consecutive failure-only polls"
+                    f"circuit breaker: {self._consecutive_failures} consecutive operational faults"
                 )
                 logger.warning("Merge arbiter stopping: %s", summary.stop_reason)
                 break

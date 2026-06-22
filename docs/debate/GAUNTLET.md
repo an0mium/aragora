@@ -408,7 +408,7 @@ fi
 
 ### "Gauntlet module not available"
 ```bash
-pip install aragora[gauntlet]  # Install with gauntlet dependencies
+pip install aragora  # Gauntlet is included in the base install
 ```
 
 ### Timeout errors

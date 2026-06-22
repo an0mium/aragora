@@ -58,8 +58,8 @@ Definition of done:
 - Pagination + other filters continue to work.
 
 Local test gates:
-- `pytest /Users/armand/Development/aragora/tests/server/handlers/test_receipts.py`
-- `pytest /Users/armand/Development/aragora/tests/test_decision_receipt.py`
+- `pytest ~/aragora/tests/server/handlers/test_receipts.py`
+- `pytest ~/aragora/tests/test_decision_receipt.py`
 
 Notes:
 - This PR unblocks SME-05/SME-06 UX without assuming the debate create response includes `receipt_id`.
@@ -90,8 +90,8 @@ Definition of done:
 - Works even when debate create response omits `receipt_id` (uses PR 1 filter).
 
 Local test gates:
-- UI unit: `cd /Users/armand/Development/aragora/aragora/live && npm test`
-- UI e2e: `cd /Users/armand/Development/aragora/aragora/live && npm run test:e2e -- e2e/onboarding.spec.ts`
+- UI unit: `cd ~/aragora/aragora/live && npm test`
+- UI e2e: `cd ~/aragora/aragora/live && npm run test:e2e -- e2e/onboarding.spec.ts`
 
 Dependencies:
 - PR 1 merged first.
@@ -120,8 +120,8 @@ Primary files:
 - Docs: `docs/RECEIPT_CONTRACT.md` and/or `docs/api/API_REFERENCE.md` (choose one canonical place)
 
 Local test gates:
-- `pytest /Users/armand/Development/aragora/tests/server/handlers/test_receipts.py`
-- `pytest /Users/armand/Development/aragora/tests/test_decision_receipt.py`
+- `pytest ~/aragora/tests/server/handlers/test_receipts.py`
+- `pytest ~/aragora/tests/test_decision_receipt.py`
 
 Parallelizable:
 - Can run in parallel with PR 2 once PR 1 is merged (PR 2 can temporarily keep export buttons hidden behind feature flag if needed).
@@ -151,10 +151,10 @@ Primary files:
 - SDK tests: `sdk/typescript/src/namespaces/__tests__/`
 
 Local test gates:
-- `cd /Users/armand/Development/aragora/sdk/typescript && npm run check:types`
-- `cd /Users/armand/Development/aragora/sdk/typescript && npm run typecheck`
-- `cd /Users/armand/Development/aragora/sdk/typescript && npm test`
-- Python parity suite (to prevent drift): `pytest /Users/armand/Development/aragora/tests/sdk/test_contract_parity.py /Users/armand/Development/aragora/tests/sdk/test_endpoint_parity.py /Users/armand/Development/aragora/tests/sdk/test_sdk_parity.py /Users/armand/Development/aragora/tests/sdk/test_websocket.py`
+- `cd ~/aragora/sdk/typescript && npm run check:types`
+- `cd ~/aragora/sdk/typescript && npm run typecheck`
+- `cd ~/aragora/sdk/typescript && npm test`
+- Python parity suite (to prevent drift): `pytest ~/aragora/tests/sdk/test_contract_parity.py ~/aragora/tests/sdk/test_endpoint_parity.py ~/aragora/tests/sdk/test_sdk_parity.py ~/aragora/tests/sdk/test_websocket.py`
 
 Dependencies:
 - PR 1 if you expose `debate_id` filter.
@@ -177,8 +177,8 @@ Primary files:
 - Tests/scripts: `tests/sdk/test_sdk_parity.py`, `scripts/verify_sdk_contracts.py`
 
 Local test gates:
-- `pytest /Users/armand/Development/aragora/tests/sdk/test_sdk_parity.py`
-- `python /Users/armand/Development/aragora/scripts/verify_sdk_contracts.py`
+- `pytest ~/aragora/tests/sdk/test_sdk_parity.py`
+- `python ~/aragora/scripts/verify_sdk_contracts.py`
 
 Dependencies:
 - Prefer after PR 4 so the parity update reflects the new coverage.
@@ -203,7 +203,7 @@ Primary files:
 
 Local validation:
 - Ensure examples compile/run (manual):
-  - `cd /Users/armand/Development/aragora/sdk/typescript && npm run build`
+  - `cd ~/aragora/sdk/typescript && npm run build`
 
 Dependencies:
 - Prefer after PR 4 so docs match the SDK API.

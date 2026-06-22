@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import functools
+import inspect
 import logging
 from typing import Any, TypeVar, ParamSpec, cast
 from collections.abc import Callable, Coroutine
@@ -169,8 +170,6 @@ def _get_context_from_args(
     # Check if any arg has _auth_context attribute (e.g., HTTP request handler).
     # Use getattr_static first so AttributeError from descriptor access does not
     # get treated as a missing attribute.
-    import inspect
-
     for arg in args:
         try:
             inspect.getattr_static(arg, "_auth_context")
@@ -245,8 +244,6 @@ def require_permission(
                     resource_id = str(raw_resource_id)
                 else:
                     # Try positional args - this is fragile but necessary
-                    import inspect
-
                     sig = inspect.signature(func)
                     params = list(sig.parameters.keys())
                     if resource_id_param in params:

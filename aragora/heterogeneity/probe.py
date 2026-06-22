@@ -266,6 +266,7 @@ def build_probe_receipt(
     judge_model: str,
     pilot_token_spend_usd_estimate: float = 0.0,
     scope_caveats: Sequence[str] = (),
+    source_artifacts: Sequence[Mapping[str, Any]] = (),
     produced_at: str | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic HeterogeneityProbeReceipt.v1 payload."""
@@ -303,5 +304,7 @@ def build_probe_receipt(
         "pilot_token_spend_usd_estimate": pilot_token_spend_usd_estimate,
         "scope_caveats": list(scope_caveats),
     }
+    if source_artifacts:
+        receipt["source_artifacts"] = [dict(artifact) for artifact in source_artifacts]
     receipt["receipt_id"] = compute_receipt_id(receipt)
     return receipt

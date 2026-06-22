@@ -108,7 +108,7 @@ async def _cmd_query(args: argparse.Namespace) -> None:
         params["tier"] = tier
 
     try:
-        result = await _api_get("/api/v1/memory/continuum/search", params)
+        result = await _api_get("/api/v1/memory/search", params)
 
         if as_json:
             print(json.dumps(result, indent=2))
@@ -157,7 +157,7 @@ async def _cmd_store(args: argparse.Namespace) -> None:
     }
 
     try:
-        result = await _api_post("/api/v1/memory", data)
+        result = await _api_post("/api/v1/memory/store", data)
 
         if as_json:
             print(json.dumps(result, indent=2))
@@ -184,7 +184,7 @@ async def _cmd_stats(args: argparse.Namespace) -> None:
     as_json = getattr(args, "json", False)
 
     try:
-        result = await _api_get("/api/v1/memory/continuum/tier-stats")
+        result = await _api_get("/api/v1/memory/tier-stats")
 
         if as_json:
             print(json.dumps(result, indent=2))
@@ -240,13 +240,11 @@ async def _cmd_promote(args: argparse.Namespace) -> None:
         return
 
     data: dict[str, Any] = {
-        "action": "promote",
-        "entry_id": entry_id,
         "target_tier": target_tier,
     }
 
     try:
-        result = await _api_post("/api/v1/memory", data)
+        result = await _api_post(f"/api/v1/memory/{entry_id}/promote", data)
 
         if as_json:
             print(json.dumps(result, indent=2))

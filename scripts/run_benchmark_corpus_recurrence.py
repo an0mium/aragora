@@ -79,6 +79,15 @@ def fetch_issue_metadata(
             ],
             runner=runner,
         )
+        payload_number = payload.get("number")
+        if (
+            not isinstance(payload_number, int)
+            or isinstance(payload_number, bool)
+            or payload_number != issue_number
+        ):
+            raise RuntimeError(
+                f"issue metadata number mismatch: requested {issue_number}, got {payload_number!r}"
+            )
         labels: list[str] = []
         for label in list(payload.get("labels") or []):
             if isinstance(label, dict):
@@ -88,7 +97,7 @@ def fetch_issue_metadata(
             if label_name:
                 labels.append(label_name)
         metadata[issue_number] = {
-            "number": int(payload.get("number") or issue_number),
+            "number": payload_number,
             "state": str(payload.get("state") or "").strip().upper(),
             "labels": labels,
             "title": str(payload.get("title") or "").strip(),
@@ -324,10 +333,16 @@ def run_recurrence(
 
     recorded_numbers = issue_numbers if dry_run else recorded_issue_numbers(metrics_file)
     missing_issue_numbers = sorted(set(issue_numbers) - set(recorded_numbers))
+    unexpected_issue_numbers = sorted(set(recorded_numbers) - set(issue_numbers))
     if not dry_run and not boss_loop_exit_code and missing_issue_numbers:
         raise RuntimeError(
             "incomplete recurring benchmark corpus metrics: missing issue numbers "
             + ", ".join(str(item) for item in missing_issue_numbers)
+        )
+    if not dry_run and not boss_loop_exit_code and unexpected_issue_numbers:
+        raise RuntimeError(
+            "recurring benchmark corpus metrics included unexpected issue numbers "
+            + ", ".join(str(item) for item in unexpected_issue_numbers)
         )
 
     return {
@@ -343,6 +358,7 @@ def run_recurrence(
         "synthetic_skipped_issue_numbers": synthetic_skipped_issue_numbers,
         "recorded_issue_numbers": recorded_numbers,
         "missing_issue_numbers": missing_issue_numbers,
+        "unexpected_issue_numbers": unexpected_issue_numbers,
         "rotated_metrics": rotate_summary,
         "boss_loop_command": command,
         "boss_loop_exit_code": boss_loop_exit_code,

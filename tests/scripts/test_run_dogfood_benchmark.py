@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 # Ensure scripts/ is importable.
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
@@ -27,6 +30,46 @@ def test_cli_help_runs_from_checked_out_script_path() -> None:
 
     assert result.returncode == 0, result.stderr
     assert "Run controlled dogfood benchmark loops" in result.stdout
+
+
+def test_main_rejects_zero_runs_before_writing_report(tmp_path: Path) -> None:
+    base_report = tmp_path / "base.json"
+    output = tmp_path / "report.json"
+    base_report.write_text(json.dumps({"command": [sys.executable, "--version"]}))
+
+    with pytest.raises(SystemExit, match="--runs must be a positive integer"):
+        run_dogfood_benchmark.main(
+            [
+                "--base-report",
+                str(base_report),
+                "--output",
+                str(output),
+                "--runs",
+                "0",
+            ]
+        )
+
+    assert not output.exists()
+
+
+def test_main_rejects_zero_timeout_before_writing_report(tmp_path: Path) -> None:
+    base_report = tmp_path / "base.json"
+    output = tmp_path / "report.json"
+    base_report.write_text(json.dumps({"command": [sys.executable, "--version"]}))
+
+    with pytest.raises(SystemExit, match="--timeout must be a positive integer"):
+        run_dogfood_benchmark.main(
+            [
+                "--base-report",
+                str(base_report),
+                "--output",
+                str(output),
+                "--timeout",
+                "0",
+            ]
+        )
+
+    assert not output.exists()
 
 
 def _run_template(checks: dict[str, bool | None]) -> dict[str, object]:

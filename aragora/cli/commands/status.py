@@ -11,39 +11,132 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
+_PROVIDER_SMOKE_PROMPT = "Reply with exactly: ok"
+_PROVIDER_SMOKE_FAILURE_MARKERS = (
+    "a wild bug appeared",
+    "agent timed out",
+    "connection failed",
+    "encountered an error",
+    "error generating proposal",
+    "fatal exception",
+    "invalid api key",
+    "permission denied",
+    "rate limit",
+    "unauthorized",
+)
+
+
+def _split_agent_list(raw_agents: str | None) -> list[str]:
+    return [agent.strip() for agent in str(raw_agents or "").split(",") if agent.strip()]
+
+
+def _provider_smoke_response_ok(response: Any) -> bool:
+    normalized = str(response or "").strip().lower()
+    if not normalized:
+        return False
+    if any(marker in normalized for marker in _PROVIDER_SMOKE_FAILURE_MARKERS):
+        return False
+    return normalized in {"ok", "ok.", '"ok"', "'ok'", "okay"}
+
+
+async def _run_provider_smoke(agent_type: str, *, timeout_seconds: float) -> dict[str, Any]:
+    """Run one tiny direct agent call without building a debate arena."""
+
+    from aragora.agents.base import AgentType, create_agent
+
+    try:
+        agent = create_agent(
+            cast(AgentType, agent_type),
+            name=f"validate_env_{agent_type.replace('-', '_')}",
+            role="proposer",
+            timeout=timeout_seconds,
+        )
+        response = await asyncio.wait_for(
+            agent.generate(_PROVIDER_SMOKE_PROMPT),
+            timeout=max(1.0, timeout_seconds),
+        )
+    except Exception as exc:  # noqa: BLE001 - live provider smoke must report failures clearly
+        return {
+            "status": "error",
+            "agent": agent_type,
+            "message": f"{type(exc).__name__}: {exc}",
+            "action": "check credentials, CLI auth, provider quota, and network access",
+        }
+
+    preview = str(response or "").strip().replace("\n", " ")[:160]
+    if _provider_smoke_response_ok(response):
+        return {
+            "status": "ok",
+            "agent": agent_type,
+            "message": "live provider answered the tiny smoke prompt",
+            "response_preview": preview,
+        }
+    return {
+        "status": "error",
+        "agent": agent_type,
+        "message": "live provider returned an unexpected or placeholder response",
+        "response_preview": preview,
+        "action": "rerun with --verbose and inspect provider/agent configuration",
+    }
+
+
+async def _run_provider_smoke_checks(
+    agents: list[str],
+    *,
+    timeout_seconds: float,
+    credential_report: Any,
+) -> dict[str, Any]:
+    from aragora.config.provider_readiness import (
+        agent_provider_options,
+        agent_type_has_configured_provider,
+    )
+
+    results: list[dict[str, Any]] = []
+    for agent in agents:
+        if not agent_type_has_configured_provider(agent, credential_report):
+            options = agent_provider_options(agent)
+            required = ", ".join(options) if options else agent
+            results.append(
+                {
+                    "status": "error",
+                    "agent": agent,
+                    "message": f"no configured credential or CLI path for {agent}",
+                    "action": f"configure one of: {required}",
+                }
+            )
+            continue
+        results.append(await _run_provider_smoke(agent, timeout_seconds=timeout_seconds))
+
+    failed = [result for result in results if result.get("status") != "ok"]
+    return {
+        "status": "ok" if not failed else "error",
+        "agents": results,
+    }
 
 
 def cmd_status(args: argparse.Namespace) -> None:
     """Handle 'status' command - show environment health and agent availability."""
-    import os
     import shutil
+
+    from aragora.config.provider_readiness import discover_provider_credentials
 
     print("\nAragora Environment Status")
     print("=" * 60)
 
     # Check API keys
     print("\n\U0001f4e1 API Keys:")
-    api_keys = [
-        ("ANTHROPIC_API_KEY", "Anthropic (Claude)"),
-        ("OPENAI_API_KEY", "OpenAI (GPT/Codex)"),
-        ("OPENROUTER_API_KEY", "OpenRouter (Fallback)"),
-        ("GEMINI_API_KEY", "Google (Gemini)"),
-        ("XAI_API_KEY", "xAI (Grok)"),
-        ("DEEPSEEK_API_KEY", "DeepSeek"),
-    ]
-    for env_var, name in api_keys:
-        value = os.environ.get(env_var, "")
-        if value:
-            # Show masked key
-            masked = value[:8] + "..." + value[-4:] if len(value) > 12 else "***"
-            print(f"  \u2713 {name}: {masked}")
+    readiness = discover_provider_credentials()
+    for provider in readiness.providers:
+        if provider.configured:
+            print(f"  \u2713 {provider.display_name}: configured via {provider.available_via}")
         else:
-            print(f"  \u2717 {name}: not set")
+            print(f"  \u2717 {provider.display_name}: not set")
 
     # Check CLI tools
     print("\n\U0001f527 CLI Tools:")
@@ -64,15 +157,28 @@ def cmd_status(args: argparse.Namespace) -> None:
     print("\n\U0001f310 Server Status:")
     server_url = args.server if hasattr(args, "server") else DEFAULT_API_URL
     try:
-        from aragora.security.safe_http import safe_get
-
-        resp = safe_get(f"{server_url}/api/health", timeout=2)
-        if resp.status_code == 200:
-            print(f"  \u2713 Server running at {server_url}")
-        else:
-            print(f"  \u26a0 Server returned status {resp.status_code}")
-    except (ImportError, OSError, TimeoutError, ConnectionError, RuntimeError):
+        from aragora.security.safe_http import SSRFValidationError, safe_get
+    except ImportError:
         print(f"  \u2717 Server not reachable at {server_url}")
+    else:
+        try:
+            resp = safe_get(f"{server_url}/api/health", timeout=2)
+            if resp.status_code == 200:
+                print(f"  \u2713 Server running at {server_url}")
+            else:
+                print(f"  \u26a0 Server returned status {resp.status_code}")
+        except (
+            OSError,
+            TimeoutError,
+            ConnectionError,
+            RuntimeError,
+            SSRFValidationError,
+        ):
+            # SSRFValidationError (incl. SSRFBlockedError) fires on the default
+            # localhost URL, which safe_get rejects as an SSRF target. Treat it
+            # the same as any other unreachable-server failure rather than
+            # crashing with an uncaught traceback.
+            print(f"  \u2717 Server not reachable at {server_url}")
 
     # Check database
     print("\n\U0001f4be Databases:")
@@ -120,7 +226,7 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     """Handle 'doctor' command - run system health checks."""
     from aragora.cli.doctor import main as doctor_main
 
-    sys.exit(doctor_main())
+    sys.exit(doctor_main(validate_keys=getattr(args, "validate", False)))
 
 
 def cmd_validate(_: argparse.Namespace) -> None:
@@ -128,7 +234,7 @@ def cmd_validate(_: argparse.Namespace) -> None:
     # run_validate doesn't exist; reuse doctor main for now
     from aragora.cli.doctor import main as doctor_main
 
-    sys.exit(doctor_main())
+    sys.exit(doctor_main(validate_keys=True))
 
 
 def cmd_validate_env(args: argparse.Namespace) -> None:
@@ -137,11 +243,13 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
     verbose = getattr(args, "verbose", False)
     json_output = getattr(args, "json", False)
     strict = getattr(args, "strict", False)
+    smoke = bool(getattr(args, "smoke", False))
+    smoke_agents = _split_agent_list(getattr(args, "agents", ""))
+    smoke_timeout = float(getattr(args, "smoke_timeout", 20.0) or 20.0)
 
     async def run_validation() -> dict:
         """Run all environment validations."""
         import os
-        from typing import Any
 
         results: dict[str, Any] = {
             "valid": True,
@@ -204,10 +312,22 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
 
         # 4. Redis connectivity
         try:
-            from aragora.server.startup import validate_redis_connectivity
+            from aragora.server.startup import (
+                is_connectivity_skipped,
+                validate_redis_connectivity,
+            )
 
             redis_ok, redis_msg = await validate_redis_connectivity(timeout_seconds=5.0)
-            if redis_ok:
+            if redis_ok and is_connectivity_skipped(redis_msg):
+                # No backend configured: the connectivity probe was skipped, so
+                # do NOT report a validated connection (would mislead humans/CI).
+                results["checks"]["redis"] = {
+                    "status": "skip",
+                    "connected": False,
+                    "skipped": True,
+                    "message": redis_msg,
+                }
+            elif redis_ok:
                 results["checks"]["redis"] = {
                     "status": "ok",
                     "connected": True,
@@ -236,7 +356,10 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
 
         # 5. PostgreSQL connectivity
         try:
-            from aragora.server.startup import validate_database_connectivity
+            from aragora.server.startup import (
+                is_connectivity_skipped,
+                validate_database_connectivity,
+            )
 
             db_ok, db_msg = await validate_database_connectivity(timeout_seconds=5.0)
             require_database = os.environ.get("ARAGORA_REQUIRE_DATABASE", "").lower() in (
@@ -245,7 +368,16 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
                 "yes",
             )
 
-            if db_ok:
+            if db_ok and is_connectivity_skipped(db_msg):
+                # No backend configured: the connectivity probe was skipped, so
+                # do NOT report a validated connection (would mislead humans/CI).
+                results["checks"]["postgresql"] = {
+                    "status": "skip",
+                    "connected": False,
+                    "skipped": True,
+                    "message": db_msg,
+                }
+            elif db_ok:
                 results["checks"]["postgresql"] = {
                     "status": "ok",
                     "connected": True,
@@ -272,35 +404,90 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
             }
 
         # 6. AI provider check
-        providers_configured = []
-        provider_keys = {
-            "anthropic": "ANTHROPIC_API_KEY",
-            "openai": "OPENAI_API_KEY",
-            "openrouter": "OPENROUTER_API_KEY",
-            "gemini": "GEMINI_API_KEY",
-            "mistral": "MISTRAL_API_KEY",
-            "xai": "XAI_API_KEY",
-        }
+        from aragora.config.provider_readiness import (
+            discover_provider_credentials,
+            format_provider_bootstrap_error,
+        )
 
-        for name, key in provider_keys.items():
-            if os.environ.get(key):
-                providers_configured.append(name)
+        provider_report = discover_provider_credentials()
+        provider_validation = []
+        provider_validation_errors = []
+        if provider_report.any_configured:
+            from aragora.cli.api_keys import get_supported_provider_names, validate_provider_key
 
-        if providers_configured:
+            supported_validation_providers = set(get_supported_provider_names())
+            for provider in provider_report.providers:
+                if not provider.configured:
+                    continue
+                validation_provider = "grok" if provider.provider == "xai" else provider.provider
+                if validation_provider not in supported_validation_providers:
+                    provider_validation.append(
+                        {
+                            "provider": provider.provider,
+                            "remote_status": "skipped",
+                            "is_valid": True,
+                            "message": "live validation not supported for this provider",
+                        }
+                    )
+                    continue
+                report = validate_provider_key(validation_provider)
+                provider_validation.append(
+                    {
+                        "provider": provider.provider,
+                        "remote_status": report.remote_status,
+                        "is_valid": report.is_valid,
+                        "message": report.message,
+                    }
+                )
+                if not report.is_valid:
+                    provider_validation_errors.append(f"{provider.provider}: {report.message}")
+
             results["checks"]["ai_providers"] = {
-                "status": "ok",
-                "configured": providers_configured,
+                "status": "error" if provider_validation_errors else "ok",
+                "configured": list(provider_report.configured_providers),
+                "hydrated_env_vars": list(provider_report.hydrated_env_vars),
+                "dotenv_paths": list(provider_report.dotenv_paths),
+                "validation": provider_validation,
             }
+            if provider_validation_errors:
+                results["errors"].extend(provider_validation_errors)
+                results["valid"] = False
         else:
             results["checks"]["ai_providers"] = {
                 "status": "error",
                 "configured": [],
-                "message": "No AI provider API key configured",
+                "message": format_provider_bootstrap_error(provider_report),
+                "discovery_errors": list(provider_report.discovery_errors),
             }
             results["errors"].append("No AI provider configured")
             results["valid"] = False
 
-        # 7. JWT secret check
+        # 7. Optional live provider smoke check.
+        if smoke:
+            if not smoke_agents:
+                results["checks"]["ai_provider_smoke"] = {
+                    "status": "error",
+                    "message": "Pass --agents with at least one agent, e.g. --agents gemini",
+                }
+                results["errors"].append("No AI provider smoke agents selected")
+                results["valid"] = False
+            else:
+                smoke_result = await _run_provider_smoke_checks(
+                    smoke_agents,
+                    timeout_seconds=smoke_timeout,
+                    credential_report=provider_report,
+                )
+                results["checks"]["ai_provider_smoke"] = smoke_result
+                if smoke_result["status"] != "ok":
+                    failed = [
+                        str(item.get("agent"))
+                        for item in smoke_result["agents"]
+                        if item.get("status") != "ok"
+                    ]
+                    results["errors"].append("AI provider smoke failed for: " + ", ".join(failed))
+                    results["valid"] = False
+
+        # 8. JWT secret check
         jwt_secret = os.environ.get("JWT_SECRET") or os.environ.get("ARAGORA_JWT_SECRET")
         if jwt_secret:
             results["checks"]["jwt_secret"] = {
@@ -373,6 +560,8 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
                 details.append("configured")
         if "connected" in check_data and check_data["connected"]:
             details.append("connected")
+        if check_data.get("skipped"):
+            details.append("not configured, skipped")
         if "message" in check_data and verbose:
             details.append(check_data["message"])
 

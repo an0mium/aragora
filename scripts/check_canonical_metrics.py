@@ -8,6 +8,7 @@ via the existing DIC-14 ClaimVerifier infrastructure.
 Usage:
     python3 scripts/check_canonical_metrics.py --claim <claim_id>
     python3 scripts/check_canonical_metrics.py --all
+    python3 scripts/check_canonical_metrics.py --all --json
 
 Exit codes:
     0  all requested claims pass (or are within tolerance)
@@ -106,11 +107,24 @@ def _observe_python_modules_count() -> int:
 
 
 def _observe_test_definitions_count() -> int:
-    """Count `def test_` occurrences across tests/."""
+    """Count ``def test_`` and ``async def test_`` occurrences across tests/.
+
+    Mirrors the canonical method documented in ``docs/METRICS.md``:
+
+        git grep -E '^[[:space:]]*(async )?def test_' -- tests | wc -l
+
+    The earlier sync-only regex (``^\\s*def test_``) missed
+    ``async def test_`` entries and caused the canonical-metrics check
+    to falsely report stale-docs drift when the underlying issue was a
+    counter bug. Including ``async def test_`` matches the method
+    documented in METRICS.md and the count produced by pytest's
+    collection on this repo.
+    """
+
     tests_dir = REPO_ROOT / "tests"
     if not tests_dir.is_dir():
         return 0
-    pattern = re.compile(r"^\s*def test_", re.MULTILINE)
+    pattern = re.compile(r"^\s*(?:async )?def test_", re.MULTILINE)
     count = 0
     for path in tests_dir.rglob("*.py"):
         try:
@@ -600,6 +614,14 @@ def main() -> int:
     parser.add_argument("--claim", help="Verify a single claim by id")
     parser.add_argument("--all", action="store_true", help="Verify every claim")
     parser.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "Emit the canonical metrics receipt JSON to stdout. This is the default "
+            "output format; the flag exists for fan-out tooling compatibility."
+        ),
+    )
+    parser.add_argument(
         "--write-receipt",
         action="store_true",
         help=("Also write a receipt file to docs/status/generated/canonical_metrics/latest.json"),
@@ -621,14 +643,15 @@ def main() -> int:
     else:
         results = [check() for check in CHECKS.values()]
 
+    summary = {
+        "pass": sum(1 for r in results if r.status == "pass"),
+        "warn": sum(1 for r in results if r.status == "warn"),
+        "fail": sum(1 for r in results if r.status == "fail"),
+    }
     payload = {
         "manifest_id": "canonical_metrics",
         "results": [asdict(r) for r in results],
-        "summary": {
-            "pass": sum(1 for r in results if r.status == "pass"),
-            "warn": sum(1 for r in results if r.status == "warn"),
-            "fail": sum(1 for r in results if r.status == "fail"),
-        },
+        "summary": summary,
     }
     print(json.dumps(payload, sort_keys=True, indent=2))
 
@@ -638,7 +661,7 @@ def main() -> int:
             json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8"
         )
 
-    if payload["summary"]["fail"] > 0:
+    if summary["fail"] > 0:
         return 1
     return 0
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Mapping
 
 import pytest
@@ -295,6 +296,15 @@ class TestWriteModeMutates:
         assert "no_signals_fired" in joined
 
 
+def _rate_limit_provider(
+    pr_number: int, head_sha: str, cap: int
+) -> tuple[list[Mapping[str, Any]], str | None]:
+    return (
+        [],
+        "['gh', 'api', '-X'] returned 1: gh: API rate limit exceeded for user ID 33477136",
+    )
+
+
 class TestFetchErrorsFlagged:
     def test_fetch_errors_recorded_and_skipped(self, tmp_path: Path) -> None:
         receipts_dir = tmp_path / RECEIPTS_SUBDIR
@@ -310,13 +320,83 @@ class TestFetchErrorsFlagged:
             timeline_provider=_failing_provider,
         )
         assert summary["github_fetch_errors"] == 1
+        assert summary["github_other_fetch_errors"] == 1
+        assert summary["github_rate_limit_fetch_errors"] == 0
         assert summary["receipts_written"] == 0
         # File on disk untouched even in write mode when fetch failed.
         body = json.loads(path.read_text())
         assert body.get("outcome_revert_within_window") is None
-        # Insufficiency receipt names the fetch errors.
+        # Insufficiency receipt names the fetch errors (non-rate-limit).
         body_ins = json.loads(Path(summary["insufficiency_receipt_path"]).read_text())
-        assert "github_fetch_errors" in " ".join(body_ins["remaining_blockers"])
+        joined = " ".join(body_ins["remaining_blockers"])
+        assert "github_fetch_errors" in joined
+        assert "github_rate_limit_fetch_errors" not in joined
+        # Per-result entry carries the classification.
+        assert summary["results"][0]["fetch_error_class"] == "other"
+
+    def test_rate_limit_fetch_errors_classified_separately(self, tmp_path: Path) -> None:
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        _write_receipt(receipts_dir, "r1", _base_payload())
+        summary = run_observe_outcomes(
+            store_root=tmp_path,
+            repo_root=tmp_path,
+            window_end=datetime(2026, 4, 30, 12, tzinfo=UTC),
+            window_days=DEFAULT_WINDOW_DAYS,
+            max_receipts=20,
+            per_receipt_event_cap=DEFAULT_PER_RECEIPT_EVENT_CAP,
+            write=True,
+            timeline_provider=_rate_limit_provider,
+        )
+        # Totals: 1 fetch error, classified as rate_limit.
+        assert summary["github_fetch_errors"] == 1
+        assert summary["github_rate_limit_fetch_errors"] == 1
+        assert summary["github_other_fetch_errors"] == 0
+        assert summary["results"][0]["fetch_error_class"] == "rate_limit"
+        # Insufficiency receipt advises waiting for rate limit, not debugging
+        # network connectivity.
+        body_ins = json.loads(Path(summary["insufficiency_receipt_path"]).read_text())
+        joined = " ".join(body_ins["remaining_blockers"])
+        assert "github_rate_limit_fetch_errors" in joined
+        assert "rate limit window to reset" in joined
+        assert "github_fetch_errors:" not in joined  # the generic blocker (not rate-limit)
+        # Insufficiency body also exposes the classified counts as fields.
+        assert body_ins["github_rate_limit_fetch_errors"] == 1
+        assert body_ins["github_other_fetch_errors"] == 0
+
+    def test_mixed_fetch_errors_classified_per_receipt(self, tmp_path: Path) -> None:
+        """A batch with both rate-limit and non-rate-limit failures should
+        produce both blocker reasons and split per-class counts."""
+        receipts_dir = tmp_path / RECEIPTS_SUBDIR
+        _write_receipt(receipts_dir, "r1", _base_payload(pr_number=4001))
+        _write_receipt(receipts_dir, "r2", _base_payload(pr_number=4002))
+
+        def _mixed_provider(
+            pr_number: int, head_sha: str, cap: int
+        ) -> tuple[list[Mapping[str, Any]], str | None]:
+            if pr_number == 4001:
+                return [], "gh: 503 Service Unavailable"
+            return (
+                [],
+                "['gh', 'api'] returned 1: gh: secondary rate limit exceeded",
+            )
+
+        summary = run_observe_outcomes(
+            store_root=tmp_path,
+            repo_root=tmp_path,
+            window_end=datetime(2026, 4, 30, 12, tzinfo=UTC),
+            window_days=DEFAULT_WINDOW_DAYS,
+            max_receipts=20,
+            per_receipt_event_cap=DEFAULT_PER_RECEIPT_EVENT_CAP,
+            write=True,
+            timeline_provider=_mixed_provider,
+        )
+        assert summary["github_fetch_errors"] == 2
+        assert summary["github_rate_limit_fetch_errors"] == 1
+        assert summary["github_other_fetch_errors"] == 1
+        body_ins = json.loads(Path(summary["insufficiency_receipt_path"]).read_text())
+        joined = " ".join(body_ins["remaining_blockers"])
+        assert "github_rate_limit_fetch_errors" in joined
+        assert "github_fetch_errors:" in joined
 
 
 class TestBoundedFanout:
@@ -611,6 +691,122 @@ class TestLiveProviderNormalization:
 
         assert events == []
         assert error == "search/issues returned 502"
+
+
+class TestGhJsonRateLimitHandling:
+    def setup_method(self) -> None:
+        observe_module._GH_LAST_CALL_AT_BY_BUCKET.clear()
+
+    def test_search_api_uses_slower_default_throttle(self) -> None:
+        assert (
+            observe_module._gh_throttle_seconds_for(["gh", "api", "-X", "GET", "search/issues"])
+            == observe_module.DEFAULT_GH_SEARCH_API_THROTTLE_SECONDS
+        )
+        assert (
+            observe_module._gh_throttle_seconds_for(
+                [
+                    "gh",
+                    "api",
+                    "-H",
+                    "Accept: application/vnd.github+json",
+                    "/repos/:owner/:repo/issues/123/timeline",
+                ]
+            )
+            == observe_module.DEFAULT_GH_API_THROTTLE_SECONDS
+        )
+
+    def test_rate_limit_errors_retry_with_backoff(self, monkeypatch) -> None:
+        calls = []
+        sleeps: list[float] = []
+        responses = [
+            SimpleNamespace(
+                returncode=1,
+                stdout="",
+                stderr="API rate limit exceeded for user ID 33477136",
+            ),
+            SimpleNamespace(returncode=0, stdout='{"ok": true}', stderr=""),
+        ]
+
+        def fake_run(*args, **kwargs):
+            calls.append((args, kwargs))
+            return responses.pop(0)
+
+        monkeypatch.setattr(observe_module.subprocess, "run", fake_run)
+
+        payload, error = observe_module._run_gh_json(
+            ["gh", "api", "search/issues"],
+            throttle_seconds=0.1,
+            sleep=sleeps.append,
+            clock=lambda: 0.0,
+        )
+
+        assert error is None
+        assert payload == {"ok": True}
+        assert len(calls) == 2
+        assert sleeps == [0.1, 0.1]
+
+    def test_non_rate_limit_errors_do_not_retry(self, monkeypatch) -> None:
+        calls = []
+        sleeps: list[float] = []
+
+        def fake_run(*args, **kwargs):
+            calls.append((args, kwargs))
+            return SimpleNamespace(returncode=1, stdout="", stderr="Not Found")
+
+        monkeypatch.setattr(observe_module.subprocess, "run", fake_run)
+
+        payload, error = observe_module._run_gh_json(
+            ["gh", "api", "search/issues"],
+            attempts=3,
+            throttle_seconds=0.1,
+            sleep=sleeps.append,
+            clock=lambda: 0.0,
+        )
+
+        assert payload is None
+        assert error is not None
+        assert "returned 1" in error
+        assert len(calls) == 1
+        assert sleeps == []
+
+    def test_successful_first_call_does_not_pay_throttle_delay(self, monkeypatch) -> None:
+        sleeps: list[float] = []
+
+        def fake_run(*args, **kwargs):
+            return SimpleNamespace(returncode=0, stdout='{"ok": true}', stderr="")
+
+        monkeypatch.setattr(observe_module.subprocess, "run", fake_run)
+
+        payload, error = observe_module._run_gh_json(
+            ["gh", "api", "search/issues"],
+            throttle_seconds=0.1,
+            sleep=sleeps.append,
+            clock=lambda: 10.0,
+        )
+
+        assert error is None
+        assert payload == {"ok": True}
+        assert sleeps == []
+
+    def test_consecutive_calls_are_spaced_by_throttle_delay(self, monkeypatch) -> None:
+        sleeps: list[float] = []
+
+        def fake_run(*args, **kwargs):
+            return SimpleNamespace(returncode=0, stdout='{"ok": true}', stderr="")
+
+        monkeypatch.setattr(observe_module.subprocess, "run", fake_run)
+
+        for _ in range(2):
+            payload, error = observe_module._run_gh_json(
+                ["gh", "api", "search/issues"],
+                throttle_seconds=0.1,
+                sleep=sleeps.append,
+                clock=lambda: 10.0,
+            )
+            assert error is None
+            assert payload == {"ok": True}
+
+        assert sleeps == [0.1]
 
 
 class TestInsufficiencyReceiptShape:

@@ -17,9 +17,10 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
-from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.github_cli_health import check_github_cli_health
 
 UTC = timezone.utc
-DEFAULT_CODEX_HOME = Path("/Users/armand/.codex")
+DEFAULT_CODEX_HOME = Path.home() / ".codex"
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_LABELS = ("boss-ready",)
 DEFAULT_LIMIT = 2
@@ -138,6 +139,31 @@ except Exception:  # pragma: no cover - fallback for partially bootstrapped scri
         )
 
 
+def _mute_stdout_after_broken_pipe() -> None:
+    """Avoid interpreter-shutdown tracebacks after downstream pipes close."""
+    try:
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull_fd, sys.stdout.fileno())
+        finally:
+            os.close(devnull_fd)
+    except (AttributeError, OSError, ValueError):
+        try:
+            sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        except OSError:
+            pass
+
+
+def _emit_stdout(text: str) -> bool:
+    try:
+        sys.stdout.write(f"{text}\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
+        return False
+    return True
+
+
 @dataclass(frozen=True)
 class Handoff:
     source_file: str
@@ -149,6 +175,7 @@ class Handoff:
     idempotency_key: str | None = None
     source_kind: str = "memory"
     branch: str | None = None
+    desired_head: str | None = None
 
 
 @dataclass(frozen=True)
@@ -157,9 +184,62 @@ class PublishDecision:
     source_file: str
     eligible: bool
     reason: str
+    branch: str | None = None
+    desired_head: str | None = None
     existing_issue_url: str | None = None
     existing_pr_url: str | None = None
     created_issue_url: str | None = None
+
+
+def _decision_for_handoff(
+    handoff: Handoff,
+    *,
+    eligible: bool,
+    reason: str,
+    existing_issue_url: str | None = None,
+    existing_pr_url: str | None = None,
+    created_issue_url: str | None = None,
+) -> PublishDecision:
+    return PublishDecision(
+        task_title=handoff.task_title,
+        source_file=handoff.source_file,
+        eligible=eligible,
+        reason=reason,
+        branch=handoff.branch,
+        desired_head=handoff.desired_head,
+        existing_issue_url=existing_issue_url,
+        existing_pr_url=existing_pr_url,
+        created_issue_url=created_issue_url,
+    )
+
+
+def summarize_decisions(decisions: Sequence[PublishDecision]) -> dict[str, Any]:
+    reason_counts = Counter(item.reason for item in decisions)
+    eligible_count = sum(1 for item in decisions if item.eligible)
+    return {
+        "total": len(decisions),
+        "eligible_count": eligible_count,
+        "ineligible_count": len(decisions) - eligible_count,
+        "reason_counts": dict(sorted(reason_counts.items())),
+    }
+
+
+def summary_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return compact publisher status for recurring automation logs."""
+
+    compact = dict(payload)
+    decisions = compact.pop("decisions", None)
+    if isinstance(decisions, Sequence) and not isinstance(decisions, (str, bytes, bytearray)):
+        decision_count = len(decisions)
+        compact["decision_count"] = decision_count
+        handoff_count = compact.get("handoff_count")
+        if isinstance(handoff_count, int):
+            omitted_count = max(handoff_count - decision_count, 0)
+            compact["decision_omitted_count"] = omitted_count
+            compact["decisions_truncated"] = omitted_count > 0
+        compact["decisions_omitted"] = True
+    compact["details_omitted"] = True
+    return compact
 
 
 def _gh_write_op(args: list[str]) -> bool:
@@ -313,9 +393,13 @@ def _terminal_receipt_exists(receipt_dir: Path, idempotency_key: str) -> bool:
 
 
 def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
+    return set(_terminal_receipts_by_key(receipt_dir))
+
+
+def _terminal_receipts_by_key(receipt_dir: Path) -> dict[str, list[dict[str, Any]]]:
+    receipts: dict[str, list[dict[str, Any]]] = {}
     if not receipt_dir.exists():
-        return set()
-    terminal: set[str] = set()
+        return receipts
     for receipt_file in sorted(receipt_dir.glob("*.json")):
         try:
             payload = json.loads(receipt_file.read_text(encoding="utf-8"))
@@ -327,8 +411,8 @@ def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
             continue
         idempotency_key = str(payload.get("idempotency_key") or receipt_file.stem).strip()
         if idempotency_key:
-            terminal.add(idempotency_key)
-    return terminal
+            receipts.setdefault(idempotency_key, []).append(payload)
+    return receipts
 
 
 def _write_receipt(
@@ -584,6 +668,14 @@ def _outbox_branch_fingerprint(payload: dict[str, Any]) -> str | None:
     return "\0".join((requested_action, repo, branch))
 
 
+def _outbox_desired_head(payload: dict[str, Any]) -> str | None:
+    for key in ("desired_head_sha", "head_sha", "head", "commit"):
+        value = _outbox_evidence_value(payload, key)
+        if value and re.fullmatch(r"[0-9a-fA-F]{7,40}", value):
+            return value
+    return None
+
+
 def _git_is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
     proc = _run(["git", "merge-base", "--is-ancestor", ancestor, descendant], cwd=repo_root)
     return proc.returncode == 0
@@ -643,9 +735,77 @@ def _outbox_branch_patch_equivalent(repo_root: Path, payload: dict[str, Any]) ->
     return False
 
 
-def _terminal_outbox_fingerprints(outbox_dir: Path, receipt_dir: Path) -> set[str]:
-    terminal_keys = _terminal_receipt_keys(receipt_dir)
-    if not terminal_keys:
+def _remote_tracking_head(repo_root: Path, branch: str | None) -> str | None:
+    if not branch:
+        return None
+    proc = _run(["git", "rev-parse", "--verify", f"origin/{branch}"], cwd=repo_root)
+    if proc.returncode != 0:
+        return None
+    value = proc.stdout.strip()
+    return value if re.fullmatch(r"[0-9a-fA-F]{7,40}", value) else None
+
+
+def _branch_tip(repo_root: Path, branch: str | None) -> str | None:
+    if not branch:
+        return None
+
+    refs = [branch] if branch.startswith("origin/") else [f"origin/{branch}", branch]
+    for ref in dict.fromkeys(refs):
+        proc = _run(["git", "rev-parse", "--verify", ref], cwd=repo_root)
+        if proc.returncode != 0:
+            continue
+        value = proc.stdout.strip()
+        if re.fullmatch(r"[0-9a-fA-F]{7,40}", value):
+            return value
+    return None
+
+
+def _stale_outbox_head(repo_root: Path, handoff: Handoff) -> str | None:
+    if handoff.source_kind != "outbox" or not handoff.branch or not handoff.desired_head:
+        return None
+    branch_tip = _branch_tip(repo_root, handoff.branch)
+    if not branch_tip or _head_matches(handoff.desired_head, branch_tip):
+        return None
+    return branch_tip
+
+
+def _local_handoff_blocker(repo_root: Path, handoff: Handoff) -> PublishDecision | None:
+    if _stale_outbox_head(repo_root, handoff):
+        return _decision_for_handoff(
+            handoff,
+            eligible=False,
+            reason="stale_outbox_head",
+        )
+    return None
+
+
+def _receipt_satisfies_outbox(
+    repo_root: Path,
+    payload: dict[str, Any],
+    receipt_payload: dict[str, Any],
+) -> bool:
+    reason = str(receipt_payload.get("reason") or "").strip().lower()
+    if _is_pr_open_request(payload):
+        created_issue_url = str(receipt_payload.get("created_issue_url") or "").strip()
+        existing_issue_url = str(receipt_payload.get("existing_issue_url") or "").strip()
+        if reason in {"published", "existing_issue"} or created_issue_url or existing_issue_url:
+            return False
+
+    desired_head = _outbox_desired_head(payload)
+    if reason != "target_open_pr" or not desired_head:
+        return True
+    remote_head = _remote_tracking_head(repo_root, _outbox_evidence_value(payload, "branch"))
+    if not remote_head:
+        return False
+    return _head_matches(desired_head, remote_head)
+
+
+def _terminal_outbox_fingerprints(
+    repo_root: Path,
+    outbox_dir: Path,
+    terminal_receipts: dict[str, list[dict[str, Any]]],
+) -> set[str]:
+    if not terminal_receipts:
         return set()
     fingerprints: set[str] = set()
     for source_file in _outbox_files(outbox_dir):
@@ -656,7 +816,11 @@ def _terminal_outbox_fingerprints(outbox_dir: Path, receipt_dir: Path) -> set[st
         if not isinstance(payload, dict) or not _has_required_outbox_contract(payload):
             continue
         idempotency_key = str(payload.get("idempotency_key") or "").strip()
-        if idempotency_key not in terminal_keys:
+        receipt_payloads = terminal_receipts.get(idempotency_key, [])
+        if not any(
+            _receipt_satisfies_outbox(repo_root, payload, receipt_payload)
+            for receipt_payload in receipt_payloads
+        ):
             continue
         fingerprint = _outbox_branch_fingerprint(payload)
         if fingerprint:
@@ -724,21 +888,58 @@ def load_outbox_handoffs(
     outbox_dir: Path | None = None,
     receipt_dir: Path | None = None,
     now: datetime | None = None,
+    max_handoffs: int | None = None,
 ) -> list[Handoff]:
+    handoffs, _skip_reasons = _load_outbox_handoffs_with_skip_reasons(
+        repo_root,
+        outbox_dir=outbox_dir,
+        receipt_dir=receipt_dir,
+        now=now,
+        max_handoffs=max_handoffs,
+    )
+    return handoffs
+
+
+def _load_outbox_handoffs_with_skip_reasons(
+    repo_root: Path,
+    *,
+    outbox_dir: Path | None = None,
+    receipt_dir: Path | None = None,
+    now: datetime | None = None,
+    max_handoffs: int | None = None,
+) -> tuple[list[Handoff], Counter[str]]:
     outbox_root = _automation_state_path(repo_root, outbox_dir, DEFAULT_OUTBOX_DIR).resolve()
     receipt_root = _automation_state_path(repo_root, receipt_dir, DEFAULT_RECEIPT_DIR).resolve()
     current_time = now or datetime.now(UTC)
-    terminal_keys = _terminal_receipt_keys(receipt_root)
-    terminal_fingerprints = _terminal_outbox_fingerprints(outbox_root, receipt_root)
+    terminal_receipts = _terminal_receipts_by_key(receipt_root)
+    terminal_fingerprints = (
+        set()
+        if max_handoffs is not None
+        else _terminal_outbox_fingerprints(
+            repo_root,
+            outbox_root,
+            terminal_receipts,
+        )
+    )
     handoffs_by_identity: dict[tuple[str, str], Handoff] = {}
-    for source_file in _outbox_files(outbox_root):
+    skipped_reasons: Counter[str] = Counter()
+    source_files = _outbox_files(outbox_root)
+    if max_handoffs is not None:
+        source_files = sorted(source_files, key=_source_mtime, reverse=True)
+    for index, source_file in enumerate(source_files):
+        if max_handoffs is not None and len(handoffs_by_identity) >= max_handoffs:
+            skipped_reasons["preview_limit"] += len(source_files) - index
+            break
         try:
             payload = json.loads(source_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
+            skipped_reasons["invalid_json"] += 1
             continue
         if not isinstance(payload, dict):
+            skipped_reasons["invalid_payload"] += 1
             continue
         if not _has_required_outbox_contract(payload):
+            skipped_reasons["missing_required_contract"] += 1
             continue
         task_title = str(payload.get("task") or payload.get("title") or "").strip()
         requested_action = _normalized_requested_action(payload.get("requested_action"))
@@ -747,20 +948,31 @@ def load_outbox_handoffs(
         if isinstance(requires_github, str):
             requires_github = requires_github.strip().lower() not in {"0", "false", "no"}
         if requires_github is False:
+            skipped_reasons["requires_github_false"] += 1
             continue
         if not task_title or not requested_action or not idempotency_key:
+            skipped_reasons["missing_identity"] += 1
             continue
         expires_at = str(payload.get("expires_at") or "").strip() or None
         if _is_expired(expires_at, now=current_time):
+            skipped_reasons["expired"] += 1
             continue
         branch_fingerprint = _outbox_branch_fingerprint(payload)
-        if idempotency_key in terminal_keys:
+        receipt_payloads = terminal_receipts.get(idempotency_key, [])
+        if any(
+            _receipt_satisfies_outbox(repo_root, payload, receipt_payload)
+            for receipt_payload in receipt_payloads
+        ):
+            skipped_reasons["terminal_receipt"] += 1
             continue
         if branch_fingerprint and branch_fingerprint in terminal_fingerprints:
+            skipped_reasons["terminal_branch_receipt"] += 1
             continue
         if _outbox_branch_already_merged(repo_root, payload):
+            skipped_reasons["already_merged"] += 1
             continue
         if _outbox_branch_patch_equivalent(repo_root, payload):
+            skipped_reasons["patch_equivalent"] += 1
             continue
         handoff = Handoff(
             source_file=str(source_file),
@@ -772,6 +984,7 @@ def load_outbox_handoffs(
             idempotency_key=idempotency_key,
             source_kind="outbox",
             branch=_outbox_evidence_value(payload, "branch") or None,
+            desired_head=_outbox_desired_head(payload),
         )
         identity = (
             ("branch", branch_fingerprint)
@@ -786,12 +999,17 @@ def load_outbox_handoffs(
             _source_mtime(existing.source_file),
             existing.source_file,
         ):
+            if existing is not None:
+                skipped_reasons["duplicate_identity"] += 1
             handoffs_by_identity[identity] = handoff
-    return sorted(
+        else:
+            skipped_reasons["duplicate_identity"] += 1
+    handoffs = sorted(
         handoffs_by_identity.values(),
         key=lambda item: (_source_mtime(item.source_file), item.priority),
         reverse=True,
     )
+    return handoffs, skipped_reasons
 
 
 def _ensure_gh_auth(repo_root: Path) -> None:
@@ -871,7 +1089,7 @@ def _existing_pr(repo_root: Path, repo: str, title: str) -> dict[str, Any] | Non
             "--search",
             title,
             "--json",
-            "number,title,url,state",
+            "number,title,url,state,headRefName,headRefOid",
             "--limit",
             "50",
         ],
@@ -920,7 +1138,7 @@ def _pr_by_number(repo_root: Path, repo: str, number: int) -> dict[str, Any] | N
             "--repo",
             repo,
             "--json",
-            "number,title,url,state",
+            "number,title,url,state,headRefName,headRefOid",
         ],
         cwd=repo_root,
     )
@@ -948,7 +1166,7 @@ def _open_pr_by_branch(repo_root: Path, repo: str, branch: str | None) -> dict[s
             "--head",
             branch,
             "--json",
-            "number,title,url,state,headRefName",
+            "number,title,url,state,headRefName,headRefOid",
             "--limit",
             "1",
         ],
@@ -965,13 +1183,32 @@ def _open_pr_by_branch(repo_root: Path, repo: str, branch: str | None) -> dict[s
     return first if isinstance(first, dict) else None
 
 
+def _head_matches(desired: str, actual: str) -> bool:
+    desired_value = desired.strip().lower()
+    actual_value = actual.strip().lower()
+    if len(desired_value) < 7 or len(actual_value) < 7:
+        return False
+    return actual_value.startswith(desired_value) or desired_value.startswith(actual_value)
+
+
+def _pr_head_satisfies_handoff(handoff: Handoff, pr: Mapping[str, Any]) -> bool:
+    if handoff.source_kind != "outbox" or not handoff.desired_head:
+        return True
+    actual_head = str(pr.get("headRefOid") or "").strip()
+    return bool(actual_head) and _head_matches(handoff.desired_head, actual_head)
+
+
 def _target_open_pr(repo_root: Path, repo: str, handoff: Handoff) -> dict[str, Any] | None:
     branch_pr = _open_pr_by_branch(repo_root, repo, handoff.branch)
-    if branch_pr:
+    if branch_pr and _pr_head_satisfies_handoff(handoff, branch_pr):
         return branch_pr
     for number in _referenced_pr_numbers(handoff):
         pr = _pr_by_number(repo_root, repo, number)
-        if isinstance(pr, dict) and str(pr.get("state") or "").upper() == "OPEN":
+        if (
+            isinstance(pr, dict)
+            and str(pr.get("state") or "").upper() == "OPEN"
+            and _pr_head_satisfies_handoff(handoff, pr)
+        ):
             return pr
     return None
 
@@ -1078,36 +1315,37 @@ def decide_handoffs(
     open_issue_count = _open_boss_ready_count(repo_root, repo, labels)
     decisions: list[PublishDecision] = []
     for handoff in handoffs:
-        existing = _existing_issue(repo_root, repo, handoff.task_title)
-        if existing:
-            decisions.append(
-                PublishDecision(
-                    task_title=handoff.task_title,
-                    source_file=handoff.source_file,
-                    eligible=False,
-                    reason="existing_issue",
-                    existing_issue_url=str(existing.get("url") or ""),
-                )
-            )
+        local_blocker = _local_handoff_blocker(repo_root, handoff)
+        if local_blocker is not None:
+            decisions.append(local_blocker)
             continue
         target_pr = _target_open_pr(repo_root, repo, handoff)
         if target_pr:
             decisions.append(
-                PublishDecision(
-                    task_title=handoff.task_title,
-                    source_file=handoff.source_file,
+                _decision_for_handoff(
+                    handoff,
                     eligible=False,
                     reason="target_open_pr",
                     existing_pr_url=str(target_pr.get("url") or ""),
                 )
             )
             continue
-        referenced_pr = _referenced_pr(repo_root, repo, handoff)
-        if referenced_pr:
+        existing = _existing_issue(repo_root, repo, handoff.task_title)
+        if existing:
             decisions.append(
-                PublishDecision(
-                    task_title=handoff.task_title,
-                    source_file=handoff.source_file,
+                _decision_for_handoff(
+                    handoff,
+                    eligible=False,
+                    reason="existing_issue",
+                    existing_issue_url=str(existing.get("url") or ""),
+                )
+            )
+            continue
+        referenced_pr = _referenced_pr(repo_root, repo, handoff)
+        if referenced_pr and _pr_head_satisfies_handoff(handoff, referenced_pr):
+            decisions.append(
+                _decision_for_handoff(
+                    handoff,
                     eligible=False,
                     reason="existing_pr",
                     existing_pr_url=str(referenced_pr.get("url") or ""),
@@ -1115,11 +1353,10 @@ def decide_handoffs(
             )
             continue
         existing_pr = _existing_pr(repo_root, repo, handoff.task_title)
-        if existing_pr:
+        if existing_pr and _pr_head_satisfies_handoff(handoff, existing_pr):
             decisions.append(
-                PublishDecision(
-                    task_title=handoff.task_title,
-                    source_file=handoff.source_file,
+                _decision_for_handoff(
+                    handoff,
                     eligible=False,
                     reason="existing_pr",
                     existing_pr_url=str(existing_pr.get("url") or ""),
@@ -1128,18 +1365,16 @@ def decide_handoffs(
             continue
         if open_issue_count >= max_open_issues:
             decisions.append(
-                PublishDecision(
-                    task_title=handoff.task_title,
-                    source_file=handoff.source_file,
+                _decision_for_handoff(
+                    handoff,
                     eligible=False,
                     reason="open_issue_cap",
                 )
             )
             continue
         decisions.append(
-            PublishDecision(
-                task_title=handoff.task_title,
-                source_file=handoff.source_file,
+            _decision_for_handoff(
+                handoff,
                 eligible=True,
                 reason="eligible",
             )
@@ -1164,22 +1399,20 @@ def publish_handoffs(
         if not decision.eligible:
             published.append(decision)
             continue
+        handoff = by_key[(decision.task_title, decision.source_file)]
         if count >= limit:
             published.append(
-                PublishDecision(
-                    task_title=decision.task_title,
-                    source_file=decision.source_file,
+                _decision_for_handoff(
+                    handoff,
                     eligible=False,
                     reason="publish_limit",
                 )
             )
             continue
-        handoff = by_key[(decision.task_title, decision.source_file)]
         url = _create_issue(repo_root, repo, handoff, labels=labels)
         count += 1
-        published_decision = PublishDecision(
-            task_title=decision.task_title,
-            source_file=decision.source_file,
+        published_decision = _decision_for_handoff(
+            handoff,
             eligible=False,
             reason="published",
             created_issue_url=url,
@@ -1192,7 +1425,8 @@ def publish_handoffs(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Publish structured automation memory handoffs as GitHub issues."
+        description="Publish structured automation memory handoffs as GitHub issues.",
+        allow_abbrev=False,
     )
     parser.add_argument("--repo", default=".", help="Path inside the target repository")
     parser.add_argument(
@@ -1203,7 +1437,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--codex-home",
         default=None,
-        help="Codex home containing automations; defaults to $CODEX_HOME or /Users/armand/.codex",
+        help="Codex home containing automations; defaults to $CODEX_HOME or ~/.codex",
     )
     parser.add_argument(
         "--limit",
@@ -1265,13 +1499,25 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Disable loading JSON automation outbox handoffs.",
     )
     parser.add_argument("--apply", action="store_true", help="Create eligible GitHub issues")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview eligible handoffs without writing; this is the default mode",
+    )
     parser.add_argument("--json", action="store_true", help="Print machine-readable output")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="With --json, omit per-handoff decisions and print compact counts only.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.apply and args.dry_run:
+        parser.error("--apply and --dry-run are mutually exclusive")
 
     repo_root = _repo_root(Path(args.repo))
     codex_home = _codex_home(args.codex_home)
@@ -1296,11 +1542,30 @@ def main(argv: list[str] | None = None) -> int:
     labels = list(dict.fromkeys(args.labels))
     automation_ids = set(args.automation_ids or DEFAULT_AUTOMATION_IDS)
     memory_handoffs = load_handoffs(codex_home, automation_ids=automation_ids)
-    outbox_handoffs = (
-        []
-        if args.no_outbox
-        else load_outbox_handoffs(repo_root, outbox_dir=outbox_dir, receipt_dir=receipt_dir)
-    )
+    outbox_preview_limit = None
+    if args.no_outbox:
+        outbox_handoffs = []
+        outbox_skipped_reason_counts: Counter[str] = Counter()
+    else:
+        outbox_preview_limit = max(args.limit, 0) if args.summary_only and not args.apply else None
+        if outbox_preview_limit is None:
+            outbox_handoffs, outbox_skipped_reason_counts = _load_outbox_handoffs_with_skip_reasons(
+                repo_root,
+                outbox_dir=outbox_dir,
+                receipt_dir=receipt_dir,
+            )
+        else:
+            outbox_handoffs, outbox_skipped_reason_counts = _load_outbox_handoffs_with_skip_reasons(
+                repo_root,
+                outbox_dir=outbox_dir,
+                receipt_dir=receipt_dir,
+                max_handoffs=outbox_preview_limit,
+            )
+    outbox_file_count = 0 if args.no_outbox else len(_outbox_files(outbox_dir))
+    outbox_skipped_count = sum(outbox_skipped_reason_counts.values())
+    if outbox_skipped_count == 0:
+        outbox_skipped_count = max(outbox_file_count - len(outbox_handoffs), 0)
+    outbox_skipped_reason_counts_payload = dict(sorted(outbox_skipped_reason_counts.items()))
     handoffs = sorted(
         memory_handoffs + outbox_handoffs,
         key=lambda item: (_source_mtime(item.source_file), item.priority),
@@ -1308,6 +1573,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     github_health = check_github_cli_health(repo_root)
     if not github_health.ready:
+        decision_handoffs = handoffs[: max(args.limit, 0)]
+        decisions = [
+            _local_handoff_blocker(repo_root, handoff)
+            or _decision_for_handoff(
+                handoff,
+                eligible=False,
+                reason="github_unavailable",
+            )
+            for handoff in decision_handoffs
+        ]
         payload = {
             "repo": str(repo_root),
             "codex_home": str(codex_home),
@@ -1317,29 +1592,38 @@ def main(argv: list[str] | None = None) -> int:
             "outbox_dir": str(outbox_dir),
             "receipt_dir": str(receipt_dir),
             "memory_handoff_count": len(memory_handoffs),
+            "outbox_file_count": outbox_file_count,
             "outbox_handoff_count": len(outbox_handoffs),
+            "outbox_skipped_count": outbox_skipped_count,
+            "outbox_skipped_reason_counts": outbox_skipped_reason_counts_payload,
+            "outbox_preview_limited": outbox_preview_limit is not None,
+            "outbox_preview_limit": outbox_preview_limit,
             "handoff_count": len(handoffs),
             "github_health": github_health.to_dict(),
-            "decisions": [
-                asdict(
-                    PublishDecision(
-                        task_title=handoff.task_title,
-                        source_file=handoff.source_file,
-                        eligible=False,
-                        reason="github_unavailable",
-                    )
-                )
-                for handoff in handoffs
-            ],
+            "decisions": [asdict(item) for item in decisions],
+            "decision_summary": summarize_decisions(decisions),
         }
         if args.json:
-            print(json.dumps(payload, indent=2))
+            output_payload = summary_only_payload(payload) if args.summary_only else payload
+            emitted = _emit_stdout(json.dumps(output_payload, indent=2))
         else:
-            print(f"github_unavailable: {github_health.mode} {github_health.error}".strip())
-        return 1
+            if handoffs:
+                emitted = _emit_stdout(
+                    f"github_unavailable: {github_health.mode} {github_health.error}".strip()
+                )
+            else:
+                emitted = _emit_stdout(
+                    f"noop: no handoffs to publish; github_unavailable={github_health.mode}"
+                )
+        if not emitted:
+            return 0
+        return 1 if handoffs else 0
 
+    decision_handoffs = (
+        handoffs[: max(args.limit, 0)] if args.summary_only and not args.apply else handoffs
+    )
     decisions = decide_handoffs(
-        handoffs,
+        decision_handoffs,
         repo_root=repo_root,
         repo=args.github_repo,
         labels=labels,
@@ -1374,13 +1658,21 @@ def main(argv: list[str] | None = None) -> int:
         "outbox_dir": str(outbox_dir),
         "receipt_dir": str(receipt_dir),
         "memory_handoff_count": len(memory_handoffs),
+        "outbox_file_count": outbox_file_count,
         "outbox_handoff_count": len(outbox_handoffs),
+        "outbox_skipped_count": outbox_skipped_count,
+        "outbox_skipped_reason_counts": outbox_skipped_reason_counts_payload,
+        "outbox_preview_limited": outbox_preview_limit is not None,
+        "outbox_preview_limit": outbox_preview_limit,
         "handoff_count": len(handoffs),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(item) for item in results],
+        "decision_summary": summarize_decisions(results),
     }
     if args.json:
-        print(json.dumps(payload, indent=2))
+        output_payload = summary_only_payload(payload) if args.summary_only else payload
+        if not _emit_stdout(json.dumps(output_payload, indent=2)):
+            return 0
     else:
         for item in results:
             marker = (
@@ -1391,7 +1683,8 @@ def main(argv: list[str] | None = None) -> int:
                 else "publish"
             )
             target = item.created_issue_url or item.existing_issue_url or item.existing_pr_url or ""
-            print(f"{marker}: {item.task_title} [{item.reason}] {target}".strip())
+            if not _emit_stdout(f"{marker}: {item.task_title} [{item.reason}] {target}".strip()):
+                return 0
     return 0
 
 

@@ -81,7 +81,7 @@ deploy_docker() {
         work_dir="${HOME}/.aragora"; compose_file="${work_dir}/docker-compose.yml"
         mkdir -p "$work_dir"
         info "Downloading docker-compose.yml..."
-        curl -sSfL "https://raw.githubusercontent.com/an0mium/aragora/main/deploy/docker-compose.yml" \
+        curl -sSfL "https://raw.githubusercontent.com/synaptent/aragora/main/deploy/docker-compose.yml" \
             -o "$compose_file" || fatal "Download failed"
     fi
     ok "Compose file: $compose_file"

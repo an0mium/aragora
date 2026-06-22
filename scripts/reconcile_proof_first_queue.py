@@ -247,6 +247,7 @@ def reconcile_proof_first_queue(
             str(issue.get("title") or "").strip(),
             str(issue.get("body") or "").strip(),
             labels=labels,
+            issue_number=int(issue.get("number", 0) or 0),
             repo_root=repo_root,
         )
         record = {

@@ -67,16 +67,19 @@ class IssueAggregate:
 def load_metrics_rows(metrics_file: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     with metrics_file.open(encoding="utf-8", errors="replace") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
+        for line_number, line in enumerate(fh, start=1):
+            raw = line.strip()
+            if not raw:
                 continue
             try:
-                payload = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(payload, dict):
-                rows.append(payload)
+                payload = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"malformed JSONL row at {metrics_file}:{line_number}: {exc.msg}"
+                ) from exc
+            if not isinstance(payload, dict):
+                raise ValueError(f"JSONL row at {metrics_file}:{line_number} must be an object")
+            rows.append(payload)
     return rows
 
 

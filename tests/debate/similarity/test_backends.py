@@ -13,6 +13,8 @@ Covers:
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import threading
 from collections import OrderedDict
 from typing import Any
@@ -1267,3 +1269,58 @@ class TestIntegrationJaccard:
     def test_compute_batch_similarity_two_element(self, backend):
         result = backend.compute_batch_similarity(["apple", "banana"])
         assert result == pytest.approx(0.0)
+
+
+class TestNumpyAbsentImport:
+    """Importing backends must not crash when numpy is unavailable.
+
+    Any ``aragora.debate`` import (boss-loop, swarm) previously died at
+    class-definition time because ``SentenceTransformerBackend._get_embedding``
+    used a runtime ``np.ndarray`` annotation while ``np`` was ``None``.
+    Deferred annotation evaluation lets the module import cleanly and degrade to
+    the TF-IDF / Jaccard backends.
+    """
+
+    def test_import_succeeds_without_numpy(self):
+        code = (
+            "import sys; sys.modules['numpy'] = None;"
+            "import aragora.debate.similarity.backends as b;"
+            "assert b.HAS_NUMPY is False;"
+            "assert b.SentenceTransformerBackend.__name__ == 'SentenceTransformerBackend';"
+            "print('IMPORT_OK')"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert "IMPORT_OK" in proc.stdout
+
+    def test_similarity_package_imports_without_numpy(self):
+        """Guard the package ``__init__`` chain, not just ``.backends``.
+
+        The boss-loop / swarm crash flowed through ``import
+        aragora.debate.similarity`` (the package), which imports both
+        ``backends`` and ``ann``. The submodule-only test above would not
+        catch a regression that drops deferred annotations from ``ann`` (or
+        any other eager ``np.ndarray`` use reachable from the package
+        ``__init__``), so assert the whole entrypoint imports cleanly.
+        """
+        code = (
+            "import sys; sys.modules['numpy'] = None;"
+            "import aragora.debate.similarity as s;"
+            "assert s.SentenceTransformerBackend.__name__ == 'SentenceTransformerBackend';"
+            "from aragora.debate.similarity import ann;"
+            "assert ann.HAS_NUMPY is False;"
+            "print('IMPORT_OK')"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert "IMPORT_OK" in proc.stdout

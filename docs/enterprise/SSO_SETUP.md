@@ -31,7 +31,7 @@ pip install PyJWT httpx
 pip install python3-saml
 
 # Or install all SSO dependencies
-pip install aragora[sso]
+pip install aragora[enterprise]
 ```
 
 ### Production Requirements

@@ -1,0 +1,67 @@
+{
+  "arms": {
+    "frontier_prompt": {
+      "accuracy": 0.14,
+      "avg_confidence": 0.0,
+      "avg_latency_ms": 8e-05,
+      "confusion": {
+        "accept->ask_user": 35,
+        "ask_user->ask_user": 7,
+        "block->ask_user": 6,
+        "challenge->ask_user": 2
+      },
+      "correct": 7,
+      "examples": 50,
+      "mock_predictions": 50,
+      "real_predictions": 0,
+      "stubbed": true,
+      "total_cost_usd": 0.0
+    },
+    "local_advocate": {
+      "accuracy": 0.14,
+      "avg_confidence": 0.5688,
+      "avg_latency_ms": 0.00364,
+      "confusion": {
+        "accept->ask_user": 31,
+        "accept->challenge": 4,
+        "ask_user->ask_user": 7,
+        "block->ask_user": 6,
+        "challenge->ask_user": 2
+      },
+      "correct": 7,
+      "examples": 50,
+      "mock_predictions": 50,
+      "real_predictions": 0,
+      "stubbed": true,
+      "total_cost_usd": 0.0
+    },
+    "rules": {
+      "accuracy": 0.14,
+      "avg_confidence": 0.5662,
+      "avg_latency_ms": 0.00292,
+      "confusion": {
+        "accept->ask_user": 32,
+        "accept->challenge": 3,
+        "ask_user->ask_user": 7,
+        "block->ask_user": 6,
+        "challenge->ask_user": 2
+      },
+      "correct": 7,
+      "examples": 50,
+      "mock_predictions": 0,
+      "real_predictions": 50,
+      "stubbed": false,
+      "total_cost_usd": 0.0
+    }
+  },
+  "corpus": "docs/status/generated/aft/20260522T231408Z/pr_decision_corpus.jsonl",
+  "deltas": {
+    "local_advocate_minus_frontier_prompt": 0.0,
+    "local_advocate_minus_rules": 0.0
+  },
+  "examples": 50,
+  "predictions": 150,
+  "predictions_path": "docs/status/generated/aft/20260522T231408Z/predictions.jsonl",
+  "schema_version": "aft.result.v1",
+  "split": "holdout"
+}

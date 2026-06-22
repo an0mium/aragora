@@ -2,7 +2,7 @@
 # Aragora PR Reviewer — One-Command Setup
 #
 # Usage:
-#   ./pr-reviewer-setup.sh                   # Dry-run review of an0mium/aragora
+#   ./pr-reviewer-setup.sh                   # Dry-run review of synaptent/aragora
 #   ./pr-reviewer-setup.sh --repo owner/repo  # Review a specific repo
 #   ./pr-reviewer-setup.sh --install-workflow  # Also install the GH Actions workflow
 #   ./pr-reviewer-setup.sh --help
@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.pr-reviewer.yml"
 
 # Defaults
-REPO="${GITHUB_REPO:-an0mium/aragora}"
+REPO="${GITHUB_REPO:-synaptent/aragora}"
 MODE="once"
 DRY_RUN="true"
 INSTALL_WORKFLOW=false
@@ -28,7 +28,7 @@ Aragora PR Reviewer Setup
 Usage: $(basename "$0") [OPTIONS]
 
 Options:
-  --repo OWNER/REPO     GitHub repo to review (default: an0mium/aragora)
+  --repo OWNER/REPO     GitHub repo to review (default: synaptent/aragora)
   --pr URL              Review a specific PR URL
   --live                Enable live mode (posts comments to PRs)
   --watch               Watch for new PRs and review continuously

@@ -1,0 +1,768 @@
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+
+from aragora.cli.commands import work_board as work_board_cmd
+from aragora.cli.main import main as cli_main
+from aragora.cli.parser import build_parser
+from aragora.cli.commands.work_board import (
+    cmd_work_graph,
+    cmd_work_list,
+    cmd_work_robot,
+    cmd_work_show,
+)
+
+
+def _args(tmp_path: Path, **kwargs) -> argparse.Namespace:
+    defaults = {
+        "repo": str(tmp_path),
+        "json": True,
+        "scope": "current",
+        "work_id": None,
+        "limit": None,
+    }
+    defaults.update(kwargs)
+    return argparse.Namespace(**defaults)
+
+
+def _capture_json(capsys: pytest.CaptureFixture) -> dict:
+    return json.loads(capsys.readouterr().out)
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def test_work_list_degrades_gracefully_without_gh(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+
+    assert cmd_work_list(_args(tmp_path, scope="current")) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["schema_version"] == "aragora.work.v1"
+    assert payload["items"] == []
+    assert any(
+        h["source"] == "github_pr" and h["status"] == "degraded" for h in payload["source_health"]
+    )
+
+
+def test_work_parser_registers_read_only_robot_command() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["work", "robot", "--json"])
+
+    assert args.command == "work"
+    assert args.work_cmd == "robot"
+    assert args.json is True
+
+
+def test_work_parser_registers_robot_limit() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["work", "robot", "--json", "--limit", "4"])
+
+    assert args.command == "work"
+    assert args.work_cmd == "robot"
+    assert args.limit == 4
+
+
+def test_work_parser_registers_list_limit() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["work", "list", "--json", "--limit", "3"])
+
+    assert args.command == "work"
+    assert args.work_cmd == "list"
+    assert args.limit == 3
+
+
+def test_work_parser_rejects_negative_list_limit() -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["work", "list", "--limit", "-1"])
+
+
+def test_work_with_no_subcommand_prints_help_without_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """`aragora work` with no subcommand should exit cleanly with usage, not crash.
+
+    Regression: previously raised an uncaught AttributeError because the work
+    subparser group set no default ``func`` (parser.py:310), unlike the sibling
+    ``codex`` parser which prints help and returns a non-zero exit code.
+    """
+    monkeypatch.setattr("sys.argv", ["aragora", "work"])
+
+    exit_code = cli_main()
+
+    out = capsys.readouterr().out
+    # Non-zero so scripts can detect "no subcommand given", matching `codex`.
+    assert exit_code == 2
+    # Help/usage text is printed instead of a traceback.
+    assert "work" in out
+    assert "list" in out  # one of the documented subcommands appears in help
+
+
+def test_work_list_default_is_human_readable_not_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """Without ``--json`` the output must NOT be raw JSON.
+
+    Regression: the ``--json`` flag was a no-op (both branches of _emit printed
+    json.dumps), so default output was always JSON despite help text implying a
+    human-readable default.
+    """
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+
+    assert cmd_work_list(_args(tmp_path, scope="current", json=False)) == 0
+    out = capsys.readouterr().out
+
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(out)
+    # Human-readable rendering surfaces the schema-aware summary, not raw braces.
+    assert out.strip() != ""
+    assert not out.lstrip().startswith("{")
+
+
+def test_work_list_json_flag_emits_parseable_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """With ``--json`` the output must remain stable, parseable JSON."""
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+
+    assert cmd_work_list(_args(tmp_path, scope="current", json=True)) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["schema_version"] == "aragora.work.v1"
+
+
+@pytest.mark.parametrize("as_json", [True, False])
+def test_work_emit_suppresses_broken_pipe(monkeypatch: pytest.MonkeyPatch, as_json: bool) -> None:
+    """Closed downstream pipes should not produce CLI tracebacks."""
+    muted_stdout = []
+
+    def broken_print(*_args, **_kwargs) -> None:
+        raise BrokenPipeError("downstream closed")
+
+    monkeypatch.setattr("builtins.print", broken_print)
+    monkeypatch.setattr(
+        work_board_cmd,
+        "_mute_stdout_after_broken_pipe",
+        lambda: muted_stdout.append(True),
+    )
+
+    assert work_board_cmd._emit({"schema_version": "aragora.work.v1"}, as_json=as_json) == 0
+    assert muted_stdout == [True]
+
+
+def test_work_list_reads_current_outbox(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps({"task": "Open PR for repair lane", "branch": "codex/repair"}),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_list(_args(tmp_path, scope="current")) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 1
+    assert payload["items"][0]["id"] == "automation-outbox:handoff"
+    assert payload["items"][0]["branch"] == "codex/repair"
+
+
+def test_work_list_preserves_outbox_readiness_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "task": "Open PR for repair lane",
+                "branch": "codex/repair",
+                "owner": "codex-worker",
+                "dependencies": ["pr:123"],
+                "objective": "Repair queue health",
+                "context": "The work board needs a dispatchable handoff.",
+                "acceptance_criteria": ["robot classifies this handoff as ready"],
+                "mutation_boundary": "work-board source adapter only",
+                "validation": "tests/cli/test_work_board.py",
+                "dependencies_declared": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_list(_args(tmp_path, scope="current")) == 0
+    payload = _capture_json(capsys)
+    item = payload["items"][0]
+
+    assert item["owner"] == "codex-worker"
+    assert item["dependencies"] == ["pr:123"]
+    assert item["metadata"]["objective"] == "Repair queue health"
+    assert item["metadata"]["acceptance_criteria"] == ["robot classifies this handoff as ready"]
+    assert item["metadata"]["dependencies_declared"] is True
+
+
+def test_work_list_limit_bounds_emitted_items_but_preserves_total_count(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    for name in ("one", "two", "three"):
+        (outbox / f"{name}.json").write_text(
+            json.dumps({"task": f"repair {name}", "branch": f"codex/{name}"}),
+            encoding="utf-8",
+        )
+
+    assert cmd_work_list(_args(tmp_path, scope="current", limit=2)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 3
+    assert payload["emitted_count"] == 2
+    assert len(payload["items"]) == 2
+
+
+def test_work_robot_marks_tier_four_pr_human_gated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: "/usr/bin/gh")
+
+    def fake_run(*_args, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=["gh"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 42,
+                        "title": "Modify merge authority parser",
+                        "url": "https://github.com/synaptent/aragora/pull/42",
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "headRefName": "codex/gate",
+                        "headRefOid": "abc123",
+                        "updatedAt": _now_iso(),
+                        "createdAt": _now_iso(),
+                        "reviewDecision": "APPROVED",
+                        "mergeStateStatus": "CLEAN",
+                        "labels": [{"name": "tier-4"}],
+                        "assignees": [{"login": "codex"}],
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("aragora.work.sources.subprocess.run", fake_run)
+
+    assert cmd_work_robot(_args(tmp_path)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["recommendations"][0]["item_id"] == "pr:42"
+    assert payload["recommendations"][0]["classification"] == "human-gated"
+    assert payload["recommendations"][0]["item"]["metadata"]["tier"] == 4
+
+
+def test_work_robot_marks_dependabot_pr_policy_excluded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: "/usr/bin/gh")
+
+    def fake_run(*_args, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=["gh"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 7463,
+                        "title": "chore(deps): update fastapi requirement",
+                        "url": "https://github.com/synaptent/aragora/pull/7463",
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "author": {"login": "app/dependabot", "is_bot": True},
+                        "headRefName": "dependabot/pip/fastapi-gte-0.136.3-and-lt-1.0",
+                        "headRefOid": "d8efb8681a85b8835abbb496ffd6e706e44961a7",
+                        "updatedAt": _now_iso(),
+                        "createdAt": _now_iso(),
+                        "reviewDecision": "APPROVED",
+                        "mergeStateStatus": "BLOCKED",
+                        "labels": [],
+                        "assignees": [],
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("aragora.work.sources.subprocess.run", fake_run)
+
+    assert cmd_work_robot(_args(tmp_path)) == 0
+    payload = _capture_json(capsys)
+    recommendation = payload["recommendations"][0]
+
+    assert recommendation["item_id"] == "pr:7463"
+    assert recommendation["classification"] == "policy-excluded"
+    assert recommendation["action"] == "hold_policy_excluded_pr"
+    assert recommendation["priority"] == "hold"
+    assert "policy-excluded: Dependabot PR" in recommendation["blockers"]
+    assert recommendation["action"] != "review_and_settle_when_policy_clean"
+    assert recommendation["item"]["metadata"]["author_login"] == "app/dependabot"
+
+
+def test_work_show_enriches_github_pr_with_active_lane_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: "/usr/bin/gh")
+
+    def fake_run(*_args, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=["gh"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 7292,
+                        "title": "Stage 2 operator-delegation",
+                        "url": "https://github.com/synaptent/aragora/pull/7292",
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "headRefName": "droid/P16-stage2-auto-merge-bucket-a",
+                        "headRefOid": "abc123",
+                        "updatedAt": _now_iso(),
+                        "createdAt": _now_iso(),
+                        "reviewDecision": "REVIEW_REQUIRED",
+                        "mergeStateStatus": "DIRTY",
+                        "labels": [],
+                        "assignees": [],
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("aragora.work.sources.subprocess.run", fake_run)
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "P16-repair-7292-stage2-guards",
+                    "owner_session": "codex-owner",
+                    "status": "active",
+                    "pr_number": 7292,
+                    "branch": "droid/P16-stage2-auto-merge-bucket-a",
+                    "worktree": "/repo/.worktrees/p16",
+                    "updated_at": "2026-05-18T02:12:13Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_show(_args(tmp_path, work_id="pr:7292")) == 0
+    payload = _capture_json(capsys)
+    item = payload["item"]
+
+    assert item["owner"] == "codex-owner"
+    assert item["metadata"]["active_lane"] is True
+    assert item["metadata"]["lane_id"] == "P16-repair-7292-stage2-guards"
+    assert item["metadata"]["owner_session"] == "codex-owner"
+    assert item["metadata"]["lane_worktree"] == "/repo/.worktrees/p16"
+    assert item["metadata"]["lane_status"] == "active"
+    assert item["metadata"]["lane_updated_at"] == "2026-05-18T02:12:13Z"
+
+
+def test_work_show_preserves_assignee_when_lane_is_released(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: "/usr/bin/gh")
+
+    def fake_run(*_args, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=["gh"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 7292,
+                        "title": "Stage 2 operator-delegation",
+                        "url": "https://github.com/synaptent/aragora/pull/7292",
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "headRefName": "droid/P16-stage2-auto-merge-bucket-a",
+                        "headRefOid": "abc123",
+                        "updatedAt": _now_iso(),
+                        "createdAt": _now_iso(),
+                        "reviewDecision": "REVIEW_REQUIRED",
+                        "mergeStateStatus": "DIRTY",
+                        "labels": [],
+                        "assignees": [{"login": "assigned-human"}],
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("aragora.work.sources.subprocess.run", fake_run)
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "P16-released",
+                    "owner_session": "old-owner",
+                    "status": "released",
+                    "pr_number": 7292,
+                    "branch": "droid/P16-stage2-auto-merge-bucket-a",
+                    "updated_at": "2026-05-18T02:12:13Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_show(_args(tmp_path, work_id="pr:7292")) == 0
+    payload = _capture_json(capsys)
+    item = payload["item"]
+
+    assert item["owner"] == "assigned-human"
+    assert item["metadata"]["active_lane"] is False
+    assert item["metadata"]["lane_id"] == "P16-released"
+    assert item["metadata"]["owner_session"] == "old-owner"
+    assert item["metadata"]["lane_status"] == "released"
+
+
+def test_work_show_enriches_outbox_handoff_with_blocked_lane_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps(
+            {
+                "task": "Open PR for branch publisher telemetry",
+                "branch": "codex/branch-publisher-cache-unavailable-primary-r2-20260604",
+            }
+        ),
+        encoding="utf-8",
+    )
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q312-primary-branch-publisher-cache-unavailable-r2",
+                    "owner_session": "primary-owner",
+                    "status": "blocked",
+                    "branch": "codex/branch-publisher-cache-unavailable-primary-r2-20260604",
+                    "worktree": "/repo/.worktrees/branch-publisher-cache",
+                    "updated_at": "2026-06-04T06:19:35Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_show(_args(tmp_path, work_id="automation-outbox:handoff")) == 0
+    payload = _capture_json(capsys)
+    item = payload["item"]
+
+    assert item["owner"] == "primary-owner"
+    assert item["metadata"]["active_lane"] is False
+    assert item["metadata"]["lane_owner_protected"] is True
+    assert item["metadata"]["lane_id"] == "Q312-primary-branch-publisher-cache-unavailable-r2"
+    assert item["metadata"]["owner_session"] == "primary-owner"
+    assert item["metadata"]["lane_worktree"] == "/repo/.worktrees/branch-publisher-cache"
+    assert item["metadata"]["lane_status"] == "blocked"
+    assert item["metadata"]["lane_updated_at"] == "2026-06-04T06:19:35Z"
+
+
+def test_work_robot_degrades_safely_on_malformed_lane_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: "/usr/bin/gh")
+
+    def fake_run(*_args, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=["gh"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 7292,
+                        "title": "Stage 2 operator-delegation",
+                        "url": "https://github.com/synaptent/aragora/pull/7292",
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "headRefName": "droid/P16-stage2-auto-merge-bucket-a",
+                        "headRefOid": "abc123",
+                        "updatedAt": _now_iso(),
+                        "createdAt": _now_iso(),
+                        "reviewDecision": "REVIEW_REQUIRED",
+                        "mergeStateStatus": "DIRTY",
+                        "labels": [],
+                        "assignees": [],
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("aragora.work.sources.subprocess.run", fake_run)
+    registry = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    registry.parent.mkdir(parents=True)
+    registry.write_text("{not json", encoding="utf-8")
+
+    assert cmd_work_robot(_args(tmp_path)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["recommendations"][0]["item"]["owner"] is None
+    assert any(
+        health["source"] == "agent_bridge_lane" and health["status"] == "degraded"
+        for health in payload["source_health"]
+    )
+
+
+def test_work_robot_defaults_to_shared_state_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    worktree_root = tmp_path / "linked-worktree"
+    shared_root = tmp_path / "shared-checkout"
+    outbox = shared_root / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "handoff.json").write_text(
+        json.dumps({"task": "Open PR for shared queue", "branch": "codex/shared"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_root))
+
+    assert cmd_work_robot(_args(worktree_root)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 1
+    assert payload["recommendations"][0]["item"]["branch"] == "codex/shared"
+    assert any(
+        health["source"] == "work_state_root"
+        and health["status"] == "ok"
+        and health["state_root"] == str(shared_root.resolve())
+        for health in payload["source_health"]
+    )
+    assert any(
+        health["source"] == "automation_outbox"
+        and health["status"] == "ok"
+        and "1 pending handoff" in health["detail"]
+        for health in payload["source_health"]
+    )
+
+
+def test_work_show_finds_historical_receipt_in_all_scope(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    receipts.mkdir(parents=True)
+    (receipts / "done.json").write_text(
+        json.dumps(
+            {
+                "task": "Published old handoff",
+                "status": "already_satisfied",
+                "recorded_at": "2026-05-14T00:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_show(_args(tmp_path, work_id="automation-receipt:done")) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["found"] is True
+    assert payload["item"]["scope"] == "historical"
+
+
+def test_work_graph_includes_bead_dependency_edges(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    bead_dir = tmp_path / ".aragora_beads"
+    bead_dir.mkdir()
+    (bead_dir / "beads.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "id": "a",
+                        "bead_type": "task",
+                        "status": "pending",
+                        "title": "A",
+                        "updated_at": _now_iso(),
+                        "dependencies": ["b"],
+                    }
+                ),
+                json.dumps(
+                    {
+                        "id": "b",
+                        "bead_type": "task",
+                        "status": "pending",
+                        "title": "B",
+                        "updated_at": _now_iso(),
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_graph(_args(tmp_path, work_id="bead:a")) == 0
+    payload = _capture_json(capsys)
+
+    assert {item["id"] for item in payload["items"]} == {"bead:a", "bead:b"}
+    assert payload["edges"] == [{"from": "bead:a", "relation": "depends_on", "to": "bead:b"}]
+
+
+def test_work_robot_ranks_actionable_current_work(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "repair.json").write_text(
+        json.dumps({"task": "repair queue health", "branch": "codex/repair"}),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_robot(_args(tmp_path)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["mutations"] == []
+    assert payload["recommendations"][0]["item_id"] == "automation-outbox:repair"
+    assert payload["recommendations"][0]["classification"] == "needs-polish"
+    assert payload["recommendations"][0]["action"] == "publish_or_reconcile_handoff"
+
+
+def test_work_robot_emits_ready_for_polished_outbox_handoff(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    (outbox / "repair.json").write_text(
+        json.dumps(
+            {
+                "task": "repair queue health",
+                "branch": "codex/repair",
+                "owner": "codex-worker",
+                "dependencies": [],
+                "objective": "Repair queue health",
+                "context": "The publisher needs a fully bounded handoff.",
+                "acceptance_criteria": ["draft PR is opened or existing PR is updated"],
+                "mutation_boundary": "publish one named handoff only",
+                "validation": "automation publisher dry-run",
+                "dependencies_declared": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_robot(_args(tmp_path)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["recommendations"][0]["item_id"] == "automation-outbox:repair"
+    assert payload["recommendations"][0]["classification"] == "ready"
+    assert payload["recommendations"][0]["blockers"] == []
+
+
+def test_work_robot_limit_bounds_emitted_recommendations_but_preserves_total_count(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    for name in ("one", "two", "three"):
+        (outbox / f"{name}.json").write_text(
+            json.dumps({"task": f"repair {name}", "branch": f"codex/{name}"}),
+            encoding="utf-8",
+        )
+
+    assert cmd_work_robot(_args(tmp_path, limit=2)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["count"] == 3
+    assert payload["emitted_count"] == 2
+    assert len(payload["recommendations"]) == 2
+    assert payload["mutations"] == []
+
+
+def test_work_robot_emits_ready_for_polished_bead(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    bead_dir = tmp_path / ".aragora_beads"
+    bead_dir.mkdir()
+    (bead_dir / "beads.jsonl").write_text(
+        json.dumps(
+            {
+                "id": "polished",
+                "status": "pending",
+                "title": "Repair broker live capture",
+                "updated_at": _now_iso(),
+                "claimed_by": "factory",
+                "metadata": {
+                    "objective": "Capture broker-launched sessions in operator-snapshot",
+                    "context": "Desktop transcripts are historical, not live truth",
+                    "acceptance_criteria": ["snapshot shows one active broker run"],
+                    "validation": "focused bridge tests",
+                    "mutation_boundary": "read-only bridge discovery",
+                    "dependencies_declared": True,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_robot(_args(tmp_path)) == 0
+    payload = _capture_json(capsys)
+
+    assert payload["recommendations"][0]["item_id"] == "bead:polished"
+    assert payload["recommendations"][0]["classification"] == "ready"
+    assert payload["recommendations"][0]["score"]["bead_quality"] >= 0.8
+
+
+def test_work_list_current_excludes_completed_broker_runs(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr("aragora.work.sources.shutil.which", lambda name: None)
+    run_dir = tmp_path / ".aragora" / "agent_bridge" / "runs" / "run-1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "run_id": "run-1",
+                "status": "completed",
+                "task": "Old desktop transcript import",
+                "created_at": "2026-05-14T00:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert cmd_work_list(_args(tmp_path, scope="current")) == 0
+    current = _capture_json(capsys)
+    assert current["items"] == []
+
+    assert cmd_work_list(_args(tmp_path, scope="all")) == 0
+    all_items = _capture_json(capsys)
+    assert all_items["items"][0]["id"] == "broker-run:run-1"
+    assert all_items["items"][0]["scope"] == "historical"

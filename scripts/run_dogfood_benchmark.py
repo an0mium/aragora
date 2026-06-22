@@ -373,6 +373,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
+    if args.runs <= 0:
+        raise SystemExit("--runs must be a positive integer")
+    if args.timeout <= 0:
+        raise SystemExit("--timeout must be a positive integer")
+
     base_report = Path(args.base_report)
     if not base_report.is_file():
         raise SystemExit(f"Base report not found: {base_report}")

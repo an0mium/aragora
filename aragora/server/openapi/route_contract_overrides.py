@@ -33,7 +33,29 @@ def _json_body(
     }
 
 
+def _operation(
+    summary: str,
+    description: str,
+    *,
+    tags: list[str] | None = None,
+) -> dict[str, Any]:
+    operation: dict[str, Any] = {
+        "summary": summary,
+        "description": description,
+    }
+    if tags:
+        operation["tags"] = tags
+    return operation
+
+
 ROUTE_CONTRACT_OVERRIDES: dict[str, dict[str, dict[str, Any]]] = {
+    "/api/v1/inbox/command": {
+        "get": _operation(
+            "Fetch inbox command center view",
+            "Fetch prioritized inbox messages with aggregate stats and command-center filters.",
+            tags=["Inbox"],
+        )
+    },
     "/api/v1/inbox/connect": {
         "post": {
             "summary": "Connect unified inbox account",
@@ -130,6 +152,20 @@ ROUTE_CONTRACT_OVERRIDES: dict[str, dict[str, dict[str, Any]]] = {
             ),
         }
     },
+    "/api/v1/inbox/sender-profile": {
+        "get": _operation(
+            "Get inbox sender profile",
+            "Get profile information for a sender from the inbox command center.",
+            tags=["Inbox"],
+        )
+    },
+    "/api/v1/inbox/daily-digest": {
+        "get": _operation(
+            "Get inbox daily digest",
+            "Get daily digest statistics for the inbox command center.",
+            tags=["Inbox"],
+        )
+    },
     "/api/v1/inbox/reprioritize": {
         "post": {
             "summary": "Reprioritize inbox",
@@ -145,6 +181,11 @@ ROUTE_CONTRACT_OVERRIDES: dict[str, dict[str, dict[str, Any]]] = {
         }
     },
     "/api/v1/coordination/workspaces": {
+        "get": _operation(
+            "List coordination workspaces",
+            "List registered workspaces available for cross-workspace coordination.",
+            tags=["Coordination"],
+        ),
         "post": {
             "summary": "Register coordination workspace",
             "description": "Register a workspace for cross-workspace coordination.",
@@ -162,9 +203,21 @@ ROUTE_CONTRACT_OVERRIDES: dict[str, dict[str, dict[str, Any]]] = {
                     "supports_knowledge_query": {"type": "boolean"},
                 },
             ),
-        }
+        },
+    },
+    "/api/v1/coordination/workspaces/{workspace_id}": {
+        "delete": _operation(
+            "Unregister coordination workspace",
+            "Unregister a workspace from cross-workspace coordination.",
+            tags=["Coordination"],
+        )
     },
     "/api/v1/coordination/federation": {
+        "get": _operation(
+            "List coordination federation policies",
+            "List federation policies configured for cross-workspace coordination.",
+            tags=["Coordination"],
+        ),
         "post": {
             "summary": "Create coordination federation policy",
             "description": "Create a federation policy for cross-workspace coordination.",
@@ -185,7 +238,14 @@ ROUTE_CONTRACT_OVERRIDES: dict[str, dict[str, dict[str, Any]]] = {
                     "target_workspace_id": {"type": "string"},
                 },
             ),
-        }
+        },
+    },
+    "/api/v1/coordination/executions": {
+        "get": _operation(
+            "List coordination executions",
+            "List cross-workspace coordination execution requests and their status.",
+            tags=["Coordination"],
+        )
     },
     "/api/v1/coordination/execute": {
         "post": {
@@ -207,6 +267,11 @@ ROUTE_CONTRACT_OVERRIDES: dict[str, dict[str, dict[str, Any]]] = {
         }
     },
     "/api/v1/coordination/consent": {
+        "get": _operation(
+            "List coordination consents",
+            "List data-sharing consents granted between workspaces.",
+            tags=["Coordination"],
+        ),
         "post": {
             "summary": "Grant coordination consent",
             "description": "Grant data-sharing consent between workspaces.",
@@ -223,7 +288,14 @@ ROUTE_CONTRACT_OVERRIDES: dict[str, dict[str, dict[str, Any]]] = {
                     "expires_in_days": {"type": "integer"},
                 },
             ),
-        }
+        },
+    },
+    "/api/v1/coordination/consent/{consent_id}": {
+        "delete": _operation(
+            "Revoke coordination consent",
+            "Revoke a data-sharing consent between workspaces.",
+            tags=["Coordination"],
+        )
     },
     "/api/v1/coordination/approve/{request_id}": {
         "post": {
@@ -236,6 +308,20 @@ ROUTE_CONTRACT_OVERRIDES: dict[str, dict[str, dict[str, Any]]] = {
                 },
             ),
         }
+    },
+    "/api/v1/coordination/stats": {
+        "get": _operation(
+            "Get coordination statistics",
+            "Get summary statistics for the cross-workspace coordination subsystem.",
+            tags=["Coordination"],
+        )
+    },
+    "/api/v1/coordination/health": {
+        "get": _operation(
+            "Get coordination health",
+            "Return public health for the cross-workspace coordination subsystem.",
+            tags=["Coordination"],
+        )
     },
 }
 

@@ -28,6 +28,7 @@ from aragora.config import (
     DEFAULT_ROUNDS,
     MAX_AGENTS_PER_DEBATE,
 )
+from aragora.config.secrets import get_secret_presence
 from aragora.core import Environment
 from aragora.debate.arena_primary_configs import MLConfig, MemoryConfig
 from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -43,9 +44,48 @@ DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 _MEMORY_CONFIG_KEYS = {field.name for field in fields(MemoryConfig)}
 _ML_CONFIG_KEYS = {field.name for field in fields(MLConfig)}
 
+_AGENT_FAILURE_RESPONSE_MARKERS = (
+    "[system: agent ",
+    "[error generating proposal:",
+    "[no proposals available",
+    "agent timed out",
+    "connection failed",
+    "encountered an error",
+    "encountered an unexpected situation",
+    "something went wrong with",
+    "needs to restart their thought process",
+    "tripped over an edge case",
+    "experienced a minor cognitive hiccup",
+    "got confused and needs to recalibrate",
+    "a wild bug appeared",
+    "has achieved unexpected behavior",
+    "fatal exception in",
+    "error 418:",
+)
+
 
 class _StrictWallClockTimeout(TimeoutError):
     """Raised when a hard wall-clock timeout expires."""
+
+
+def _looks_like_agent_failure_response(text: Any) -> bool:
+    """Detect autonomic failure placeholders that should not count as answers."""
+
+    normalized = str(text or "").strip().lower()
+    if not normalized:
+        return True
+    return any(marker in normalized for marker in _AGENT_FAILURE_RESPONSE_MARKERS)
+
+
+def _result_has_only_agent_failure_outputs(result: Any) -> bool:
+    """Return true when a debate produced only failure placeholders."""
+
+    proposals = getattr(result, "proposals", None)
+    if isinstance(proposals, dict) and proposals:
+        return all(_looks_like_agent_failure_response(value) for value in proposals.values())
+
+    final_answer = getattr(result, "final_answer", "")
+    return _looks_like_agent_failure_response(final_answer)
 
 
 @contextmanager
@@ -132,6 +172,23 @@ def parse_agents(agents_str: str) -> list[AgentSpec]:
     from aragora.agents.spec import AgentSpec
 
     return AgentSpec.coerce_list(agents_str, warn=False)
+
+
+def _resolved_cli_provider_key(provider: str) -> str | None:
+    """Return the CLI-resolved key for an explicit provider, if configured.
+
+    The CLI key store is the same surface used by ``validate-env`` live
+    provider checks. Passing this key into direct API agents keeps explicit
+    ``aragora ask --agents <provider>`` runs from re-discovering credentials
+    through unrelated fallback probes.
+    """
+    try:
+        from aragora.cli.api_keys import get_provider_key
+
+        value, _source = get_provider_key(provider)
+    except (RuntimeError, ValueError):
+        return None
+    return value.strip() if value and value.strip() else None
 
 
 def _coalesce_grouped_arena_configs(arena_kwargs: dict[str, Any]) -> None:
@@ -629,6 +686,81 @@ def _attach_agent_models_to_result(result: Any, agents: list[Any]) -> None:
         }
 
 
+def _attach_agent_roster_to_result(
+    result: Any,
+    *,
+    requested: list[str],
+    created: list[str],
+    failed: list[str],
+) -> None:
+    """Persist the requested/created/failed agent roster onto the result.
+
+    Issue #8101: receipts must surface requested vs created vs participated
+    agents instead of silently dropping agents that authored no message.
+    """
+    metadata = getattr(result, "metadata", None)
+    if not isinstance(metadata, dict):
+        metadata = {}
+        setattr(result, "metadata", metadata)
+    metadata["agent_roster"] = {
+        "requested": [str(r) for r in requested if str(r).strip()],
+        "created": [str(c) for c in created if str(c).strip()],
+        "failed": [str(f) for f in failed],
+    }
+
+
+def _collect_agent_contributions(result: Any) -> dict[str, dict[str, int]]:
+    """Count artifact-backed contributions (messages/proposals/critiques/votes)
+    per agent from a debate result. Only agents with at least one recorded
+    artifact appear in the returned mapping."""
+    contributions: dict[str, dict[str, int]] = {}
+
+    def _bump(raw_name: Any, kind: str) -> None:
+        name = str(raw_name or "").strip()
+        if not name:
+            return
+        entry = contributions.setdefault(
+            name, {"messages": 0, "proposals": 0, "critiques": 0, "votes": 0}
+        )
+        entry[kind] += 1
+
+    for msg in getattr(result, "messages", []) or []:
+        if str(getattr(msg, "content", "") or "").strip():
+            _bump(getattr(msg, "agent", ""), "messages")
+    proposals = getattr(result, "proposals", None)
+    if isinstance(proposals, dict):
+        for name in proposals:
+            _bump(name, "proposals")
+    for critique in getattr(result, "critiques", []) or []:
+        _bump(getattr(critique, "agent", ""), "critiques")
+    for vote in getattr(result, "votes", []) or []:
+        _bump(getattr(vote, "agent", ""), "votes")
+    return contributions
+
+
+def _create_revision_agent(
+    provider: str,
+    *,
+    name: str,
+    role: str = "synthesizer",
+    model: str | None = None,
+) -> Any:
+    """Create a post-consensus repair/upgrade agent.
+
+    Issue #8101: resolves credentials through the same CLI key-store surface
+    (``_resolved_cli_provider_key``) as the main debate path. Without this,
+    strict-secrets mode rejected env-provided keys here while the debate
+    itself accepted them — an inconsistent posture within one command.
+    """
+    return create_agent(
+        model_type=cast(AgentType, provider),
+        name=name,
+        role=role,
+        model=model,
+        api_key=_resolved_cli_provider_key(provider),
+    )
+
+
 def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
     """Generate and persist a debate receipt to ~/.aragora/receipts/.
 
@@ -637,7 +769,10 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
     try:
         import hashlib
         import json
+        from datetime import datetime, timezone
         from pathlib import Path
+
+        from aragora.gauntlet.receipt_models import DecisionReceipt
 
         receipts_dir = Path.home() / ".aragora" / "receipts"
         receipts_dir.mkdir(parents=True, exist_ok=True)
@@ -646,6 +781,7 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         consensus_reached = getattr(result, "consensus_reached", False)
         confidence = getattr(result, "confidence", 0.0)
         final_answer = getattr(result, "final_answer", "") or ""
+        task = str(getattr(result, "task", "") or "")
         metadata = getattr(result, "metadata", None)
         agent_models = metadata.get("agent_models", {}) if isinstance(metadata, dict) else {}
         messages = list(getattr(result, "messages", []) or [])
@@ -669,23 +805,96 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
                 }
             )
 
+        timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        if timestamp.endswith("+00:00"):
+            timestamp = timestamp[: -len("+00:00")] + "Z"
+        # Issue #8101: record ALL participating agents, not just message
+        # authors. The roster comes from the engine's canonical participants
+        # list (all agents in the debate), unioned with every artifact source
+        # (messages, proposals, critiques, votes). Per-agent contribution
+        # counts keep the accounting honest: a roster entry with zero
+        # contributions is visible as such, never claimed as having spoken.
+        contributions = _collect_agent_contributions(result)
+        roster_meta = metadata.get("agent_roster", {}) if isinstance(metadata, dict) else {}
+        if not isinstance(roster_meta, dict):
+            roster_meta = {}
+        participants = [
+            str(p).strip() for p in (getattr(result, "participants", []) or []) if str(p).strip()
+        ]
+        created_roster = [str(c) for c in (roster_meta.get("created") or [])]
+        requested_roster = [str(r) for r in (roster_meta.get("requested") or [])]
+        failed_roster = [str(f) for f in (roster_meta.get("failed") or [])]
+        roster = participants or created_roster or list(contributions)
+        agents = list(dict.fromkeys([*roster, *contributions]))
+        for name in agents:
+            contributions.setdefault(
+                name, {"messages": 0, "proposals": 0, "critiques": 0, "votes": 0}
+            )
+        contributing_agents = [name for name in agents if any(contributions[name].values())]
+        input_hash = hashlib.sha256(
+            json.dumps(
+                {
+                    "task": task,
+                    "agents": agents,
+                    "agent_responses": agent_responses,
+                },
+                sort_keys=True,
+                default=str,
+            ).encode()
+        ).hexdigest()
         receipt = {
+            "receipt_id": f"debate-{debate_id}",
+            "gauntlet_id": str(debate_id),
             "debate_id": debate_id,
-            "task": getattr(result, "task", ""),
+            "timestamp": timestamp,
+            "task": task,
+            "input_summary": task[:500],
+            "input_hash": input_hash,
+            "risk_summary": {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0},
+            "attacks_attempted": 0,
+            "attacks_successful": 0,
+            "probes_run": 0,
+            "vulnerabilities_found": 0,
+            "verdict": "PASS" if consensus_reached else "CONDITIONAL",
+            "verdict_reasoning": final_answer[:2000],
+            "robustness_score": round(confidence, 4) if confidence else 0.0,
             "consensus_reached": consensus_reached,
             "confidence": round(confidence, 4) if confidence else 0.0,
             "final_answer": final_answer[:2000],
             "rounds_used": getattr(result, "rounds_used", 0),
-            "agents": list(dict.fromkeys(response["agent"] for response in agent_responses)),
+            "agents": agents,
+            "agents_requested": requested_roster or agents,
+            "agents_failed": failed_roster,
+            "agent_contributions": contributions,
             "agent_responses": agent_responses,
             "dissenting_views": [
                 str(v)[:500] for v in (getattr(result, "dissenting_views", []) or [])
             ],
+            "consensus_proof": {
+                "reached": bool(consensus_reached),
+                "confidence": round(confidence, 4) if confidence else 0.0,
+                "supporting_agents": contributing_agents if consensus_reached else [],
+                "dissenting_agents": [],
+                "method": "majority",
+                "evidence_hash": input_hash,
+            },
+            "provenance_chain": [
+                {
+                    "timestamp": timestamp,
+                    "event_type": "verdict",
+                    "agent": "aragora ask",
+                    "description": "Debate receipt persisted from aragora ask.",
+                    "evidence_hash": input_hash,
+                }
+            ],
+            "schema_version": "1.1",
         }
         model_comparison = metadata.get("model_comparison") if isinstance(metadata, dict) else None
         if isinstance(model_comparison, dict):
             receipt["model_comparison"] = model_comparison
 
+        receipt["artifact_hash"] = DecisionReceipt.from_dict(receipt).artifact_hash
+        receipt["checksum"] = receipt["artifact_hash"]
         content_hash = hashlib.sha256(
             json.dumps(receipt, sort_keys=True, default=str).encode()
         ).hexdigest()[:16]
@@ -845,7 +1054,7 @@ def _print_matrix_result(debate: Any, verbose: bool = False) -> None:
                 name = getattr(scenario, "scenario_name", "")
                 key_findings = getattr(scenario, "key_findings", []) or []
                 conclusion = getattr(scenario, "consensus", None)
-                if hasattr(conclusion, "final_answer"):
+                if conclusion is not None and hasattr(conclusion, "final_answer"):
                     conclusion = conclusion.final_answer
 
             print(f"- {name}")
@@ -1135,6 +1344,13 @@ async def run_debate(
 
     # Parse and create agents
     agent_specs = parse_agents(agents_str)
+    if (
+        len(agent_specs) == 1
+        and int(rounds) <= 1
+        and consensus == "none"
+        and not mode_system_prompt
+    ):
+        protocol_overrides.setdefault("single_agent_direct_answer", True)
 
     # Assign default roles based on position if not explicitly specified
     agents = []
@@ -1152,11 +1368,13 @@ async def run_debate(
                 role = "critic"
 
         try:
+            api_key = _resolved_cli_provider_key(spec.provider)
             agent = create_agent(
                 model_type=cast(AgentType, spec.provider),
                 name=spec.name or f"{spec.provider}_{role}",
                 role=role,
                 model=spec.model,  # Pass model from spec
+                api_key=api_key,
             )
         except (ValueError, ImportError, RuntimeError) as e:
             failed_agents.append(f"{spec.provider} ({e})")
@@ -1319,6 +1537,12 @@ async def run_debate(
 
         result = await arena.run()
         _attach_agent_models_to_result(result, agents)
+        _attach_agent_roster_to_result(
+            result,
+            requested=[spec.name or spec.provider for spec in agent_specs],
+            created=[str(getattr(a, "name", "") or "") for a in agents],
+            failed=failed_agents,
+        )
 
         # Store result
         if memory:
@@ -1724,6 +1948,21 @@ def cmd_ask(args: argparse.Namespace) -> None:
         or "required sections" in task_lower
         or "section headings" in task_lower
     )
+    # Fail-closed cannot be honored when the post-consensus quality pipeline is
+    # disabled (and we are not in comparison mode, which has its own enforcement
+    # path). Both the config-validation guard below and the runtime gate inside
+    # _post_consensus_quality_pipeline are skipped when post_consensus_quality is
+    # False, so silently accepting --quality-fail-closed here would emit a false
+    # green in CI. Reject the contradictory combination explicitly instead.
+    if quality_fail_closed and not post_consensus_quality and not comparison_mode:
+        print(
+            "Debate configuration invalid: --quality-fail-closed cannot be "
+            "enforced together with --no-post-consensus-quality. The fail-closed "
+            "quality gate runs inside the post-consensus quality pipeline, which "
+            "is disabled. Remove --no-post-consensus-quality to enforce the gate.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
     if post_consensus_quality or comparison_mode:
         from aragora.debate.output_quality import build_contract_context_block
 
@@ -1858,6 +2097,46 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 file=sys.stderr,
             )
 
+    if not (force_local or offline):
+        from aragora.config.provider_readiness import (
+            agent_type_has_configured_provider,
+            agent_provider_options,
+            discover_provider_credentials,
+            format_provider_bootstrap_error,
+        )
+
+        credential_report = discover_provider_credentials()
+        requested_specs = parse_agents(agents)
+        provider_backed_specs = [
+            spec
+            for spec in requested_specs
+            if not agent_type_has_configured_provider(spec.provider, credential_report)
+        ]
+        if provider_backed_specs:
+            if not credential_report.any_configured:
+                print(format_provider_bootstrap_error(credential_report), file=sys.stderr)
+            else:
+                configured = ", ".join(credential_report.configured_providers)
+                print(
+                    "One or more selected agent providers are not configured.",
+                    file=sys.stderr,
+                )
+                print(f"Configured providers: {configured}", file=sys.stderr)
+                for spec in provider_backed_specs:
+                    options = agent_provider_options(spec.provider)
+                    required = ", ".join(options) if options else spec.provider
+                    print(
+                        f"  - {spec.provider}: requires one of {required}",
+                        file=sys.stderr,
+                    )
+                print(
+                    "Run "
+                    f"'aragora validate-env --smoke --agents {agents} --verbose' "
+                    "and select only configured agents.",
+                    file=sys.stderr,
+                )
+            raise SystemExit(1)
+
     explain = getattr(args, "explain", False)
 
     # Apply preset configuration if specified
@@ -1990,7 +2269,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                     continue
 
         # Optional OpenRouter fallback for quota/billing/provider outages.
-        if os.environ.get("OPENROUTER_API_KEY") and not any(
+        if get_secret_presence("OPENROUTER_API_KEY").source in {"aws", "env"} and not any(
             spec.provider == "openrouter" for spec in ordered_specs
         ):
             try:
@@ -2034,10 +2313,9 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 )
                 break
             try:
-                repair_agent = create_agent(
-                    model_type=cast(AgentType, provider),
+                repair_agent = _create_revision_agent(
+                    provider,
                     name=f"{stage}_{provider}_{attempt_num}",
-                    role="synthesizer",
                     model=spec.model,
                 )
                 existing = getattr(repair_agent, "system_prompt", "") or ""
@@ -2605,6 +2883,14 @@ def cmd_ask(args: argparse.Namespace) -> None:
         raise SystemExit(1)
     except RuntimeError as e:
         print(f"Debate failed quality gate: {e}", file=sys.stderr)
+        raise SystemExit(1)
+
+    if _result_has_only_agent_failure_outputs(result):
+        print(
+            "Debate failed: all selected agents returned provider/error placeholders. "
+            f"Run 'aragora validate-env --smoke --agents {agents} --verbose' and retry.",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
 
     print("\n" + "=" * 60)

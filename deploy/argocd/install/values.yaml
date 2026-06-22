@@ -140,7 +140,7 @@ configs:
   # Repository credentials
   repositories:
     aragora:
-      url: https://github.com/an0mium/aragora
+      url: https://github.com/synaptent/aragora
       type: git
       # Use deploy key or GitHub App for authentication
       # sshPrivateKey: $repository-ssh-key

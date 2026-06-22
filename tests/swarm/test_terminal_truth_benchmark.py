@@ -8,6 +8,7 @@ directly and verifies error handling for missing/empty directories.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -25,9 +26,20 @@ from aragora.swarm.terminal_truth import (
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURES_DIR = REPO_ROOT / "benchmarks" / "fixtures" / "swarm" / "terminal_truth"
 SCORE_SCRIPT = REPO_ROOT / "scripts" / "score_benchmark.py"
+RESCUE_PRODUCTIZATION_PATH = REPO_ROOT / "docs" / "benchmarks" / "rescue_productization.json"
 
 # Collect fixture files for parametrization
 _fixture_files = sorted(FIXTURES_DIR.glob("*.json")) if FIXTURES_DIR.is_dir() else []
+
+
+def _load_score_benchmark_module():
+    spec = importlib.util.spec_from_file_location("score_benchmark_script", SCORE_SCRIPT)
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules["score_benchmark_script"] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +115,22 @@ def test_fixtures_cover_all_families() -> None:
     assert families == {"success", "rescue", "blocked"}
 
 
+def test_rescue_productization_records_admission_class_corpus_synthesis() -> None:
+    """The #7209 admission-class rescue has a durable productization ledger entry."""
+    with RESCUE_PRODUCTIZATION_PATH.open() as fh:
+        payload = json.load(fh)
+
+    entries = payload["entries"]
+    classes = [entry["class"] for entry in entries]
+    assert len(classes) == len(set(classes))
+
+    entry = next(item for item in entries if item["class"] == "admission_class_corpus_synthesis_v1")
+    assert entry["target"] == "#7209"
+    assert entry["target_kind"] == "issue"
+    assert "#7225" in entry["notes"]
+    assert "#7228" in entry["notes"]
+
+
 # ---------------------------------------------------------------------------
 # score_benchmark() function tests
 # ---------------------------------------------------------------------------
@@ -138,6 +166,18 @@ def test_score_benchmark_empty_input() -> None:
     summary = score_benchmark([])
     assert summary["total"] == 0
     assert summary["no_rescue_rate"] == 0.0
+
+
+def test_score_fixtures_empty_fixture_arrays_fail_closed(tmp_path: Path) -> None:
+    """Existing fixture files with zero examples must not report PASS."""
+    (tmp_path / "empty_one.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "empty_two.json").write_text("[]", encoding="utf-8")
+
+    passed, report = _load_score_benchmark_module().score_fixtures(tmp_path)
+
+    assert passed is False
+    assert report.startswith("ERROR:")
+    assert "no benchmark examples found" in report
 
 
 def test_score_benchmark_single_success_row() -> None:
@@ -234,6 +274,21 @@ def test_score_script_empty_dir_exits_nonzero() -> None:
             timeout=30,
         )
         assert result.returncode != 0, "Should exit non-zero for empty dir"
+
+
+def test_score_script_empty_fixture_arrays_exit_nonzero() -> None:
+    """Fixture files with no examples must cause non-zero exit."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        Path(tmpdir, "empty_one.json").write_text("[]", encoding="utf-8")
+        Path(tmpdir, "empty_two.json").write_text("[]", encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(SCORE_SCRIPT), "--fixtures-dir", tmpdir],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 2
+        assert "no benchmark examples found" in result.stdout
 
 
 def test_score_script_mismatch_exits_nonzero() -> None:

@@ -1,14 +1,12 @@
-"""CLI commands: ``aragora markets list`` and ``aragora markets predict``.
+"""CLI commands: ``aragora markets list``, ``predict``, ``create``, and ``resolve``.
 
-Reads a synthetic-market store and prints a one-line summary per market,
-or records a new agent position against an open market.
+Reads and writes a synthetic-market store backed by a local JSONL directory.
 
 See aragora.markets for the AGT-04 substrate (issue #6065).
 
-``predict`` is the first write-path verb: it records a :class:`MarketPosition`
-in the local JSONL store.  It is flag-free and default-off by virtue of being
-an explicit CLI invocation rather than an automated path.  Creating markets and
-resolving them are deferred to follow-up CLI verbs.
+All write-path verbs (``predict``, ``create``, ``resolve``) are flag-free by
+virtue of being explicit CLI invocations; the automated resolution path checks
+``ARAGORA_SYNTHETIC_MARKETS_ENABLED`` via the adapter.
 """
 
 from __future__ import annotations
@@ -19,7 +17,7 @@ import sys
 from pathlib import Path
 
 from aragora.markets.store import MarketStore, MarketStoreError
-from aragora.markets.types import MarketPosition
+from aragora.markets.types import Market, MarketPosition, ResolutionEvent
 
 
 def cmd_markets_list(args: argparse.Namespace) -> int:
@@ -124,4 +122,94 @@ def cmd_markets_predict(args: argparse.Namespace) -> int:
     return 0
 
 
-__all__ = ["cmd_markets_list", "cmd_markets_predict"]
+_DEFAULT_WINDOW = {"pr_merge": 7, "issue_close": 30, "ci_pass": 7}
+
+
+def cmd_markets_create(args: argparse.Namespace) -> int:
+    """Create a new synthetic GitHub prediction market in the local JSONL store."""
+    base_dir = Path(getattr(args, "store_dir", ".aragora_markets")).expanduser()
+    kind: str = args.type
+    repo: str = args.repo
+    window_arg = getattr(args, "window_days", None)
+    window: int = _DEFAULT_WINDOW[kind] if window_arg is None else window_arg
+    emit_json: bool = getattr(args, "json", False)
+
+    if kind in {"pr_merge", "issue_close"}:
+        number = getattr(args, "number", None)
+        if number is None:
+            print(f"error: --number is required for type {kind!r}", file=sys.stderr)
+            return 2
+        target: dict[str, object] = {"repo": repo, "number": number}
+    else:
+        ref = getattr(args, "ref", None) or ""
+        if not ref:
+            print("error: --ref is required for type 'ci_pass'", file=sys.stderr)
+            return 2
+        target = {"repo": repo, "ref": ref}
+
+    try:
+        market = Market.create(
+            question_kind=kind,  # type: ignore[arg-type]
+            target=target,
+            description="",
+            resolution_window_days=window,
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        saved = MarketStore(base_dir).add_market(market)
+    except MarketStoreError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if emit_json:
+        print(json.dumps(saved.to_json(), sort_keys=True, indent=2))
+    else:
+        print(
+            f"market created: {saved.market_id}  type={saved.question_kind}  expires={saved.expires_at}"
+        )
+    return 0
+
+
+def cmd_markets_resolve(args: argparse.Namespace) -> int:
+    """Manually resolve a synthetic market (operator action, flag-free)."""
+    base_dir = Path(getattr(args, "store_dir", ".aragora_markets")).expanduser()
+    market_id: str = args.market_id
+    outcome: str = args.outcome
+    evidence_text: str = getattr(args, "evidence", "") or ""
+    emit_json: bool = getattr(args, "json", False)
+
+    store = MarketStore(base_dir)
+    if store.get_market(market_id) is None:
+        print(f"error: market {market_id!r} not found in {base_dir}", file=sys.stderr)
+        return 1
+    if store.resolutions_by_market().get(market_id) is not None:
+        print(f"error: market {market_id!r} is already resolved", file=sys.stderr)
+        return 1
+
+    evidence: dict[str, object] = {"note": evidence_text} if evidence_text else {}
+    factory = {
+        "yes": ResolutionEvent.yes,
+        "no": ResolutionEvent.no,
+        "inconclusive": ResolutionEvent.inconclusive,
+    }[outcome]
+    event = factory(market_id=market_id, resolution_source="operator_cli", evidence=evidence)
+
+    try:
+        saved = store.record_resolution(event)
+    except MarketStoreError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if emit_json:
+        print(json.dumps(saved.to_json(), sort_keys=True, indent=2))
+    else:
+        print(
+            f"market resolved: {saved.market_id}  outcome={saved.outcome}  at={saved.resolved_at}"
+        )
+    return 0
+
+
+__all__ = ["cmd_markets_create", "cmd_markets_list", "cmd_markets_predict", "cmd_markets_resolve"]

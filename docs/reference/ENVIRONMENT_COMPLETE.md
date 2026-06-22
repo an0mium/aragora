@@ -63,7 +63,7 @@ Primary AI provider API keys. At least one is required.
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `OPENROUTER_TIER` | Optional | OpenRouter tier for rate limits | - |
-| `ARAGORA_OPENROUTER_FALLBACK_ENABLED` | Optional | Enable OpenRouter fallback | `false` |
+| `ARAGORA_OPENROUTER_FALLBACK_ENABLED` | Optional | OpenRouter fallback toggle; set `false` to opt out | `true` |
 
 ---
 
@@ -1219,6 +1219,7 @@ Primary AI provider API keys. At least one is required.
 |----------|----------|-------------|---------|
 | `ARAGORA_SECRET_NAME` | Optional | AWS Secrets Manager name | `aragora/production` |
 | `ARAGORA_USE_SECRETS_MANAGER` | Optional | Use AWS Secrets Manager | `false` locally, auto in prod/staging/AWS runtimes |
+| `ARAGORA_SECRETS_STRICT` | Optional | Require critical secrets from Secrets Manager instead of env fallback | `false` locally, auto in prod/staging |
 | `AWS_REGION` | Optional | AWS region | - |
 | `AWS_DEFAULT_REGION` | Optional | Default AWS region | - |
 | `AWS_SECRET_NAME` | Optional | AWS secret name | - |

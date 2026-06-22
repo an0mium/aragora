@@ -26,6 +26,7 @@ def _write_automation(
     prompt: str,
     byminute: int,
     status: str = "ACTIVE",
+    write_memory: bool = True,
 ) -> None:
     path = root / automation_id
     path.mkdir(parents=True)
@@ -44,6 +45,8 @@ def _write_automation(
         + "\n",
         encoding="utf-8",
     )
+    if write_memory:
+        (path / "memory.md").write_text("# Memory\n", encoding="utf-8")
 
 
 def test_audit_detects_paused_core_writer(tmp_path: Path) -> None:
@@ -65,7 +68,48 @@ def test_audit_detects_paused_core_writer(tmp_path: Path) -> None:
     assert "missing_prompt_word_outbox" in codes
 
 
+def test_audit_warns_for_explicitly_paused_core_writer(tmp_path: Path) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+            status="PAUSED" if automation_id == "engineering-autopilot" else "ACTIVE",
+        )
+
+    payload = mod.build_payload(tmp_path)
+
+    assert payload["summary"] == {"active_count": 3, "error_count": 0, "warning_count": 1}
+    assert payload["issues"][0]["automation_id"] == "engineering-autopilot"
+    assert payload["issues"][0]["code"] == "core_writer_paused"
+    assert payload["issues"][0]["severity"] == "warning"
+
+
 def test_audit_accepts_staggered_writer_contracts(tmp_path: Path) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+            status="active" if automation_id == "engineering-autopilot" else "ACTIVE",
+        )
+
+    payload = mod.build_payload(tmp_path)
+
+    assert payload["summary"] == {"active_count": 4, "error_count": 0, "warning_count": 0}
+
+
+def test_build_payload_exposes_summary_counts_at_top_level(tmp_path: Path) -> None:
     import check_codex_desktop_automations as mod
 
     prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
@@ -80,7 +124,32 @@ def test_audit_accepts_staggered_writer_contracts(tmp_path: Path) -> None:
 
     payload = mod.build_payload(tmp_path)
 
-    assert payload["summary"] == {"active_count": 4, "error_count": 0, "warning_count": 0}
+    assert payload["active_count"] == payload["summary"]["active_count"] == 4
+    assert payload["error_count"] == payload["summary"]["error_count"] == 0
+    assert payload["warning_count"] == payload["summary"]["warning_count"] == 0
+
+
+def test_audit_warns_active_writer_missing_memory_file(tmp_path: Path) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+            write_memory=automation_id != "engineering-autopilot",
+        )
+
+    payload = mod.build_payload(tmp_path)
+
+    missing = [issue for issue in payload["issues"] if issue["code"] == "missing_memory_file"]
+    assert len(missing) == 1
+    assert missing[0]["automation_id"] == "engineering-autopilot"
+    assert "engineering-autopilot/memory.md" in missing[0]["message"]
+    assert payload["core_writers"]["engineering-autopilot"]["memory_present"] is False
 
 
 def test_audit_warns_writer_missing_preflight(tmp_path: Path) -> None:
@@ -105,6 +174,57 @@ def test_audit_warns_writer_missing_preflight(tmp_path: Path) -> None:
     } == set(mod.CORE_WRITERS)
 
 
+def test_build_payload_reports_invalid_toml_without_crashing(tmp_path: Path) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+        )
+    bad_path = tmp_path / "bad-automation"
+    bad_path.mkdir()
+    (bad_path / "automation.toml").write_text("version = [\n", encoding="utf-8")
+
+    payload = mod.build_payload(tmp_path)
+
+    assert payload["automation_count"] == 5
+    assert payload["summary"]["error_count"] == 1
+    issue = next(issue for issue in payload["issues"] if issue["code"] == "invalid_automation_toml")
+    assert issue["automation_id"] == "bad-automation"
+    assert "automation.toml" in issue["message"]
+    assert payload["core_writers"]["engineering-autopilot"]["id"] == "engineering-autopilot"
+
+
+def test_main_invalid_toml_summary_only_json_returns_structured_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+        )
+    bad_path = tmp_path / "bad-automation"
+    bad_path.mkdir()
+    (bad_path / "automation.toml").write_text("version = [\n", encoding="utf-8")
+
+    assert mod.main(["--root", str(tmp_path), "--json", "--summary-only"]) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["error_count"] == 1
+    assert payload["issues"][0]["code"] == "invalid_automation_toml"
+    assert payload["prompt_details_omitted"] is True
+
+
 def test_summary_only_payload_omits_core_writer_prompts(tmp_path: Path) -> None:
     import check_codex_desktop_automations as mod
 
@@ -126,6 +246,35 @@ def test_summary_only_payload_omits_core_writer_prompts(tmp_path: Path) -> None:
     assert "prompt" in payload["core_writers"]["engineering-autopilot"]
     assert "prompt" not in compact["core_writers"]["engineering-autopilot"]
     assert compact["core_writers"]["engineering-autopilot"]["byminute"] == 5
+    assert compact["core_writers"]["engineering-autopilot"]["memory_present"] is True
+    assert compact["core_writers"]["engineering-autopilot"]["memory_path"].endswith(
+        "engineering-autopilot/memory.md"
+    )
+
+
+def test_main_defaults_root_from_codex_home_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import check_codex_desktop_automations as mod
+
+    codex_home = tmp_path / "custom-codex-home"
+    automation_root = codex_home / "automations"
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            automation_root,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+        )
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    assert mod.main(["--json", "--summary-only"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["root"] == str(automation_root)
+    assert payload["summary"] == {"active_count": 4, "error_count": 0, "warning_count": 0}
 
 
 def test_main_summary_only_json_omits_prompts(
@@ -147,6 +296,63 @@ def test_main_summary_only_json_omits_prompts(
     payload = json.loads(capsys.readouterr().out)
     assert payload["prompt_details_omitted"] is True
     assert all("prompt" not in record for record in payload["core_writers"].values())
+
+
+@pytest.mark.parametrize("argv", (["--json"], []))
+def test_main_suppresses_flush_time_broken_pipe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, argv: list[str]
+) -> None:
+    import check_codex_desktop_automations as mod
+
+    prompt = "Read memory, repair one branch, validate locally, run preflight, then refresh outbox."
+    for automation_id, minute in mod.CORE_WRITERS.items():
+        _write_automation(
+            tmp_path,
+            automation_id,
+            name=f"{automation_id} Writer",
+            prompt=prompt,
+            byminute=minute,
+        )
+
+    class FlushBrokenStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            raise BrokenPipeError("downstream closed")
+
+    stream = FlushBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    assert mod.main(["--root", str(tmp_path), *argv]) == 0
+    assert stream.writes
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
+
+
+def test_emit_output_suppresses_write_time_broken_pipe_without_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import check_codex_desktop_automations as mod
+
+    class WriteBrokenStdout:
+        def write(self, text: str) -> int:
+            raise BrokenPipeError("downstream closed")
+
+        def flush(self) -> None:
+            raise AssertionError("flush should not run after write failure")
+
+    stream = WriteBrokenStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    mod._emit_output("payload")
+
+    assert mod.sys.stdout is not stream
+    mod.sys.stdout.close()
 
 
 def test_audit_warns_duplicate_writer_minutes(tmp_path: Path) -> None:

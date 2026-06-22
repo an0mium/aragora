@@ -1,19 +1,5 @@
 {
   "schema_version": 1,
-  "entries": [
-    {
-      "corpus_id": "tw-01-bounded-execution-v1",
-      "revision": 4,
-      "stale_issue_numbers": [
-        5844,
-        5903,
-        5887
-      ],
-      "target_kind": "issue",
-      "target": "#5839",
-      "title": "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-1",
-      "url": "https://github.com/synaptent/aragora/issues/5839",
-      "notes": "Follow-up retained for the recurring TW-02 status surface after rev-4 retired the stale rev-3 corpus members."
-    }
-  ]
+  "entries": [],
+  "notes": "Stale set cleared in corpus rev-6 (2026-06-05): the rev-3-lineage stale members were retired and replaced with criterion-valid OPEN members; follow-up #5839 closed by the rev-6 restock PR."
 }

@@ -59,7 +59,7 @@
       ],
       "warning_only": false,
       "stdout_excerpt": "",
-      "stderr_excerpt": "/Users/armand/Development/aragora/.worktrees/codex-auto/codex-20260306-032004-0dc2a00b/aragora/nomic/learning_bus.py:290: RuntimeWarning: coroutine 'LearningBus._load_historical_findings_async' was never awaited\n  logger.debug(\"Could not load historical findings from KM\")\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=23, family=2, type=1, proto=0, laddr=('127.0.0.1', 65336)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n\nDebate timed out after 180s"
+      "stderr_excerpt": "~/aragora/.worktrees/codex-auto/codex-20260306-032004-0dc2a00b/aragora/nomic/learning_bus.py:290: RuntimeWarning: coroutine 'LearningBus._load_historical_findings_async' was never awaited\n  logger.debug(\"Could not load historical findings from KM\")\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n~/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=23, family=2, type=1, proto=0, laddr=('127.0.0.1', 65336)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n\nDebate timed out after 180s"
     }
   ],
   "summary": {

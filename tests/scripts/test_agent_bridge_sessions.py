@@ -108,6 +108,7 @@ def test_collect_sessions_merges_tmux_and_claude_sources(
         repo_root=repo_root,
         tmux_dir=tmux_dir,
         claude_projects_root=claude_projects_root,
+        codex_home=tmp_path / "codex",
         resolve_repo=False,
     )
 
@@ -132,6 +133,141 @@ def test_collect_sessions_merges_tmux_and_claude_sources(
         == "I’m watching #5294 and #5295; #5295 is closest to merge."
     )
     assert claude_session.summary == "I’m watching #5294 and #5295; #5295 is closest to merge."
+
+
+def test_collect_sessions_can_skip_expensive_summaries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    tmux_dir = tmp_path / "tmux"
+    tmux_dir.mkdir()
+    claude_projects_root = tmp_path / "claude-projects"
+    project_dir = claude_projects_root / "-tmp-aragora"
+    project_dir.mkdir(parents=True)
+
+    log_file = tmux_dir / "codex-strategic.log"
+    log_file.write_text("PR #5297 opened\n", encoding="utf-8")
+    (tmux_dir / "codex-strategic.meta.json").write_text(
+        json.dumps(
+            {
+                "name": "codex-strategic",
+                "agent": "codex",
+                "started": "2026-04-13T18:00:00Z",
+                "log_file": str(log_file),
+                "repo_root": str(repo_root),
+                "cwd": str(repo_root),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    claude_log = project_dir / "1431bd39-6ab6-41e0-9ead-05f91680e1df.jsonl"
+    claude_log.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "timestamp": "2026-04-13T18:02:00Z",
+                "cwd": str(repo_root),
+                "gitBranch": "codex/example",
+                "message": {
+                    "content": [{"type": "text", "text": "Detailed summary should not be parsed."}]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_tmux_alive", lambda _name: "alive")
+    monkeypatch.setattr(
+        mod,
+        "_capture_tmux_summary",
+        lambda _name: (_ for _ in ()).throw(AssertionError("summary capture should be skipped")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_latest_log_line",
+        lambda _path: (_ for _ in ()).throw(AssertionError("log summary should be skipped")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_extract_text",
+        lambda _content: (_ for _ in ()).throw(
+            AssertionError("transcript text extraction should be skipped")
+        ),
+    )
+    monkeypatch.setattr(mod, "_claude_project_slug", lambda _repo_root: "-tmp-aragora")
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmux_dir,
+        claude_projects_root=claude_projects_root,
+        codex_home=tmp_path / "codex",
+        resolve_repo=False,
+        include_summaries=False,
+    )
+
+    assert len(sessions) == 2
+    assert {item.source for item in sessions} == {"tmux", "claude_jsonl"}
+    assert {item.summary for item in sessions} == {""}
+
+    claude_session = next(item for item in sessions if item.source == "claude_jsonl")
+    assert claude_session.cwd == str(repo_root)
+    assert claude_session.branch == "codex/example"
+    assert claude_session.last_role == ""
+    assert claude_session.last_user_text is None
+    assert claude_session.last_assistant_text is None
+
+
+def test_collect_sessions_trusts_preferred_claude_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    claude_projects_root = tmp_path / "claude-projects"
+    project_dir = claude_projects_root / "-tmp-aragora"
+    project_dir.mkdir(parents=True)
+
+    claude_log = project_dir / "1431bd39-6ab6-41e0-9ead-05f91680e1df.jsonl"
+    claude_log.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "timestamp": "2026-04-13T18:02:00Z",
+                "cwd": str(repo_root),
+                "gitBranch": "codex/example",
+                "message": {"content": [{"type": "text", "text": "Summary text."}]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_claude_project_slug", lambda _repo_root: "-tmp-aragora")
+    monkeypatch.setattr(
+        mod,
+        "_safe_repo_root",
+        lambda _path: (_ for _ in ()).throw(
+            AssertionError("preferred project cwd should not be resolved through git")
+        ),
+    )
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmp_path / "tmux",
+        claude_projects_root=claude_projects_root,
+        source="claude",
+        resolve_repo=False,
+        include_summaries=False,
+    )
+
+    assert len(sessions) == 1
+    assert sessions[0].name == "claude-1431bd39"
+    assert sessions[0].cwd == str(repo_root)
+    assert sessions[0].branch == "codex/example"
 
 
 def test_collect_sessions_filters_tmux_sessions_to_matching_repo(
@@ -248,9 +384,41 @@ def test_select_summary_skips_terminal_ui_chrome() -> None:
     summary = mod._select_summary(
         [
             "PR #5297 opened",
+            "│ Yes, and always allow low impact commands (file edits and read-only commands) │",
+            "│ Yes, and always allow medium impact commands (all commands that are reversible) │",
+            "⎿Permissionsdialogdismissed",
+            "Auto (Low) - edits and read-only commands Opus 4.7 (High)",
             "↑↓ navigate Enter select Esc cancel",
             "⏵⏵ don't ask on (shift+tab to cycle)",
+            "⏵⏵ don't ask n (shift+tabtocycle)",
             "[⏱ 30s]? for help IDE ○",
+        ]
+    )
+
+    assert summary == "PR #5297 opened"
+
+
+def test_select_summary_skips_streaming_status_chrome() -> None:
+    import agent_bridge_sessions as mod
+
+    assert (
+        mod._select_summary(["PR #5297 opened", "▟ Streaming... (Press ESC to stop)"])
+        == "PR #5297 opened"
+    )
+    assert mod._select_summary(["▟ Streaming... (Press ESC to stop)"]) == ""
+
+
+def test_select_summary_skips_permission_mode_chrome() -> None:
+    import agent_bridge_sessions as mod
+
+    summary = mod._select_summary(
+        [
+            "PR #5297 opened",
+            "│ Yes, and always allow low impact commands (file edits and read-only commands) │",
+            "│ No, cancel 38;2;135;1",
+            "Auto (Low) - edits and read-only commands Opus 4.7 (High)",
+            "Auto (Medium) - all commands that are reversible Opus 4.7 (High)",
+            "⏿Permissionsdialogdismissed",
         ]
     )
 
@@ -268,6 +436,29 @@ def test_select_summary_skips_terminal_border_residue() -> None:
     )
 
     assert summary == ""
+
+
+def test_select_summary_skips_compacted_terminal_control_residue() -> None:
+    import agent_bridge_sessions as mod
+
+    assert mod._select_summary(["PR #5297 opened", "<u>1u>4;2m<u>1u>4;2m"]) == "PR #5297 opened"
+    assert mod._select_summary(["<u>1u>4;2m<u>1u>4;2m"]) == ""
+
+
+def test_select_summary_skips_mcp_status_chrome() -> None:
+    import agent_bridge_sessions as mod
+
+    assert (
+        mod._select_summary(
+            [
+                "PR #5297 opened",
+                "MCP server failed · /mcp",
+                "1MCPserverfailed·/mcp",
+            ]
+        )
+        == "PR #5297 opened"
+    )
+    assert mod._select_summary(["1MCPserverfailed·/mcp"]) == ""
 
 
 def test_load_tmux_sessions_prefers_live_capture_over_log(
@@ -355,3 +546,157 @@ def test_main_json_output(
     assert payload["repo_root"] == str(repo_root)
     assert payload["count"] == 1
     assert payload["sessions"][0]["name"] == "codex-strategic"
+
+
+def _write_codex_rollout(
+    codex_home: Path,
+    *,
+    rel: str,
+    cwd: str,
+    originator: str | None,
+    branch: str = "droid/example",
+    assistant_text: str = "Recorded settlement receipt for #7760.",
+) -> Path:
+    path = codex_home / "sessions" / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    meta_payload: dict = {
+        "id": "019e9551-5640-7a82-b18e-b9dbb8cc4f2f",
+        "source": "vscode",
+        "cwd": cwd,
+        "git": {"branch": branch, "commit_hash": "abc123"},
+    }
+    if originator is not None:
+        meta_payload["originator"] = originator
+    lines = [
+        json.dumps({"type": "session_meta", "payload": meta_payload}),
+        json.dumps(
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": assistant_text}],
+                },
+            }
+        ),
+    ]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def test_collect_sessions_labels_codex_desktop_not_claude(tmp_path: Path) -> None:
+    """A Codex Desktop automation rollout must attribute to codex, never claude."""
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    codex_home = tmp_path / "codex"
+    _write_codex_rollout(
+        codex_home,
+        rel="2026/06/04/rollout-desktop.jsonl",
+        cwd=str(repo_root),
+        originator="Codex Desktop",
+    )
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmp_path / "tmux",
+        claude_projects_root=tmp_path / "claude",
+        codex_home=codex_home,
+        source="codex",
+        resolve_repo=False,
+    )
+
+    assert len(sessions) == 1
+    record = sessions[0]
+    assert record.source == "codex_desktop"
+    assert record.agent == "codex"
+    assert record.source != "claude_jsonl"
+    assert record.name == "codex-019e9551"
+    assert record.branch == "droid/example"
+    assert record.cwd == str(repo_root)
+    assert "settlement receipt" in record.summary
+
+
+def test_collect_sessions_labels_codex_cli_when_not_desktop(tmp_path: Path) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    codex_home = tmp_path / "codex"
+    _write_codex_rollout(
+        codex_home,
+        rel="2026/06/04/rollout-cli.jsonl",
+        cwd=str(repo_root),
+        originator=None,
+    )
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmp_path / "tmux",
+        claude_projects_root=tmp_path / "claude",
+        codex_home=codex_home,
+        source="codex",
+        resolve_repo=False,
+    )
+
+    assert len(sessions) == 1
+    assert sessions[0].source == "codex_cli"
+    assert sessions[0].agent == "codex"
+
+
+def test_collect_sessions_codex_desktop_versioned_originator(tmp_path: Path) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    codex_home = tmp_path / "codex"
+    _write_codex_rollout(
+        codex_home,
+        rel="2026/06/04/rollout-desktop-v2.jsonl",
+        cwd=str(repo_root),
+        originator="Codex Desktop 1.2.3",
+    )
+
+    sessions = mod.collect_sessions(
+        repo_root=repo_root,
+        tmux_dir=tmp_path / "tmux",
+        claude_projects_root=tmp_path / "claude",
+        codex_home=codex_home,
+        source="codex",
+        resolve_repo=False,
+    )
+
+    assert len(sessions) == 1
+    assert sessions[0].source == "codex_desktop"
+
+
+def test_load_codex_sessions_filters_out_other_repos(tmp_path: Path) -> None:
+    import agent_bridge_sessions as mod
+
+    repo_root = tmp_path / "aragora"
+    repo_root.mkdir()
+    codex_home = tmp_path / "codex"
+    _write_codex_rollout(
+        codex_home,
+        rel="2026/06/04/rollout-other.jsonl",
+        cwd=str(tmp_path / "other-repo"),
+        originator="Codex Desktop",
+    )
+
+    records = mod.load_codex_sessions(
+        repo_root=repo_root.resolve(),
+        codex_home=codex_home,
+    )
+
+    assert records == []
+
+
+def test_load_codex_sessions_absent_home_returns_empty(tmp_path: Path) -> None:
+    import agent_bridge_sessions as mod
+
+    records = mod.load_codex_sessions(
+        repo_root=(tmp_path / "aragora").resolve(),
+        codex_home=tmp_path / "missing-codex",
+    )
+    assert records == []

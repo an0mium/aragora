@@ -6,13 +6,17 @@
 #   ./scripts/tmux_session_launcher.sh --name claude-worker --agent claude --autonomous --prompt "Fix tests"
 #   ./scripts/tmux_session_launcher.sh --name factory-review --agent droid --prompt "Review PR #6811"
 #   ./scripts/tmux_session_launcher.sh --name factory-review --agent factory --cwd /tmp/pr-review --prompt "Review PR #6811"
-#   ./scripts/tmux_session_launcher.sh --name codex-qa --agent codex --autonomous --prompt "Fix the tests"
+#   ./scripts/tmux_session_launcher.sh --name codex-qa --agent codex --autonomous --task-id Q123 --claimed-path tests/foo.py --prompt "Fix the tests"
 #   ./scripts/tmux_session_launcher.sh --list
 #   ./scripts/tmux_session_launcher.sh --kill codex-conductor
 #
 # Flags:
-#   --autonomous   Grant full permissions (Claude: --dangerously-skip-permissions, Codex: --full-auto)
+#   --autonomous   Grant full permissions (Claude: --dangerously-skip-permissions,
+#                  Codex: codex exec --dangerously-bypass-approvals-and-sandbox)
 #                  Required for agents to run Bash, edit files, etc. in tmux lanes.
+#                  Autonomous Codex launches must carry a dev-coordination
+#                  lease assignment (--task-id plus scope/test flags), unless
+#                  --allow-unleased-codex is passed explicitly for manual debug.
 #
 # Each session gets:
 #   - a dedicated tmux window in the "aragora" session
@@ -62,8 +66,10 @@ send_prompt_to_target() {
     if [[ -n "${PROMPT_FILE:-}" ]]; then
         source_kind="file"
     fi
-    python3 - "${audit_log}" "${NAME}" "${prompt_id}" "${timestamp}" "${#prompt}" "${line_count}" "launcher" "${source_kind}" "${PROMPT_FILE:-}" "${method}" "${target}" "${preview}" <<'PYEOF'
-import json, sys
+    python3 -c '
+import json
+import sys
+
 audit_log, name, prompt_id, timestamp, chars, lines, source_tag, source_kind, prompt_file, method, target, preview = sys.argv[1:13]
 record = {
     "prompt_id": prompt_id,
@@ -80,7 +86,7 @@ record = {
 }
 with open(audit_log, "a", encoding="utf-8") as f:
     f.write(json.dumps(record) + "\n")
-PYEOF
+' "${audit_log}" "${NAME}" "${prompt_id}" "${timestamp}" "${#prompt}" "${line_count}" "launcher" "${source_kind}" "${PROMPT_FILE:-}" "${method}" "${target}" "${preview}"
 
     echo "Prompt sent to '${NAME}' (${#prompt} chars, prompt_id=${prompt_id})"
 }
@@ -94,7 +100,7 @@ wait_for_agent_ready() {
 
     case "${agent}" in
         codex)
-            pattern='Use /skills to list available skills|Improve documentation in @filename|Find and fix a bug in @filename|Explain this codebase|Use /rename to rename your threads'
+            pattern='Use /skills to list available skills|Improve documentation in @filename|Find and fix a bug in @filename|Explain this codebase'
             ;;
         claude)
             pattern='Claude Code|ctrl\+g to edit in VS Code|don'"'"'t ask on'
@@ -145,6 +151,14 @@ PROMPT_FILE=""
 ACTION="launch"
 AUTONOMOUS="0"
 WORKDIR=""
+TASK_ID=""
+LEASE_TITLE=""
+LEASE_TTL_HOURS="${CODEX_WORK_LEASE_TTL_HOURS:-8}"
+ALLOW_LEASE_OVERLAP="0"
+ALLOW_UNLEASED_CODEX="0"
+WRITE_SCOPES=()
+CLAIMED_PATHS=()
+TEST_COMMANDS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -154,6 +168,14 @@ while [[ $# -gt 0 ]]; do
         --prompt)   PROMPT="$2"; shift 2 ;;
         --prompt-file) PROMPT_FILE="$2"; shift 2 ;;
         --autonomous) AUTONOMOUS="1"; shift ;;
+        --task-id)  TASK_ID="$2"; shift 2 ;;
+        --title|--goal) LEASE_TITLE="$2"; shift 2 ;;
+        --lease-ttl-hours) LEASE_TTL_HOURS="$2"; shift 2 ;;
+        --write-scope) WRITE_SCOPES+=("$2"); shift 2 ;;
+        --claimed-path) CLAIMED_PATHS+=("$2"); shift 2 ;;
+        --test) TEST_COMMANDS+=("$2"); shift 2 ;;
+        --allow-overlap) ALLOW_LEASE_OVERLAP="1"; shift ;;
+        --allow-unleased-codex) ALLOW_UNLEASED_CODEX="1"; shift ;;
         --list)     ACTION="list"; shift ;;
         --kill)     ACTION="kill"; NAME="$2"; shift 2 ;;
         --status)   ACTION="status"; shift ;;
@@ -222,6 +244,7 @@ fi
 LOG_FILE="${LOG_DIR}/${NAME}.log"
 META_FILE="${LOG_DIR}/${NAME}.meta.json"
 REGISTRY_REPO_ROOT="${ARAGORA_TMUX_REGISTRY_REPO_ROOT:-${REPO_ROOT}}"
+HAS_PROMPT=""
 
 # Ensure tmux session exists
 if ! tmux has-session -t "${TMUX_SESSION}" 2>/dev/null; then
@@ -229,15 +252,128 @@ if ! tmux has-session -t "${TMUX_SESSION}" 2>/dev/null; then
     echo "Created tmux session: ${TMUX_SESSION}"
 fi
 
+# If a prompt file is specified, load it before building the launch command.
+# Droid/Factory prompted launches use `droid exec -f ...` because interactive
+# Droid starts in Auto Off mode and cannot be made autonomous via CLI flags.
+if [[ -n "${PROMPT_FILE}" ]]; then
+    if [[ ! -f "${PROMPT_FILE}" ]]; then
+        echo "Prompt file does not exist: ${PROMPT_FILE}" >&2
+        exit 1
+    fi
+    PROMPT_FILE="$(cd "$(dirname "${PROMPT_FILE}")" && pwd)/$(basename "${PROMPT_FILE}")"
+    PROMPT="$(cat "${PROMPT_FILE}")"
+fi
+
+if [[ -n "${PROMPT}" ]]; then
+    HAS_PROMPT="yes"
+fi
+
+LEASE_SCOPE_CONFIGURED="0"
+if [[ ${#WRITE_SCOPES[@]} -gt 0 || ${#CLAIMED_PATHS[@]} -gt 0 || ${#TEST_COMMANDS[@]} -gt 0 ]]; then
+    LEASE_SCOPE_CONFIGURED="1"
+fi
+
+LEASE_CONFIGURED="0"
+if [[ -n "${TASK_ID}" && "${LEASE_SCOPE_CONFIGURED}" == "1" ]]; then
+    LEASE_CONFIGURED="1"
+fi
+
+if [[ "${AGENT}" == "codex" && "${AUTONOMOUS}" == "1" && "${ALLOW_UNLEASED_CODEX}" != "1" && "${LEASE_CONFIGURED}" != "1" ]]; then
+    cat >&2 <<'EOF'
+Refusing unleased autonomous Codex launch.
+
+Autonomous Codex workers must be assigned by the conductor/dispatcher instead
+of free-picking the queue. Pass an explicit dev-coordination lease, for example:
+  --task-id Q123 --title "repair PR #123" --claimed-path scripts/foo.py
+
+A valid autonomous Codex lease requires --task-id plus at least one concrete
+scope signal: --claimed-path, --write-scope, or --test.
+
+For one-off manual debugging only, pass --allow-unleased-codex.
+EOF
+    exit 2
+fi
+
 # Build the launch command
 # When --autonomous is set:
 #   - Claude gets ARAGORA_ADMIN_APPROVED=1 → --dangerously-skip-permissions (can run Bash)
-#   - Codex gets --full-auto approval mode
+#   - Prompted Codex uses non-interactive `codex exec --dangerously-bypass-approvals-and-sandbox`
+#   - Unprompted Codex stays interactive and gets the local `--yolo` compatibility alias
+#   - Droid/Factory prompted work always uses `droid exec --auto high`; use
+#     ARAGORA_DROID_AUTO_LEVEL=low|medium|high to lower the level explicitly.
 if [[ "${AGENT}" == "codex" ]]; then
+    CODEX_SESSION_ARGS=(--agent "${NAME}" --base main)
     if [[ "${AUTONOMOUS}" == "1" ]]; then
-        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh --agent '${NAME}' --base main --full-auto"
+        CODEX_SESSION_ARGS+=(--yolo)
+    fi
+    if [[ -n "${TASK_ID}" ]]; then
+        CODEX_SESSION_ARGS+=(--task-id "${TASK_ID}")
+    fi
+    if [[ -n "${LEASE_TITLE}" ]]; then
+        CODEX_SESSION_ARGS+=(--title "${LEASE_TITLE}")
+    fi
+    if [[ -n "${LEASE_TTL_HOURS}" ]]; then
+        CODEX_SESSION_ARGS+=(--lease-ttl-hours "${LEASE_TTL_HOURS}")
+    fi
+    for scope in "${WRITE_SCOPES[@]}"; do
+        CODEX_SESSION_ARGS+=(--write-scope "${scope}")
+    done
+    for path in "${CLAIMED_PATHS[@]}"; do
+        CODEX_SESSION_ARGS+=(--claimed-path "${path}")
+    done
+    for test_cmd in "${TEST_COMMANDS[@]}"; do
+        CODEX_SESSION_ARGS+=(--test "${test_cmd}")
+    done
+    if [[ "${ALLOW_LEASE_OVERLAP}" == "1" ]]; then
+        CODEX_SESSION_ARGS+=(--allow-overlap)
+    fi
+    CODEX_SESSION_ARGS_TEXT="$(python3 -c 'import shlex, sys; print(" ".join(shlex.quote(a) for a in sys.argv[1:]))' "${CODEX_SESSION_ARGS[@]}")"
+    if [[ "${AUTONOMOUS}" == "1" ]]; then
+        if [[ -n "${PROMPT}" ]]; then
+            CODEX_EXEC_PROMPT_FILE="${PROMPT_FILE}"
+            if [[ -z "${CODEX_EXEC_PROMPT_FILE}" ]]; then
+                CODEX_EXEC_PROMPT_FILE="${LOG_DIR}/${NAME}.prompt.md"
+                printf '%s\n' "${PROMPT}" > "${CODEX_EXEC_PROMPT_FILE}"
+            fi
+            CODEX_EXEC_PROMPT_FILE="$(cd "$(dirname "${CODEX_EXEC_PROMPT_FILE}")" && pwd)/$(basename "${CODEX_EXEC_PROMPT_FILE}")"
+            PROMPT_FILE="${CODEX_EXEC_PROMPT_FILE}"
+            CODEX_EXEC_LAUNCH_FILE="${LOG_DIR}/${NAME}.launch.sh"
+            python3 -c '
+import os
+import shlex
+import sys
+from pathlib import Path
+
+launch_file, workdir, prompt_file = sys.argv[1:4]
+session_args = sys.argv[4:]
+body = "\n".join(
+    [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        f"cd {shlex.quote(workdir)}",
+        (
+            "./scripts/codex_session.sh "
+            + " ".join(shlex.quote(arg) for arg in session_args)
+            + " -- "
+            "codex exec --dangerously-bypass-approvals-and-sandbox "
+            f"- < {shlex.quote(prompt_file)}"
+        ),
+        "",
+    ]
+)
+path = Path(launch_file)
+path.write_text(body, encoding="utf-8")
+os.chmod(path, 0o700)
+' "${CODEX_EXEC_LAUNCH_FILE}" "${WORKDIR}" "${CODEX_EXEC_PROMPT_FILE}" "${CODEX_SESSION_ARGS[@]}"
+            LAUNCH_CMD="bash '${CODEX_EXEC_LAUNCH_FILE}'"
+            # `codex exec` consumes the prompt directly; do not also paste it
+            # into an interactive pane.
+            PROMPT=""
+        else
+            LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
+        fi
     else
-        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh --agent '${NAME}' --base main"
+        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
     fi
 elif [[ "${AGENT}" == "claude" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
@@ -246,18 +382,36 @@ elif [[ "${AGENT}" == "claude" ]]; then
         LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/claude-wt"
     fi
 elif [[ "${AGENT}" == "droid" || "${AGENT}" == "factory" ]]; then
-    # Droid interactive sessions do their own permission gating. Mission/exec
-    # mode is intentionally not used here so the pane remains interactive for
-    # later agent_bridge.py send/read cycles.
-    LAUNCH_CMD="cd '${WORKDIR}' && droid --cwd '${WORKDIR}'"
+    DROID_AUTO_LEVEL="${ARAGORA_DROID_AUTO_LEVEL:-high}"
+    case "${DROID_AUTO_LEVEL}" in
+        low|medium|high) ;;
+        *)
+            echo "Invalid ARAGORA_DROID_AUTO_LEVEL='${DROID_AUTO_LEVEL}'. Use low, medium, or high." >&2
+            exit 1
+            ;;
+    esac
+    if [[ -n "${PROMPT}" ]]; then
+        DROID_EXEC_PROMPT_FILE="${PROMPT_FILE}"
+        if [[ -z "${DROID_EXEC_PROMPT_FILE}" ]]; then
+            DROID_EXEC_PROMPT_FILE="${LOG_DIR}/${NAME}.prompt.md"
+            printf '%s\n' "${PROMPT}" > "${DROID_EXEC_PROMPT_FILE}"
+        fi
+        DROID_EXEC_PROMPT_FILE="$(cd "$(dirname "${DROID_EXEC_PROMPT_FILE}")" && pwd)/$(basename "${DROID_EXEC_PROMPT_FILE}")"
+        PROMPT_FILE="${DROID_EXEC_PROMPT_FILE}"
+        LAUNCH_CMD="cd '${WORKDIR}' && droid exec --auto '${DROID_AUTO_LEVEL}' --cwd '${WORKDIR}' -f '${DROID_EXEC_PROMPT_FILE}'"
+        # `droid exec -f` consumes the prompt directly; do not also paste it
+        # into an interactive pane.
+        PROMPT=""
+    else
+        if [[ "${ARAGORA_ALLOW_DROID_AUTO_OFF:-0}" != "1" ]]; then
+            echo "Refusing to launch ${AGENT} without a prompt: interactive Droid starts Auto Off. Use --prompt/--prompt-file so this launcher can run droid exec --auto ${DROID_AUTO_LEVEL}, or set ARAGORA_ALLOW_DROID_AUTO_OFF=1 for an explicit manual override." >&2
+            exit 1
+        fi
+        LAUNCH_CMD="cd '${WORKDIR}' && droid --cwd '${WORKDIR}'"
+    fi
 else
     echo "Unknown agent: ${AGENT}. Use 'codex', 'claude', 'droid', or 'factory'." >&2
     exit 1
-fi
-
-# If a prompt file is specified, we'll feed it after launch
-if [[ -n "${PROMPT_FILE}" && -f "${PROMPT_FILE}" ]]; then
-    PROMPT="$(cat "${PROMPT_FILE}")"
 fi
 
 # Create new tmux window with logging
@@ -268,10 +422,11 @@ tmux pipe-pane -t "${WINDOW_TARGET}" -o "cat >> '${LOG_FILE}'"
 # Send the launch command
 tmux send-keys -t "${WINDOW_TARGET}" "${LAUNCH_CMD}" Enter
 
-# Write metadata (avoid embedding prompt content in Python literal)
-python3 - "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${WORKDIR}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}" <<'PYEOF'
+# Write metadata (avoid embedding prompt content in Python literal). Use
+# `python3 -c` instead of a heredoc; some macOS bash/tmux test paths can block
+# while writing heredoc content before the Python reader starts.
+python3 -c '
 import datetime
-import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -295,28 +450,38 @@ meta = {
 Path(meta_file).write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
 try:
-    module_path = Path(repo_root) / "aragora" / "swarm" / "session_mux.py"
-    spec = importlib.util.spec_from_file_location("aragora_swarm_session_mux", module_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"unable to load session_mux module from {module_path}")
-    session_mux = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = session_mux
-    spec.loader.exec_module(session_mux)
-
-    record = session_mux.SessionRecord(
-        name=name,
-        tmux_session=tmux_session,
-        tmux_window=window_target,
-        tmux_pane=pane_index or "0",
-        launcher_command=launch_cmd,
-        started_at=started_at,
-        log_path=log_file,
-        meta_path=meta_file,
-    )
-    session_mux.SessionMuxRegistry(Path(registry_repo_root)).upsert(record)
-except Exception as exc:  # pragma: no cover - launcher should still succeed if registry sync fails
-    print(f"warning: failed to register launcher session: {exc}", file=sys.stderr)
-PYEOF
+    registry_path = Path(registry_repo_root) / ".aragora" / "session_mux" / "registry.json"
+    if registry_path.exists():
+        payload = json.loads(registry_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            payload = {}
+    else:
+        payload = {}
+    payload.setdefault("schema_version", 1)
+    sessions = payload.setdefault("sessions", {})
+    if not isinstance(sessions, dict):
+        sessions = {}
+        payload["sessions"] = sessions
+    sessions[name] = {
+        "name": name,
+        "tmux_session": tmux_session,
+        "tmux_window": window_target,
+        "tmux_pane": pane_index or "0",
+        "launcher_command": launch_cmd,
+        "started_at": started_at,
+        "last_prompt_at": None,
+        "last_prompt_id": None,
+        "worktree_path": None,
+        "branch": None,
+        "log_path": log_file,
+        "launcher_log_path": None,
+        "meta_path": meta_file,
+    }
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+except Exception as exc:
+    print("warning: failed to register launcher session: " + str(exc), file=sys.stderr)
+' "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${WORKDIR}" "${PROMPT_FILE}" "${META_FILE}" "${HAS_PROMPT}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}"
 
 echo "Launched '${NAME}' (${AGENT}) in tmux session '${TMUX_SESSION}'"
 echo "  Cwd: ${WORKDIR}"

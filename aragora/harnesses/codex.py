@@ -26,6 +26,7 @@ from aragora.harnesses.base import (
     SessionContext,
     SessionResult,
 )
+from aragora.config import get_api_key
 from aragora.swarm.harness_health import (
     get_harness_health_registry,
     record_harness_result,
@@ -166,9 +167,7 @@ class CodexHarness(CodeAnalysisHarness):
                     harness="codex",
                 )
 
-            import os
-
-            api_key = self.config.api_key or os.environ.get("OPENAI_API_KEY")
+            api_key = self.config.api_key or get_api_key("OPENAI_API_KEY", required=False)
             if not api_key:
                 raise HarnessError(
                     "OPENAI_API_KEY environment variable not set",

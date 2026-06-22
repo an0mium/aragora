@@ -16,13 +16,14 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 import time
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from aragora.config import get_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ OUTPUT_DIR = REPO_ROOT / "aragora" / "server" / "handlers" / "essay_summaries"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 MODELS: dict[str, str] = {
-    "claude": "anthropic/claude-opus-4.7",
+    "claude": "anthropic/claude-opus-4.8",
     "gpt": "openai/gpt-5.3",
     "grok": "x-ai/grok-4.1-fast",
     "deepseek": "deepseek/deepseek-v4-pro",
@@ -90,7 +91,7 @@ def build_payload(model_id: str, essay_text: str) -> dict[str, Any]:
     """Build the OpenRouter API request payload.
 
     Args:
-        model_id: The OpenRouter model identifier (e.g. ``anthropic/claude-opus-4.7``).
+        model_id: The OpenRouter model identifier (e.g. ``anthropic/claude-opus-4.8``).
         essay_text: The full essay to include in the user message.
 
     Returns:
@@ -294,7 +295,7 @@ def main(argv: list[str] | None = None) -> None:
     selected = resolve_models(args.models)
 
     # Validate API key (unless dry run)
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    api_key = get_api_key("OPENROUTER_API_KEY", required=False) or ""
     if not args.dry_run and not api_key:
         print("Error: OPENROUTER_API_KEY environment variable is not set.")
         sys.exit(1)

@@ -2119,3 +2119,93 @@ def test_cmd_status_reports_lifecycle_and_lock_metadata(
     assert payload["sessions"][0]["lifecycle_state"] == "active"
     assert payload["sessions"][0]["cleanup_lock_reason"] == "active_session"
     assert payload["sessions"][1]["lifecycle_state"] == "safe-to-clean"
+
+
+# --- squash-merge detection (real git repos) ---------------------------------
+
+
+def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True)
+
+
+def _init_repo_with_origin(tmp_path: Path) -> Path:
+    """Create a work repo whose ``origin/main`` tracks a bare remote."""
+    origin = tmp_path / "origin.git"
+    subprocess.run(
+        ["git", "init", "--bare", "-b", "main", str(origin)],
+        check=True,
+        capture_output=True,
+    )
+    work = tmp_path / "work"
+    subprocess.run(["git", "clone", str(origin), str(work)], check=True, capture_output=True)
+    _git(work, "config", "user.email", "t@example.com")
+    _git(work, "config", "user.name", "Tester")
+    (work / "base.txt").write_text("base\n", encoding="utf-8")
+    _git(work, "add", "-A")
+    _git(work, "commit", "-m", "init")
+    _git(work, "branch", "-M", "main")
+    _git(work, "push", "-u", "origin", "main")
+    return work
+
+
+def test_branch_effectively_merged_detects_squash_merge(tmp_path):
+    import importlib
+
+    mod = importlib.import_module("codex_worktree_autopilot")
+    work = _init_repo_with_origin(tmp_path)
+
+    _git(work, "checkout", "-b", "feature")
+    (work / "feature.txt").write_text("feature work\n", encoding="utf-8")
+    _git(work, "add", "-A")
+    _git(work, "commit", "-m", "feature change")
+
+    # Squash-merge feature into main, then publish to origin.
+    _git(work, "checkout", "main")
+    _git(work, "merge", "--squash", "feature")
+    _git(work, "commit", "-m", "squash: land feature")
+    _git(work, "push", "origin", "main")
+    _git(work, "fetch", "origin")
+
+    # Commit-ancestry still reports the branch as ahead (the squash defeats it)...
+    assert mod._branch_ahead_count(work, "origin/main", "feature") > 0
+    # ...but the content-based check correctly sees the work as merged.
+    assert mod._branch_effectively_merged(work, "main", "feature") is True
+
+
+def test_branch_effectively_merged_false_for_genuinely_unmerged(tmp_path):
+    import importlib
+
+    mod = importlib.import_module("codex_worktree_autopilot")
+    work = _init_repo_with_origin(tmp_path)
+
+    _git(work, "checkout", "-b", "feature")
+    (work / "feature.txt").write_text("unmerged work\n", encoding="utf-8")
+    _git(work, "add", "-A")
+    _git(work, "commit", "-m", "feature change")
+    _git(work, "fetch", "origin")
+
+    # Nothing landed on origin/main, so the branch is genuinely unmerged.
+    assert mod._branch_effectively_merged(work, "main", "feature") is False
+
+
+def test_branch_effectively_merged_false_when_base_diverged_on_branch_paths(tmp_path):
+    import importlib
+
+    mod = importlib.import_module("codex_worktree_autopilot")
+    work = _init_repo_with_origin(tmp_path)
+
+    _git(work, "checkout", "-b", "feature")
+    (work / "feature.txt").write_text("feature v1\n", encoding="utf-8")
+    _git(work, "add", "-A")
+    _git(work, "commit", "-m", "feature change")
+
+    # Base independently changes the SAME path to different content.
+    _git(work, "checkout", "main")
+    (work / "feature.txt").write_text("base-owned different content\n", encoding="utf-8")
+    _git(work, "add", "-A")
+    _git(work, "commit", "-m", "base touches feature.txt")
+    _git(work, "push", "origin", "main")
+    _git(work, "fetch", "origin")
+
+    # Branch path differs between base tip and branch tip → conservatively kept.
+    assert mod._branch_effectively_merged(work, "main", "feature") is False

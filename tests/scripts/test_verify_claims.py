@@ -8,6 +8,7 @@ No network access; all manifests use ``kind: manual`` or ``--dry-run``.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -94,6 +95,23 @@ class TestBasic:
         rc, payload, _ = _run(tmp_path, ["--dry-run"])
         assert rc == 0
         assert payload["results"][0]["status"] == "unsupported"
+
+    def test_invocation_from_outside_checkout_resolves_repo_package(self, tmp_path: Path) -> None:
+        _write(tmp_path, "m.yaml", _MANUAL)
+        env = dict(os.environ)
+        env.pop("PYTHONPATH", None)
+        result = subprocess.run(
+            [_PYTHON, str(_SCRIPT), "--claims-dir", str(tmp_path)],
+            capture_output=True,
+            cwd=tmp_path,
+            env=env,
+            text=True,
+            timeout=30,
+        )
+
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout)
+        assert payload["results"][0]["claim_id"] == "test.manual.claim"
 
     def test_summary_counts_results(self, tmp_path: Path) -> None:
         multi = _MANUAL

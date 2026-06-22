@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from aragora.swarm.agent_bridge.harnesses.droid import DroidTransport
+from aragora.swarm.agent_bridge.harnesses import create_transport
 
 
 def _fixture_text(name: str) -> str:
@@ -22,7 +23,7 @@ class FakeRunner:
         return subprocess.CompletedProcess(command, 0, stdout=self.stdout, stderr="")
 
 
-def test_droid_launch_parses_session_id_usage_and_default_auto_low(tmp_path: Path) -> None:
+def test_droid_launch_parses_session_id_usage_and_default_auto_high(tmp_path: Path) -> None:
     fake_runner = FakeRunner(_fixture_text("droid_start.json"))
     transport = DroidTransport(
         cwd=tmp_path,
@@ -40,7 +41,7 @@ def test_droid_launch_parses_session_id_usage_and_default_auto_low(tmp_path: Pat
         "droid",
         "exec",
         "--auto",
-        "low",
+        "high",
         "--output-format",
         "json",
         "--model",
@@ -95,10 +96,21 @@ def test_droid_resume_uses_session_flag(tmp_path: Path) -> None:
         "droid",
         "exec",
         "--auto",
-        "low",
+        "high",
         "--output-format",
         "json",
         "-s",
         "16329fce-3484-47a4-ad98-6676fdfb7477",
         "--cwd",
     ]
+
+
+def test_factory_harness_alias_uses_droid_transport(tmp_path: Path) -> None:
+    transport = create_transport(
+        "factory",
+        cwd=tmp_path,
+        binary_resolver=lambda _: "/usr/bin/droid",
+    )
+
+    assert isinstance(transport, DroidTransport)
+    assert transport.harness == "droid"
