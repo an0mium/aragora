@@ -20,6 +20,7 @@ import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from packaging.requirements import Requirement
 import pytest
 import yaml
 
@@ -49,6 +50,23 @@ def _get_triggers(data: dict) -> dict:
     if True in data:
         return data[True]
     raise KeyError("Workflow has no 'on' trigger key")
+
+
+def _shell_array_values(script: str, name: str) -> set[str]:
+    """Return quoted values from a simple bash array assignment."""
+    array_match = re.search(
+        rf"^(?:readonly\s+)?{re.escape(name)}=\((?P<body>[^\n]*)\)",
+        script,
+        re.MULTILINE,
+    )
+    if array_match is None:
+        array_match = re.search(
+            rf"^(?:readonly\s+)?{re.escape(name)}=\(\n(?P<body>.*?)^\)",
+            script,
+            re.MULTILINE | re.DOTALL,
+        )
+    assert array_match is not None
+    return set(re.findall(r'"([^"]+)"', array_match.group("body")))
 
 
 # ---------------------------------------------------------------------------
@@ -178,14 +196,17 @@ class TestSharedCiInstaller:
 
     def test_control_plane_root_names_include_renamed_package(self):
         script = (PROJECT_ROOT / "scripts" / "ci_install_project.sh").read_text()
-        names_match = re.search(
-            r"LEGACY_CONTROL_PLANE_PACKAGE_NAMES=\((?P<names>[^)]*)\)",
-            script,
-        )
-        assert names_match is not None
-        names = set(re.findall(r'"([^"]+)"', names_match.group("names")))
+        names = _shell_array_values(script, "LEGACY_CONTROL_PLANE_PACKAGE_NAMES")
         assert {"aragora-debate", "aragora"} <= names
         assert 'LEGACY_CONTROL_PLANE_MARKER_PATH="aragora/server"' in script
+
+    def test_control_plane_test_deps_install_real_anthropic_sdk(self):
+        script = (PROJECT_ROOT / "scripts" / "ci_install_project.sh").read_text()
+        deps = _shell_array_values(script, "LEGACY_CONTROL_PLANE_TEST_EXTRA_DEPS")
+        anthropic_dep = next(
+            Requirement(dep) for dep in deps if Requirement(dep).name == "anthropic"
+        )
+        assert str(anthropic_dep.specifier) == "<1.0,>=0.111"
 
 
 class TestAragoraReviewGateWorkflow:
