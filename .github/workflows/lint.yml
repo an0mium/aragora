@@ -695,8 +695,8 @@ jobs:
 
       - name: Install security tools
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install bandit safety
+          python -m pip install --upgrade pip setuptools
+          python -m pip install bandit
 
       - name: Run Bandit security scan
         run: |
@@ -708,9 +708,34 @@ jobs:
       - name: Check dependencies for vulnerabilities
         run: |
           python -m pip install -e .
+          safety_requirements="${RUNNER_TEMP:-/tmp}/aragora-safety-requirements.txt"
+          safety_venv="${RUNNER_TEMP:-/tmp}/aragora-safety-venv"
+          python - <<'PY' > "$safety_requirements"
+          import json
+          import subprocess
+          import sys
+
+          packages = json.loads(
+              subprocess.check_output(
+                  [sys.executable, "-m", "pip", "list", "--format=json"],
+                  text=True,
+              )
+          )
+          for package in packages:
+              name = package.get("name")
+              version = package.get("version")
+              if name and version:
+                  print(f"{name}=={version}")
+          PY
+          python -m venv "$safety_venv"
+          "$safety_venv/bin/python" -m pip install --upgrade pip
+          "$safety_venv/bin/python" -m pip install safety
           # Blocking: fail on HIGH/CRITICAL vulnerabilities.
           # --ignore 70612: Known false positive / accepted risk.
-          safety check --full-report --ignore 70612
+          "$safety_venv/bin/safety" check \
+            --full-report \
+            --ignore 70612 \
+            -r "$safety_requirements"
 
   secrets:
     runs-on: ubuntu-latest
