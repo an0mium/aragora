@@ -157,7 +157,7 @@ class TestSlackResilience:
         @asynccontextmanager
         async def _raise(*a, **kw):
             raise aiohttp.ClientError("Connection refused")
-            yield  # noqa: unreachable - needed for generator syntax
+            yield  # needed for generator syntax
 
         mock_session = MagicMock()
         mock_session.closed = False
@@ -180,7 +180,7 @@ class TestSlackResilience:
         @asynccontextmanager
         async def _raise(*a, **kw):
             raise aiohttp.ClientError("Connection refused")
-            yield  # noqa: unreachable
+            yield  # needed for generator syntax
 
         mock_session = MagicMock()
         mock_session.closed = False
@@ -281,7 +281,7 @@ class TestDiscordResilience:
         @asynccontextmanager
         async def _raise(*a, **kw):
             raise asyncio.TimeoutError()
-            yield  # noqa: unreachable
+            yield  # needed for generator syntax
 
         mock_session = MagicMock()
         mock_session.closed = False
@@ -392,7 +392,7 @@ class TestTeamsResilience:
         @asynccontextmanager
         async def _raise(*a, **kw):
             raise aiohttp.ClientError("Connection refused")
-            yield  # noqa: unreachable
+            yield  # needed for generator syntax
 
         mock_session = MagicMock()
         mock_session.closed = False

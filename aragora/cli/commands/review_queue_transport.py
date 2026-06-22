@@ -135,6 +135,224 @@ def _gh_json_with_transport_retries(
     raise _GhError(f"gh {' '.join(args)} failed without an error")
 
 
+def _github_repo_slug_from_override(repo_override: str | None) -> str:
+    raw = str(repo_override or "").strip()
+    if not raw:
+        return ""
+    raw = raw.removeprefix("repos/").strip("/")
+    if raw.startswith("http"):
+        match = re.search(r"github\.com[:/]+([^/]+)/([^/.?#]+)", raw)
+        return f"{match.group(1)}/{match.group(2)}" if match else ""
+    if "/" in raw and not raw.startswith("-"):
+        return raw
+    return ""
+
+
+def _rest_pr_transport_fallback(
+    *,
+    pr_refs: list[str],
+    repo_override: str | None,
+    graphql_error: str,
+    gh_json: Callable[[list[str]], Any] = _gh_json,
+) -> dict[str, Any]:
+    """Return compact REST PR/check-run metadata while preserving no-mutate state."""
+    numbers = _numeric_pr_refs(pr_refs)
+    repo_slug = _github_repo_slug_from_override(repo_override)
+    fallback: dict[str, Any] = {
+        "source": "rest",
+        "available": False,
+        "transport_blocked": True,
+        "preserve_no_mutate": True,
+        "mutation_forbidden": True,
+        "graphql_error": graphql_error,
+        "reason": "",
+        "repo": repo_slug,
+        "pr_refs": [str(ref) for ref in pr_refs],
+    }
+    if len(numbers) != 1:
+        fallback["reason"] = "REST fallback requires exactly one numeric PR ref"
+        return fallback
+    if not repo_slug:
+        fallback["reason"] = "REST fallback requires an explicit owner/repo"
+        fallback["pr_number"] = numbers[0]
+        return fallback
+
+    pr_number = numbers[0]
+    fallback["pr_number"] = pr_number
+    pr_payload, pr_error = _try_rest_json(
+        ["api", f"repos/{repo_slug}/pulls/{pr_number}"],
+        gh_json=gh_json,
+    )
+    if not isinstance(pr_payload, dict):
+        fallback["reason"] = "REST PR metadata unavailable"
+        fallback["pr_error"] = pr_error or "REST PR endpoint returned a non-object payload"
+        return fallback
+
+    head_sha = _nested_str(pr_payload, "head", "sha")
+    files_payload, files_error = _try_rest_json(
+        ["api", f"repos/{repo_slug}/pulls/{pr_number}/files?per_page=100"],
+        gh_json=gh_json,
+    )
+    check_runs_payload, check_runs_error = _try_rest_json(
+        ["api", f"repos/{repo_slug}/commits/{head_sha}/check-runs?per_page=100"],
+        gh_json=gh_json,
+    )
+    fallback.update(
+        {
+            "available": True,
+            "reason": "GraphQL transport blocked; REST metadata is informational only",
+            "pr": _compact_rest_pr(pr_payload),
+            "files_available": files_payload is not None,
+            "files": _compact_rest_files(files_payload),
+            "files_error": files_error,
+            "check_runs_available": check_runs_payload is not None,
+            "check_runs_summary": _compact_rest_check_runs_summary(check_runs_payload),
+            "check_runs_error": check_runs_error,
+        }
+    )
+    return fallback
+
+
+def _merge_packet_transport_blocked_envelope_with_rest_fallback(
+    *,
+    error: str,
+    pr_refs: list[str],
+    repo_override: str | None,
+    limit: int,
+    queue_cap: int = 6,
+    gh_json: Callable[[list[str]], Any] = _gh_json,
+) -> dict[str, Any]:
+    envelope = _merge_packet_transport_blocked_envelope(
+        error=error,
+        pr_refs=pr_refs,
+        repo_override=repo_override,
+        limit=limit,
+        queue_cap=queue_cap,
+    )
+    envelope["rest_fallback"] = _rest_pr_transport_fallback(
+        pr_refs=pr_refs,
+        repo_override=repo_override,
+        graphql_error=error,
+        gh_json=gh_json,
+    )
+    return envelope
+
+
+def _try_rest_json(
+    args: list[str],
+    *,
+    gh_json: Callable[[list[str]], Any],
+) -> tuple[Any | None, str]:
+    try:
+        return _gh_json_with_transport_retries(args, gh_json=gh_json, attempts=2), ""
+    except Exception as exc:  # noqa: BLE001 - REST fallback must remain best-effort.
+        return None, str(exc)
+
+
+def _compact_rest_pr(payload: dict[str, Any]) -> dict[str, Any]:
+    state = str(payload.get("state") or "").upper()
+    if payload.get("merged_at") or payload.get("mergedAt"):
+        state = "MERGED"
+    mergeable_state = str(payload.get("mergeable_state") or "").upper()
+    return {
+        "number": payload.get("number"),
+        "title": str(payload.get("title") or ""),
+        "url": str(payload.get("html_url") or payload.get("url") or ""),
+        "state": state,
+        "is_draft": bool(payload.get("draft")),
+        "head_branch": _nested_str(payload, "head", "ref"),
+        "head_sha": _nested_str(payload, "head", "sha"),
+        "base_branch": _nested_str(payload, "base", "ref"),
+        "base_sha": _nested_str(payload, "base", "sha"),
+        "mergeable": _rest_mergeable(payload.get("mergeable"), mergeable_state),
+        "merge_state_status": mergeable_state,
+        "updated_at": str(payload.get("updated_at") or ""),
+        "changed_files": payload.get("changed_files"),
+    }
+
+
+def _compact_rest_files(payload: Any) -> list[str]:
+    if not isinstance(payload, list):
+        return []
+    paths: list[str] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("filename") or item.get("path") or "").strip()
+        if path:
+            paths.append(path)
+    return paths
+
+
+def _compact_rest_check_runs_summary(payload: Any) -> dict[str, Any]:
+    runs = payload.get("check_runs") if isinstance(payload, dict) else None
+    if not isinstance(runs, list):
+        return {"available": False, "total": 0, "non_green_sample": []}
+
+    by_status: dict[str, int] = {}
+    by_conclusion: dict[str, int] = {}
+    non_green: list[dict[str, str]] = []
+    for run in runs:
+        if not isinstance(run, dict):
+            continue
+        status = str(run.get("status") or "").strip().upper()
+        conclusion = str(run.get("conclusion") or "").strip().upper()
+        by_status[status or "UNKNOWN"] = by_status.get(status or "UNKNOWN", 0) + 1
+        by_conclusion[conclusion or "UNKNOWN"] = by_conclusion.get(conclusion or "UNKNOWN", 0) + 1
+        if _rest_check_run_non_green(status=status, conclusion=conclusion):
+            non_green.append(_compact_rest_check_run(run, status=status, conclusion=conclusion))
+
+    return {
+        "available": True,
+        "total": len([run for run in runs if isinstance(run, dict)]),
+        "status_counts": by_status,
+        "conclusion_counts": by_conclusion,
+        "non_green_count": len(non_green),
+        "non_green_sample": non_green[:12],
+    }
+
+
+def _compact_rest_check_run(run: dict[str, Any], *, status: str, conclusion: str) -> dict[str, str]:
+    suite = run.get("check_suite")
+    suite_dict: dict[str, Any] = suite if isinstance(suite, dict) else {}
+    app = suite_dict.get("app")
+    app_dict: dict[str, Any] = app if isinstance(app, dict) else {}
+    return {
+        "name": str(run.get("name") or run.get("context") or ""),
+        "workflow": str(run.get("workflowName") or app_dict.get("name") or ""),
+        "status": status,
+        "conclusion": conclusion,
+        "url": str(run.get("html_url") or run.get("details_url") or ""),
+    }
+
+
+def _rest_check_run_non_green(*, status: str, conclusion: str) -> bool:
+    if conclusion in {"SUCCESS", "SKIPPED", "NEUTRAL"}:
+        return False
+    if conclusion:
+        return True
+    return status in {"QUEUED", "IN_PROGRESS", "PENDING", "EXPECTED"}
+
+
+def _rest_mergeable(value: Any, mergeable_state: str) -> str:
+    if value is True:
+        return "MERGEABLE"
+    if value is False:
+        if mergeable_state in {"DIRTY", "CONFLICTING"}:
+            return "CONFLICTING"
+        return "UNKNOWN"
+    return "UNKNOWN"
+
+
+def _nested_str(payload: dict[str, Any], *path: str) -> str:
+    value: Any = payload
+    for key in path:
+        if not isinstance(value, dict):
+            return ""
+        value = value.get(key)
+    return str(value or "")
+
+
 def _numeric_pr_refs(pr_refs: list[str]) -> list[int]:
     numbers: list[int] = []
     for ref in pr_refs:

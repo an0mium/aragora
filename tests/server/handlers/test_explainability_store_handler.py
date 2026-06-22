@@ -581,8 +581,8 @@ class TestExplainabilityHandlerRouting:
         assert handler.can_handle("/api/v1/debates/debate-123/counterfactuals", "GET")
 
     def test_can_handle_debate_summary(self, handler):
-        """Should handle GET for summary."""
-        assert handler.can_handle("/api/v1/debates/debate-123/summary", "GET")
+        """Summary is owned by DebatesHandler, not ExplainabilityHandler."""
+        assert not handler.can_handle("/api/v1/debates/debate-123/summary", "GET")
 
     def test_can_handle_explain_shortcut(self, handler):
         """Should handle explain shortcut."""
@@ -915,13 +915,9 @@ class TestExplainabilityHandlerErrors:
 
         assert result.status_code == 404
 
-    @pytest.mark.asyncio
-    async def test_summary_not_found(self, handler):
-        """Test summary returns 404 for nonexistent debate."""
-        with patch.object(handler, "_get_or_build_decision", return_value=None):
-            result = await handler._handle_summary("nonexistent", {}, False)
-
-        assert result.status_code == 404
+    def test_summary_helper_not_defined(self, handler):
+        """Summary route helpers live on DebatesHandler."""
+        assert not hasattr(handler, "_handle_summary")
 
 
 # ===========================================================================

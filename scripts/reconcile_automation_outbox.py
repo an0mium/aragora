@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -57,6 +58,25 @@ DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
 DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
 TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
+
+
+def _mute_stdout_after_broken_pipe() -> None:
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        try:
+            close()
+        except OSError:
+            pass
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+
+
+def _emit_output(output: str) -> None:
+    try:
+        sys.stdout.write(output)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        _mute_stdout_after_broken_pipe()
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -766,7 +786,7 @@ def _write_synthetic_receipt(
 
 
 def _github_open_pr_state(root: Path, repo_name: str) -> tuple[dict[str, int], bool, str]:
-    """Return open codex PR heads when GitHub is healthy enough to trust."""
+    """Return open PR heads when GitHub is healthy enough to trust."""
 
     try:
         health = check_github_cli_health(root)
@@ -778,10 +798,12 @@ def _github_open_pr_state(root: Path, repo_name: str) -> tuple[dict[str, int], b
         return {}, False, detail
 
     try:
-        open_prs = open_pr_heads(root, repo_name, "codex/")
+        open_prs = open_pr_heads(root, repo_name, "")
     except Exception as exc:
         return {}, False, f"open PR fetch failed ({exc})"
-    return open_prs, True, f"{len(open_prs)} open codex/* PRs"
+    if not isinstance(open_prs, dict):
+        return {}, False, "open PR fetch returned no usable data"
+    return open_prs, True, f"{len(open_prs)} open PRs"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -922,7 +944,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def emit(message: str = "") -> None:
         if not args.json:
-            print(message)
+            _emit_output(message)
 
     emit(f"state_root: {state_root}")
     emit(f"outbox_dir: {outbox_dir}")
@@ -984,7 +1006,7 @@ def main(argv: list[str] | None = None) -> int:
                 "total_outbox_count": len(all_outbox_files),
             }
             if args.json:
-                print(json.dumps(payload, indent=2, sort_keys=True))
+                _emit_output(json.dumps(payload, indent=2, sort_keys=True))
             else:
                 for key in missing_keys:
                     emit(f"ERROR: no outbox handoff found for idempotency key {key}")
@@ -1427,7 +1449,7 @@ def main(argv: list[str] | None = None) -> int:
             payload["action_count"] = len(actions)
             payload["actions_omitted"] = True
             payload.pop("actions", None)
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _emit_output(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 
 

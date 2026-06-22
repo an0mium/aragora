@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -42,6 +43,14 @@ from audit_codex_branch_backlog import (  # noqa: E402
 )
 
 SCHEMA = "aragora-worktree-harvest/1.0"
+# Every git/gh subprocess in this module must carry an explicit timeout so a
+# wedged candidate repo (e.g. `git status` blocked on an fsmonitor daemon or
+# hook) can never hang the whole inventory. Overridable per-run via
+# --git-timeout-seconds (alias of the long-standing --git-timeout flag).
+GIT_TIMEOUT_SECONDS = 30
+# Substring run_cmd embeds in stderr on timeout; classify_candidate uses it to
+# annotate timed-out candidates as inspect_timeout (always protected).
+_TIMEOUT_ERROR_MARKER = "timed out after"
 DEFAULT_LEGACY_ROOT = Path.home() / ".codex" / "worktrees"
 DEFAULT_CANONICAL_REL_ROOT = Path(".worktrees") / "codex-auto"
 DEFAULT_ROOT = DEFAULT_LEGACY_ROOT  # kept for backward compatibility
@@ -138,6 +147,7 @@ class GitInfo:
     patch_equivalent_to_base: bool = False
     smart_merge_equivalent_to_base: bool = False
     lookup_failed: bool = False
+    inspect_timeout: bool = False
     lookup_errors: list[str] = field(default_factory=list)
 
 
@@ -198,24 +208,70 @@ def utc_now() -> datetime:
     return datetime.now(UTC).replace(microsecond=0)
 
 
+def _kill_process_tree(proc: subprocess.Popen) -> None:
+    """Kill the child and its whole session, then drain pipes boundedly.
+
+    ``subprocess.run(timeout=...)`` kills only the direct child and then
+    drains its pipes with no timeout; a descendant process (git hook,
+    fsmonitor daemon) that inherited the pipe FDs keeps them open and the
+    drain blocks forever -- the observed "hung inside candidate git status"
+    failure. Killing the whole session and bounding the drain guarantees
+    run_cmd always returns.
+
+    ``os.killpg``/``start_new_session`` are POSIX-only; on platforms without
+    them the AttributeError/OSError fallback kills the direct child only.
+    """
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (OSError, AttributeError):
+        proc.kill()
+    try:
+        proc.communicate(timeout=5)
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        # Last resort: abandon the pipes rather than block the inventory.
+        for stream in (proc.stdout, proc.stderr):
+            if stream is not None:
+                try:
+                    stream.close()
+                except OSError:
+                    pass
+        try:
+            proc.wait(timeout=5)  # reap; SIGKILL was already sent above
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+
+
 def run_cmd(args: list[str], cwd: Path, *, timeout: int) -> subprocess.CompletedProcess[str]:
     try:
-        return subprocess.run(
+        proc = subprocess.Popen(
             args,
             cwd=cwd,
             text=True,
-            capture_output=True,
-            check=False,
-            timeout=timeout,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        stderr = str(exc)
-        if isinstance(exc, subprocess.TimeoutExpired):
-            stderr = f"command timed out after {timeout}s: {' '.join(args)}"
-        return subprocess.CompletedProcess(args=args, returncode=124, stdout="", stderr=stderr)
+    except OSError as exc:
+        return subprocess.CompletedProcess(args=args, returncode=124, stdout="", stderr=str(exc))
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=124,
+            stdout="",
+            stderr=f"command timed out after {timeout}s: {' '.join(args)}",
+        )
+    return subprocess.CompletedProcess(
+        args=args, returncode=proc.returncode, stdout=stdout or "", stderr=stderr or ""
+    )
 
 
-def run_git(args: list[str], cwd: Path, *, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+def run_git(
+    args: list[str], cwd: Path, *, timeout: int = GIT_TIMEOUT_SECONDS
+) -> subprocess.CompletedProcess[str]:
     return run_cmd(["git", *args], cwd, timeout=timeout)
 
 
@@ -943,6 +999,14 @@ def classify_candidate(
         classification = "unregistered_git_residue"
         proof.append("git checkout is not registered in git worktree list")
 
+    if any(_TIMEOUT_ERROR_MARKER in error for error in git.lookup_errors):
+        # A timed-out lookup is never authoritative: the candidate is already
+        # routed to a protected class (active_or_dirty via the fail-dirty
+        # status path, or lookup_failed), so it can never be safe-to-clean.
+        # Annotate it so operators and the summary can count timeouts.
+        git.inspect_timeout = True
+        proof.append("inspect_timeout: a git/GitHub lookup timed out; candidate is protected")
+
     return build_candidate(
         candidate_root,
         repo_path,
@@ -1123,16 +1187,14 @@ def candidate_roots(root: Path, limit: int | None = None) -> list[Path]:
 
 def _git_common_dir(repo: Path) -> Path | None:
     """Return the git common dir for ``repo`` without raising on non-repos."""
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+    # cwd="." is deliberate: ``repo`` may be a deleted/broken worktree path,
+    # and Popen(cwd=<missing dir>) raises before git can answer; ``git -C``
+    # reports the failure gracefully instead.
+    result = run_cmd(
+        ["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        Path("."),
+        timeout=5,
+    )
     if result.returncode != 0:
         return None
     raw = result.stdout.strip()
@@ -1247,6 +1309,7 @@ def build_summary(candidates: list[WorktreeCandidate]) -> dict[str, Any]:
         "bytes_by_class": bytes_by_class,
         "known_size_bytes": known_bytes,
         "size_lookup_failures": size_lookup_failures,
+        "inspect_timeouts": sum(1 for candidate in candidates if candidate.git.inspect_timeout),
         "inventory_coverage": (
             1.0 if not candidates else (len(candidates) - size_lookup_failures) / len(candidates)
         ),
@@ -1432,7 +1495,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--size-mode", choices=("du", "stat", "none"), default="du")
     parser.add_argument("--size-timeout", type=int, default=300)
-    parser.add_argument("--git-timeout", type=int, default=30)
+    parser.add_argument(
+        "--git-timeout",
+        "--git-timeout-seconds",
+        dest="git_timeout",
+        type=int,
+        default=GIT_TIMEOUT_SECONDS,
+        help=f"Timeout for each git subprocess (default {GIT_TIMEOUT_SECONDS}s; "
+        "a timed-out candidate is annotated inspect_timeout and preserved)",
+    )
     parser.add_argument("--gh-timeout", type=int, default=30)
     parser.add_argument("--patch-timeout", type=int, default=45)
     parser.add_argument("--skip-gh", action="store_true")
