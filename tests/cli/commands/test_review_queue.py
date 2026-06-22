@@ -6925,13 +6925,35 @@ def test_tier_requirement_is_tiered_for_low_tiers():
 
 
 def test_western_frontier_families_match_quorum_evidence():
-    # The WF allowlist is duplicated across the merge-gate (review_queue) and the
-    # auto-settle path (quorum_evidence). A cross-module parity guard prevents the
-    # two from drifting apart, which would make the gate and collector disagree.
+    # The WF allowlist now has a SINGLE canonical definition in quorum_evidence,
+    # re-exported by review_queue. Assert object IDENTITY (not just equality) so the
+    # merge-gate and the auto-settle path can never drift — the duplication that the
+    # old parity guard merely policed is gone (claude #8507 P2).
     from aragora.cli.commands.review_queue import WESTERN_FRONTIER_FAMILIES as rq_wf
     from aragora.swarm.quorum_evidence import WESTERN_FRONTIER_FAMILIES as qe_wf
 
-    assert rq_wf == qe_wf == frozenset({"claude", "openai"})
+    assert rq_wf is qe_wf
+    assert rq_wf == frozenset({"claude", "openai"})
+
+
+def test_western_frontier_signal_set_is_subset_of_counted():
+    # The WF check derives from model-review signals ONLY (empty dogfood), while
+    # signal_count derives from the dogfood-inclusive set. Pin the structural
+    # invariant claude #8507 P2 relies on: the signal-only set is always a subset of
+    # the counted set, so a WF signal that satisfies the requirement is also counted —
+    # the two derivations can never grant WF without counting it.
+    from aragora.cli.commands.review_queue import _counted_model_reviewer_ids
+
+    reviewer_signals = [{"model_family": "claude"}]
+    dogfood_evidence = [{"model_family": "grok"}]
+
+    signal_only = set(_counted_model_reviewer_ids(reviewer_signals, []))
+    counted = set(_counted_model_reviewer_ids(reviewer_signals, dogfood_evidence))
+
+    assert signal_only == {"claude"}
+    assert counted == {"claude", "grok"}
+    assert signal_only <= counted  # dogfood only ADDS ids; never removes a signal
+    assert "grok" not in signal_only  # dogfood-only id cannot satisfy the WF check
 
 
 def test_tier_two_lone_non_western_frontier_signal_omits_misleading_count():

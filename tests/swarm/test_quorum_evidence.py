@@ -1809,41 +1809,80 @@ def test_collect_outcome_missing_tiered_gate_fails_closed(monkeypatch) -> None:
     assert rehydrated.has_supportive_quorum is False
 
 
-def test_apply_prepared_evidence_refuses_gate_mismatch(tmp_path, monkeypatch) -> None:
-    # Artifact prepared under the STRICT gate (flag off); applying it while the
-    # relaxing flag is ON must be REFUSED, not silently re-evaluated (#8507 grok P1).
-    strict = CollectOutcome(
+def _apply_single_wf(path, monkeypatch, *, flag: str, posted: list) -> "qe.CollectOutcome":
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", flag)
+    return qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=path,
+        author="me",
+        apply=True,
+        families=["claude"],
+        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda r, p: 1,
+        linter=lambda *a, **k: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        poster=lambda r, p, b: posted.append(b),
+    )
+
+
+def _single_wf_artifact(tmp_path, *, tiered_gate: bool):
+    outcome = CollectOutcome(
         repo="o/r",
         pr=1,
         head_sha=HEAD,
         head_committed_at=COMMITTED,
         tier=1,
         action="prepare",
-        action_reason="prepared under strict gate",
+        action_reason="prepared",
         items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
-        tiered_gate=False,
+        tiered_gate=tiered_gate,
     )
-    path = tmp_path / "strict_prepared.json"
-    path.write_text(json.dumps(strict.to_dict()), encoding="utf-8")
-    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")  # live regime = relaxed
+    path = tmp_path / f"prepared_{tiered_gate}.json"
+    path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    return path
 
-    with pytest.raises(ValueError, match="gate-regime mismatch"):
-        qe.apply_prepared_evidence(
-            repo="o/r",
-            pr=1,
-            prepared_json=path,
-            author="me",
-            apply=True,
-            families=["claude"],
-            context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
-            tier_fetcher=lambda r, p: 1,
-            linter=lambda *a, **k: {
-                "would_count": True,
-                "counted_reviewer_ids": ["claude"],
-                "problems": [],
-            },
-            poster=lambda r, p, b: None,
-        )
+
+def test_apply_strict_artifact_not_relaxed_by_live_flag(tmp_path, monkeypatch) -> None:
+    # Artifact prepared under the STRICT gate (tiered_gate=False) with a lone
+    # western-frontier signal. Flipping the relaxing flag ON between prepare and apply
+    # must NOT make it postable: apply-time evaluates under min(prepared, live) =
+    # strict, so Tier 1 still needs two families. It degrades to "prepare" — never a
+    # hard error, so there is no inconsistent-authority / DoS window (#8507 grok+claude P1).
+    path = _single_wf_artifact(tmp_path, tiered_gate=False)
+    posted: list = []
+    outcome = _apply_single_wf(path, monkeypatch, flag="1", posted=posted)
+    assert outcome.action == "prepare"
+    assert outcome.tiered_gate is False  # effective regime = strict (min of False, True)
+    assert "quorum incomplete" in outcome.action_reason
+    assert posted == []
+
+
+def test_apply_relaxed_artifact_restricted_when_operator_reverts_flag(tmp_path, monkeypatch) -> None:
+    # A relaxed-prepared artifact (tiered_gate=True, lone WF signal) is re-evaluated
+    # under STRICT rules if the operator later turns the relaxation OFF — the flag is
+    # the operator's revocable approval point. min(True, False) = strict → Tier 1
+    # needs two families → degrades to prepare, lone signal not posted (#8507 claude P1).
+    path = _single_wf_artifact(tmp_path, tiered_gate=True)
+    posted: list = []
+    outcome = _apply_single_wf(path, monkeypatch, flag="0", posted=posted)
+    assert outcome.action == "prepare"
+    assert outcome.tiered_gate is False  # effective regime = strict (min of True, False)
+    assert posted == []
+
+
+def test_apply_relaxed_artifact_posts_when_both_regimes_relaxed(tmp_path, monkeypatch) -> None:
+    # When BOTH the prepare-time and live regimes permit relaxation, a single
+    # western-frontier signal settles Tier 1 and is posted (min(True, True) = relaxed).
+    path = _single_wf_artifact(tmp_path, tiered_gate=True)
+    posted: list = []
+    outcome = _apply_single_wf(path, monkeypatch, flag="1", posted=posted)
+    assert outcome.action == "post"
+    assert outcome.tiered_gate is True
+    assert posted == [_prepared_body("claude")]
 
 
 def test_apply_prepared_evidence_rederives_verdict_from_body(tmp_path) -> None:

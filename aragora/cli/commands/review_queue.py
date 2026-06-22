@@ -134,7 +134,13 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
     "hermes",
 )
 # Western-frontier families (Tier 1-2 single-signal bar must be one of these).
-WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
+# Single canonical definition lives in aragora.swarm.quorum_evidence and is
+# re-exported here so the merge-gate (this module) and the auto-settle path
+# (quorum_evidence) reference the *same* frozenset object and cannot drift —
+# replacing the prior test-only parity guard (claude #8507 P2).
+from aragora.swarm.quorum_evidence import (  # noqa: E402
+    WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
+)
 DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
     "claude": ("claude", "anthropic"),
     "openai": ("openai",),
@@ -3136,6 +3142,14 @@ def _build_model_review_quorum(
         head_committed_at=head_committed_at,
     )
     signal_count = len(counted_reviewer_ids)
+    # The western-frontier check below is derived from the model-review signals
+    # ONLY (empty dogfood list), whereas signal_count is derived from the
+    # dogfood-inclusive set. Because _counted_model_reviewer_ids only ever ADDS
+    # dogfood-attributable ids, the signal-only set is a guaranteed subset of
+    # counted_reviewer_ids — so any western-frontier signal that satisfies the WF
+    # requirement is also counted toward signal_count; the two derivations can
+    # never grant WF without also counting it (claude #8507 P2). This subset
+    # invariant is pinned by test_western_frontier_signal_set_is_subset_of_counted.
     counted_reviewer_signal_ids = _counted_model_reviewer_ids(reviewer_signals, [])
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
         _known_model_reviewer_id(item) for item in dogfood_evidence

@@ -455,12 +455,24 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
     except (TypeError, ValueError) as exc:
         raise ValueError("prepared evidence artifact missing PR number") from exc
     # Preserve the gate regime the artifact was PREPARED under so the settlement
-    # bar cannot silently change between prepare and apply. Older artifacts that
-    # predate this field fail closed as strict-gate artifacts instead of inheriting
-    # a possibly-relaxed live environment.
-    gate_kwargs: dict[str, Any] = {"tiered_gate": False}
+    # bar cannot silently change between prepare and apply. An artifact that omits
+    # this field — whether a genuinely older artifact or a newer one whose producer
+    # dropped it under version skew — fails closed to the STRICT regime (tiered_gate
+    # False) rather than inheriting a possibly-relaxed live environment. The
+    # fail-closed path is logged (not silent) so a field-drop regression is
+    # observable instead of quietly downgrading a relaxed artifact. apply_prepared_
+    # evidence then evaluates under min(prepared, live), so this strict default can
+    # only ever tighten, never loosen, the bar.
     if "tiered_gate" in data:
-        gate_kwargs["tiered_gate"] = bool(data.get("tiered_gate"))
+        gate_kwargs: dict[str, Any] = {"tiered_gate": bool(data.get("tiered_gate"))}
+    else:
+        logger.debug(
+            "prepared evidence artifact omits 'tiered_gate'; failing closed to "
+            "strict regime (repo=%s pr=%s)",
+            repo,
+            pr,
+        )
+        gate_kwargs = {"tiered_gate": False}
     return CollectOutcome(
         repo=repo,
         pr=pr,
@@ -1814,17 +1826,24 @@ def apply_prepared_evidence(
         raise ValueError(f"could not resolve head SHA for PR #{pr} in {repo}")
 
     # Security: a prepared artifact carries the tiered-gate regime it was collected
-    # under. Refuse to apply it under a DIFFERENT live regime — otherwise an artifact
-    # prepared while the strict gate was in force (insufficient under strict rules)
-    # could become postable simply because the relaxing flag was flipped on between
-    # prepare and apply (grok #8507 review P1). Re-collect under the current regime.
+    # under. Apply-time sufficiency is evaluated under the MORE RESTRICTIVE of the
+    # prepare-time and live regimes (relaxation requires BOTH to permit it):
+    #
+    #     effective_tiered_gate = prepared.tiered_gate AND live_gate
+    #
+    # This preserves both security directions without coupling merge-authority to a
+    # mutable live-env *equality* check (grok #8507 P1 + claude #8507 P1):
+    #   * a strict-prepared artifact (tiered_gate=False, insufficient under strict
+    #     rules) can never become postable just because the relaxing flag was flipped
+    #     ON between prepare and apply  (False AND True == False -> strict);
+    #   * a relaxed-prepared artifact (tiered_gate=True) is re-evaluated under strict
+    #     rules if the operator later turns the relaxation OFF, because the flag is the
+    #     operator's revocable approval point  (True AND False == False -> strict).
+    # It is fail-safe rather than fail-closed: evidence that is insufficient under the
+    # effective regime degrades to "prepare" below — never a hard error — so there is
+    # no inconsistent-authority / operational-DoS window.
     live_gate = tiered_merge_gate_enabled()
-    if prepared.tiered_gate != live_gate:
-        raise ValueError(
-            "prepared evidence gate-regime mismatch: artifact prepared under "
-            f"tiered_gate={prepared.tiered_gate} but live tiered_gate={live_gate}; "
-            "re-collect under the current regime before applying"
-        )
+    effective_tiered_gate = bool(prepared.tiered_gate) and live_gate
 
     tier = tier_fetcher(repo, pr)
     action, action_reason = decide_action(tier, apply)
@@ -1838,7 +1857,7 @@ def apply_prepared_evidence(
         action_reason=action_reason,
         items=_clone_prepared_items(prepared.items),
         failures=_clone_reviewer_failures(prepared.failures),
-        tiered_gate=prepared.tiered_gate,
+        tiered_gate=effective_tiered_gate,
     )
 
     if prepared.head_sha != head_sha:
