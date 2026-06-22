@@ -911,12 +911,14 @@ def _open_codex_prs_from_rest(
     for item in flattened:
         head = item.get("head")
         if not isinstance(head, Mapping):
-            skipped_missing_head += 1
-            continue
+            number = item.get("number")
+            suffix = f" for PR #{number}" if number is not None else ""
+            raise RuntimeError(f"REST PR lookup missing head metadata{suffix}")
         branch = head.get("ref")
         if not isinstance(branch, str):
-            skipped_missing_head_ref += 1
-            continue
+            number = item.get("number")
+            suffix = f" for PR #{number}" if number is not None else ""
+            raise RuntimeError(f"REST PR lookup missing head ref{suffix}")
         if not branch.startswith(CODEX_BRANCH_PREFIX):
             skipped_non_codex_head += 1
             continue
