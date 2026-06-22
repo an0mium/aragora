@@ -14,10 +14,81 @@ from pathlib import Path
 
 import typer
 
+import aragora.memory.store as memory_store
+import aragora.ranking.elo as ranking_elo
+import aragora.training as training_module
+import aragora.training.exporters as training_exporters
+import aragora.training.tinker_client as tinker_client_module
+from aragora.memory.store import CritiqueStore as _DefaultCritiqueStore
+from aragora.ranking.elo import EloSystem as _DefaultEloSystem
+from aragora.training import (
+    DPOExporter as _DefaultDPOExporter,
+    GauntletExporter as _DefaultGauntletExporter,
+    SFTExporter as _DefaultSFTExporter,
+    TrainingScheduler as _DefaultTrainingScheduler,
+)
+from aragora.training.tinker_client import (
+    TinkerAPIError as _DefaultTinkerAPIError,
+    TinkerClient as _DefaultTinkerClient,
+)
+
+CritiqueStore = _DefaultCritiqueStore
+DPOExporter = _DefaultDPOExporter
+EloSystem = _DefaultEloSystem
+GauntletExporter = _DefaultGauntletExporter
+SFTExporter = _DefaultSFTExporter
+TinkerAPIError = _DefaultTinkerAPIError
+TinkerClient = _DefaultTinkerClient
+TrainingScheduler = _DefaultTrainingScheduler
+
 app = typer.Typer(
     name="training",
     help="Tinker training operations for fine-tuning models on Aragora debate data",
 )
+
+
+def _patched_or_provider(cli_value, default_value, provider_value):
+    return cli_value if cli_value is not default_value else provider_value
+
+
+def _critique_store_cls():
+    return _patched_or_provider(CritiqueStore, _DefaultCritiqueStore, memory_store.CritiqueStore)
+
+
+def _dpo_exporter_cls():
+    return _patched_or_provider(DPOExporter, _DefaultDPOExporter, training_exporters.DPOExporter)
+
+
+def _elo_system_cls():
+    return _patched_or_provider(EloSystem, _DefaultEloSystem, ranking_elo.EloSystem)
+
+
+def _gauntlet_exporter_cls():
+    return _patched_or_provider(
+        GauntletExporter, _DefaultGauntletExporter, training_exporters.GauntletExporter
+    )
+
+
+def _sft_exporter_cls():
+    return _patched_or_provider(SFTExporter, _DefaultSFTExporter, training_exporters.SFTExporter)
+
+
+def _scheduler_cls():
+    return _patched_or_provider(
+        TrainingScheduler, _DefaultTrainingScheduler, training_module.TrainingScheduler
+    )
+
+
+def _tinker_api_error_cls():
+    return _patched_or_provider(
+        TinkerAPIError, _DefaultTinkerAPIError, tinker_client_module.TinkerAPIError
+    )
+
+
+def _tinker_client_cls():
+    return _patched_or_provider(
+        TinkerClient, _DefaultTinkerClient, tinker_client_module.TinkerClient
+    )
 
 
 @app.command("export-sft")
@@ -33,9 +104,7 @@ def export_sft(
     db_path: str = typer.Option("agora_memory.db", "--db-path", help="Database path"),
 ):
     """Export SFT (Supervised Fine-Tuning) training data from debates."""
-    from aragora.training.exporters import SFTExporter
-
-    exporter = SFTExporter(db_path=db_path)
+    exporter = _sft_exporter_cls()(db_path=db_path)
     metadata = exporter.export_to_file(
         output,
         min_confidence=min_confidence,
@@ -57,9 +126,7 @@ def export_dpo(
     limit: int = typer.Option(500, "--limit", help="Maximum records to export"),
 ):
     """Export DPO (Direct Preference Optimization) training data from ELO rankings."""
-    from aragora.training.exporters import DPOExporter
-
-    exporter = DPOExporter()
+    exporter = _dpo_exporter_cls()()
     metadata = exporter.export_to_file(
         output,
         min_elo_difference=min_elo_difference,
@@ -80,9 +147,7 @@ def export_gauntlet(
     limit: int = typer.Option(200, "--limit", help="Maximum records to export"),
 ):
     """Export Gauntlet adversarial training data."""
-    from aragora.training.exporters import GauntletExporter
-
-    exporter = GauntletExporter()
+    exporter = _gauntlet_exporter_cls()()
     metadata = exporter.export_to_file(
         output,
         min_robustness_score=min_robustness,
@@ -98,27 +163,25 @@ def export_all(
     limit: int = typer.Option(1000, "--limit", help="Maximum records per export type"),
 ):
     """Export all training data types."""
-    from aragora.training.exporters import DPOExporter, GauntletExporter, SFTExporter
-
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
     # SFT
-    sft_exporter = SFTExporter()
+    sft_exporter = _sft_exporter_cls()()
     sft_metadata = sft_exporter.export_to_file(
         output_path / "sft_data.jsonl",
         limit=limit,
     )
 
     # DPO
-    dpo_exporter = DPOExporter()
+    dpo_exporter = _dpo_exporter_cls()()
     dpo_metadata = dpo_exporter.export_to_file(
         output_path / "dpo_data.jsonl",
         limit=limit // 2,
     )
 
     # Gauntlet
-    gauntlet_exporter = GauntletExporter()
+    gauntlet_exporter = _gauntlet_exporter_cls()()
     gauntlet_metadata = gauntlet_exporter.export_to_file(
         output_path / "gauntlet_data.jsonl",
         limit=limit // 5,
@@ -135,19 +198,17 @@ def test_connection():
     """Test connection to Tinker API."""
     import os
 
-    from aragora.training.tinker_client import TinkerAPIError, TinkerClient
-
     api_key = os.getenv("TINKER_API_KEY")
     if not api_key:
         typer.echo("Error: TINKER_API_KEY environment variable not set", err=True)
         raise typer.Exit(1)
 
     async def _test():
-        client = TinkerClient()
+        client = _tinker_client_cls()()
         try:
             await client.test_connection()
             typer.echo("Connection successful!")
-        except TinkerAPIError as e:
+        except _tinker_api_error_cls() as e:
             typer.echo(f"Connection failed: {e}", err=True)
             raise typer.Exit(1)
         finally:
@@ -165,10 +226,9 @@ def train_sft(
     wait: bool = typer.Option(True, "--wait/--no-wait", help="Wait for completion"),
 ):
     """Schedule an SFT training job."""
-    from aragora.training import TrainingScheduler
 
     async def _train():
-        scheduler = TrainingScheduler()
+        scheduler = _scheduler_cls()()
         try:
             job = await scheduler.schedule_sft(
                 model=model,
@@ -211,10 +271,9 @@ def train_dpo(
     wait: bool = typer.Option(True, "--wait/--no-wait", help="Wait for completion"),
 ):
     """Schedule a DPO training job."""
-    from aragora.training import TrainingScheduler
 
     async def _train():
-        scheduler = TrainingScheduler()
+        scheduler = _scheduler_cls()()
         try:
             job = await scheduler.schedule_dpo(
                 model=model,
@@ -254,10 +313,9 @@ def train_combined(
     wait: bool = typer.Option(True, "--wait/--no-wait", help="Wait for completion"),
 ):
     """Schedule a combined SFT + DPO training pipeline."""
-    from aragora.training import TrainingScheduler
 
     async def _train():
-        scheduler = TrainingScheduler()
+        scheduler = _scheduler_cls()()
         try:
             job = await scheduler.schedule_combined(
                 model=model,
@@ -291,10 +349,9 @@ def train_combined(
 @app.command("list-models")
 def list_models():
     """List available fine-tuned models."""
-    from aragora.training.tinker_client import TinkerClient
 
     async def _list():
-        client = TinkerClient()
+        client = _tinker_client_cls()()
         try:
             models = await client.list_models()
 
@@ -323,10 +380,9 @@ def sample(
     temperature: float = typer.Option(0.7, "--temperature", help="Sampling temperature"),
 ):
     """Generate text from a fine-tuned model."""
-    from aragora.training.tinker_client import TinkerClient
 
     async def _sample():
-        client = TinkerClient()
+        client = _tinker_client_cls()()
         try:
             response = await client.sample(
                 prompt=prompt,
@@ -345,15 +401,12 @@ def sample(
 @app.command("stats")
 def show_stats():
     """Show training data statistics."""
-    from aragora.memory.store import CritiqueStore
-    from aragora.ranking.elo import EloSystem
-
     # Get CritiqueStore stats
-    store = CritiqueStore()
+    store = _critique_store_cls()()
     critique_stats = store.get_stats()
 
     # Get ELO stats
-    elo = EloSystem()
+    elo = _elo_system_cls()()
     elo_stats = elo.get_stats()
 
     typer.echo("Training Data Statistics")
