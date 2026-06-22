@@ -129,6 +129,22 @@ def test_github_open_pr_state_fails_closed_when_open_pr_fetch_returns_none(
     assert message == "open PR fetch returned no usable data"
 
 
+def test_github_open_pr_state_loads_all_branch_prefixes(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda *_args: _ready_github())
+
+    def fake_open_pr_heads(_root: Path, _repo: str, prefix: str) -> dict[str, int]:
+        assert prefix == ""
+        return {"structex/p2-docs-ci-tooling": 8501}
+
+    monkeypatch.setattr(mod, "open_pr_heads", fake_open_pr_heads)
+
+    open_prs, available, message = mod._github_open_pr_state(tmp_path, "synaptent/aragora")
+
+    assert open_prs == {"structex/p2-docs-ci-tooling": 8501}
+    assert available is True
+    assert message == "1 open PRs"
+
+
 def test_json_output_reports_reconciliation_without_human_preamble(
     tmp_path: Path,
     capsys: Any,
@@ -1137,6 +1153,45 @@ def test_unique_branch_keep_reason_notes_unavailable_open_pr_state(
     assert payload["actions"][0]["decision"] == "keep"
     assert "open PR state is unavailable" in payload["actions"][0]["reason"]
     assert "no open PR" not in payload["actions"][0]["reason"]
+
+
+def test_unique_non_codex_branch_is_protected_by_open_pr(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-structex-p2-docs-ci-tooling-docs-sync-repair-20260616-e806c51e"
+    branch = "structex/p2-docs-ci-tooling"
+    _write_outbox_handoff(outbox_dir, branch=branch, key=key)
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="e806c51e\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="+ e806c51e\n")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    def fake_open_pr_heads(_root: Path, _repo: str, prefix: str) -> dict[str, int]:
+        return {branch: 8501} if prefix == "" else {}
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", fake_open_pr_heads)
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert payload["actions"][0]["reason"] == "branch has open PR #8501"
 
 
 def test_landed_branch_archives_without_github_lookup(

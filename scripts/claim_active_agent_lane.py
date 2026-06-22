@@ -331,10 +331,16 @@ def release_stale_claims(
     registry_path: Path,
     owner_session: str,
     ttl_minutes: float,
+    lane_id: str = "",
+    pr_number: int | None = None,
     updated_at: str | None = None,
     now: dt.datetime | None = None,
 ) -> dict[str, Any]:
-    """Release stale active claims owned by ``owner_session``."""
+    """Release stale active claims owned by ``owner_session``.
+
+    Optional ``lane_id`` / ``pr_number`` filters let automation clear one
+    verified stale lane without releasing every stale row for that owner.
+    """
     if not owner_session:
         raise ValueError("owner_session must not be empty")
     if ttl_minutes < 0:
@@ -352,6 +358,12 @@ def release_stale_claims(
             if str(row.get("owner_session") or "") != owner_session:
                 out_rows.append(row)
                 continue
+            if lane_id and str(row.get("lane_id") or "") != lane_id:
+                out_rows.append(row)
+                continue
+            if pr_number is not None and row.get("pr_number") != pr_number:
+                out_rows.append(row)
+                continue
             if str(row.get("status") or "") not in ACTIVE_STATUSES:
                 out_rows.append(row)
                 continue
@@ -367,6 +379,8 @@ def release_stale_claims(
         _atomic_write(registry_path, out_rows)
         return {
             "owner_session": owner_session,
+            "lane_id": lane_id,
+            "pr_number": pr_number,
             "released_count": len(released),
             "released_lane_ids": released,
             "registry_path": str(registry_path),
@@ -626,6 +640,8 @@ def main(argv: list[str] | None = None) -> int:
                 registry_path=registry_path,
                 owner_session=args.owner_session,
                 ttl_minutes=float(args.ttl_minutes),
+                lane_id=args.lane_id,
+                pr_number=args.pr_number,
                 updated_at=args.updated_at,
             )
         else:

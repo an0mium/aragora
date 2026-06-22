@@ -51,10 +51,10 @@ and no false-negatives:
 Codex and Droid-Gemini were dispatched in parallel via
 `scripts/multi_agent_dialog.py` with the verification prompt and full JSON
 context (10 receipts + paginated timelines for each PR). The complete dialog
-transcript and JSONL are preserved in git under
-`docs/receipts/observe-outcomes/2026-05-13-three-model-verification-dialog.md`
-and `.jsonl`. The dispatch context bundle (prompts + raw timeline events)
-is also preserved locally under
+transcript is archived in git (three-model verification dialog).
+The JSONL remains in git under
+`docs/receipts/observe-outcomes/2026-05-13-three-model-verification-dialog.jsonl`.
+The dispatch context bundle (prompts + raw timeline events) is also preserved locally under
 `.aragora/evolve-round/2026-05-13-observe-outcomes-first-write/`.
 
 Each verifier was given the same independent task: read each receipt's five
