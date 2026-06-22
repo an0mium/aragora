@@ -17,7 +17,7 @@ Two packages exist with different focuses:
 | Aspect | `@aragora/sdk` | `@aragora/client` |
 |--------|---------------|-------------------|
 | **Version** | 2.6.3 | 2.6.3 (deprecated) |
-| **Location** | `sdk/typescript/` | `aragora-js/` |
+| **Location** | `sdk/typescript/` | _(removed)_ |
 | **API Style** | Flat (`client.createDebate()`) | Namespaced (`client.debates.create()`) |
 | **Build** | tsup (ESM + CJS) | tsc (CJS only) |
 | **Tests** | Minimal | 6 test suites |
@@ -381,5 +381,4 @@ export class AragoraClient {
 ## Related Documentation
 
 - [sdk/typescript/README.md](../analysis/adr) - SDK documentation
-- [aragora-js/README.md](../analysis/adr) - Client documentation
 - [CONTRIBUTING.md](../contributing/guide) - Package naming conventions

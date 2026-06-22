@@ -26,6 +26,13 @@ PROMPT_WORDS_BY_ROLE = {
 }
 
 
+def _default_automation_root() -> Path:
+    configured = os.environ.get("CODEX_HOME")
+    if configured:
+        return Path(configured).expanduser() / "automations"
+    return Path.home() / ".codex" / "automations"
+
+
 @dataclass(frozen=True)
 class AutomationRecord:
     id: str
@@ -289,8 +296,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path.home() / ".codex" / "automations",
-        help="Codex Desktop automation directory",
+        default=_default_automation_root(),
+        help="Codex Desktop automation directory (default: $CODEX_HOME/automations or ~/.codex/automations)",
     )
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
