@@ -591,7 +591,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[dev,research]" && pip install pytest-cov pytest-timeout
+      - run: pip install -e ".[dev]" && pip install pytest-cov pytest-timeout
       - run: pytest tests/ -v --timeout=60 --cov=aragora --cov-report=xml --cov-report=term-missing -x --tb=short
 ```
 

@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aragora-verify"
+version = "0.1.0"
+description = "Standalone offline verifier for Open Decision Receipts (ODR) -- check schema, JCS canonical digest, Ed25519 signature, and hash-chain linkage with no Aragora install or account."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Aragora", email = "team@aragora.dev" },
+]
+keywords = [
+    "decision-receipt",
+    "open-decision-receipt",
+    "odr",
+    "offline-verification",
+    "ed25519",
+    "jcs",
+    "rfc8785",
+    "audit-trail",
+    "ai-governance",
+    "eu-ai-act",
+    "decision-integrity",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Legal Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
+dependencies = [
+    "cryptography>=41.0",
+]
+
+[project.optional-dependencies]
+schema = ["jsonschema>=4.0"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+aragora-verify = "aragora_verify.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/synaptent/aragora"
+Documentation = "https://github.com/synaptent/aragora/blob/main/docs/specs/OPEN_DECISION_RECEIPT.md"
+Repository = "https://github.com/synaptent/aragora/tree/main/aragora-verify"
+Changelog = "https://github.com/synaptent/aragora/blob/main/aragora-verify/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/synaptent/aragora/issues"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["CLAUDE.md", "**/CLAUDE.md", ".nomic/", ".benchmarks/"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aragora_verify"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/aragora_verify/odr_schema.json" = "aragora_verify/odr_schema.json"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

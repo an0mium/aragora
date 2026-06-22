@@ -1091,6 +1091,19 @@ class WorkerLauncher:
         metadata = work_order.get("metadata", {})
         target_agent = str(work_order.get("target_agent", "")).strip().lower()
 
+        # --- Section 0: Explicit directive (verbatim) ---
+        # When a caller opts in with ``prompt_verbatim`` AND supplies a
+        # fully-formed ``prompt`` -- e.g. the lane dispatcher's constant
+        # claim-first prompt (claim-or-yield -> ground -> one bounded step ->
+        # report+release) -- honor it verbatim as the lead directive. The opt-in
+        # flag is required because other producers (tranche_submit/_queue,
+        # multi_agent_dialog) also stash a ``prompt`` field on work orders that
+        # flow through here; without the gate this would silently prepend their
+        # text ahead of title/description for every caller.
+        explicit_prompt = str(work_order.get("prompt", "")).strip()
+        if explicit_prompt and work_order.get("prompt_verbatim"):
+            parts.append(explicit_prompt)
+
         # --- Section 1: Task goal (plain English) ---
         title = str(work_order.get("title", "")).strip()
         if title:

@@ -33,6 +33,23 @@ def _write_baseline(path: Path, violations: set[str], contract: str = CONTRACT) 
     )
 
 
+def _write_importlinter(path: Path, layer_lines: list[str]) -> None:
+    """Write a minimal .importlinter whose layers contract has the given layer lines."""
+    body = "\n".join(f"    {line}" for line in layer_lines)
+    path.write_text(
+        "[importlinter]\n"
+        "root_package = aragora\n\n"
+        "[importlinter:contract:aragora-layers]\n"
+        "name = test layers\n"
+        "type = layers\n"
+        "containers =\n"
+        "    aragora\n"
+        "layers =\n"
+        f"{body}\n",
+        encoding="utf-8",
+    )
+
+
 # --- config parsing ---------------------------------------------------------
 
 
@@ -44,6 +61,40 @@ def test_parse_layer_membership_real_config():
     assert membership["aragora.config"] == "foundation"
     # tail keys resolve too
     assert membership["config"] == "foundation"
+
+
+def test_parse_layer_membership_real_config_has_exact_layer_count(tmp_path):
+    # Sanity guard for the positional mapping: the real .importlinter must declare
+    # exactly len(LAYER_ORDER) layer lines, otherwise parse_layer_membership raises.
+    membership = cic.parse_layer_membership(_REAL_CONFIG)
+    assert membership  # non-empty, i.e. the real config matches LAYER_ORDER's length
+
+
+def test_parse_layer_membership_rejects_too_few_layers(tmp_path):
+    cfg = tmp_path / ".importlinter"
+    _write_importlinter(cfg, ["server", "workflow", "debate"])  # 3 != len(LAYER_ORDER)
+    with pytest.raises(cic.CheckerError) as excinfo:
+        cic.parse_layer_membership(cfg)
+    assert "layer" in str(excinfo.value).lower()
+
+
+def test_parse_layer_membership_rejects_too_many_layers(tmp_path):
+    cfg = tmp_path / ".importlinter"
+    # 6 layer lines: an extra line would be silently truncated by the old code.
+    _write_importlinter(cfg, ["server", "workflow", "debate", "storage", "config", "extra"])
+    with pytest.raises(cic.CheckerError) as excinfo:
+        cic.parse_layer_membership(cfg)
+    assert "layer" in str(excinfo.value).lower()
+
+
+def test_parse_layer_membership_exact_count_succeeds(tmp_path):
+    cfg = tmp_path / ".importlinter"
+    _write_importlinter(
+        cfg, ["server", "workflow", "debate", "storage", "config"]
+    )  # exactly len(LAYER_ORDER)
+    membership = cic.parse_layer_membership(cfg)
+    assert membership["aragora.server"] == "interface"
+    assert membership["aragora.config"] == "foundation"
 
 
 def test_layer_of_full_and_tail():
@@ -61,6 +112,27 @@ def test_parse_layers_arg_valid_and_invalid():
         cic._parse_layers_arg("foundation,bogus")
 
 
+# --- import-linter private-API guard ----------------------------------------
+
+
+def test_resolve_register_contract_types_returns_callable_when_present():
+    import types
+
+    fake = types.SimpleNamespace(_register_contract_types=lambda user_options: None)
+    resolved = cic._resolve_register_contract_types(fake)
+    assert callable(resolved)
+
+
+def test_resolve_register_contract_types_raises_clear_error_on_version_mismatch():
+    import types
+
+    # A future import-linter that renamed/removed the private symbol.
+    fake = types.SimpleNamespace()
+    with pytest.raises(cic.CheckerError) as excinfo:
+        cic._resolve_register_contract_types(fake)
+    assert "import-linter" in str(excinfo.value).lower()
+
+
 # --- diff / filter ----------------------------------------------------------
 
 
@@ -70,6 +142,19 @@ def test_diff_against_baseline_new_and_resolved():
     new, resolved = cic.diff_against_baseline(current, baseline)
     assert new[CONTRACT] == {"c -> d"}
     assert resolved[CONTRACT] == {"e -> f"}
+
+
+def test_diff_against_baseline_keeps_baseline_only_contract():
+    # A contract present in the baseline but absent from current (e.g. renamed)
+    # must still be accounted for via the union of keys: its violations surface
+    # as RESOLVED rather than being silently dropped.
+    current = {"new-name": {"a -> b"}}
+    baseline = {"old-name": {"a -> b", "c -> d"}}
+    new, resolved = cic.diff_against_baseline(current, baseline)
+    assert resolved["old-name"] == {"a -> b", "c -> d"}
+    assert new["new-name"] == {"a -> b"}
+    # the baseline-only contract introduces no new violations
+    assert new.get("old-name", set()) == set()
 
 
 def test_filter_by_layers_keeps_only_selected_importer_layer():

@@ -251,6 +251,14 @@ ENTRYPOINT_INVENTORY: Final[tuple[BackboneEntrypoint, ...]] = (
         wiring_mode="canonical_queue",
         signals=("execute_decision_plan_with_backbone",),
     ),
+    BackboneEntrypoint(
+        file_path="aragora/swarm/boss_worker_lifecycle.py",
+        qualname="dispatch_issue",
+        lifecycle="mixed",
+        coverage="green",
+        wiring_mode="manual_run",
+        signals=("run_ledger_create",),
+    ),
 )
 
 INTERNAL_BACKBONE_HELPERS: Final[dict[str, str]] = {
