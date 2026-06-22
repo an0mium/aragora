@@ -915,6 +915,64 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         return None
 
 
+def _extract_result_cruxes(debate: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Extract crux-finder cruxes + summary from a debate result object.
+
+    Reads the current arena-path location (#8366-aware): the serialized
+    cruxes live on ``consensus_proof.metadata["cruxes"]`` and a summary on
+    ``formal_verification["crux_finder"]``. Handles both attribute-style
+    result objects and plain dicts. Returns ``([], {})`` when crux-finder
+    mode was not run — never fabricated cruxes.
+    """
+
+    def _get(obj: Any, key: str, default: Any = None) -> Any:
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
+
+    formal = _get(debate, "formal_verification", None) or {}
+    summary = formal.get("crux_finder", {}) if isinstance(formal, dict) else {}
+
+    cruxes: list[dict[str, Any]] = []
+    proof = _get(debate, "consensus_proof", None)
+    if proof is not None:
+        metadata = _get(proof, "metadata", None) or {}
+        if isinstance(metadata, dict):
+            raw = metadata.get("cruxes")
+            if isinstance(raw, list):
+                cruxes = raw
+            if not summary and metadata.get("consensus_mode") == "crux_finder":
+                summary = {
+                    "crux_count": metadata.get("crux_count", len(cruxes)),
+                    "convergence_barrier": metadata.get("convergence_barrier"),
+                    "recommended_focus": metadata.get("recommended_focus", []),
+                }
+    return cruxes, summary if isinstance(summary, dict) else {}
+
+
+def _print_cruxes(debate: Any) -> None:
+    """Print the crux-finder map (top load-bearing disagreements)."""
+    cruxes, summary = _extract_result_cruxes(debate)
+    if not summary and not cruxes:
+        return
+
+    print("\n" + "=" * 60)
+    print("CRUX MAP (no verdict by design):")
+    print("=" * 60)
+    barrier = summary.get("convergence_barrier")
+    if barrier is not None:
+        print(f"Convergence barrier: {barrier}")
+    if not cruxes:
+        print("No load-bearing disagreements were identified.")
+        return
+    for i, crux in enumerate(cruxes, start=1):
+        statement = crux.get("statement", "")
+        score = crux.get("crux_score", 0.0)
+        agents = ", ".join(crux.get("contesting_agents", []) or [])
+        print(f"\n{i}. {statement}")
+        print(f"   crux_score={score} contesting=[{agents}]")
+
+
 def _print_debate_result(debate: Any, verbose: bool = False) -> None:
     """Print a standard debate result summary."""
     final_answer = None
@@ -922,6 +980,18 @@ def _print_debate_result(debate: Any, verbose: bool = False) -> None:
     if getattr(debate, "consensus", None):
         final_answer = debate.consensus.final_answer
         dissenting_agents = debate.consensus.dissenting_agents
+
+    # Crux-finder runs produce a map, not a verdict — show it instead of a
+    # (sentinel) final answer when present.
+    cruxes, crux_summary = _extract_result_cruxes(debate)
+    if cruxes or crux_summary:
+        _print_cruxes(debate)
+        if verbose and dissenting_agents:
+            print("\n" + "-" * 60)
+            print("DISSENTING AGENTS:")
+            for agent in dissenting_agents:
+                print(f"- {agent}")
+        return
 
     print("\n" + "=" * 60)
     print("FINAL ANSWER:")
@@ -1560,6 +1630,13 @@ def cmd_ask(args: argparse.Namespace) -> None:
     task = args.task
     raw_task = task
     context = args.context or ""
+
+    # --crux selects crux-finder consensus mode (maps load-bearing
+    # disagreements instead of producing a verdict). It overrides
+    # --consensus; the choice is not exposed in the parser's `choices` to
+    # keep that surface minimal, so we set it here post-parse.
+    if getattr(args, "crux", False):
+        args.consensus = "crux_finder"
 
     # Ambiguity handling
     if len(task.split()) < 3:

@@ -10,6 +10,7 @@ import type {
   DebateCreateRequest,
   DebateCreateResponse,
   DebateConvergence,
+  DebateCruxes,
   DebateCitations,
   DebateEvidence,
   DebateExport,
@@ -624,6 +625,32 @@ export class DebatesAPI {
    */
   async getConvergence(debateId: string): Promise<DebateConvergence> {
     return this.client.getDebateConvergence(debateId);
+  }
+
+  /**
+   * Get the crux-finder map (load-bearing disagreements) for a debate.
+   *
+   * Returns the ranked cruxes when the debate was run with crux-finder mode.
+   * When crux mode was not run, the response has `status: 'absent'` and an
+   * empty `cruxes` array — cruxes are never fabricated.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.getCruxes('debate-123');
+   * if (result.status === 'present') {
+   *   for (const crux of result.cruxes) {
+   *     console.log(`${crux.statement} (score ${crux.crux_score})`);
+   *   }
+   * }
+   * ```
+   */
+  async getCruxes(debateId: string): Promise<DebateCruxes> {
+    return this.client.request(
+      'GET',
+      `/api/v1/debates/${encodeURIComponent(debateId)}/cruxes`
+    );
   }
 
   /**

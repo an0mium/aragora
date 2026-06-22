@@ -2707,6 +2707,38 @@ export interface DebateConvergence {
   timestamp: string;
 }
 
+export interface DebateCrux {
+  claim_id: string;
+  statement: string;
+  author?: string;
+  crux_score: number;
+  influence_score: number;
+  disagreement_score: number;
+  uncertainty_score: number;
+  resolution_impact: number;
+  contesting_agents: string[];
+  affected_claims: string[];
+}
+
+/**
+ * Crux-finder map for a debate (load-bearing disagreements).
+ *
+ * When crux-finder mode was not run, `status` is `"absent"`, `cruxes` is
+ * empty, and `reason` explains why — cruxes are never fabricated.
+ */
+export interface DebateCruxes {
+  debate_id: string;
+  status: 'present' | 'absent';
+  reason?: string;
+  consensus_mode?: string;
+  crux_count: number;
+  convergence_barrier?: number;
+  recommended_focus?: string[];
+  cruxes: DebateCrux[];
+  counterfactuals?: Array<Record<string, unknown>>;
+  fallback_consensus?: string;
+}
+
 export interface DebateCitation {
   id: string;
   source: string;

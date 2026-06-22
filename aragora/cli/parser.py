@@ -995,6 +995,14 @@ def _add_ask_parser(subparsers) -> None:
         default=DEFAULT_CONSENSUS,
         help=f"Consensus mechanism (default: {DEFAULT_CONSENSUS})",
     )
+    ask_parser.add_argument(
+        "--crux",
+        action="store_true",
+        help=(
+            "Run crux-finder mode: map load-bearing disagreements instead of "
+            "producing a verdict (overrides --consensus). Prints the top cruxes."
+        ),
+    )
     ask_parser.add_argument("--context", help="Additional context for the task")
     ask_parser.add_argument(
         "--codebase-context",

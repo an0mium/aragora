@@ -431,3 +431,59 @@ class TestDebatesSearch:
             )
             assert "debates" in result
             client.close()
+
+
+class TestDebatesGetCruxes:
+    """Tests for crux-finder map retrieval (get_cruxes)."""
+
+    def test_get_cruxes_present(self) -> None:
+        """Fetch the crux map for a crux-finder debate."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "debate_id": "deb_123",
+                "status": "present",
+                "crux_count": 1,
+                "cruxes": [{"claim_id": "c0", "statement": "X", "crux_score": 0.9}],
+            }
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_cruxes("deb_123")
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/deb_123/cruxes")
+            assert result["status"] == "present"
+            assert result["cruxes"][0]["claim_id"] == "c0"
+            client.close()
+
+    def test_get_cruxes_absent(self) -> None:
+        """Honest-absence response when crux mode was not run."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "debate_id": "deb_123",
+                "status": "absent",
+                "cruxes": [],
+                "reason": "Crux-finder mode was not run for this debate.",
+            }
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.get_cruxes("deb_123")
+
+            assert result["status"] == "absent"
+            assert result["cruxes"] == []
+            client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_get_cruxes(self) -> None:
+        """Fetch the crux map asynchronously."""
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {
+                "debate_id": "deb_123",
+                "status": "present",
+                "crux_count": 0,
+                "cruxes": [],
+            }
+
+            async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+                result = await client.debates.get_cruxes("deb_123")
+
+                mock_request.assert_called_once_with("GET", "/api/v1/debates/deb_123/cruxes")
+                assert result["debate_id"] == "deb_123"

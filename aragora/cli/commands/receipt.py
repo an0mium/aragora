@@ -719,6 +719,28 @@ def _resolve_receipt_data(receipt_ref: str) -> dict[str, Any] | None:
     return data
 
 
+def _crux_set_for_receipt(receipt: Any) -> list[dict[str, Any]] | None:
+    """Extract the crux-finder map from a receipt's consensus proof, if any.
+
+    A ``consensus="crux_finder"`` run stores the serialized cruxes on
+    ``consensus_proof.metadata["cruxes"]`` (see
+    ``aragora.debate.consensus.build_proof_from_crux_finder``, #8366-aware).
+    Returns the crux list for the ODR ``cruxes`` block, or ``None`` when the
+    receipt carries no crux map — the exporter then records an honest
+    absent marker rather than fabricating cruxes.
+    """
+    proof = getattr(receipt, "consensus_proof", None)
+    if proof is None:
+        return None
+    metadata = getattr(proof, "metadata", None) or {}
+    if not isinstance(metadata, dict):
+        return None
+    cruxes = metadata.get("cruxes")
+    if isinstance(cruxes, list) and cruxes:
+        return [dict(item) for item in cruxes if isinstance(item, dict)]
+    return None
+
+
 def _export_odr(data: dict[str, Any]) -> str:
     """Render a receipt dict as a JCS-canonical Open Decision Receipt document."""
     from aragora.gauntlet.odr_export import (
@@ -732,8 +754,11 @@ def _export_odr(data: dict[str, Any]) -> str:
     # Best-effort: when participating agents have recorded calibration data,
     # the confidence block points at their calibration-report endpoints
     # (issue #8229); otherwise the existing settlement/absent logic applies.
+    # When the receipt came from a crux-finder run, also surface the crux map
+    # — pass BOTH crux_set and calibration_provenance (do not drop either).
     odr = decision_receipt_to_odr(
         receipt,
+        crux_set=_crux_set_for_receipt(receipt),
         calibration_provenance=calibration_provenance_for_receipt(receipt),
     )
     return jcs_canonicalize(odr).decode("utf-8")

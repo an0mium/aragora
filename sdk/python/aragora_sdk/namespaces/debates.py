@@ -189,6 +189,16 @@ class DebatesAPI:
         """Get convergence analysis."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/convergence")
 
+    def get_cruxes(self, debate_id: str) -> dict[str, Any]:
+        """Get the crux-finder map (load-bearing disagreements) for a debate.
+
+        Returns the ranked cruxes when the debate was run with crux-finder
+        mode. When crux mode was not run, the response has
+        ``status="absent"`` with an empty ``cruxes`` list — cruxes are never
+        fabricated. See ``aragora ask <task> --crux`` to produce them.
+        """
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/cruxes")
+
     def get_evidence(self, debate_id: str) -> dict[str, Any]:
         """Get evidence collected during debate."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/evidence")
@@ -1172,6 +1182,16 @@ class AsyncDebatesAPI:
     async def get_convergence(self, debate_id: str) -> dict[str, Any]:
         """Get convergence analysis."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/convergence")
+
+    async def get_cruxes(self, debate_id: str) -> dict[str, Any]:
+        """Get the crux-finder map (load-bearing disagreements) for a debate.
+
+        Returns the ranked cruxes when the debate was run with crux-finder
+        mode. When crux mode was not run, the response has
+        ``status="absent"`` with an empty ``cruxes`` list — cruxes are never
+        fabricated. See ``aragora ask <task> --crux`` to produce them.
+        """
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/cruxes")
 
     async def get_evidence(self, debate_id: str) -> dict[str, Any]:
         """Get evidence collected during debate."""
