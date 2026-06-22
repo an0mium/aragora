@@ -493,6 +493,7 @@ _CUSTOM_PYTEST_MARKERS: dict[str, str] = {
     "flaky": "tests using retry semantics for known intermittent environments",
     "rate_limit_test": "opt out of auth-time rate-limit bypass and exercise real rate limiting",
     "no_auto_auth": "disable automatic auth bypass for handler tests",
+    "real_gauntlet_runner": "opt out of gauntlet autouse runner mocks for deterministic runner tests",
 }
 
 

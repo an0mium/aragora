@@ -9,6 +9,7 @@ import pytest
 from benchmarks.gauntlet_evaluation import load_fixtures, evaluate_fixture
 
 
+@pytest.mark.real_gauntlet_runner
 @pytest.mark.asyncio
 async def test_gauntlet_evaluation_fixture_counts():
     fixtures = load_fixtures(Path("benchmarks/fixtures/gauntlet"))

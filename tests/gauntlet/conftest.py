@@ -33,7 +33,7 @@ def _bypass_rbac_for_gauntlet_tests(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _mock_gauntlet_runner_external_calls(monkeypatch):
+def _mock_gauntlet_runner_external_calls(monkeypatch, request):
     """Prevent GauntletRunner from making real API calls.
 
     The GauntletRunner._run_red_team, _run_probes, and _run_scenarios methods
@@ -45,6 +45,9 @@ def _mock_gauntlet_runner_external_calls(monkeypatch):
     ensuring tests exercise the runner's orchestration logic without making
     any real API calls.
     """
+    if request.node.get_closest_marker("real_gauntlet_runner"):
+        return
+
     from aragora.gauntlet.result import AttackSummary, ProbeSummary, ScenarioSummary
     from aragora.gauntlet.runner import GauntletRunner
 
