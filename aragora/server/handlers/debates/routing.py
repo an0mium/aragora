@@ -60,6 +60,7 @@ ROUTES = [
     "/api/v1/debates/*/cancel",  # POST - cancel running debate
     "/api/v1/debates/*/decision-integrity",  # POST - receipt + plan bundle
     "/api/v1/debates/*/positions",  # GET - position evolution per agent
+    "/api/v1/debates/*/cruxes",  # GET - crux-finder map (load-bearing disagreements)
     "/api/v1/debates/*/diagnostics",  # GET - debug report for failed debates
     "/api/v1/debates/*/costs",  # GET - per-debate cost breakdown
     "/api/v1/debate-this",  # POST - one-click debate launcher
@@ -133,6 +134,7 @@ def build_suffix_routes() -> list[SuffixRouteEntry]:
         ("/rhetorical", "_get_rhetorical_observations", True, None),
         ("/trickster", "_get_trickster_status", True, None),
         ("/positions", "_get_positions", True, None),
+        ("/cruxes", "_get_cruxes", True, None),
         ("/diagnostics", "_get_diagnostics", True, None),
         ("/costs", "_get_debate_costs", True, None),
         (

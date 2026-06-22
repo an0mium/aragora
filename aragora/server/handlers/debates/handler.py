@@ -61,6 +61,7 @@ from .batch import BatchOperationsMixin
 from .costs import CostsMixin
 from .create import CreateOperationsMixin
 from .crud import CrudOperationsMixin
+from .cruxes import CruxOperationsMixin
 from .diagnostics import DiagnosticsMixin
 from .evidence import EvidenceOperationsMixin
 from .export import ExportOperationsMixin
@@ -87,6 +88,7 @@ class DebatesHandler(
     CostsMixin,
     CreateOperationsMixin,
     CrudOperationsMixin,
+    CruxOperationsMixin,
     DebateControllerMixin,
     DiagnosticsMixin,
     EvidenceOperationsMixin,
