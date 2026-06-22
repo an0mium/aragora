@@ -138,9 +138,7 @@ def extract_cruxes(debate: dict[str, Any]) -> dict[str, Any]:
         "cruxes": cruxes,
         "crux_count": len(cruxes),
         "convergence_barrier": convergence_barrier,
-        "recommended_focus": list(recommended_focus)
-        if isinstance(recommended_focus, list)
-        else [],
+        "recommended_focus": list(recommended_focus) if isinstance(recommended_focus, list) else [],
         "counterfactuals": list(counterfactuals) if isinstance(counterfactuals, list) else [],
     }
 
@@ -149,9 +147,7 @@ def extract_cruxes(debate: dict[str, Any]) -> dict[str, Any]:
     skip_reason = debate_metadata.get("crux_finder_skipped_reason")
     if skip_reason:
         payload["status"] = "absent"
-        payload["reason"] = (
-            f"Crux-finder mode was requested but did not complete: {skip_reason}."
-        )
+        payload["reason"] = f"Crux-finder mode was requested but did not complete: {skip_reason}."
         payload["fallback_consensus"] = debate_metadata.get("crux_finder_fallback_consensus")
 
     return payload
@@ -241,6 +237,8 @@ class CruxOperationsMixin:
         honest-absence semantics.
         """
         storage = self.get_storage()
+        if storage is None:
+            return error_response("Storage not available", 503)
         debate = storage.get_debate(debate_id)
         if not debate:
             return error_response(f"Debate not found: {debate_id}", 404)
