@@ -1038,6 +1038,48 @@ def test_collect_records_raising_reviewer_as_failure() -> None:
     assert "reviewer boom" in outcome.failures[0].error
 
 
+def test_collect_times_out_wedged_reviewer_without_posting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fakes, posted = _fakes(tier=1)
+    calls: list[tuple[str, int]] = []
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            time.sleep(1)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    def quorum_reconciler(repo: str, pr: int) -> dict:
+        calls.append((repo, pr))
+        return {"applied": True}
+
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_FANOUT_TIMEOUT_SECONDS", "0.05")
+    fakes["reviewer_runner"] = reviewer_runner
+
+    started = time.monotonic()
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        quorum_reconciler=quorum_reconciler,
+        **fakes,
+    )
+
+    assert time.monotonic() - started < 0.5
+    assert [item.family for item in outcome.items] == ["claude"]
+    assert [failure.family for failure in outcome.failures] == ["grok"]
+    assert "timed out" in outcome.failures[0].error
+    assert outcome.action == "prepare"
+    assert "supportive quorum incomplete" in outcome.action_reason
+    assert outcome.to_dict()["failures"] == [
+        {"family": "grok", "error": outcome.failures[0].error}
+    ]
+    assert posted == []
+    assert calls == []
+
+
 def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
     fakes, posted = _fakes(tier=1)
     calls: list[tuple[str, int, int]] = []
