@@ -67,6 +67,7 @@ LEGACY_CONTROL_PLANE_TEST_EXTRA_DEPS=(
   "redis>=5.0.0,<8.0"
   "asyncpg>=0.31.0,<1.0"             # aligned to pyproject [enterprise]/[all]
   "yt-dlp>=2024.1,<2027.0"
+  "anthropic>=0.111,<1.0"
   "openai>=2.0,<3.0"
   "twilio>=8.0,<10.0"
   "langchain>=1.0,<2.0"
