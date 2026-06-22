@@ -202,6 +202,7 @@ class InventoryContext:
     smart_merge_detection: bool = False
     smart_merge_main_subjects: list[str] = field(default_factory=list)
     open_pr_heads_cache: dict[str, list[dict[str, Any]]] | None = None
+    open_pr_records_cache: list[dict[str, Any]] | None = None
     terminal_receipt_path_heads: dict[str, set[str | None]] = field(default_factory=dict)
 
 
@@ -851,7 +852,7 @@ def branch_merge_tree_matches_base(
 
 def prefetch_open_pr_heads(
     repo: Path, *, timeout: int
-) -> tuple[dict[str, list[dict[str, Any]]], bool, str | None]:
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]], bool, str | None]:
     proc = run_cmd(
         [
             "gh",
@@ -862,29 +863,33 @@ def prefetch_open_pr_heads(
             "--limit",
             "500",
             "--json",
-            "number,title,url,headRefName",
+            "number,title,url,headRefName,body",
         ],
         repo,
         timeout=timeout,
     )
     if proc.returncode != 0:
-        return {}, True, proc.stderr.strip() or "gh pr prefetch failed"
+        return {}, [], True, proc.stderr.strip() or "gh pr prefetch failed"
     try:
         payload = json.loads(proc.stdout or "[]")
     except json.JSONDecodeError as exc:
-        return {}, True, f"failed to parse gh pr prefetch output: {exc}"
+        return {}, [], True, f"failed to parse gh pr prefetch output: {exc}"
     if not isinstance(payload, list):
-        return {}, True, "gh pr prefetch output was not a list"
+        return {}, [], True, "gh pr prefetch output was not a list"
     cache: dict[str, list[dict[str, Any]]] = {}
+    records: list[dict[str, Any]] = []
     for item in payload:
         if not isinstance(item, dict):
             continue
         head = item.get("headRefName")
         if not isinstance(head, str) or not head:
             continue
-        record = {k: v for k, v in item.items() if k in ("number", "title", "url")}
+        record = {
+            k: v for k, v in item.items() if k in ("number", "title", "url", "headRefName", "body")
+        }
+        records.append(record)
         cache.setdefault(head, []).append(record)
-    return cache, False, None
+    return cache, records, False, None
 
 
 def lookup_open_prs(
@@ -915,6 +920,113 @@ def lookup_open_prs(
     if not isinstance(payload, list):
         return [], True, "gh pr output was not a list"
     return [item for item in payload if isinstance(item, dict)], False, None
+
+
+def lookup_branch_prs(
+    repo: Path,
+    branch: str | None,
+    *,
+    timeout: int,
+    skip_gh: bool,
+) -> tuple[list[dict[str, Any]], bool, str | None]:
+    """Return all GitHub PR records for a branch.
+
+    This is used only for preserve decisions: if a stale closed PR branch is
+    explicitly superseded by an open PR, inventory must not propose harvesting
+    that old branch again.
+    """
+
+    if not branch or skip_gh:
+        return [], False, None
+    proc = run_cmd(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "all",
+            "--head",
+            branch,
+            "--json",
+            "number,title,url,state,headRefName,headRefOid",
+        ],
+        repo,
+        timeout=timeout,
+    )
+    if proc.returncode != 0:
+        return [], True, proc.stderr.strip() or "gh pr branch lookup failed"
+    try:
+        payload = json.loads(proc.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        return [], True, f"failed to parse gh pr branch output: {exc}"
+    if not isinstance(payload, list):
+        return [], True, "gh pr branch output was not a list"
+    return [item for item in payload if isinstance(item, dict)], False, None
+
+
+_SUPERSESSION_TERMS = (
+    "supersede",
+    "supersedes",
+    "superseded",
+    "re-cut",
+    "recut",
+    "re cut",
+    "replaces",
+    "replacement",
+)
+
+
+def _open_pr_explicitly_supersedes(source_pr_number: int, open_pr: dict[str, Any]) -> bool:
+    text = f"{open_pr.get('title') or ''}\n{open_pr.get('body') or ''}".lower()
+    if not text:
+        return False
+    for match in re.finditer(rf"#\s*{source_pr_number}\b", text):
+        window = text[max(0, match.start() - 96) : min(len(text), match.end() + 96)]
+        if any(term in window for term in _SUPERSESSION_TERMS):
+            return True
+    return False
+
+
+def lookup_superseding_open_prs(
+    repo: Path,
+    branch: str | None,
+    *,
+    timeout: int,
+    skip_gh: bool,
+    open_pr_records: list[dict[str, Any]] | None,
+) -> tuple[list[dict[str, Any]], bool, str | None]:
+    if not branch or skip_gh or not open_pr_records:
+        return [], False, None
+
+    branch_prs, failed, error = lookup_branch_prs(
+        repo,
+        branch,
+        timeout=timeout,
+        skip_gh=skip_gh,
+    )
+    if failed:
+        return [], True, error
+
+    source_numbers: list[int] = []
+    for item in branch_prs:
+        state = str(item.get("state") or "").upper()
+        number = item.get("number")
+        if state == "OPEN" or not isinstance(number, int):
+            continue
+        source_numbers.append(number)
+
+    superseding: list[dict[str, Any]] = []
+    for source_number in source_numbers:
+        for open_pr in open_pr_records:
+            if _open_pr_explicitly_supersedes(source_number, open_pr):
+                record = {
+                    k: v
+                    for k, v in open_pr.items()
+                    if k in ("number", "title", "url", "headRefName")
+                }
+                record["supersedes_pr"] = source_number
+                superseding.append(record)
+    return superseding, False, None
 
 
 def measure_sizes(
@@ -980,6 +1092,7 @@ def classify_candidate(
     proof: list[str] = []
     links: dict[str, Any] = {
         "open_prs": [],
+        "superseding_open_prs": [],
         "outbox_files": [],
         "receipt_files": [],
     }
@@ -1123,104 +1236,125 @@ def classify_candidate(
         if path_receipt_protected:
             proof.append("terminal receipt references path/head")
     elif git.ahead and git.ahead > 0:
-        patch_equivalent = False
-        try:
-            patch_equivalent = is_patch_equivalent(
-                repo_path,
-                context.base,
-                rev or "HEAD",
-                timeout=context.patch_timeout,
-            )
-        except Exception as exc:
+        superseding_open_prs, superseding_failed, superseding_error = lookup_superseding_open_prs(
+            context.repo,
+            branch,
+            timeout=context.gh_timeout,
+            skip_gh=context.skip_gh,
+            open_pr_records=context.open_pr_records_cache,
+        )
+        links["superseding_open_prs"] = superseding_open_prs
+        if superseding_failed:
             git.lookup_failed = True
-            git.lookup_errors.append(f"patch equivalence failed: {exc}")
+            git.lookup_errors.append(superseding_error or "superseding open PR lookup failed")
             classification = "lookup_failed"
-            proof.append("patch equivalence lookup failed")
+            proof.append("superseding open PR lookup failed")
+        elif superseding_open_prs:
+            classification = "open_pr_or_outbox"
+            proof.append("open PR explicitly supersedes closed source PR for branch")
         else:
-            git.patch_equivalent_to_base = patch_equivalent
-            if patch_equivalent:
-                classification = "patch_equivalent_or_merged"
-                proof.append("branch is patch-equivalent to base")
-            elif context.smart_merge_detection:
-                merge_tree_matches, merge_tree_error = branch_merge_tree_matches_base(
+            patch_equivalent = False
+            try:
+                patch_equivalent = is_patch_equivalent(
                     repo_path,
                     context.base,
                     rev or "HEAD",
                     timeout=context.patch_timeout,
                 )
-                if merge_tree_matches is None and merge_tree_error:
-                    git.lookup_failed = True
-                    git.lookup_errors.append(
-                        f"smart merge merge-tree lookup failed: {merge_tree_error}"
-                    )
-                    classification = "lookup_failed"
-                    proof.append("smart merge lookup failed")
-                elif merge_tree_matches:
-                    git.smart_merge_equivalent_to_base = True
+            except Exception as exc:
+                git.lookup_failed = True
+                git.lookup_errors.append(f"patch equivalence failed: {exc}")
+                classification = "lookup_failed"
+                proof.append("patch equivalence lookup failed")
+            else:
+                git.patch_equivalent_to_base = patch_equivalent
+                if patch_equivalent:
                     classification = "patch_equivalent_or_merged"
-                    proof.append("merging branch into base leaves base tree unchanged")
-                    links["smart_merge_merge_tree"] = context.base
-                elif merge_tree_error:
-                    classification = "unique_unharvested"
-                    proof.append("merge-tree did not prove branch is already represented on base")
-                    links["smart_merge_merge_tree_error"] = merge_tree_error
-                else:
-                    merge_commits, merge_error = branch_unique_merge_commits(
+                    proof.append("branch is patch-equivalent to base")
+                elif context.smart_merge_detection:
+                    merge_tree_matches, merge_tree_error = branch_merge_tree_matches_base(
                         repo_path,
                         context.base,
                         rev or "HEAD",
                         timeout=context.patch_timeout,
                     )
-                    if merge_error:
+                    if merge_tree_matches is None and merge_tree_error:
                         git.lookup_failed = True
                         git.lookup_errors.append(
-                            f"smart merge merge-commit lookup failed: {merge_error}"
+                            f"smart merge merge-tree lookup failed: {merge_tree_error}"
                         )
                         classification = "lookup_failed"
                         proof.append("smart merge lookup failed")
-                    elif merge_commits:
+                    elif merge_tree_matches:
+                        git.smart_merge_equivalent_to_base = True
+                        classification = "patch_equivalent_or_merged"
+                        proof.append("merging branch into base leaves base tree unchanged")
+                        links["smart_merge_merge_tree"] = context.base
+                    elif merge_tree_error:
                         classification = "unique_unharvested"
                         proof.append(
-                            "smart merge detection skipped because branch contains merge commits"
+                            "merge-tree did not prove branch is already represented on base"
                         )
-                        links["smart_merge_merge_commits"] = merge_commits
+                        links["smart_merge_merge_tree_error"] = merge_tree_error
                     else:
-                        smart_equivalent, matched_subjects = branch_subjects_match_recent_main(
-                            repo_path,
-                            context.base,
-                            rev or "HEAD",
-                            context.smart_merge_main_subjects,
-                            timeout=context.patch_timeout,
-                        )
-                        if smart_equivalent:
-                            proof.append(
-                                "all unique commit subjects match recent main squash-merge subjects "
-                                "(advisory; patch proof still required)"
-                            )
-                            links["smart_merge_matched_subjects"] = matched_subjects
-                        error_count_before = len(git.lookup_errors)
-                        patches_present, matched_commits = branch_patches_present_on_base(
+                        merge_commits, merge_error = branch_unique_merge_commits(
                             repo_path,
                             context.base,
                             rev or "HEAD",
                             timeout=context.patch_timeout,
-                            lookup_errors=git.lookup_errors,
                         )
-                        git.smart_merge_equivalent_to_base = patches_present
-                        if patches_present:
-                            classification = "patch_equivalent_or_merged"
-                            proof.append("all unique commit patches are already present on base")
-                            links["smart_merge_matched_commits"] = matched_commits
-                        elif len(git.lookup_errors) > error_count_before:
+                        if merge_error:
                             git.lookup_failed = True
+                            git.lookup_errors.append(
+                                f"smart merge merge-commit lookup failed: {merge_error}"
+                            )
                             classification = "lookup_failed"
-                            proof.append("smart merge patch-present lookup failed")
-                        else:
+                            proof.append("smart merge lookup failed")
+                        elif merge_commits:
                             classification = "unique_unharvested"
-                            proof.append("branch has unique commits or diff ahead of base")
-            else:
-                classification = "unique_unharvested"
-                proof.append("branch has unique commits or diff ahead of base")
+                            proof.append(
+                                "smart merge detection skipped because branch contains merge commits"
+                            )
+                            links["smart_merge_merge_commits"] = merge_commits
+                        else:
+                            smart_equivalent, matched_subjects = branch_subjects_match_recent_main(
+                                repo_path,
+                                context.base,
+                                rev or "HEAD",
+                                context.smart_merge_main_subjects,
+                                timeout=context.patch_timeout,
+                            )
+                            if smart_equivalent:
+                                proof.append(
+                                    "all unique commit subjects match recent main squash-merge "
+                                    "subjects (advisory; patch proof still required)"
+                                )
+                                links["smart_merge_matched_subjects"] = matched_subjects
+                            error_count_before = len(git.lookup_errors)
+                            patches_present, matched_commits = branch_patches_present_on_base(
+                                repo_path,
+                                context.base,
+                                rev or "HEAD",
+                                timeout=context.patch_timeout,
+                                lookup_errors=git.lookup_errors,
+                            )
+                            git.smart_merge_equivalent_to_base = patches_present
+                            if patches_present:
+                                classification = "patch_equivalent_or_merged"
+                                proof.append(
+                                    "all unique commit patches are already present on base"
+                                )
+                                links["smart_merge_matched_commits"] = matched_commits
+                            elif len(git.lookup_errors) > error_count_before:
+                                git.lookup_failed = True
+                                classification = "lookup_failed"
+                                proof.append("smart merge patch-present lookup failed")
+                            else:
+                                classification = "unique_unharvested"
+                                proof.append("branch has unique commits or diff ahead of base")
+                else:
+                    classification = "unique_unharvested"
+                    proof.append("branch has unique commits or diff ahead of base")
     elif git.registered_worktree:
         classification = "patch_equivalent_or_merged"
         proof.append("registered git worktree has no unique commits ahead of base")
@@ -1584,10 +1718,12 @@ def inventory(
     candidate_paths = candidate_roots_from(roots, limit)
     sizes, size_failures = measure_sizes(candidate_paths, mode=size_mode, timeout=size_timeout)
     open_pr_heads_cache: dict[str, list[dict[str, Any]]] | None = None
+    open_pr_records_cache: list[dict[str, Any]] | None = None
     if include_pr_state:
-        cache, fetch_failed, _err = prefetch_open_pr_heads(repo, timeout=gh_timeout)
+        cache, records, fetch_failed, _err = prefetch_open_pr_heads(repo, timeout=gh_timeout)
         if not fetch_failed:
             open_pr_heads_cache = cache
+            open_pr_records_cache = records
     context = InventoryContext(
         repo=repo,
         base=base,
@@ -1624,6 +1760,7 @@ def inventory(
             else []
         ),
         open_pr_heads_cache=open_pr_heads_cache,
+        open_pr_records_cache=open_pr_records_cache,
     )
     candidates = [
         classify_candidate(

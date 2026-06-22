@@ -1516,6 +1516,108 @@ def test_classify_candidate_marks_open_pr_when_cache_hit(
     ]
 
 
+def test_classify_candidate_preserves_closed_pr_superseded_by_open_pr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, branch="feat/stale", ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "lookup_branch_prs",
+        lambda *_args, **_kwargs: (
+            [
+                {
+                    "number": 8255,
+                    "state": "CLOSED",
+                    "title": "stale source",
+                    "url": "https://example.test/pr/8255",
+                }
+            ],
+            False,
+            None,
+        ),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            open_pr_records_cache=[
+                {
+                    "number": 8543,
+                    "title": "feat: replacement",
+                    "body": "Re-cut fresh against current main; supersedes stale PR #8255.",
+                    "url": "https://example.test/pr/8543",
+                    "headRefName": "feat/recut",
+                }
+            ],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "open_pr_or_outbox"
+    assert candidate.decision == "preserve"
+    assert "open PR explicitly supersedes closed source PR for branch" in candidate.proof
+    assert candidate.links["superseding_open_prs"] == [
+        {
+            "number": 8543,
+            "title": "feat: replacement",
+            "url": "https://example.test/pr/8543",
+            "headRefName": "feat/recut",
+            "supersedes_pr": 8255,
+        }
+    ]
+
+
+def test_classify_candidate_keeps_generic_pr_reference_harvestable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, branch="feat/stale", ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "lookup_branch_prs",
+        lambda *_args, **_kwargs: (
+            [
+                {
+                    "number": 8255,
+                    "state": "CLOSED",
+                    "title": "stale source",
+                    "url": "https://example.test/pr/8255",
+                }
+            ],
+            False,
+            None,
+        ),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            open_pr_records_cache=[
+                {
+                    "number": 8543,
+                    "title": "feat: related work",
+                    "body": "Refs #8255 for historical background.",
+                    "url": "https://example.test/pr/8543",
+                    "headRefName": "feat/related",
+                }
+            ],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.links["superseding_open_prs"] == []
+
+
 # ---------------------------------------------------------------------------
 # Git-timeout hardening: a hung `git status` (or any git lookup) must never
 # hang the inventory, and a timed-out candidate must stay protected.
