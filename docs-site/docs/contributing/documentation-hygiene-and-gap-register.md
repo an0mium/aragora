@@ -57,7 +57,7 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](./active-e
 
 - Closed-loop backbone, inbox trust wedge, swarm supervision, provider routing phase 1, Comms Hub completion, and OpenClaw core-loop delivery are treated as shipped in `docs/status/STATUS.md`.
 - Canonical execution priorities are now linked directly to the GitHub backlog: truthfulness/backlog canonicalization is complete on `main` through `#809`, the first kernel bridge tranche `#810` is complete, and the active M1 kernel work is now `#811` and `#812` in `docs/status/NEXT_STEPS_CANONICAL.md` and `docs/status/ACTIVE_EXECUTION_ISSUES.md`.
-- The active six-week plan is wedge/PMF-focused: first receipt quickly, parity hard-close, reliability cleanup, surface simplification, and status consolidation in the archived six-week execution plan.
+- The active six-week plan is wedge/PMF-focused: first receipt quickly, parity hard-close, reliability cleanup, surface simplification, and status consolidation in the live six-week execution plan (`docs/status/EXECUTION_NEXT_6_WEEKS_2026-03-05.md`).
 
 ### Near-Term Goals (Q2 2026)
 

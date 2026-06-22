@@ -14,6 +14,7 @@ from aragora.agents.registry import AgentRegistry
 from aragora.billing.usage import calculate_token_cost
 from aragora.config.feature_flags import FeatureFlagRegistry
 from aragora.routing.selection import (
+    AGENT_COST_FACTORS,
     DEFAULT_AGENT_EXPERTISE,
     FUSION_EXPERTISE,
     AgentSelector,
@@ -65,7 +66,8 @@ def test_fusion_routing_profile_is_high_cost(monkeypatch) -> None:
     profile = selector.agent_pool["fusion"]
     assert profile.cost_factor == 4.5
     assert profile.latency_ms == 4500.0
-    assert selector.agent_pool["claude"].cost_factor == 1.0
+    assert selector.agent_pool["claude"].cost_factor == AGENT_COST_FACTORS["claude"]
+    assert profile.cost_factor > selector.agent_pool["claude"].cost_factor
 
 
 def test_fusion_not_in_pool_when_flag_off(monkeypatch) -> None:
