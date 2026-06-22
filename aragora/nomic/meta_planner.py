@@ -34,6 +34,7 @@ from aragora.nomic.meta_planner_utils import (  # noqa: F401 — re-exported
     infer_track,
     parse_goals_from_debate,
 )
+from aragora.config.feature_flags import get_flag, is_enabled
 
 if TYPE_CHECKING:
     pass
@@ -140,6 +141,11 @@ class MetaPlannerConfig:
     # Objective fidelity recovery
     enforce_objective_fidelity: bool = True
     objective_fidelity_threshold: float = 0.2
+    # Opt-in: include OpenRouter Fusion (multi-model council+judge) as an extra
+    # participant in planning debates. Default OFF -- Fusion is ~4-5x cost. Also
+    # gated globally by the enable_fusion feature flag and a positive
+    # fusion_cost_budget_per_debate (set the budget to 0 to hard-disable).
+    enable_fusion: bool = False
 
 
 class MetaPlanner:
@@ -297,6 +303,8 @@ class MetaPlanner:
                 if self.config.use_introspection_selection
                 else self.config.agents
             )
+            # Opt-in: add OpenRouter Fusion as an extra council/judge participant.
+            agent_types = self._maybe_add_fusion(list(agent_types))
 
             # Create agents using get_secret pattern for API key resolution
             agents = []
@@ -951,7 +959,7 @@ class MetaPlanner:
             _gauntlet_available = True
         else:
             try:
-                import importlib
+                import importlib.util
 
                 _gauntlet_available = (
                     importlib.util.find_spec("aragora.gauntlet.runner") is not None
@@ -967,7 +975,7 @@ class MetaPlanner:
                     from aragora.gauntlet.runner import GauntletRunner as _runner_cls  # type: ignore[no-redef]
                 from aragora.gauntlet.config import GauntletConfig
 
-                runner = _runner_cls(
+                runner = _runner_cls(  # type: ignore[misc]  # narrowed by import above
                     config=GauntletConfig(
                         attack_rounds=1,
                         probes_per_category=1,
@@ -999,7 +1007,7 @@ class MetaPlanner:
                 if _elo_store_fn is None:
                     from aragora.ranking.elo import get_elo_store as _elo_store_fn  # type: ignore[no-redef]
 
-                elo_store = _elo_store_fn()
+                elo_store = _elo_store_fn()  # type: ignore[misc]  # narrowed by import above
                 all_ratings = elo_store.get_all_ratings()
 
                 if all_ratings:
@@ -1125,6 +1133,42 @@ class MetaPlanner:
 
         logger.debug("Could not create agent %s via any path", agent_type)
         return None
+
+    def _maybe_add_fusion(self, agent_types: list[str]) -> list[str]:
+        """Optionally append the OpenRouter Fusion agent to a planning debate.
+
+        Fusion (a multi-model council+judge) is ~4-5x cost, so it joins planning
+        only when explicitly opted in AND there is budget for it:
+
+        - ``MetaPlannerConfig.enable_fusion`` OR the global ``enable_fusion`` flag, and
+        - ``fusion_cost_budget_per_debate`` > 0 (set the budget to 0 to hard-disable
+          even when the flag is on), and
+        - the ``fusion`` agent type is actually registered.
+
+        Fails open: any error leaves ``agent_types`` untouched so planning never
+        breaks because of the (optional) Fusion path.
+        """
+        try:
+            if "fusion" in agent_types:
+                return agent_types
+            if not (self.config.enable_fusion or is_enabled("enable_fusion")):
+                return agent_types
+            # Budget gate: a non-positive per-debate budget disables Fusion.
+            budget = float(get_flag("fusion_cost_budget_per_debate", 50.0))
+            if budget <= 0:
+                logger.info("Fusion enabled but per-debate budget <= 0; skipping fusion")
+                return agent_types
+            # Only add it if it can actually be constructed.
+            from aragora.agents.registry import AgentRegistry
+
+            if not AgentRegistry.is_registered("fusion"):
+                logger.warning("enable_fusion set but 'fusion' agent not registered; skipping")
+                return agent_types
+            logger.info("Adding OpenRouter Fusion to planning debate (budget=$%.2f/debate)", budget)
+            return [*agent_types, "fusion"]
+        except Exception as e:  # noqa: BLE001 - fail-open: planning must never break on the optional path
+            logger.warning("Fusion participation check failed, proceeding without it: %s", e)
+            return agent_types
 
     def _select_agents_by_introspection(self, domain: str) -> list[str]:
         """Select agents using introspection data for better planning quality.
@@ -1552,7 +1596,7 @@ class MetaPlanner:
                 track_name = getattr(queued_goal, "track", None)
                 if isinstance(track_name, Track):
                     track_name = track_name.value
-                elif hasattr(track_name, "value"):
+                elif track_name is not None and hasattr(track_name, "value"):
                     track_name = track_name.value
                 else:
                     track_name = str(track_name) if track_name else None
@@ -1610,7 +1654,7 @@ class MetaPlanner:
                 track_name = pg_data.get("track", "core")
                 if track_name in track_signals:
                     track_signals[track_name].append(
-                        f"pipeline_goal: {pg_data.get('label', pg_data.get('description', ''))[:100]}"
+                        f"pipeline_goal: {(pg_data.get('label') or pg_data.get('description') or '')[:100]}"
                     )
             if pipeline_goals:
                 logger.info(
@@ -1698,9 +1742,10 @@ class MetaPlanner:
                 description += f"\n\nRelevant source:\n{excerpt_text}"
 
             # Opt-in: single cheap LLM call to enrich signal-based description
-            if enrich_goals and getattr(self, "_agent", None):
+            agent = getattr(self, "_agent", None)
+            if enrich_goals and agent is not None:
                 try:
-                    enriched = await self._agent.generate(
+                    enriched = await agent.generate(
                         f"Expand this into a concrete task description "
                         f"(1-2 sentences):\n{description[:500]}",
                         max_tokens=100,
@@ -1723,7 +1768,7 @@ class MetaPlanner:
 
         if not goals:
             logger.info("scan_mode_no_signals falling back to heuristic")
-            return self._heuristic_prioritize(objective, available_tracks)
+            return self._heuristic_prioritize(objective or "", available_tracks)
 
         # Re-rank goals using business context
         if self.config.use_business_context:

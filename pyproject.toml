@@ -3,10 +3,10 @@ requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aragora-debate"
+name = "aragora"
 version = "2.9.0"
-description = "Standalone adversarial debate package for offline and mock-agent deliberation"
-readme = {text = "# Aragora Debate\n\nA standalone Python package for running bounded multi-agent debates with mock or real agents. The published default surface is intentionally small: `Environment`, `DebateProtocol`, and `Arena`.", content-type = "text/markdown"}
+description = "Decision Integrity Platform — multi-agent vetted decisionmaking with audit-ready receipts"
+readme = {text = "# Aragora\n\nThe Decision Integrity Platform: orchestrate multi-agent debates against your org's knowledge and deliver audit-ready decision receipts. Installing this distribution provides the `aragora` CLI and the full `aragora` package. The small standalone debate wedge is published separately as `aragora-debate` (see the `aragora-debate/` subproject).", content-type = "text/markdown"}
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
@@ -30,13 +30,27 @@ dependencies = [
     # parsing — which aborts ``hydrate_env_from_secrets`` and the whole
     # settlement/secrets CLI path. Floor it above the fixed release.
     "python-dateutil>=2.9.0.post0",
+    # Core runtime closure for the `aragora` CLI (verified: these are the
+    # third-party module-level imports the full argparse tree pulls in at
+    # ``aragora --help`` time — click/httpx/typer via cli/ submodules, plus
+    # config/settings which need pydantic + PyYAML). Declared in base so any
+    # install yields a working CLI, not just ``[test]``.
+    "click>=8.1,<9.0",
+    "httpx>=0.27,<1.0",
+    "typer>=0.12,<1.0",
+    "PyYAML>=6.0.3,<7.0",
+    "pydantic>=2.13.4,<3.0",
+    "pydantic-settings>=2.14.2,<3.0",
 ]
+
+[project.scripts]
+aragora = "aragora.cli.main:main"
 
 [project.optional-dependencies]
 test = [
     "build>=1.5.0,<2.0",
     "pydantic>=2.13.4,<3.0",
-    "pydantic-settings>=2.14.1,<3.0",
+    "pydantic-settings>=2.14.2,<3.0",
     "PyYAML>=6.0.3,<7.0",
     "pytest>=9.1.0,<10.0",
     "pytest-asyncio>=1.3.0,<2.0",
@@ -118,7 +132,8 @@ constraint-dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["aragora", "aragora.core", "aragora.debate"]
+include = ["aragora*"]
+exclude = ["aragora-debate*", "tests*", "docs*"]
 
 [tool.setuptools.package-data]
 "aragora" = ["py.typed"]
