@@ -671,6 +671,54 @@ def test_smart_merge_detection_reclassifies_already_present_patches(
     assert candidate.links["smart_merge_matched_commits"] == ["2f2a1f6", "b46d5c6"]
 
 
+def test_branch_patches_present_on_base_uses_temp_index_only(tmp_path: Path) -> None:
+    import subprocess
+
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return proc.stdout.strip()
+
+    git("init")
+    git("config", "user.email", "test@example.test")
+    git("config", "user.name", "Test User")
+    (repo / "tracked.txt").write_text("old\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git("commit", "-m", "base")
+    base_commit = git("rev-parse", "HEAD")
+
+    git("checkout", "-b", "stale")
+    (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
+    git("commit", "-am", "stale patch")
+    stale_commit = git("rev-parse", "HEAD")
+
+    git("checkout", "master")
+    (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
+    git("commit", "-am", "main contains patch")
+    git("checkout", "-b", "unrelated-worktree", base_commit)
+
+    present, matched = mod.branch_patches_present_on_base(
+        repo,
+        "master",
+        "stale",
+        timeout=5,
+    )
+
+    assert present is True
+    assert matched == [stale_commit]
+
+
 def test_smart_merge_detection_preserves_branches_with_merge_commits(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

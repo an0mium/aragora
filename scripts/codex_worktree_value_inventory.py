@@ -768,7 +768,7 @@ def branch_patches_present_on_base(
                     lookup_errors.append(f"patch-present show failed for {commit}: {reason}")
                 return False, verified
             reverse_check = run_cmd(
-                ["git", "apply", "--cached", "--reverse", "--check", "--index", "-"],
+                ["git", "apply", "--cached", "--reverse", "--check", "-"],
                 repo_path,
                 timeout=timeout,
                 env=env,
