@@ -328,7 +328,7 @@ async def test_my_function(mock_rlm):
 ```python
 rlm = get_rlm()
 if rlm is None:
-    # Check: Is `pip install aragora[rlm]` installed?
+    # Check: Is the `aragora` package installed (RLM ships with it)?
     # Check: Is ARAGORA_RLM_MODE set correctly?
     # Check: Are required API keys present?
     pass

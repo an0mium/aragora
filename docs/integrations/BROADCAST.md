@@ -126,9 +126,9 @@ audio_path = await engine.generate_audio("Hello world", "narrator")
 
 Install optional providers:
 ```bash
-pip install "aragora[broadcast-elevenlabs]"  # ElevenLabs (cloud)
-pip install "aragora[broadcast-polly]"       # Amazon Polly (cloud, AWS)
-pip install "aragora[broadcast-xtts]"        # Coqui XTTS v2 (local)
+pip install elevenlabs  # ElevenLabs (cloud)
+pip install boto3        # Amazon Polly (cloud, AWS)
+pip install TTS          # Coqui XTTS v2 (local)
 ```
 
 Backend selection and ordering:
@@ -392,7 +392,7 @@ JSON listing of podcast episodes.
 
 **Required (for full functionality):**
 ```bash
-pip install aragora[broadcast]
+pip install edge-tts pydub pyttsx3
 # Installs: edge-tts, pydub, pyttsx3
 ```
 

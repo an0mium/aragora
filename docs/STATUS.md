@@ -1942,8 +1942,8 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - "Recursive Langu
 
 **Installation:**
 ```bash
-# Install with real RLM support
-pip install aragora[rlm]
+# RLM support is included in the base install
+pip install aragora
 ```
 
 **Usage:**

@@ -22,7 +22,7 @@ DETAILED, SUMMARY, ABSTRACT, METADATA). Functional, but not true RLM.
 
 ```bash
 # With true RLM support
-pip install aragora[rlm]
+pip install aragora
 
 # Verify
 python -c "from aragora.rlm import HAS_OFFICIAL_RLM; print(HAS_OFFICIAL_RLM)"

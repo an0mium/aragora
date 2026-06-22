@@ -31,7 +31,7 @@ Based on the ["Recursive Language Models" paper (arXiv:2512.24601)](https://arxi
 
 ```bash
 # Install Aragora with RLM support
-pip install aragora[rlm]
+pip install aragora
 
 # Or install the official RLM library directly
 pip install rlm

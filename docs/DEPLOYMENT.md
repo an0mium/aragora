@@ -8,7 +8,7 @@ Three deployment paths, from simplest to production-grade.
 pip install aragora
 
 # Offline mode — SQLite, no external services, no API keys needed
-aragora serve --offline
+aragora serve --demo
 
 # With API keys — full functionality
 export ANTHROPIC_API_KEY=your-key
@@ -95,11 +95,11 @@ pip install .
 
 # With PostgreSQL + Redis
 ARG INSTALL_VARIANT=postgres
-pip install ".[postgres,redis]"
+pip install ".[enterprise]"
 
 # Full (all optional dependencies)
 ARG INSTALL_VARIANT=full
-pip install ".[persistence,redis,monitoring,observability,postgres,rlm]"
+pip install ".[all]"
 ```
 
 Default in `deploy/Dockerfile` is full.

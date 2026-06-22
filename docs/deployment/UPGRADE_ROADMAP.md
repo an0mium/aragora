@@ -173,7 +173,7 @@ For production deployments migrating from SQLite to PostgreSQL:
 
 ```bash
 # Install PostgreSQL dependencies
-pip install aragora[postgres]
+pip install aragora[enterprise]
 
 # Set connection string
 export DATABASE_URL="postgresql://user:pass@host:5432/aragora"
@@ -376,14 +376,14 @@ Install specific extras based on your deployment:
 
 ```bash
 # PostgreSQL support
-pip install aragora[postgres]
+pip install aragora[enterprise]
 # Adds: sqlalchemy>=2.0.40, asyncpg>=0.29.0, alembic>=1.13.0
 
 # Full persistence (includes Supabase)
-pip install aragora[persistence]
+pip install aragora[enterprise]
 
 # Observability (metrics, tracing)
-pip install aragora[observability]
+pip install aragora
 # Adds: opentelemetry, prometheus-client
 
 # Development/testing
