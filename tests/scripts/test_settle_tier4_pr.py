@@ -1868,6 +1868,107 @@ def test_check_json_blocks_on_branch_protection_preflight_failure(
     assert "HTTP 403" in preflight["error"]
 
 
+def test_check_json_does_not_block_on_observational_non_admin_preflight(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[_authorized_comment(head)]),
+            _tier4_packet(),
+            _valid_checks(),
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "reviewer-user")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: False)
+    monkeypatch.setattr(
+        settler,
+        "_run_json",
+        lambda command, cwd, **kwargs: pytest.fail(
+            "observational non-admin checks should not read branch-protection endpoints"
+        ),
+    )
+
+    rc = settler.main(["--check", "--pr", "7423", "--head", head, "--cwd", str(tmp_path), "--json"])
+
+    assert rc == 0
+    gate = settler.json.loads(capsys.readouterr().out)["gate"]
+    assert gate["ok"] is True
+    assert gate["settle_eligible"] is True
+    preflight = gate["branch_protection_preflight"]
+    assert preflight["required"] is True
+    assert preflight["ok"] is True
+    assert preflight["advisory"] is True
+    assert "lacks admin permission" in preflight["error"]
+    assert "eventual --merge-apply operator" in preflight["non_blocking_reason"]
+
+
+def test_branch_protection_preflight_report_failure_keys_fail_closed(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    def fail_preflight(*, repo: str, cwd: Path) -> None:
+        raise settler.Tier4ApplyError(
+            "real preflight failure",
+            phase="preflight",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action="recover",
+        )
+
+    def conflicting_payload(self: Any) -> dict[str, Any]:
+        return {
+            "required": False,
+            "ok": True,
+            "error": "payload override",
+            "phase": self.phase,
+            "mutation_occurred": self.mutation_occurred,
+            "completed_commands": self.completed_commands,
+            "rollback_errors": self.rollback_errors,
+            "recovery_action": self.recovery_action,
+        }
+
+    monkeypatch.setattr(settler, "_preflight_branch_protection_reconcile", fail_preflight)
+    monkeypatch.setattr(settler.Tier4ApplyError, "to_payload", conflicting_payload)
+
+    preflight = settler._branch_protection_preflight_report(
+        repo="owner/repo",
+        cwd=tmp_path,
+        authorized_actions={"branch_protection"},
+    )
+
+    assert preflight["required"] is True
+    assert preflight["ok"] is False
+    assert preflight["error"] == "real preflight failure"
+    assert preflight["phase"] == "preflight"
+
+
+def test_branch_protection_preflight_report_wraps_auth_probe_runtime_error(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_current_gh_login",
+        lambda cwd: (_ for _ in ()).throw(RuntimeError("gh auth unavailable")),
+    )
+
+    preflight = settler._branch_protection_preflight_report(
+        repo="owner/repo",
+        cwd=tmp_path,
+        authorized_actions={"branch_protection"},
+    )
+
+    assert preflight["required"] is True
+    assert preflight["ok"] is False
+    assert preflight["phase"] == "preflight"
+    assert preflight["mutation_occurred"] is False
+    assert preflight["completed_commands"] == 0
+    assert "could not probe gh admin permission" in preflight["error"]
+    assert "gh auth unavailable" in preflight["error"]
+
+
 def test_check_skips_branch_protection_preflight_for_merge_only_authorization(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:

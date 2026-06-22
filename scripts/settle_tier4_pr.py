@@ -1624,8 +1624,22 @@ def _top_level_rule_absent(top_level: dict[str, Any], key: str) -> bool:
 
 
 def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
-    login = _current_gh_login(cwd=cwd)
-    if not _login_has_admin_permission(login, repo, cwd):
+    try:
+        login = _current_gh_login(cwd=cwd)
+        has_admin_permission = _login_has_admin_permission(login, repo, cwd)
+    except RuntimeError as exc:
+        raise Tier4ApplyError(
+            f"Tier 4 branch-protection preflight failed before merge mutation: "
+            f"could not probe gh admin permission: {exc}",
+            phase="preflight",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action=(
+                "verify gh auth is available and the eventual merge applier has "
+                "branch-protection admin access, then rerun --merge-apply"
+            ),
+        ) from exc
+    if not has_admin_permission:
         raise Tier4ApplyError(
             f"Tier 4 branch-protection preflight failed: gh login {login} lacks admin permission",
             phase="preflight",
@@ -1672,6 +1686,19 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
             ) from exc
 
 
+def _branch_protection_preflight_is_observational_permission_probe(
+    exc: Tier4ApplyError,
+) -> bool:
+    """Return whether ``--check`` only proved the current observer lacks admin."""
+
+    return (
+        exc.phase == "preflight"
+        and exc.mutation_occurred is False
+        and exc.completed_commands == 0
+        and "lacks admin permission" in str(exc)
+    )
+
+
 def _branch_protection_preflight_report(
     *,
     repo: str,
@@ -1689,11 +1716,24 @@ def _branch_protection_preflight_report(
     try:
         _preflight_branch_protection_reconcile(repo=repo, cwd=cwd)
     except Tier4ApplyError as exc:
+        payload = exc.to_payload()
+        if _branch_protection_preflight_is_observational_permission_probe(exc):
+            return {
+                **payload,
+                "required": True,
+                "ok": True,
+                "advisory": True,
+                "error": str(exc),
+                "non_blocking_reason": (
+                    "current gh login lacks admin permission; --check is observational "
+                    "and the eventual --merge-apply operator may use a different trusted login"
+                ),
+            }
         return {
+            **payload,
             "required": True,
             "ok": False,
             "error": str(exc),
-            **exc.to_payload(),
         }
     return {
         "required": True,
