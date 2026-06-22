@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **109**
-- Total top-level invocations (including aliases): **110**
+- Canonical top-level commands: **110**
+- Total top-level invocations (including aliases): **111**
 
 ## Installation
 
@@ -102,6 +102,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `mcp-server` | - | Run the MCP (Model Context Protocol) server | - |
 | `memory` | - | Memory management commands | `promote`, `query`, `stats`, `store` |
 | `metrics` | - | AGT-06: read VIAH and other operator metrics | `status`, `viah` |
+| `mission` | - | Run or manage native missions | - |
 | `modes` | - | List available operational modes | - |
 | `nomic` | - | Nomic loop self-improvement commands | `history`, `resume`, `run`, `status` |
 | `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `next-steps`, `policy`, `review`, `serve`, `status`, `watch` |

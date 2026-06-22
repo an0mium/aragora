@@ -6,11 +6,16 @@ from __future__ import annotations
 import argparse
 import re
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = Path("docs/CAPABILITY_MATRIX.md")
+
+
+class BaseMatrixUnavailableError(RuntimeError):
+    """Raised when an explicitly requested base matrix cannot be read."""
 
 
 def _extract(pattern: str, text: str) -> tuple[int, ...] | None:
@@ -43,7 +48,7 @@ def _load_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _load_base_text(repo_root: Path, base_ref: str) -> str | None:
+def _load_base_text(repo_root: Path, base_ref: str) -> str:
     target = f"{base_ref}:{MATRIX_PATH.as_posix()}"
     proc = subprocess.run(
         ["git", "show", target],
@@ -53,7 +58,8 @@ def _load_base_text(repo_root: Path, base_ref: str) -> str | None:
         capture_output=True,
     )
     if proc.returncode != 0:
-        return None
+        detail = proc.stderr.strip() or proc.stdout.strip() or f"git show exited {proc.returncode}"
+        raise BaseMatrixUnavailableError(f"Base matrix unavailable for ref {base_ref!r}: {detail}")
     return proc.stdout
 
 
@@ -70,7 +76,7 @@ def _metric_line(name: str, head: int, base: int | None) -> str:
     return f"| {name} | {base_val} | {head} | {_delta(head, base)} |"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Generate capability matrix delta summary")
     parser.add_argument("--root", default=str(REPO_ROOT), help="Repo root")
     parser.add_argument("--base-ref", help="Git ref to compare against (e.g. origin/main)")
@@ -79,7 +85,7 @@ def main() -> int:
         default="/tmp/capability-matrix-summary.md",
         help="Output markdown file",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     repo_root = Path(args.root).resolve()
     current_path = repo_root / MATRIX_PATH
@@ -89,16 +95,13 @@ def main() -> int:
     current = _parse_matrix(current_text)
 
     base: dict[str, tuple[int, ...]] | None = None
-    base_note = ""
 
     if args.base_ref:
-        base_text = _load_base_text(repo_root, args.base_ref)
-        if base_text:
-            base = _parse_matrix(base_text)
-        else:
-            base_note = (
-                f"Base matrix unavailable for ref `{args.base_ref}`; showing head snapshot only."
-            )
+        try:
+            base = _parse_matrix(_load_base_text(repo_root, args.base_ref))
+        except BaseMatrixUnavailableError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     lines: list[str] = []
@@ -108,9 +111,6 @@ def main() -> int:
     lines.append(f"Source: `{MATRIX_PATH.as_posix()}`")
     if args.base_ref:
         lines.append(f"Base ref: `{args.base_ref}`")
-    if base_note:
-        lines.append("")
-        lines.append(f"> {base_note}")
     lines.append("")
 
     lines.append("| Metric | Base | Head | Delta |")
