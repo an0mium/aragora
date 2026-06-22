@@ -49,14 +49,14 @@ pip install aragora
 
 **Includes**: Core debate engine, SQLite storage, all agent providers
 
-### Profile 2: API Server
-For running the REST/WebSocket server:
+### Profile 2: FastAPI Gateway
+For the FastAPI/uvicorn async gateway:
 
 ```bash
 pip install aragora[gateway]
 ```
 
-**Includes**: Core + FastAPI and uvicorn (REST/WebSocket server)
+**Includes**: Core + FastAPI + uvicorn
 
 ### Profile 3: Production Deployment
 For full production environment:
@@ -90,7 +90,7 @@ For generating debate audio/video:
 
 ```bash
 # Basic TTS (free, edge-tts)
-pip install edge-tts pydub pyttsx3
+pip install edge-tts pydub
 
 # Premium TTS: ElevenLabs / AWS Polly / Coqui XTTS
 pip install elevenlabs   # or: boto3 (Polly), TTS (Coqui XTTS)

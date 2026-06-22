@@ -392,8 +392,8 @@ JSON listing of podcast episodes.
 
 **Required (for full functionality):**
 ```bash
-pip install edge-tts pydub pyttsx3
-# Installs: edge-tts, pydub, pyttsx3
+pip install edge-tts pydub
+# Installs: edge-tts, pydub (pyttsx3 is an optional offline fallback)
 ```
 
 **Optional:**

@@ -244,7 +244,7 @@ python -c "import aragora.rlm" 2>/dev/null || echo "RLM not importable - reinsta
 - TRUE RLM significantly improves knowledge retrieval quality in production workloads
 
 **Troubleshooting:**
-- If `HAS_OFFICIAL_RLM` is `False`: Ensure the `rlm` extra is in your pip install command
+- If `HAS_OFFICIAL_RLM` is `False`: Install the official RLM package with `pip install rlm`
 - Docker builds: Verify `pip install -e .` is included in the Dockerfile pip install line
 - Lightsail/EC2: Ensure setup scripts include `pip install -e .`
 

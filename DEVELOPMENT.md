@@ -35,7 +35,7 @@ aragora serve --api-port 8080 --ws-port 8765
 
 | Feature | Install Command | Notes |
 |---------|-----------------|-------|
-| PostgreSQL | `pip install psycopg2-binary` | Production database |
+| PostgreSQL | `pip install asyncpg` | Production database |
 | Redis | `pip install redis` | Rate limiting, caching |
 | Monitoring | `pip install prometheus-client sentry-sdk` | Prometheus, Sentry |
 | Observability | `pip install opentelemetry-sdk opentelemetry-exporter-otlp` | OpenTelemetry |

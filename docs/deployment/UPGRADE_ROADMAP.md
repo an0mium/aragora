@@ -375,16 +375,12 @@ Migration safety features:
 Install specific extras based on your deployment:
 
 ```bash
-# PostgreSQL support
+# PostgreSQL + Supabase persistence
 pip install aragora[enterprise]
-# Adds: sqlalchemy>=2.0.40, asyncpg>=0.29.0, alembic>=1.13.0
+# Adds: asyncpg, python3-saml, supabase
 
-# Full persistence (includes Supabase)
-pip install aragora[enterprise]
-
-# Observability (metrics, tracing)
-pip install aragora
-# Adds: opentelemetry, prometheus-client
+# Observability (metrics, tracing) - not a pip extra; install directly
+pip install opentelemetry-sdk prometheus-client
 
 # Development/testing
 pip install aragora[test]

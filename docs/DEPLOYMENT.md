@@ -86,23 +86,20 @@ cp .env.template .env  # fill in API keys
 
 ### Build Variants
 
-The Dockerfile supports three installation levels:
+`deploy/Dockerfile` chooses dependencies via the `VARIANT` build arg, which
+drives `scripts/ci_install_project.sh`:
+
+| `VARIANT` | Installs |
+|-----------|----------|
+| `minimal` | base package only |
+| `postgres` | base + PostgreSQL/Redis drivers |
+| `full` (default) | base + persistence, Redis, monitoring, observability, PostgreSQL, RLM |
 
 ```dockerfile
-# Minimal (no Redis/Postgres drivers)
-ARG INSTALL_VARIANT=minimal
-pip install .
-
-# With PostgreSQL + Redis
-ARG INSTALL_VARIANT=postgres
-pip install ".[enterprise]"
-
-# Full (all optional dependencies)
-ARG INSTALL_VARIANT=full
-pip install ".[all]"
+ARG VARIANT=full   # default; also: minimal, postgres
 ```
 
-Default in `deploy/Dockerfile` is full.
+The exact package groups per variant live in `scripts/ci_install_project.sh`.
 
 ## 3. Kubernetes
 
