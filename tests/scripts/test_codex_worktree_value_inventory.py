@@ -801,7 +801,7 @@ def test_branch_patches_present_on_base_uses_temp_index_only(tmp_path: Path) -> 
         )
         return proc.stdout.strip()
 
-    git("init")
+    git("init", "-b", "master")
     git("config", "user.email", "test@example.test")
     git("config", "user.name", "Test User")
     (repo / "tracked.txt").write_text("old\n", encoding="utf-8")
@@ -849,7 +849,7 @@ def test_branch_merge_tree_matches_base_for_noop_merge_commit(tmp_path: Path) ->
         )
         return proc.stdout.strip()
 
-    git("init")
+    git("init", "-b", "master")
     git("config", "user.email", "test@example.test")
     git("config", "user.name", "Test User")
     (repo / "tracked.txt").write_text("base\n", encoding="utf-8")
@@ -1545,6 +1545,23 @@ def test_run_cmd_missing_binary_still_returns_completed_process(tmp_path: Path) 
 
     assert proc.returncode == 124
     assert proc.stdout == ""
+
+
+def test_run_cmd_replaces_invalid_utf8_output(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    proc = mod.run_cmd(
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.stdout.buffer.write(b'patch\\xffpayload')",
+        ],
+        tmp_path,
+        timeout=5,
+    )
+
+    assert proc.returncode == 0
+    assert "patch\ufffdpayload" in proc.stdout
 
 
 def test_timeout_raising_runner_marks_candidate_inspect_timeout_protected(

@@ -255,6 +255,8 @@ def run_cmd(
             args,
             cwd=cwd,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -275,6 +277,14 @@ def run_cmd(
             returncode=124,
             stdout="",
             stderr=f"command timed out after {timeout}s: {' '.join(args)}",
+        )
+    except (UnicodeError, OSError, ValueError) as exc:
+        _kill_process_tree(proc)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=125,
+            stdout="",
+            stderr=f"command failed while reading output: {type(exc).__name__}: {exc}",
         )
     return subprocess.CompletedProcess(
         args=args, returncode=proc.returncode, stdout=stdout or "", stderr=stderr or ""
