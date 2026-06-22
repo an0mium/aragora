@@ -390,7 +390,7 @@ aragora/
 │   ├── consensus.py      # Consensus detection and proofs
 │   ├── convergence.py    # Semantic similarity detection
 │   └── phases/           # Propose, critique, revise, vote, judge
-├── agents/         # 43 registered agent types (CLI, direct API, OpenRouter, local)
+├── agents/         # 46 registered agent types (CLI, direct API, OpenRouter, local)
 │   ├── api_agents/       # Anthropic, OpenAI, Gemini, Grok, Mistral, OpenRouter
 │   ├── cli_agents.py     # Claude Code, Codex, Gemini CLI, Grok CLI
 │   └── fallback.py       # OpenRouter fallback on quota errors
