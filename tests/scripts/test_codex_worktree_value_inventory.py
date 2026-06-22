@@ -96,6 +96,11 @@ def _stub_clean_git(
         "branch_unique_merge_commits",
         lambda *_args, **_kwargs: ([], None),
     )
+    monkeypatch.setattr(
+        mod,
+        "branch_merge_tree_matches_base",
+        lambda *_args, **_kwargs: (False, None),
+    )
 
 
 def test_default_scan_preserves_foreign_repo_as_lookup_failed(
@@ -671,6 +676,69 @@ def test_smart_merge_detection_reclassifies_already_present_patches(
     assert candidate.links["smart_merge_matched_commits"] == ["2f2a1f6", "b46d5c6"]
 
 
+def test_smart_merge_detection_reclassifies_noop_merge_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_merge_tree_matches_base",
+        lambda *_args, **_kwargs: (True, None),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "patch_equivalent_or_merged"
+    assert candidate.cleanup_candidate is True
+    assert candidate.git.smart_merge_equivalent_to_base is True
+    assert "merging branch into base leaves base tree unchanged" in candidate.proof
+    assert candidate.links["smart_merge_merge_tree"] == "origin/main"
+
+
+def test_smart_merge_detection_merge_tree_failure_is_protected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_merge_tree_matches_base",
+        lambda *_args, **_kwargs: (None, "merge conflict"),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "lookup_failed"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.lookup_failed is True
+    assert any(
+        "smart merge merge-tree lookup failed" in item for item in candidate.git.lookup_errors
+    )
+
+
 def test_branch_patches_present_on_base_uses_temp_index_only(tmp_path: Path) -> None:
     import subprocess
 
@@ -717,6 +785,53 @@ def test_branch_patches_present_on_base_uses_temp_index_only(tmp_path: Path) -> 
 
     assert present is True
     assert matched == [stale_commit]
+
+
+def test_branch_merge_tree_matches_base_for_noop_merge_commit(tmp_path: Path) -> None:
+    import subprocess
+
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return proc.stdout.strip()
+
+    git("init")
+    git("config", "user.email", "test@example.test")
+    git("config", "user.name", "Test User")
+    (repo / "tracked.txt").write_text("base\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git("commit", "-m", "base")
+
+    git("checkout", "-b", "stale")
+    (repo / "tracked.txt").write_text("base\nstale value\n", encoding="utf-8")
+    git("commit", "-am", "stale value")
+
+    git("checkout", "master")
+    (repo / "tracked.txt").write_text("base\nstale value\n", encoding="utf-8")
+    git("commit", "-am", "main already has stale value")
+    git("checkout", "stale")
+    git("merge", "--no-ff", "master", "-m", "merge main into stale")
+
+    matches, error = mod.branch_merge_tree_matches_base(
+        repo,
+        "master",
+        "stale",
+        timeout=5,
+    )
+
+    assert error is None
+    assert matches is True
 
 
 def test_smart_merge_detection_preserves_branches_with_merge_commits(
