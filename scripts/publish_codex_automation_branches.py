@@ -865,7 +865,7 @@ def _open_codex_prs_from_status_cache(
 
 def _flatten_rest_pages(payload: Any) -> list[dict[str, Any]]:
     if not isinstance(payload, list):
-        return []
+        raise RuntimeError("REST PR lookup returned unexpected JSON shape")
     if payload and all(isinstance(item, list) for item in payload):
         return [
             pr for page in payload if isinstance(page, list) for pr in page if isinstance(pr, dict)

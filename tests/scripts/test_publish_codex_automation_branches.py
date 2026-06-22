@@ -661,6 +661,28 @@ def test_open_codex_prs_from_rest_filters_codex_branches(monkeypatch: Any, tmp_p
     assert all(pr["lookup_source"] == "rest" for pr in prs)
 
 
+def test_open_codex_prs_from_rest_rejects_unexpected_json_shape(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda args, cwd, check=False: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=json.dumps({"not": "a pull request list"}),
+            stderr="",
+        ),
+    )
+
+    try:
+        mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora")
+    except RuntimeError as exc:
+        assert "unexpected JSON shape" in str(exc)
+    else:  # pragma: no cover - assertion clarity
+        raise AssertionError("expected REST shape failure")
+
+
 def test_open_codex_prs_falls_back_to_rest_when_graphql_and_cache_fail(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
