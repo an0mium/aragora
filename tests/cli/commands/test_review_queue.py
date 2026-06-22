@@ -233,6 +233,14 @@ def _codex_openai_comment(
     return comment
 
 
+def _codex_openai_review_comment(
+    *,
+    body: str = "Verdict: approve.\nFocused adversarial dogfood passed.",
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    return _codex_openai_comment(heading="## Codex review", body=body, created_at=created_at)
+
+
 def _executed_protocol(*, dissent: bool = False) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "status": EXECUTED_PROTOCOL_STATUS,
@@ -1136,7 +1144,9 @@ class TestModelReviewQuorum:
         assert quorum["requires_western_frontier_signal"] is True
         assert quorum["has_western_frontier_signal"] is True
 
-    def test_codex_dogfood_and_grok_review_satisfy_tier_two_quorum(self) -> None:
+    def test_dogfood_only_western_frontier_signal_does_not_satisfy_tier_two_quorum(
+        self,
+    ) -> None:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["comments"] = [
             _codex_openai_comment(),
@@ -1154,10 +1164,12 @@ class TestModelReviewQuorum:
             has_failures=False,
         )
         assert quorum["tier"] == 2
-        assert quorum["status"] == "satisfied"
-        assert quorum["admin_squash_allowed"] is True
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
         assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
         assert quorum["counted_model_families"] == ["grok", "openai"]
+        assert quorum["has_western_frontier_signal"] is False
+        assert any("western-frontier" in reason for reason in quorum["reasons"])
         assert quorum["dogfood_evidence"][0]["surface_reviewer_id"] == "codex"
         assert quorum["dogfood_evidence"][0]["model_family"] == "openai"
 
@@ -1166,7 +1178,9 @@ class TestModelReviewQuorum:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head
         pr["comments"] = [
-            _codex_openai_comment(body=f"Current head: {head}\nlocal checks pass."),
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
             {
                 "author": {"login": "an0mium"},
                 "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
@@ -1202,7 +1216,9 @@ class TestModelReviewQuorum:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head
         pr["comments"] = [
-            _codex_openai_comment(body=f"Current head: {head}\nlocal checks pass."),
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
             {
                 "author": {"login": "an0mium"},
                 "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
@@ -1238,7 +1254,9 @@ class TestModelReviewQuorum:
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head
         pr["comments"] = [
-            _codex_openai_comment(body=f"Current head: {head}\nlocal checks pass."),
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
             {
                 "author": {"login": "an0mium"},
                 "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
@@ -1441,7 +1459,10 @@ class TestModelReviewQuorum:
         pr["comments"] = [
             {
                 "author": {"login": "an0mium"},
-                "body": _codex_openai_body(),
+                "body": _codex_openai_body(
+                    heading="## Codex review",
+                    body="Verdict: approve.\nFocused adversarial dogfood passed.",
+                ),
                 "createdAt": "2026-04-28T20:05:00Z",
             },
             {
@@ -1475,7 +1496,12 @@ class TestModelReviewQuorum:
             {
                 "author": {"login": "an0mium"},
                 "body": _codex_openai_body(
-                    body=f"Reviewed at head {head_sha[:7]} - local checks pass."
+                    heading="## Codex review",
+                    body=(
+                        f"Reviewed at head {head_sha[:7]}.\n"
+                        "Verdict: approve.\n"
+                        "Focused adversarial dogfood passed."
+                    ),
                 ),
                 "createdAt": "2026-04-28T18:00:00Z",
             },
@@ -4141,7 +4167,7 @@ class TestBuildQueueAndPacket:
             ],
         )
         pr_payload["comments"] = [
-            _codex_openai_comment(),
+            _codex_openai_review_comment(),
             {
                 "author": {"login": "an0mium"},
                 "body": "## Grok independent model review\nVerdict: approve.",
@@ -6947,10 +6973,14 @@ def _enable_tiered_gate(monkeypatch):
 
 def test_tier_requirement_strict_when_flag_off(monkeypatch):
     # Production default: the tiered relaxation is OFF, so Tier 1-2 keep the full
-    # two-signal bar and impose no western-frontier requirement.
+    # two-signal bar and impose no western-frontier requirement. Tier 0 preserves
+    # current-main one-signal behavior.
     from aragora.cli.commands.review_queue import _tier_requirement
 
     monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+    tier0 = _tier_requirement(0)
+    assert tier0["required_model_signals"] == 1
+    assert tier0["requires_western_frontier_signal"] is False
     for tier in (1, 2):
         req = _tier_requirement(tier)
         assert req["required_model_signals"] == 2, tier

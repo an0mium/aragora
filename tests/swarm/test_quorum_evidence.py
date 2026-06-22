@@ -1785,6 +1785,30 @@ def test_collect_outcome_tiered_gate_roundtrips() -> None:
         assert qe.collect_outcome_from_dict(outcome.to_dict()).tiered_gate is gate
 
 
+def test_collect_outcome_missing_tiered_gate_fails_closed(monkeypatch) -> None:
+    # Legacy prepared artifacts predate the serialized gate regime. Treat them as
+    # strict-gate artifacts rather than inheriting a relaxed live environment.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="legacy",
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        tiered_gate=True,
+    )
+    data = outcome.to_dict()
+    data.pop("tiered_gate")
+
+    rehydrated = qe.collect_outcome_from_dict(data)
+
+    assert rehydrated.tiered_gate is False
+    assert rehydrated.has_supportive_quorum is False
+
+
 def test_apply_prepared_evidence_refuses_gate_mismatch(tmp_path, monkeypatch) -> None:
     # Artifact prepared under the STRICT gate (flag off); applying it while the
     # relaxing flag is ON must be REFUSED, not silently re-evaluated (#8507 grok P1).
@@ -2569,14 +2593,13 @@ def test_incomplete_quorum_reason_is_tiered():
 
 
 def test_supportive_quorum_strict_when_flag_off(monkeypatch):
-    # Production default: the tiered relaxation is OFF, so EVERY tier needs two
+    # Production default: the Tier 1-2 relaxation is OFF, so those tiers need two
     # distinct supportive families and the reason uses the family denominator.
     monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
     assert _supportive_outcome(2, "claude").has_supportive_quorum is False
     assert _supportive_outcome(2, "openai").has_supportive_quorum is False
-    # Tier 0 is ALSO strict when the flag is off: the relaxation to one any-family
-    # signal is gated behind the flag too, so default-OFF is a true no-op.
-    assert _supportive_outcome(0, "qwen").has_supportive_quorum is False
+    # Tier 0 already uses one signal on current main; default-OFF must preserve it.
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
     assert _supportive_outcome(0, "claude", "grok").has_supportive_quorum is True
     assert _supportive_outcome(1, "claude", "grok").has_supportive_quorum is True
     reason = _supportive_outcome(2, "claude").incomplete_quorum_reason
@@ -2589,6 +2612,7 @@ def test_supportive_quorum_strict_when_flag_unset(monkeypatch):
     # be the strict gate, so an accidental default-ON regression is caught.
     monkeypatch.delenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", raising=False)
     assert qe.tiered_merge_gate_enabled() is False
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
     assert _supportive_outcome(2, "claude").has_supportive_quorum is False
     assert _supportive_outcome(1, "claude", "grok").has_supportive_quorum is True
 
@@ -2607,12 +2631,11 @@ def test_tiered_gate_is_captured_at_construction(monkeypatch):
 def test_tier_quorum_rule_matrix():
     from aragora.swarm.quorum_evidence import TierQuorumRule, tier_quorum_rule
 
-    # Tier 0 (and below): ON -> one family of any kind; OFF -> strict two distinct
-    # (the relaxation is gated behind the flag, so default-OFF is a true no-op).
+    # Tier 0 (and below): one family of any kind, matching current-main behavior.
     assert tier_quorum_rule(0, tiered_gate=True) == TierQuorumRule(1, False)
     assert tier_quorum_rule(-1, tiered_gate=True) == TierQuorumRule(1, False)
-    assert tier_quorum_rule(0, tiered_gate=False) == TierQuorumRule(2, False)
-    assert tier_quorum_rule(-1, tiered_gate=False) == TierQuorumRule(2, False)
+    assert tier_quorum_rule(0, tiered_gate=False) == TierQuorumRule(1, False)
+    assert tier_quorum_rule(-1, tiered_gate=False) == TierQuorumRule(1, False)
     # Tier 1-2: ON -> one western-frontier signal; OFF -> two distinct families.
     for tier in (1, 2):
         assert tier_quorum_rule(tier, tiered_gate=True) == TierQuorumRule(1, True)

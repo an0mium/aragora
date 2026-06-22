@@ -78,12 +78,12 @@ FAMILY_PROVIDERS: dict[str, str] = {
 # in the review-queue gate so the auto-settle path and the merge-quorum check agree.
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
 
-# Opt-in flag for the tiered merge gate. Default OFF: EVERY tier (including Tier 0)
-# keeps the strict two-distinct-family bar. When an operator sets
-# ARAGORA_ENABLE_TIERED_MERGE_GATE=1, Tier 0 relaxes to one supportive family of any
-# kind and Tier 1-2 relax to one supportive western-frontier signal. Gating every
-# relaxation behind the flag keeps this merge-authority change revertible WITHOUT a
-# code change and is the in-tree audit point for the operator's approval.
+# Opt-in flag for the tiered merge gate. Default OFF preserves current-main Tier 0
+# behavior (one supportive family) while keeping Tier 1-2 on the strict
+# two-distinct-family bar. When an operator sets ARAGORA_ENABLE_TIERED_MERGE_GATE=1,
+# Tier 1-2 relax to one supportive western-frontier signal. Gating that relaxation
+# behind the flag keeps this merge-authority change revertible WITHOUT a code change
+# and is the in-tree audit point for the operator's approval.
 _TIERED_GATE_ENV = "ARAGORA_ENABLE_TIERED_MERGE_GATE"
 _TIERED_GATE_TRUE = frozenset(("1", "true", "yes", "on"))
 
@@ -111,15 +111,15 @@ def tier_quorum_rule(tier: int | None, *, tiered_gate: bool) -> TierQuorumRule:
     (:meth:`CollectOutcome.has_supportive_quorum`) and the merge-queue gate
     (``review_queue._tier_requirement`` / ``_build_model_review_quorum``).
 
-    Every relaxation below the strict two-distinct-family bar is gated behind the
-    opt-in flag, so with the gate OFF (production default) EVERY tier requires two
-    distinct families — i.e. default-OFF is a true no-op.
+    Default OFF preserves the current-main rule: Tier 0 needs one supportive
+    family, while Tier 1+ keeps the strict two-distinct-family bar. The opt-in flag
+    only relaxes Tier 1-2 to one western-frontier signal.
 
-    - Tier 0 (and below): gate ON → one signal of any family; OFF → strict two.
+    - Tier 0 (and below): one signal of any family.
     - Tier 1-2: gate ON → one western-frontier signal; OFF → strict two.
     - Tier 3-4 and unknown/None (fail-safe): always two distinct families.
     """
-    if tiered_gate and tier is not None and tier <= 0:
+    if tier is not None and tier <= 0:
         return TierQuorumRule(required_signals=1, requires_western_frontier=False)
     if tiered_gate and tier is not None and 1 <= tier <= 2:
         return TierQuorumRule(required_signals=1, requires_western_frontier=True)
@@ -456,9 +456,9 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         raise ValueError("prepared evidence artifact missing PR number") from exc
     # Preserve the gate regime the artifact was PREPARED under so the settlement
     # bar cannot silently change between prepare and apply. Older artifacts that
-    # predate this field fall back to the live default (default_factory), matching
-    # their prior behavior.
-    gate_kwargs: dict[str, Any] = {}
+    # predate this field fail closed as strict-gate artifacts instead of inheriting
+    # a possibly-relaxed live environment.
+    gate_kwargs: dict[str, Any] = {"tiered_gate": False}
     if "tiered_gate" in data:
         gate_kwargs["tiered_gate"] = bool(data.get("tiered_gate"))
     return CollectOutcome(
