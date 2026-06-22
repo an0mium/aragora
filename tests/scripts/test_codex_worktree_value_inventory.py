@@ -441,6 +441,32 @@ def test_terminal_receipt_path_heads_reads_harvest_receipt_source_candidate(
     assert refs[str(repo_path.resolve())] == {"abcdef123456"}
 
 
+def test_terminal_receipt_path_heads_reads_object_decision_outcome(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "preserve.json").write_text(
+        json.dumps(
+            {
+                "decision": {"outcome": "preserve_existing_merged_pr"},
+                "selected_candidate": {
+                    "path": str(root),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs[str(root.resolve())] == {"abcdef123456"}
+
+
 def test_unique_unharvested_when_ahead_and_not_patch_equivalent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -578,6 +604,42 @@ def test_smart_merge_detection_reclassifies_matching_subjects(
     ]
 
 
+def test_smart_merge_detection_reclassifies_already_present_patches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (False, []),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (True, ["2f2a1f6", "b46d5c6"]),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "patch_equivalent_or_merged"
+    assert candidate.cleanup_candidate is True
+    assert candidate.git.smart_merge_equivalent_to_base is True
+    assert "all unique commit patches are already present on base" in candidate.proof
+    assert candidate.links["smart_merge_matched_commits"] == ["2f2a1f6", "b46d5c6"]
+
+
 def test_smart_merge_detection_keeps_unmatched_subjects_harvestable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -600,6 +662,40 @@ def test_smart_merge_detection_keeps_unmatched_subjects_harvestable(
             tmp_path,
             smart_merge_detection=True,
             smart_merge_main_subjects=["feat(scripts): list active sessions (#7260)"],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.smart_merge_equivalent_to_base is False
+
+
+def test_smart_merge_detection_keeps_unapplied_patches_harvestable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (False, []),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (False, ["2f2a1f6"]),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
         ),
         size_bytes=1024,
         size_lookup_failed=False,

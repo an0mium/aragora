@@ -241,21 +241,32 @@ def _kill_process_tree(proc: subprocess.Popen) -> None:
             pass
 
 
-def run_cmd(args: list[str], cwd: Path, *, timeout: int) -> subprocess.CompletedProcess[str]:
+def run_cmd(
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: int,
+    env: dict[str, str] | None = None,
+    input_text: str | None = None,
+) -> subprocess.CompletedProcess[str]:
     try:
         proc = subprocess.Popen(
             args,
             cwd=cwd,
             text=True,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=env,
             start_new_session=True,
         )
     except OSError as exc:
         return subprocess.CompletedProcess(args=args, returncode=124, stdout="", stderr=str(exc))
     try:
-        stdout, stderr = proc.communicate(timeout=timeout)
+        if input_text is None:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        else:
+            stdout, stderr = proc.communicate(input=input_text, timeout=timeout)
     except subprocess.TimeoutExpired:
         _kill_process_tree(proc)
         return subprocess.CompletedProcess(
@@ -431,7 +442,16 @@ def _terminal_path_receipt(payload: dict[str, Any]) -> bool:
     status = str(payload.get("status") or "").strip()
     if status in TERMINAL_RECEIPT_STATUSES:
         return True
-    decision = str(payload.get("decision") or "").strip()
+    decision_value = payload.get("decision")
+    if isinstance(decision_value, dict):
+        decision = str(
+            decision_value.get("outcome")
+            or decision_value.get("status")
+            or decision_value.get("decision")
+            or ""
+        ).strip()
+    else:
+        decision = str(decision_value or payload.get("outcome") or "").strip()
     if decision.startswith(TERMINAL_HARVEST_DECISION_PREFIXES):
         return True
     return False
@@ -677,6 +697,67 @@ def branch_subjects_match_recent_main(
         if commit_subject_matches_recent_main(subject, recent_main_subjects)
     ]
     return len(matched) == len(subjects), matched
+
+
+def branch_patches_present_on_base(
+    repo_path: Path,
+    base: str,
+    rev: str,
+    *,
+    timeout: int,
+) -> tuple[bool, list[str]]:
+    """Return true when every unique non-merge commit patch is already in base.
+
+    Some stale branches contain local commits whose changes were later merged
+    through a different PR/commit, while the stale branch's old tree still
+    differs from current main. Plain tree-diff or `git cherry` checks can leave
+    those as false `unique_unharvested` rows. Use a temporary index loaded with
+    `base` and verify each commit's reverse patch applies there. This is the
+    same safety property as "cherry-pick onto base would be empty", without
+    mutating the candidate worktree.
+    """
+
+    commits_proc = run_git(
+        ["rev-list", "--reverse", "--no-merges", f"{base}..{rev}"],
+        repo_path,
+        timeout=timeout,
+    )
+    if commits_proc.returncode != 0:
+        return False, []
+    commits = [line.strip() for line in commits_proc.stdout.splitlines() if line.strip()]
+    if not commits:
+        return False, []
+
+    fd, index_path = tempfile.mkstemp(prefix="aragora-inventory-index-")
+    os.close(fd)
+    try:
+        env = dict(os.environ)
+        env["GIT_INDEX_FILE"] = index_path
+        read_tree = run_cmd(["git", "read-tree", base], repo_path, timeout=timeout, env=env)
+        if read_tree.returncode != 0:
+            return False, []
+
+        verified: list[str] = []
+        for commit in commits:
+            patch = run_git(["show", "--format=", "--binary", commit], repo_path, timeout=timeout)
+            if patch.returncode != 0 or not patch.stdout.strip():
+                return False, verified
+            reverse_check = run_cmd(
+                ["git", "apply", "--cached", "--reverse", "--check", "--index", "-"],
+                repo_path,
+                timeout=timeout,
+                env=env,
+                input_text=patch.stdout,
+            )
+            if reverse_check.returncode != 0:
+                return False, verified
+            verified.append(commit)
+        return True, verified
+    finally:
+        try:
+            os.unlink(index_path)
+        except FileNotFoundError:
+            pass
 
 
 def prefetch_open_pr_heads(
@@ -987,8 +1068,20 @@ def classify_candidate(
                     )
                     links["smart_merge_matched_subjects"] = matched_subjects
                 else:
-                    classification = "unique_unharvested"
-                    proof.append("branch has unique commits or diff ahead of base")
+                    patches_present, matched_commits = branch_patches_present_on_base(
+                        repo_path,
+                        context.base,
+                        rev or "HEAD",
+                        timeout=context.patch_timeout,
+                    )
+                    git.smart_merge_equivalent_to_base = patches_present
+                    if patches_present:
+                        classification = "patch_equivalent_or_merged"
+                        proof.append("all unique commit patches are already present on base")
+                        links["smart_merge_matched_commits"] = matched_commits
+                    else:
+                        classification = "unique_unharvested"
+                        proof.append("branch has unique commits or diff ahead of base")
             else:
                 classification = "unique_unharvested"
                 proof.append("branch has unique commits or diff ahead of base")
@@ -1513,7 +1606,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Reclassify ahead branches as patch_equivalent_or_merged when every "
             "unique commit subject loosely matches a recent main squash-merge "
-            "subject. Default off to preserve legacy inventory behavior."
+            "subject, or when every unique commit patch is already present on "
+            "base. Default off to preserve legacy inventory behavior."
         ),
     )
     parser.add_argument(
