@@ -37,10 +37,15 @@ from datetime import datetime, timezone
 import re
 from typing import Final
 
-# Mirrors aragora/cli/commands/review_queue.py::_tier_requirement. This is a
-# read-only *diagnostic* mapping used only to render the "next action" hint; it
+# Read-only *diagnostic* mapping used only to render the "next action" hint; it
 # never gates a merge. Tuple = (required_model_signals, requires_dogfood,
-# requires_human_settlement). Kept tiny and annotated so drift is obvious.
+# requires_human_settlement). This is the strict-regime (default-OFF) projection of
+# the canonical QuorumPolicy (aragora.swarm.quorum_evidence.tier_quorum_rule). It is
+# a literal (not a module-load derivation) only because quorum_evidence imports this
+# module transitively via merge_quorum_io — a runtime derivation would be a circular
+# import. Drift from the policy is prevented by test_tiered_merge_gate_quorum_policy::
+# test_reconcile_diagnostic_matches_policy, which asserts equality against
+# tier_quorum_rule(tier, tiered_gate=False) (claude/Codex #8507 single-source).
 TIER_REQUIREMENTS: Final[dict[int, tuple[int, bool, bool]]] = {
     0: (1, False, False),
     1: (2, True, False),

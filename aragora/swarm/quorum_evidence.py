@@ -40,7 +40,7 @@ import secrets
 import subprocess
 import tempfile
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -70,13 +70,28 @@ FAMILY_PROVIDERS: dict[str, str] = {
     "hermes": "nous",
 }
 
-# Western-frontier families. Under the tiered gate, a Tier 1-2 PR settles on a
-# single supportive signal, which MUST be one of these (claude/openai) so a cheap
-# model can never solely authorize a merge (with the tiered gate ON, Tier 0 needs
-# any one supportive family; Tier 3-4 always need two distinct families). Mirrors
-# WESTERN_FRONTIER_FAMILIES
-# in the review-queue gate so the auto-settle path and the merge-quorum check agree.
+# Jurisdiction families (docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-eligibility).
+# WESTERN_FAMILIES are the lineages that count toward a Tier 3-4 quorum (the spec's
+# Anthropic, OpenAI, Google, xAI, Mistral, Nous Hermes). Chinese-routed families are
+# every other recognized family; they always post and remain readable but are
+# advisory-only (not counted) at Tier 3-4 and do not satisfy the at-least-one-Western
+# condition at Tier 2.
+WESTERN_FAMILIES: frozenset[str] = frozenset(
+    ("claude", "openai", "gemini", "grok", "mistral", "hermes")
+)
+
+# Western-FRONTIER families: a strict SUBSET of WESTERN_FAMILIES (the frontier labs).
+# Under the tiered gate, a Tier 1-2 PR may settle on a single supportive signal, which
+# MUST be one of these (claude/openai) so a cheap model can never solely authorize a
+# merge. "Frontier" (who may solo-settle Tier 1-2) and "Western" (who counts at Tier
+# 3-4) are distinct; the subset relation is pinned by a governance test. Mirrors the
+# re-export in the review-queue gate so the two halves cannot drift.
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
+
+
+def is_western_family(family: str) -> bool:
+    """Whether ``family`` counts toward a Western-only quorum (Tier 3-4)."""
+    return str(family).strip().lower() in WESTERN_FAMILIES
 
 # Opt-in flag for the tiered merge gate. Default OFF preserves current-main Tier 0
 # behavior (one supportive family) while keeping Tier 1-2 on the strict
@@ -97,33 +112,84 @@ def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
 
 @dataclass(frozen=True)
 class TierQuorumRule:
-    """The per-tier model-quorum bar: how many distinct supportive families are
-    required, and whether one of them must be western-frontier."""
+    """The per-tier model-quorum bar (a.k.a. :data:`QuorumPolicy`): how many distinct
+    supportive families are required and the jurisdiction constraints on them.
+
+    Fields default to the permissive Tier 0-1 values so existing positional
+    construction (``TierQuorumRule(1, False)``) keeps working; the jurisdiction
+    fields are additive.
+    """
 
     required_signals: int
     requires_western_frontier: bool
+    #: Tier 3-4: only Western families count toward the quorum (Chinese-routed
+    #: families remain advisory-only — they still post but do not count).
+    western_only_counted: bool = False
+    #: Tier 2: at least one of the counted families must be Western.
+    requires_at_least_one_western: bool = False
+
+    def counted_families(self, supportive: Iterable[str]) -> set[str]:
+        """The supportive families that count under this rule (drops Chinese-routed
+        families when ``western_only_counted``)."""
+        families = {str(f).strip().lower() for f in supportive}
+        if self.western_only_counted:
+            families = {f for f in families if f in WESTERN_FAMILIES}
+        return families
+
+    def is_satisfied_by(self, supportive: Iterable[str]) -> bool:
+        """Whether the supportive families meet this tier's quorum bar."""
+        counted = self.counted_families(supportive)
+        if self.requires_western_frontier and not (counted & WESTERN_FRONTIER_FAMILIES):
+            return False
+        if self.requires_at_least_one_western and not (counted & WESTERN_FAMILIES):
+            return False
+        return len(counted) >= self.required_signals
+
+
+#: The canonical per-tier quorum policy object (alias for the design-doc name).
+QuorumPolicy = TierQuorumRule
+
+#: Version of the quorum-policy encoding. Stamped into prepared evidence artifacts
+#: so a policy *code* change (not just a flag flip) between prepare and apply is
+#: detectable/auditable. The apply path reconciles the regime via the stricter of
+#: (prepared, live); the version is the audit anchor for that reconciliation.
+QUORUM_POLICY_VERSION = 1
 
 
 def tier_quorum_rule(tier: int | None, *, tiered_gate: bool) -> TierQuorumRule:
     """Single source of truth for the per-tier model-quorum bar.
 
-    Both gate halves derive from this so they cannot drift: the auto-settle path
-    (:meth:`CollectOutcome.has_supportive_quorum`) and the merge-queue gate
-    (``review_queue._tier_requirement`` / ``_build_model_review_quorum``).
-
-    Default OFF preserves the current-main rule: Tier 0 needs one supportive
-    family, while Tier 1+ keeps the strict two-distinct-family bar. The opt-in flag
-    only relaxes Tier 1-2 to one western-frontier signal.
+    All three quorum surfaces derive from this so they cannot drift: the auto-settle
+    path (:meth:`CollectOutcome.has_supportive_quorum`), the merge-queue gate
+    (``review_queue._tier_requirement`` / ``_build_model_review_quorum``), and the
+    ``merge_quorum_reconcile`` diagnostic. Encodes
+    ``docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-eligibility for quorum counting``:
 
     - Tier 0 (and below): one signal of any family.
-    - Tier 1-2: gate ON → one western-frontier signal; OFF → strict two.
-    - Tier 3-4 and unknown/None (fail-safe): always two distinct families.
+    - Tier 1: gate ON → one western-frontier signal; OFF → two distinct (any family).
+    - Tier 2: gate ON → one western-frontier signal; OFF → two distinct, at least one
+      of which is Western.
+    - Tier 3-4 and unknown/None (fail-safe): two distinct WESTERN families
+      (Western-only counted quorum; Chinese-routed families are advisory-only).
     """
     if tier is not None and tier <= 0:
         return TierQuorumRule(required_signals=1, requires_western_frontier=False)
     if tiered_gate and tier is not None and 1 <= tier <= 2:
         return TierQuorumRule(required_signals=1, requires_western_frontier=True)
-    return TierQuorumRule(required_signals=2, requires_western_frontier=False)
+    if tier == 1:
+        return TierQuorumRule(required_signals=2, requires_western_frontier=False)
+    if tier == 2:
+        return TierQuorumRule(
+            required_signals=2,
+            requires_western_frontier=False,
+            requires_at_least_one_western=True,
+        )
+    # Tier 3-4 and unknown/None: Western-only counted quorum (fail-safe).
+    return TierQuorumRule(
+        required_signals=2,
+        requires_western_frontier=False,
+        western_only_counted=True,
+    )
 
 
 FAMILY_DISPLAY: dict[str, str] = {
@@ -337,35 +403,47 @@ class CollectOutcome:
     def has_supportive_quorum(self) -> bool:
         """Whether the supportive evidence meets the tier's settlement bar.
 
-        Tiered gate (mirrors ``_tier_requirement`` in the review-queue gate):
-        Tier 1-2 settle on ONE supportive western-frontier signal (claude/openai);
-        Tier 3-4 (and any unknown/None tier, fail-safe) need two distinct
-        supportive families. Tier 0 needs one supportive family of any kind.
+        Derives entirely from :func:`tier_quorum_rule` (the single source of truth
+        shared with the review-queue gate), so the jurisdiction rules apply: Tier 1-2
+        may settle on one western-frontier signal when the tiered gate is ON; Tier 2
+        otherwise needs two distinct families incl. ≥1 Western; Tier 3-4 (and any
+        unknown/None tier, fail-safe) need two distinct WESTERN families.
         """
-        supportive = set(self.supportive_families)
         rule = tier_quorum_rule(self.tier, tiered_gate=self.tiered_gate)
-        if rule.requires_western_frontier and not (supportive & WESTERN_FRONTIER_FAMILIES):
-            return False
-        return len(supportive) >= rule.required_signals
+        return rule.is_satisfied_by(self.supportive_families)
 
     @property
     def incomplete_quorum_reason(self) -> str:
         """Reason text when supportive evidence does not meet the tier bar.
 
-        Mirrors :meth:`has_supportive_quorum`: Tier 1-2 settle on one
-        western-frontier signal, so report that requirement rather than a
-        misleading ``(n/2)`` distinct-family denominator.
+        Mirrors :meth:`has_supportive_quorum` and reports the *binding* shortfall
+        (western-frontier / Western-only / at-least-one-Western / signal count)
+        rather than a misleading ``(n/2)`` distinct-family denominator.
         """
-        supportive = set(self.supportive_families)
         rule = tier_quorum_rule(self.tier, tiered_gate=self.tiered_gate)
-        if rule.requires_western_frontier and not (supportive & WESTERN_FRONTIER_FAMILIES):
+        supportive = {str(f).strip().lower() for f in self.supportive_families}
+        counted = rule.counted_families(supportive)
+        if rule.requires_western_frontier and not (counted & WESTERN_FRONTIER_FAMILIES):
             return (
                 "supportive quorum incomplete "
                 "(needs a western-frontier signal: claude/openai); prepared evidence only"
             )
-        n = len(supportive)
+        if rule.western_only_counted and len(counted) < rule.required_signals:
+            return (
+                "supportive quorum incomplete "
+                f"(needs {rule.required_signals} distinct Western families; Chinese-routed "
+                "families are advisory-only at Tier 3-4); prepared evidence only"
+            )
+        if rule.requires_at_least_one_western and not (counted & WESTERN_FAMILIES):
+            return (
+                "supportive quorum incomplete "
+                "(needs at least one Western family signal); prepared evidence only"
+            )
         suffix = " distinct families" if rule.required_signals >= 2 else ""
-        return f"supportive quorum incomplete ({n}/{rule.required_signals}{suffix}); prepared evidence only"
+        return (
+            f"supportive quorum incomplete ({len(counted)}/{rule.required_signals}{suffix}); "
+            "prepared evidence only"
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -376,6 +454,7 @@ class CollectOutcome:
             "head_committed_at": self.head_committed_at,
             "tier": self.tier,
             "tiered_gate": self.tiered_gate,
+            "policy_version": QUORUM_POLICY_VERSION,
             "action": self.action,
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,

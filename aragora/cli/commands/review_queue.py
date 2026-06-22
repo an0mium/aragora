@@ -139,6 +139,7 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
 # (quorum_evidence) reference the *same* frozenset object and cannot drift —
 # replacing the prior test-only parity guard (claude #8507 P2).
 from aragora.swarm.quorum_evidence import (  # noqa: E402
+    WESTERN_FAMILIES as WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
 )
 DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
@@ -3141,15 +3142,24 @@ def _build_model_review_quorum(
         head_sha=head_sha,
         head_committed_at=head_committed_at,
     )
-    signal_count = len(counted_reviewer_ids)
+    # Jurisdiction-counted signals (docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-
+    # eligibility). At Tier 3-4 only Western families count toward the quorum;
+    # Chinese-routed families remain advisory — they still post and stay in
+    # counted_reviewer_ids for the audit trail, but do not satisfy the count.
+    # signal_count is therefore the jurisdiction-eligible count that drives the
+    # gate decision and the reasons.
+    counted_family_set = {str(rid).strip().lower() for rid in counted_reviewer_ids}
+    if requirement.get("western_only_counted"):
+        jurisdiction_counted = {f for f in counted_family_set if f in WESTERN_FAMILIES}
+    else:
+        jurisdiction_counted = counted_family_set
+    signal_count = len(jurisdiction_counted)
     # The western-frontier check below is derived from the model-review signals
-    # ONLY (empty dogfood list), whereas signal_count is derived from the
-    # dogfood-inclusive set. Because _counted_model_reviewer_ids only ever ADDS
-    # dogfood-attributable ids, the signal-only set is a guaranteed subset of
-    # counted_reviewer_ids — so any western-frontier signal that satisfies the WF
-    # requirement is also counted toward signal_count; the two derivations can
-    # never grant WF without also counting it (claude #8507 P2). This subset
-    # invariant is pinned by test_western_frontier_signal_set_is_subset_of_counted.
+    # ONLY (empty dogfood list). _counted_model_reviewer_ids only ever ADDS
+    # dogfood-attributable ids, so the signal-only set is a guaranteed subset of
+    # counted_reviewer_ids — any western-frontier signal that satisfies the WF
+    # requirement is also counted (claude #8507 P2). Pinned by
+    # test_western_frontier_signal_set_is_subset_of_counted.
     counted_reviewer_signal_ids = _counted_model_reviewer_ids(reviewer_signals, [])
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
         _known_model_reviewer_id(item) for item in dogfood_evidence
@@ -3163,10 +3173,15 @@ def _build_model_review_quorum(
     western_frontier_satisfied = (
         not requirement.get("requires_western_frontier_signal") or has_western_frontier_signal
     )
+    # Tier 2: at least one counted family must be Western.
+    at_least_one_western_satisfied = not requirement.get(
+        "requires_at_least_one_western"
+    ) or bool(jurisdiction_counted & WESTERN_FAMILIES)
     quorum_satisfied = (
         signal_count >= requirement["required_model_signals"]
         and has_required_dogfood
         and western_frontier_satisfied
+        and at_least_one_western_satisfied
     )
     required_pr_check_surface = (
         check_surfaces.get("required_pr_checks") if isinstance(check_surfaces, dict) else {}
@@ -3244,6 +3259,17 @@ def _build_model_review_quorum(
         if not western_frontier_satisfied:
             reasons.append(
                 "a western-frontier model signal (claude/openai) is required to settle this tier"
+            )
+        if requirement.get("western_only_counted") and (
+            counted_family_set - jurisdiction_counted
+        ):
+            reasons.append(
+                "Tier 3-4 requires a Western-only counted quorum; Chinese-routed "
+                "families are advisory-only and do not count toward the quorum"
+            )
+        if not at_least_one_western_satisfied:
+            reasons.append(
+                "at least one counted model signal must be from a Western family"
             )
         reasons.extend(review_object_warnings)
     admin_squash_allowed = False
@@ -3377,6 +3403,8 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
     return {
         "required_model_signals": rule.required_signals,
         "requires_western_frontier_signal": rule.requires_western_frontier,
+        "western_only_counted": rule.western_only_counted,
+        "requires_at_least_one_western": rule.requires_at_least_one_western,
         "requires_adversarial_dogfood": tier > 0,
         "requires_human_risk_settlement": tier >= 3,
         "requires_human_preapproval": tier >= 4,

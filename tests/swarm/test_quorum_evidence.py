@@ -2609,11 +2609,15 @@ def test_has_supportive_quorum_is_tiered():
     assert _supportive_outcome(2, "qwen", "claude").has_supportive_quorum is True
     # Tier 0: any single supportive family.
     assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
-    # Tier 3-4 and unknown/None tier: still need two distinct families (fail-safe).
+    # Tier 3-4 and unknown/None tier: two distinct WESTERN families (Western-only
+    # counted, fail-safe). Chinese-routed families are advisory-only and do NOT
+    # count, so claude+qwen is insufficient but claude+grok (both Western) settles.
     assert _supportive_outcome(3, "claude").has_supportive_quorum is False
-    assert _supportive_outcome(3, "claude", "qwen").has_supportive_quorum is True
+    assert _supportive_outcome(3, "claude", "qwen").has_supportive_quorum is False
+    assert _supportive_outcome(3, "claude", "grok").has_supportive_quorum is True
     assert _supportive_outcome(None, "claude").has_supportive_quorum is False
     assert _supportive_outcome(None, "claude", "openai").has_supportive_quorum is True
+    assert _supportive_outcome(None, "deepseek", "qwen").has_supportive_quorum is False
 
 
 def test_incomplete_quorum_reason_is_tiered():
@@ -2626,9 +2630,12 @@ def test_incomplete_quorum_reason_is_tiered():
     assert _supportive_outcome(0).incomplete_quorum_reason == (
         "supportive quorum incomplete (0/1); prepared evidence only"
     )
-    # Tier 3-4 / unknown tier keep the two-distinct-family denominator.
-    assert "(1/2 distinct families)" in _supportive_outcome(3, "claude").incomplete_quorum_reason
-    assert "(0/2 distinct families)" in _supportive_outcome(None).incomplete_quorum_reason
+    # Tier 3-4 / unknown tier report the Western-only shortfall (Chinese-routed
+    # families are advisory-only and excluded from the counted set).
+    r3 = _supportive_outcome(3, "claude").incomplete_quorum_reason
+    assert "Western families" in r3 and "advisory-only" in r3
+    r_none = _supportive_outcome(None).incomplete_quorum_reason
+    assert "Western families" in r_none
 
 
 def test_supportive_quorum_strict_when_flag_off(monkeypatch):
@@ -2675,11 +2682,18 @@ def test_tier_quorum_rule_matrix():
     assert tier_quorum_rule(-1, tiered_gate=True) == TierQuorumRule(1, False)
     assert tier_quorum_rule(0, tiered_gate=False) == TierQuorumRule(1, False)
     assert tier_quorum_rule(-1, tiered_gate=False) == TierQuorumRule(1, False)
-    # Tier 1-2: ON -> one western-frontier signal; OFF -> two distinct families.
-    for tier in (1, 2):
-        assert tier_quorum_rule(tier, tiered_gate=True) == TierQuorumRule(1, True)
-        assert tier_quorum_rule(tier, tiered_gate=False) == TierQuorumRule(2, False)
-    # Tier 3-4 and unknown/None (fail-safe): two distinct families, no WF.
+    # Tier 1: ON -> one western-frontier signal; OFF -> two distinct (any family).
+    assert tier_quorum_rule(1, tiered_gate=True) == TierQuorumRule(1, True)
+    assert tier_quorum_rule(1, tiered_gate=False) == TierQuorumRule(2, False)
+    # Tier 2: ON -> one western-frontier; OFF -> two distinct incl. >=1 Western (G2).
+    assert tier_quorum_rule(2, tiered_gate=True) == TierQuorumRule(1, True)
+    assert tier_quorum_rule(2, tiered_gate=False) == TierQuorumRule(
+        2, False, requires_at_least_one_western=True
+    )
+    # Tier 3-4 and unknown/None (fail-safe): two distinct WESTERN families,
+    # Western-only counted (G1) — Chinese-routed families are advisory-only.
     for tier in (3, 4, None):
         for gate in (False, True):
-            assert tier_quorum_rule(tier, tiered_gate=gate) == TierQuorumRule(2, False)
+            assert tier_quorum_rule(tier, tiered_gate=gate) == TierQuorumRule(
+                2, False, western_only_counted=True
+            )
