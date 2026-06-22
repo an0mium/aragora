@@ -48,6 +48,7 @@ SCHEMA = "aragora-worktree-harvest/1.0"
 # hook) can never hang the whole inventory. Overridable per-run via
 # --git-timeout-seconds (alias of the long-standing --git-timeout flag).
 GIT_TIMEOUT_SECONDS = 30
+MAX_SMART_MERGE_PATCH_COMMITS = 25
 # Substring run_cmd embeds in stderr on timeout; classify_candidate uses it to
 # annotate timed-out candidates as inspect_timeout (always protected).
 _TIMEOUT_ERROR_MARKER = "timed out after"
@@ -735,6 +736,13 @@ def branch_patches_present_on_base(
     commits = [line.strip() for line in commits_proc.stdout.splitlines() if line.strip()]
     if not commits:
         return False, []
+    if len(commits) > MAX_SMART_MERGE_PATCH_COMMITS:
+        if lookup_errors is not None:
+            lookup_errors.append(
+                "patch-present skipped: "
+                f"{len(commits)} commits exceeds budget {MAX_SMART_MERGE_PATCH_COMMITS}"
+            )
+        return False, []
 
     fd, index_path = tempfile.mkstemp(prefix="aragora-inventory-index-")
     os.close(fd)
@@ -767,7 +775,7 @@ def branch_patches_present_on_base(
                 input_text=patch.stdout,
             )
             if reverse_check.returncode != 0:
-                if lookup_errors is not None:
+                if lookup_errors is not None and reverse_check.returncode == 124:
                     detail = (reverse_check.stderr or reverse_check.stdout or "").strip()
                     lookup_errors.append(
                         f"patch-present reverse-check failed for {commit}: "
@@ -1097,11 +1105,12 @@ def classify_candidate(
                     timeout=context.patch_timeout,
                 )
                 if merge_error:
+                    git.lookup_failed = True
                     git.lookup_errors.append(
                         f"smart merge merge-commit lookup failed: {merge_error}"
                     )
-                    classification = "unique_unharvested"
-                    proof.append("branch has unique commits or diff ahead of base")
+                    classification = "lookup_failed"
+                    proof.append("smart merge lookup failed")
                 elif merge_commits:
                     classification = "unique_unharvested"
                     proof.append(
@@ -1124,6 +1133,7 @@ def classify_candidate(
                         )
                         links["smart_merge_matched_subjects"] = matched_subjects
                     else:
+                        error_count_before = len(git.lookup_errors)
                         patches_present, matched_commits = branch_patches_present_on_base(
                             repo_path,
                             context.base,
@@ -1136,6 +1146,10 @@ def classify_candidate(
                             classification = "patch_equivalent_or_merged"
                             proof.append("all unique commit patches are already present on base")
                             links["smart_merge_matched_commits"] = matched_commits
+                        elif len(git.lookup_errors) > error_count_before:
+                            git.lookup_failed = True
+                            classification = "lookup_failed"
+                            proof.append("smart merge patch-present lookup failed")
                         else:
                             classification = "unique_unharvested"
                             proof.append("branch has unique commits or diff ahead of base")

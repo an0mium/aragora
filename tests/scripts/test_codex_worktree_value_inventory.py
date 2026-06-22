@@ -745,11 +745,88 @@ def test_smart_merge_patch_timeout_is_reported(
         size_lookup_failed=False,
     )
 
-    assert candidate.classification == "unique_unharvested"
+    assert candidate.classification == "lookup_failed"
     assert candidate.cleanup_candidate is False
+    assert candidate.git.lookup_failed is True
     assert candidate.git.inspect_timeout is True
     assert any("patch-present rev-list failed" in item for item in candidate.git.lookup_errors)
     assert any("inspect_timeout" in item for item in candidate.proof)
+
+
+def test_smart_merge_merge_commit_lookup_failure_is_protected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_unique_merge_commits",
+        lambda *_args, **_kwargs: (None, "command timed out after 1s"),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "lookup_failed"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.lookup_failed is True
+    assert candidate.git.inspect_timeout is True
+    assert any(
+        "smart merge merge-commit lookup failed" in item for item in candidate.git.lookup_errors
+    )
+
+
+def test_smart_merge_patch_commit_budget_is_protected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import subprocess
+
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=100, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (False, []),
+    )
+
+    many_commits = "\n".join(f"{idx:040x}" for idx in range(mod.MAX_SMART_MERGE_PATCH_COMMITS + 1))
+
+    def fake_run_git(args: list[str], *_args: Any, **_kwargs: Any) -> Any:
+        if args[:3] == ["rev-list", "--reverse", "--no-merges"]:
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout=many_commits, stderr=""
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "lookup_failed"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.lookup_failed is True
+    assert any("commits exceeds budget" in item for item in candidate.git.lookup_errors)
 
 
 def test_smart_merge_detection_keeps_unmatched_subjects_harvestable(
@@ -766,6 +843,11 @@ def test_smart_merge_detection_keeps_unmatched_subjects_harvestable(
             "feat(scripts): list active sessions",
             "fix(swarm): new unmerged behavior",
         ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (False, []),
     )
 
     candidate = mod.classify_candidate(
@@ -826,6 +908,11 @@ def test_smart_merge_detection_log_failure_keeps_candidate_harvestable(
     root = _candidate(tmp_path)
     _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
     monkeypatch.setattr(mod, "branch_unique_commit_subjects", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (False, []),
+    )
 
     candidate = mod.classify_candidate(
         root,
