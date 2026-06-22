@@ -801,7 +801,7 @@ def test_branch_patches_present_on_base_uses_temp_index_only(tmp_path: Path) -> 
         )
         return proc.stdout.strip()
 
-    git("init", "-b", "master")
+    git("init")
     git("config", "user.email", "test@example.test")
     git("config", "user.name", "Test User")
     (repo / "tracked.txt").write_text("old\n", encoding="utf-8")
@@ -849,7 +849,7 @@ def test_branch_merge_tree_matches_base_for_noop_merge_commit(tmp_path: Path) ->
         )
         return proc.stdout.strip()
 
-    git("init", "-b", "master")
+    git("init")
     git("config", "user.email", "test@example.test")
     git("config", "user.name", "Test User")
     (repo / "tracked.txt").write_text("base\n", encoding="utf-8")
