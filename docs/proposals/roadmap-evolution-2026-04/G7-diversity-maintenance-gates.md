@@ -40,5 +40,5 @@ Per [NEXT_STEPS_CANONICAL.md](../../status/NEXT_STEPS_CANONICAL.md), **the curre
 
 - [Track G5 in ARAGORA_EVOLUTION_ROADMAP.md](../../plans/ARAGORA_EVOLUTION_ROADMAP.md)
 - `aragora/debate/team_selector.py` — existing selection code under measurement
-- [Biological-timescale analogies brief (non-canonical framing for the diversity metaphor)](../../research/2026-04-18-biological-timescale-analogies-brief.md)
+- Biological-timescale analogies brief (non-canonical framing for the diversity metaphor; archived)
 - [NEXT_STEPS_CANONICAL.md proof-first gate](../../status/NEXT_STEPS_CANONICAL.md)

@@ -69,7 +69,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | Feature | Status | Description | Key Files |
 |---------|--------|-------------|-----------|
 | **ArenaConfig** | Stable | Centralized debate configuration with 40+ options | `aragora/debate/arena_config.py` |
-| **DebateProtocol** | Stable | Protocol parameters (rounds, consensus, concurrency) | `aragora/core.py` |
+| **DebateProtocol** | Stable | Protocol parameters (rounds, consensus, concurrency) | `aragora/core/` |
 | **Orchestrator Hooks** | Stable | Extension points for custom logic | `aragora/debate/orchestrator_hooks.py` |
 
 ---

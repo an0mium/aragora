@@ -303,9 +303,9 @@ class TestTokenCostCalculation:
             input_tokens=1_000_000,
             output_tokens=1_000_000,
         )
-        # claude-opus-4 input: $15/1M, output: $75/1M
-        assert input_cost == Decimal("15.00")
-        assert output_cost == Decimal("75.00")
+        # claude-opus-4 input: $5/1M, output: $25/1M
+        assert input_cost == Decimal("5.00")
+        assert output_cost == Decimal("25.00")
 
     def test_default_pricing_fallback(self):
         """Test fallback to default pricing for unknown model."""
