@@ -22,13 +22,15 @@ Two deliberate measurement choices
    under an ``if TYPE_CHECKING:`` guard are type-only: they never execute, so
    they cannot create a real runtime circular import. Counting them would
    conflate type annotations with runtime coupling and would perversely reward
-   deleting type hints. With them excluded the package has 139 mutual cycles;
-   including them inflates the count to 183. We pin the honest (excluded) value.
+   deleting type hints. With them excluded the package has 140 mutual cycles
+   (representing 140 cycles across 4,154 modules currently, drifting from
+   the audit-time 139 cycles across 4,152 modules); including them inflates
+   the count to 183. We pin the honest (excluded) value (140).
 
 2. **The checkout root is forced onto ``sys.path[0]`` before building the
    graph.** Otherwise grimp resolves the SDK namespace package
    ``sdk/python/aragora`` (2 modules) instead of the real ``aragora`` package
-   (~4,152 modules). Verified on PR #8311 (see mission library/environment.md).
+   (~4,154 modules, or 4,152 at audit-time). Verified on PR #8311 (see mission library/environment.md).
 
 Usage
 -----
@@ -73,7 +75,7 @@ class MeasureError(RuntimeError):
 
 def _force_repo_root_on_syspath() -> None:
     """Put the checkout root at ``sys.path[0]`` so grimp resolves the real
-    ``aragora`` package (~4,152 modules), not the SDK namespace package."""
+    ``aragora`` package (~4,154 modules), not the SDK namespace package."""
     root = str(REPO_ROOT)
     while root in sys.path:
         sys.path.remove(root)
