@@ -1073,9 +1073,7 @@ def test_collect_times_out_wedged_reviewer_without_posting(
     assert "timed out" in outcome.failures[0].error
     assert outcome.action == "prepare"
     assert "supportive quorum incomplete" in outcome.action_reason
-    assert outcome.to_dict()["failures"] == [
-        {"family": "grok", "error": outcome.failures[0].error}
-    ]
+    assert outcome.to_dict()["failures"] == [{"family": "grok", "error": outcome.failures[0].error}]
     assert posted == []
     assert calls == []
 
