@@ -56,6 +56,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
     )
+    parser.add_argument(
+        "--prepared-json",
+        type=Path,
+        default=None,
+        help=(
+            "Use a previously prepared collect-evidence JSON artifact instead of "
+            "re-running reviewers."
+        ),
+    )
     parser.add_argument("--json", dest="json_output", action="store_true", help="Output as JSON")
     args = parser.parse_args(argv)
 
@@ -66,6 +75,7 @@ def main(argv: list[str] | None = None) -> int:
         author=args.author,
         apply=args.apply,
         json_output=args.json_output,
+        prepared_json=args.prepared_json,
     )
 
 

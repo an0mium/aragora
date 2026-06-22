@@ -786,7 +786,7 @@ def _write_synthetic_receipt(
 
 
 def _github_open_pr_state(root: Path, repo_name: str) -> tuple[dict[str, int], bool, str]:
-    """Return open codex PR heads when GitHub is healthy enough to trust."""
+    """Return open PR heads when GitHub is healthy enough to trust."""
 
     try:
         health = check_github_cli_health(root)
@@ -798,12 +798,12 @@ def _github_open_pr_state(root: Path, repo_name: str) -> tuple[dict[str, int], b
         return {}, False, detail
 
     try:
-        open_prs = open_pr_heads(root, repo_name, "codex/")
+        open_prs = open_pr_heads(root, repo_name, "")
     except Exception as exc:
         return {}, False, f"open PR fetch failed ({exc})"
     if not isinstance(open_prs, dict):
         return {}, False, "open PR fetch returned no usable data"
-    return open_prs, True, f"{len(open_prs)} open codex/* PRs"
+    return open_prs, True, f"{len(open_prs)} open PRs"
 
 
 def main(argv: list[str] | None = None) -> int:

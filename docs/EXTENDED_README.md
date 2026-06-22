@@ -645,7 +645,7 @@ Stable interfaces (recommended):
 - `aragora ask` for exploratory debates (CLI)
 - `aragora serve` for the unified API + WebSocket server
 - `python -m aragora` as a CLI alias
-- `python -m aragora.server` for the server in scripts/automation
+- the `aragora.server` module entrypoint remains available for scripts/automation (`aragora serve` is the canonical equivalent)
 
 Experimental/research (may change; use in a sandbox):
 - `scripts/nomic_loop.py` and `scripts/run_nomic_with_stream.py`
