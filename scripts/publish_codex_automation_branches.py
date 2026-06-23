@@ -900,14 +900,10 @@ def _open_codex_prs_from_rest(repo_root: Path, repo: str) -> list[dict[str, Any]
     for item in _flatten_rest_pages(payload):
         head = item.get("head")
         if not isinstance(head, Mapping):
-            number = item.get("number")
-            suffix = f" for PR #{number}" if number is not None else ""
-            raise RuntimeError(f"REST PR lookup missing head metadata{suffix}")
+            continue
         branch = head.get("ref")
         if not isinstance(branch, str):
-            number = item.get("number")
-            suffix = f" for PR #{number}" if number is not None else ""
-            raise RuntimeError(f"REST PR lookup missing head ref{suffix}")
+            continue
         if not branch.startswith(CODEX_BRANCH_PREFIX):
             continue
         prs.append(
@@ -1782,22 +1778,34 @@ def main(argv: list[str] | None = None) -> int:
     open_pr_heads = {
         item["headRefName"] for item in open_codex_prs if isinstance(item.get("headRefName"), str)
     }
+    open_pr_lookup_degraded = open_pr_lookup.get("lookup_degraded") is True
     duplicate_open_pr_patch_lookup = _duplicate_open_pr_patch_branches(
         repo_root,
         args.base,
         hydrated_branches,
         open_codex_prs,
     )
-    historical_pr_branches = _branches_with_pr_history(
-        repo_root,
-        args.github_repo,
-        [branch.branch for branch in hydrated_branches if branch.branch not in open_pr_heads],
-    )
-    resolved_related_branches = _branches_with_resolved_related_work(
-        repo_root,
-        args.github_repo,
-        [branch for branch in hydrated_branches if branch.branch not in historical_pr_branches],
-    )
+    historical_pr_lookup_skipped = False
+    related_work_lookup_skipped = False
+    if open_pr_lookup_degraded:
+        # A degraded open-PR lookup means GraphQL-backed follow-up searches may
+        # still be unavailable. Keep read visibility, but do not run further
+        # networked dedupe searches or publish from an incomplete queue view.
+        historical_pr_lookup_skipped = True
+        related_work_lookup_skipped = True
+        historical_pr_branches = set()
+        resolved_related_branches = set()
+    else:
+        historical_pr_branches = _branches_with_pr_history(
+            repo_root,
+            args.github_repo,
+            [branch.branch for branch in hydrated_branches if branch.branch not in open_pr_heads],
+        )
+        resolved_related_branches = _branches_with_resolved_related_work(
+            repo_root,
+            args.github_repo,
+            [branch for branch in hydrated_branches if branch.branch not in historical_pr_branches],
+        )
     decisions = select_publishable_branches(
         hydrated_branches,
         worktrees,
@@ -1896,6 +1904,8 @@ def main(argv: list[str] | None = None) -> int:
         "open_pr_lookup": {
             key: value for key, value in open_pr_lookup.items() if key != "cache_queue_health"
         },
+        "historical_pr_lookup_skipped": historical_pr_lookup_skipped,
+        "related_work_lookup_skipped": related_work_lookup_skipped,
         "automation_guardrails": asdict(guardrail_report),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(decision) for decision in decisions],
@@ -1908,6 +1918,9 @@ def main(argv: list[str] | None = None) -> int:
         elif all_open_prs_unhealthy and not args.allow_unhealthy_queue_publish:
             payload["published"] = []
             payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
+        elif open_pr_lookup_degraded:
+            payload["published"] = []
+            payload["publish_paused_reason"] = "open_pr_lookup_degraded"
         else:
             if all_open_prs_unhealthy and args.allow_unhealthy_queue_publish:
                 payload["publish_override_reason"] = "allow_unhealthy_queue_publish"
