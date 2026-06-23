@@ -1807,7 +1807,9 @@ def assess_owner_liveness(
         if heartbeat_terminal and heartbeat
         else ""
     )
-    if heartbeat and heartbeat.get("last_seen_at") and not heartbeat_terminal:
+    if heartbeat_terminal:
+        last_heartbeat_at = None
+    elif heartbeat and heartbeat.get("last_seen_at"):
         last_heartbeat_at = str(heartbeat["last_seen_at"])
     elif lane.get("last_heartbeat_at"):
         last_heartbeat_at = str(lane["last_heartbeat_at"])
@@ -1820,11 +1822,24 @@ def assess_owner_liveness(
     # Lease anchor: the most recent timestamp across the owner record,
     # the matched heartbeat, and the ledger entry. Conservative — any
     # recent signal keeps the owner "live".
-    candidates = [_updated_at_timestamp(lane.get(key)) for key in _OWNER_RECORD_TIMESTAMP_KEYS]
+    owner_timestamp_keys = _OWNER_RECORD_TIMESTAMP_KEYS
+    ledger_timestamp_keys = _LEDGER_TIMESTAMP_KEYS
+    if heartbeat_terminal:
+        owner_timestamp_keys = tuple(
+            key for key in _OWNER_RECORD_TIMESTAMP_KEYS if key != "last_heartbeat_at"
+        )
+        ledger_timestamp_keys = tuple(
+            key
+            for key in _LEDGER_TIMESTAMP_KEYS
+            if key not in {"heartbeat_at", "last_heartbeat_at"}
+        )
+    candidates = [_updated_at_timestamp(lane.get(key)) for key in owner_timestamp_keys]
     if last_heartbeat_at:
         candidates.append(_updated_at_timestamp(last_heartbeat_at))
     if ledger_entry is not None:
-        candidates.append(_ledger_entry_timestamp(ledger_entry))
+        candidates.append(
+            max(_updated_at_timestamp(ledger_entry.get(key)) for key in ledger_timestamp_keys)
+        )
     anchor_ts = max(candidates)
 
     lease_age_seconds: int | None = None

@@ -1326,11 +1326,13 @@ class TestOwnerLeaseLiveness:
             "status": "active",
             "branch": "codex/q4",
             "updated_at": _hours_ago(7.0),
+            "last_heartbeat_at": _hours_ago(0.1),
         }
         ledger = {
             "lane": "Q4-terminal-heartbeat",
             "status": "in_progress",
             "launched_at": _hours_ago(7.0),
+            "last_heartbeat_at": _hours_ago(0.1),
         }
         heartbeat = {
             "last_seen_at": _hours_ago(0.1),
