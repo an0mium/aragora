@@ -1277,7 +1277,11 @@ def select_publishable_branches(
     return decisions
 
 
-def _mark_github_unavailable(decisions: list[PublishDecision]) -> list[PublishDecision]:
+def _mark_github_unavailable(
+    decisions: list[PublishDecision],
+    *,
+    reason: str = "github_unavailable",
+) -> list[PublishDecision]:
     unavailable: list[PublishDecision] = []
     for decision in decisions:
         if not decision.eligible:
@@ -1287,7 +1291,7 @@ def _mark_github_unavailable(decisions: list[PublishDecision]) -> list[PublishDe
             PublishDecision(
                 branch=decision.branch,
                 eligible=False,
-                reason="github_unavailable",
+                reason=reason,
                 subject=decision.subject,
                 head_sha=decision.head_sha,
                 unique_commit_count=decision.unique_commit_count,
@@ -1824,6 +1828,11 @@ def main(argv: list[str] | None = None) -> int:
         superseded_outbox_branches=superseded_outbox_lookup,
         duplicate_open_pr_patch_branches=duplicate_open_pr_patch_lookup,
     )
+    if open_pr_lookup_degraded:
+        decisions = _mark_github_unavailable(
+            decisions,
+            reason="open_pr_lookup_degraded",
+        )
     merge_state_counts: dict[str, int] = {}
     unhealthy_open_prs: list[dict[str, Any]] = []
     for item in open_codex_prs:

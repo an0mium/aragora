@@ -1925,6 +1925,8 @@ def test_main_degraded_rest_lookup_blocks_override_and_skips_history_search(
     assert payload["open_pr_lookup"]["source"] == "rest"
     assert payload["historical_pr_lookup_skipped"] is True
     assert payload["related_work_lookup_skipped"] is True
+    assert payload["decisions"][0]["eligible"] is False
+    assert payload["decisions"][0]["reason"] == "open_pr_lookup_degraded"
     assert payload["publish_paused_reason"] == "open_pr_lookup_degraded"
 
 
