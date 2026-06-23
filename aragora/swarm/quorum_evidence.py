@@ -709,6 +709,10 @@ def _trusted_verdict_probe(line: str) -> str:
     return probe.strip("*_ ").lower()
 
 
+def _line_has_priority_finding(line: str) -> bool:
+    return bool(re.search(r"\[P[0-3]\]", line, re.IGNORECASE))
+
+
 def _strip_thinking_traces(text: str) -> str:
     """Remove reasoning-trace blocks some models emit before or after answering."""
     verdict_offset = _first_verdict_offset(text)
@@ -716,12 +720,28 @@ def _strip_thinking_traces(text: str) -> str:
         cleaned = _strip_closed_thinking_blocks(text)
     else:
         prefix = _strip_closed_thinking_blocks(text[:verdict_offset])
-        suffix = text[verdict_offset:]
+        suffix = _strip_closed_thinking_blocks(text[verdict_offset:])
+        suffix_lines = suffix.splitlines(keepends=True)
         kept_suffix: list[str] = []
         seen_finding = False
-        for line in suffix.splitlines(keepends=True):
-            has_priority = bool(re.search(r"\[P[0-3]\]", line, re.IGNORECASE))
-            if _THINKING_OPEN_RE.match(line) and not has_priority and not seen_finding:
+        in_fence = False
+        for idx, line in enumerate(suffix_lines):
+            stripped = line.strip()
+            if stripped.startswith(("```", "~~~")):
+                in_fence = not in_fence
+                kept_suffix.append(line)
+                continue
+            has_priority = _line_has_priority_finding(line)
+            later_has_priority = any(
+                _line_has_priority_finding(rest) for rest in suffix_lines[idx + 1 :]
+            )
+            if (
+                _THINKING_OPEN_RE.match(line)
+                and not has_priority
+                and not seen_finding
+                and not later_has_priority
+                and not in_fence
+            ):
                 break
             if has_priority:
                 seen_finding = True

@@ -190,6 +190,38 @@ def test_unclosed_trailing_thinking_trace_does_not_pollute_evidence_body() -> No
     assert "qwen" in result["counted_reviewer_ids"]
 
 
+def test_closed_post_verdict_thinking_trace_does_not_decount_support() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "Verdict: PASS\n"
+        "No findings.\n"
+        "<thinking>\n"
+        "[P1] This was private reasoning, not a reviewer finding.\n"
+        "</thinking>"
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "private reasoning" not in body
+    assert "[P1]" not in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+    assert "qwen" in result["counted_reviewer_ids"]
+
+
 def test_unclosed_leading_thinking_trace_still_reanchors_at_verdict() -> None:
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 
@@ -322,6 +354,21 @@ def test_line_start_literal_thinking_finding_is_preserved() -> None:
 
     assert "<thinking> [P2] A literal tag" in out
     assert "The second finding must survive" in out
+
+
+def test_line_start_thinking_tag_before_first_finding_does_not_drop_finding() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: CHANGES-REQUESTED\n"
+        "<thinking> This literal line introduces the finding details.\n"
+        "- [P1] The real finding must survive."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert "<thinking> This literal line" in out
+    assert "[P1] The real finding must survive" in out
 
 
 def test_multiline_finding_starting_with_literal_thinking_tag_is_preserved() -> None:
