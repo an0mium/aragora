@@ -2471,3 +2471,68 @@ def test_infra_retry_env_count_respected(monkeypatch):
     runner = _seq_runner([_RR("grok", "", False, "x")])  # always fails
     _retry(runner, "grok", "p")
     assert runner.state["n"] == 3  # 1 initial + 2 retries
+
+
+def test_fanout_timeout_budgets_all_infra_retry_attempts(monkeypatch):
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_FANOUT_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS", "20")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS", "20")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS", "20")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "2")
+
+    assert qe._reviewer_fanout_timeout_seconds() == (3 * (20 + 10)) + 15
+
+
+def test_reviewer_batch_prefers_queued_result_from_alive_worker(monkeypatch):
+    class FakeThread:
+        def __init__(self, *, target, kwargs, name=None, daemon=None):
+            self._target = target
+            self._kwargs = kwargs
+
+        def start(self):
+            self._target(**self._kwargs)
+
+        def join(self, timeout):
+            return None
+
+        def is_alive(self):
+            return True
+
+    monkeypatch.setattr(qe.threading, "Thread", FakeThread)
+
+    def runner(family, prompt):
+        return _RR(family, "Verdict: pass", True)
+
+    reviews = qe._run_reviewer_batch(
+        families=["claude"],
+        prompt="p",
+        reviewer_runner=runner,
+        timeout=0.01,
+    )
+
+    assert reviews["claude"].ok is True
+    assert reviews["claude"].text == "Verdict: pass"
+
+
+def test_collect_supported_results_stops_later_batches_after_worker_timeout(monkeypatch):
+    started = []
+
+    monkeypatch.setattr(qe, "_MAX_REVIEWER_WORKERS", 1)
+    monkeypatch.setattr(qe, "_reviewer_fanout_timeout_seconds", lambda: 0.01)
+
+    def runner(family, prompt):
+        started.append(family)
+        time.sleep(0.1)
+        return _RR(family, "Verdict: pass", True)
+
+    reviews = qe._collect_supported_reviewer_results(
+        supported=["claude", "openai"],
+        prompt="p",
+        reviewer_runner=runner,
+    )
+
+    assert started == ["claude"]
+    assert reviews["claude"].ok is False
+    assert "timed out" in reviews["claude"].error
+    assert reviews["openai"].ok is False
+    assert "not started" in reviews["openai"].error

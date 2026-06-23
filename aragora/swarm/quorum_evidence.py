@@ -221,13 +221,17 @@ def _reviewer_fanout_timeout_seconds() -> float:
     # The outer fan-out deadline must exceed every inner reviewer timeout by
     # default. It exists only as a fail-closed escape hatch for wedged futures or
     # cleanup paths that never return to the orchestrator.
+    attempts = _reviewer_infra_retries() + 1
     default = (
-        max(
-            _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT),
-            _timeout_seconds(_CODEX_TIMEOUT_ENV, _CODEX_TIMEOUT),
-            _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT),
+        attempts
+        * (
+            max(
+                _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT),
+                _timeout_seconds(_CODEX_TIMEOUT_ENV, _CODEX_TIMEOUT),
+                _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT),
+            )
+            + _REVIEWER_CLEANUP_TIMEOUT
         )
-        + _REVIEWER_CLEANUP_TIMEOUT
         + _REVIEWER_FANOUT_TIMEOUT_GRACE
     )
     return _timeout_seconds(_REVIEWER_FANOUT_TIMEOUT_ENV, default)
@@ -1536,6 +1540,11 @@ def _run_reviewer_batch(
         worker.thread.join(remaining)
 
     for worker in workers:
+        try:
+            reviews[worker.family] = worker.result_queue.get_nowait()
+            continue
+        except queue.Empty:
+            pass
         if worker.thread.is_alive():
             reviews[worker.family] = ReviewerResult(
                 worker.family,
@@ -1556,6 +1565,10 @@ def _run_reviewer_batch(
     return reviews
 
 
+def _reviewer_worker_timed_out(result: ReviewerResult) -> bool:
+    return not result.ok and "reviewer worker timed out after" in result.error
+
+
 def _collect_supported_reviewer_results(
     *,
     supported: Sequence[str],
@@ -1574,14 +1587,26 @@ def _collect_supported_reviewer_results(
     timeout = _reviewer_fanout_timeout_seconds()
     batch_size = max(1, _MAX_REVIEWER_WORKERS)
     for start in range(0, len(supported), batch_size):
-        reviews.update(
-            _run_reviewer_batch(
-                families=supported[start : start + batch_size],
-                prompt=prompt,
-                reviewer_runner=reviewer_runner,
-                timeout=timeout,
-            )
+        batch_reviews = _run_reviewer_batch(
+            families=supported[start : start + batch_size],
+            prompt=prompt,
+            reviewer_runner=reviewer_runner,
+            timeout=timeout,
         )
+        reviews.update(batch_reviews)
+        if any(_reviewer_worker_timed_out(result) for result in batch_reviews.values()):
+            for family in supported[start + batch_size :]:
+                reviews[family] = ReviewerResult(
+                    family,
+                    "",
+                    False,
+                    (
+                        f"{family} reviewer not started because an earlier reviewer "
+                        "worker timed out; refusing to exceed "
+                        f"{max(1, _MAX_REVIEWER_WORKERS)} active reviewer workers"
+                    ),
+                )
+            break
     return reviews
 
 
