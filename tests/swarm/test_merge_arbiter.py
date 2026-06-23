@@ -930,3 +930,40 @@ class TestAutoCollectIntegration:
         assert collect_kwargs[0]["apply"] is False
         assert apply_kwargs[0]["apply"] is True
         assert apply_kwargs[0]["families"] == list(DEFAULT_FAMILIES)
+
+    def test_auto_collect_does_not_pin_head_when_prepared_apply_posts_nothing(self):
+        class PreparedOutcome:
+            settlement_stable = True
+            has_supportive_quorum = True
+            action_reason = "prepared exact-head evidence"
+
+            def to_dict(self):
+                return {
+                    "mode": "collect_evidence",
+                    "head_sha": "deadbeef",
+                    "counting_families": ["claude", "grok"],
+                    "posted_families": [],
+                    "settlement_stable": True,
+                }
+
+        class PrepareOnlyOutcome:
+            posted: list[str] = []
+            action = "prepare"
+            action_reason = "live state drifted"
+
+        def collector(**kw):
+            return PreparedOutcome()
+
+        def applier(**kw):
+            return PrepareOnlyOutcome()
+
+        arb, calls = self._arbiter_with_prepared_fakes(collector, applier)
+        quorum_pr = _pr(54, "codex/x")
+        blocked = MergeResult(
+            54, "codex/x", False, f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE"
+        )
+
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
+        assert calls["n"] == 2
+        assert quorum_pr["headRefOid"] not in arb._collected_heads

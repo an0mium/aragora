@@ -1594,6 +1594,7 @@ def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
         ("Verdict: PASS", "pass"),
         ("**Verdict: PASS**", "pass"),
         ("## Verdict: CHANGES-REQUESTED", "changes_requested"),
+        ("Example format: - [P2] real issue\nVerdict: PASS\nNo findings.", "pass"),
         (
             "Reviewing the diff...\n**Verdict: CHANGES-REQUESTED**\n- **[P2]** x",
             "changes_requested",
@@ -2425,6 +2426,32 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
     )
     assert rc == 0
     assert "collect_evidence" in capsys.readouterr().out
+
+
+def test_run_collect_cli_apply_prepare_without_posts_exits_one(monkeypatch, capsys) -> None:
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="--apply requires --prepared-json",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+    rc = qe.run_collect_cli(
+        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=True
+    )
+
+    assert rc == 1
+    assert "--prepared-json" in capsys.readouterr().out
 
 
 def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_path) -> None:

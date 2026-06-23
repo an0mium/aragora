@@ -652,7 +652,6 @@ class MergeArbiter:
             evidence_reader=self._evidence_reader,
         ):
             return False
-        self._collected_heads.add(head_sha)
         try:
             families = self.config.reviewer_families or list(DEFAULT_FAMILIES)
             author = self._author_resolver()
@@ -663,7 +662,13 @@ class MergeArbiter:
                 author=author,
                 apply=False,
             )
+            if not hasattr(outcome, "settlement_stable"):
+                # Compatibility for tests/legacy injected collectors that only signal attempt/fault.
+                self._collected_heads.add(head_sha)
+                return True
             if not getattr(outcome, "settlement_stable", False):
+                if getattr(outcome, "dissenting_families", []):
+                    self._collected_heads.add(head_sha)
                 logger.info(
                     "Prepared quorum evidence for #%s but did not post: %s",
                     pr.get("number"),
@@ -702,8 +707,11 @@ class MergeArbiter:
                     except OSError:
                         pass
         except Exception as exc:  # noqa: BLE001 - best-effort resilience boundary: one bad collection must not abort the poll loop
+            self._collected_heads.add(head_sha)
             logger.warning("evidence collection fault for #%s: %s", pr.get("number"), exc)
             return False
+        if getattr(applied, "posted", []):
+            self._collected_heads.add(head_sha)
         logger.info(
             "Auto-collected quorum evidence for #%s; posted=%s",
             pr.get("number"),

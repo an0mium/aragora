@@ -729,6 +729,12 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     collect_evidence_arg(
         "--apply", action="store_true", help="Post Tier 0-2 evidence; Tier 3-4 prepare only."
     )
+    collect_evidence_arg(
+        "--prepared-json",
+        type=Path,
+        default=None,
+        help="Apply a previously prepared exact-head evidence JSON artifact.",
+    )
     collect_evidence_arg("--json", dest="json_output", action="store_true", help="Output as JSON")
 
     lint_comment_p = sub.add_parser(
@@ -1364,6 +1370,7 @@ def _cmd_collect_evidence(args: argparse.Namespace) -> int:
         author=getattr(args, "author", None),
         apply=bool(getattr(args, "apply", False)),
         json_output=json_output,
+        prepared_json=getattr(args, "prepared_json", None),
     )
 
 

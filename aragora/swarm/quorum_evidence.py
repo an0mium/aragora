@@ -727,7 +727,8 @@ def _reviewer_verdict(text: str) -> str:
     with a preamble line. Leading/trailing markdown (``*``, ``#``, ``>``, ``-``,
     backticks) is stripped before matching so a genuine verdict is not lost.
     """
-    for line in text.splitlines():
+    lines = text.splitlines()
+    for idx, line in enumerate(lines):
         stripped = line.strip().lower()
         if not stripped:
             continue
@@ -735,7 +736,10 @@ def _reviewer_verdict(text: str) -> str:
         if probe.startswith("verdict:"):
             verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
             if verdict.startswith("pass"):
-                return "changes_requested" if _has_blocking_priority_finding(text) else "pass"
+                findings_text = "\n".join(lines[idx + 1 :])
+                return (
+                    "changes_requested" if _has_blocking_priority_finding(findings_text) else "pass"
+                )
             if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
                 return "changes_requested"
             return "unknown"
@@ -2268,4 +2272,14 @@ def run_collect_cli(
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
+    if apply:
+        posted_all_supportive = len(outcome.posted) == len(outcome.supportive_families)
+        return (
+            0
+            if outcome.action == "post"
+            and outcome.has_supportive_quorum
+            and posted_all_supportive
+            and not outcome.post_errors
+            else 1
+        )
     return 0 if outcome.has_supportive_quorum else 1
