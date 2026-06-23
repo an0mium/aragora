@@ -790,6 +790,14 @@ def _packet_settlement_creator_pin_failure(
     return dict(pin)
 
 
+def _packet_settlement_creator_pin_verified(merge_packet: dict[str, Any], *, pr: int) -> bool:
+    entry = _entry_for_pr(merge_packet, pr=pr) or {}
+    pin = entry.get("settlement_creator_pin")
+    if not isinstance(pin, dict):
+        return False
+    return bool(pin.get("checked")) and bool(pin.get("verified"))
+
+
 def _raise_settle_apply_creator_pin_failure(pin: dict[str, Any]) -> None:
     reason = str(pin.get("reason") or "settlement creator pin failed").strip()
     raise Tier4ApplyError(
@@ -2335,6 +2343,7 @@ def _settle_apply_recognition_report(
     repo: str,
     cwd: Path,
     trusted_operator_logins: Sequence[str] | None = None,
+    receipt_backed_human_preapproval: bool = False,
 ) -> dict[str, Any]:
     pr_view, merge_packet, required_checks = _load_live_inputs(pr, cwd=cwd, repo=repo)
     status_success = _human_settlement_status_is_success(pr_view)
@@ -2348,9 +2357,20 @@ def _settle_apply_recognition_report(
     )
     entry = _entry_for_pr(merge_packet, pr=pr) or {}
     human_preapproval_recorded = _packet_human_preapproval_recorded(merge_packet, pr=pr)
+    receipt_backed = bool(receipt_backed_human_preapproval)
+    human_preapproval_recognized = bool(human_preapproval_recorded or receipt_backed)
     return {
-        "recognized": bool(status_success and comment_present and human_preapproval_recorded),
+        "recognized": bool(status_success and comment_present and human_preapproval_recognized),
         "human_preapproval_recorded": human_preapproval_recorded,
+        "human_preapproval_recognized": human_preapproval_recognized,
+        "receipt_backed_human_preapproval": receipt_backed,
+        "human_preapproval_source": (
+            "merge_packet"
+            if human_preapproval_recorded
+            else "record_settlement_receipt"
+            if receipt_backed
+            else ""
+        ),
         "settlement_status_present": status_success,
         "settlement_comment_present": comment_present,
         "settlement_creator_pin": entry.get("settlement_creator_pin"),
@@ -2674,16 +2694,33 @@ def main(argv: Sequence[str] | None = None) -> int:
             creator_pin_failure = _packet_settlement_creator_pin_failure(merge_packet, pr=args.pr)
             if creator_pin_failure is not None:
                 _raise_settle_apply_creator_pin_failure(creator_pin_failure)
-            if not human_preapproval_recorded or not status_already_present:
+            status_creator_pin_verified = _packet_settlement_creator_pin_verified(
+                merge_packet,
+                pr=args.pr,
+            )
+            status_requires_creator_repair = (
+                status_already_present
+                and not human_preapproval_recorded
+                and not status_creator_pin_verified
+            )
+            extra_out["settlement_status_creator_pin_verified_before_apply"] = (
+                status_creator_pin_verified
+            )
+            extra_out["settlement_status_repair_required"] = status_requires_creator_repair
+            if (
+                not human_preapproval_recorded
+                or not status_already_present
+                or status_requires_creator_repair
+            ):
                 _require_clean_receipt_worktree_for_settle_apply(cwd=args.cwd)
-            if not status_already_present:
+            if not status_already_present or status_requires_creator_repair:
                 _require_settle_apply_status_creator(invoker_login=invoker_login)
             if human_preapproval_recorded:
                 extra_out["receipt"] = {
                     "skipped": True,
                     "reason": "exact-head human preapproval receipt already recorded",
                 }
-                if not status_already_present:
+                if not status_already_present or status_requires_creator_repair:
                     try:
                         extra_out["receipt"] = _record_settlement(
                             pr=args.pr,
@@ -2723,7 +2760,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         reason=reason,
                         repo=args.repo,
                         cwd=args.cwd,
-                        post_github_status=not status_already_present,
+                        post_github_status=(
+                            not status_already_present or status_requires_creator_repair
+                        ),
                     )
                 except RuntimeError as exc:
                     raise Tier4ApplyError(
@@ -2801,6 +2840,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     repo=args.repo,
                     cwd=args.cwd,
                     trusted_operator_logins=args.trusted_operator_login,
+                    receipt_backed_human_preapproval=receipt_recorded_now,
                 )
             except RuntimeError as exc:
                 raise Tier4ApplyError(
@@ -2830,6 +2870,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 settlement_recognition.get("human_preapproval_recorded")
             )
             extra_out["human_preapproval_recorded_source"] = "merge_packet_refresh"
+            extra_out["receipt_backed_human_preapproval"] = bool(
+                settlement_recognition.get("receipt_backed_human_preapproval")
+            )
+            extra_out["human_preapproval_recognized"] = bool(
+                settlement_recognition.get("human_preapproval_recognized")
+            )
+            extra_out["human_preapproval_source"] = str(
+                settlement_recognition.get("human_preapproval_source") or ""
+            )
             if not settlement_recognition.get("recognized"):
                 raise Tier4ApplyError(
                     SETTLE_APPLY_RECOGNITION_BLOCKER,

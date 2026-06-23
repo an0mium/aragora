@@ -4174,6 +4174,62 @@ def test_settle_apply_rejects_existing_merge_packet_creator_pin_failure(
     )
 
 
+def test_settle_apply_rejects_unverified_existing_status_when_invoker_cannot_repair_pin(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[], human_settlement_state="SUCCESS"),
+            _tier4_packet(human_preapproval_recorded=False),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+
+    def _boom(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("must not record receipt or post comment until status can be repaired")
+
+    monkeypatch.setattr(settler, "_record_settlement", _boom)
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: commands.append(command) or "",
+    )
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    assert commands == []
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["phase"] == "settlement_creator_pin"
+    assert payload["mutation_occurred"] is False
+    assert settler.SETTLE_APPLY_CREATOR_PIN_BLOCKER in payload["error"]
+    assert payload["details"]["invoker_login"] == "trusted-member"
+
+
 def test_settle_apply_keeps_receipt_when_comment_post_fails(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
@@ -4311,7 +4367,7 @@ def test_settle_apply_does_not_post_comment_when_receipt_recording_fails(
     assert payload["details"]["github_status_requested"] is True
 
 
-def test_settle_apply_fails_until_refreshed_merge_packet_recognizes_preapproval(
+def test_settle_apply_accepts_receipt_backed_preapproval_when_packet_refresh_is_stale(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
@@ -4343,7 +4399,7 @@ def test_settle_apply_fails_until_refreshed_merge_packet_recognizes_preapproval(
             ),
         ),
     )
-    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "scarmani")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
     monkeypatch.setattr(
         settler,
@@ -4372,23 +4428,24 @@ def test_settle_apply_fails_until_refreshed_merge_packet_recognizes_preapproval(
             "--head",
             head,
             "--trusted-operator-login",
-            "trusted-member",
+            "scarmani",
             "--cwd",
             str(tmp_path),
             "--json",
         ]
     )
 
-    assert rc == 2
-    assert recorded == {"post_github_status": False}
+    assert rc == 0
+    assert recorded == {"post_github_status": True}
     assert text_commands and text_commands[0][:3] == ["gh", "pr", "comment"]
     payload = settler.json.loads(capsys.readouterr().out)
-    assert payload["ok"] is False
-    assert payload["phase"] == "settlement_recognition"
-    assert payload["details"]["human_preapproval_recorded"] is False
-    assert payload["details"]["settlement_status_present"] is True
-    assert payload["details"]["settlement_comment_present"] is True
-    assert settler.SETTLE_APPLY_RECOGNITION_BLOCKER in payload["error"]
+    assert payload["gate"]["ok"] is True
+    assert payload["human_preapproval_recorded"] is False
+    assert payload["human_preapproval_recognized"] is True
+    assert payload["human_preapproval_source"] == "record_settlement_receipt"
+    assert payload["receipt_backed_human_preapproval"] is True
+    assert payload["settlement_recognition"]["human_preapproval_recorded"] is False
+    assert payload["settlement_recognition"]["recognized"] is True
 
 
 def test_settle_apply_posts_missing_comment_when_status_already_success(
@@ -4422,7 +4479,7 @@ def test_settle_apply_posts_missing_comment_when_status_already_success(
             ),
         ),
     )
-    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "scarmani")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
     recorded: dict[str, Any] = {}
     monkeypatch.setattr(
@@ -4452,7 +4509,7 @@ def test_settle_apply_posts_missing_comment_when_status_already_success(
             "--head",
             head,
             "--trusted-operator-login",
-            "trusted-member",
+            "scarmani",
             "--cwd",
             str(tmp_path),
             "--json",
@@ -4460,7 +4517,7 @@ def test_settle_apply_posts_missing_comment_when_status_already_success(
     )
 
     assert rc == 0
-    assert recorded["post_github_status"] is False
+    assert recorded["post_github_status"] is True
     # Status alone is insufficient: the exact-head settlement comment is still required.
     assert text_commands and text_commands[0][:3] == ["gh", "pr", "comment"]
     assert not any("statuses/" in (command[4] if len(command) > 4 else "") for command in commands)
