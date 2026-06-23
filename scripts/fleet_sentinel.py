@@ -239,8 +239,9 @@ def check_outbox_progress(
     state_path: Path,
     no_progress_threshold: int,
     now: datetime,
+    breach_on_stall: bool = False,
 ) -> CheckResult:
-    """Breach when the active outbox count and oldest item do not change."""
+    """Track whether active outbox count and oldest item change between runs."""
     name = "outbox_progress"
     try:
         signature = _active_outbox_signature(outbox_dir)
@@ -255,7 +256,10 @@ def check_outbox_progress(
             return _result(name, "unknown", f"unreadable progress state: {exc.__class__.__name__}")
 
     previous_signature = previous.get("signature") if isinstance(previous, dict) else None
-    previous_streak = int(previous.get("unchanged_evaluations") or 0) if previous else 0
+    try:
+        previous_streak = int(previous.get("unchanged_evaluations") or 0) if previous else 0
+    except (TypeError, ValueError):
+        return _result(name, "unknown", "unreadable progress state: invalid unchanged_evaluations")
     unchanged = previous_signature == signature
     streak = previous_streak + 1 if unchanged else 1
     state = {
@@ -277,7 +281,7 @@ def check_outbox_progress(
         f"{signature['count']} active item(s); oldest={signature['oldest']}; "
         f"unchanged_evaluations={streak}/{no_progress_threshold}"
     )
-    if streak >= no_progress_threshold:
+    if breach_on_stall and streak >= no_progress_threshold:
         return _result(name, "breach", f"no outbox progress: {detail}")
     return _result(name, "ok", detail)
 
@@ -1094,6 +1098,7 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         state_path=Path(args.outbox_progress_state),
                         no_progress_threshold=args.outbox_no_progress_cycles,
                         now=now,
+                        breach_on_stall=args.outbox_progress_breach,
                     )
                 )
             elif name == "disk_free":
@@ -1186,6 +1191,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=str(repo_root / ".aragora" / "fleet-sentinel" / "outbox-progress.json"),
     )
     parser.add_argument("--outbox-no-progress-cycles", type=int, default=3)
+    parser.add_argument(
+        "--outbox-progress-breach",
+        action="store_true",
+        help="treat unchanged outbox progress for the configured cycle count as a breach",
+    )
     parser.add_argument("--min-free-gib", type=float, default=25.0)
     parser.add_argument(
         "--lanes-glob",

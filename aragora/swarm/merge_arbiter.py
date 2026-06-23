@@ -644,9 +644,9 @@ class MergeArbiter:
 
         Returns True iff a collection was attempted. Posting is tier-gated inside
         ``collect_evidence`` (Tier 3+ never posts). If replay prepares without
-        posting, the arbiter retries the same prepared artifact once on the next
-        poll, avoiding reviewer reruns while still allowing transient live-state
-        drift to clear.
+        posting, the arbiter uses a bounded retry budget for transient replay
+        failures, avoiding reviewer reruns while still allowing live-state drift
+        to clear.
         """
         head_sha = str(pr.get("headRefOid") or "")
         if head_sha and head_sha in self._collected_heads:
@@ -742,6 +742,12 @@ class MergeArbiter:
             self._trusted_posted_families_by_head[head_sha] = sorted({*existing, *posted})
             return True
 
+        def should_refresh_prepare(applied: object) -> bool:
+            reason = str(getattr(applied, "action_reason", "") or "")
+            return getattr(applied, "action", "") == "prepare" and (
+                reason.startswith("prepared head ") or reason.startswith("prepared base ")
+            )
+
         try:
             families = self.config.reviewer_families or list(DEFAULT_FAMILIES)
             author = self._author_resolver()
@@ -750,7 +756,11 @@ class MergeArbiter:
                     self._prepared_evidence_by_head[head_sha],
                     self._trusted_posted_families_by_head.get(head_sha),
                 )
-                if not cache_replay_retry(self._prepared_evidence_by_head[head_sha], applied):
+                if should_refresh_prepare(applied):
+                    self._prepared_evidence_by_head.pop(head_sha, None)
+                    self._trusted_posted_families_by_head.pop(head_sha, None)
+                    self._prepared_replay_attempts_by_head.pop(head_sha, None)
+                elif not cache_replay_retry(self._prepared_evidence_by_head[head_sha], applied):
                     mark_collected()
                 logger.info(
                     "Retried prepared quorum evidence for #%s; posted=%s",
@@ -796,7 +806,9 @@ class MergeArbiter:
                 return True
             payload = outcome.to_dict()
             applied = apply_payload(payload)
-            if not cache_replay_retry(payload, applied):
+            if should_refresh_prepare(applied):
+                pass
+            elif not cache_replay_retry(payload, applied):
                 mark_collected()
         except Exception as exc:  # noqa: BLE001 - best-effort resilience boundary: one bad collection must not abort the poll loop
             if head_sha and head_sha not in self._fault_retried_heads:

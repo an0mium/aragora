@@ -1066,3 +1066,47 @@ class TestAutoCollectIntegration:
         assert applied_payloads[1].get("posted_families") == []
         assert trusted_posted == [None, ["claude"]]
         assert quorum_pr["headRefOid"] in arb._collected_heads
+
+    def test_auto_collect_refreshes_prepare_after_base_drift(self):
+        class PreparedOutcome:
+            settlement_stable = True
+            has_supportive_quorum = True
+            action_reason = "prepared exact-head evidence"
+
+            def to_dict(self):
+                return {
+                    "mode": "collect_evidence",
+                    "head_sha": "deadbeef",
+                    "counting_families": ["claude", "grok"],
+                    "supportive_families": ["claude", "grok"],
+                    "posted_families": [],
+                    "settlement_stable": True,
+                }
+
+        class BaseDriftOutcome:
+            action = "prepare"
+            action_reason = "prepared base abc1234 does not match current base def5678"
+            posted: list[str] = []
+            supportive_families = ["claude", "grok"]
+            post_errors: list[str] = []
+
+        def collector(**kw):
+            return PreparedOutcome()
+
+        apply_calls = {"n": 0}
+
+        def applier(**kw):
+            apply_calls["n"] += 1
+            return BaseDriftOutcome()
+
+        arb, calls = self._arbiter_with_prepared_fakes(collector, applier)
+        quorum_pr = _pr(57, "codex/x")
+        blocked = MergeResult(
+            57, "codex/x", False, f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE"
+        )
+
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
+        assert quorum_pr["headRefOid"] not in arb._collected_heads
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
+        assert calls["n"] == 2
+        assert apply_calls["n"] == 2

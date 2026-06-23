@@ -314,13 +314,13 @@ def test_outbox_progress_breaches_on_third_unchanged_snapshot(tmp_path: Path) ->
     _touch(outbox / "newer.json", age_hours=1)
 
     first = sentinel.check_outbox_progress(
-        outbox, state_path=state, no_progress_threshold=3, now=NOW
+        outbox, state_path=state, no_progress_threshold=3, now=NOW, breach_on_stall=True
     )
     second = sentinel.check_outbox_progress(
-        outbox, state_path=state, no_progress_threshold=3, now=NOW
+        outbox, state_path=state, no_progress_threshold=3, now=NOW, breach_on_stall=True
     )
     third = sentinel.check_outbox_progress(
-        outbox, state_path=state, no_progress_threshold=3, now=NOW
+        outbox, state_path=state, no_progress_threshold=3, now=NOW, breach_on_stall=True
     )
 
     assert first["status"] == "ok"
@@ -328,6 +328,20 @@ def test_outbox_progress_breaches_on_third_unchanged_snapshot(tmp_path: Path) ->
     assert third["status"] == "breach"
     assert "oldest=oldest.json" in third["detail"]
     assert "unchanged_evaluations=3/3" in third["detail"]
+
+
+def test_outbox_progress_default_does_not_breach_on_stall(tmp_path: Path) -> None:
+    outbox = tmp_path / "outbox"
+    state = tmp_path / "state.json"
+    _touch(outbox / "oldest.json", age_hours=2)
+
+    sentinel.check_outbox_progress(outbox, state_path=state, no_progress_threshold=2, now=NOW)
+    result = sentinel.check_outbox_progress(
+        outbox, state_path=state, no_progress_threshold=2, now=NOW
+    )
+
+    assert result["status"] == "ok"
+    assert "unchanged_evaluations=2/2" in result["detail"]
 
 
 def test_outbox_progress_resets_when_count_or_oldest_changes(tmp_path: Path) -> None:
@@ -361,6 +375,25 @@ def test_outbox_progress_corrupt_state_is_unknown(tmp_path: Path) -> None:
 
     assert result["status"] == "unknown"
     assert "unreadable progress state" in result["detail"]
+
+
+def test_outbox_progress_malformed_streak_is_unknown(tmp_path: Path) -> None:
+    outbox = tmp_path / "outbox"
+    state = tmp_path / "state.json"
+    _touch(outbox / "one.json", age_hours=1)
+    state.write_text(
+        json.dumps(
+            {"signature": {"count": 1, "oldest": "one.json"}, "unchanged_evaluations": "bad"}
+        ),
+        encoding="utf-8",
+    )
+
+    result = sentinel.check_outbox_progress(
+        outbox, state_path=state, no_progress_threshold=3, now=NOW
+    )
+
+    assert result["status"] == "unknown"
+    assert "invalid unchanged_evaluations" in result["detail"]
 
 
 # ---------------------------------------------------------------------------
