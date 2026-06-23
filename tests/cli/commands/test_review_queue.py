@@ -1456,6 +1456,38 @@ class TestModelReviewQuorum:
         assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
         assert quorum["status"] == "satisfied"
 
+    def test_fresh_comment_citing_different_head_sha_is_excluded(self) -> None:
+        """Timestamp freshness must not rescue evidence pasted for an older head."""
+        head_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        previous_head = "1234567890abcdef1234567890abcdef12345678"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head_sha
+        pr["commits"] = [
+            {"oid": head_sha, "committedDate": "2026-04-28T20:00:00Z"},
+        ]
+        pr["comments"] = [
+            {
+                "author": {"login": "an0mium"},
+                "body": _codex_openai_body(
+                    body=(
+                        f"Head SHA: {previous_head}\nFocused adversarial dogfood found no blockers."
+                    )
+                ),
+                "createdAt": "2026-04-28T20:05:00Z",
+            },
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["counted_reviewer_ids"] == []
+        assert quorum["dogfood_evidence"] == []
+        assert quorum["status"] == "needs_model_review_quorum"
+
     def test_stale_comment_with_head_sha_citation_still_counts(self) -> None:
         """A reviewer who explicitly cites the current head SHA in
         their body counts even if their createdAt predates the head."""

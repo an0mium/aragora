@@ -4350,7 +4350,11 @@ def _is_review_grounded_on_head(
         if commit_oid:
             if commit_oid == head_sha:
                 return True
+            if _body_cites_different_head_sha(body, head_sha):
+                return False
             return bool(head_short and head_short in body)
+    if _body_cites_different_head_sha(body, head_sha):
+        return False
     if head_short and head_short in body:
         return True
     if not head_committed_at:
@@ -4399,6 +4403,8 @@ def _is_comment_grounded_on_head(
         return True
     body = str(comment.get("body", "") or "")
     head_short = head_sha[:7]
+    if _body_cites_different_head_sha(body, head_sha):
+        return False
     if head_short and head_short in body:
         return True
     created = str(comment.get("createdAt", "") or "")
@@ -4409,6 +4415,29 @@ def _is_comment_grounded_on_head(
         # seen this head, so the comment is treated as stale.
         return False
     return created >= head_committed_at
+
+
+def _body_cites_different_head_sha(body: str, head_sha: str) -> bool:
+    """Return True when a comment labels some other SHA as the reviewed head.
+
+    Timestamp recency is a useful fallback for terse comments, but it must not
+    override an explicit ``Head SHA: <old-sha>`` style citation copied from a
+    superseded prompt.
+    """
+    normalized_head = str(head_sha or "").strip().lower()
+    if len(normalized_head) < 7:
+        return False
+    for match in re.finditer(
+        r"\b(?:current\s+head|exact\s+head|head\s+sha|head|commit(?:\s+sha)?)\b"
+        r"[^\n]{0,80}?([0-9a-f]{7,40})\b",
+        str(body or "").lower(),
+        flags=re.IGNORECASE,
+    ):
+        cited = match.group(1).lower()
+        if normalized_head.startswith(cited) or cited.startswith(normalized_head):
+            continue
+        return True
+    return False
 
 
 def _first_nonempty_line(text: str) -> str:
