@@ -60,10 +60,19 @@ of a low-severity dissent is removed.
 
 ## Invariants
 
-1. **Flag OFF = zero behavior change.** With the flag unset/falsey the gate is
-   byte-identical to today; the existing review_queue / quorum_evidence test suites
-   stay green, and the flag-OFF characterization tests in
-   `tests/governance/test_finding_severity_gate.py` pin it.
+1. **Flag OFF = zero severity-gating behavior change, plus one disclosed security
+   fix.** With the flag unset/falsey the severity-gating semantics are byte-identical
+   to today — the existing review_queue / quorum_evidence suites stay green and the
+   flag-OFF characterization tests in `tests/governance/test_finding_severity_gate.py`
+   pin it. The **one** deliberate flag-independent change is a security fix to the
+   pre-existing Blocker-label scanner: a populated Blocker label whose finding text
+   begins with a bare "no" (e.g. `Blockers: no authentication on admin endpoint`)
+   previously matched the non-blocking prefix `"no"` and was silently demoted to
+   advisory — a merge-gate bypass for common security phrasing. It now correctly
+   blocks (flag ON or OFF), while genuine no-finding declarations (`no issues`,
+   `no blockers`, `no concerns`) stay non-blocking. The negative-verdict
+   (`Verdict:`/`Decision:`/`Recommendation:`) scanner is unaffected: a *positive*
+   verdict such as `Verdict: no concerns` remains non-blocking on the flag-OFF path.
 2. **`[P0]`/`[P1]` and populated Blocker labels ALWAYS block**, flag ON or OFF.
 3. **Advisory = non-blocking AND non-counting.** A downgraded dissent does not
    satisfy the quorum; `supportive` is unchanged, so it stays non-counting.
@@ -87,10 +96,14 @@ Four changes; flag OFF ⇒ identical behavior:
    - `has_blocking_finding_or_label(body) -> bool` — a real `[P0]`/`[P1]` finding OR
      a populated Blocker label; i.e. everything `has_blocking_or_negative_verdict`
      blocks on EXCEPT a bare negative verdict line with no finding/label.
-   - `has_blocking_or_negative_verdict` is behavior-unchanged (its internal helper
-     constants/functions were lifted to module scope so the new helpers share the
-     single source of regex/`_NO_FINDING_HEADS` truth; the function's return value is
-     identical).
+   - `has_blocking_or_negative_verdict` is behavior-unchanged on the negative-verdict
+     path (its internal helper constants/functions were lifted to module scope so the
+     new helpers share the single source of regex/`_NO_FINDING_HEADS` truth). The only
+     intended return-value change is the disclosed Blocker-label security fix above:
+     `_NO_FINDING_NO_PHRASE` ("no issues"/"no blockers"/…) is consulted **only** by the
+     Blocker-label non-blocking check (`_starts_with_phrase(..., match_no_finding=True)`),
+     never by the negative-verdict check, so positive verdicts like `Verdict: no
+     concerns` are not promoted to blocking dissents.
 3. **`_dissenting_views_from_comments`** (review_queue) consults
    `has_blocking_finding_or_label` when the flag is ON (dropping the bare-negative-
    verdict trigger) and `has_blocking_or_negative_verdict` when OFF. Downgraded

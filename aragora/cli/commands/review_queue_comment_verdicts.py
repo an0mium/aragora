@@ -94,8 +94,16 @@ _NO_FINDING_NO_PHRASE = re.compile(
 _BLOCKER_LABELS = frozenset({"blocking finding", "blocking findings", "blocker", "blockers"})
 
 
-def _starts_with_phrase(value: str, phrases: tuple[str, ...]) -> bool:
-    if _NO_FINDING_NO_PHRASE.match(value):
+def _starts_with_phrase(
+    value: str, phrases: tuple[str, ...], *, match_no_finding: bool = False
+) -> bool:
+    # ``_NO_FINDING_NO_PHRASE`` ("no issues" / "no blockers" / …) means "absence of
+    # a blocker" ONLY in the Blocker-label non-blocking check (``match_no_finding=True``).
+    # It MUST NOT short-circuit the negative-verdict check: a *positive* verdict such
+    # as "Verdict: no concerns" / "Recommendation: no changes needed" / "Decision: no
+    # blockers" would otherwise be promoted to a blocking dissent — a regression in the
+    # default flag-OFF merge-gate path. So the no-finding match is opt-in per caller.
+    if match_no_finding and _NO_FINDING_NO_PHRASE.match(value):
         return True
     return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
 
@@ -164,7 +172,9 @@ def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
         if not is_list_item and (follow.startswith("#") or re.match(r"^[^:]+?:\s+\S", follow)):
             return False
         candidate = _normalize_value(_strip_decoration(follow))
-    return bool(candidate) and not _starts_with_phrase(candidate, _NON_BLOCKING_PREFIXES)
+    return bool(candidate) and not _starts_with_phrase(
+        candidate, _NON_BLOCKING_PREFIXES, match_no_finding=True
+    )
 
 
 def has_blocking_or_negative_verdict(body: str) -> bool:
@@ -203,7 +213,9 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
             if not is_list_item and (follow.startswith("#") or re.match(r"^[^:]+?:\s+\S", follow)):
                 continue
             candidate = _normalize_value(_strip_decoration(follow))
-        if candidate and not _starts_with_phrase(candidate, _NON_BLOCKING_PREFIXES):
+        if candidate and not _starts_with_phrase(
+            candidate, _NON_BLOCKING_PREFIXES, match_no_finding=True
+        ):
             return True
     return False
 

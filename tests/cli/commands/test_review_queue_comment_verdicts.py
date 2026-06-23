@@ -139,3 +139,32 @@ def test_p1_none_head_unchanged_no_finding():
     assert has_blocking_finding_or_label("[P1] None: clean") is False
     assert has_blocking_finding_or_label("[P1] N/A") is False
     assert has_blocking_finding_or_label("[P1] no issues") is False
+
+
+# --- Regression: the no-finding "no <noun>" match must NOT leak into the
+# negative-verdict (Verdict/Decision/Recommendation) check. A *positive* verdict
+# phrased "no concerns" / "no changes needed" / "no blockers" is an APPROVAL and
+# must stay non-blocking on the default flag-OFF merge-gate path. (Caught by both
+# claude and openai on #8574; the shared helper had short-circuited unconditionally.)
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: no concerns",
+        "Verdict: no blocking issues found",
+        "Decision: no blockers",
+        "Recommendation: no changes needed",
+        "Verdict: no issues",
+    ],
+)
+def test_positive_verdict_with_no_noun_is_not_blocking(body):
+    assert has_blocking_or_negative_verdict(body) is False
+
+
+def test_approving_model_review_with_no_concerns_not_blocking():
+    body = (
+        "## Independent model review\n"
+        "Reviewer: openai\n\n"
+        "Verdict: no concerns\n\n"
+        "- The change is well-scoped and tested.\n"
+    )
+    assert has_blocking_or_negative_verdict(body) is False
