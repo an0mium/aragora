@@ -547,10 +547,8 @@ class TestEdgeCases:
         """Empty data-dir env vars fall back to the default data directory."""
         with patch.dict(os.environ, {"ARAGORA_DATA_DIR": "", "ARAGORA_NOMIC_DIR": ""}):
             expected_default = get_default_data_dir()
-
-        with patch.dict(os.environ, {"ARAGORA_DATA_DIR": "", "ARAGORA_NOMIC_DIR": ""}):
             nomic_dir = get_nomic_dir()
-            assert nomic_dir == expected_default
+        assert nomic_dir == expected_default
 
     def test_cycle_with_all_fields(self):
         """Cycle with all fields populated."""
