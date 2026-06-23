@@ -299,6 +299,42 @@ class TestSummarizeSettlement:
         # Strict default requires human settlement.
         assert "human settlement" in status.next_action
 
+    # --- Jurisdiction consistency with the live gate (grok #8507 P2) -----------
+    # The diagnostic must apply the same Western-only / at-least-one-Western rules
+    # the gate enforces, so it can never tell an operator "settle-ready" for a
+    # pair the gate would block.
+
+    def test_tier3_chinese_routed_family_does_not_count_toward_settle_ready(self) -> None:
+        # Tier 3 claude+deepseek: the gate drops deepseek (advisory-only), so the
+        # diagnostic must report the quorum as incomplete, not settle-ready.
+        status = self._call(
+            tier=3,
+            comments=[_counting_comment("claude"), _counting_comment("deepseek")],
+        )
+        # Western-only counted quorum: only claude counts → needs one more Western.
+        assert "1 more distinct Western model signal" in status.next_action
+        assert "advisory-only" in status.next_action
+
+    def test_tier3_two_western_families_advance_past_signal_count(self) -> None:
+        # claude+grok are both Western: the signal count is met, so the hint moves
+        # on to the next requirement (human settlement) rather than "collect more".
+        status = self._call(
+            tier=3,
+            comments=[_counting_comment("claude"), _counting_comment("grok")],
+            human_settlement_present=False,
+        )
+        assert "Western model signal" not in status.next_action
+        assert "human settlement" in status.next_action
+
+    def test_tier2_no_western_family_is_not_settle_ready(self) -> None:
+        # Tier 2 deepseek+qwen: two distinct families but no Western → the gate
+        # blocks on the at-least-one-Western rule, so the diagnostic must too.
+        status = self._call(
+            tier=2,
+            comments=[_counting_comment("deepseek"), _counting_comment("qwen")],
+        )
+        assert "Western model signal" in status.next_action
+
 
 class TestLooksLikeShadow:
     def test_trailing_marker_is_shadow(self) -> None:

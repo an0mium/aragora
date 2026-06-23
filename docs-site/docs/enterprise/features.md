@@ -454,7 +454,7 @@ Both configurations include security group definitions, IAM roles, variable file
 ### Offline Mode
 
 ```bash
-aragora serve --offline
+aragora serve --demo
 ```
 
 Sets `ARAGORA_OFFLINE` and `DEMO_MODE` environment variables, configures SQLite backend. No external network dependencies. Suitable for air-gapped and classified environments.

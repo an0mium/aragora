@@ -17,6 +17,7 @@ from typing import Any
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
 DEFAULT_AUTOMATION_OUTBOX_DIR = Path(".aragora") / "automation-outbox"
+DEFAULT_BACKPRESSURE_SIGNAL_FILE = Path(".aragora") / "backpressure.json"
 ACTIVE_STATUSES = {
     "active",
     "running",
@@ -60,6 +61,17 @@ UNRESOLVED_OPERATOR_CHOICE_MARKERS = (
     "<terminate",
     "<supersede",
 )
+BACKPRESSURE_GENERATE_MODE = "generate"
+BACKPRESSURE_SHEPHERD_MODES = {
+    "hold",
+    "pause",
+    "shepherd",
+    "stop",
+    "saturated",
+    "pivot",
+    "missing",
+    "malformed",
+}
 
 
 def _read_lanes(path: Path) -> list[dict[str, Any]]:
@@ -212,6 +224,146 @@ def _operator_choice_placeholder_guard_prompt(
             "",
         ]
     )
+
+
+def _load_backpressure_signal(signal_file: Path) -> dict[str, Any]:
+    """Read the optional backlog/backpressure signal for writer-loop prompts."""
+
+    if not signal_file.exists():
+        return {
+            "available": False,
+            "mode": "missing",
+            "reasons": [f"signal_file_missing:{signal_file}"],
+            "annotations": [],
+            "source": str(signal_file),
+        }
+    try:
+        payload = json.loads(signal_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "available": False,
+            "mode": "malformed",
+            "reasons": [f"signal_file_unreadable:{str(exc)[:200]}"],
+            "annotations": [],
+            "source": str(signal_file),
+        }
+    if not isinstance(payload, dict):
+        return {
+            "available": False,
+            "mode": "malformed",
+            "reasons": ["signal_payload_not_object"],
+            "annotations": [],
+            "source": str(signal_file),
+        }
+    payload = _sanitize(payload)
+    assert isinstance(payload, dict)
+    payload.setdefault("available", True)
+    payload.setdefault("source", str(signal_file))
+    return payload
+
+
+def _backpressure_mode(signal: dict[str, Any]) -> str:
+    return str(signal.get("mode") or "missing").strip().lower()
+
+
+def build_product_proof_loop_prompt(
+    *,
+    repo_root: Path = DEFAULT_REPO_ROOT,
+    signal_file: Path | None = None,
+) -> str:
+    """Build a recursive prompt that consults the backlog signal before new PR work."""
+
+    if signal_file is None:
+        signal_file = repo_root / DEFAULT_BACKPRESSURE_SIGNAL_FILE
+    signal = _load_backpressure_signal(signal_file)
+    mode = _backpressure_mode(signal)
+    reasons = signal.get("reasons")
+    reason_summary = (
+        ", ".join(str(reason) for reason in reasons)
+        if isinstance(reasons, list) and reasons
+        else "none"
+    )
+    annotations = signal.get("annotations")
+    annotation_summary = (
+        ", ".join(str(annotation) for annotation in annotations)
+        if isinstance(annotations, list) and annotations
+        else "none"
+    )
+    thresholds = signal.get("thresholds") if isinstance(signal.get("thresholds"), dict) else {}
+    threshold_summary = json.dumps(thresholds, sort_keys=True) if thresholds else "unknown"
+    open_prs = signal.get("open_prs", "unknown")
+    drafts = signal.get("drafts", "unknown")
+    ready = signal.get("ready", "unknown")
+    outbox_depth = signal.get("outbox_depth", "unknown")
+    generated_at = signal.get("generated_at") or "unknown"
+
+    gate_summary = (
+        f"mode={mode}, open_prs={open_prs}, drafts={drafts}, ready={ready}, "
+        f"outbox_depth={outbox_depth}, thresholds={threshold_summary}, "
+        f"generated_at={generated_at}, reasons={reason_summary}, "
+        f"annotations={annotation_summary}"
+    )
+    signal_command = (
+        "python3 scripts/backlog_gate.py --quiet || true"
+        if signal_file == repo_root / DEFAULT_BACKPRESSURE_SIGNAL_FILE
+        else f"python3 scripts/backlog_gate.py --signal-file {shlex.quote(str(signal_file))} --quiet || true"
+    )
+
+    lines = [
+        f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+        "Keep the shared root observation-only if dirty. Use a fresh disposable worktree from current origin/main for any code work.",
+        "",
+        "Goal: reduce product-proof / benchmark-truth opportunity cost by consulting the backlog backpressure signal before minting another micro-guard PR.",
+        "",
+        "First refresh and verify the backpressure signal:",
+        "git fetch origin --prune",
+        signal_command,
+        f"cat {shlex.quote(str(signal_file))}",
+        "",
+        "Signal snapshot to verify, not trust:",
+        gate_summary,
+        "",
+        "Re-check open draft/ready PRs, active owners, and duplicate newer PRs before choosing any action.",
+    ]
+
+    if mode == BACKPRESSURE_GENERATE_MODE:
+        lines.extend(
+            [
+                "",
+                "If the refreshed signal still says mode=generate, find exactly one new non-duplicate Tier 0-2 measurable gap in product-proof or benchmark-truth reporting, prefer non-mutating benchmark/report helpers, patch only that narrow surface, add focused tests, validate with ${ARAGORA_PYTHON:-python3}, run bash scripts/automation_pr_preflight.sh origin/main HEAD, push a draft PR with codex and codex-automation labels, and verify required checks.",
+                "Stop before semantic/security/API changes, settlement/merge/protection workflows, queue authority, or any branch/PR with an active owner.",
+            ]
+        )
+    elif mode in BACKPRESSURE_SHEPHERD_MODES:
+        lines.extend(
+            [
+                "",
+                f"If the refreshed signal still says mode={mode}, do not create a new branch, commit, or PR.",
+                "Instead, shepherd existing work: select the highest-value existing unowned green Tier 0-2 product-proof / benchmark-truth PR for evidence/readiness/merge-throughput handling, or report that no safe unowned target exists.",
+                "Do not merge, mark ready, post evidence, rerun workflows, write receipts, or touch queue authority without a separate exact-head authorization prompt.",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "",
+                f"The refreshed signal mode is unrecognized ({mode}). Treat it fail-closed: do not create a new branch, commit, or PR.",
+                "Report the exact signal payload and produce a repair prompt for the signal producer or prompt router.",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "If blocked, report the exact blocker and produce the next recursive prompt.",
+            "Final report: signal mode, duplicate/owner findings, action taken or withheld, validation if any, PR URL if any, and the next best recursive prompt.",
+            CONVERGENCE_SENTENCE,
+            "If any of the work involved can be better automated and made more autonomous by improving Aragora tooling at a meta level create a plan to do that instead, include this sentence in all subsequent prompts to ensure they converge towards automating and making more autonomous all steps at a meta level where this makes sense for the repo and project.",
+            "Always include a final summary or report section with the best next recursive prompt in a form similar to this one, include this sentence in all subsequent prompts to ensure they converge towards prompts that produce their next best recursive prompt.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _tmux_pane_packet(command_runner: CommandRunner) -> dict[str, Any]:
@@ -1612,6 +1764,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit a human-copyable exact-head prompt for one live merge-packet ready PR.",
     )
     parser.add_argument(
+        "--product-proof-loop-prompt",
+        action="store_true",
+        help=(
+            "Emit a product-proof / benchmark-truth loop prompt that consults the "
+            "backpressure signal before creating new PR work."
+        ),
+    )
+    parser.add_argument(
+        "--backpressure-signal-file",
+        type=Path,
+        default=None,
+        help=(
+            "Backpressure signal JSON for --product-proof-loop-prompt "
+            f"(default: {DEFAULT_BACKPRESSURE_SIGNAL_FILE})."
+        ),
+    )
+    parser.add_argument(
         "--merge-ready-limit",
         type=int,
         default=30,
@@ -1626,6 +1795,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     prompt: str | None = None
     packet: dict[str, Any] | None = None
     guard_prompt: str | None = None
+    if args.product_proof_loop_prompt:
+        signal_file = args.backpressure_signal_file
+        if signal_file is not None and not signal_file.is_absolute():
+            signal_file = args.repo_root / signal_file
+        prompt = build_product_proof_loop_prompt(
+            repo_root=args.repo_root,
+            signal_file=signal_file,
+        )
+        prompt = _operator_choice_placeholder_guard_prompt(prompt, repo_root=args.repo_root)
+        if args.json:
+            _emit_stdout(
+                json.dumps(
+                    {
+                        "prompt": prompt,
+                        "backpressure_signal": _load_backpressure_signal(
+                            signal_file
+                            if signal_file is not None
+                            else args.repo_root / DEFAULT_BACKPRESSURE_SIGNAL_FILE
+                        ),
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+        else:
+            _emit_stdout(prompt)
+        return 0
     if args.merge_ready_prompt:
         merge_packet = build_merge_ready_packet(
             repo_root=args.repo_root,
