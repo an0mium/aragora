@@ -945,7 +945,7 @@ def _open_codex_prs_with_cache_fallback(
                 item.setdefault("lookup_source", "rest")
             lookup_meta = {
                 "source": "rest",
-                "status": "ok",
+                "status": "degraded",
                 "fallback_error": live_error,
                 "lookup_degraded": True,
                 "rest_result_count": len(rest_prs),
@@ -1924,12 +1924,12 @@ def main(argv: list[str] | None = None) -> int:
         if not guardrail_report.ok:
             payload["published"] = []
             payload["publish_paused_reason"] = "automation_guardrail"
-        elif all_open_prs_unhealthy and not args.allow_unhealthy_queue_publish:
-            payload["published"] = []
-            payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
         elif open_pr_lookup_degraded:
             payload["published"] = []
             payload["publish_paused_reason"] = "open_pr_lookup_degraded"
+        elif all_open_prs_unhealthy and not args.allow_unhealthy_queue_publish:
+            payload["published"] = []
+            payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
         else:
             if all_open_prs_unhealthy and args.allow_unhealthy_queue_publish:
                 payload["publish_override_reason"] = "allow_unhealthy_queue_publish"
@@ -1966,6 +1966,8 @@ def main(argv: list[str] | None = None) -> int:
                     else:
                         print(f"  - {item['branch']} -> PR #{item['pr_number']}")
 
+    if args.apply and payload.get("publish_paused_reason") == "open_pr_lookup_degraded":
+        return 1
     return 0
 
 

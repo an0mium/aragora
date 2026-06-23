@@ -778,7 +778,7 @@ def test_open_codex_prs_falls_back_to_rest_when_graphql_and_cache_fail(
         }
     ]
     assert meta["source"] == "rest"
-    assert meta["status"] == "ok"
+    assert meta["status"] == "degraded"
     assert meta["fallback_error"] == "GraphQL 504"
     assert meta["cache_reason"] == "cache_stale"
     assert meta["lookup_degraded"] is True
@@ -1733,7 +1733,7 @@ def test_main_falls_back_to_rest_but_pauses_apply_for_unknown_queue_health(
 
     exit_code = mod.main(["--repo", str(tmp_path), "--apply", "--json"])
 
-    assert exit_code == 0
+    assert exit_code == 1
     assert publish_called is False
     payload = json.loads(capsys.readouterr().out)
     assert payload["open_pr_lookup"]["source"] == "rest"
@@ -1744,7 +1744,7 @@ def test_main_falls_back_to_rest_but_pauses_apply_for_unknown_queue_health(
     assert payload["queue_health"]["unhealthy_open_prs"][0]["reasons"] == [
         "lookup_degraded_queue_health_unknown"
     ]
-    assert payload["publish_paused_reason"] == "open_pr_queue_unhealthy"
+    assert payload["publish_paused_reason"] == "open_pr_lookup_degraded"
 
 
 def test_main_pauses_apply_when_rest_fallback_returns_no_codex_prs(
@@ -1824,7 +1824,7 @@ def test_main_pauses_apply_when_rest_fallback_returns_no_codex_prs(
 
     exit_code = mod.main(["--repo", str(tmp_path), "--apply", "--json"])
 
-    assert exit_code == 0
+    assert exit_code == 1
     assert publish_called is False
     payload = json.loads(capsys.readouterr().out)
     assert payload["open_pr_lookup"]["source"] == "rest"
@@ -1836,7 +1836,7 @@ def test_main_pauses_apply_when_rest_fallback_returns_no_codex_prs(
     assert payload["queue_health"]["unhealthy_open_prs"][0]["reasons"] == [
         "lookup_degraded_queue_health_unknown"
     ]
-    assert payload["publish_paused_reason"] == "open_pr_queue_unhealthy"
+    assert payload["publish_paused_reason"] == "open_pr_lookup_degraded"
 
 
 def test_main_degraded_rest_lookup_blocks_override_and_skips_history_search(
@@ -1919,7 +1919,7 @@ def test_main_degraded_rest_lookup_blocks_override_and_skips_history_search(
         ]
     )
 
-    assert exit_code == 0
+    assert exit_code == 1
     assert publish_called is False
     payload = json.loads(capsys.readouterr().out)
     assert payload["open_pr_lookup"]["source"] == "rest"
