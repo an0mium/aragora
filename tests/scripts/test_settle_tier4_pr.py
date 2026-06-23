@@ -3462,6 +3462,25 @@ def test_merge_apply_merge_only_authorization_skips_branch_protection(
 def test_run_id_from_url_parses_actions_run_id() -> None:
     url = "https://github.com/synaptent/aragora/actions/runs/27474838200/job/81212117993"
     assert settler._run_id_from_url(url) == "27474838200"
+    assert (
+        settler._run_id_from_url(
+            "https://github.com/synaptent/aragora/actions/runs/27474838200?check_suite_focus=true"
+        )
+        == "27474838200"
+    )
+    assert (
+        settler._run_id_from_url(
+            "https://github.com/synaptent/aragora/actions/runs/27474838200#summary"
+        )
+        == "27474838200"
+    )
+    assert (
+        settler._run_id_from_url(
+            "https://github.com/synaptent/aragora/actions/runs/"
+            "27474838200/job/81212117993?check_suite_focus=true#summary"
+        )
+        == "27474838200"
+    )
     assert settler._run_id_from_url("https://github.com/synaptent/aragora/pull/8363") == ""
     assert settler._run_id_from_url("") == ""
 

@@ -2246,7 +2246,9 @@ def _run_id_from_url(url: str) -> str:
     if index < 0:
         return ""
     tail = url[index + len(marker) :]
-    run_id = tail.split("/", 1)[0]
+    run_id = tail
+    for separator in ("/", "?", "#"):
+        run_id = run_id.split(separator, 1)[0]
     return run_id if run_id.isdigit() else ""
 
 
