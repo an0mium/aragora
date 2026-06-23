@@ -63,6 +63,10 @@ GROK_4_VIA_OPENROUTER: Final = "x-ai/grok-4"
 MISTRAL_LARGE_DIRECT: Final = "mistral-large-2512"
 MISTRAL_LARGE_VIA_OPENROUTER: Final = "mistralai/mistral-large"
 
+# Qwen 3 235B non-thinking instruct route for reviewer/evaluator paths that
+# need countable OpenRouter output.
+QWEN_235B_VIA_OPENROUTER: Final = "qwen/qwen3-235b-a22b"
+
 
 # -----------------------------------------------------------------------------
 # Canonical-metrics + legacy underscored aliases
@@ -266,6 +270,7 @@ __all__ = [
     "GROK_4_VIA_OPENROUTER",
     "MISTRAL_LARGE_DIRECT",
     "MISTRAL_LARGE_VIA_OPENROUTER",
+    "QWEN_235B_VIA_OPENROUTER",
     "OPUS_4_7",
     "OPUS_4_8",
     "GPT_5_4",

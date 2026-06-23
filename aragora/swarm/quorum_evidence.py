@@ -47,6 +47,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.config.model_pins import OPUS_48_VIA_OPENROUTER, QWEN_235B_VIA_OPENROUTER
 from aragora.swarm import merge_quorum_io
 
 logger = logging.getLogger(__name__)
@@ -1119,7 +1120,7 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     # claude-fable-5 is in the OpenRouter catalogue but gated (returns 404 "not
     # available" on call), so it silently broke the claude failure-fallback. Use
     # opus-4.8 — a callable, western-frontier slug.
-    "claude": "anthropic/claude-opus-4.8",
+    "claude": OPUS_48_VIA_OPENROUTER,
     "openai": "openai/gpt-5-pro",
     "grok": "x-ai/grok-4.3",
     "gemini": "google/gemini-3.1-pro-preview",
@@ -1131,7 +1132,7 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     # that survive normalization and pollute the evidence body, making an otherwise
     # supportive qwen review un-countable at the gate (1/2 instead of 2/2). The
     # instruct slug emits a clean verdict body that counts reliably.
-    "qwen": "qwen/qwen3-235b-a22b-2507",
+    "qwen": QWEN_235B_VIA_OPENROUTER,
     "kimi": "moonshotai/kimi-k2.6",
 }
 

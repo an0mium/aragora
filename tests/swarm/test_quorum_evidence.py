@@ -2593,12 +2593,31 @@ def test_default_openrouter_reviewer_slugs_are_countable():
     #  - qwen "-thinking-" slugs emit reasoning traces that survive normalization
     #    and pollute the evidence body, de-counting an otherwise-supportive review
     #    (1/2 instead of 2/2). The instruct variant emits a clean countable verdict.
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+    from aragora.config.model_pins import OPUS_48_VIA_OPENROUTER, QWEN_235B_VIA_OPENROUTER
     from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS as slugs
 
-    assert "fable" not in slugs["claude"], (
-        "claude fallback slug must be callable, not gated fable-5"
-    )
-    assert "thinking" not in slugs["qwen"], "qwen slug must be the non-thinking instruct variant"
+    assert slugs["claude"] == OPUS_48_VIA_OPENROUTER
+    assert slugs["qwen"] == QWEN_235B_VIA_OPENROUTER
+
+    for family in ("claude", "qwen"):
+        body = compose_evidence_comment(
+            family=family,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            pr=7740,
+            reviewer_text="Verdict: PASS\nNo findings.",
+        )
+        result = _lint_evidence_comment(
+            pr="7740",
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            body=body,
+            author="an0mium",
+            source="test",
+        )
+        assert result["would_count"] is True, result["problems"]
+        assert family in result["counted_reviewer_ids"]
 
 
 def _supportive_outcome(tier, *families):
