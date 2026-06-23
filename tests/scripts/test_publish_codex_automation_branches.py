@@ -765,7 +765,7 @@ def test_open_codex_prs_falls_back_to_rest_when_graphql_and_cache_fail(
     monkeypatch.setattr(
         mod,
         "_open_codex_prs_from_rest",
-        lambda repo_root, repo: [{"headRefName": "codex/fix-one"}],
+        lambda repo_root, repo, **kwargs: [{"headRefName": "codex/fix-one"}],
     )
 
     prs, meta = mod._open_codex_prs_with_cache_fallback(tmp_path, "synaptent/aragora")
@@ -825,7 +825,9 @@ def test_rest_fallback_skips_malformed_pr_entries(monkeypatch: Any, tmp_path: Pa
         ),
     )
 
-    assert mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora") == [
+    meta: dict[str, Any] = {}
+
+    assert mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora", meta=meta) == [
         {
             "number": 4,
             "title": "valid codex PR",
@@ -838,6 +840,11 @@ def test_rest_fallback_skips_malformed_pr_entries(monkeypatch: Any, tmp_path: Pa
             "lookup_source": "rest",
         }
     ]
+    assert meta["rest_payload_count"] == 4
+    assert meta["rest_skipped_missing_head_count"] == 1
+    assert meta["rest_skipped_missing_head_ref_count"] == 1
+    assert meta["rest_skipped_non_codex_head_count"] == 1
+    assert meta["rest_skipped_total_count"] == 3
 
 
 def test_open_codex_prs_reports_rest_error_when_all_lookups_fail(
@@ -856,7 +863,7 @@ def test_open_codex_prs_reports_rest_error_when_all_lookups_fail(
     monkeypatch.setattr(
         mod,
         "_open_codex_prs_from_rest",
-        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("REST 502")),
+        lambda repo_root, repo, **kwargs: (_ for _ in ()).throw(RuntimeError("REST 502")),
     )
 
     try:
@@ -1601,7 +1608,7 @@ def test_main_falls_back_to_cached_open_pr_heads_when_live_listing_504s(
     monkeypatch.setattr(
         mod,
         "_open_codex_prs_from_rest",
-        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("REST 502")),
+        lambda repo_root, repo, **kwargs: (_ for _ in ()).throw(RuntimeError("REST 502")),
     )
     monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
     monkeypatch.setattr(
@@ -1668,7 +1675,7 @@ def test_main_falls_back_to_rest_but_pauses_apply_for_unknown_queue_health(
     monkeypatch.setattr(
         mod,
         "_open_codex_prs_from_rest",
-        lambda repo_root, repo: [
+        lambda repo_root, repo, **kwargs: [
             {
                 "number": 9001,
                 "title": "REST open branch",
@@ -1784,7 +1791,7 @@ def test_main_pauses_apply_when_rest_fallback_returns_no_codex_prs(
         "_open_codex_prs_from_status_cache",
         lambda repo_root, repo: (None, {"cache_reason": "cache_stale"}),
     )
-    monkeypatch.setattr(mod, "_open_codex_prs_from_rest", lambda repo_root, repo: [])
+    monkeypatch.setattr(mod, "_open_codex_prs_from_rest", lambda repo_root, repo, **kwargs: [])
     monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
     monkeypatch.setattr(
         mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
@@ -1860,6 +1867,10 @@ def test_main_degraded_rest_lookup_blocks_override_and_skips_history_search(
     def fail_history(*args: Any, **kwargs: Any) -> set[str]:
         raise AssertionError("history lookup should be skipped for degraded open-PR lookup")
 
+    def fail_duplicate(*args: Any, **kwargs: Any) -> set[str]:
+        raise AssertionError("duplicate lookup should be skipped for degraded open-PR lookup")
+
+    monkeypatch.setattr(mod, "_duplicate_open_pr_patch_branches", fail_duplicate)
     monkeypatch.setattr(mod, "_branches_with_pr_history", fail_history)
     monkeypatch.setattr(mod, "_branches_with_resolved_related_work", fail_history)
     monkeypatch.setattr(
@@ -1872,7 +1883,7 @@ def test_main_degraded_rest_lookup_blocks_override_and_skips_history_search(
         "_open_codex_prs_from_status_cache",
         lambda repo_root, repo: (None, {"cache_reason": "cache_stale"}),
     )
-    monkeypatch.setattr(mod, "_open_codex_prs_from_rest", lambda repo_root, repo: [])
+    monkeypatch.setattr(mod, "_open_codex_prs_from_rest", lambda repo_root, repo, **kwargs: [])
     monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
     monkeypatch.setattr(
         mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
@@ -1926,9 +1937,84 @@ def test_main_degraded_rest_lookup_blocks_override_and_skips_history_search(
     payload = json.loads(capsys.readouterr().out)
     assert payload["open_pr_lookup"]["source"] == "rest"
     assert payload["open_pr_lookup"]["publishable_decision_count"] == 1
+    assert payload["duplicate_open_pr_patch_lookup_skipped"] is True
     assert payload["historical_pr_lookup_skipped"] is True
     assert payload["related_work_lookup_skipped"] is True
     assert payload["decisions"][0]["eligible"] is False
+    assert payload["decisions"][0]["reason"] == "open_pr_lookup_degraded"
+    assert payload["publish_paused_reason"] == "open_pr_lookup_degraded"
+
+
+def test_main_degraded_rest_lookup_dry_run_exits_nonzero_when_publishable_work_exists(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    branch = BranchSnapshot(
+        branch="codex/rest-empty",
+        upstream=None,
+        head_sha="abc1234",
+        committed_at=datetime.now(UTC),
+        subject="rest empty branch",
+        unique_commit_count=1,
+    )
+
+    monkeypatch.setattr(mod, "_repo_root", lambda path: tmp_path)
+    monkeypatch.setattr(mod, "_local_codex_branches", lambda repo_root: [branch])
+    monkeypatch.setattr(mod, "_list_worktrees", lambda repo_root, branch_filter=None: [])
+
+    def fail_degraded_lookup(*args: Any, **kwargs: Any) -> set[str]:
+        raise AssertionError("degraded mode should not run follow-up GitHub dedupe lookups")
+
+    monkeypatch.setattr(mod, "_duplicate_open_pr_patch_branches", fail_degraded_lookup)
+    monkeypatch.setattr(mod, "_branches_with_pr_history", fail_degraded_lookup)
+    monkeypatch.setattr(mod, "_branches_with_resolved_related_work", fail_degraded_lookup)
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs",
+        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("GraphQL 504")),
+    )
+    monkeypatch.setattr(
+        mod,
+        "_open_codex_prs_from_status_cache",
+        lambda repo_root, repo: (None, {"cache_reason": "cache_stale"}),
+    )
+    monkeypatch.setattr(mod, "_open_codex_prs_from_rest", lambda repo_root, repo, **kwargs: [])
+    monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
+    monkeypatch.setattr(
+        mod, "_branch_patch_equivalent_to_base", lambda repo_root, base, branch: False
+    )
+    monkeypatch.setattr(mod, "_branch_has_pr_diff", lambda repo_root, base, branch: True)
+    monkeypatch.setattr(mod, "_branch_unique_commit_count", lambda repo_root, base, branch: 1)
+    monkeypatch.setattr(mod, "outbox_superseded_branches", lambda repo_root, outbox_dir=None: set())
+    monkeypatch.setattr(mod, "_branch_remote_head", lambda repo_root, branch: None)
+    monkeypatch.setattr(
+        mod,
+        "evaluate_automation_guardrails",
+        lambda repo_root, open_pr_count, max_open_prs: mod.AutomationGuardrailReport(
+            ok=True,
+            blockers=[],
+            metrics={},
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda repo_root: GitHubCLIHealth(
+            ready=True,
+            auth_ok=True,
+            api_ok=True,
+            mode="ready",
+            error="",
+            repo=str(tmp_path),
+        ),
+    )
+
+    exit_code = mod.main(["--repo", str(tmp_path), "--json"])
+
+    assert exit_code == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["open_pr_lookup"]["source"] == "rest"
+    assert payload["open_pr_lookup"]["publishable_decision_count"] == 1
+    assert payload["duplicate_open_pr_patch_lookup_skipped"] is True
     assert payload["decisions"][0]["reason"] == "open_pr_lookup_degraded"
     assert payload["publish_paused_reason"] == "open_pr_lookup_degraded"
 
@@ -1956,7 +2042,7 @@ def test_main_reports_open_pr_lookup_failure_when_cache_is_unusable(
     monkeypatch.setattr(
         mod,
         "_open_codex_prs_from_rest",
-        lambda repo_root, repo: (_ for _ in ()).throw(RuntimeError("REST 502")),
+        lambda repo_root, repo, **kwargs: (_ for _ in ()).throw(RuntimeError("REST 502")),
     )
     monkeypatch.setattr(mod, "_branch_is_merged", lambda repo_root, base, branch: False)
     monkeypatch.setattr(
