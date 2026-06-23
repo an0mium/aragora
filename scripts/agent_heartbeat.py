@@ -157,6 +157,41 @@ def _append_jsonl(path: Path, row: dict[str, Any]) -> None:
         handle.write("\n")
 
 
+def _heartbeat_identity_matches(row: dict[str, Any], *, lane_id: str, owner_session: str) -> bool:
+    return (
+        str(row.get("lane_id") or "") == lane_id
+        and str(row.get("owner_session") or "") == owner_session
+    )
+
+
+def _terminal_heartbeat_fields(receipt: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "terminal": True,
+        "terminal_outcome": receipt["outcome"],
+        "terminal_reason": receipt["reason"],
+        "terminal_finalized_at": receipt["finalized_at"],
+    }
+
+
+def _mark_matching_heartbeat_terminal(heartbeat_path: Path, *, receipt: dict[str, Any]) -> None:
+    rows = _read_rows(heartbeat_path)
+    if not rows:
+        return
+    lane_id = str(receipt["lane_id"])
+    owner_session = str(receipt["owner_session"])
+    terminal_fields = _terminal_heartbeat_fields(receipt)
+    out: list[dict[str, Any]] = []
+    changed = False
+    for existing in rows:
+        if _heartbeat_identity_matches(existing, lane_id=lane_id, owner_session=owner_session):
+            out.append({**existing, **terminal_fields})
+            changed = True
+        else:
+            out.append(existing)
+    if changed:
+        _atomic_write(heartbeat_path, out)
+
+
 def record_heartbeat(
     *,
     heartbeat_path: Path,
@@ -210,6 +245,7 @@ def record_heartbeat(
 
 def record_finalizer_receipt(
     *,
+    heartbeat_path: Path,
     receipt_path: Path,
     lane_id: str,
     owner_session: str,
@@ -223,7 +259,7 @@ def record_finalizer_receipt(
     pr_number: int | None = None,
     finalized_at: str | None = None,
 ) -> dict[str, Any]:
-    """Append a terminal owner lifecycle receipt for an active lane."""
+    """Append terminal owner proof and mark the matching heartbeat non-live."""
     if not lane_id:
         raise ValueError("lane_id must not be empty")
     _validate_owner_session(owner_session)
@@ -250,8 +286,9 @@ def record_finalizer_receipt(
         }
     )
 
-    with _heartbeat_write_lock(receipt_path):
+    with _heartbeat_write_lock(heartbeat_path):
         _append_jsonl(receipt_path, row)
+        _mark_matching_heartbeat_terminal(heartbeat_path, receipt=row)
     return row
 
 
@@ -315,6 +352,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.outcome is None:
                 raise ValueError("--outcome is required with --finalize")
             row = record_finalizer_receipt(
+                heartbeat_path=resolve_heartbeat_path(
+                    repo_root=args.repo_root,
+                    explicit=args.heartbeat_path,
+                ),
                 receipt_path=receipt_path,
                 lane_id=args.lane_id,
                 owner_session=args.owner_session,

@@ -90,9 +90,11 @@ def test_heartbeat_rejects_path_traversal_owner(tmp_path: Path) -> None:
 
 
 def test_finalizer_receipt_appends_terminal_owner_lifecycle(tmp_path: Path) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
     receipt_path = tmp_path / "finalizer-receipts.jsonl"
 
     receipt = heartbeat.record_finalizer_receipt(
+        heartbeat_path=heartbeat_path,
         receipt_path=receipt_path,
         lane_id="Q612-heartbeat-finalizer",
         owner_session="codex-Q612",
@@ -125,9 +127,40 @@ def test_finalizer_receipt_appends_terminal_owner_lifecycle(tmp_path: Path) -> N
     assert payload == [receipt]
 
 
+def test_finalizer_receipt_marks_matching_heartbeat_terminal(tmp_path: Path) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        pid=34567,
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        last_seen_at="2026-06-23T10:09:00Z",
+    )
+
+    heartbeat.record_finalizer_receipt(
+        heartbeat_path=heartbeat_path,
+        receipt_path=receipt_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        outcome="completed",
+        reason="published draft PR",
+        finalized_at="2026-06-23T10:10:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert len(payload) == 1
+    assert payload[0]["last_seen_at"] == "2026-06-23T10:09:00Z"
+    assert payload[0]["terminal_outcome"] == "completed"
+    assert payload[0]["terminal_reason"] == "published draft PR"
+    assert payload[0]["terminal_finalized_at"] == "2026-06-23T10:10:00Z"
+
+
 def test_finalizer_receipt_rejects_unknown_outcome(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="outcome must be one of"):
         heartbeat.record_finalizer_receipt(
+            heartbeat_path=tmp_path / "heartbeats.json",
             receipt_path=tmp_path / "finalizer-receipts.jsonl",
             lane_id="Q612",
             owner_session="codex-Q612",

@@ -1319,6 +1319,35 @@ class TestOwnerLeaseLiveness:
         assert any("no heartbeat" in c for c in advisory["conditions_met"])
         assert result["advisory_withheld"] is None
 
+    def test_terminal_marked_heartbeat_does_not_keep_stale_owner_live(self) -> None:
+        lane = {
+            "lane_id": "Q4-terminal-heartbeat",
+            "owner_session": "codex-q4",
+            "status": "active",
+            "branch": "codex/q4",
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": "Q4-terminal-heartbeat",
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+        heartbeat = {
+            "last_seen_at": _hours_ago(0.1),
+            "terminal_outcome": "completed",
+            "terminal_finalized_at": _hours_ago(0.05),
+        }
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=heartbeat, now=_liveness_now()
+        )
+
+        liveness = result["owner_liveness"]
+        assert liveness["assessed"] == "stale"
+        assert liveness["last_heartbeat_at"] is None
+        assert liveness["terminal_heartbeat_outcome"] == "completed"
+        assert result["owner_blocking_state"] == "stale_owner"
+
     def test_worktree_reference_withholds_advisory(self) -> None:
         lane = {
             "lane_id": "Q5-wt",

@@ -901,9 +901,10 @@ def _heartbeat_summary(
     seen = _parse_iso_utc(row.get("last_seen_at"))
     age_seconds: int | None = None
     fresh = False
+    terminal = bool(row.get("terminal") is True or row.get("terminal_outcome"))
     if seen is not None:
         age_seconds = max(0, int((now - seen).total_seconds()))
-        fresh = age_seconds <= freshness_seconds
+        fresh = not terminal and age_seconds <= freshness_seconds
     return {
         "lane_id": row.get("lane_id"),
         "owner_session": row.get("owner_session"),
@@ -916,6 +917,10 @@ def _heartbeat_summary(
         "last_seen_at": row.get("last_seen_at"),
         "age_seconds": age_seconds,
         "fresh": fresh,
+        "terminal": terminal,
+        "terminal_outcome": row.get("terminal_outcome"),
+        "terminal_reason": row.get("terminal_reason"),
+        "terminal_finalized_at": row.get("terminal_finalized_at"),
     }
 
 
@@ -1786,7 +1791,23 @@ def assess_owner_liveness(
     # last_heartbeat_at: matched heartbeat row first, then owner record,
     # then ledger heartbeat fields; null when nothing carries one.
     last_heartbeat_at: str | None = None
-    if heartbeat and heartbeat.get("last_seen_at"):
+    heartbeat_terminal = bool(
+        heartbeat
+        and (
+            heartbeat.get("terminal") is True
+            or heartbeat.get("terminal_outcome")
+            or heartbeat.get("terminal_finalized_at")
+        )
+    )
+    terminal_heartbeat_outcome = (
+        str(heartbeat.get("terminal_outcome") or "") if heartbeat_terminal and heartbeat else ""
+    )
+    terminal_heartbeat_at = (
+        str(heartbeat.get("terminal_finalized_at") or "")
+        if heartbeat_terminal and heartbeat
+        else ""
+    )
+    if heartbeat and heartbeat.get("last_seen_at") and not heartbeat_terminal:
         last_heartbeat_at = str(heartbeat["last_seen_at"])
     elif lane.get("last_heartbeat_at"):
         last_heartbeat_at = str(lane["last_heartbeat_at"])
@@ -1827,6 +1848,8 @@ def assess_owner_liveness(
     owner_liveness = {
         "lease_age_seconds": lease_age_seconds,
         "last_heartbeat_at": last_heartbeat_at,
+        "terminal_heartbeat_outcome": terminal_heartbeat_outcome or None,
+        "terminal_heartbeat_at": terminal_heartbeat_at or None,
         "lane_status": lane_status,
         "assessed": assessed,
         "stale_threshold_hours": stale_hours,
