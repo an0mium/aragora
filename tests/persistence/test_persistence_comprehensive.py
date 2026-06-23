@@ -543,12 +543,13 @@ class TestDatabaseTypeEnumeration:
 class TestEdgeCases:
     """Edge cases and boundary conditions."""
 
-    def test_empty_nomic_dir_env(self):
+    def test_empty_nomic_dir_env(self, tmp_path, monkeypatch):
         """Empty data-dir env vars fall back to the default data directory."""
         with patch.dict(os.environ, {"ARAGORA_DATA_DIR": "", "ARAGORA_NOMIC_DIR": ""}):
-            expected_default = get_default_data_dir()
+            monkeypatch.chdir(tmp_path)
             nomic_dir = get_nomic_dir()
-        assert nomic_dir == expected_default
+        assert nomic_dir == Path(".nomic")
+        assert nomic_dir != Path("")
 
     def test_cycle_with_all_fields(self):
         """Cycle with all fields populated."""
