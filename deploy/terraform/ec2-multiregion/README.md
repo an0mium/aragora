@@ -118,7 +118,7 @@ cp terraform.tfvars.example terraform.tfvars
   - `connectors` - Kafka and RabbitMQ streaming connectors
 - nginx reverse proxy
 - CloudWatch agent for logs/metrics
-- systemd service (`aragora`, launched with `python -m aragora.cli.main serve`)
+- systemd service (`aragora`, launched with `aragora serve`)
 
 ## Post-Deployment Setup
 

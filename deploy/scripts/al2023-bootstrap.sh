@@ -108,8 +108,10 @@ dnf install -y libjpeg-devel libpng-devel 2>/dev/null || echo "Image libraries s
 dnf install -y libxml2-devel libxslt-devel 2>/dev/null || echo "XML libraries skipped"
 
 # SAML/xmlsec build dependencies: the `enterprise` extra pulls python3-saml,
-# which compiles a native binding against libxmlsec1.
-dnf install -y xmlsec1-devel pkgconfig 2>/dev/null || echo "xmlsec1 build libraries skipped"
+# which compiles a native binding against libxmlsec1. These are REQUIRED (not
+# optional) for the enterprise extra, so the install fails hard if unavailable.
+# On AL2023 the pkg-config provider is `pkgconf-pkg-config` (not `pkgconfig`).
+dnf install -y xmlsec1-devel pkgconf-pkg-config
 dnf install -y libtool-ltdl-devel 2>/dev/null || echo "libtool-ltdl-devel skipped"
 
 # =============================================================================
@@ -146,7 +148,7 @@ source /opt/aragora/venv/bin/activate
 pip install --upgrade pip wheel setuptools
 
 echo "Cloning Aragora repository..."
-git clone https://github.com/synaptent/aragora.git /opt/aragora/src
+[ -d /opt/aragora/src/.git ] || git clone https://github.com/synaptent/aragora.git /opt/aragora/src
 
 echo "Installing Aragora with production extras..."
 pip install "/opt/aragora/src[gateway,enterprise,connectors]"
@@ -240,7 +242,7 @@ Group=aragora
 WorkingDirectory=/opt/aragora
 Environment="PATH=/opt/aragora/venv/bin"
 EnvironmentFile=-/etc/aragora/env
-ExecStart=/opt/aragora/venv/bin/python -m aragora.cli.main serve --api-port 8080 --ws-port 8765 --host 127.0.0.1
+ExecStart=/opt/aragora/venv/bin/aragora serve --api-port 8080 --ws-port 8765 --host 127.0.0.1
 Restart=always
 RestartSec=5
 NoNewPrivileges=yes
