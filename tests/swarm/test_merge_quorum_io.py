@@ -57,6 +57,101 @@ def test_fetch_pr_context_routes_reads_through_app_token(monkeypatch) -> None:
     assert captured_envs[0].get("ARAGORA_GITHUB_AUTH_SOURCE") == "github_app_installation"
 
 
+def test_fetch_pr_context_uses_rest_fallback_after_pr_view_transport(monkeypatch) -> None:
+    calls: list[list[str]] = []
+    head = "f" * 40
+
+    def fake_run(args, *, env=None, timeout=m._GH_TIMEOUT):
+        del env, timeout
+        calls.append(args)
+        if args[:4] == ["gh", "pr", "view", "8532"]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="error connecting to api.github.com",
+            )
+        if args == ["gh", "api", "repos/o/r/pulls/8532"]:
+            return _proc(
+                json.dumps(
+                    {
+                        "number": 8532,
+                        "title": "deps",
+                        "html_url": "https://github.com/o/r/pull/8532",
+                        "head": {"sha": head, "ref": "dependabot/sdk"},
+                        "base": {"sha": "b" * 40, "ref": "main"},
+                        "state": "open",
+                        "draft": False,
+                        "mergeable": True,
+                        "mergeable_state": "blocked",
+                        "user": {"login": "dependabot[bot]"},
+                    }
+                )
+            )
+        if args == ["gh", "api", "repos/o/r/pulls/8532/files?per_page=100"]:
+            return _proc(json.dumps([{"filename": "sdk/typescript/package.json"}]))
+        if args == ["gh", "api", "repos/o/r/issues/8532/comments?per_page=100"]:
+            return _proc(json.dumps([]))
+        if args == ["gh", "api", "repos/o/r/pulls/8532/reviews?per_page=100"]:
+            return _proc(json.dumps([]))
+        if args == ["gh", "api", "repos/o/r/pulls/8532/commits?per_page=100"]:
+            return _proc(
+                json.dumps(
+                    [
+                        {
+                            "sha": head,
+                            "commit": {"author": {"date": "2026-06-23T01:02:03Z"}},
+                        }
+                    ]
+                )
+            )
+        if args == ["gh", "api", f"repos/o/r/commits/{head}/statuses?per_page=100"]:
+            return _proc(json.dumps([]))
+        if args == ["gh", "api", f"repos/o/r/commits/{head}/status"]:
+            return _proc(json.dumps({"statuses": []}))
+        if args == ["gh", "api", f"repos/o/r/commits/{head}/check-runs?per_page=100"]:
+            return _proc(
+                json.dumps(
+                    {
+                        "total_count": 2,
+                        "check_runs": [
+                            {
+                                "name": "lint",
+                                "status": "completed",
+                                "conclusion": "success",
+                                "completed_at": "2026-06-23T01:04:00Z",
+                            },
+                            {
+                                "name": "aragora-merge-quorum",
+                                "status": "completed",
+                                "conclusion": "failure",
+                                "completed_at": "2026-06-23T01:05:00Z",
+                            },
+                        ],
+                    }
+                )
+            )
+        if args == [
+            "gh",
+            "api",
+            "repos/o/r/branches/main/protection/required_status_checks",
+        ]:
+            return _proc(json.dumps({"strict": False, "checks": [{"context": "lint"}]}))
+        raise AssertionError(args)
+
+    monkeypatch.setattr(m, "run", fake_run)
+
+    ctx = m.fetch_pr_context("o/r", 8532)
+
+    assert ctx["head_sha"] == head
+    assert ctx["head_committed_at"] == "2026-06-23T01:02:03Z"
+    assert ctx["quorum_conclusion"] == "FAILURE"
+    assert ctx["has_real_required_failure"] is False
+    assert ctx["rest_fallback"]["enabled"] is True
+    assert any(call[:4] == ["gh", "pr", "view", "8532"] for call in calls)
+    assert any(call[:3] == ["gh", "api", "repos/o/r/pulls/8532"] for call in calls)
+
+
 def test_fetch_pr_tier_reads_nested_entries(monkeypatch) -> None:
     payload = {
         "version": "merge_authorization_packet.v1",

@@ -2264,6 +2264,35 @@ def test_default_prompt_builder_tolerates_name_status_fetch_failure(monkeypatch)
         assert path in header
 
 
+def test_default_prompt_builder_uses_head_pin_fallback_when_pr_view_fails(
+    monkeypatch,
+) -> None:
+    diff = (
+        "diff --git a/aragora/x.py b/aragora/x.py\n"
+        "--- a/aragora/x.py\n+++ b/aragora/x.py\n@@ -1 +1 @@\n-old\n+new\n"
+    )
+
+    def fake_run(args, *, env=None, timeout=None):
+        del env, timeout
+        if args[:3] == ["gh", "pr", "diff"]:
+            if "--name-status" in args:
+                return SimpleNamespace(returncode=0, stdout="M\taragora/x.py\n", stderr="")
+            return SimpleNamespace(returncode=0, stdout=diff, stderr="")
+        if args[:3] == ["gh", "pr", "view"]:
+            return SimpleNamespace(
+                returncode=1, stdout="", stderr="error connecting to api.github.com"
+            )
+        raise AssertionError(f"unexpected args: {args}")
+
+    monkeypatch.setattr(qe.merge_quorum_io, "run", fake_run)
+    monkeypatch.setattr(qe.merge_quorum_io, "fetch_pr_head_sha", lambda repo, pr: HEAD)
+
+    prompt = qe.default_prompt_builder("o/r", 8532, {"head_sha": HEAD})
+
+    assert "aragora/x.py" in prompt
+    assert HEAD[:7] in prompt
+
+
 def test_default_prompt_builder_empty_diff_still_raises(monkeypatch) -> None:
     # Builder exit/return semantics unchanged: an empty diff is still a hard error.
     monkeypatch.setattr(qe.merge_quorum_io, "run", _prompt_builder_run_stub("   \n", "D\tx\n"))

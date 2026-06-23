@@ -1294,6 +1294,8 @@ def default_prompt_builder(repo: str, pr: int, ctx: dict[str, Any]) -> str:
     # rather than silently skipping the check and grounding on a stale head.
     live_head = (live.stdout or "").strip()
     if live.returncode != 0 or not live_head:
+        live_head = merge_quorum_io.fetch_pr_head_sha(repo, pr)
+    if not live_head:
         raise RuntimeError(f"could not re-resolve head for PR #{pr} to pin the diff")
     if head_sha and live_head and live_head != head_sha:
         raise RuntimeError(

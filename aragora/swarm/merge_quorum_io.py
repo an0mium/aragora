@@ -136,45 +136,137 @@ def list_open_prs(repo: str, *, limit: int, author: str | None) -> list[int]:
     return numbers
 
 
-def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
-    """Head SHA, head committedDate, quorum conclusion, and real-failure flag."""
-    data = run_json(
-        [
-            "gh",
-            "pr",
-            "view",
-            str(pr),
-            "--repo",
-            repo,
-            "--json",
-            "headRefOid,commits,statusCheckRollup",
-        ],
-        env=_read_env(),
+def _gh_json_for_rest_fallback(args: list[str]) -> Any:
+    """Adapter for review-queue REST helpers that preserves read-token routing."""
+    from aragora.cli.commands.review_queue_transport import _GhError
+
+    try:
+        return run_json(["gh", *args], env=_read_env())
+    except RuntimeError as exc:
+        raise _GhError(str(exc)) from exc
+
+
+def _fetch_pr_context_with_rest_fallback(repo: str, pr: int, source_error: str) -> dict[str, Any]:
+    """Fallback to REST PR/check metadata after GraphQL-backed ``gh pr view`` fails."""
+    from aragora.cli.commands.review_queue_rest_fallback import _hydrate_pr_with_rest_fallback
+
+    return _hydrate_pr_with_rest_fallback(
+        number=pr,
+        repo_slug=repo,
+        source_error=source_error,
+        gh_json=_gh_json_for_rest_fallback,
     )
-    head_sha = str(data.get("headRefOid") or "").strip()
+
+
+def _head_committed_at(data: dict[str, Any], head_sha: str, repo: str) -> str:
     commits = data.get("commits") or []
-    head_committed_at = ""
     for entry in commits:
         if isinstance(entry, dict) and str(entry.get("oid") or "") == head_sha:
-            head_committed_at = str(entry.get("committedDate") or "")
-            break
-    if not head_committed_at and head_sha:
-        # The head may be beyond the returned commit slice; fetch its date
-        # directly rather than guessing from the last listed commit.
-        try:
-            commit = (
-                run_json(["gh", "api", f"repos/{repo}/commits/{head_sha}"], env=_read_env()) or {}
+            return str(entry.get("committedDate") or "")
+    if not head_sha:
+        return ""
+    # The head may be beyond the returned commit slice; fetch its date directly
+    # rather than guessing from the last listed commit.
+    try:
+        commit = run_json(["gh", "api", f"repos/{repo}/commits/{head_sha}"], env=_read_env()) or {}
+    except RuntimeError:
+        commit = {}
+    committer = (commit.get("commit") or {}).get("committer") or {}
+    return str(committer.get("date") or "")
+
+
+def _latest_by_name(items: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    latest: dict[str, tuple[str, int, dict[str, Any]]] = {}
+    for index, item in enumerate(items):
+        name = str(item.get("name") or item.get("context") or "").strip()
+        if not name:
+            continue
+        timestamp = str(
+            item.get("completed_at")
+            or item.get("started_at")
+            or item.get("updatedAt")
+            or item.get("updated_at")
+            or item.get("created_at")
+            or item.get("createdAt")
+            or ""
+        )
+        previous = latest.get(name)
+        if (
+            previous is None
+            or timestamp > previous[0]
+            or (timestamp == previous[0] and index < previous[1])
+        ):
+            latest[name] = (timestamp, index, item)
+    return {name: row[2] for name, row in latest.items()}
+
+
+def _direct_check_rollup(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Build a conservative rollup from REST direct checks when PR rollup is absent."""
+    rollup = data.get("statusCheckRollup") or []
+    if rollup:
+        return [item for item in rollup if isinstance(item, dict)]
+
+    direct_runs = [item for item in data.get("directCheckRuns") or [] if isinstance(item, dict)]
+    commit_statuses = [item for item in data.get("commitStatuses") or [] if isinstance(item, dict)]
+    required_payload = data.get("requiredStatusChecks")
+    required_checks = []
+    if isinstance(required_payload, dict):
+        required_checks = [
+            item for item in required_payload.get("checks") or [] if isinstance(item, dict)
+        ]
+
+    direct_by_name = _latest_by_name(direct_runs)
+    status_by_name = _latest_by_name(commit_statuses)
+    synthetic: list[dict[str, Any]] = []
+
+    for required in required_checks:
+        context = str(required.get("context") or "").strip()
+        if not context:
+            continue
+        run = direct_by_name.get(context)
+        if run is not None:
+            synthetic.append(
+                {
+                    "name": context,
+                    "conclusion": str(run.get("conclusion") or "").upper(),
+                    "state": str(run.get("status") or "").upper(),
+                    "isRequired": True,
+                }
             )
-        except RuntimeError:
-            commit = {}
-        committer = (commit.get("commit") or {}).get("committer") or {}
-        head_committed_at = str(committer.get("date") or "")
+            continue
+        status = status_by_name.get(context)
+        if status is not None:
+            synthetic.append(
+                {
+                    "context": context,
+                    "state": str(status.get("state") or "").upper(),
+                    "isRequired": True,
+                }
+            )
+
+    if QUORUM_CHECK_NAME in direct_by_name and all(
+        str(item.get("name") or item.get("context") or "") != QUORUM_CHECK_NAME
+        for item in synthetic
+    ):
+        run = direct_by_name[QUORUM_CHECK_NAME]
+        synthetic.append(
+            {
+                "name": QUORUM_CHECK_NAME,
+                "conclusion": str(run.get("conclusion") or "").upper(),
+                "state": str(run.get("status") or "").upper(),
+                "isRequired": False,
+            }
+        )
+    return synthetic
+
+
+def _context_from_pr_payload(repo: str, data: dict[str, Any]) -> dict[str, Any]:
+    head_sha = str(data.get("headRefOid") or "").strip()
+    head_committed_at = _head_committed_at(data, head_sha, repo)
 
     real_failure = False
     quorum_conclusion = ""
-    for check in data.get("statusCheckRollup") or []:
-        if not isinstance(check, dict):
-            continue
+    for check in _direct_check_rollup(data):
         name = str(check.get("name") or check.get("context") or "")
         conclusion = str(check.get("conclusion") or check.get("state") or "").upper()
         if name == QUORUM_CHECK_NAME:
@@ -192,7 +284,44 @@ def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
         "head_committed_at": head_committed_at,
         "quorum_conclusion": quorum_conclusion,
         "has_real_required_failure": real_failure,
+        "rest_fallback": data.get("_rest_fallback") or {},
     }
+
+
+def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
+    """Head SHA, head committedDate, quorum conclusion, and real-failure flag."""
+    try:
+        data = run_json(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(pr),
+                "--repo",
+                repo,
+                "--json",
+                "headRefOid,commits,statusCheckRollup",
+            ],
+            env=_read_env(),
+        )
+    except RuntimeError as exc:
+        data = _fetch_pr_context_with_rest_fallback(repo, pr, str(exc))
+    if not isinstance(data, dict):
+        data = {}
+    return _context_from_pr_payload(repo, data)
+
+
+def fetch_pr_head_sha(repo: str, pr: int) -> str:
+    """Resolve a PR head SHA, using REST fallback when ``gh pr view`` is blocked."""
+    try:
+        data = run_json(
+            ["gh", "pr", "view", str(pr), "--repo", repo, "--json", "headRefOid"],
+            env=_read_env(),
+        )
+        return str((data or {}).get("headRefOid") or "").strip()
+    except RuntimeError as exc:
+        data = _fetch_pr_context_with_rest_fallback(repo, pr, str(exc))
+    return str(data.get("headRefOid") or "").strip()
 
 
 def fetch_latest_quorum_run(repo: str, head_sha: str) -> QuorumRun | None:

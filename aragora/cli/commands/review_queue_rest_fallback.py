@@ -220,6 +220,10 @@ def _hydrate_pr_with_rest_fallback(
     )
     reviews = _rest_list(f"repos/{repo_slug}/pulls/{number}/reviews?per_page=100", gh_json=gh_json)
     commits = _rest_list(f"repos/{repo_slug}/pulls/{number}/commits?per_page=100", gh_json=gh_json)
+    direct_check_runs = _fetch_direct_commit_check_runs(repo_slug, head_sha, gh_json=gh_json)
+    required_status_checks = _fetch_required_status_check_protection(
+        repo_slug, str(base.get("ref") or "").strip(), gh_json=gh_json
+    )
 
     return {
         "number": int(rest_pr.get("number") or number),
@@ -259,6 +263,8 @@ def _hydrate_pr_with_rest_fallback(
         "reviews": [_normalize_rest_review(review) for review in reviews],
         "commits": [_normalize_rest_commit(commit) for commit in commits],
         "commitStatuses": _fetch_direct_commit_statuses(repo_slug, head_sha, gh_json=gh_json),
+        "directCheckRuns": direct_check_runs,
+        "requiredStatusChecks": required_status_checks,
         "_rest_fallback": {
             "enabled": True,
             "repo": repo_slug,
