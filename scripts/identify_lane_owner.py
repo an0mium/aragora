@@ -41,13 +41,14 @@ Lookup sources (read-only, in this precedence):
 Owner-lease liveness (issue #8318): when ``--liveness`` is enabled
 (default), the JSON output is additionally enriched with an
 ``owner_liveness`` object (lease age, last heartbeat, lane-ledger
-status, assessment) and — only for stale/terminal owners with no
-indication of local unpushed work — a machine-readable
-``stale_claim_advisory`` codifying the manual stale-claim override
-protocol exercised on #8125. This is VISIBILITY + ADVISORY only: it
-never changes a go/no-go decision by itself, and it fails closed
-(``advisory_withheld: "possible_unpushed_work"``) whenever
-uncommitted/unpushed work might exist.
+status, assessment), a consumer-facing ``owner_blocking_state``, and
+— only for stale/terminal owners with no indication of local unpushed
+work — a machine-readable ``stale_claim_advisory`` codifying the
+manual stale-claim override protocol exercised on #8125. This is
+VISIBILITY + ADVISORY only: it never changes a go/no-go decision by
+itself, and it fails closed (``advisory_withheld:
+"possible_unpushed_work"``) whenever uncommitted/unpushed work might
+exist.
 
 Pure stdlib. No ``aragora.*`` imports. Read-only — never mutates
 GitHub state, lane registry, mailboxes, or any other on-disk file.
@@ -1212,6 +1213,11 @@ STALE_CLAIM_PROTOCOL = "stale-claim-override"
 ADVISORY_WITHHELD_UNPUSHED = "possible_unpushed_work"
 REQUIRED_LEDGER_RECORD = "overriding lane must write an override entry naming the stale lane id"
 
+OWNER_BLOCKING_LIVE = "live_owner"
+OWNER_BLOCKING_UNKNOWN = "unknown_owner"
+OWNER_BLOCKING_STALE = "stale_owner"
+OWNER_BLOCKING_STALE_TERMINAL = "stale_terminal_owner"
+
 # Timestamp fields on the owner (lane-registry) record; newest wins.
 _OWNER_RECORD_TIMESTAMP_KEYS = (
     "updated_at",
@@ -1865,8 +1871,36 @@ def assess_owner_liveness(
                 "required_ledger_record": REQUIRED_LEDGER_RECORD,
             }
 
+    if assessed == "live":
+        owner_blocking_state = OWNER_BLOCKING_LIVE
+        owner_blocking_state_reason = "owner has current lease or heartbeat evidence"
+    elif assessed == "unknown":
+        owner_blocking_state = OWNER_BLOCKING_UNKNOWN
+        owner_blocking_state_reason = "owner lease age could not be established"
+    elif (
+        assessed == "terminal"
+        and advisory is not None
+        and advisory.get("available") is True
+        and advisory_withheld is None
+    ):
+        owner_blocking_state = OWNER_BLOCKING_STALE_TERMINAL
+        owner_blocking_state_reason = (
+            "terminal stale owner has no local-work claim and is eligible for guarded "
+            "stale-claim handling"
+        )
+    else:
+        owner_blocking_state = OWNER_BLOCKING_STALE
+        if advisory_withheld:
+            owner_blocking_state_reason = (
+                f"stale owner remains blocking because advisory is withheld: {advisory_withheld}"
+            )
+        else:
+            owner_blocking_state_reason = "stale owner is not proven terminal-safe"
+
     return {
         "owner_liveness": owner_liveness,
+        "owner_blocking_state": owner_blocking_state,
+        "owner_blocking_state_reason": owner_blocking_state_reason,
         "stale_claim_advisory": advisory,
         "advisory_withheld": advisory_withheld,
         "local_work_preservation": local_work_preservation,
@@ -1887,6 +1921,7 @@ def _print_liveness_summary(payload: dict[str, Any]) -> None:
     print(
         "owner_liveness: "
         f"assessed={liveness['assessed']} "
+        f"owner_blocking_state={payload['owner_blocking_state']} "
         f"lease_age_seconds={lease if lease is not None else '-'} "
         f"lane_status={liveness['lane_status']} "
         f"last_heartbeat_at={liveness['last_heartbeat_at'] or '-'} "
