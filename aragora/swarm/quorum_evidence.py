@@ -217,23 +217,41 @@ def _format_seconds(seconds: float) -> str:
     return f"{seconds:g}"
 
 
-def _reviewer_fanout_timeout_seconds() -> float:
-    # The outer fan-out deadline must exceed every inner reviewer timeout by
-    # default. It exists only as a fail-closed escape hatch for wedged futures or
-    # cleanup paths that never return to the orchestrator.
-    attempts = _reviewer_infra_retries() + 1
-    default = (
-        attempts
-        * (
-            max(
-                _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT),
-                _timeout_seconds(_CODEX_TIMEOUT_ENV, _CODEX_TIMEOUT),
-                _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT),
-            )
-            + _REVIEWER_CLEANUP_TIMEOUT
-        )
-        + _REVIEWER_FANOUT_TIMEOUT_GRACE
+def _api_reviewer_timeout_budget_seconds() -> float:
+    return _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT) + _REVIEWER_CLEANUP_TIMEOUT
+
+
+def _reviewer_attempt_timeout_budget_seconds() -> float:
+    primary_cli_budget = max(
+        _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT),
+        _timeout_seconds(_CODEX_TIMEOUT_ENV, _CODEX_TIMEOUT),
+        _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT),
     )
+    api_budget = _api_reviewer_timeout_budget_seconds()
+    openrouter_fallback_budget = api_budget if _openrouter_reviewer_available() else 0.0
+    native_api_fallback_budget = (
+        api_budget
+        if _env_key_present("XAI_API_KEY", "GROK_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY")
+        else 0.0
+    )
+    return max(
+        # Claude/OpenAI CLI primary, then same-family OpenRouter fallback.
+        primary_cli_budget + openrouter_fallback_budget,
+        # Grok/Gemini subscription CLI, native API fallback, then OpenRouter fallback.
+        primary_cli_budget + native_api_fallback_budget + openrouter_fallback_budget,
+        # Direct API primary families, then OpenRouter fallback.
+        api_budget + openrouter_fallback_budget,
+        # OpenRouter-direct families.
+        openrouter_fallback_budget,
+    )
+
+
+def _reviewer_fanout_timeout_seconds() -> float:
+    # The outer fan-out deadline must exceed every retryable reviewer attempt,
+    # including enabled fallback transports. It exists only as a fail-closed
+    # escape hatch for wedged futures or cleanup paths that never return.
+    attempts = _reviewer_infra_retries() + 1
+    default = attempts * _reviewer_attempt_timeout_budget_seconds() + _REVIEWER_FANOUT_TIMEOUT_GRACE
     return _timeout_seconds(_REVIEWER_FANOUT_TIMEOUT_ENV, default)
 
 

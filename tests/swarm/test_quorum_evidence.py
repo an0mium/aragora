@@ -2475,12 +2475,47 @@ def test_infra_retry_env_count_respected(monkeypatch):
 
 def test_fanout_timeout_budgets_all_infra_retry_attempts(monkeypatch):
     monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_FANOUT_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    monkeypatch.delenv("GROK_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS", "20")
     monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS", "20")
     monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS", "20")
     monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "2")
 
     assert qe._reviewer_fanout_timeout_seconds() == (3 * (20 + 10)) + 15
+
+
+def test_fanout_timeout_budgets_openrouter_fallback_per_attempt(monkeypatch):
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_FANOUT_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    monkeypatch.delenv("GROK_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS", "20")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS", "20")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS", "20")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "1")
+
+    assert qe._reviewer_fanout_timeout_seconds() == (2 * ((20 + 10) + (20 + 10))) + 15
+
+
+def test_fanout_timeout_budgets_native_api_and_openrouter_fallbacks(monkeypatch):
+    monkeypatch.delenv("ARAGORA_COLLECT_EVIDENCE_FANOUT_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CLAUDE_TIMEOUT_SECONDS", "20")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_CODEX_TIMEOUT_SECONDS", "20")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_REVIEWER_TIMEOUT_SECONDS", "20")
+    monkeypatch.setenv("ARAGORA_COLLECT_EVIDENCE_INFRA_RETRIES", "0")
+
+    assert qe._reviewer_fanout_timeout_seconds() == (20 + (20 + 10) + (20 + 10)) + 15
 
 
 def test_reviewer_batch_prefers_queued_result_from_alive_worker(monkeypatch):
