@@ -709,9 +709,9 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         description=(
             "Run >=2 genuine heterogeneous model reviewers against a PR's exact head, "
             "compose evidence comments the quorum parsers recognize, and validate each "
-            "with evidence-lint before posting. Fresh runs prepare an exact-head artifact; "
-            "posting requires --apply --prepared-json. Tier 3-4 always prepare evidence "
-            "for operator settlement. "
+            "with evidence-lint before posting. Run without --apply to prepare an "
+            "exact-head artifact; posting requires --apply --prepared-json. Tier 3-4 "
+            "always prepare evidence for operator settlement. "
             "Defaults to a dry run that posts nothing."
         ),
     )
@@ -730,7 +730,7 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
     collect_evidence_arg(
         "--apply",
         action="store_true",
-        help="Apply a prepared artifact with --prepared-json; fresh runs still prepare only.",
+        help="Apply a prepared artifact with --prepared-json.",
     )
     collect_evidence_arg(
         "--prepared-json",

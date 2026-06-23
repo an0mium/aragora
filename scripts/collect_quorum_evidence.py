@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Apply a prepared artifact with --prepared-json; fresh runs still prepare only.",
+        help="Apply a prepared artifact with --prepared-json.",
     )
     parser.add_argument(
         "--prepared-json",

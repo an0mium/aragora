@@ -627,6 +627,7 @@ class MergeArbiter:
         self._consecutive_failures = 0
         self._collected_heads: set[str] = set()
         self._prepared_evidence_by_head: dict[str, dict[str, object]] = {}
+        self._unstable_prepare_retried_heads: set[str] = set()
         self._tier_fetcher = tier_fetcher
         self._context_fetcher = context_fetcher
         self._evidence_reader = evidence_reader
@@ -660,6 +661,7 @@ class MergeArbiter:
             if head_sha:
                 self._collected_heads.add(head_sha)
                 self._prepared_evidence_by_head.pop(head_sha, None)
+                self._unstable_prepare_retried_heads.discard(head_sha)
 
         def apply_payload(payload: dict[str, object]) -> object:
             prepared_path = ""
@@ -718,7 +720,15 @@ class MergeArbiter:
                 mark_collected()
                 return True
             if not getattr(outcome, "settlement_stable", False):
-                mark_collected()
+                if (
+                    head_sha
+                    and head_sha not in self._unstable_prepare_retried_heads
+                    and getattr(outcome, "has_supportive_quorum", False)
+                    and not getattr(outcome, "dissenting_families", [])
+                ):
+                    self._unstable_prepare_retried_heads.add(head_sha)
+                else:
+                    mark_collected()
                 logger.info(
                     "Prepared quorum evidence for #%s but did not post: %s",
                     pr.get("number"),

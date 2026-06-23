@@ -880,6 +880,29 @@ class TestAutoCollectIntegration:
         assert calls["n"] == 1  # attempted once; head recorded so no retry storm
         assert summary.polls >= 1
 
+    def test_auto_collect_retries_unstable_supportive_prepare_once(self):
+        class UnstableOutcome:
+            settlement_stable = False
+            has_supportive_quorum = True
+            dissenting_families: list[str] = []
+            action_reason = "merge metadata unavailable"
+
+        def collector(**kw):
+            return UnstableOutcome()
+
+        arb, calls = self._arbiter_with_fakes(collector)
+        quorum_pr = _pr(55, "codex/x")
+        blocked = MergeResult(
+            55, "codex/x", False, f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE"
+        )
+
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
+        assert quorum_pr["headRefOid"] not in arb._collected_heads
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is False
+        assert calls["n"] == 2
+        assert quorum_pr["headRefOid"] in arb._collected_heads
+
     @pytest.mark.asyncio
     async def test_auto_collect_applies_prepared_exact_head_artifact(self):
         import json as _json

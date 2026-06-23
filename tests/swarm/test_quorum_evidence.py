@@ -1874,6 +1874,36 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
 
 
+def test_apply_prepared_evidence_rechecks_between_supportive_posts(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[tuple[str, str]] = []
+    heads = iter([HEAD, HEAD, HEAD, "0" * 40])
+
+    def context_fetcher(repo: str, pr: int) -> dict:
+        return {**_clean_context(repo, pr), "head_sha": next(heads)}
+
+    def poster(repo: str, pr: int, body: str) -> None:
+        posted.append((repo, body))
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=context_fetcher,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_family_linter,
+        poster=poster,
+    )
+
+    assert outcome.action == "prepare"
+    assert "changed before posting grok" in outcome.action_reason
+    assert outcome.posted == ["claude"]
+    assert posted == [("o/r", _prepared_body("claude"))]
+
+
 def test_apply_prepared_evidence_requires_stability_metadata(tmp_path) -> None:
     prepared = _prepared_outcome_file(tmp_path)
     data = json.loads(prepared.read_text(encoding="utf-8"))
@@ -2456,27 +2486,17 @@ def test_run_collect_cli_exit_code_quorum_met(monkeypatch, capsys) -> None:
     monkeypatch.setattr(qe, "collect_evidence", fake_collect)
     monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
     rc = qe.run_collect_cli(
-        repo="o/r", pr=1, families=None, author=None, apply=True, json_output=True
+        repo="o/r", pr=1, families=None, author=None, apply=False, json_output=True
     )
     assert rc == 0
     assert "collect_evidence" in capsys.readouterr().out
 
 
-def test_run_collect_cli_apply_prepare_without_posts_exits_one(monkeypatch, capsys) -> None:
+def test_run_collect_cli_apply_without_prepared_json_fails_before_collect(
+    monkeypatch, capsys
+) -> None:
     def fake_collect(**kwargs) -> CollectOutcome:
-        return CollectOutcome(
-            repo="o/r",
-            pr=1,
-            head_sha=HEAD,
-            head_committed_at=COMMITTED,
-            tier=1,
-            action="prepare",
-            action_reason="--apply requires --prepared-json",
-            items=[
-                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
-                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
-            ],
-        )
+        raise AssertionError("fresh --apply must fail before running reviewers")
 
     monkeypatch.setattr(qe, "collect_evidence", fake_collect)
     monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
@@ -2484,7 +2504,7 @@ def test_run_collect_cli_apply_prepare_without_posts_exits_one(monkeypatch, caps
         repo="o/r", pr=1, families=None, author=None, apply=True, json_output=True
     )
 
-    assert rc == 1
+    assert rc == 2
     assert "--prepared-json" in capsys.readouterr().out
 
 

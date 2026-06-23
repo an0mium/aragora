@@ -2163,6 +2163,38 @@ def apply_prepared_evidence(
         if not item.supportive:
             continue
         try:
+            item_ctx = context_fetcher(repo, pr) or {}
+            item_head = str(item_ctx.get("head_sha") or "").strip()
+            item_base = _context_base_ref_oid(item_ctx)
+            item_mergeable = _context_mergeable(item_ctx)
+            item_merge_state = _context_merge_state_status(item_ctx)
+            item_tier = tier_fetcher(repo, pr)
+        except Exception as exc:
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                "could not re-verify head/base/tier before posting "
+                f"{item.family} ({str(exc)[:120]}); prepared only"
+            )
+            return outcome
+        item_action, item_reason = decide_action(item_tier, apply)
+        if (
+            item_head != head_sha
+            or item_base != outcome.base_ref_oid
+            or item_mergeable not in EVIDENCE_POSTABLE_MERGEABLE_STATES
+            or not _merge_state_allows_evidence_post(item_merge_state)
+            or item_action != "post"
+        ):
+            outcome.action = "prepare"
+            outcome.action_reason = (
+                f"head/base/merge-state/tier changed before posting {item.family} "
+                f"(head {head_sha[:7]}->{item_head[:7] or 'none'}, "
+                f"base {outcome.base_ref_oid[:7] or 'none'}->{item_base[:7] or 'none'}, "
+                f"mergeable {outcome.mergeable or 'unknown'}->{item_mergeable or 'unknown'}, "
+                f"merge_state {outcome.merge_state_status or 'unknown'}->{item_merge_state or 'unknown'}, "
+                f"tier {tier}->{item_tier}); prepared only: {item_reason}"
+            )
+            return outcome
+        try:
             poster(repo, pr, item.body)
         except Exception as exc:
             outcome.post_errors.append(f"{item.family}: {str(exc)[:200]}")
@@ -2242,12 +2274,21 @@ def run_collect_cli(
     """Shared entry point for the script and ``review-queue collect-evidence``.
 
     Returns 0 when the requested reviewers produced a supportive quorum, else 1.
-    Fresh runs with ``--apply`` prepare only; posting requires
+    Run without ``--apply`` to prepare an exact-head artifact. Posting requires
     ``--apply --prepared-json`` so reviewers are not regenerated between dry-run
-    and apply.
+    and apply; ``--apply`` without ``--prepared-json`` fails before reviewers run.
     """
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()
+    if apply and prepared_json is None:
+        message = (
+            "--apply requires --prepared-json from a settlement-stable exact-head dry-run artifact"
+        )
+        if json_output:
+            printer(json.dumps({"mode": "collect_evidence", "error": message}, indent=2))
+        else:
+            printer(f"error: {message}")
+        return 2
     try:
         if prepared_json is None:
             outcome = collect_evidence(
