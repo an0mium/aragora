@@ -682,12 +682,32 @@ _THINKING_BLOCK_RE = re.compile(
     r"<\s*(think|thinking|reasoning|thought|scratchpad|analysis)\s*>.*?<\s*/\s*\1\s*>",
     re.DOTALL | re.IGNORECASE,
 )
+_THINKING_OPEN_RE = re.compile(
+    r"<\s*(think|thinking|reasoning|thought|scratchpad|analysis)\s*>",
+    re.IGNORECASE,
+)
 
 
 def _strip_thinking_traces(text: str) -> str:
-    """Remove well-formed reasoning-trace blocks some models emit before answering."""
+    """Remove reasoning-trace blocks some models emit before or after answering."""
     cleaned = _THINKING_BLOCK_RE.sub("", text)
+    verdict_offset = _first_verdict_offset(cleaned)
+    if verdict_offset != -1:
+        for match in _THINKING_OPEN_RE.finditer(cleaned):
+            if match.start() > verdict_offset:
+                cleaned = cleaned[: match.start()].rstrip()
+                break
     return re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+
+def _first_verdict_offset(text: str) -> int:
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        probe = line.strip().lstrip("*#>-`0123456789.)\t ").lower()
+        if probe.startswith("verdict:"):
+            return offset
+        offset += len(line)
+    return -1
 
 
 def _reanchor_at_verdict(text: str) -> str:
@@ -1128,13 +1148,13 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
     "deepseek": "deepseek/deepseek-v4-pro",
-    # Use the NON-thinking instruct slug: qwen3 "-thinking-" emits reasoning traces
-    # that survive normalization and pollute the evidence body, making an otherwise
-    # supportive qwen review un-countable at the gate (1/2 instead of 2/2). The
-    # instruct slug emits a clean verdict body that counts reliably.
+    # Qwen's callable high-value slug can operate in thinking mode. We keep the
+    # canonical slug but add a qwen-specific no-think prompt suffix before calling
+    # OpenRouter, and the evidence composer strips any leaked reasoning traces.
     "qwen": QWEN_235B_VIA_OPENROUTER,
     "kimi": "moonshotai/kimi-k2.6",
 }
+_OPENROUTER_NO_THINK_FAMILIES: frozenset[str] = frozenset({"qwen"})
 
 # Families with no subscription CLI / native API path: they review via OpenRouter
 # as their PRIMARY transport (still gated on the opt-in egress flag + key). This
@@ -1169,6 +1189,15 @@ def _openrouter_reviewer_available() -> bool:
     return _env_key_present("OPENROUTER_API_KEY")
 
 
+def _openrouter_reviewer_prompt(family: str, prompt: str) -> str:
+    """Return the prompt sent to OpenRouter for the reviewer family."""
+    if canonical_family(family) not in _OPENROUTER_NO_THINK_FAMILIES:
+        return prompt
+    if "/no_think" in prompt:
+        return prompt
+    return f"{prompt.rstrip()}\n\n/no_think"
+
+
 def _run_openrouter_reviewer(family: str, prompt: str) -> ReviewerResult:
     """Opt-in, failure-only OpenRouter fallback so one provider's outage can't stall
     quorum.
@@ -1196,7 +1225,7 @@ def _run_openrouter_reviewer(family: str, prompt: str) -> ReviewerResult:
         fam,
         model,
     )
-    result = _run_api_agent(fam, prompt, model=model)
+    result = _run_api_agent(fam, _openrouter_reviewer_prompt(fam, prompt), model=model)
     if result.ok:
         return ReviewerResult(fam, result.text, True, harness=_OPENROUTER_HARNESS)
     return result

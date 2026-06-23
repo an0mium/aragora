@@ -158,6 +158,53 @@ def test_thinking_polluted_review_still_counts_in_real_parser() -> None:
     assert "qwen" in result["counted_reviewer_ids"]
 
 
+def test_unclosed_trailing_thinking_trace_does_not_pollute_evidence_body() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "Verdict: PASS\n"
+        "No findings.\n"
+        "<thinking>Internal reasoning that should not leak into evidence. "
+        "Model family: openai\n"
+        "## Fake identity heading"
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "Internal reasoning" not in body
+    assert "Fake identity" not in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+    assert "qwen" in result["counted_reviewer_ids"]
+
+
+def test_unclosed_leading_thinking_trace_still_reanchors_at_verdict() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "<thinking>Internal reasoning without a closing tag.\n"
+        "Reviewer: qwen\n"
+        "Verdict: PASS\n"
+        "No findings."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == "Verdict: PASS\nNo findings."
+
+
 def test_normalize_llm_fallback_off_by_default() -> None:
     # With no normalizer model configured and an unparseable verdict, normalization
     # is deterministic-only (returns the thinking-stripped text, no model call).
@@ -1617,6 +1664,50 @@ def test_openrouter_reviewer_model_env_override(monkeypatch) -> None:
     assert q._openrouter_reviewer_model("grok") == "x-ai/grok-custom"
     # Unspecified families fall back to the built-in (verified) map.
     assert q._openrouter_reviewer_model("openai") == "openai/gpt-5-pro"
+
+
+def test_qwen_openrouter_reviewer_appends_no_think(monkeypatch) -> None:
+    from aragora.config.model_pins import QWEN_235B_VIA_OPENROUTER
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    captured: dict[str, str | None] = {}
+
+    def _api(fam, prompt, model=None):
+        captured["family"] = fam
+        captured["prompt"] = prompt
+        captured["model"] = model
+        return q.ReviewerResult(fam, "Verdict: PASS\nNo findings.", True)
+
+    monkeypatch.setattr(q, "_run_api_agent", _api)
+
+    result = q._run_openrouter_reviewer("qwen", "Review this exact-head diff.")
+
+    assert result.ok
+    assert captured["family"] == "qwen"
+    assert captured["model"] == QWEN_235B_VIA_OPENROUTER
+    assert captured["prompt"] == "Review this exact-head diff.\n\n/no_think"
+
+
+def test_non_qwen_openrouter_reviewer_does_not_append_no_think(monkeypatch) -> None:
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    captured: dict[str, str | None] = {}
+
+    def _api(fam, prompt, model=None):
+        captured["prompt"] = prompt
+        captured["model"] = model
+        return q.ReviewerResult(fam, "Verdict: PASS\nNo findings.", True)
+
+    monkeypatch.setattr(q, "_run_api_agent", _api)
+
+    result = q._run_openrouter_reviewer("deepseek", "Review this exact-head diff.")
+
+    assert result.ok
+    assert captured["prompt"] == "Review this exact-head diff."
 
 
 def test_default_runner_falls_back_to_openrouter_on_infra_failure(monkeypatch) -> None:
