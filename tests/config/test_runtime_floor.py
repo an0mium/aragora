@@ -21,14 +21,9 @@ _REQUIRED_BASE = {"aiohttp", "websockets", "pyyaml", "pydantic"}
 def _base_dependency_names() -> set[str]:
     data = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
     deps = data["project"]["dependencies"]
-    return {
-        re.split(r"[<>=!~\[; ]", dep.strip(), 1)[0].lower().replace("-", "_")
-        for dep in deps
-    }
+    return {re.split(r"[<>=!~\[; ]", dep.strip(), 1)[0].lower().replace("-", "_") for dep in deps}
 
 
 def test_runtime_floor_declared_in_base():
     missing = _REQUIRED_BASE - _base_dependency_names()
-    assert not missing, (
-        f"base [project.dependencies] dropped the runtime floor: {sorted(missing)}"
-    )
+    assert not missing, f"base [project.dependencies] dropped the runtime floor: {sorted(missing)}"
