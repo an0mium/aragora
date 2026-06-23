@@ -118,10 +118,14 @@ halt that lane and move only to a different unblocked Tier 0-2 unit.
 adversarial **dry-run** review was clean for the **current** head (no CHANGES-REQUESTED /
 `[P0]` / `[P1]` / `[P2]` from every family that will be counted for this Tier) AND no commit
 has landed since AND the base is unchanged AND the PR is non-draft AND GitHub still reports
-`mergeable` as `MERGEABLE` with `mergeStateStatus` as `CLEAN` or `BLOCKED`. `BLOCKED` is
-allowed only because branch protection / merge-quorum may be waiting on the evidence being
-posted; `DIRTY`, `BEHIND`, `DRAFT`, `UNKNOWN`, `UNSTABLE`, and missing/unknown
-mergeability or `mergeStateStatus` are not settlement-stable. The counted-family set comes from
+`mergeable` as `MERGEABLE` with `mergeStateStatus` as `CLEAN` or `BLOCKED`. "Clean" is a
+semantic/body-marker requirement, not only the helper's `verdict`, `would_count`, or
+`has_supportive_quorum` fields: a `Verdict: PASS` body that still contains a concrete
+`[P0]`, `[P1]`, or `[P2]` finding is not clean and must become a repair packet, not countable
+support. `BLOCKED` is allowed only because branch protection / merge-quorum may be waiting on
+the evidence being posted; `DIRTY`, `BEHIND`, `DRAFT`, `UNKNOWN`, `UNSTABLE`, and
+missing/unknown mergeability or `mergeStateStatus` are not settlement-stable. The
+counted-family set comes from
 [`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md), especially the
 Tier-eligibility table; do not invent a smaller family set inside a recursive prompt.
 **Never collect countable (`--apply`) evidence on a head that is not settlement-stable.**
@@ -129,20 +133,28 @@ Loop: dry-run → if findings, repair → dry-run → … → clean → freeze e
 → settle. Settlement head movement is almost entirely review-driven and thus predictable: if
 the dry-run has findings, the head WILL move next, so do not spend on countable evidence yet.
 
-**Operational dry-run / freeze proof.** The target enforced interface is a JSON artifact from:
+**Operational dry-run / freeze proof.** The current prepared-evidence artifact records the
+exact `head_sha` but does not yet persist a `baseRefOid` / base OID. Until the helper schema
+does, base freeze is an operator/conductor live check that must be captured in the cycle log
+or a sidecar file next to the artifact; an artifact with no sidecar base proof is
+prepare/report-only for countable evidence. The target enforced interface is a JSON artifact
+from:
 
 ```bash
 python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
   --reviewers <families...> --json > /tmp/ev_<N>_dry.json
 ```
 
-Before any `--apply`, verify the artifact records the live `head_sha`, the live base OID,
-`dissenting_families` is empty, `has_supportive_quorum` is true, and each counted
-`items[].body` lints for the current PR/head. Then re-check
+Before any `--apply`, verify the artifact records the live `head_sha`, the sidecar/cycle log
+records the live base OID observed at dry-run time, `dissenting_families` is empty,
+`has_supportive_quorum` is true, and each counted `items[].body` both lints for the current
+PR/head and contains no concrete CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` finding. Then
+re-check
 `gh pr view <N> --json headRefOid,baseRefOid,mergeable,mergeStateStatus,isDraft`:
 `headRefOid` must still equal the artifact `head_sha`, `baseRefOid` must still equal the
-artifact base, `isDraft` must be false, and `mergeable` / `mergeStateStatus` must still be in
-the settlement-stable set above. Only then run the paired apply from the same artifact:
+sidecar/cycle-log base, `isDraft` must be false, and `mergeable` / `mergeStateStatus` must
+still be in the settlement-stable set above. Only then run the paired apply from the same
+artifact:
 
 ```bash
 python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
@@ -150,16 +162,23 @@ python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
 ```
 
 If a helper version does not yet record or enforce any freeze-proof field above, treat that
-helper as prepare/report-only for countable evidence. The conductor may not rely on a weaker
-`--apply` implementation; either perform and report the missing live checks outside the helper
-before posting the exact prepared bodies, or wait for the enforcement tooling to land.
+helper as prepare/report-only for countable evidence unless the missing live checks are
+captured outside the helper and compared immediately before posting. The conductor may not
+claim the weaker `--apply` implementation enforced the full rule; either report the missing
+checks explicitly before posting the exact prepared bodies, or wait for the enforcement tooling
+to land.
 
 **Automation compatibility.** Existing collectors such as `scripts/auto_evidence_cycle.py`
 remain evidence-posting tools, not authority to skip the dry-run/freeze rule. An automated
 collector may post countable evidence only when it persists the dry-run artifact and replays
 that exact artifact through a live-head/base/merge-state prepared-json apply. Collectors that
 do not implement that sequence are prepare/report-only for countable evidence and must not be
-used by conductor loops for countable posting.
+used by conductor loops for countable posting. In particular, the `ARAGORA_AUTO_EVIDENCE=1`
+path in `scripts/run_merge_arbiter.sh` still invokes `scripts/auto_evidence_cycle.py --apply`
+directly; until that path is converted to prepared-artifact replay or disabled in the live
+arbiter configuration, it is not §Conductor-compliant countable posting. Treat any use of that
+legacy path as an explicit operator override/reporting event, not settlement-stable conductor
+automation.
 
 **NO-TREADMILL.** Batch all known findings into ONE repair per head; never
 repair-then-recollect on the same head. Any CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` ends the
@@ -201,7 +220,8 @@ Run on Tier 0-2 rails per §Conductor; continue through progressing units autono
 Approval-required items, Auto-halt triggers, and Tier 3/4 settlement remain hard stops.
 Use docs/REVIEW_AUTHORITY_PRINCIPLES.md for counted-family / Tier eligibility.
 Sequence for evidence: `collect_quorum_evidence.py` dry-run clean for the current head ->
-verify artifact head still equals live PR head -> `--prepared-json ... --apply` once ->
+capture artifact head plus live base proof -> verify both still equal the live PR ->
+`--prepared-json ... --apply` once only if the missing freeze checks are enforced or reported ->
 settle/merge only through the helper gates and any separate merge authority.
 Stop only at a Tier 3/4 risk decision or a circuit-breaker halt, emit the exact operator
 authorization text needed, then emit the next prompt in THIS thin form.
