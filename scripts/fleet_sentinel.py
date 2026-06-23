@@ -264,17 +264,15 @@ def check_outbox_drain_progress(
         )
     window = history[-stall_cycles:]
     congested = all(depth >= min_floor for depth in window)
-    not_draining = current >= window[0] and all(
-        window[i] <= window[i + 1] for i in range(len(window) - 1)
-    )
+    not_draining = current >= window[-1]
     if congested and not_draining:
         return _result(
             name,
             "breach",
-            f"outbox not draining: depth {window[0]}->{current} stayed at/above {min_floor} and "
-            f"never decreased across {stall_cycles} cycles — the drain loop is making no external "
-            "progress; HALT it and escalate to the operator, do not keep re-messaging stale lanes "
-            "(§Conductor dead-letter ban)",
+            f"outbox not draining: depth stayed at/above {min_floor} across {stall_cycles} cycles "
+            f"(recent depths {window}) and current depth {current} did not improve on the most "
+            "recent reading — the drain loop is making no external progress; HALT it and escalate "
+            "to the operator, do not keep re-messaging stale lanes (§Conductor dead-letter ban)",
         )
     return _result(
         name, "ok", f"outbox draining or fluctuating (recent depths {window}, now {current})"
