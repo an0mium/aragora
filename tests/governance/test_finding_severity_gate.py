@@ -63,6 +63,30 @@ _BLOCKER_LABEL_CHANGES_REQUESTED = (
 _NO_FINDING_CHANGES_REQUESTED = (
     f"## Claude independent model review\nCurrent head: {_HEAD}\nVerdict: CHANGES-REQUESTED"
 )
+# A populated Blocker label whose finding text starts with bare "no" — common
+# security phrasing ("no authentication", "no validation", "no authorization").
+# This MUST block: a populated Blocker label always blocks (the stated invariant).
+# Regression for the severity-gate bypass (openai #8574 P1).
+_BLOCKER_LABEL_NO_AUTH_CHANGES_REQUESTED = (
+    "## Claude independent model review\n"
+    f"Current head: {_HEAD}\n"
+    "Verdict: CHANGES-REQUESTED\n"
+    "Blockers: no authentication on admin endpoint"
+)
+_BLOCKER_LABEL_NO_FINDING_SECURITY_PHRASINGS = (
+    "Blockers: no authentication on admin endpoint",
+    "Blockers: no validation",
+    "Blockers: no authorization",
+    "Blockers: no rate limiting on the login route",
+)
+# Legitimate no-finding Blocker values that must STAY advisory (non-blocking).
+_BLOCKER_LABEL_GENUINE_NO_FINDING = (
+    "Blockers: none",
+    "Blockers: no issues",
+    "Blockers: no blockers",
+    "Blocking findings: no blocking findings",
+    "Blockers: no concerns",
+)
 
 
 def _comment(body: str, *, login: str = "an0mium") -> dict:
@@ -137,6 +161,62 @@ def test_has_blocking_finding_or_label_excludes_bare_negative_verdict():
     # ...but a real [P1] finding and a populated Blocker label still trigger.
     assert has_blocking_finding_or_label(_P1_CHANGES_REQUESTED) is True
     assert has_blocking_finding_or_label(_BLOCKER_LABEL_CHANGES_REQUESTED) is True
+
+
+# --------------------------------------------------------------------------- #
+# Regression: populated Blocker label whose finding starts with bare "no"
+# (security phrasing) must STILL block. openai #8574 [P1] merge-gate bypass.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("body", _BLOCKER_LABEL_NO_FINDING_SECURITY_PHRASINGS)
+def test_blocker_label_security_phrasing_starting_with_no_still_blocks(body):
+    # "no authentication" / "no validation" / "no authorization" / "no rate
+    # limiting" are REAL findings, not no-finding markers. They must block.
+    assert has_blocking_finding_or_label(body) is True
+    # The full-body changes_requested form blocks too.
+    assert has_blocking_finding_or_label(_BLOCKER_LABEL_NO_AUTH_CHANGES_REQUESTED) is True
+
+
+@pytest.mark.parametrize("body", _BLOCKER_LABEL_GENUINE_NO_FINDING)
+def test_blocker_label_genuine_no_finding_stays_advisory(body):
+    # The legit no-finding case still works: "none"/"no issues"/"no blockers"/
+    # "no blocking findings"/"no concerns" are non-blocking.
+    assert has_blocking_finding_or_label(body) is False
+
+
+def test_p1_none_head_still_no_finding_after_fix():
+    # The pre-existing "[P1] None:" no-finding behavior is unchanged.
+    assert has_blocking_finding_or_label("[P1] None: defense-in-depth is solid") is False
+    assert has_blocking_finding_or_label("[P1] N/A") is False
+
+
+class TestFlagOnBlockerLabelSecurityBypass:
+    """Flag ON: a security-phrased populated Blocker label promotes a BLOCKING
+    dissent (not advisory). Regression for openai #8574 [P1]."""
+
+    def test_no_auth_blocker_label_still_blocks_dissent(self, monkeypatch):
+        monkeypatch.setenv(_FLAG, "1")
+        advisory: list[dict] = []
+        dissent = _dissenting_views_from_comments(
+            [_comment(_BLOCKER_LABEL_NO_AUTH_CHANGES_REQUESTED)],
+            head_sha=_HEAD,
+            advisory_views=advisory,
+        )
+        assert len(dissent) == 1
+        assert dissent[0]["position"] == "changes_requested"
+        assert advisory == []
+        assert _evidence(_BLOCKER_LABEL_NO_AUTH_CHANGES_REQUESTED).dissenting is True
+
+    @pytest.mark.parametrize("value", _BLOCKER_LABEL_NO_FINDING_SECURITY_PHRASINGS)
+    def test_security_phrasings_are_blocking_dissent(self, monkeypatch, value):
+        monkeypatch.setenv(_FLAG, "1")
+        body = (
+            "## Claude independent model review\n"
+            f"Current head: {_HEAD}\n"
+            f"Verdict: CHANGES-REQUESTED\n{value}"
+        )
+        assert _evidence(body).dissenting is True
 
 
 # --------------------------------------------------------------------------- #

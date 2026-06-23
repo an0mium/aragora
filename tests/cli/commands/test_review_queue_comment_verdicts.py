@@ -14,7 +14,10 @@ block. Only an explicit no-finding *head* (the text before any colon being exact
 
 from __future__ import annotations
 
+import pytest
+
 from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_finding_or_label,
     has_blocking_or_negative_verdict,
 )
 
@@ -86,3 +89,53 @@ def test_p0_real_finding_still_blocks():
 
 def test_negative_verdict_line_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: CHANGES-REQUESTED")
+
+
+# --- Blocker-label path: bare "no" finding bypass (openai #8574 P1) --------
+#
+# `_NON_BLOCKING_PREFIXES` used to include a bare "no", so a populated Blocker
+# label whose finding text started with "no" ("no authentication", "no
+# validation", ...) was wrongly demoted to advisory under the severity gate — a
+# merge-gate bypass for common security phrasing. The invariant: a populated
+# Blocker label ALWAYS blocks.
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Blockers: no authentication on admin endpoint",
+        "Blockers: no validation",
+        "Blockers: no authorization",
+        "Blockers: no rate limiting on the login route",
+        "Blocking finding: no input sanitization",
+    ],
+)
+def test_blocker_label_security_phrasing_starting_with_no_blocks(body):
+    assert has_blocking_finding_or_label(body) is True
+    assert has_blocking_or_negative_verdict(body) is True
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Blockers: none",
+        "Blockers: no issues",
+        "Blockers: no issue",
+        "Blockers: no findings",
+        "Blockers: no blockers",
+        "Blocking findings: no blocking findings",
+        "Blockers: no concerns",
+        "Blockers: no problems",
+        "Blockers: no changes needed",
+    ],
+)
+def test_blocker_label_genuine_no_finding_stays_non_blocking(body):
+    assert has_blocking_finding_or_label(body) is False
+    assert has_blocking_or_negative_verdict(body) is False
+
+
+def test_p1_none_head_unchanged_no_finding():
+    # The [P0]/[P1] no-finding head behavior is preserved by the fix.
+    assert has_blocking_finding_or_label("[P1] None: clean") is False
+    assert has_blocking_finding_or_label("[P1] N/A") is False
+    assert has_blocking_finding_or_label("[P1] no issues") is False

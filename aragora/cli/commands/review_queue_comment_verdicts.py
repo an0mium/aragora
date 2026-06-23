@@ -61,12 +61,15 @@ _NEGATIVE_VERDICT_PREFIXES = (
 )
 
 # Prefixes a populated Blocker-label value may start with that mean "no blocker".
+# NOTE: a bare ``"no"`` is intentionally absent. ``"no"`` alone matched real
+# security findings such as "no authentication on admin endpoint" / "no validation"
+# / "no rate limiting" and silently demoted them to advisory — a merge-gate bypass.
+# A leading ``"no"`` only counts as non-blocking when it is immediately followed by
+# a no-finding NOUN (issue(s)/finding(s)/blocker(s)/concern(s)/problem(s)/change(s)),
+# handled by :data:`_NO_FINDING_NO_PHRASE`.
 _NON_BLOCKING_PREFIXES = (
     "none",
     "none found",
-    "no",
-    "no blockers",
-    "no blocking findings",
     "not found",
     "0",
     "zero",
@@ -76,11 +79,34 @@ _NON_BLOCKING_PREFIXES = (
     "[]",
 )
 
+# A value starting with "no <no-finding-noun>" declares the absence of a blocker
+# (e.g. "no issues", "no blockers", "no blocking findings", "no blocking"). This is
+# the ONLY way a leading "no" counts as non-blocking — a real finding phrased as
+# "no authentication" / "no validation" / "no authorization" / "no rate limiting"
+# still blocks. The optional "blocking " keeps the legacy "no blocking findings"
+# form working without admitting arbitrary intervening words.
+_NO_FINDING_NO_PHRASE = re.compile(
+    r"no\s+(?:blocking\s+)?"
+    r"(?:issues?|findings?|blockers?|blocking|concerns?|problems?|changes?)(?!\w)",
+    re.I,
+)
+
 _BLOCKER_LABELS = frozenset({"blocking finding", "blocking findings", "blocker", "blockers"})
 
 
 def _starts_with_phrase(value: str, phrases: tuple[str, ...]) -> bool:
+    if _NO_FINDING_NO_PHRASE.match(value):
+        return True
     return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
+
+
+# Single source of truth for the `[P0]`/`[P1]` marker. ``_PRIORITY_MARKER`` detects
+# a marker line (sev captured); ``_PRIORITY_MARKER_STRIP`` removes the marker prefix
+# to expose the finding head. Shared by ``_priority_finding_severity`` and
+# ``has_blocking_or_negative_verdict`` so the severity scanner and the blocking
+# scanner can never diverge on what a `[P0]`/`[P1]` line is.
+_PRIORITY_MARKER = re.compile(r"^(?:\*\*)?\[(?P<sev>p0|p1)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I)
+_PRIORITY_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?\s*", re.I)
 
 
 def _strip_decoration(text: str) -> str:
@@ -102,14 +128,10 @@ def _priority_finding_severity(stripped: str) -> str | None:
     the blocking scanner never disagree on what a real finding line is.
     """
     priority_marker_line = _strip_decoration(stripped)
-    marker = re.match(
-        r"^(?:\*\*)?\[(?P<sev>p0|p1)\](?:\*\*)?(?:\s|$|[:.;—–-])",
-        priority_marker_line,
-        re.I,
-    )
+    marker = _PRIORITY_MARKER.match(priority_marker_line)
     if not marker:
         return None
-    rest = re.sub(r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?\s*", "", priority_marker_line, flags=re.I)
+    rest = _PRIORITY_MARKER_STRIP.sub("", priority_marker_line)
     head = _normalize_value(rest).split(":", 1)[0].strip(" .;—–-")
     if head in _NO_FINDING_HEADS:
         # explicit "[Pn] None:/N/A/no issues" non-finding
@@ -152,12 +174,8 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
         if not stripped:
             continue
         priority_marker_line = _strip_decoration(stripped)
-        if re.match(
-            r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?(?:\s|$|[:.;—–-])", priority_marker_line, re.I
-        ):
-            rest = re.sub(
-                r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?\s*", "", priority_marker_line, flags=re.I
-            )
+        if _PRIORITY_MARKER.match(priority_marker_line):
+            rest = _PRIORITY_MARKER_STRIP.sub("", priority_marker_line)
             head = _normalize_value(rest).split(":", 1)[0].strip(" .;—–-")
             if head not in _NO_FINDING_HEADS:
                 return True

@@ -399,8 +399,9 @@ class EvidenceItem:
     verdict: str = "unknown"
     # Captured ONCE at construction (not re-read per property access) so a
     # security-relevant gate decision stays deterministic within a single
-    # settlement flow even if the process env mutates mid-run — mirrors
-    # ``CollectOutcome.tiered_gate``.
+    # settlement flow even if the process env mutates mid-run. Uses the same
+    # capture-once pattern as ``CollectOutcome.tiered_gate`` (a different flag —
+    # ``severity_gated_dissent_enabled`` here vs ``tiered_merge_gate_enabled`` there).
     severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
     @property
