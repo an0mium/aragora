@@ -912,6 +912,51 @@ def test_branch_commits_reverse_apply_to_base_with_real_git_repo(tmp_path: Path)
     assert commits == [feature_head]
 
 
+def test_branch_commits_reverse_apply_to_base_with_binary_file(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    git("init", "-b", "main")
+    git("config", "user.email", "test@example.test")
+    git("config", "user.name", "Test User")
+    (repo / "asset.bin").write_bytes(b"\x00old\xff\x00")
+    git("add", "asset.bin")
+    git("commit", "-m", "initial binary")
+
+    git("checkout", "-b", "feature")
+    (repo / "asset.bin").write_bytes(b"\x00new\xfe\x00")
+    git("add", "asset.bin")
+    git("commit", "-m", "fix(binary): update asset")
+    feature_head = git("rev-parse", "HEAD")
+
+    git("checkout", "main")
+    (repo / "asset.bin").write_bytes(b"\x00new\xfe\x00")
+    git("add", "asset.bin")
+    git("commit", "-m", "fix(binary): update asset (#1)")
+
+    equivalent, commits = mod.branch_commits_reverse_apply_to_base(
+        repo,
+        "main",
+        feature_head,
+        timeout=10,
+    )
+
+    assert equivalent is True
+    assert commits == [feature_head]
+
+
 def test_branch_commits_reverse_apply_to_base_mutates_index_newest_first(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -926,6 +971,13 @@ def test_branch_commits_reverse_apply_to_base_mutates_index_newest_first(
             args=args, returncode=returncode, stdout=stdout, stderr=""
         )
 
+    def completed_bytes(
+        args: list[str], *, stdout: bytes = b"", returncode: int = 0
+    ) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(
+            args=args, returncode=returncode, stdout=stdout, stderr=b""
+        )
+
     def fake_run_git(
         args: list[str],
         _cwd: Path,
@@ -938,8 +990,6 @@ def test_branch_commits_reverse_apply_to_base_mutates_index_newest_first(
             return completed(args, stdout="oldest\nnewest\n")
         if args == ["read-tree", "main"]:
             return completed(args)
-        if args[:3] == ["show", "--format=email", "--binary"]:
-            return completed(args, stdout=f"patch for {args[-1]}")
         if args[:3] == ["apply", "--cached", "--reverse"]:
             if "--check" in args:
                 return completed(args, returncode=1)
@@ -949,7 +999,20 @@ def test_branch_commits_reverse_apply_to_base_mutates_index_newest_first(
             )
         return completed(args, returncode=1)
 
+    def fake_run_git_bytes(
+        args: list[str],
+        _cwd: Path,
+        *,
+        timeout: int = mod.GIT_TIMEOUT_SECONDS,
+        env: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[bytes]:
+        _ = timeout, env
+        if args[:3] == ["show", "--format=email", "--binary"]:
+            return completed_bytes(args, stdout=f"patch for {args[-1]}".encode())
+        return completed_bytes(args, returncode=1)
+
     monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "run_git_bytes", fake_run_git_bytes)
 
     equivalent, commits = mod.branch_commits_reverse_apply_to_base(
         tmp_path,
@@ -961,6 +1024,73 @@ def test_branch_commits_reverse_apply_to_base_mutates_index_newest_first(
     assert equivalent is True
     assert commits == ["oldest", "newest"]
     assert calls == ["newest", "oldest"]
+
+
+def test_branch_commits_reverse_apply_to_base_writes_binary_patch_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    binary_patch = b"patch bytes before invalid utf8 \xff\xfe after\n"
+    written_patch: bytes | None = None
+
+    def completed(
+        args: list[str], *, stdout: str = "", returncode: int = 0
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=args, returncode=returncode, stdout=stdout, stderr=""
+        )
+
+    def completed_bytes(
+        args: list[str], *, stdout: bytes = b"", returncode: int = 0
+    ) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(
+            args=args, returncode=returncode, stdout=stdout, stderr=b""
+        )
+
+    def fake_run_git(
+        args: list[str],
+        _cwd: Path,
+        *,
+        timeout: int = mod.GIT_TIMEOUT_SECONDS,
+        env: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        nonlocal written_patch
+        _ = timeout, env
+        if args[:3] == ["rev-list", "--reverse", "--no-merges"]:
+            return completed(args, stdout="binarycommit\n")
+        if args == ["read-tree", "main"]:
+            return completed(args)
+        if args[:3] == ["apply", "--cached", "--reverse"]:
+            written_patch = Path(args[-1]).read_bytes()
+            return completed(args)
+        return completed(args, returncode=1)
+
+    def fake_run_git_bytes(
+        args: list[str],
+        _cwd: Path,
+        *,
+        timeout: int = mod.GIT_TIMEOUT_SECONDS,
+        env: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[bytes]:
+        _ = timeout, env
+        if args[:3] == ["show", "--format=email", "--binary"]:
+            return completed_bytes(args, stdout=binary_patch)
+        return completed_bytes(args, returncode=1)
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "run_git_bytes", fake_run_git_bytes)
+
+    equivalent, commits = mod.branch_commits_reverse_apply_to_base(
+        tmp_path,
+        "main",
+        "feature",
+        timeout=10,
+    )
+
+    assert equivalent is True
+    assert commits == ["binarycommit"]
+    assert written_patch == binary_patch
 
 
 def test_smart_merge_detection_keeps_failed_reverse_apply_harvestable(

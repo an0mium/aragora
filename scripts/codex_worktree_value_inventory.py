@@ -277,6 +277,42 @@ def run_cmd(
     )
 
 
+def run_cmd_bytes(
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: int,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    try:
+        proc = subprocess.Popen(
+            args,
+            cwd=cwd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+            env=env,
+        )
+    except OSError as exc:
+        return subprocess.CompletedProcess(
+            args=args, returncode=124, stdout=b"", stderr=str(exc).encode()
+        )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=124,
+            stdout=b"",
+            stderr=f"command timed out after {timeout}s: {' '.join(args)}".encode(),
+        )
+    return subprocess.CompletedProcess(
+        args=args, returncode=proc.returncode, stdout=stdout or b"", stderr=stderr or b""
+    )
+
+
 def run_git(
     args: list[str],
     cwd: Path,
@@ -285,6 +321,16 @@ def run_git(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return run_cmd(["git", *args], cwd, timeout=timeout, env=env)
+
+
+def run_git_bytes(
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: int = GIT_TIMEOUT_SECONDS,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    return run_cmd_bytes(["git", *args], cwd, timeout=timeout, env=env)
 
 
 def resolve_repo(path: Path) -> Path:
@@ -810,7 +856,7 @@ def branch_commits_reverse_apply_to_base(
             command_timeout = remaining_timeout()
             if command_timeout is None:
                 return False, []
-            patch = run_git(
+            patch = run_git_bytes(
                 ["show", "--format=email", "--binary", commit],
                 repo_path,
                 timeout=command_timeout,
@@ -819,7 +865,7 @@ def branch_commits_reverse_apply_to_base(
                 return False, []
             patch_path = Path(tmp_dir) / f"{commit}.patch"
             try:
-                patch_path.write_text(patch.stdout, encoding="utf-8")
+                patch_path.write_bytes(patch.stdout)
             except OSError:
                 return False, []
             command_timeout = remaining_timeout()
