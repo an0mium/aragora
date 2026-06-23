@@ -40,7 +40,7 @@ import secrets
 import subprocess
 import tempfile
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -69,6 +69,137 @@ FAMILY_PROVIDERS: dict[str, str] = {
     "minimax": "minimax",
     "hermes": "nous",
 }
+
+# Jurisdiction families (docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-eligibility).
+# WESTERN_FAMILIES are the lineages that count toward a Tier 3-4 quorum (the spec's
+# Anthropic, OpenAI, Google, xAI, Mistral, Nous Hermes). Chinese-routed families are
+# every other recognized family; they always post and remain readable but are
+# advisory-only (not counted) at Tier 3-4 and do not satisfy the at-least-one-Western
+# condition at Tier 2.
+WESTERN_FAMILIES: frozenset[str] = frozenset(
+    ("claude", "openai", "gemini", "grok", "mistral", "hermes")
+)
+
+# Western-FRONTIER families: a strict SUBSET of WESTERN_FAMILIES (the frontier labs).
+# Under the tiered gate, a Tier 1-2 PR may settle on a single supportive signal, which
+# MUST be one of these (claude/openai) so a cheap model can never solely authorize a
+# merge. "Frontier" (who may solo-settle Tier 1-2) and "Western" (who counts at Tier
+# 3-4) are distinct; the subset relation is pinned by a governance test. Mirrors the
+# re-export in the review-queue gate so the two halves cannot drift.
+WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
+
+
+def is_western_family(family: str) -> bool:
+    """Whether ``family`` counts toward a Western-only quorum (Tier 3-4)."""
+    return str(family).strip().lower() in WESTERN_FAMILIES
+
+
+# Opt-in flag for the Tier 1-2 *relaxation* only. The flag's SOLE effect is to let a
+# Tier 1-2 PR settle on one supportive western-frontier signal (claude/openai) instead
+# of two distinct families; default OFF, those tiers keep the two-distinct bar. Gating
+# that relaxation behind the flag keeps it revertible WITHOUT a code change and is the
+# in-tree audit point for the operator's approval.
+#
+# IMPORTANT — the flag does NOT control the jurisdiction tightenings: the Tier 2
+# "at least one Western family" and Tier 3-4 "Western-only counted quorum" rules
+# (docs/REVIEW_AUTHORITY_PRINCIPLES.md, G1/G2) are applied UNCONDITIONALLY by
+# tier_quorum_rule, flag ON or OFF. They land the moment this change merges; the flag
+# never relaxes them. (claude #8507: prior comment wrongly implied flag-OFF preserved
+# current-main Tier 2-4 behavior.)
+_TIERED_GATE_ENV = "ARAGORA_ENABLE_TIERED_MERGE_GATE"
+_TIERED_GATE_TRUE = frozenset(("1", "true", "yes", "on"))
+
+
+def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in tiered merge gate (Tier 1-2 → one western-frontier
+    signal) is active. Default OFF; see :data:`_TIERED_GATE_ENV`."""
+    source = os.environ if env is None else env
+    return str(source.get(_TIERED_GATE_ENV, "")).strip().lower() in _TIERED_GATE_TRUE
+
+
+@dataclass(frozen=True)
+class TierQuorumRule:
+    """The per-tier model-quorum bar (a.k.a. :data:`QuorumPolicy`): how many distinct
+    supportive families are required and the jurisdiction constraints on them.
+
+    Fields default to the permissive Tier 0-1 values so existing positional
+    construction (``TierQuorumRule(1, False)``) keeps working; the jurisdiction
+    fields are additive.
+    """
+
+    required_signals: int
+    requires_western_frontier: bool
+    #: Tier 3-4: only Western families count toward the quorum (Chinese-routed
+    #: families remain advisory-only — they still post but do not count).
+    western_only_counted: bool = False
+    #: Tier 2: at least one of the counted families must be Western.
+    requires_at_least_one_western: bool = False
+
+    def counted_families(self, supportive: Iterable[str]) -> set[str]:
+        """The supportive families that count under this rule (drops Chinese-routed
+        families when ``western_only_counted``)."""
+        families = {str(f).strip().lower() for f in supportive}
+        if self.western_only_counted:
+            families = {f for f in families if f in WESTERN_FAMILIES}
+        return families
+
+    def is_satisfied_by(self, supportive: Iterable[str]) -> bool:
+        """Whether the supportive families meet this tier's quorum bar."""
+        counted = self.counted_families(supportive)
+        if self.requires_western_frontier and not (counted & WESTERN_FRONTIER_FAMILIES):
+            return False
+        if self.requires_at_least_one_western and not (counted & WESTERN_FAMILIES):
+            return False
+        return len(counted) >= self.required_signals
+
+
+#: The canonical per-tier quorum policy object (alias for the design-doc name).
+QuorumPolicy = TierQuorumRule
+
+#: Version of the quorum-policy encoding, stamped into prepared evidence artifacts as
+#: a FORWARD-COMPAT AUDIT marker: it records which policy encoding produced the
+#: artifact so a future policy migration can detect a stale one. It is NOT an
+#: apply-time gate today — the regime reconciliation is the boolean ``tiered_gate``
+#: (``effective = prepared.tiered_gate AND live_gate``); this version is not currently
+#: compared at apply (claude #8507 flagged the prior comment for overstating its role).
+QUORUM_POLICY_VERSION = 1
+
+
+def tier_quorum_rule(tier: int | None, *, tiered_gate: bool) -> TierQuorumRule:
+    """Single source of truth for the per-tier model-quorum bar.
+
+    All three quorum surfaces derive from this so they cannot drift: the auto-settle
+    path (:meth:`CollectOutcome.has_supportive_quorum`), the merge-queue gate
+    (``review_queue._tier_requirement`` / ``_build_model_review_quorum``), and the
+    ``merge_quorum_reconcile`` diagnostic. Encodes
+    ``docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-eligibility for quorum counting``:
+
+    - Tier 0 (and below): one signal of any family.
+    - Tier 1: gate ON → one western-frontier signal; OFF → two distinct (any family).
+    - Tier 2: gate ON → one western-frontier signal; OFF → two distinct, at least one
+      of which is Western.
+    - Tier 3-4 and unknown/None (fail-safe): two distinct WESTERN families
+      (Western-only counted quorum; Chinese-routed families are advisory-only).
+    """
+    if tier is not None and tier <= 0:
+        return TierQuorumRule(required_signals=1, requires_western_frontier=False)
+    if tiered_gate and tier is not None and 1 <= tier <= 2:
+        return TierQuorumRule(required_signals=1, requires_western_frontier=True)
+    if tier == 1:
+        return TierQuorumRule(required_signals=2, requires_western_frontier=False)
+    if tier == 2:
+        return TierQuorumRule(
+            required_signals=2,
+            requires_western_frontier=False,
+            requires_at_least_one_western=True,
+        )
+    # Tier 3-4 and unknown/None: Western-only counted quorum (fail-safe).
+    return TierQuorumRule(
+        required_signals=2,
+        requires_western_frontier=False,
+        western_only_counted=True,
+    )
+
 
 FAMILY_DISPLAY: dict[str, str] = {
     "claude": "Claude",
@@ -260,6 +391,10 @@ class CollectOutcome:
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
     quorum_rerun: dict[str, Any] | None = None
+    # Captured ONCE at construction (not re-read from os.environ per property
+    # access) so a security-relevant gate decision stays deterministic within a
+    # single settlement flow even if the process env mutates mid-run.
+    tiered_gate: bool = field(default_factory=tiered_merge_gate_enabled)
 
     @property
     def counting_families(self) -> list[str]:
@@ -275,7 +410,49 @@ class CollectOutcome:
 
     @property
     def has_supportive_quorum(self) -> bool:
-        return len(self.supportive_families) >= 2
+        """Whether the supportive evidence meets the tier's settlement bar.
+
+        Derives entirely from :func:`tier_quorum_rule` (the single source of truth
+        shared with the review-queue gate), so the jurisdiction rules apply: Tier 1-2
+        may settle on one western-frontier signal when the tiered gate is ON; Tier 2
+        otherwise needs two distinct families incl. ≥1 Western; Tier 3-4 (and any
+        unknown/None tier, fail-safe) need two distinct WESTERN families.
+        """
+        rule = tier_quorum_rule(self.tier, tiered_gate=self.tiered_gate)
+        return rule.is_satisfied_by(self.supportive_families)
+
+    @property
+    def incomplete_quorum_reason(self) -> str:
+        """Reason text when supportive evidence does not meet the tier bar.
+
+        Mirrors :meth:`has_supportive_quorum` and reports the *binding* shortfall
+        (western-frontier / Western-only / at-least-one-Western / signal count)
+        rather than a misleading ``(n/2)`` distinct-family denominator.
+        """
+        rule = tier_quorum_rule(self.tier, tiered_gate=self.tiered_gate)
+        supportive = {str(f).strip().lower() for f in self.supportive_families}
+        counted = rule.counted_families(supportive)
+        if rule.requires_western_frontier and not (counted & WESTERN_FRONTIER_FAMILIES):
+            return (
+                "supportive quorum incomplete "
+                "(needs a western-frontier signal: claude/openai); prepared evidence only"
+            )
+        if rule.western_only_counted and len(counted) < rule.required_signals:
+            return (
+                "supportive quorum incomplete "
+                f"(needs {rule.required_signals} distinct Western families; Chinese-routed "
+                "families are advisory-only at Tier 3-4); prepared evidence only"
+            )
+        if rule.requires_at_least_one_western and not (counted & WESTERN_FAMILIES):
+            return (
+                "supportive quorum incomplete "
+                "(needs at least one Western family signal); prepared evidence only"
+            )
+        suffix = " distinct families" if rule.required_signals >= 2 else ""
+        return (
+            f"supportive quorum incomplete ({len(counted)}/{rule.required_signals}{suffix}); "
+            "prepared evidence only"
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -285,6 +462,8 @@ class CollectOutcome:
             "head_sha": self.head_sha,
             "head_committed_at": self.head_committed_at,
             "tier": self.tier,
+            "tiered_gate": self.tiered_gate,
+            "policy_version": QUORUM_POLICY_VERSION,
             "action": self.action,
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,
@@ -363,6 +542,25 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         pr = int(raw_pr)
     except (TypeError, ValueError) as exc:
         raise ValueError("prepared evidence artifact missing PR number") from exc
+    # Preserve the gate regime the artifact was PREPARED under so the settlement
+    # bar cannot silently change between prepare and apply. An artifact that omits
+    # this field — whether a genuinely older artifact or a newer one whose producer
+    # dropped it under version skew — fails closed to the STRICT regime (tiered_gate
+    # False) rather than inheriting a possibly-relaxed live environment. The
+    # fail-closed path is logged (not silent) so a field-drop regression is
+    # observable instead of quietly downgrading a relaxed artifact. apply_prepared_
+    # evidence then evaluates under min(prepared, live), so this strict default can
+    # only ever tighten, never loosen, the bar.
+    if "tiered_gate" in data:
+        gate_kwargs: dict[str, Any] = {"tiered_gate": bool(data.get("tiered_gate"))}
+    else:
+        logger.debug(
+            "prepared evidence artifact omits 'tiered_gate'; failing closed to "
+            "strict regime (repo=%s pr=%s)",
+            repo,
+            pr,
+        )
+        gate_kwargs = {"tiered_gate": False}
     return CollectOutcome(
         repo=repo,
         pr=pr,
@@ -378,6 +576,7 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         quorum_rerun=data.get("quorum_rerun")
         if isinstance(data.get("quorum_rerun"), dict)
         else None,
+        **gate_kwargs,
     )
 
 
@@ -770,27 +969,43 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     return result
 
 
-def _claude_reviewer_command() -> list[str]:
+@contextmanager
+def _claude_empty_mcp_config_file() -> Iterator[Path]:
+    """Write Claude's empty MCP config to a real file for CLI compatibility."""
+
+    fd, path_text = tempfile.mkstemp(prefix="aragora-claude-mcp-", suffix=".json")
+    path = Path(path_text)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump({"mcpServers": {}}, handle)
+            handle.write("\n")
+        yield path
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
     """Argv for the merge-gate claude reviewer with MCP servers disabled.
 
     The reviewer only reads a diff to emit a verdict, so it needs no MCP
     servers. Disabling them avoids claude's startup MCP handshake, which blocks
     until the full timeout when a local MCP server is wedged.
     """
-    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
+    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", str(mcp_config_path)]
 
 
 def _run_claude_cli(prompt: str) -> ReviewerResult:
     timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
     try:
-        proc = subprocess.run(
-            _claude_reviewer_command(),
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
+        with _claude_empty_mcp_config_file() as mcp_config_path:
+            proc = subprocess.run(
+                _claude_reviewer_command(mcp_config_path),
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
     except FileNotFoundError:
         return ReviewerResult("claude", "", False, "claude CLI not found on PATH")
     except subprocess.TimeoutExpired:
@@ -1580,10 +1795,7 @@ def collect_evidence(
             return outcome
         if not outcome.has_supportive_quorum:
             outcome.action = "prepare"
-            outcome.action_reason = (
-                "supportive quorum incomplete "
-                f"({len(outcome.supportive_families)}/2); prepared evidence only"
-            )
+            outcome.action_reason = outcome.incomplete_quorum_reason
             return outcome
         # Reviewers can take minutes; re-verify the head and tier immediately
         # before posting so a head that moved or a PR promoted to a settlement
@@ -1717,6 +1929,35 @@ def apply_prepared_evidence(
     if not head_sha:
         raise ValueError(f"could not resolve head SHA for PR #{pr} in {repo}")
 
+    # Security: a prepared artifact carries the tiered-gate regime it was collected
+    # under. Apply-time sufficiency is evaluated under the MORE RESTRICTIVE of the
+    # prepare-time and live regimes (relaxation requires BOTH to permit it):
+    #
+    #     effective_tiered_gate = prepared.tiered_gate AND live_gate
+    #
+    # This preserves both security directions without coupling merge-authority to a
+    # mutable live-env *equality* check (grok #8507 P1 + claude #8507 P1):
+    #   * a strict-prepared artifact (tiered_gate=False, insufficient under strict
+    #     rules) can never become postable just because the relaxing flag was flipped
+    #     ON between prepare and apply  (False AND True == False -> strict);
+    #   * a relaxed-prepared artifact (tiered_gate=True) is re-evaluated under strict
+    #     rules if the operator later turns the relaxation OFF, because the flag is the
+    #     operator's revocable approval point  (True AND False == False -> strict).
+    # It is fail-safe rather than fail-closed: evidence that is insufficient under the
+    # effective regime degrades to "prepare" below — never a hard error — so there is
+    # no inconsistent-authority / operational-DoS window.
+    #
+    # Artifact trust boundary (claude #8507 P2): a prepared artifact is trusted only
+    # after it is matched to this repo/PR and to the LIVE exact-head SHA and then
+    # re-linted against the same parser used before posting. The `min(prepared, live)`
+    # rule means a forged `tiered_gate=true` cannot relax a merge while the live flag
+    # is OFF; it can only assert relaxation when the operator has ALREADY enabled it
+    # live (itself the Tier-4-gated decision). Anyone who can forge the artifact JSON
+    # can also forge reviewer bodies, so artifact integrity is the caller's trust
+    # boundary — this field grants no authority beyond what the live flag already does.
+    live_gate = tiered_merge_gate_enabled()
+    effective_tiered_gate = bool(prepared.tiered_gate) and live_gate
+
     tier = tier_fetcher(repo, pr)
     action, action_reason = decide_action(tier, apply)
     outcome = CollectOutcome(
@@ -1729,6 +1970,7 @@ def apply_prepared_evidence(
         action_reason=action_reason,
         items=_clone_prepared_items(prepared.items),
         failures=_clone_reviewer_failures(prepared.failures),
+        tiered_gate=effective_tiered_gate,
     )
 
     if prepared.head_sha != head_sha:
@@ -1776,10 +2018,7 @@ def apply_prepared_evidence(
         return outcome
     if not outcome.has_supportive_quorum:
         outcome.action = "prepare"
-        outcome.action_reason = (
-            "supportive quorum incomplete "
-            f"({len(outcome.supportive_families)}/2); prepared evidence only"
-        )
+        outcome.action_reason = outcome.incomplete_quorum_reason
         return outcome
 
     try:

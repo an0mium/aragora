@@ -1256,6 +1256,7 @@ class TestOwnerLeaseLiveness:
         assert liveness["lane_status"] == "in_progress"
         assert liveness["lease_age_seconds"] == 3600
         assert liveness["last_heartbeat_at"] is None
+        assert result["owner_blocking_state"] == "live_owner"
         assert result["stale_claim_advisory"] is None
         assert result["advisory_withheld"] is None
 
@@ -1273,6 +1274,7 @@ class TestOwnerLeaseLiveness:
         )
         assert result["owner_liveness"]["assessed"] == "terminal"
         assert result["owner_liveness"]["lane_status"] == "completed"
+        assert result["owner_blocking_state"] == "stale_terminal_owner"
         advisory = result["stale_claim_advisory"]
         assert advisory is not None
         assert advisory["available"] is True
@@ -1309,12 +1311,42 @@ class TestOwnerLeaseLiveness:
         assert liveness["assessed"] == "stale"
         assert liveness["lane_status"] == "in_progress"
         assert liveness["lease_age_seconds"] == 7 * 3600
+        assert result["owner_blocking_state"] == "stale_owner"
         advisory = result["stale_claim_advisory"]
         assert advisory is not None
         assert advisory["available"] is True
         assert any("lease_age_seconds" in c for c in advisory["conditions_met"])
         assert any("no heartbeat" in c for c in advisory["conditions_met"])
         assert result["advisory_withheld"] is None
+
+    def test_terminal_marked_heartbeat_does_not_keep_stale_owner_live(self) -> None:
+        lane = {
+            "lane_id": "Q4-terminal-heartbeat",
+            "owner_session": "codex-q4",
+            "status": "active",
+            "branch": "codex/q4",
+            "updated_at": _hours_ago(7.0),
+        }
+        ledger = {
+            "lane": "Q4-terminal-heartbeat",
+            "status": "in_progress",
+            "launched_at": _hours_ago(7.0),
+        }
+        heartbeat = {
+            "last_seen_at": _hours_ago(0.1),
+            "terminal_outcome": "completed",
+            "terminal_finalized_at": _hours_ago(0.05),
+        }
+
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=ledger, heartbeat=heartbeat, now=_liveness_now()
+        )
+
+        liveness = result["owner_liveness"]
+        assert liveness["assessed"] == "stale"
+        assert liveness["last_heartbeat_at"] is None
+        assert liveness["terminal_heartbeat_outcome"] == "completed"
+        assert result["owner_blocking_state"] == "stale_owner"
 
     def test_worktree_reference_withholds_advisory(self) -> None:
         lane = {
@@ -1329,6 +1361,7 @@ class TestOwnerLeaseLiveness:
             lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
         )
         assert result["owner_liveness"]["assessed"] == "stale"
+        assert result["owner_blocking_state"] == "stale_owner"
         assert result["stale_claim_advisory"] is None
         assert result["advisory_withheld"] == "possible_unpushed_work"
 
@@ -1555,6 +1588,7 @@ class TestOwnerLeaseLiveness:
             lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
         )
         assert result["owner_liveness"]["assessed"] == "terminal"
+        assert result["owner_blocking_state"] == "stale_owner"
         assert result["stale_claim_advisory"] is None
         assert result["advisory_withheld"] == "possible_unpushed_work"
 
@@ -1568,6 +1602,7 @@ class TestOwnerLeaseLiveness:
         assert liveness["lease_age_seconds"] is None
         assert liveness["lane_status"] == "unknown"
         assert liveness["last_heartbeat_at"] is None
+        assert result["owner_blocking_state"] == "unknown_owner"
         assert result["stale_claim_advisory"] is None
         assert result["advisory_withheld"] is None
 
@@ -1584,6 +1619,7 @@ class TestOwnerLeaseLiveness:
             lane, ledger_entry=ledger, heartbeat=None, now=_liveness_now()
         )
         assert result["owner_liveness"]["assessed"] == "live"
+        assert result["owner_blocking_state"] == "live_owner"
         assert result["stale_claim_advisory"] is None
         assert result["advisory_withheld"] is None
 
@@ -1955,6 +1991,7 @@ class TestLivenessCLI:
         assert data["owner_liveness"]["assessed"] == "stale"
         assert data["owner_liveness"]["lane_status"] == "in_progress"
         assert data["owner_liveness"]["lease_age_seconds"] == 7 * 3600
+        assert data["owner_blocking_state"] == "stale_owner"
         assert data["stale_claim_advisory"]["available"] is True
         assert data["stale_claim_advisory"]["protocol"] == "stale-claim-override"
         assert data["advisory_withheld"] is None
@@ -2040,6 +2077,7 @@ class TestLivenessCLI:
         summary_lines = [line for line in out.splitlines() if line.startswith("owner_liveness: ")]
         assert len(summary_lines) == 1
         assert "assessed=stale" in summary_lines[0]
+        assert "owner_blocking_state=stale_owner" in summary_lines[0]
         assert "stale_claim_advisory=available" in summary_lines[0]
 
     def test_human_output_omits_summary_with_no_liveness(

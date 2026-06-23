@@ -863,6 +863,86 @@ def _open_codex_prs_from_status_cache(
     return prs, meta
 
 
+def _flatten_rest_pages(payload: Any) -> list[dict[str, Any]]:
+    if not isinstance(payload, list):
+        raise RuntimeError("REST PR lookup returned unexpected JSON shape")
+    flattened: list[dict[str, Any]] = []
+    for item in payload:
+        if isinstance(item, dict):
+            flattened.append(item)
+            continue
+        if isinstance(item, list):
+            flattened.extend(_flatten_rest_pages(item))
+            continue
+        raise RuntimeError("REST PR lookup returned unexpected JSON shape")
+    return flattened
+
+
+def _open_codex_prs_from_rest(
+    repo_root: Path,
+    repo: str,
+    *,
+    meta: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    proc = _run(
+        [
+            "gh",
+            "api",
+            "--paginate",
+            "--slurp",
+            f"repos/{repo}/pulls?state=open&per_page=100",
+        ],
+        cwd=repo_root,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "failed to list REST PRs")
+    try:
+        payload = json.loads(proc.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("REST PR lookup returned invalid JSON") from exc
+
+    flattened = _flatten_rest_pages(payload)
+    if meta is not None:
+        meta["rest_payload_count"] = len(flattened)
+    prs: list[dict[str, Any]] = []
+    skipped_missing_head = 0
+    skipped_missing_head_ref = 0
+    skipped_non_codex_head = 0
+    for item in flattened:
+        head = item.get("head")
+        if not isinstance(head, Mapping):
+            skipped_missing_head += 1
+            continue
+        branch = head.get("ref")
+        if not isinstance(branch, str):
+            skipped_missing_head_ref += 1
+            continue
+        if not branch.startswith(CODEX_BRANCH_PREFIX):
+            skipped_non_codex_head += 1
+            continue
+        prs.append(
+            {
+                "number": item.get("number"),
+                "title": item.get("title"),
+                "headRefName": branch,
+                "isDraft": item.get("draft"),
+                "mergeStateStatus": str(item.get("mergeable_state") or "UNKNOWN").upper(),
+                "reviewDecision": None,
+                "statusCheckRollup": [],
+                "lookup_degraded": True,
+                "lookup_source": "rest",
+            }
+        )
+    if meta is not None:
+        meta["rest_skipped_missing_head_count"] = skipped_missing_head
+        meta["rest_skipped_missing_head_ref_count"] = skipped_missing_head_ref
+        meta["rest_skipped_non_codex_head_count"] = skipped_non_codex_head
+        meta["rest_skipped_total_count"] = (
+            skipped_missing_head + skipped_missing_head_ref + skipped_non_codex_head
+        )
+    return prs
+
+
 def _open_codex_prs_with_cache_fallback(
     repo_root: Path,
     repo: str,
@@ -876,7 +956,25 @@ def _open_codex_prs_with_cache_fallback(
         live_error = str(exc)
         cached_prs, cache_meta = _open_codex_prs_from_status_cache(repo_root, repo)
         if cached_prs is None:
-            raise OpenCodexPrLookupError(live_error, cache_meta) from exc
+            try:
+                rest_meta: dict[str, Any] = {}
+                rest_prs = _open_codex_prs_from_rest(repo_root, repo, meta=rest_meta)
+            except RuntimeError as rest_exc:
+                cache_meta["rest_error"] = str(rest_exc)
+                raise OpenCodexPrLookupError(live_error, cache_meta) from exc
+            for item in rest_prs:
+                item.setdefault("lookup_degraded", True)
+                item.setdefault("lookup_source", "rest")
+            lookup_meta = {
+                "source": "rest",
+                "status": "degraded",
+                "fallback_error": live_error,
+                "lookup_degraded": True,
+                "rest_result_count": len(rest_prs),
+            }
+            lookup_meta.update(cache_meta)
+            lookup_meta.update(rest_meta)
+            return rest_prs, lookup_meta
         lookup_meta = {
             "source": "cache",
             "status": "ok",
@@ -946,6 +1044,9 @@ def _unhealthy_check_rollup_items(check_rollup: Any) -> list[dict[str, Any]]:
 
 
 def _open_codex_pr_unhealthy_reasons(item: dict[str, Any]) -> list[str]:
+    if item.get("lookup_degraded") is True:
+        return ["lookup_degraded_queue_health_unknown"]
+
     merge_state = str(item.get("mergeStateStatus") or "UNKNOWN").upper()
     if merge_state == "DIRTY":
         return ["merge_state=DIRTY"]
@@ -1199,7 +1300,11 @@ def select_publishable_branches(
     return decisions
 
 
-def _mark_github_unavailable(decisions: list[PublishDecision]) -> list[PublishDecision]:
+def _mark_github_unavailable(
+    decisions: list[PublishDecision],
+    *,
+    reason: str = "github_unavailable",
+) -> list[PublishDecision]:
     unavailable: list[PublishDecision] = []
     for decision in decisions:
         if not decision.eligible:
@@ -1209,7 +1314,7 @@ def _mark_github_unavailable(decisions: list[PublishDecision]) -> list[PublishDe
             PublishDecision(
                 branch=decision.branch,
                 eligible=False,
-                reason="github_unavailable",
+                reason=reason,
                 subject=decision.subject,
                 head_sha=decision.head_sha,
                 unique_commit_count=decision.unique_commit_count,
@@ -1700,22 +1805,38 @@ def main(argv: list[str] | None = None) -> int:
     open_pr_heads = {
         item["headRefName"] for item in open_codex_prs if isinstance(item.get("headRefName"), str)
     }
-    duplicate_open_pr_patch_lookup = _duplicate_open_pr_patch_branches(
-        repo_root,
-        args.base,
-        hydrated_branches,
-        open_codex_prs,
-    )
-    historical_pr_branches = _branches_with_pr_history(
-        repo_root,
-        args.github_repo,
-        [branch.branch for branch in hydrated_branches if branch.branch not in open_pr_heads],
-    )
-    resolved_related_branches = _branches_with_resolved_related_work(
-        repo_root,
-        args.github_repo,
-        [branch for branch in hydrated_branches if branch.branch not in historical_pr_branches],
-    )
+    open_pr_lookup_degraded = open_pr_lookup.get("lookup_degraded") is True
+    duplicate_open_pr_patch_lookup_skipped = False
+    historical_pr_lookup_skipped = False
+    related_work_lookup_skipped = False
+    if open_pr_lookup_degraded:
+        # A degraded open-PR lookup means GraphQL-backed follow-up searches may
+        # still be unavailable and the REST snapshot may be incomplete. Keep
+        # read visibility, but do not run further dedupe searches or publish
+        # from an incomplete queue view.
+        duplicate_open_pr_patch_lookup_skipped = True
+        duplicate_open_pr_patch_lookup = set()
+        historical_pr_lookup_skipped = True
+        related_work_lookup_skipped = True
+        historical_pr_branches = set()
+        resolved_related_branches = set()
+    else:
+        duplicate_open_pr_patch_lookup = _duplicate_open_pr_patch_branches(
+            repo_root,
+            args.base,
+            hydrated_branches,
+            open_codex_prs,
+        )
+        historical_pr_branches = _branches_with_pr_history(
+            repo_root,
+            args.github_repo,
+            [branch.branch for branch in hydrated_branches if branch.branch not in open_pr_heads],
+        )
+        resolved_related_branches = _branches_with_resolved_related_work(
+            repo_root,
+            args.github_repo,
+            [branch for branch in hydrated_branches if branch.branch not in historical_pr_branches],
+        )
     decisions = select_publishable_branches(
         hydrated_branches,
         worktrees,
@@ -1734,6 +1855,19 @@ def main(argv: list[str] | None = None) -> int:
         superseded_outbox_branches=superseded_outbox_lookup,
         duplicate_open_pr_patch_branches=duplicate_open_pr_patch_lookup,
     )
+    open_pr_lookup_degraded_publishable_decision_count = 0
+    if open_pr_lookup_degraded:
+        open_pr_lookup_degraded_publishable_decision_count = sum(
+            1 for decision in decisions if decision.eligible
+        )
+        open_pr_lookup["publishable_decision_count"] = (
+            open_pr_lookup_degraded_publishable_decision_count
+        )
+    if open_pr_lookup_degraded:
+        decisions = _mark_github_unavailable(
+            decisions,
+            reason="open_pr_lookup_degraded",
+        )
     merge_state_counts: dict[str, int] = {}
     unhealthy_open_prs: list[dict[str, Any]] = []
     for item in open_codex_prs:
@@ -1753,6 +1887,20 @@ def main(argv: list[str] | None = None) -> int:
             )
     unhealthy_open_pr_count = len(unhealthy_open_prs)
     all_open_prs_unhealthy = bool(open_codex_prs) and unhealthy_open_pr_count == len(open_codex_prs)
+    if (
+        open_pr_lookup.get("source") == "rest"
+        and open_pr_lookup.get("lookup_degraded") is True
+        and not open_codex_prs
+    ):
+        unhealthy_open_pr_count = max(unhealthy_open_pr_count, 1)
+        all_open_prs_unhealthy = True
+        unhealthy_open_prs = [
+            {
+                "reasons": [
+                    "lookup_degraded_queue_health_unknown",
+                ]
+            }
+        ]
     cache_queue_health = open_pr_lookup.get("cache_queue_health")
     if open_pr_lookup.get("source") == "cache" and isinstance(cache_queue_health, Mapping):
         cached_merge_state_counts = cache_queue_health.get("merge_state_counts")
@@ -1800,6 +1948,9 @@ def main(argv: list[str] | None = None) -> int:
         "open_pr_lookup": {
             key: value for key, value in open_pr_lookup.items() if key != "cache_queue_health"
         },
+        "duplicate_open_pr_patch_lookup_skipped": duplicate_open_pr_patch_lookup_skipped,
+        "historical_pr_lookup_skipped": historical_pr_lookup_skipped,
+        "related_work_lookup_skipped": related_work_lookup_skipped,
         "automation_guardrails": asdict(guardrail_report),
         "github_health": github_health.to_dict(),
         "decisions": [asdict(decision) for decision in decisions],
@@ -1809,6 +1960,9 @@ def main(argv: list[str] | None = None) -> int:
         if not guardrail_report.ok:
             payload["published"] = []
             payload["publish_paused_reason"] = "automation_guardrail"
+        elif open_pr_lookup_degraded:
+            payload["published"] = []
+            payload["publish_paused_reason"] = "open_pr_lookup_degraded"
         elif all_open_prs_unhealthy and not args.allow_unhealthy_queue_publish:
             payload["published"] = []
             payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
@@ -1828,6 +1982,8 @@ def main(argv: list[str] | None = None) -> int:
                 draft=args.draft,
             )
             payload["published"] = published
+    elif open_pr_lookup_degraded and open_pr_lookup_degraded_publishable_decision_count:
+        payload["publish_paused_reason"] = "open_pr_lookup_degraded"
 
     if args.summary_only:
         payload = summary_only_payload(payload)
@@ -1848,6 +2004,11 @@ def main(argv: list[str] | None = None) -> int:
                     else:
                         print(f"  - {item['branch']} -> PR #{item['pr_number']}")
 
+    if (
+        payload.get("publish_paused_reason") == "open_pr_lookup_degraded"
+        and open_pr_lookup_degraded_publishable_decision_count
+    ):
+        return 1
     return 0
 
 

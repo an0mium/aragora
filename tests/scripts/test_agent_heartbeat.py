@@ -52,6 +52,33 @@ def test_heartbeat_upserts_owner_identity(tmp_path: Path) -> None:
     assert payload == [row]
 
 
+def test_heartbeat_renewal_updates_existing_owner_row(tmp_path: Path) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-renewal",
+        owner_session="codex-Q612",
+        pid=111,
+        branch="codex/old",
+        last_seen_at="2026-06-23T10:00:00Z",
+    )
+    row = heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-renewal",
+        owner_session="codex-Q612",
+        pid=222,
+        branch="codex/new",
+        last_seen_at="2026-06-23T10:05:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert payload == [row]
+    assert payload[0]["pid"] == 222
+    assert payload[0]["branch"] == "codex/new"
+    assert payload[0]["last_seen_at"] == "2026-06-23T10:05:00Z"
+
+
 def test_heartbeat_rejects_path_traversal_owner(tmp_path: Path) -> None:
     for owner_session in ("../escape", ".", "..", ".hidden", "owner:session"):
         with pytest.raises(ValueError, match="unsafe owner_session"):
@@ -60,6 +87,126 @@ def test_heartbeat_rejects_path_traversal_owner(tmp_path: Path) -> None:
                 lane_id="P106",
                 owner_session=owner_session,
             )
+
+
+def test_finalizer_receipt_appends_terminal_owner_lifecycle(tmp_path: Path) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+
+    receipt = heartbeat.record_finalizer_receipt(
+        heartbeat_path=heartbeat_path,
+        receipt_path=receipt_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        thread_id="thread-456",
+        pid=34567,
+        cwd="/tmp/aragora",
+        worktree="/tmp/aragora/.worktrees/codex-q612",
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        pr_number=8560,
+        outcome="completed",
+        reason="published draft PR",
+        finalized_at="2026-06-23T10:10:00Z",
+    )
+
+    assert receipt == {
+        "schema_version": "aragora-agent-finalizer-receipt/1.0",
+        "lane_id": "Q612-heartbeat-finalizer",
+        "owner_session": "codex-Q612",
+        "thread_id": "thread-456",
+        "pid": 34567,
+        "cwd": "/tmp/aragora",
+        "worktree": "/tmp/aragora/.worktrees/codex-q612",
+        "branch": "codex/lane-heartbeat-finalizer-20260623",
+        "pr_number": 8560,
+        "outcome": "completed",
+        "reason": "published draft PR",
+        "finalized_at": "2026-06-23T10:10:00Z",
+    }
+    payload = [json.loads(line) for line in receipt_path.read_text(encoding="utf-8").splitlines()]
+    assert payload == [receipt]
+
+
+def test_finalizer_receipt_marks_matching_heartbeat_terminal(tmp_path: Path) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        pid=34567,
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        last_seen_at="2026-06-23T10:09:00Z",
+    )
+
+    heartbeat.record_finalizer_receipt(
+        heartbeat_path=heartbeat_path,
+        receipt_path=receipt_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        outcome="completed",
+        reason="published draft PR",
+        finalized_at="2026-06-23T10:10:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert len(payload) == 1
+    assert payload[0]["last_seen_at"] == "2026-06-23T10:09:00Z"
+    assert payload[0]["terminal_outcome"] == "completed"
+    assert payload[0]["terminal_reason"] == "published draft PR"
+    assert payload[0]["terminal_finalized_at"] == "2026-06-23T10:10:00Z"
+
+
+def test_finalizer_receipt_rejects_unknown_outcome(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="outcome must be one of"):
+        heartbeat.record_finalizer_receipt(
+            heartbeat_path=tmp_path / "heartbeats.json",
+            receipt_path=tmp_path / "finalizer-receipts.jsonl",
+            lane_id="Q612",
+            owner_session="codex-Q612",
+            outcome="maybe",
+            reason="not terminal",
+        )
+
+
+def test_cli_finalize_writes_to_shared_state_root_from_stateless_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    shared_root = tmp_path / "shared"
+    (shared_root / ".aragora" / "agent-bridge").mkdir(parents=True)
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared_root))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--finalize",
+            "--repo-root",
+            str(repo_root),
+            "--lane-id",
+            "Q612-heartbeat-finalizer",
+            "--owner-session",
+            "codex-Q612",
+            "--outcome",
+            "completed",
+            "--reason",
+            "published draft PR",
+            "--finalized-at",
+            "2026-06-23T10:10:00Z",
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    receipt_path = shared_root / ".aragora" / "agent-bridge" / "heartbeat-finalizer-receipts.jsonl"
+    payload = [json.loads(line) for line in receipt_path.read_text(encoding="utf-8").splitlines()]
+    assert json.loads(result.stdout)["outcome"] == "completed"
+    assert payload[0]["lane_id"] == "Q612-heartbeat-finalizer"
+    assert payload[0]["reason"] == "published draft PR"
+    assert not (repo_root / ".aragora").exists()
 
 
 def test_concurrent_heartbeat_writes_preserve_all_rows(tmp_path: Path) -> None:

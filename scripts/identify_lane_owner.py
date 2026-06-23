@@ -41,13 +41,14 @@ Lookup sources (read-only, in this precedence):
 Owner-lease liveness (issue #8318): when ``--liveness`` is enabled
 (default), the JSON output is additionally enriched with an
 ``owner_liveness`` object (lease age, last heartbeat, lane-ledger
-status, assessment) and — only for stale/terminal owners with no
-indication of local unpushed work — a machine-readable
-``stale_claim_advisory`` codifying the manual stale-claim override
-protocol exercised on #8125. This is VISIBILITY + ADVISORY only: it
-never changes a go/no-go decision by itself, and it fails closed
-(``advisory_withheld: "possible_unpushed_work"``) whenever
-uncommitted/unpushed work might exist.
+status, assessment), a consumer-facing ``owner_blocking_state``, and
+— only for stale/terminal owners with no indication of local unpushed
+work — a machine-readable ``stale_claim_advisory`` codifying the
+manual stale-claim override protocol exercised on #8125. This is
+VISIBILITY + ADVISORY only: it never changes a go/no-go decision by
+itself, and it fails closed (``advisory_withheld:
+"possible_unpushed_work"``) whenever uncommitted/unpushed work might
+exist.
 
 Pure stdlib. No ``aragora.*`` imports. Read-only — never mutates
 GitHub state, lane registry, mailboxes, or any other on-disk file.
@@ -900,9 +901,10 @@ def _heartbeat_summary(
     seen = _parse_iso_utc(row.get("last_seen_at"))
     age_seconds: int | None = None
     fresh = False
+    terminal = bool(row.get("terminal") is True or row.get("terminal_outcome"))
     if seen is not None:
         age_seconds = max(0, int((now - seen).total_seconds()))
-        fresh = age_seconds <= freshness_seconds
+        fresh = not terminal and age_seconds <= freshness_seconds
     return {
         "lane_id": row.get("lane_id"),
         "owner_session": row.get("owner_session"),
@@ -915,6 +917,10 @@ def _heartbeat_summary(
         "last_seen_at": row.get("last_seen_at"),
         "age_seconds": age_seconds,
         "fresh": fresh,
+        "terminal": terminal,
+        "terminal_outcome": row.get("terminal_outcome"),
+        "terminal_reason": row.get("terminal_reason"),
+        "terminal_finalized_at": row.get("terminal_finalized_at"),
     }
 
 
@@ -1211,6 +1217,11 @@ TERMINAL_LANE_STATUSES = {"completed", "failed", "cancelled", "dead"}
 STALE_CLAIM_PROTOCOL = "stale-claim-override"
 ADVISORY_WITHHELD_UNPUSHED = "possible_unpushed_work"
 REQUIRED_LEDGER_RECORD = "overriding lane must write an override entry naming the stale lane id"
+
+OWNER_BLOCKING_LIVE = "live_owner"
+OWNER_BLOCKING_UNKNOWN = "unknown_owner"
+OWNER_BLOCKING_STALE = "stale_owner"
+OWNER_BLOCKING_STALE_TERMINAL = "stale_terminal_owner"
 
 # Timestamp fields on the owner (lane-registry) record; newest wins.
 _OWNER_RECORD_TIMESTAMP_KEYS = (
@@ -1780,7 +1791,23 @@ def assess_owner_liveness(
     # last_heartbeat_at: matched heartbeat row first, then owner record,
     # then ledger heartbeat fields; null when nothing carries one.
     last_heartbeat_at: str | None = None
-    if heartbeat and heartbeat.get("last_seen_at"):
+    heartbeat_terminal = bool(
+        heartbeat
+        and (
+            heartbeat.get("terminal") is True
+            or heartbeat.get("terminal_outcome")
+            or heartbeat.get("terminal_finalized_at")
+        )
+    )
+    terminal_heartbeat_outcome = (
+        str(heartbeat.get("terminal_outcome") or "") if heartbeat_terminal and heartbeat else ""
+    )
+    terminal_heartbeat_at = (
+        str(heartbeat.get("terminal_finalized_at") or "")
+        if heartbeat_terminal and heartbeat
+        else ""
+    )
+    if heartbeat and heartbeat.get("last_seen_at") and not heartbeat_terminal:
         last_heartbeat_at = str(heartbeat["last_seen_at"])
     elif lane.get("last_heartbeat_at"):
         last_heartbeat_at = str(lane["last_heartbeat_at"])
@@ -1821,6 +1848,8 @@ def assess_owner_liveness(
     owner_liveness = {
         "lease_age_seconds": lease_age_seconds,
         "last_heartbeat_at": last_heartbeat_at,
+        "terminal_heartbeat_outcome": terminal_heartbeat_outcome or None,
+        "terminal_heartbeat_at": terminal_heartbeat_at or None,
         "lane_status": lane_status,
         "assessed": assessed,
         "stale_threshold_hours": stale_hours,
@@ -1865,8 +1894,36 @@ def assess_owner_liveness(
                 "required_ledger_record": REQUIRED_LEDGER_RECORD,
             }
 
+    if assessed == "live":
+        owner_blocking_state = OWNER_BLOCKING_LIVE
+        owner_blocking_state_reason = "owner has current lease or heartbeat evidence"
+    elif assessed == "unknown":
+        owner_blocking_state = OWNER_BLOCKING_UNKNOWN
+        owner_blocking_state_reason = "owner lease age could not be established"
+    elif (
+        assessed == "terminal"
+        and advisory is not None
+        and advisory.get("available") is True
+        and advisory_withheld is None
+    ):
+        owner_blocking_state = OWNER_BLOCKING_STALE_TERMINAL
+        owner_blocking_state_reason = (
+            "terminal stale owner has no local-work claim and is eligible for guarded "
+            "stale-claim handling"
+        )
+    else:
+        owner_blocking_state = OWNER_BLOCKING_STALE
+        if advisory_withheld:
+            owner_blocking_state_reason = (
+                f"stale owner remains blocking because advisory is withheld: {advisory_withheld}"
+            )
+        else:
+            owner_blocking_state_reason = "stale owner is not proven terminal-safe"
+
     return {
         "owner_liveness": owner_liveness,
+        "owner_blocking_state": owner_blocking_state,
+        "owner_blocking_state_reason": owner_blocking_state_reason,
         "stale_claim_advisory": advisory,
         "advisory_withheld": advisory_withheld,
         "local_work_preservation": local_work_preservation,
@@ -1887,6 +1944,7 @@ def _print_liveness_summary(payload: dict[str, Any]) -> None:
     print(
         "owner_liveness: "
         f"assessed={liveness['assessed']} "
+        f"owner_blocking_state={payload['owner_blocking_state']} "
         f"lease_age_seconds={lease if lease is not None else '-'} "
         f"lane_status={liveness['lane_status']} "
         f"last_heartbeat_at={liveness['last_heartbeat_at'] or '-'} "
