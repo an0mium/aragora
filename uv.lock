@@ -278,6 +278,7 @@ name = "aragora"
 version = "2.9.0"
 source = { editable = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "click" },
     { name = "httpx" },
     { name = "pydantic" },
@@ -285,6 +286,7 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "pyyaml" },
     { name = "typer" },
+    { name = "websockets" },
 ]
 
 [package.optional-dependencies]
@@ -341,6 +343,7 @@ test = [
 requires-dist = [
     { name = "aio-pika", marker = "extra == 'all'", specifier = ">=9.6.2,<10.0" },
     { name = "aio-pika", marker = "extra == 'connectors'", specifier = ">=9.6.2,<10.0" },
+    { name = "aiohttp", specifier = ">=3.14.1,<4.0" },
     { name = "aiohttp", marker = "extra == 'all'", specifier = ">=3.14.1,<4.0" },
     { name = "aiohttp", marker = "extra == 'blockchain'", specifier = ">=3.14.1,<4.0" },
     { name = "aiokafka", marker = "extra == 'all'", specifier = ">=0.14.0,<1.0" },
@@ -378,6 +381,7 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.49.0,<1.0" },
     { name = "web3", marker = "extra == 'all'", specifier = ">=7.16.0,<8.0" },
     { name = "web3", marker = "extra == 'blockchain'", specifier = ">=7.16.0,<8.0" },
+    { name = "websockets", specifier = ">=13.0,<15.1" },
 ]
 provides-extras = ["test", "gateway", "blockchain", "enterprise", "connectors", "experimental", "dev", "all"]
 

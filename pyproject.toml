@@ -41,6 +41,15 @@ dependencies = [
     "PyYAML>=6.0.3,<7.0",
     "pydantic>=2.13.4,<3.0",
     "pydantic-settings>=2.14.2,<3.0",
+    # Server + agent runtime floor, audited against the bootable base set in
+    # scripts/ci_install_project.sh (LEGACY_CONTROL_PLANE_BASE_DEPS, the floor
+    # both Dockerfiles boot from). aiohttp has the widest runtime footprint
+    # (server handlers, agents, connectors) and websockets backs the
+    # aragora/server/stream/* WebSocket surface. Declared in base so a plain
+    # ``pip install aragora`` boots the server without pulling ``[all]``; the
+    # aiohttp pin matches the [blockchain]/[all] extras for one consistent floor.
+    "aiohttp>=3.14.1,<4.0",
+    "websockets>=13.0,<15.1",
 ]
 
 [project.scripts]
