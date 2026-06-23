@@ -206,7 +206,9 @@ def check_outbox(
     """Outbox depth and oldest-item age (archive/ excluded)."""
     name = "outbox_depth"
     if not outbox_dir.is_dir():
-        return _result(name, "ok", f"no outbox dir at {outbox_dir}")
+        result = _result(name, "ok", f"no outbox dir at {outbox_dir}")
+        result["depth"] = 0
+        return result
     items = sorted(p for p in outbox_dir.glob("*.json") if p.is_file())
     problems: list[str] = []
     if len(items) > max_items:
@@ -219,8 +221,24 @@ def check_outbox(
                 f"oldest item {oldest.name} is {oldest_days:.1f}d old (max {max_age_days}d)"
             )
     if problems:
-        return _result(name, "breach", "; ".join(problems))
-    return _result(name, "ok", f"{len(items)} item(s) queued")
+        result = _result(name, "breach", "; ".join(problems))
+        result["depth"] = len(items)
+        return result
+    result = _result(name, "ok", f"{len(items)} item(s) queued")
+    result["depth"] = len(items)
+    return result
+
+
+def _extract_outbox_depth(check: dict[str, Any]) -> int | None:
+    depth = check.get("depth")
+    if isinstance(depth, int) and depth >= 0:
+        return depth
+    if isinstance(depth, float) and depth.is_integer() and depth >= 0:
+        return int(depth)
+    match = re.search(r"(\d+)\s+item", str(check.get("detail") or ""))
+    if match:
+        return int(match.group(1))
+    return None
 
 
 def check_outbox_drain_progress(
@@ -233,47 +251,59 @@ def check_outbox_drain_progress(
     """Circuit-breaker: flag an outbox that stays congested without draining.
 
     A drain/conductor loop that keeps running but never reduces the outbox is
-    making no *external* progress — the molasses failure mode in
+    making no net depth progress — the molasses failure mode in
     ``docs/AGENT_OPERATING_CONTRACT.md`` §Conductor (observed June 2026: an outbox
     stuck at its ceiling for ~9 days while the loop only re-messaged stale lanes).
     When the live outbox is at/above ``min_floor`` and the last ``stall_cycles``
-    ledger entries plus the live depth show a non-decreasing sequence, breach so
-    the loop halts and escalates to the operator instead of mailing more dead
-    letters.
+    ledger entries show no net decrease from the first observed depth and the
+    live depth has not decreased from the previous cycle, breach so the loop
+    halts and escalates to the operator instead of mailing more dead letters.
     """
     name = "outbox_drain_progress"
+    if stall_cycles < 1:
+        return _result(name, "unknown", f"invalid stall cycle count {stall_cycles}; must be >= 1")
     current = sum(1 for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else 0
     if current < min_floor:
         return _result(name, "ok", f"outbox depth {current} below floor {min_floor}")
     if not ledger.exists():
         return _result(name, "ok", f"no ledger history at {ledger}; cannot assess drain")
     history: list[int] = []
+    valid_entries = 0
     for line in _read_tail_lines(ledger, stall_cycles + 4):
         try:
             entry = json.loads(line)
         except (ValueError, TypeError):
             continue
+        if not isinstance(entry, dict):
+            continue
+        valid_entries += 1
         for check in entry.get("checks") or []:
             if isinstance(check, dict) and check.get("check") == "outbox_depth":
-                match = re.search(r"(\d+)\s+item", str(check.get("detail") or ""))
-                if match:
-                    history.append(int(match.group(1)))
+                depth = _extract_outbox_depth(check)
+                if depth is not None:
+                    history.append(depth)
                 break
     if len(history) < stall_cycles:
+        if valid_entries >= stall_cycles:
+            return _result(
+                name,
+                "unknown",
+                f"only {len(history)} usable outbox_depth sample(s) in {valid_entries} recent ledger cycle(s); cannot assess drain",
+            )
         return _result(
             name, "ok", f"only {len(history)} prior cycle(s); need {stall_cycles} to assess drain"
         )
     window = history[-stall_cycles:]
     series = [*window, current]
     congested = all(depth >= min_floor for depth in series)
-    not_draining = all(series[i] <= series[i + 1] for i in range(len(series) - 1))
+    not_draining = current >= window[-1] and current >= window[0]
     if congested and not_draining:
         return _result(
             name,
             "breach",
-            f"outbox not draining: depth {window[0]}->{current} stayed at/above {min_floor} and "
-            f"never decreased across {stall_cycles} prior cycles plus live depth — the drain loop is making no external "
-            "progress; HALT it and escalate to the operator, do not keep re-messaging stale lanes "
+            f"outbox not draining: net depth {window[0]}->{current} stayed at/above {min_floor} "
+            f"across {stall_cycles} prior cycles plus live depth — the drain loop is making no net "
+            "backlog progress; HALT it and escalate to the operator, do not keep re-messaging stale lanes "
             "(§Conductor dead-letter ban)",
         )
     return _result(
