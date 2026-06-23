@@ -1733,11 +1733,12 @@ def test_main_falls_back_to_rest_but_pauses_apply_for_unknown_queue_health(
 
     exit_code = mod.main(["--repo", str(tmp_path), "--apply", "--json"])
 
-    assert exit_code == 1
+    assert exit_code == 0
     assert publish_called is False
     payload = json.loads(capsys.readouterr().out)
     assert payload["open_pr_lookup"]["source"] == "rest"
     assert payload["open_pr_lookup"]["fallback_error"] == "GraphQL 504"
+    assert payload["open_pr_lookup"]["publishable_decision_count"] == 0
     assert payload["decisions"][0]["reason"] == "open_pr_exists"
     assert payload["queue_health"]["unhealthy_open_pr_count"] == 2
     assert payload["queue_health"]["all_open_prs_unhealthy"] is True
@@ -1830,6 +1831,7 @@ def test_main_pauses_apply_when_rest_fallback_returns_no_codex_prs(
     assert payload["open_pr_lookup"]["source"] == "rest"
     assert payload["open_pr_lookup"]["lookup_degraded"] is True
     assert payload["open_pr_lookup"]["rest_result_count"] == 0
+    assert payload["open_pr_lookup"]["publishable_decision_count"] == 1
     assert payload["queue_health"]["open_codex_pr_count"] == 0
     assert payload["queue_health"]["unhealthy_open_pr_count"] == 1
     assert payload["queue_health"]["all_open_prs_unhealthy"] is True
@@ -1923,6 +1925,7 @@ def test_main_degraded_rest_lookup_blocks_override_and_skips_history_search(
     assert publish_called is False
     payload = json.loads(capsys.readouterr().out)
     assert payload["open_pr_lookup"]["source"] == "rest"
+    assert payload["open_pr_lookup"]["publishable_decision_count"] == 1
     assert payload["historical_pr_lookup_skipped"] is True
     assert payload["related_work_lookup_skipped"] is True
     assert payload["decisions"][0]["eligible"] is False

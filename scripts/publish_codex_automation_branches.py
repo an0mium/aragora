@@ -1828,6 +1828,14 @@ def main(argv: list[str] | None = None) -> int:
         superseded_outbox_branches=superseded_outbox_lookup,
         duplicate_open_pr_patch_branches=duplicate_open_pr_patch_lookup,
     )
+    open_pr_lookup_degraded_publishable_decision_count = 0
+    if open_pr_lookup_degraded:
+        open_pr_lookup_degraded_publishable_decision_count = sum(
+            1 for decision in decisions if decision.eligible
+        )
+        open_pr_lookup["publishable_decision_count"] = (
+            open_pr_lookup_degraded_publishable_decision_count
+        )
     if open_pr_lookup_degraded:
         decisions = _mark_github_unavailable(
             decisions,
@@ -1966,7 +1974,11 @@ def main(argv: list[str] | None = None) -> int:
                     else:
                         print(f"  - {item['branch']} -> PR #{item['pr_number']}")
 
-    if args.apply and payload.get("publish_paused_reason") == "open_pr_lookup_degraded":
+    if (
+        args.apply
+        and payload.get("publish_paused_reason") == "open_pr_lookup_degraded"
+        and open_pr_lookup_degraded_publishable_decision_count
+    ):
         return 1
     return 0
 
