@@ -547,6 +547,7 @@ def remove_worktree(
         "path_purged": False,
         "requires_purge_path": False,
         "git_remove_failed": False,
+        "git_worktree_removed": False,
         "recovery_action": None,
         "residual_paths": [],
         "purge_error": None,
@@ -570,7 +571,11 @@ def remove_worktree(
             )
         except subprocess.TimeoutExpired as exc:
             result["status"] = "remove_failed"
+            result["git_remove_failed"] = True
             result["stderr"] = f"git worktree remove timed out after {exc.timeout}s"
+            result["recovery_action"] = (
+                "git worktree remove timed out; rerun inspect before retrying cleanup"
+            )
             return result
         if proc.returncode != 0:
             result["status"] = "remove_failed"
@@ -581,6 +586,7 @@ def remove_worktree(
         else:
             result["removed"] = True
             result["status"] = "removed"
+            result["git_worktree_removed"] = True
     else:
         result["status"] = "untracked_path"
         if not purge_path:

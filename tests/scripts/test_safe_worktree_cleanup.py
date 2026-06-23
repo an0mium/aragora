@@ -225,16 +225,15 @@ def test_remove_purges_residual_path_after_failed_git_remove(
         blockers=[],
     )
 
-    monkeypatch.setattr(
-        mod.autopilot,
-        "_run_git",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
             args=["git", "worktree", "remove"],
             returncode=255,
             stdout="",
             stderr="Directory not empty",
-        ),
-    )
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
     monkeypatch.setattr(mod.autopilot, "_branch_exists", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(mod.autopilot, "_repo_root_from", lambda _path: repo_root)
 
@@ -248,6 +247,7 @@ def test_remove_purges_residual_path_after_failed_git_remove(
 
     assert result["status"] == "purged_after_failed_remove"
     assert result["path_purged"] is True
+    assert result["git_remove_failed"] is True
     assert worktree.exists() is False
 
 
@@ -431,6 +431,7 @@ def test_tracked_remove_purge_failure_reports_not_removed(
 
     assert result["status"] == "purge_incomplete"
     assert result["removed"] is False
+    assert result["git_worktree_removed"] is True
     assert result["path_purged"] is False
     assert "build" in result["residual_paths"]
     assert "not fully removed" in result["recovery_action"]
@@ -489,6 +490,53 @@ def test_failed_git_remove_and_failed_purge_preserve_both_signals(
     assert result["removed"] is False
     assert result["path_purged"] is False
     assert result["residual_paths"] == ["leftover.txt"]
+
+
+def test_git_remove_timeout_sets_failure_flag_and_recovery_action(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-timeout"
+    worktree.mkdir()
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def timeout_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(mod.subprocess, "run", timeout_run)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "remove_failed"
+    assert result["git_remove_failed"] is True
+    assert result["git_worktree_removed"] is False
+    assert "timed out" in result["stderr"]
+    assert "rerun inspect" in result["recovery_action"]
 
 
 def test_purge_race_success_clears_stale_purge_error(
