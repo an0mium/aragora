@@ -1441,6 +1441,15 @@ def test_outbox_drain_progress_draining_is_ok(tmp_path: Path) -> None:
     assert r["status"] == "ok"
 
 
+def test_outbox_drain_progress_live_drop_is_ok(tmp_path: Path) -> None:
+    # Rising prior history alone is not a stall when the live depth has dropped.
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50, 55, 60])
+    outbox = _outbox_with(tmp_path / "outbox", 51)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+    assert "draining or fluctuating" in r["detail"]
+
+
 def test_outbox_drain_progress_below_floor_is_ok(tmp_path: Path) -> None:
     ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50, 52, 55])
     outbox = _outbox_with(tmp_path / "outbox", 10)  # below floor -> not congested

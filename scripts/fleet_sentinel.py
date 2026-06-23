@@ -237,8 +237,9 @@ def check_outbox_drain_progress(
     ``docs/AGENT_OPERATING_CONTRACT.md`` §Conductor (observed June 2026: an outbox
     stuck at its ceiling for ~9 days while the loop only re-messaged stale lanes).
     When the live outbox is at/above ``min_floor`` and the last ``stall_cycles``
-    ledger entries show a non-decreasing depth, breach so the loop halts and
-    escalates to the operator instead of mailing more dead letters.
+    ledger entries plus the live depth show a non-decreasing sequence, breach so
+    the loop halts and escalates to the operator instead of mailing more dead
+    letters.
     """
     name = "outbox_drain_progress"
     current = sum(1 for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else 0
@@ -263,16 +264,15 @@ def check_outbox_drain_progress(
             name, "ok", f"only {len(history)} prior cycle(s); need {stall_cycles} to assess drain"
         )
     window = history[-stall_cycles:]
-    congested = all(depth >= min_floor for depth in window)
-    not_draining = current >= window[0] and all(
-        window[i] <= window[i + 1] for i in range(len(window) - 1)
-    )
+    series = [*window, current]
+    congested = all(depth >= min_floor for depth in series)
+    not_draining = all(series[i] <= series[i + 1] for i in range(len(series) - 1))
     if congested and not_draining:
         return _result(
             name,
             "breach",
             f"outbox not draining: depth {window[0]}->{current} stayed at/above {min_floor} and "
-            f"never decreased across {stall_cycles} cycles — the drain loop is making no external "
+            f"never decreased across {stall_cycles} prior cycles plus live depth — the drain loop is making no external "
             "progress; HALT it and escalate to the operator, do not keep re-messaging stale lanes "
             "(§Conductor dead-letter ban)",
         )
