@@ -141,6 +141,8 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
 from aragora.swarm.quorum_evidence import (  # noqa: E402
     WESTERN_FAMILIES as WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
+    tier_quorum_rule as tier_quorum_rule,
+    tiered_merge_gate_enabled as tiered_merge_gate_enabled,
 )
 
 DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
@@ -3149,11 +3151,15 @@ def _build_model_review_quorum(
     # counted_reviewer_ids for the audit trail, but do not satisfy the count. So
     # signal_count is the jurisdiction-eligible count that drives the gate decision
     # and the reasons (not the raw recognized-family count).
+    #
+    # The Western-only filter and the at-least-one-Western check are NOT
+    # re-implemented here; they come from the canonical policy object so the live
+    # gate and the auto-settle path share one jurisdiction implementation and
+    # cannot drift (claude/grok #8507 P2/P3). Build the rule once with the same
+    # regime _tier_requirement reads.
+    rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())
     counted_family_set = {str(rid).strip().lower() for rid in counted_reviewer_ids}
-    if requirement.get("western_only_counted"):
-        jurisdiction_counted = {f for f in counted_family_set if f in WESTERN_FAMILIES}
-    else:
-        jurisdiction_counted = counted_family_set
+    jurisdiction_counted = rule.counted_families(counted_reviewer_ids)
     signal_count = len(jurisdiction_counted)
     # The western-frontier check is derived from the model-review signals ONLY (empty
     # dogfood list). _counted_model_reviewer_ids only ever ADDS dogfood-attributable
@@ -3174,8 +3180,8 @@ def _build_model_review_quorum(
     western_frontier_satisfied = (
         not requirement.get("requires_western_frontier_signal") or has_western_frontier_signal
     )
-    # Tier 2: at least one counted family must be Western.
-    at_least_one_western_satisfied = not requirement.get("requires_at_least_one_western") or bool(
+    # Tier 2: at least one counted family must be Western (rule-derived flag).
+    at_least_one_western_satisfied = not rule.requires_at_least_one_western or bool(
         jurisdiction_counted & WESTERN_FAMILIES
     )
     quorum_satisfied = (
@@ -3261,7 +3267,7 @@ def _build_model_review_quorum(
             reasons.append(
                 "a western-frontier model signal (claude/openai) is required to settle this tier"
             )
-        if requirement.get("western_only_counted") and (counted_family_set - jurisdiction_counted):
+        if rule.western_only_counted and (counted_family_set - jurisdiction_counted):
             reasons.append(
                 "Tier 3-4 requires a Western-only counted quorum; Chinese-routed "
                 "families are advisory-only and do not count toward the quorum"
@@ -3394,8 +3400,6 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
     #     live) to stop a flag flip from retroactively relaxing a stale artifact.
     # Both are strict-by-default; only the apply path needs the extra reconciliation
     # because only it has stored, deferrable state.
-    from aragora.swarm.quorum_evidence import tier_quorum_rule, tiered_merge_gate_enabled
-
     rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())
     return {
         "required_model_signals": rule.required_signals,

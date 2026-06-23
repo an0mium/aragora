@@ -266,6 +266,32 @@ def _executed_protocol(*, dissent: bool = False) -> dict[str, Any]:
     return payload
 
 
+def _model_review_comment(model: str) -> dict[str, Any]:
+    """A current-head model-review comment attributed to ``model``'s family.
+
+    The heading names the model and contains the recognized "independent model
+    review" token, so ``_model_review_signals_from_comments`` counts it as a
+    distinct family signal (e.g. ``deepseek``, ``qwen``, ``grok``).
+    """
+    return {
+        "author": {"login": "an0mium"},
+        "body": f"## {model} independent model review\nVerdict: approve.",
+    }
+
+
+def _family_dogfood_comment(model: str) -> dict[str, Any]:
+    """Adversarial-dogfood evidence attributed to ``model``'s family.
+
+    Used to satisfy the Tier 1+ dogfood requirement without smuggling in an
+    extra Western *signal* (the dogfood family is counted, so picking a
+    non-Western family keeps the jurisdiction tests honest).
+    """
+    return {
+        "author": {"login": "an0mium"},
+        "body": f"## Cross-author adversarial dogfood ({model})\n6/6 pass",
+    }
+
+
 # --- _summarize_checks -----------------------------------------------------
 
 
@@ -1620,6 +1646,115 @@ class TestModelReviewQuorum:
         assert quorum["requires_human_risk_settlement"] is False
         assert quorum["human_risk_settlement_recorded"] is True
         assert "exact-head human risk settlement receipt recorded" in quorum["reasons"]
+
+    # --- Jurisdiction enforcement at the live gate (claude/grok #8507 P2/P3) ----
+    # These exercise the security-critical Western-only / at-least-one-Western
+    # rejections at the enforcement layer (_build_model_review_quorum), which the
+    # prior suite never covered because it contained zero Chinese-routed families.
+
+    def test_tier_three_chinese_routed_family_is_advisory_not_counted(self) -> None:
+        # Tier 3 (security surface): claude + deepseek. deepseek is advisory-only,
+        # so the Western-only counted quorum drops it → only 1 Western < 2 required.
+        pr = _make_pr(files=["aragora/security/encryption.py"])
+        pr["comments"] = [
+            _family_dogfood_comment("Claude"),
+            _model_review_comment("Claude"),
+            _model_review_comment("DeepSeek"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/security/encryption.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 3
+        # deepseek remains in counted_reviewer_ids for the audit trail.
+        assert quorum["counted_reviewer_ids"] == ["claude", "deepseek"]
+        # But it does not count toward the quorum → incomplete, no admin squash.
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
+        assert any("1/2 signal(s)" in reason for reason in quorum["reasons"])
+        assert any("Western-only counted quorum" in reason for reason in quorum["reasons"])
+
+    def test_tier_three_two_western_families_satisfy_quorum(self) -> None:
+        # Same Tier 3 surface, claude + grok: both Western, so the quorum is met
+        # (Tier 3 then advances to the human-risk-settlement requirement, which is
+        # the satisfied-quorum state — not needs_model_review_quorum).
+        pr = _make_pr(files=["aragora/security/encryption.py"])
+        pr["comments"] = [
+            _family_dogfood_comment("Claude"),
+            _model_review_comment("Claude"),
+            _model_review_comment("Grok"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/security/encryption.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 3
+        assert quorum["counted_reviewer_ids"] == ["claude", "grok"]
+        # Quorum is satisfied: no "incomplete" / "Western-only" reasons remain.
+        assert quorum["status"] == "human_risk_settlement_required"
+        assert quorum["requires_human_risk_settlement"] is True
+        assert not any("signal(s)" in reason for reason in quorum["reasons"])
+        assert not any("Western-only counted quorum" in reason for reason in quorum["reasons"])
+
+    def test_tier_two_no_western_family_fails_quorum_flag_off(self, monkeypatch) -> None:
+        # Tier 2, tiered relaxation OFF: deepseek + qwen are two distinct families
+        # but neither is Western, so the at-least-one-Western rule blocks the merge.
+        monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["comments"] = [
+            _family_dogfood_comment("DeepSeek"),
+            _model_review_comment("DeepSeek"),
+            _model_review_comment("Qwen"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 2
+        assert quorum["counted_reviewer_ids"] == ["deepseek", "qwen"]
+        assert quorum["status"] == "needs_model_review_quorum"
+        assert quorum["admin_squash_allowed"] is False
+        assert any(
+            "at least one counted model signal must be from a Western family" in reason
+            for reason in quorum["reasons"]
+        )
+
+    def test_tier_two_one_western_family_satisfies_quorum_flag_off(self, monkeypatch) -> None:
+        # Tier 2, tiered relaxation OFF: claude + deepseek. Two distinct families
+        # and ≥1 Western (claude), so the quorum is satisfied. deepseek counts
+        # toward the 2-distinct bar at Tier 2 (Western-only counting is Tier 3-4).
+        monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["comments"] = [
+            _family_dogfood_comment("Claude"),
+            _model_review_comment("Claude"),
+            _model_review_comment("DeepSeek"),
+        ]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 2
+        assert quorum["counted_reviewer_ids"] == ["claude", "deepseek"]
+        assert quorum["status"] == "satisfied"
+        assert quorum["admin_squash_allowed"] is True
+        assert not any("Western family" in reason for reason in quorum["reasons"])
 
     def test_human_risk_settlement_does_not_clear_unresolved_dissent(self) -> None:
         pr = _make_pr(files=["aragora/reputation/store.py"])
@@ -7023,6 +7158,11 @@ def test_tier_requirement_matches_shared_rule(monkeypatch):
             rule = tier_quorum_rule(tier, tiered_gate=(flag == "1"))
             assert req["required_model_signals"] == rule.required_signals, (tier, flag)
             assert req["requires_western_frontier_signal"] == rule.requires_western_frontier, (
+                tier,
+                flag,
+            )
+            assert req["western_only_counted"] == rule.western_only_counted, (tier, flag)
+            assert req["requires_at_least_one_western"] == rule.requires_at_least_one_western, (
                 tier,
                 flag,
             )
