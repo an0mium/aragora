@@ -489,7 +489,7 @@ def _residual_paths(path: Path, *, limit: int = 50) -> list[str]:
     if not _path_still_exists(path):
         return []
     if path.is_file() or path.is_symlink():
-        return ["."]
+        return [path.name]
     residuals: list[str] = []
     pending = [path]
     while pending:
@@ -581,6 +581,9 @@ def remove_worktree(
             result["status"] = "remove_failed"
             result["git_remove_failed"] = True
             result["stderr"] = proc.stderr.strip()
+            result["recovery_action"] = (
+                "git worktree remove failed; rerun inspect before retrying cleanup"
+            )
             if not purge_path:
                 return result
         else:

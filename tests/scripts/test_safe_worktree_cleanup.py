@@ -489,9 +489,60 @@ def test_failed_git_remove_and_failed_purge_preserve_both_signals(
     assert result["status"] == "remove_failed_purge_incomplete"
     assert result["git_remove_failed"] is True
     assert result["stderr"] == "Directory not empty"
+    assert "not fully removed" in result["recovery_action"]
     assert result["removed"] is False
     assert result["path_purged"] is False
     assert result["residual_paths"] == ["leftover.txt"]
+
+
+def test_failed_git_remove_without_purge_has_recovery_action(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-residue"
+    worktree.mkdir()
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=255,
+            stdout="",
+            stderr="Directory not empty",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=False,
+        force=False,
+    )
+
+    assert result["status"] == "remove_failed"
+    assert result["git_remove_failed"] is True
+    assert "rerun inspect" in result["recovery_action"]
 
 
 def test_cmd_remove_reports_failed_git_remove_even_after_path_purge(
@@ -787,6 +838,15 @@ def test_residual_paths_are_bounded_without_rglob(
 
     assert len(residuals) == 51
     assert residuals[-1] == "..."
+
+
+def test_residual_paths_name_file_targets(tmp_path: Path) -> None:
+    import safe_worktree_cleanup as mod
+
+    residue = tmp_path / "leftover.log"
+    residue.write_text("residue\n")
+
+    assert mod._residual_paths(residue) == ["leftover.log"]
 
 
 def test_remove_deletes_branch_when_requested(
