@@ -191,11 +191,12 @@ legacy direct apply (`auto_evidence_cycle.py --apply`) unless an explicit overri
 it does not claim to finish the prepared-apply stability gate. Today some prepared-apply
 clauses are enforced by discipline + review, not yet by tooling — e.g. the apply path
 (`apply_prepared_evidence`) currently re-verifies head + tier but not the live `mergeable` /
-`mergeStateStatus` / draft / required-check state, and the evidence-lint blocks `[P0]` /
-`[P1]` but not `[P2]`. Until the lint path rejects `[P2]` itself, a helper `would_count=true`
-result is insufficient by itself: the conductor must scan the exact prepared comment body for
-CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` markers immediately before posting and treat any
-hit as dissent. Closing those remaining gaps is the job of the `collect_quorum_evidence`
+`mergeStateStatus` / draft / required-check state. Evidence-lint treats concrete `[P0]`,
+`[P1]`, and `[P2]` findings as blocking while preserving explicit non-finding heads such as
+`[P2] None:`. A helper `would_count=true` result is still insufficient by itself: the
+conductor must scan the exact prepared comment body for CHANGES-REQUESTED / `[P0]` / `[P1]` /
+`[P2]` markers immediately before posting and treat any hit as dissent. Closing the remaining
+prepared-apply live-state gaps is the job of the `collect_quorum_evidence`
 settlement-stability gate follow-up; until then, prepared evidence posting is manual
 exact-head operator work, not unattended conductor automation.
 
