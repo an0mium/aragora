@@ -1115,6 +1115,89 @@ def test_collect_overall_timeout_terminates_slow_reviewer(tmp_path, monkeypatch)
     assert os.environ.get(qe._REVIEWER_TIMEOUT_ENV) is None
 
 
+def test_collect_overall_timeout_path_preserves_infra_retry(tmp_path, monkeypatch) -> None:
+    fakes, _ = _fakes(tier=0)
+    attempts_file = tmp_path / "attempts.txt"
+    monkeypatch.setenv(qe._REVIEWER_INFRA_RETRIES_ENV, "1")
+
+    def flaky_runner(family: str, prompt: str) -> ReviewerResult:
+        attempts = attempts_file.read_text(encoding="utf-8") if attempts_file.exists() else ""
+        attempts_file.write_text(attempts + family + "\n", encoding="utf-8")
+        if family == "grok" and "grok" not in attempts:
+            return ReviewerResult(family, "", False, "transient cli timeout")
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = flaky_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=False,
+        overall_timeout=5.0,
+        **fakes,
+    )
+
+    assert outcome.orchestration_timed_out is False
+    assert [item.family for item in outcome.items] == ["claude", "grok"]
+    assert attempts_file.read_text(encoding="utf-8").count("grok\n") == 2
+
+
+def test_collect_overall_timeout_fails_closed_without_fork(monkeypatch) -> None:
+    fakes, _ = _fakes(tier=0)
+    called: list[str] = []
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["spawn"])
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        called.append(family)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=False,
+        overall_timeout=5.0,
+        **fakes,
+    )
+
+    assert called == []
+    assert outcome.orchestration_timed_out is True
+    assert outcome.timed_out_families == ["claude", "grok"]
+    assert outcome.items == []
+    assert [failure.family for failure in outcome.failures] == ["claude", "grok"]
+    assert all("fork-capable runtime" in failure.error for failure in outcome.failures)
+
+
+def test_collect_overall_timeout_process_path_runs_queued_reviewers(tmp_path, monkeypatch) -> None:
+    fakes, _ = _fakes(tier=2)
+    calls_file = tmp_path / "calls.txt"
+    monkeypatch.setattr(qe, "_MAX_REVIEWER_WORKERS", 1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        previous = calls_file.read_text(encoding="utf-8") if calls_file.exists() else ""
+        calls_file.write_text(previous + family + "\n", encoding="utf-8")
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok", "openai"],
+        author="me",
+        apply=False,
+        overall_timeout=5.0,
+        **fakes,
+    )
+
+    assert outcome.orchestration_timed_out is False
+    assert calls_file.read_text(encoding="utf-8").splitlines() == ["claude", "grok", "openai"]
+    assert [item.family for item in outcome.items] == ["claude", "grok", "openai"]
+    assert outcome.failures == []
+
+
 def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
     fakes, posted = _fakes(tier=1)
     calls: list[tuple[str, int, int]] = []

@@ -37,6 +37,7 @@ import os
 import queue
 import re
 import secrets
+import signal
 import subprocess
 import tempfile
 import time
@@ -329,10 +330,45 @@ def _reviewer_process_entry(
     prompt: str,
 ) -> None:
     try:
-        result = _run_reviewer_with_infra_retry(runner, family, prompt, retries=0)
+        if hasattr(os, "setsid"):
+            os.setsid()
+        result = _run_reviewer_with_infra_retry(runner, family, prompt)
     except Exception as exc:  # noqa: BLE001 - child failures become reviewer failures.
         result = ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
     result_queue.put(result)
+
+
+def _terminate_reviewer_process(process: Any) -> None:
+    """Terminate a reviewer process, preferring its process group when isolated."""
+    if not process.is_alive():
+        process.join(timeout=0)
+        return
+    pgid: int | None = None
+    if hasattr(os, "getpgid") and hasattr(os, "killpg"):
+        try:
+            candidate = os.getpgid(process.pid)
+        except OSError:
+            candidate = None
+        if candidate == process.pid:
+            pgid = candidate
+    if pgid is not None:
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+        except OSError:
+            pass
+    else:
+        process.terminate()
+    process.join(timeout=_REVIEWER_CLEANUP_TIMEOUT)
+    if not process.is_alive():
+        return
+    if pgid is not None:
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except OSError:
+            pass
+    else:
+        process.kill()
+    process.join(timeout=_REVIEWER_CLEANUP_TIMEOUT)
 
 
 def _run_reviewers_with_process_timeout(
@@ -344,34 +380,52 @@ def _run_reviewers_with_process_timeout(
 ) -> tuple[dict[str, ReviewerResult], list[str]]:
     """Run reviewers in killable child processes for hard overall deadlines."""
     start_methods = multiprocessing.get_all_start_methods()
-    ctx = multiprocessing.get_context("fork" if "fork" in start_methods else None)
+    if "fork" not in start_methods:
+        message = (
+            "overall-timeout process isolation requires a fork-capable runtime; "
+            "no reviewers were run"
+        )
+        return (
+            {family: ReviewerResult(family, "", False, message) for family in families},
+            list(families),
+        )
+    ctx = multiprocessing.get_context("fork")
     result_queue = ctx.Queue()
     processes: dict[str, Any] = {}
-    for family in families:
-        process = ctx.Process(
-            target=_reviewer_process_entry,
-            args=(result_queue, reviewer_runner, family, prompt),
-            daemon=True,
-        )
-        process.start()
-        processes[family] = process
-
-    deadline = time.monotonic() + overall_timeout
-    pending = set(families)
+    queued = list(families)
+    max_workers = min(len(queued), _MAX_REVIEWER_WORKERS)
     reviews: dict[str, ReviewerResult] = {}
-    while pending:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            break
-        try:
-            result = result_queue.get(timeout=min(remaining, 0.1))
-        except queue.Empty:
-            result = None
-        if result is not None:
-            reviews[result.family] = result
-            pending.discard(result.family)
-        for family in list(pending):
-            process = processes[family]
+
+    def launch_ready() -> None:
+        while queued and len(processes) < max_workers:
+            family = queued.pop(0)
+            process = ctx.Process(
+                target=_reviewer_process_entry,
+                args=(result_queue, reviewer_runner, family, prompt),
+                daemon=True,
+            )
+            process.start()
+            processes[family] = process
+
+    def record_result(result: ReviewerResult) -> None:
+        reviews[result.family] = result
+        process = processes.pop(result.family, None)
+        if process is not None:
+            process.join(timeout=0)
+
+    def drain_results() -> None:
+        while True:
+            try:
+                result = result_queue.get_nowait()
+            except queue.Empty:
+                break
+            record_result(result)
+
+    launch_ready()
+    deadline = time.monotonic() + overall_timeout
+    while processes or queued:
+        drain_results()
+        for family, process in list(processes.items()):
             if process.exitcode is not None:
                 process.join(timeout=0)
                 reviews.setdefault(
@@ -383,23 +437,53 @@ def _run_reviewers_with_process_timeout(
                         f"reviewer process exited with code {process.exitcode} without result",
                     ),
                 )
-                pending.discard(family)
+                processes.pop(family, None)
+        launch_ready()
+        if not processes and not queued:
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        try:
+            result = result_queue.get(timeout=min(remaining, 0.1))
+        except queue.Empty:
+            continue
+        record_result(result)
 
-    timed_out = [family for family in families if family in pending]
+    # A result may have been enqueued just before the deadline. Drain once more
+    # before classifying anything as timed out so finished reviewers are not
+    # reported as missing.
+    drain_results()
+    for family, process in list(processes.items()):
+        if process.exitcode is not None:
+            process.join(timeout=0)
+            reviews.setdefault(
+                family,
+                ReviewerResult(
+                    family,
+                    "",
+                    False,
+                    f"reviewer process exited with code {process.exitcode} without result",
+                ),
+            )
+            processes.pop(family, None)
+
+    timed_out = list(processes) + queued
     timeout_text = _format_seconds(overall_timeout)
-    for family in timed_out:
-        process = processes[family]
-        if process.is_alive():
-            process.terminate()
-            process.join(timeout=_REVIEWER_CLEANUP_TIMEOUT)
-        if process.is_alive():
-            process.kill()
-            process.join(timeout=_REVIEWER_CLEANUP_TIMEOUT)
+    for family, process in list(processes.items()):
+        _terminate_reviewer_process(process)
         reviews[family] = ReviewerResult(
             family,
             "",
             False,
             f"overall collect-evidence timeout after {timeout_text}s",
+        )
+    for family in queued:
+        reviews[family] = ReviewerResult(
+            family,
+            "",
+            False,
+            f"overall collect-evidence timeout before reviewer started after {timeout_text}s",
         )
 
     for process in processes.values():
