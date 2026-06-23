@@ -156,7 +156,7 @@ pip install "/opt/aragora/src[gateway,enterprise,connectors]"
 # Verify installation
 echo ""
 echo "Installed packages:"
-pip list | grep -E "^(aragora-debate|fastapi|uvicorn|aiohttp|pydantic)"
+pip list | grep -E "^(aragora|fastapi|uvicorn|aiohttp|pydantic)"
 
 chown -R aragora:aragora /opt/aragora /var/log/aragora /etc/aragora
 
@@ -325,7 +325,7 @@ echo "  nginx: $(nginx -v 2>&1)"
 echo ""
 echo "Aragora Installation:"
 source /opt/aragora/venv/bin/activate
-echo "  Version: $(pip show aragora-debate 2>/dev/null | grep Version || echo 'installed')"
+echo "  Version: $(pip show aragora 2>/dev/null | grep Version || echo 'installed')"
 echo "  Location: /opt/aragora/venv"
 echo ""
 echo "Next Steps:"
