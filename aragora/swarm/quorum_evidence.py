@@ -322,6 +322,93 @@ def _run_reviewer_with_infra_retry(
     return result
 
 
+def _reviewer_process_entry(
+    result_queue: Any,
+    runner: Callable[[str, str], ReviewerResult],
+    family: str,
+    prompt: str,
+) -> None:
+    try:
+        result = _run_reviewer_with_infra_retry(runner, family, prompt, retries=0)
+    except Exception as exc:  # noqa: BLE001 - child failures become reviewer failures.
+        result = ReviewerResult(family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}")
+    result_queue.put(result)
+
+
+def _run_reviewers_with_process_timeout(
+    *,
+    families: Sequence[str],
+    prompt: str,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+    overall_timeout: float,
+) -> tuple[dict[str, ReviewerResult], list[str]]:
+    """Run reviewers in killable child processes for hard overall deadlines."""
+    start_methods = multiprocessing.get_all_start_methods()
+    ctx = multiprocessing.get_context("fork" if "fork" in start_methods else None)
+    result_queue = ctx.Queue()
+    processes: dict[str, multiprocessing.Process] = {}
+    for family in families:
+        process = ctx.Process(
+            target=_reviewer_process_entry,
+            args=(result_queue, reviewer_runner, family, prompt),
+            daemon=True,
+        )
+        process.start()
+        processes[family] = process
+
+    deadline = time.monotonic() + overall_timeout
+    pending = set(families)
+    reviews: dict[str, ReviewerResult] = {}
+    while pending:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        try:
+            result = result_queue.get(timeout=min(remaining, 0.1))
+        except queue.Empty:
+            result = None
+        if result is not None:
+            reviews[result.family] = result
+            pending.discard(result.family)
+        for family in list(pending):
+            process = processes[family]
+            if process.exitcode is not None:
+                process.join(timeout=0)
+                reviews.setdefault(
+                    family,
+                    ReviewerResult(
+                        family,
+                        "",
+                        False,
+                        f"reviewer process exited with code {process.exitcode} without result",
+                    ),
+                )
+                pending.discard(family)
+
+    timed_out = [family for family in families if family in pending]
+    timeout_text = _format_seconds(overall_timeout)
+    for family in timed_out:
+        process = processes[family]
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=_REVIEWER_CLEANUP_TIMEOUT)
+        if process.is_alive():
+            process.kill()
+            process.join(timeout=_REVIEWER_CLEANUP_TIMEOUT)
+        reviews[family] = ReviewerResult(
+            family,
+            "",
+            False,
+            f"overall collect-evidence timeout after {timeout_text}s",
+        )
+
+    for process in processes.values():
+        process.join(timeout=0)
+    result_queue.close()
+    result_queue.join_thread()
+    return reviews, timed_out
+
+
 def _cap_text(text: str) -> str:
     text = text.strip()
     if len(text) > _MAX_REVIEWER_CHARS:
@@ -432,6 +519,8 @@ class CollectOutcome:
         otherwise needs two distinct families incl. ≥1 Western; Tier 3-4 (and any
         unknown/None tier, fail-safe) need two distinct WESTERN families.
         """
+        if self.orchestration_timed_out:
+            return False
         rule = tier_quorum_rule(self.tier, tiered_gate=self.tiered_gate)
         return rule.is_satisfied_by(self.supportive_families)
 
@@ -443,6 +532,12 @@ class CollectOutcome:
         (western-frontier / Western-only / at-least-one-Western / signal count)
         rather than a misleading ``(n/2)`` distinct-family denominator.
         """
+        if self.orchestration_timed_out:
+            timed_out = ", ".join(self.timed_out_families) or "unknown"
+            return (
+                f"collect-evidence timed out before all reviewers completed "
+                f"({timed_out}); prepared evidence only"
+            )
         rule = tier_quorum_rule(self.tier, tiered_gate=self.tiered_gate)
         supportive = {str(f).strip().lower() for f in self.supportive_families}
         counted = rule.counted_families(supportive)
@@ -1747,46 +1842,36 @@ def collect_evidence(
     supported = [family for family in ordered_families if family in FAMILY_PROVIDERS]
     reviews: dict[str, ReviewerResult] = {}
     if supported:
-        max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
         with _scoped_reviewer_timeout_env(reviewer_timeout):
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-                future_to_family = {
-                    pool.submit(
-                        _run_reviewer_with_infra_retry, reviewer_runner, family, prompt
-                    ): family
-                    for family in supported
-                }
-                done, pending = concurrent.futures.wait(
-                    future_to_family,
-                    timeout=overall_timeout,
-                    return_when=concurrent.futures.ALL_COMPLETED,
+            if overall_timeout is not None:
+                reviews, timed_out = _run_reviewers_with_process_timeout(
+                    families=supported,
+                    prompt=prompt,
+                    reviewer_runner=reviewer_runner,
+                    overall_timeout=overall_timeout,
                 )
-                for future in done:
-                    family = future_to_family[future]
-                    try:
-                        reviews[family] = future.result()
-                    except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
-                        reviews[family] = ReviewerResult(
-                            family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
-                        )
-                if pending:
+                if timed_out:
                     outcome.orchestration_timed_out = True
-                    timed_out = [
-                        family
-                        for family in ordered_families
-                        if any(future_to_family[future] == family for future in pending)
+                    outcome.timed_out_families = [
+                        family for family in ordered_families if family in set(timed_out)
                     ]
-                    outcome.timed_out_families = timed_out
-                    timeout_text = _format_seconds(overall_timeout or 0)
-                    for future in pending:
-                        future.cancel()
+            else:
+                max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+                    future_to_family = {
+                        pool.submit(
+                            _run_reviewer_with_infra_retry, reviewer_runner, family, prompt
+                        ): family
+                        for family in supported
+                    }
+                    for future in concurrent.futures.as_completed(future_to_family):
                         family = future_to_family[future]
-                        reviews[family] = ReviewerResult(
-                            family,
-                            "",
-                            False,
-                            f"overall collect-evidence timeout after {timeout_text}s",
-                        )
+                        try:
+                            reviews[family] = future.result()
+                        except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
+                            reviews[family] = ReviewerResult(
+                                family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                            )
 
     for family in ordered_families:
         if family not in FAMILY_PROVIDERS:
@@ -2148,6 +2233,9 @@ def _render_outcome(outcome: CollectOutcome) -> str:
         lines.append(f"  posted: {', '.join(outcome.posted)}")
     if outcome.post_errors:
         lines.append(f"  post errors: {'; '.join(outcome.post_errors)}")
+    if outcome.orchestration_timed_out:
+        timed_out = ", ".join(outcome.timed_out_families) or "unknown"
+        lines.append(f"  orchestration timeout: {timed_out}")
     if outcome.quorum_rerun:
         rerun = outcome.quorum_rerun
         action = "applied" if rerun.get("applied") else "not applied"
@@ -2183,11 +2271,12 @@ def run_collect_cli(
 ) -> int:
     """Shared entry point for the script and ``review-queue collect-evidence``.
 
-    Returns 0 when >=2 reviewers produced counting evidence, else 1. Note that a
-    non-zero exit does not imply nothing was posted: with ``--apply`` on a
-    low-tier PR a single genuine reviewer can post one counting comment and still
-    return 1 (quorum is enforced as N-of-M elsewhere). Inspect ``posted_families``
-    in the JSON output rather than treating exit-code 1 as "nothing posted".
+    Returns 0 when the completed reviewers satisfy quorum and no orchestration
+    timeout occurred, else 1. Note that a non-zero exit does not imply nothing was
+    posted: with ``--apply`` on a low-tier PR a single genuine reviewer can post one
+    counting comment and still return 1 (quorum is enforced as N-of-M elsewhere).
+    Inspect ``posted_families`` and ``orchestration_timed_out`` in JSON output rather
+    than treating exit-code 1 as "nothing posted".
     """
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()

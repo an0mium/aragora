@@ -1080,21 +1080,22 @@ def test_collect_overall_timeout_fails_closed_without_partial_post() -> None:
     assert outcome.to_dict()["timed_out_families"] == ["grok"]
 
 
-def test_collect_overall_timeout_waits_for_bounded_reviewer_before_env_restore(
-    monkeypatch,
-) -> None:
+def test_collect_overall_timeout_terminates_slow_reviewer(tmp_path, monkeypatch) -> None:
     fakes, _ = _fakes(tier=0)
-    runner_done = threading.Event()
+    started = tmp_path / "started"
+    finished = tmp_path / "finished"
     monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
 
     def slow_runner(family: str, prompt: str) -> ReviewerResult:
         if family == "grok":
             assert os.environ.get(qe._REVIEWER_TIMEOUT_ENV) == "0.05"
-            time.sleep(0.2)
-            runner_done.set()
+            started.write_text("yes", encoding="utf-8")
+            time.sleep(2.0)
+            finished.write_text("yes", encoding="utf-8")
         return ReviewerResult(family, f"Verdict: PASS from {family}", True)
 
     fakes["reviewer_runner"] = slow_runner
+    started_at = time.monotonic()
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
@@ -1104,9 +1105,13 @@ def test_collect_overall_timeout_waits_for_bounded_reviewer_before_env_restore(
         overall_timeout=0.05,
         **fakes,
     )
+    elapsed = time.monotonic() - started_at
 
     assert outcome.orchestration_timed_out is True
-    assert runner_done.is_set()
+    assert elapsed < 1.0
+    assert started.exists()
+    time.sleep(0.1)
+    assert not finished.exists()
     assert os.environ.get(qe._REVIEWER_TIMEOUT_ENV) is None
 
 
@@ -1870,7 +1875,7 @@ def test_apply_prepared_evidence_refuses_timed_out_artifact(tmp_path) -> None:
     assert applied.orchestration_timed_out is True
     assert applied.timed_out_families == ["grok"]
     assert "timed out" in applied.action_reason
-    assert applied.has_supportive_quorum is True
+    assert applied.has_supportive_quorum is False
     assert applied.posted == []
     assert posted == []
 
