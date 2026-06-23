@@ -236,9 +236,14 @@ def check_outbox_drain_progress(
     making no *external* progress — the molasses failure mode in
     ``docs/AGENT_OPERATING_CONTRACT.md`` §Conductor (observed June 2026: an outbox
     stuck at its ceiling for ~9 days while the loop only re-messaged stale lanes).
-    When the live outbox is at/above ``min_floor`` and the last ``stall_cycles``
-    ledger entries show a non-decreasing depth, breach so the loop halts and
-    escalates to the operator instead of mailing more dead letters.
+
+    Best-effort stall heuristic: breaches when the outbox has stayed at/above the
+    alert floor (``min_floor``) across the ``stall_cycles`` window AND is not
+    currently improving (current depth ≥ the most-recent prior reading). It is a
+    coarse no-progress signal for a non-gating diagnostic, not a precise drain
+    detector — a brief sawtooth can evade it; that is acceptable for a
+    circuit-breaker hint. On breach the loop should halt and escalate to the
+    operator instead of mailing more dead letters.
     """
     name = "outbox_drain_progress"
     current = sum(1 for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else 0
