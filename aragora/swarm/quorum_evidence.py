@@ -663,6 +663,57 @@ def _reviewer_verdict(text: str) -> str:
     return "unknown"
 
 
+_NON_REVIEW_OUTPUT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "background_task_chatter",
+        re.compile(
+            r"(?im)(<message\[system\]>|background task [0-9a-f-]+/task-\d+ "
+            r"completed with exit code|^\s*output:\s*$)"
+        ),
+    ),
+    (
+        "tool_planning_chatter",
+        re.compile(
+            r"(?im)\b(?:i(?:'|’)?ll|i will|let me|i need to|i am going to|"
+            r"i'm going to)\s+(?:inspect|check|run|fetch|look|open|read|retrieve|"
+            r"use|call|search|verify)\b"
+        ),
+    ),
+)
+
+
+def _evidence_quality_problems(text: str, *, verdict: str | None = None) -> list[str]:
+    """Reject wrapper/planning output that evidence-lint can mistake for a review."""
+    parsed = verdict or _reviewer_verdict(text)
+    problems: list[str] = []
+    if parsed == "unknown":
+        problems.append("missing_reviewer_verdict")
+    for problem, pattern in _NON_REVIEW_OUTPUT_PATTERNS:
+        if pattern.search(text):
+            problems.append(problem)
+    return problems
+
+
+def _apply_evidence_quality_gate(
+    *,
+    would_count: bool,
+    problems: Sequence[str],
+    body: str,
+    verdict: str,
+) -> tuple[bool, list[str]]:
+    """Layer collector-owned review validation on top of evidence-lint identity checks."""
+    next_problems = list(problems)
+    quality_problems = _evidence_quality_problems(body, verdict=verdict)
+    if quality_problems:
+        would_count = False
+        seen = set(next_problems)
+        for problem in quality_problems:
+            if problem not in seen:
+                next_problems.append(problem)
+                seen.add(problem)
+    return would_count, next_problems
+
+
 # ---------------------------------------------------------------------------
 # Reviewer-output normalization
 #
@@ -1758,14 +1809,21 @@ def collect_evidence(
             harness=result.harness,
         )
         lint = linter(pr, head_sha, head_committed_at, author, body, env or {})
+        verdict = _reviewer_verdict(body)
+        would_count, problems = _apply_evidence_quality_gate(
+            would_count=bool(lint.get("would_count")),
+            problems=list(lint.get("problems") or []),
+            body=body,
+            verdict=verdict,
+        )
         outcome.items.append(
             EvidenceItem(
                 family=family,
                 body=body,
-                would_count=bool(lint.get("would_count")),
-                verdict=_reviewer_verdict(result.text),
+                would_count=would_count,
+                verdict=verdict,
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
-                problems=list(lint.get("problems") or []),
+                problems=problems,
             )
         )
 
@@ -1979,6 +2037,13 @@ def apply_prepared_evidence(
             problems.append(
                 f"fresh lint counted reviewer ids do not include prepared family: {item.family}"
             )
+        verdict = _reviewer_verdict(item.body)
+        would_count, problems = _apply_evidence_quality_gate(
+            would_count=would_count,
+            problems=problems,
+            body=item.body,
+            verdict=verdict,
+        )
         relinted_items.append(
             EvidenceItem(
                 family=item.family,
@@ -1986,7 +2051,7 @@ def apply_prepared_evidence(
                 would_count=would_count,
                 counted_reviewer_ids=counted_reviewer_ids,
                 problems=problems,
-                verdict=_reviewer_verdict(item.body),
+                verdict=verdict,
             )
         )
     outcome.items = relinted_items

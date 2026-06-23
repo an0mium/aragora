@@ -1406,6 +1406,74 @@ def test_collect_never_fabricates_on_reviewer_failure() -> None:
     assert posted == []
 
 
+def _gemini_background_task_body() -> str:
+    return """## Gemini independent model review
+
+Reviewer: gemini (google) — independent adversarial model review via Antigravity CLI harness, grounded on the exact PR head.
+Head: 0545f42 (0545f42b088d24d0ebb49169cac6543784df8d2e), committed 2026-06-23T14:42:51Z.
+PR: #8382.
+Model family: gemini
+
+<message[SYSTEM]>
+Background task 113f8fe5-993c-4a01-905a-fc12ef10ef6a/task-18 completed with exit code 0.
+Output:
+  remotes/origin/preflight/20260623-153406
+  remotes/origin/worktree-agent-0545f42a
+
+dogfood: yes
+"""
+
+
+def test_collect_rejects_gemini_background_task_chatter_even_when_lint_counts() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        return ReviewerResult(
+            family,
+            """<message[SYSTEM]>
+Background task 113f8fe5-993c-4a01-905a-fc12ef10ef6a/task-18 completed with exit code 0.
+Output:
+  remotes/origin/preflight/20260623-153406
+  remotes/origin/worktree-agent-0545f42a
+""",
+            True,
+            harness="Antigravity CLI harness",
+        )
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["gemini"], author="me", apply=True, **fakes
+    )
+
+    assert outcome.action == "prepare"
+    assert outcome.counting_families == []
+    assert outcome.supportive_families == []
+    assert outcome.posted == []
+    assert posted == []
+    assert len(outcome.items) == 1
+    item = outcome.items[0]
+    assert item.family == "gemini"
+    assert item.verdict == "unknown"
+    assert item.would_count is False
+    assert "missing_reviewer_verdict" in item.problems
+    assert "background_task_chatter" in item.problems
+
+
+def test_evidence_quality_gate_rejects_tool_planning_chatter_with_pass_verdict() -> None:
+    body = "Verdict: PASS\n\nI will inspect the diff and then report findings."
+    verdict = qe._reviewer_verdict(body)
+    would_count, problems = qe._apply_evidence_quality_gate(
+        would_count=True,
+        problems=[],
+        body=body,
+        verdict=verdict,
+    )
+
+    assert verdict == "pass"
+    assert would_count is False
+    assert problems == ["tool_planning_chatter"]
+
+
 def test_collect_does_not_post_uncountable_evidence() -> None:
     fakes, posted = _fakes(tier=1, would_count=False)
     outcome = collect_evidence(
@@ -1930,6 +1998,53 @@ def test_apply_prepared_evidence_rederives_verdict_from_body(tmp_path) -> None:
     assert "reviewer dissent present" in outcome.action_reason
     assert outcome.posted == []
     assert posted == []
+
+
+def test_apply_prepared_evidence_rejects_background_task_chatter_even_when_lint_counts(
+    tmp_path,
+) -> None:
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem(
+                "gemini",
+                _gemini_background_task_body(),
+                True,
+                ["gemini"],
+                [],
+                "unknown",
+            )
+        ],
+    )
+    posted: list[tuple[str, str]] = []
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["gemini"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=lambda *args, **kwargs: {
+            "would_count": True,
+            "counted_reviewer_ids": ["gemini"],
+            "problems": [],
+        },
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+    )
+
+    assert outcome.action == "prepare"
+    assert outcome.counting_families == []
+    assert outcome.supportive_families == []
+    assert outcome.posted == []
+    assert posted == []
+    item = outcome.items[0]
+    assert item.verdict == "unknown"
+    assert item.would_count is False
+    assert "missing_reviewer_verdict" in item.problems
+    assert "background_task_chatter" in item.problems
 
 
 def test_apply_prepared_evidence_uses_fresh_lint_counting(tmp_path) -> None:
