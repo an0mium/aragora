@@ -377,6 +377,39 @@ def test_real_dissent_is_not_overridden_by_quoted_or_code_pass_verdicts() -> Non
     assert out == raw
 
 
+def test_real_dissent_is_not_overridden_by_indented_code_pass_verdict() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P1] real finding\n\n"
+        "    Example output:\n"
+        "    Verdict: PASS\n"
+        "    No findings."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == raw
+
+
+def test_indented_code_pass_verdict_before_real_dissent_is_ignored() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Example output:\n"
+        "    Verdict: PASS\n"
+        "    No findings.\n\n"
+        "Actual review:\n"
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P1] real finding"
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == "Verdict: CHANGES-REQUESTED\n- [P1] real finding"
+
+
 def test_list_marker_verdict_reanchors_and_counts() -> None:
     from aragora.cli.commands.review_queue import _lint_evidence_comment
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
@@ -1877,6 +1910,7 @@ def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
         ("intro preamble line\nVerdict: PASS\n- note", "pass"),
         ("`Verdict: pass`", "pass"),
         ("1. Verdict: PASS", "pass"),
+        ("    Verdict: PASS", "unknown"),
         ("no verdict at all here", "unknown"),
     ],
 )

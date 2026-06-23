@@ -641,6 +641,13 @@ def _neutralize_reviewer_text(text: str) -> str:
     return "\n".join(out)
 
 
+_INDENTED_CODE_RE = re.compile(r"^(?: {4,}|\t)\S")
+
+
+def _is_markdown_indented_code_line(line: str) -> bool:
+    return bool(_INDENTED_CODE_RE.match(line.rstrip("\r\n")))
+
+
 def _reviewer_verdict(text: str) -> str:
     """Parse the first reviewer verdict line without inventing support.
 
@@ -651,7 +658,7 @@ def _reviewer_verdict(text: str) -> str:
     """
     for line in text.splitlines():
         stripped = line.strip().lower()
-        if not stripped:
+        if not stripped or _is_markdown_indented_code_line(line):
             continue
         probe = stripped.lstrip("*#>-`0123456789.)\t ")
         if probe.startswith("verdict:"):
@@ -703,7 +710,7 @@ def _strip_closed_thinking_blocks(text: str) -> str:
 
 def _trusted_verdict_probe(line: str) -> str:
     stripped = line.strip()
-    if not stripped or stripped.startswith((">", "`")):
+    if not stripped or stripped.startswith((">", "`")) or _is_markdown_indented_code_line(line):
         return ""
     probe = stripped.lstrip("*#-0123456789.)\t ")
     return probe.strip("*_ ").lower()
