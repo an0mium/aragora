@@ -1100,6 +1100,38 @@ def test_collect_low_tier_apply_prepares_only_when_reviewer_dissents() -> None:
     assert outcome.quorum_rerun is None
 
 
+def test_collect_severity_gated_p2_only_dissent_is_advisory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "1")
+    fakes, posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\n- [P2] Add a follow-up smoke test.",
+                True,
+            )
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "openai", "grok"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert outcome.action == "post"
+    assert outcome.dissenting_families == []
+    assert sorted(outcome.supportive_families) == ["claude", "openai"]
+    assert sorted(outcome.posted) == ["claude", "openai"]
+    assert all("grok" not in body.lower() for _repo, body in posted)
+
+
 def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> None:
     # Tiered gate: a lone NON-western-frontier supportive (qwen) does NOT satisfy
     # Tier 1, so apply still prepares-only (no cheap-model-alone settlement).
@@ -1767,6 +1799,53 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
 
 
+def test_apply_prepared_severity_gate_uses_prepared_and_live_regime(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "0")
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="prepared",
+        items=[
+            EvidenceItem(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\n- [P2] advisory follow-up",
+                False,
+                [],
+                [],
+                "changes_requested",
+            )
+        ],
+        severity_gated_model_dissent=True,
+    )
+    path = tmp_path / "prepared.json"
+    path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+
+    result = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=path,
+        author="me",
+        apply=True,
+        families=["grok"],
+        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda r, p: 1,
+        linter=lambda *a, **k: {"would_count": False, "counted_reviewer_ids": [], "problems": []},
+        poster=lambda r, p, b: None,
+    )
+
+    assert result.severity_gated_model_dissent is False
+    assert result.dissenting_families == ["grok"]
+    assert result.action == "prepare"
+    assert "reviewer dissent" in result.action_reason
+
+
 def test_collect_outcome_tiered_gate_roundtrips() -> None:
     # The gate regime an artifact was prepared under must survive serialization so
     # the settlement bar cannot silently change between prepare and apply (#8507 P1).
@@ -1783,6 +1862,22 @@ def test_collect_outcome_tiered_gate_roundtrips() -> None:
         )
         assert outcome.to_dict()["tiered_gate"] is gate
         assert qe.collect_outcome_from_dict(outcome.to_dict()).tiered_gate is gate
+
+
+def test_collect_outcome_severity_gate_roundtrips() -> None:
+    for gate in (True, False):
+        outcome = CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="x",
+            severity_gated_model_dissent=gate,
+        )
+        assert outcome.to_dict()["severity_gated_model_dissent"] is gate
+        assert qe.collect_outcome_from_dict(outcome.to_dict()).severity_gated_model_dissent is gate
 
 
 def test_collect_outcome_missing_tiered_gate_fails_closed(monkeypatch) -> None:
@@ -1807,6 +1902,37 @@ def test_collect_outcome_missing_tiered_gate_fails_closed(monkeypatch) -> None:
 
     assert rehydrated.tiered_gate is False
     assert rehydrated.has_supportive_quorum is False
+
+
+def test_collect_outcome_missing_severity_gate_fails_closed(monkeypatch) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "1")
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="legacy",
+        items=[
+            EvidenceItem(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\n- [P2] advisory follow-up",
+                False,
+                [],
+                [],
+                "changes_requested",
+            )
+        ],
+        severity_gated_model_dissent=True,
+    )
+    data = outcome.to_dict()
+    data.pop("severity_gated_model_dissent")
+
+    rehydrated = qe.collect_outcome_from_dict(data)
+
+    assert rehydrated.severity_gated_model_dissent is False
+    assert rehydrated.dissenting_families == ["grok"]
 
 
 def _apply_single_wf(path, monkeypatch, *, flag: str, posted: list) -> "qe.CollectOutcome":

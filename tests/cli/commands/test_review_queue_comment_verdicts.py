@@ -15,7 +15,9 @@ block. Only an explicit no-finding *head* (the text before any colon being exact
 from __future__ import annotations
 
 from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_model_dissent,
     has_blocking_or_negative_verdict,
+    highest_finding_priority,
 )
 
 
@@ -86,3 +88,24 @@ def test_p0_real_finding_still_blocks():
 
 def test_negative_verdict_line_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: CHANGES-REQUESTED")
+
+
+def test_highest_finding_priority_ignores_no_finding_heads():
+    body = "- [P1] None: no blocker\n- [P2] test coverage follow-up"
+    assert highest_finding_priority(body) == "P2"
+
+
+def test_severity_gated_model_dissent_keeps_p2_changes_requested_advisory():
+    body = "Verdict: CHANGES-REQUESTED\n- [P2] Add stronger smoke coverage."
+    assert has_blocking_model_dissent(body, severity_gated=False)
+    assert not has_blocking_model_dissent(body, severity_gated=True)
+
+
+def test_severity_gated_model_dissent_blocks_p1_changes_requested():
+    body = "Verdict: CHANGES-REQUESTED\n- [P1] Merge gate can be bypassed."
+    assert has_blocking_model_dissent(body, severity_gated=True)
+
+
+def test_severity_gated_model_dissent_blocks_explicit_blockers_without_p_tag():
+    body = "Verdict: CHANGES-REQUESTED\nBlocking findings: merge gate can be bypassed."
+    assert has_blocking_model_dissent(body, severity_gated=True)

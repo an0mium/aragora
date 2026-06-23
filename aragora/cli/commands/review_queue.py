@@ -42,7 +42,10 @@ from aragora.cli.commands.review_queue_parsers import (
     add_record_settlement_parser,
 )
 from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_model_dissent as _has_blocking_model_dissent,
     has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
+    highest_finding_priority as _highest_finding_priority,
+    severity_gated_model_dissent_enabled as _severity_gated_model_dissent_enabled,
 )
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
@@ -4206,9 +4209,7 @@ def _dissenting_views_from_comments(
             continue
         body = str(comment.get("body", "") or "")
         lower = body.lower()
-        if not _has_blocking_or_negative_verdict(body) or not any(
-            token in lower for token in markers
-        ):
+        if not _has_blocking_model_dissent(body) or not any(token in lower for token in markers):
             continue
         identity = _resolve_model_review_identity(body)
         if identity.surface_reviewer_id == "unknown_model_reviewer":
@@ -4226,6 +4227,8 @@ def _dissenting_views_from_comments(
                 "reason": _first_nonempty_line(body)[:240],
                 "source": "pr_comment",
                 "github_author": github_author,
+                "highest_finding_priority": _highest_finding_priority(body),
+                "severity_gated_model_dissent": _severity_gated_model_dissent_enabled(),
                 **identity.as_packet_fields(),
             }
         )

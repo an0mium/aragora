@@ -47,6 +47,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_model_dissent,
+    severity_gated_model_dissent_enabled,
+)
 from aragora.swarm import merge_quorum_io
 
 logger = logging.getLogger(__name__)
@@ -374,7 +378,13 @@ class EvidenceItem:
 
     @property
     def dissenting(self) -> bool:
-        return self.verdict == "changes_requested"
+        return self.verdict == "changes_requested" and has_blocking_model_dissent(self.body)
+
+    def blocks_merge_dissent(self, *, severity_gated: bool) -> bool:
+        return self.verdict == "changes_requested" and has_blocking_model_dissent(
+            self.body,
+            severity_gated=severity_gated,
+        )
 
 
 @dataclass
@@ -395,6 +405,7 @@ class CollectOutcome:
     # access) so a security-relevant gate decision stays deterministic within a
     # single settlement flow even if the process env mutates mid-run.
     tiered_gate: bool = field(default_factory=tiered_merge_gate_enabled)
+    severity_gated_model_dissent: bool = field(default_factory=severity_gated_model_dissent_enabled)
 
     @property
     def counting_families(self) -> list[str]:
@@ -406,7 +417,13 @@ class CollectOutcome:
 
     @property
     def dissenting_families(self) -> list[str]:
-        return [item.family for item in self.items if item.dissenting]
+        return [
+            item.family
+            for item in self.items
+            if item.blocks_merge_dissent(
+                severity_gated=self.severity_gated_model_dissent,
+            )
+        ]
 
     @property
     def has_supportive_quorum(self) -> bool:
@@ -463,6 +480,7 @@ class CollectOutcome:
             "head_committed_at": self.head_committed_at,
             "tier": self.tier,
             "tiered_gate": self.tiered_gate,
+            "severity_gated_model_dissent": self.severity_gated_model_dissent,
             "policy_version": QUORUM_POLICY_VERSION,
             "action": self.action,
             "action_reason": self.action_reason,
@@ -552,7 +570,9 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
     # evidence then evaluates under min(prepared, live), so this strict default can
     # only ever tighten, never loosen, the bar.
     if "tiered_gate" in data:
-        gate_kwargs: dict[str, Any] = {"tiered_gate": bool(data.get("tiered_gate"))}
+        gate_kwargs: dict[str, Any] = {
+            "tiered_gate": bool(data.get("tiered_gate")),
+        }
     else:
         logger.debug(
             "prepared evidence artifact omits 'tiered_gate'; failing closed to "
@@ -561,6 +581,16 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
             pr,
         )
         gate_kwargs = {"tiered_gate": False}
+    if "severity_gated_model_dissent" in data:
+        gate_kwargs["severity_gated_model_dissent"] = bool(data.get("severity_gated_model_dissent"))
+    else:
+        logger.debug(
+            "prepared evidence artifact omits 'severity_gated_model_dissent'; "
+            "failing closed to strict dissent blocking (repo=%s pr=%s)",
+            repo,
+            pr,
+        )
+        gate_kwargs["severity_gated_model_dissent"] = False
     return CollectOutcome(
         repo=repo,
         pr=pr,
@@ -1913,11 +1943,13 @@ def apply_prepared_evidence(
     if not head_sha:
         raise ValueError(f"could not resolve head SHA for PR #{pr} in {repo}")
 
-    # Security: a prepared artifact carries the tiered-gate regime it was collected
+    # Security: a prepared artifact carries the relaxing gate regimes it was collected
     # under. Apply-time sufficiency is evaluated under the MORE RESTRICTIVE of the
     # prepare-time and live regimes (relaxation requires BOTH to permit it):
     #
     #     effective_tiered_gate = prepared.tiered_gate AND live_gate
+    #     effective_severity_gate =
+    #         prepared.severity_gated_model_dissent AND live_severity_gate
     #
     # This preserves both security directions without coupling merge-authority to a
     # mutable live-env *equality* check (grok #8507 P1 + claude #8507 P1):
@@ -1934,13 +1966,16 @@ def apply_prepared_evidence(
     # Artifact trust boundary (claude #8507 P2): a prepared artifact is trusted only
     # after it is matched to this repo/PR and to the LIVE exact-head SHA and then
     # re-linted against the same parser used before posting. The `min(prepared, live)`
-    # rule means a forged `tiered_gate=true` cannot relax a merge while the live flag
-    # is OFF; it can only assert relaxation when the operator has ALREADY enabled it
-    # live (itself the Tier-4-gated decision). Anyone who can forge the artifact JSON
-    # can also forge reviewer bodies, so artifact integrity is the caller's trust
-    # boundary — this field grants no authority beyond what the live flag already does.
+    # rule means a forged relaxation flag cannot relax a merge while the corresponding
+    # live flag is OFF; it can only assert relaxation when the operator has ALREADY
+    # enabled it live (itself the Tier-4-gated decision). Anyone who can forge the
+    # artifact JSON can also forge reviewer bodies, so artifact integrity is the caller's
+    # trust boundary — these fields grant no authority beyond what the live flags already
+    # do.
     live_gate = tiered_merge_gate_enabled()
     effective_tiered_gate = bool(prepared.tiered_gate) and live_gate
+    live_severity_gate = severity_gated_model_dissent_enabled()
+    effective_severity_gate = bool(prepared.severity_gated_model_dissent) and live_severity_gate
 
     tier = tier_fetcher(repo, pr)
     action, action_reason = decide_action(tier, apply)
@@ -1955,6 +1990,7 @@ def apply_prepared_evidence(
         items=_clone_prepared_items(prepared.items),
         failures=_clone_reviewer_failures(prepared.failures),
         tiered_gate=effective_tiered_gate,
+        severity_gated_model_dissent=effective_severity_gate,
     )
 
     if prepared.head_sha != head_sha:
