@@ -87,11 +87,12 @@ fi
 # §Conductor prepared-artifact replay proof, so ARAGORA_AUTO_EVIDENCE=1 is no
 # longer sufficient by itself. The wrapper enforces the explicit
 # ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1 override before invoking the legacy
-# command; without it the evidence step is skipped and the merge-arbiter still
-# starts.
+# command; without it the evidence step is skipped entirely, no legacy evidence
+# collection/posting runs in that pass, and the merge-arbiter still starts.
 if [[ "${ARAGORA_AUTO_EVIDENCE:-0}" == "1" ]]; then
     if [[ "${ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY:-0}" != "1" ]]; then
         echo "Skipping ARAGORA_AUTO_EVIDENCE=1: legacy direct apply requires ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1 under §Conductor." >&2
+        echo "No legacy evidence collection or posting will run in this pass; merge-quorum throughput may drop until exact-head Conductor replay or the explicit override is used." >&2
         echo "The merge-arbiter will still start; set the override only for an explicit operator exception." >&2
     else
         echo "Running bounded auto-evidence cycle (legacy direct apply override mode)..."

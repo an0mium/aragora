@@ -176,6 +176,8 @@ def test_merge_arbiter_skips_legacy_auto_evidence_without_override(
     assert proc.returncode == 0
     assert "Skipping ARAGORA_AUTO_EVIDENCE=1" in proc.stderr
     assert "ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1" in proc.stderr
+    assert "No legacy evidence collection or posting will run" in proc.stderr
+    assert "merge-quorum throughput may drop" in proc.stderr
     assert "Starting swarm merge-arbiter" in proc.stdout
     recorded = log.read_text(encoding="utf-8")
     assert "scripts/auto_evidence_cycle.py" not in recorded

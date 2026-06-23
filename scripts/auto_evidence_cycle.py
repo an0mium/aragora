@@ -44,14 +44,14 @@ Safety model (mirrors ``quorum_rerun_reconciler.py``):
   a merge-packet probe could not see them (transport_blocked / fetch failure)
   and nothing was posted, so an empty plan does NOT mean the queue is clear.
 
-Legacy opt-in wiring: ``scripts/run_merge_arbiter.sh`` calls this guarded path
-for ``ARAGORA_AUTO_EVIDENCE=1``; without
-``ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1`` the evidence step fails closed
-before posting and the wrapper still starts the merge-arbiter. Direct
-``auto_evidence_cycle.py --apply`` and imported ``run_cycle(..., apply=True)``
-are guarded by the same explicit override. Conductor loops must use exact-head
-prepared-artifact replay instead of this direct apply path for countable
-evidence.
+Legacy opt-in wiring: ``scripts/run_merge_arbiter.sh`` only calls this legacy
+direct-apply path when both ``ARAGORA_AUTO_EVIDENCE=1`` and
+``ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1`` are set. Without the override,
+the wrapper logs that no legacy evidence collection/posting will run and still
+starts the merge-arbiter. Direct ``auto_evidence_cycle.py --apply`` and imported
+``run_cycle(..., apply=True)`` are guarded by the same explicit override and
+fail closed before posting. Conductor loops must use exact-head prepared-artifact
+replay instead of this direct apply path for countable evidence.
 
 Routing-rationale records (#8233 phase 1): each applied collect run also writes
 a standalone JSON artifact (``--routing-records-dir``, default
