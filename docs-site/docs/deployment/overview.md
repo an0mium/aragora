@@ -13,7 +13,7 @@ Three deployment paths, from simplest to production-grade.
 pip install aragora
 
 # Offline mode — SQLite, no external services, no API keys needed
-aragora serve --offline
+aragora serve --demo
 
 # With API keys — full functionality
 export ANTHROPIC_API_KEY=your-key
@@ -91,23 +91,20 @@ cp .env.template .env  # fill in API keys
 
 ### Build Variants
 
-The Dockerfile supports three installation levels:
+`deploy/Dockerfile` chooses dependencies via the `VARIANT` build arg, which
+drives `scripts/ci_install_project.sh`:
+
+| `VARIANT` | Installs |
+|-----------|----------|
+| `minimal` | base package only |
+| `postgres` | base + PostgreSQL/Redis drivers |
+| `full` (default) | base + persistence, Redis, monitoring, observability, PostgreSQL, RLM |
 
 ```dockerfile
-# Minimal (no Redis/Postgres drivers)
-ARG INSTALL_VARIANT=minimal
-pip install .
-
-# With PostgreSQL + Redis
-ARG INSTALL_VARIANT=postgres
-pip install ".[postgres,redis]"
-
-# Full (all optional dependencies)
-ARG INSTALL_VARIANT=full
-pip install ".[persistence,redis,monitoring,observability,postgres,rlm]"
+ARG VARIANT=full   # default; also: minimal, postgres
 ```
 
-Default in `deploy/Dockerfile` is full.
+The exact package groups per variant live in `scripts/ci_install_project.sh`.
 
 ## 3. Kubernetes
 
