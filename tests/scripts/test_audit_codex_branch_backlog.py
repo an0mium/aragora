@@ -180,6 +180,19 @@ def test_worktree_map_indexes_detached_heads_by_commit_prefix(
     assert mapping["codex/attached"] == [attached.resolve()]
 
 
+def test_worktree_paths_for_branch_matches_head_sha_case_insensitively(
+    tmp_path: Path,
+) -> None:
+    worktree = tmp_path / "detached-worktree"
+    worktree.mkdir()
+
+    paths = mod._worktree_paths_for_branch(
+        {"abc1234": [worktree]}, "codex/detached-active", "ABC1234"
+    )
+
+    assert paths == [worktree]
+
+
 def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     payload = {
         "branch_count": 2,

@@ -249,7 +249,8 @@ def _worktree_paths_for_branch(
 ) -> list[Path]:
     paths: list[Path] = []
     seen: set[Path] = set()
-    for key in (branch, head_sha):
+    normalized_head = head_sha.strip().lower()
+    for key in (branch, normalized_head):
         for path in worktrees.get(key, []):
             if path in seen:
                 continue
