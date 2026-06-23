@@ -3650,6 +3650,48 @@ def test_rerun_failed_quorum_targets_newest_failed_run(monkeypatch: Any, tmp_pat
     assert commands == [["gh", "run", "rerun", "27499999999", "--failed"]]
 
 
+def test_rerun_failed_quorum_uses_check_run_id_when_timestamps_missing(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    def _fake_run_json(command: list[str], cwd: Path | None = None) -> dict[str, Any]:
+        return {
+            "check_runs": [
+                {
+                    "id": 81212117993,
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "FAILURE",
+                    "details_url": (
+                        "https://github.com/synaptent/aragora/actions/runs/"
+                        "27474838200/job/81212117993"
+                    ),
+                },
+                {
+                    "id": 81212117994,
+                    "name": "aragora-merge-quorum",
+                    "conclusion": "FAILURE",
+                    "details_url": (
+                        "https://github.com/synaptent/aragora/actions/runs/"
+                        "27499999999/job/81212117994"
+                    ),
+                },
+            ]
+        }
+
+    commands: list[list[str]] = []
+    monkeypatch.setattr(settler, "_run_json", _fake_run_json)
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+
+    result = settler._rerun_failed_quorum(head="abc", repo="synaptent/aragora", cwd=tmp_path)
+
+    assert result["rerun"] is True
+    assert result["run_id"] == "27499999999"
+    assert commands == [["gh", "run", "rerun", "27499999999", "--failed"]]
+
+
 def test_rerun_failed_quorum_does_not_rerun_stale_failure_after_newer_success(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
@@ -4367,7 +4409,7 @@ def test_settle_apply_does_not_post_comment_when_receipt_recording_fails(
     assert payload["details"]["github_status_requested"] is True
 
 
-def test_settle_apply_accepts_receipt_backed_preapproval_when_packet_refresh_is_stale(
+def test_settle_apply_requires_merge_packet_preapproval_after_receipt_recording(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
@@ -4435,17 +4477,21 @@ def test_settle_apply_accepts_receipt_backed_preapproval_when_packet_refresh_is_
         ]
     )
 
-    assert rc == 0
+    assert rc == 2
     assert recorded == {"post_github_status": True}
     assert text_commands and text_commands[0][:3] == ["gh", "pr", "comment"]
     payload = settler.json.loads(capsys.readouterr().out)
-    assert payload["gate"]["ok"] is True
-    assert payload["human_preapproval_recorded"] is False
-    assert payload["human_preapproval_recognized"] is True
-    assert payload["human_preapproval_source"] == "record_settlement_receipt"
-    assert payload["receipt_backed_human_preapproval"] is True
-    assert payload["settlement_recognition"]["human_preapproval_recorded"] is False
-    assert payload["settlement_recognition"]["recognized"] is True
+    assert payload["ok"] is False
+    assert payload["phase"] == "settlement_recognition"
+    assert payload["mutation_occurred"] is True
+    assert "merge-packet-backed Tier 4 preapproval recognition" in payload["error"]
+    assert "human_preapproval_recorded=true" in payload["recovery_action"]
+    assert payload["details"]["receipt_recorded_now"] is True
+    assert payload["details"]["receipt_backed_human_preapproval"] is True
+    assert payload["details"]["human_preapproval_recorded"] is False
+    assert payload["details"]["human_preapproval_recognized"] is False
+    assert payload["details"]["human_preapproval_source"] == ""
+    assert payload["details"]["recognized"] is False
 
 
 def test_settle_apply_posts_missing_comment_when_status_already_success(

@@ -83,7 +83,7 @@ SETTLE_APPLY_CREATOR_PIN_BLOCKER = (
     "merge-packet will reject by settlement-creator pin"
 )
 SETTLE_APPLY_RECOGNITION_BLOCKER = (
-    "--settle-apply did not reach receipt-backed Tier 4 preapproval recognition"
+    "--settle-apply did not reach merge-packet-backed Tier 4 preapproval recognition"
 )
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 HUMAN_PREAPPROVAL_RECEIPT_BLOCKER = (
@@ -2250,9 +2250,16 @@ def _run_id_from_url(url: str) -> str:
     return run_id if run_id.isdigit() else ""
 
 
+def _sort_int(value: Any) -> int:
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _quorum_run_ids(*, head: str, repo: str, cwd: Path) -> list[tuple[str, str]]:
     """Return ``[(run_id, conclusion), ...]`` for merge-quorum check-runs at ``head``."""
-    runs: list[tuple[str, str, str, int]] = []
+    runs: list[tuple[str, str, str, int, int]] = []
     page = 1
     while True:
         payload = _run_json(
@@ -2281,14 +2288,24 @@ def _quorum_run_ids(*, head: str, repo: str, cwd: Path) -> list[tuple[str, str]]
                     or item.get("createdAt")
                     or ""
                 )
+                check_run_id = _sort_int(item.get("id"))
                 runs.append(
-                    (run_id, str(item.get("conclusion") or "").lower(), timestamp, len(runs))
+                    (
+                        run_id,
+                        str(item.get("conclusion") or "").lower(),
+                        timestamp,
+                        check_run_id,
+                        _sort_int(run_id),
+                    )
                 )
         if len(check_runs) < 100:
             break
         page += 1
-    runs.sort(key=lambda item: (item[2], -item[3]), reverse=True)
-    return [(run_id, conclusion) for run_id, conclusion, _timestamp, _sequence in runs]
+    runs.sort(key=lambda item: (bool(item[2]), item[2], item[3], item[4]), reverse=True)
+    return [
+        (run_id, conclusion)
+        for run_id, conclusion, _timestamp, _check_run_id, _workflow_run_id in runs
+    ]
 
 
 def _rerun_failed_quorum(*, head: str, repo: str, cwd: Path) -> dict[str, Any]:
@@ -2358,19 +2375,13 @@ def _settle_apply_recognition_report(
     entry = _entry_for_pr(merge_packet, pr=pr) or {}
     human_preapproval_recorded = _packet_human_preapproval_recorded(merge_packet, pr=pr)
     receipt_backed = bool(receipt_backed_human_preapproval)
-    human_preapproval_recognized = bool(human_preapproval_recorded or receipt_backed)
+    human_preapproval_recognized = bool(human_preapproval_recorded)
     return {
         "recognized": bool(status_success and comment_present and human_preapproval_recognized),
         "human_preapproval_recorded": human_preapproval_recorded,
         "human_preapproval_recognized": human_preapproval_recognized,
         "receipt_backed_human_preapproval": receipt_backed,
-        "human_preapproval_source": (
-            "merge_packet"
-            if human_preapproval_recorded
-            else "record_settlement_receipt"
-            if receipt_backed
-            else ""
-        ),
+        "human_preapproval_source": ("merge_packet" if human_preapproval_recorded else ""),
         "settlement_status_present": status_success,
         "settlement_comment_present": comment_present,
         "settlement_creator_pin": entry.get("settlement_creator_pin"),
@@ -2891,8 +2902,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     completed_commands=len(applied_commands) + int(receipt_recorded_now),
                     recovery_action=(
                         "inspect the refreshed merge-packet settlement_creator_pin and "
-                        "aragora/human-settlement status, then retry only after the "
-                        "receipt-backed Tier 4 gate recognizes this exact head"
+                        "aragora/human-settlement status, then retry only after merge-packet "
+                        "reports human_preapproval_recorded=true for this exact head"
                     ),
                     details={
                         "receipt_recorded_before_apply": human_preapproval_recorded_before_apply,
