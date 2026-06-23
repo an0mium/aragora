@@ -168,3 +168,36 @@ def test_approving_model_review_with_no_concerns_not_blocking():
         "- The change is well-scoped and tested.\n"
     )
     assert has_blocking_or_negative_verdict(body) is False
+
+
+# --- Blocker-label no-finding regex precision (claude #8574 collect-3 P2s) ---
+@pytest.mark.parametrize(
+    "value",
+    [
+        "no major concerns",
+        "no significant issues",
+        "no serious problems",
+        "no remaining blockers",
+        "no other findings",
+        "no minor issues",
+        "no blocking findings",  # legacy form, via optional "blocking " prefix
+    ],
+)
+def test_blocker_label_hedged_no_finding_stays_non_blocking(value):
+    # Adjective-hedged no-finding declarations must NOT over-block (#1).
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is False
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "no blocking on the auth path but SQLi on line 40",  # the fail-open edge (#2)
+        "no authentication on admin endpoint",
+        "no validation of user input",
+        "no rate limiting and an open redirect",
+    ],
+)
+def test_blocker_label_real_finding_with_no_prefix_still_blocks(value):
+    # Standalone "blocking" token dropped: a real finding phrased "no blocking … but X"
+    # (or "no authentication …") must still block — no merge-gate bypass.
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is True

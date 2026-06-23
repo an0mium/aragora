@@ -85,9 +85,30 @@ _NON_BLOCKING_PREFIXES = (
 # "no authentication" / "no validation" / "no authorization" / "no rate limiting"
 # still blocks. The optional "blocking " keeps the legacy "no blocking findings"
 # form working without admitting arbitrary intervening words.
+# A populated Blocker-label value that is a no-finding declaration: "no issues",
+# "no blockers", "no concerns", optionally hedged with a closed set of adjectives
+# ("no MAJOR concerns", "no SIGNIFICANT issues", "no REMAINING blockers"). The
+# adjective allowlist is bounded so the match stays fail-CLOSED for real findings:
+# "no authentication", "no validation", "no SQLi" do NOT match (their head word is
+# a real subject, not a no-finding noun, and is not an allowlisted hedge), so they
+# still block. The standalone "blocking" alternative is intentionally absent — it
+# made "no blocking on the auth path but SQLi" match as non-blocking, re-opening the
+# exact bypass class this guard exists to close. The legacy "no blocking findings"
+# form is still covered by the optional ``blocking\s+`` prefix on ``findings?``.
+# NOTE (bounded heuristic): a trailing "… but <real finding>" after a matched
+# no-finding phrase is not parsed out (prefix match), so "no major concerns but X"
+# reads as non-blocking; this is a pre-existing limit of label-value prefix matching
+# (the prior bare-"no" was strictly more permissive) and is low-realism in a Blocker
+# label. Substantive blockers belong in the label value itself, where they block.
+_NO_FINDING_HEDGE = (
+    r"(?:major|minor|significant|serious|critical|real|actual|further|other|"
+    r"remaining|additional|outstanding|notable|material|known|new|obvious)"
+)
 _NO_FINDING_NO_PHRASE = re.compile(
-    r"no\s+(?:blocking\s+)?"
-    r"(?:issues?|findings?|blockers?|blocking|concerns?|problems?|changes?)(?!\w)",
+    r"no\s+"
+    rf"(?:{_NO_FINDING_HEDGE}\s+){{0,2}}"
+    r"(?:blocking\s+)?"
+    r"(?:issues?|findings?|blockers?|concerns?|problems?|changes?)(?!\w)",
     re.I,
 )
 

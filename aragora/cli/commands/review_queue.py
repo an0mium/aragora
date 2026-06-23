@@ -3136,6 +3136,10 @@ def _build_model_review_quorum(
         head_committed_at=head_committed_at,
         advisory_views=advisory_views,
     )
+    # Bound advisory_views symmetrically with the dissent list (which returns [:5]),
+    # so a PR with many recognized comments cannot flood the merge packet's
+    # advisory_views field or its `reasons` notes (claude #8574 P3).
+    del advisory_views[5:]
     dissenting_views = [
         view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
     ]

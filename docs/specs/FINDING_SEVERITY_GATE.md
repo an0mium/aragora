@@ -69,8 +69,12 @@ of a low-severity dissent is removed.
    begins with a bare "no" (e.g. `Blockers: no authentication on admin endpoint`)
    previously matched the non-blocking prefix `"no"` and was silently demoted to
    advisory — a merge-gate bypass for common security phrasing. It now correctly
-   blocks (flag ON or OFF), while genuine no-finding declarations (`no issues`,
-   `no blockers`, `no concerns`) stay non-blocking. The negative-verdict
+   blocks (flag ON or OFF), while genuine no-finding declarations — including
+   closed-allowlist adjective hedges (`no major concerns`, `no significant issues`,
+   `no remaining blockers`) — stay non-blocking. The no-finding match is deliberately
+   fail-closed: any value whose head word is a real subject (`no authentication`,
+   `no validation`) or that carries a substantive finding (`no blocking on the auth
+   path but SQLi`) blocks. The negative-verdict
    (`Verdict:`/`Decision:`/`Recommendation:`) scanner is unaffected: a *positive*
    verdict such as `Verdict: no concerns` remains non-blocking on the flag-OFF path.
 2. **`[P0]`/`[P1]` and populated Blocker labels ALWAYS block**, flag ON or OFF.
