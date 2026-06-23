@@ -509,6 +509,40 @@ def test_terminal_receipt_path_heads_reads_merged_pr_evidence(
     assert refs[str(repo_path.resolve())] == {"abcdef123456"}
 
 
+def test_terminal_receipt_path_heads_ignores_merged_pr_head_mismatch(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "merged-pr-stale-head.json").write_text(
+        json.dumps(
+            {
+                "reconfirmation": {
+                    "github_pr": {
+                        "number": 8148,
+                        "state": "MERGED",
+                        "head_sha": "abcdef123456",
+                    }
+                },
+                "selected_candidate": {
+                    "path": str(root),
+                    "repo_path": str(repo_path),
+                    "head": "999999999999",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs == {}
+
+
 def test_terminal_receipt_path_heads_ignores_non_merged_pr_with_merged_at(
     tmp_path: Path,
 ) -> None:
@@ -814,6 +848,57 @@ def test_branch_commits_reverse_apply_to_base_with_real_git_repo(tmp_path: Path)
 
     assert equivalent is True
     assert commits == [feature_head]
+
+
+def test_branch_commits_reverse_apply_to_base_mutates_index_newest_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    calls: list[str] = []
+
+    def completed(
+        args: list[str], *, stdout: str = "", returncode: int = 0
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=args, returncode=returncode, stdout=stdout, stderr=""
+        )
+
+    def fake_run_git(
+        args: list[str],
+        _cwd: Path,
+        *,
+        timeout: int = mod.GIT_TIMEOUT_SECONDS,
+        env: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        _ = timeout, env
+        if args[:3] == ["rev-list", "--reverse", "--no-merges"]:
+            return completed(args, stdout="oldest\nnewest\n")
+        if args == ["read-tree", "main"]:
+            return completed(args)
+        if args[:3] == ["show", "--format=email", "--binary"]:
+            return completed(args, stdout=f"patch for {args[-1]}")
+        if args[:3] == ["apply", "--cached", "--reverse"]:
+            if "--check" in args:
+                return completed(args, returncode=1)
+            calls.append(Path(args[-1]).stem)
+            return completed(
+                args, returncode=0 if calls in (["newest"], ["newest", "oldest"]) else 1
+            )
+        return completed(args, returncode=1)
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    equivalent, commits = mod.branch_commits_reverse_apply_to_base(
+        tmp_path,
+        "main",
+        "feature",
+        timeout=10,
+    )
+
+    assert equivalent is True
+    assert commits == ["oldest", "newest"]
+    assert calls == ["newest", "oldest"]
 
 
 def test_smart_merge_detection_keeps_failed_reverse_apply_harvestable(

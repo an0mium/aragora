@@ -412,6 +412,55 @@ def _receipt_heads_from_mapping(payload: dict[str, Any]) -> set[str | None]:
     return heads
 
 
+def _concrete_receipt_heads_from_value(value: Any) -> set[str]:
+    heads: set[str] = set()
+    if isinstance(value, dict):
+        heads.update(head for head in _receipt_heads_from_mapping(value) if head)
+        for item in value.values():
+            heads.update(_concrete_receipt_heads_from_value(item))
+    elif isinstance(value, list):
+        for item in value:
+            heads.update(_concrete_receipt_heads_from_value(item))
+    return heads
+
+
+def _merged_pr_receipt_head_matches(github_pr: dict[str, Any], payload: dict[str, Any]) -> bool:
+    pr_heads = {head for head in _receipt_heads_from_mapping(github_pr) if head}
+    if not pr_heads:
+        return True
+
+    receipt_heads = {head for head in _receipt_heads_from_mapping(payload) if head}
+    for key in (
+        "candidate",
+        "candidates",
+        "local_evidence",
+        "requested_action",
+        "selected_candidate",
+        "source_candidate",
+        "source_candidates",
+    ):
+        receipt_heads.update(_concrete_receipt_heads_from_value(payload.get(key)))
+
+    reconfirmation = payload.get("reconfirmation")
+    if isinstance(reconfirmation, dict):
+        for key in (
+            "candidate",
+            "candidates",
+            "local_evidence",
+            "requested_action",
+            "selected_candidate",
+            "source_candidate",
+            "source_candidates",
+        ):
+            receipt_heads.update(_concrete_receipt_heads_from_value(reconfirmation.get(key)))
+
+    return bool(receipt_heads) and any(
+        _commit_prefix_matches(pr_head, receipt_head)
+        for pr_head in pr_heads
+        for receipt_head in receipt_heads
+    )
+
+
 def _receipt_path_head_pairs(
     value: Any,
     *,
@@ -463,7 +512,7 @@ def _terminal_path_receipt(payload: dict[str, Any]) -> bool:
         github_pr = reconfirmation.get("github_pr")
     if isinstance(github_pr, dict):
         state = str(github_pr.get("state") or "").strip().upper()
-        if state == "MERGED":
+        if state == "MERGED" and _merged_pr_receipt_head_matches(github_pr, payload):
             return True
     return False
 
@@ -757,7 +806,7 @@ def branch_commits_reverse_apply_to_base(
         if read_tree.returncode != 0:
             return False, []
 
-        for commit in commits:
+        for commit in reversed(commits):
             command_timeout = remaining_timeout()
             if command_timeout is None:
                 return False, []
@@ -781,7 +830,6 @@ def branch_commits_reverse_apply_to_base(
                     "apply",
                     "--cached",
                     "--reverse",
-                    "--check",
                     "--whitespace=nowarn",
                     str(patch_path),
                 ],
