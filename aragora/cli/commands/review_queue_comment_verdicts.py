@@ -214,4 +214,9 @@ def has_blocking_model_dissent(
         return has_blocking_or_negative_verdict(body)
     if not has_blocking_or_negative_verdict(body):
         return False
-    return has_high_severity_finding(body) or _has_explicit_blocker_label(body)
+    if has_high_severity_finding(body) or _has_explicit_blocker_label(body):
+        return True
+    # Fail closed when a negative verdict does not carry explicit severity metadata.
+    # The opt-in gate only downgrades model dissent that states a real low-severity
+    # P2/P3 finding; bare CHANGES-REQUESTED remains blocking.
+    return highest_finding_priority(body) not in {"P2", "P3"}

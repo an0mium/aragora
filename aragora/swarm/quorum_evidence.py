@@ -371,6 +371,7 @@ class EvidenceItem:
     counted_reviewer_ids: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     verdict: str = "unknown"
+    severity_gated_model_dissent: bool = False
 
     @property
     def supportive(self) -> bool:
@@ -378,7 +379,7 @@ class EvidenceItem:
 
     @property
     def dissenting(self) -> bool:
-        return self.verdict == "changes_requested" and has_blocking_model_dissent(self.body)
+        return self.blocks_merge_dissent(severity_gated=self.severity_gated_model_dissent)
 
     def blocks_merge_dissent(self, *, severity_gated: bool) -> bool:
         return self.verdict == "changes_requested" and has_blocking_model_dissent(
@@ -406,6 +407,13 @@ class CollectOutcome:
     # single settlement flow even if the process env mutates mid-run.
     tiered_gate: bool = field(default_factory=tiered_merge_gate_enabled)
     severity_gated_model_dissent: bool = field(default_factory=severity_gated_model_dissent_enabled)
+
+    def __post_init__(self) -> None:
+        self._bind_item_dissent_policy()
+
+    def _bind_item_dissent_policy(self) -> None:
+        for item in self.items:
+            item.severity_gated_model_dissent = self.severity_gated_model_dissent
 
     @property
     def counting_families(self) -> list[str]:
@@ -1727,6 +1735,8 @@ def collect_evidence(
         tier=tier,
         action=action,
         action_reason=action_reason,
+        tiered_gate=tiered_merge_gate_enabled(env),
+        severity_gated_model_dissent=severity_gated_model_dissent_enabled(env),
     )
 
     prompt = prompt_builder(repo, pr, ctx)
@@ -1796,6 +1806,7 @@ def collect_evidence(
                 verdict=_reviewer_verdict(result.text),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
+                severity_gated_model_dissent=outcome.severity_gated_model_dissent,
             )
         )
 
@@ -1860,6 +1871,7 @@ def _clone_prepared_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
             counted_reviewer_ids=list(item.counted_reviewer_ids),
             problems=list(item.problems),
             verdict=item.verdict,
+            severity_gated_model_dissent=item.severity_gated_model_dissent,
         )
         for item in items
     ]
@@ -1972,9 +1984,9 @@ def apply_prepared_evidence(
     # artifact JSON can also forge reviewer bodies, so artifact integrity is the caller's
     # trust boundary — these fields grant no authority beyond what the live flags already
     # do.
-    live_gate = tiered_merge_gate_enabled()
+    live_gate = tiered_merge_gate_enabled(env)
     effective_tiered_gate = bool(prepared.tiered_gate) and live_gate
-    live_severity_gate = severity_gated_model_dissent_enabled()
+    live_severity_gate = severity_gated_model_dissent_enabled(env)
     effective_severity_gate = bool(prepared.severity_gated_model_dissent) and live_severity_gate
 
     tier = tier_fetcher(repo, pr)
@@ -2023,9 +2035,11 @@ def apply_prepared_evidence(
                 counted_reviewer_ids=counted_reviewer_ids,
                 problems=problems,
                 verdict=_reviewer_verdict(item.body),
+                severity_gated_model_dissent=effective_severity_gate,
             )
         )
     outcome.items = relinted_items
+    outcome._bind_item_dissent_policy()
 
     if action != "post":
         return outcome

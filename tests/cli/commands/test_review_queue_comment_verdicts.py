@@ -101,6 +101,11 @@ def test_severity_gated_model_dissent_keeps_p2_changes_requested_advisory():
     assert not has_blocking_model_dissent(body, severity_gated=True)
 
 
+def test_severity_gated_model_dissent_blocks_bare_changes_requested():
+    body = "Verdict: CHANGES-REQUESTED\nNeeds another look before merge."
+    assert has_blocking_model_dissent(body, severity_gated=True)
+
+
 def test_severity_gated_model_dissent_blocks_p1_changes_requested():
     body = "Verdict: CHANGES-REQUESTED\n- [P1] Merge gate can be bypassed."
     assert has_blocking_model_dissent(body, severity_gated=True)
