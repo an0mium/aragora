@@ -75,14 +75,12 @@ exactly where it requires a human.
 For any long-running PR-advancing loop, the **single source of truth** is
 `docs/AGENT_OPERATING_CONTRACT.md` **§Conductor**. Re-read it each cycle and obey it verbatim;
 do not re-embed its rules into recursive prompts — carry only the current exact-head target +
-one next action (see §Conductor's thin-prompt template). In one line, §Conductor mandates:
-
-- **Autonomy rail:** run continuously through *progressing* Tier 0-2 units without asking; touch
-  the operator only at a Tier 3/4 risk decision or a circuit-breaker halt. No per-unit checkpoints.
-- **Evidence-last:** never collect countable (`--apply`) evidence on a head that has not just
-  passed a clean adversarial **dry-run** for that exact head with no commit since. Dry-run →
-  repair → dry-run until clean → freeze → collect once → settle.
-- **No-treadmill / circuit-breaker / one-claude / fix-env-once / shared-root-read-only** per §Conductor.
+one next action (see §Conductor's thin-prompt template). Do **not** maintain a second summary
+of its rules here. The only local reminder is precedence: §Conductor never weakens the
+Approval-required or Auto-halt floors in `docs/AGENT_OPERATING_CONTRACT.md`, and it uses
+`docs/REVIEW_AUTHORITY_PRINCIPLES.md` for Tier and counted-family eligibility. "Evidence-first"
+in this skill means governance must be evidence-grounded; §Conductor's "evidence-last" rule is
+the timing rule for countable evidence after a clean current-head dry-run.
 
 ## Operating-contract auto-halts (always active)
 

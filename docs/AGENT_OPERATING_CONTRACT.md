@@ -87,8 +87,18 @@ re-embedding its rules: carry forward only the current exact-head **target + one
 action**, never a copy of these invariants. Copying invariants per-cycle burns tokens and
 drifts (a self-replicating prompt mutates); a pointer does not. Use the thin template below.
 
+**Precedence and scope.** This subsection narrows how already-selected PRs advance through
+review, evidence, and merge-quorum. It does **not** weaken the rest of this operating
+contract: Approval-required items, Auto-halt triggers, the canonical chain, and Tier 3/4
+human-settlement requirements remain hard stops. If any of those floors fire, pause the loop
+even when the current PR otherwise looks like Tier 0-2 work. The human-facing worker
+assignment / integration cadence in [`docs/guides/CONDUCTOR_WORKFLOW.md`](guides/CONDUCTOR_WORKFLOW.md)
+is separate: that guide governs selecting and coordinating worker lanes; this section governs
+advancing a chosen PR through model evidence and merge-quorum.
+
 **Autonomy rail — the anti-molasses rule.** Run continuously through bounded units **without
-asking the operator**, as long as every unit stays on Tier 0-2 rails and makes *external*
+asking the operator**, as long as every unit stays on Tier 0-2 rails as defined by
+[`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md) and makes *external*
 progress (a merge, a posted-and-counted evidence comment, a repair commit that clears a
 finding, a real archive). Touch the operator **only** at (a) a genuine Tier 3/4 risk
 decision, or (b) a circuit-breaker halt. Do **not** insert a human checkpoint between safe,
@@ -97,12 +107,20 @@ is WRONG unless the next unit is Tier 3/4 or the breaker tripped.
 
 **EVIDENCE-LAST (settlement-stability).** A head is *settlement-stable* iff: the latest
 adversarial **dry-run** review was clean for the **current** head (no CHANGES-REQUESTED /
-`[P1]` / `[P2]` from every required family) AND no commit has landed since AND the base is
-unchanged / mergeable. **Never collect countable (`--apply`) evidence on a head that is not
-settlement-stable.** Loop: dry-run → if findings, repair → dry-run → … → clean → freeze →
-collect ONCE → settle. Settlement head movement is almost entirely review-driven and thus
-predictable: if the dry-run has findings, the head WILL move next, so do not spend on
-countable evidence yet.
+`[P1]` / `[P2]` from every family that will be counted for this Tier) AND no commit has
+landed since AND the base is unchanged / mergeable. The counted-family set comes from
+[`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md), especially the
+Tier-eligibility table; do not invent a smaller family set inside a recursive prompt.
+**Never collect countable (`--apply`) evidence on a head that is not settlement-stable.**
+Loop: dry-run → if findings, repair → dry-run → … → clean → freeze exact head → collect ONCE
+→ settle. Settlement head movement is almost entirely review-driven and thus predictable: if
+the dry-run has findings, the head WILL move next, so do not spend on countable evidence yet.
+
+**Automation compatibility.** Existing collectors such as `scripts/auto_evidence_cycle.py`
+remain evidence-posting tools, not authority to skip the dry-run/freeze rule. If an automated
+collector cannot prove the head is settlement-stable before posting countable evidence, the
+conductor must run the clean dry-run first or repair the automation/tooling; it must not treat
+automation output as a bypass around this section.
 
 **NO-TREADMILL.** Batch all known findings into ONE repair per head; never
 repair-then-recollect on the same head. Any CHANGES-REQUESTED / `[P1]` / `[P2]` ends the
@@ -138,6 +156,10 @@ Operating contract: re-read docs/AGENT_OPERATING_CONTRACT.md §Conductor this cy
 Target: PR #NNNN @ <exact-head>.   Last: <one line>.   Next: <one bounded action>.
 
 Run on Tier 0-2 rails per §Conductor; continue through progressing units autonomously.
+Approval-required items, Auto-halt triggers, and Tier 3/4 settlement remain hard stops.
+Use docs/REVIEW_AUTHORITY_PRINCIPLES.md for counted-family / Tier eligibility.
+Sequence for evidence: dry-run clean for the current head -> freeze exact head -> collect one
+linted countable evidence signal -> settle/merge only through the helper gates.
 Stop only at a Tier 3/4 risk decision or a circuit-breaker halt, emit the exact operator
 authorization text needed, then emit the next prompt in THIS thin form.
 ```
