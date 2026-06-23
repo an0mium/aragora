@@ -103,20 +103,57 @@ jobs:
           echo "Set version to ${{ github.event.inputs.version }}"
           grep 'version' pyproject.toml | head -1
 
-      - name: Build package
-        run: python -m build
-
-      - name: Verify no contamination
+      - name: Verify distribution identity
         run: |
           python -c "
-          import zipfile, glob, sys
-          whl = sorted(glob.glob('dist/aragora-*.whl'))[-1]
-          z = zipfile.ZipFile(whl)
+          import sys, tomllib
+          proj = tomllib.load(open('pyproject.toml', 'rb'))['project']
+          name, version = proj['name'], proj['version']
+          print('pyproject [project]: name=' + repr(name) + ' version=' + repr(version))
+          expected = '${{ github.event.inputs.version }}'
+          errors = []
+          if name != 'aragora':
+              errors.append('distribution name is ' + repr(name) + ', expected aragora (the renamed root distribution); refusing to publish the wrong distribution')
+          if version != expected:
+              errors.append('pyproject version ' + repr(version) + ' != requested ' + repr(expected) + '; the version bump did not take effect')
+          if errors:
+              print('DISTRIBUTION IDENTITY CHECK FAILED:')
+              for e in errors:
+                  print(' - ' + e)
+              sys.exit(1)
+          print('Distribution identity OK: building aragora==' + version)
+          "
+
+      - name: Build package
+        run: |
+          rm -rf dist build
+          python -m build
+
+      - name: Verify built artifacts
+        run: |
+          python -c "
+          import glob, os, sys, zipfile
+          version = '${{ github.event.inputs.version }}'
+          artifacts = sorted(os.path.basename(p) for p in glob.glob('dist/*'))
+          print('dist/ artifacts: ' + repr(artifacts))
+          wrong = [a for a in artifacts if a.startswith(('aragora_debate', 'aragora-debate', 'aragora_py', 'aragora_sdk'))]
+          if wrong:
+              print('WRONG DISTRIBUTION ARTIFACTS PRESENT: ' + repr(wrong))
+              sys.exit(1)
+          wheels = glob.glob('dist/aragora-' + version + '-*.whl')
+          sdists = glob.glob('dist/aragora-' + version + '.tar.gz')
+          if not wheels:
+              print('MISSING WHEEL: no dist/aragora-' + version + '-*.whl was built')
+              sys.exit(1)
+          if not sdists:
+              print('MISSING SDIST: no dist/aragora-' + version + '.tar.gz was built')
+              sys.exit(1)
+          z = zipfile.ZipFile(wheels[0])
           bad = [n for n in z.namelist() if 'aragora_debate' in n or 'aragora_py' in n or 'aragora_sdk' in n]
           if bad:
-              print(f'CONTAMINATION DETECTED: {bad}')
+              print('CONTAMINATION DETECTED inside wheel: ' + repr(bad))
               sys.exit(1)
-          print(f'Clean: {len(z.namelist())} files, no contamination')
+          print('Clean: wheel ' + os.path.basename(wheels[0]) + ' (' + str(len(z.namelist())) + ' files), sdist ' + os.path.basename(sdists[0]) + ', no contamination')
           "
 
       - name: Check with twine
