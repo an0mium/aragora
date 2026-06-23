@@ -2536,3 +2536,29 @@ def test_collect_supported_results_stops_later_batches_after_worker_timeout(monk
     assert "timed out" in reviews["claude"].error
     assert reviews["openai"].ok is False
     assert "not started" in reviews["openai"].error
+
+
+def test_collect_supported_results_reuses_freed_slot_after_worker_timeout(monkeypatch):
+    started = []
+
+    monkeypatch.setattr(qe, "_MAX_REVIEWER_WORKERS", 2)
+    monkeypatch.setattr(qe, "_reviewer_fanout_timeout_seconds", lambda: 0.01)
+
+    def runner(family, prompt):
+        started.append(family)
+        if family == "claude":
+            time.sleep(0.1)
+            return _RR(family, "Verdict: pass", True)
+        return _RR(family, f"{family} Verdict: pass", True)
+
+    reviews = qe._collect_supported_reviewer_results(
+        supported=["claude", "openai", "grok"],
+        prompt="p",
+        reviewer_runner=runner,
+    )
+
+    assert started == ["claude", "openai", "grok"]
+    assert reviews["claude"].ok is False
+    assert "timed out" in reviews["claude"].error
+    assert reviews["openai"].ok is True
+    assert reviews["grok"].ok is True

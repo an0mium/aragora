@@ -1586,27 +1586,36 @@ def _collect_supported_reviewer_results(
     reviews: dict[str, ReviewerResult] = {}
     timeout = _reviewer_fanout_timeout_seconds()
     batch_size = max(1, _MAX_REVIEWER_WORKERS)
-    for start in range(0, len(supported), batch_size):
-        batch_reviews = _run_reviewer_batch(
-            families=supported[start : start + batch_size],
-            prompt=prompt,
-            reviewer_runner=reviewer_runner,
-            timeout=timeout,
-        )
-        reviews.update(batch_reviews)
-        if any(_reviewer_worker_timed_out(result) for result in batch_reviews.values()):
-            for family in supported[start + batch_size :]:
+    active_timed_out_workers = 0
+    start = 0
+    while start < len(supported):
+        available_slots = batch_size - active_timed_out_workers
+        if available_slots <= 0:
+            for family in supported[start:]:
                 reviews[family] = ReviewerResult(
                     family,
                     "",
                     False,
                     (
-                        f"{family} reviewer not started because an earlier reviewer "
-                        "worker timed out; refusing to exceed "
-                        f"{max(1, _MAX_REVIEWER_WORKERS)} active reviewer workers"
+                        f"{family} reviewer not started because all "
+                        f"{batch_size} reviewer worker slots are occupied by "
+                        "timed-out workers"
                     ),
                 )
             break
+
+        batch_families = supported[start : start + available_slots]
+        batch_reviews = _run_reviewer_batch(
+            families=batch_families,
+            prompt=prompt,
+            reviewer_runner=reviewer_runner,
+            timeout=timeout,
+        )
+        reviews.update(batch_reviews)
+        active_timed_out_workers += sum(
+            1 for result in batch_reviews.values() if _reviewer_worker_timed_out(result)
+        )
+        start += len(batch_families)
     return reviews
 
 
