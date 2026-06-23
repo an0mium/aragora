@@ -216,7 +216,8 @@ def check_outbox(
         oldest_days = _age_hours(oldest, now) / 24.0
         if oldest_days > max_age_days:
             problems.append(
-                f"oldest item {oldest.name} is {oldest_days:.1f}d old (max {max_age_days}d)"
+                f"{len(items)} item(s) queued; oldest item {oldest.name} is "
+                f"{oldest_days:.1f}d old (max {max_age_days}d)"
             )
     if problems:
         return _result(name, "breach", "; ".join(problems))
@@ -246,6 +247,8 @@ def check_outbox_drain_progress(
     operator instead of mailing more dead letters.
     """
     name = "outbox_drain_progress"
+    if stall_cycles < 1:
+        return _result(name, "unknown", f"stall_cycles must be >= 1, got {stall_cycles}")
     current = sum(1 for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else 0
     if current < min_floor:
         return _result(name, "ok", f"outbox depth {current} below floor {min_floor}")
@@ -269,15 +272,16 @@ def check_outbox_drain_progress(
         )
     window = history[-stall_cycles:]
     congested = all(depth >= min_floor for depth in window)
-    not_draining = current >= window[-1]
+    sequence = [*window, current]
+    not_draining = all(later >= earlier for earlier, later in zip(sequence, sequence[1:]))
     if congested and not_draining:
         return _result(
             name,
             "breach",
             f"outbox not draining: depth stayed at/above {min_floor} across {stall_cycles} cycles "
-            f"(recent depths {window}) and current depth {current} did not improve on the most "
-            "recent reading — the drain loop is making no external progress; HALT it and escalate "
-            "to the operator, do not keep re-messaging stale lanes (§Conductor dead-letter ban)",
+            f"(recent depths {window}, now {current}) without any decrease — the drain loop is "
+            "making no external progress; HALT it and escalate to the operator, do not keep "
+            "re-messaging stale lanes (§Conductor dead-letter ban)",
         )
     return _result(
         name, "ok", f"outbox draining or fluctuating (recent depths {window}, now {current})"
