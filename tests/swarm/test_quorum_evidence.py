@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import multiprocessing
 import os
 import subprocess
 import threading
@@ -35,6 +36,30 @@ from aragora.swarm.quorum_evidence import (
 
 HEAD = "49a979d587f910aaad4fb0f0bed708dd48c97c35"
 COMMITTED = "2026-06-04T09:57:49-05:00"
+
+
+def _nested_reviewer_child() -> None:
+    return
+
+
+def _process_spawning_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+    del prompt
+    ctx = multiprocessing.get_context("fork")
+    process = ctx.Process(target=_nested_reviewer_child)
+    process.start()
+    process.join(timeout=2.0)
+    if process.is_alive():
+        process.terminate()
+        process.join(timeout=1.0)
+        return ReviewerResult(family, "", False, "nested reviewer child timed out")
+    if process.exitcode != 0:
+        return ReviewerResult(
+            family,
+            "",
+            False,
+            f"nested reviewer child exited with code {process.exitcode}",
+        )
+    return ReviewerResult(family, f"Verdict: PASS from {family}", True)
 
 
 @pytest.fixture(autouse=True)
@@ -1195,6 +1220,27 @@ def test_collect_overall_timeout_process_path_runs_queued_reviewers(tmp_path, mo
     assert outcome.orchestration_timed_out is False
     assert calls_file.read_text(encoding="utf-8").splitlines() == ["claude", "grok", "openai"]
     assert [item.family for item in outcome.items] == ["claude", "grok", "openai"]
+    assert outcome.failures == []
+
+
+def test_collect_overall_timeout_process_path_allows_nested_reviewer_process() -> None:
+    if "fork" not in multiprocessing.get_all_start_methods():
+        pytest.skip("overall-timeout reviewer isolation requires fork")
+    fakes, _ = _fakes(tier=2)
+    fakes["reviewer_runner"] = _process_spawning_reviewer_runner
+
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["openai", "grok"],
+        author="me",
+        apply=False,
+        overall_timeout=5.0,
+        **fakes,
+    )
+
+    assert outcome.orchestration_timed_out is False
+    assert [item.family for item in outcome.items] == ["openai", "grok"]
     assert outcome.failures == []
 
 

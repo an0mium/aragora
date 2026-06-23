@@ -402,7 +402,6 @@ def _run_reviewers_with_process_timeout(
             process = ctx.Process(
                 target=_reviewer_process_entry,
                 args=(result_queue, reviewer_runner, family, prompt),
-                daemon=True,
             )
             process.start()
             processes[family] = process
