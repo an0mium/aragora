@@ -544,11 +544,11 @@ class TestEdgeCases:
     """Edge cases and boundary conditions."""
 
     def test_empty_nomic_dir_env(self):
-        """Empty string for ARAGORA_DATA_DIR."""
+        """Empty data-dir env vars fall back to the default data directory."""
         with patch.dict(os.environ, {"ARAGORA_DATA_DIR": "", "ARAGORA_NOMIC_DIR": ""}):
             expected_default = get_default_data_dir()
 
-        with patch.dict(os.environ, {"ARAGORA_DATA_DIR": ""}):
+        with patch.dict(os.environ, {"ARAGORA_DATA_DIR": "", "ARAGORA_NOMIC_DIR": ""}):
             nomic_dir = get_nomic_dir()
             assert nomic_dir == expected_default
 
