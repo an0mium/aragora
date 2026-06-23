@@ -2068,17 +2068,9 @@ def _restore_branch_protection(*, repo: str, cwd: Path, snapshot: dict[str, Any]
     return errors
 
 
-def _apply_settlement_signal(
-    *, pr: int, head: str, repo: str, cwd: Path, post_status: bool = True
-) -> list[list[str]]:
-    comment_command = [
-        "gh",
-        "pr",
-        "comment",
-        str(pr),
-        "--body",
-        _settlement_comment_template(pr=pr, head=head),
-    ]
+def _post_human_settlement_status(
+    *, pr: int, head: str, repo: str, cwd: Path, target_url: str = ""
+) -> list[str]:
     status_command = [
         "gh",
         "api",
@@ -2092,13 +2084,33 @@ def _apply_settlement_signal(
         "-f",
         f"description=Tier 4 exact-head human-risk settlement recorded for PR #{pr}",
     ]
+    if target_url:
+        status_command.extend(["-f", f"target_url={target_url}"])
+    try:
+        _run_command(status_command, cwd=cwd)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"Tier 4 settlement status failed: {exc}") from exc
+    return status_command
+
+
+def _apply_settlement_signal(
+    *, pr: int, head: str, repo: str, cwd: Path, post_status: bool = True
+) -> list[list[str]]:
+    comment_command = [
+        "gh",
+        "pr",
+        "comment",
+        str(pr),
+        "--body",
+        _settlement_comment_template(pr=pr, head=head),
+    ]
     try:
         comment_url = _run_text_command(comment_command, cwd=cwd).strip()
         if not post_status:
             return [comment_command]
-        if comment_url:
-            status_command.extend(["-f", f"target_url={comment_url}"])
-        _run_command(status_command, cwd=cwd)
+        status_command = _post_human_settlement_status(
+            pr=pr, head=head, repo=repo, cwd=cwd, target_url=comment_url
+        )
     except (OSError, subprocess.SubprocessError) as exc:
         raise RuntimeError(f"Tier 4 settlement signal failed: {exc}") from exc
     return [comment_command, status_command]
@@ -2229,7 +2241,18 @@ def _rerun_failed_quorum(*, head: str, repo: str, cwd: Path) -> dict[str, Any]:
     try:
         _run_command(command, cwd=cwd)
     except (OSError, subprocess.SubprocessError) as exc:
-        raise RuntimeError(f"Tier 4 quorum rerun failed: {exc}") from exc
+        return {
+            "rerun": False,
+            "attempted": True,
+            "run_id": target,
+            "commands": [command],
+            "non_blocking": True,
+            "error": str(exc),
+            "reason": (
+                f"{MERGE_QUORUM_CONTEXT} rerun failed after settlement signal; "
+                "rerun it manually if the check remains stale"
+            ),
+        }
     return {"rerun": True, "run_id": target, "commands": [command]}
 
 
@@ -2539,11 +2562,44 @@ def main(argv: Sequence[str] | None = None) -> int:
             extra_out["settlement_already_present"] = (
                 status_already_present and comment_already_present
             )
+            settlement_status_repaired_now = False
             if human_preapproval_recorded:
                 extra_out["receipt"] = {
                     "skipped": True,
                     "reason": "exact-head human preapproval receipt already recorded",
                 }
+                if not status_already_present:
+                    try:
+                        applied_commands.append(
+                            _post_human_settlement_status(
+                                pr=args.pr,
+                                head=args.head,
+                                repo=args.repo,
+                                cwd=args.cwd,
+                            )
+                        )
+                    except RuntimeError as exc:
+                        raise Tier4ApplyError(
+                            "Tier 4 settlement status repair failed after receipt "
+                            f"state was confirmed: {exc}",
+                            phase="settlement_status",
+                            mutation_occurred=False,
+                            completed_commands=0,
+                            recovery_action=(
+                                "rerun --settle-apply for the same exact head after "
+                                "verifying merge-packet reports "
+                                "human_preapproval_recorded=true; the retry will skip "
+                                "duplicate receipt recording and repost the missing "
+                                "aragora/human-settlement status"
+                            ),
+                            details={
+                                "receipt_recorded_before_apply": True,
+                                "settlement_status_already_present": status_already_present,
+                                "settlement_comment_already_present": comment_already_present,
+                            },
+                        ) from exc
+                    settlement_status_repaired_now = True
+                    extra_out["settlement_status_repaired_now"] = True
             else:
                 _require_clean_receipt_worktree_for_settle_apply(cwd=args.cwd)
                 try:
@@ -2590,27 +2646,31 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                 except RuntimeError as exc:
                     receipt_recorded_now = not human_preapproval_recorded_before_apply
+                    mutation_occurred = receipt_recorded_now or settlement_status_repaired_now
+                    details = {
+                        "receipt_recorded_before_apply": human_preapproval_recorded_before_apply,
+                        "receipt_recorded_now": receipt_recorded_now,
+                        "github_status_posted_by_receipt": (
+                            receipt_recorded_now and not status_already_present
+                        ),
+                        "settlement_status_already_present": status_already_present,
+                        "settlement_comment_already_present": comment_already_present,
+                    }
+                    if settlement_status_repaired_now:
+                        details["settlement_status_repaired_now"] = True
                     raise Tier4ApplyError(
                         "Tier 4 settlement comment posting failed after receipt/status "
                         f"state was recorded or confirmed: {exc}",
                         phase="settlement_comment",
-                        mutation_occurred=receipt_recorded_now,
-                        completed_commands=1 if receipt_recorded_now else 0,
+                        mutation_occurred=mutation_occurred,
+                        completed_commands=1 if mutation_occurred else 0,
                         recovery_action=(
                             "rerun --settle-apply for the same exact head after verifying "
                             "merge-packet reports human_preapproval_recorded=true; the retry "
                             "will skip duplicate receipt recording, post the missing operator "
                             "settlement comment, and rerun aragora-merge-quorum"
                         ),
-                        details={
-                            "receipt_recorded_before_apply": human_preapproval_recorded_before_apply,
-                            "receipt_recorded_now": receipt_recorded_now,
-                            "github_status_posted_by_receipt": (
-                                receipt_recorded_now and not status_already_present
-                            ),
-                            "settlement_status_already_present": status_already_present,
-                            "settlement_comment_already_present": comment_already_present,
-                        },
+                        details=details,
                     ) from exc
             extra_out["quorum_rerun"] = _rerun_failed_quorum(
                 head=args.head, repo=args.repo, cwd=args.cwd

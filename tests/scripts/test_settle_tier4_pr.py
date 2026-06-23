@@ -3712,6 +3712,30 @@ def test_rerun_failed_quorum_targets_the_failed_run(monkeypatch: Any, tmp_path: 
     assert commands == [["gh", "run", "rerun", "27474838200", "--failed"]]
 
 
+def test_rerun_failed_quorum_reports_rerun_failure_without_raising(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        settler,
+        "_quorum_run_ids",
+        lambda head, repo, cwd: [("27474838200", "failure")],
+    )
+
+    def _rerun_boom(command: list[str], cwd: Path, input_text: str | None = None) -> None:
+        raise settler.subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(settler, "_run_command", _rerun_boom)
+
+    result = settler._rerun_failed_quorum(head="abc", repo="synaptent/aragora", cwd=tmp_path)
+
+    assert result["rerun"] is False
+    assert result["attempted"] is True
+    assert result["non_blocking"] is True
+    assert result["run_id"] == "27474838200"
+    assert result["commands"] == [["gh", "run", "rerun", "27474838200", "--failed"]]
+    assert "rerun failed after settlement signal" in result["reason"]
+
+
 def test_rerun_failed_quorum_is_noop_without_failed_run(monkeypatch: Any, tmp_path: Path) -> None:
     monkeypatch.setattr(settler, "_quorum_run_ids", lambda head, repo, cwd: [("1", "success")])
     called: list[list[str]] = []
@@ -4261,6 +4285,149 @@ def test_settle_apply_posts_missing_comment_without_duplicate_receipt(
     assert payload["settlement_status_already_present"] is True
     assert payload["settlement_comment_already_present"] is False
     assert payload["settlement_already_present"] is False
+
+
+def test_settle_apply_repairs_missing_status_without_duplicate_receipt_or_comment(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[list[str]] = []
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(
+                head,
+                comments=[_authorized_comment(head)],
+                human_settlement_state=None,
+            ),
+            _tier4_packet(human_preapproval_recorded=True),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+
+    def _record_boom(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("must not duplicate receipt when it is already recorded")
+
+    monkeypatch.setattr(settler, "_record_settlement", _record_boom)
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: text_commands.append(command) or "",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+    monkeypatch.setattr(settler, "_quorum_run_ids", lambda head, repo, cwd: [("99", "failure")])
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    assert text_commands == []
+    status_commands = [
+        command for command in commands if any("statuses/" in part for part in command)
+    ]
+    assert len(status_commands) == 1
+    assert f"repos/{settler.DEFAULT_REPO}/statuses/{head}" in status_commands[0]
+    assert ["gh", "run", "rerun", "99", "--failed"] in commands
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["human_preapproval_recorded"] is True
+    assert payload["receipt"]["skipped"] is True
+    assert payload["settlement_status_already_present"] is False
+    assert payload["settlement_status_repaired_now"] is True
+    assert payload["settlement_comment_already_present"] is True
+    assert payload["settlement_already_present"] is False
+
+
+def test_settle_apply_succeeds_when_quorum_rerun_fails_after_signals(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[list[str]] = []
+    recorded: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[], human_settlement_state=None),
+            _tier4_packet(human_preapproval_recorded=False),
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+    monkeypatch.setattr(
+        settler,
+        "_record_settlement",
+        lambda pr, head, reason, repo, cwd, post_github_status=False: (
+            recorded.update({"pr": pr, "head": head, "post_github_status": post_github_status})
+            or {"written": True}
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: (
+            text_commands.append(command) or "https://github.example/pr/7423#issuecomment-1\n"
+        ),
+    )
+    monkeypatch.setattr(settler, "_quorum_run_ids", lambda head, repo, cwd: [("99", "failure")])
+
+    def _rerun_boom(command: list[str], cwd: Path, input_text: str | None = None) -> None:
+        raise settler.subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(settler, "_run_command", _rerun_boom)
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 0
+    assert recorded == {"pr": 7423, "head": head, "post_github_status": True}
+    assert text_commands and text_commands[0][:3] == ["gh", "pr", "comment"]
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["human_preapproval_recorded"] is True
+    assert payload["quorum_rerun"]["rerun"] is False
+    assert payload["quorum_rerun"]["attempted"] is True
+    assert payload["quorum_rerun"]["non_blocking"] is True
+    assert payload["quorum_rerun"]["run_id"] == "99"
 
 
 def test_settle_apply_skips_signal_when_status_and_comment_already_success(
