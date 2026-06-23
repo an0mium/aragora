@@ -1,10 +1,10 @@
-"""Tests for the [P0]/[P1] non-finding false-positive in the verdict scanner.
+"""Tests for the [P0]/[P1]/[P2] non-finding false-positive in the verdict scanner.
 
 `has_blocking_or_negative_verdict` is the blocking-language scan used at BOTH
 collect-time and gate-time to decide whether a reviewer's evidence counts. It
-treated ANY line starting with `[P0]`/`[P1]` as a blocking finding — including
+treated ANY line starting with `[P0]`/`[P1]`/`[P2]` as a blocking finding — including
 `"[P1] None:"` / `"[P1] N/A"`, which low-cost models (and claude/codex) emit to
-say "no P0/P1 issues". That silently de-counted a PASS vote.
+say "no P0/P1/P2 issues". That silently de-counted a PASS vote.
 
 The fix must be conservative: a real finding that merely *starts with* "none"/"no"
 (e.g. `[P1] None of the inputs are validated`, `[P1] no auth check`) MUST still
@@ -18,6 +18,7 @@ import pytest
 
 from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label,
+    highest_blocking_severity,
     has_blocking_or_negative_verdict,
 )
 
@@ -85,6 +86,14 @@ def test_bare_p1_tag_blocks_conservatively():
 
 def test_p0_real_finding_still_blocks():
     assert has_blocking_or_negative_verdict("[P0] settlement gate bypass")
+
+
+def test_p2_real_finding_still_blocks():
+    assert has_blocking_or_negative_verdict("[P2] prepared apply bypasses the freeze proof")
+
+
+def test_p3_finding_remains_non_blocking():
+    assert not has_blocking_or_negative_verdict("[P3] clarify operator warning text")
 
 
 def test_negative_verdict_line_still_blocks():
@@ -201,3 +210,24 @@ def test_blocker_label_real_finding_with_no_prefix_still_blocks(value):
     # Standalone "blocking" token dropped: a real finding phrased "no blocking … but X"
     # (or "no authentication …") must still block — no merge-gate bypass.
     assert has_blocking_or_negative_verdict(f"Blockers: {value}") is True
+
+
+# --- Reconciliation with #8555 (main makes [P2] block the DEFAULT gate) vs the
+# severity-gate flag (which makes [P2] advisory). Pins the divergence: a [P2] marker
+# blocks has_blocking_or_negative_verdict (flag-OFF default) but is NOT a blocking
+# severity for the flag-ON helpers, so it becomes advisory under the flag.
+def test_p2_blocks_default_path_but_is_advisory_under_severity_gate():
+    body = "[P2] prepared apply bypasses the freeze proof"
+    # flag-OFF default scanner: [P2] blocks (matches main #8555)
+    assert has_blocking_or_negative_verdict(body) is True
+    # flag-ON severity helpers: [P2] is NOT a blocking finding/label -> advisory
+    assert has_blocking_finding_or_label(body) is False
+    assert highest_blocking_severity(body) is None
+
+
+def test_p0_p1_block_both_paths():
+    for sev in ("P0", "P1"):
+        body = f"[{sev}] settlement gate can be bypassed"
+        assert has_blocking_or_negative_verdict(body) is True
+        assert has_blocking_finding_or_label(body) is True
+        assert highest_blocking_severity(body) == sev

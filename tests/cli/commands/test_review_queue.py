@@ -2796,7 +2796,7 @@ class TestHasBlockingOrNegativeVerdict:
         assert _has_blocking_or_negative_verdict("1) [P0] settlement gate bypass")
         assert _has_blocking_or_negative_verdict("> [P1] stale exact-head evidence")
         assert _has_blocking_or_negative_verdict("## [P1] stale exact-head evidence")
-        assert not _has_blocking_or_negative_verdict("[P2] follow-up cleanup")
+        assert _has_blocking_or_negative_verdict("[P2] follow-up cleanup")
 
 
 # --- parenthetical model-family disclosure ---------------------------------

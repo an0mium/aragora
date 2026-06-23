@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-# Explicit "no Pn finding" heads. A `[P0]`/`[P1]` line is blocking UNLESS the text
+# Explicit "no Pn finding" heads. A `[P0]`/`[P1]`/`[P2]` line is blocking UNLESS the text
 # before its first colon is EXACTLY one of these — models emit `"[P1] None:"`,
 # `"[P1] N/A"`, `"[P1] no issues: ..."` to declare the absence of a finding. Matched
 # exactly (not as a prefix) so a real finding that merely starts with "none"/"no"
@@ -79,12 +79,6 @@ _NON_BLOCKING_PREFIXES = (
     "[]",
 )
 
-# A value starting with "no <no-finding-noun>" declares the absence of a blocker
-# (e.g. "no issues", "no blockers", "no blocking findings", "no blocking"). This is
-# the ONLY way a leading "no" counts as non-blocking — a real finding phrased as
-# "no authentication" / "no validation" / "no authorization" / "no rate limiting"
-# still blocks. The optional "blocking " keeps the legacy "no blocking findings"
-# form working without admitting arbitrary intervening words.
 # A populated Blocker-label value that is a no-finding declaration: "no issues",
 # "no blockers", "no concerns", optionally hedged with a closed set of adjectives
 # ("no MAJOR concerns", "no SIGNIFICANT issues", "no REMAINING blockers"). The
@@ -129,11 +123,21 @@ def _starts_with_phrase(
     return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
 
 
-# Single source of truth for the `[P0]`/`[P1]` marker. ``_PRIORITY_MARKER`` detects
-# a marker line (sev captured); ``_PRIORITY_MARKER_STRIP`` removes the marker prefix
-# to expose the finding head. Shared by ``_priority_finding_severity`` and
-# ``has_blocking_or_negative_verdict`` so the severity scanner and the blocking
-# scanner can never diverge on what a `[P0]`/`[P1]` line is.
+# The DEFAULT (flag-OFF) blocking scanner treats `[P0]`/`[P1]`/`[P2]` marker lines as
+# blocking findings — #8555 added `[P2]` to the default merge gate. ``has_blocking_or_
+# negative_verdict`` (the flag-OFF path) uses these so flag-OFF stays byte-identical to
+# main.
+_DEFAULT_BLOCKING_MARKER = re.compile(r"^(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I)
+_DEFAULT_BLOCKING_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?\s*", re.I)
+
+# The SEVERITY-GATE marker is deliberately `[P0]`/`[P1]` ONLY. ``_PRIORITY_MARKER``
+# detects a marker line (sev captured); ``_PRIORITY_MARKER_STRIP`` removes the prefix to
+# expose the finding head. Shared by ``_priority_finding_severity`` /
+# ``highest_blocking_severity`` / ``has_blocking_finding_or_label`` — the flag-ON path.
+# It intentionally diverges from ``_DEFAULT_BLOCKING_MARKER``: with
+# ARAGORA_ENABLE_SEVERITY_GATED_DISSENT=1 a `[P2]`-only dissent is NOT a blocking
+# severity, so it becomes advisory (that is the whole point of the flag). `[P2]` blocks
+# by default and is advisory under the flag — these two marker sets encode exactly that.
 _PRIORITY_MARKER = re.compile(r"^(?:\*\*)?\[(?P<sev>p0|p1)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I)
 _PRIORITY_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?\s*", re.I)
 
@@ -205,8 +209,8 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
         if not stripped:
             continue
         priority_marker_line = _strip_decoration(stripped)
-        if _PRIORITY_MARKER.match(priority_marker_line):
-            rest = _PRIORITY_MARKER_STRIP.sub("", priority_marker_line)
+        if _DEFAULT_BLOCKING_MARKER.match(priority_marker_line):
+            rest = _DEFAULT_BLOCKING_MARKER_STRIP.sub("", priority_marker_line)
             head = _normalize_value(rest).split(":", 1)[0].strip(" .;—–-")
             if head not in _NO_FINDING_HEADS:
                 return True
