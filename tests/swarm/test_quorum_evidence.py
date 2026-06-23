@@ -1490,13 +1490,16 @@ def test_apply_prepared_records_post_errors_without_losing_others(tmp_path) -> N
         linter=_family_linter,
         poster=flaky_poster,
     )
+    assert outcome.action == "prepare"
+    assert "replay incomplete" in outcome.action_reason
     assert outcome.posted == ["claude"]
     assert any("grok" in e for e in outcome.post_errors)
     assert posted == [_prepared_body("claude")]
 
 
-def test_collect_recheck_exception_prepares_without_posting() -> None:
-    fakes, posted = _fakes(tier=1)
+def test_apply_prepared_recheck_exception_prepares_without_posting(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[str] = []
     calls = {"n": 0}
 
     def flaky_context(repo: str, pr: int) -> dict:
@@ -1505,43 +1508,70 @@ def test_collect_recheck_exception_prepares_without_posting() -> None:
             raise RuntimeError("transient gh error")
         return _clean_context(repo, pr)
 
-    fakes["context_fetcher"] = flaky_context
-    outcome = collect_evidence(
-        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=flaky_context,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_family_linter,
+        poster=lambda repo, pr, body: posted.append(body),
     )
     assert outcome.action == "prepare"
-    assert "--prepared-json" in outcome.action_reason
+    assert "could not re-verify" in outcome.action_reason
     assert posted == []
 
 
-def test_collect_skips_post_when_head_moves_before_posting() -> None:
-    fakes, posted = _fakes(tier=1)
+def test_apply_prepared_skips_post_when_head_moves_before_posting(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[str] = []
     heads = iter([HEAD, "0" * 40])  # initial fetch, then recheck = moved head
 
     def moving_context(repo: str, pr: int) -> dict:
         return {**_clean_context(repo, pr), "head_sha": next(heads)}
 
-    fakes["context_fetcher"] = moving_context
-    outcome = collect_evidence(
-        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=moving_context,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_family_linter,
+        poster=lambda repo, pr, body: posted.append(body),
     )
     assert outcome.action == "prepare"
-    assert "--prepared-json" in outcome.action_reason
+    assert "changed before posting" in outcome.action_reason
     assert posted == []
 
 
-def test_collect_skips_post_when_tier_promoted_before_posting() -> None:
-    fakes, posted = _fakes(tier=1)
+def test_apply_prepared_skips_post_when_tier_promoted_before_posting(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[str] = []
     tiers = iter([1, 4])  # initial low, recheck promoted to settlement tier
 
     def promoting_tier(repo: str, pr: int) -> int:
         return next(tiers)
 
-    fakes["tier_fetcher"] = promoting_tier
-    outcome = collect_evidence(
-        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=_clean_context,
+        tier_fetcher=promoting_tier,
+        linter=_family_linter,
+        poster=lambda repo, pr, body: posted.append(body),
     )
     assert outcome.action == "prepare"
+    assert "changed before posting" in outcome.action_reason
     assert posted == []
 
 

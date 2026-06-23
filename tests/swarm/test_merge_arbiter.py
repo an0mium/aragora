@@ -932,7 +932,7 @@ class TestAutoCollectIntegration:
         assert apply_kwargs[0]["families"] == list(DEFAULT_FAMILIES)
         assert apply_kwargs[0]["quorum_reconciler"] is not None
 
-    def test_auto_collect_pins_head_when_prepared_apply_posts_nothing(self):
+    def test_auto_collect_retries_cached_prepared_apply_once_when_posts_nothing(self):
         class PreparedOutcome:
             settlement_stable = True
             has_supportive_quorum = True
@@ -955,7 +955,10 @@ class TestAutoCollectIntegration:
         def collector(**kw):
             return PreparedOutcome()
 
+        apply_calls = {"n": 0}
+
         def applier(**kw):
+            apply_calls["n"] += 1
             return PrepareOnlyOutcome()
 
         arb, calls = self._arbiter_with_prepared_fakes(collector, applier)
@@ -965,6 +968,9 @@ class TestAutoCollectIntegration:
         )
 
         assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
+        assert quorum_pr["headRefOid"] not in arb._collected_heads
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
         assert arb._maybe_collect_evidence(quorum_pr, blocked) is False
         assert calls["n"] == 1
+        assert apply_calls["n"] == 2
         assert quorum_pr["headRefOid"] in arb._collected_heads

@@ -109,6 +109,39 @@ def test_collect_apply_returns_unstable_prepare_without_replay(cli, monkeypatch)
     assert "--apply" not in calls[0]
 
 
+def test_collect_apply_partial_post_blocks_auto_merge_payload(cli, monkeypatch):
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, *, timeout=None):
+        calls.append(cmd)
+        if "--prepared-json" in cmd:
+            return SimpleNamespace(
+                stdout=json.dumps(
+                    _payload(
+                        action="post",
+                        settlement_stable=True,
+                        posted_families=["claude"],
+                        post_errors=["grok: gh rejected comment"],
+                    )
+                ),
+                stderr="",
+                returncode=1,
+            )
+        return SimpleNamespace(
+            stdout=json.dumps(_payload(action="prepare", settlement_stable=True)),
+            stderr="",
+            returncode=1,
+        )
+
+    monkeypatch.setattr(cli, "_run", fake_run)
+
+    result = cli._collect("owner/repo", 8512, ["claude", "grok"], apply=True)
+
+    assert result["action"] == "prepare"
+    assert "did not complete posting" in result["action_reason"]
+    assert len(calls) == 2
+
+
 def test_tier2_apply_auto_merge_success_exits_0(cli, monkeypatch):
     monkeypatch.setattr(cli, "_collect", lambda *a, **k: _payload())
     monkeypatch.setattr(

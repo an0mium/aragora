@@ -212,15 +212,15 @@ Mapping to the threat model's allowed/forbidden action lists:
 | State | Controller action | Authority |
 | --- | --- | --- |
 | `waiting_for_checks` | observe/report | safe |
-| `needs_low_tier_evidence` | **B3 `collect-evidence --apply`** (Tier 0-2 only) | safe (bounded, lint-gated) |
+| `needs_low_tier_evidence` | B3 prepare, then `collect-evidence --apply --prepared-json` (Tier 0-2 only) | safe (bounded, lint-gated) |
 | `stale_quorum_check` | `gh run rerun` once per cooldown (A1 reconciler) | safe (read-only re-eval) |
 | `needs_human_settlement` | **stop**; prepare packet; emit prompt | human-only stop |
 | `real_failure` | **stop**; report defect | human-only stop |
 | `ready_for_merge` | report ready; **do not merge by default** | separate authorization |
 
 The only mutating autonomous transitions are `needs_low_tier_evidence` (post
-Tier 0-2 evidence via B3) and `stale_quorum_check` (rerun via A1). Every Tier 3-4
-path is a **stop**.
+Tier 0-2 evidence by replaying a prepared B3 artifact) and `stale_quorum_check`
+(rerun via A1). Every Tier 3-4 path is a **stop**.
 
 ### 3.3 Liveness, cooldown, escalation
 

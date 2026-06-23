@@ -626,6 +626,7 @@ class MergeArbiter:
         self.config = config or MergeArbiterConfig()
         self._consecutive_failures = 0
         self._collected_heads: set[str] = set()
+        self._prepared_evidence_by_head: dict[str, dict[str, object]] = {}
         self._tier_fetcher = tier_fetcher
         self._context_fetcher = context_fetcher
         self._evidence_reader = evidence_reader
@@ -637,9 +638,10 @@ class MergeArbiter:
         """Collect quorum evidence at most once per head for a quorum-blocked PR.
 
         Returns True iff a collection was attempted. Posting is tier-gated inside
-        ``collect_evidence`` (Tier 3+ never posts). A completed prepare attempt or
-        substrate fault records the head so a blocked queue cannot re-trigger the
-        costly multi-model collection on every poll.
+        ``collect_evidence`` (Tier 3+ never posts). If replay prepares without
+        posting, the arbiter retries the same prepared artifact once on the next
+        poll, avoiding reviewer reruns while still allowing transient live-state
+        drift to clear.
         """
         head_sha = str(pr.get("headRefOid") or "")
         if head_sha and head_sha in self._collected_heads:
@@ -657,36 +659,9 @@ class MergeArbiter:
         def mark_collected() -> None:
             if head_sha:
                 self._collected_heads.add(head_sha)
+                self._prepared_evidence_by_head.pop(head_sha, None)
 
-        try:
-            families = self.config.reviewer_families or list(DEFAULT_FAMILIES)
-            author = self._author_resolver()
-            outcome = self._collector(
-                repo=self.config.repo,
-                pr=pr["number"],
-                families=families,
-                author=author,
-                apply=False,
-            )
-            if not hasattr(outcome, "settlement_stable"):
-                # Compatibility for tests/legacy injected collectors that only signal attempt/fault.
-                mark_collected()
-                return True
-            mark_collected()
-            if not getattr(outcome, "settlement_stable", False):
-                logger.info(
-                    "Prepared quorum evidence for #%s but did not post: %s",
-                    pr.get("number"),
-                    getattr(outcome, "action_reason", "not settlement-stable"),
-                )
-                return True
-            if not getattr(outcome, "has_supportive_quorum", False):
-                logger.info(
-                    "Prepared quorum evidence for #%s but quorum is incomplete: %s",
-                    pr.get("number"),
-                    getattr(outcome, "action_reason", "incomplete quorum"),
-                )
-                return True
+        def apply_payload(payload: dict[str, object]) -> object:
             prepared_path = ""
             try:
                 with tempfile.NamedTemporaryFile(
@@ -695,9 +670,9 @@ class MergeArbiter:
                     delete=False,
                     encoding="utf-8",
                 ) as fh:
-                    json.dump(outcome.to_dict(), fh)
+                    json.dump(payload, fh)
                     prepared_path = fh.name
-                applied = self._prepared_applier(
+                return self._prepared_applier(
                     repo=self.config.repo,
                     pr=pr["number"],
                     prepared_json=Path(prepared_path),
@@ -712,6 +687,58 @@ class MergeArbiter:
                         Path(prepared_path).unlink()
                     except OSError:
                         pass
+
+        def should_retry_replay(applied: object) -> bool:
+            posted = list(getattr(applied, "posted", []) or [])
+            post_errors = list(getattr(applied, "post_errors", []) or [])
+            return not posted and not post_errors and getattr(applied, "action", "") == "prepare"
+
+        try:
+            families = self.config.reviewer_families or list(DEFAULT_FAMILIES)
+            author = self._author_resolver()
+            if head_sha and head_sha in self._prepared_evidence_by_head:
+                applied = apply_payload(self._prepared_evidence_by_head[head_sha])
+                mark_collected()
+                logger.info(
+                    "Retried prepared quorum evidence for #%s; posted=%s",
+                    pr.get("number"),
+                    ",".join(getattr(applied, "posted", []) or []) or "none",
+                )
+                return True
+
+            outcome = self._collector(
+                repo=self.config.repo,
+                pr=pr["number"],
+                families=families,
+                author=author,
+                apply=False,
+            )
+            if not hasattr(outcome, "settlement_stable"):
+                # Compatibility for tests/legacy injected collectors that only signal attempt/fault.
+                mark_collected()
+                return True
+            if not getattr(outcome, "settlement_stable", False):
+                mark_collected()
+                logger.info(
+                    "Prepared quorum evidence for #%s but did not post: %s",
+                    pr.get("number"),
+                    getattr(outcome, "action_reason", "not settlement-stable"),
+                )
+                return True
+            if not getattr(outcome, "has_supportive_quorum", False):
+                mark_collected()
+                logger.info(
+                    "Prepared quorum evidence for #%s but quorum is incomplete: %s",
+                    pr.get("number"),
+                    getattr(outcome, "action_reason", "incomplete quorum"),
+                )
+                return True
+            payload = outcome.to_dict()
+            applied = apply_payload(payload)
+            if head_sha and should_retry_replay(applied):
+                self._prepared_evidence_by_head[head_sha] = payload
+            else:
+                mark_collected()
         except Exception as exc:  # noqa: BLE001 - best-effort resilience boundary: one bad collection must not abort the poll loop
             mark_collected()
             logger.warning("evidence collection fault for #%s: %s", pr.get("number"), exc)

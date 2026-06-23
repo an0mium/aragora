@@ -2168,6 +2168,18 @@ def apply_prepared_evidence(
             outcome.post_errors.append(f"{item.family}: {str(exc)[:200]}")
             continue
         outcome.posted.append(item.family)
+    missing_posts = sorted(set(outcome.supportive_families) - set(outcome.posted))
+    if outcome.post_errors or missing_posts:
+        detail = []
+        if missing_posts:
+            detail.append(f"missing posts: {', '.join(missing_posts)}")
+        if outcome.post_errors:
+            detail.append(f"post errors: {'; '.join(outcome.post_errors)}")
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            f"prepared evidence replay incomplete ({'; '.join(detail)}); prepared evidence only"
+        )
+        return outcome
     if outcome.posted and outcome.has_supportive_quorum and quorum_reconciler is not None:
         try:
             outcome.quorum_rerun = quorum_reconciler(repo, pr)

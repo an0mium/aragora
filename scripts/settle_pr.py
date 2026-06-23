@@ -94,6 +94,13 @@ def _parse_collect_payload(out: subprocess.CompletedProcess[str]) -> dict[str, A
     return {"mode": "collect_evidence", "error": detail[:500]}
 
 
+def _apply_replay_incomplete(payload: dict[str, Any]) -> bool:
+    post_errors = list(payload.get("post_errors") or [])
+    supportive = {str(f) for f in payload.get("supportive_families") or []}
+    posted = {str(f) for f in payload.get("posted_families") or []}
+    return bool(post_errors) or (payload.get("action") == "post" and supportive != posted)
+
+
 def _collect(repo: str, pr: int, reviewers: list[str], *, apply: bool) -> dict[str, Any]:
     """Run collect_quorum_evidence and return its JSON payload.
 
@@ -138,7 +145,19 @@ def _collect(repo: str, pr: int, reviewers: list[str], *, apply: bool) -> dict[s
             prepared_path,
             "--apply",
         ]
-        return _parse_collect_payload(_run(applied_cmd, timeout=_COLLECT_TIMEOUT))
+        applied_out = _run(applied_cmd, timeout=_COLLECT_TIMEOUT)
+        applied = _parse_collect_payload(applied_out)
+        if applied.get("error"):
+            return applied
+        if applied_out.returncode != 0 or _apply_replay_incomplete(applied):
+            blocked = dict(applied)
+            blocked["action"] = "prepare"
+            blocked["action_reason"] = (
+                "prepared evidence replay did not complete posting "
+                f"(rc={applied_out.returncode}); prepared evidence only"
+            )
+            return blocked
+        return applied
     finally:
         if prepared_path:
             try:
@@ -249,7 +268,8 @@ def main(argv: list[str] | None = None) -> int:
     mutate_ok = True  # set False only if an attempted auto-merge actually fails
 
     if args.apply and plan.ready_to_mutate and plan.route == ROUTE_AUTO_MERGE:
-        # collect --apply already posted + reconciled the Tier 0-2 evidence; merge.
+        # _collect already replayed the prepared artifact, posted all Tier 0-2
+        # evidence, and reconciled the quorum check; merge.
         am = _auto_merge(repo, args.pr)
         mutate_ok = am.returncode == 0
         actions.append(
