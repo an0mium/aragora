@@ -147,14 +147,14 @@ def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
             "--repo",
             repo,
             "--json",
-            "headRefOid,baseRefName,commits,mergeable,mergeStateStatus,statusCheckRollup",
+            "headRefOid,baseRefName,baseRefOid,commits,mergeable,mergeStateStatus,statusCheckRollup",
         ],
         env=_read_env(),
     )
     head_sha = str(data.get("headRefOid") or "").strip()
     base_ref_name = str(data.get("baseRefName") or "").strip()
-    base_ref_oid = ""
-    if base_ref_name:
+    base_ref_oid = str(data.get("baseRefOid") or "").strip()
+    if not base_ref_oid and base_ref_name:
         try:
             base_ref = run_json(
                 ["gh", "api", f"repos/{repo}/git/ref/heads/{base_ref_name}"],

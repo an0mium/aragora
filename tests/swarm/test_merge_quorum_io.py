@@ -57,6 +57,59 @@ def test_fetch_pr_context_routes_reads_through_app_token(monkeypatch) -> None:
     assert captured_envs[0].get("ARAGORA_GITHUB_AUTH_SOURCE") == "github_app_installation"
 
 
+def test_fetch_pr_context_uses_base_ref_oid_from_pr_view(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(args, *, env=None, timeout=m._GH_TIMEOUT):
+        calls.append(args)
+        return _proc(
+            json.dumps(
+                {
+                    "headRefOid": "abc",
+                    "baseRefName": "main",
+                    "baseRefOid": "base123",
+                    "commits": [{"oid": "abc", "committedDate": "2026-06-23T00:00:00Z"}],
+                    "mergeable": "MERGEABLE",
+                    "mergeStateStatus": "BLOCKED",
+                    "statusCheckRollup": [],
+                }
+            )
+        )
+
+    monkeypatch.setattr(m, "run", fake_run)
+    ctx = m.fetch_pr_context("o/r", 1)
+
+    assert ctx["base_ref_oid"] == "base123"
+    assert ctx["mergeable"] == "MERGEABLE"
+    assert ctx["merge_state_status"] == "BLOCKED"
+    assert len(calls) == 1
+
+
+def test_fetch_pr_context_falls_back_to_base_ref_api_when_base_oid_absent(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(args, *, env=None, timeout=m._GH_TIMEOUT):
+        calls.append(args)
+        if args[:3] == ["gh", "api", "repos/o/r/git/ref/heads/main"]:
+            return _proc(json.dumps({"object": {"sha": "fallback-base"}}))
+        return _proc(
+            json.dumps(
+                {
+                    "headRefOid": "abc",
+                    "baseRefName": "main",
+                    "commits": [{"oid": "abc", "committedDate": "2026-06-23T00:00:00Z"}],
+                    "statusCheckRollup": [],
+                }
+            )
+        )
+
+    monkeypatch.setattr(m, "run", fake_run)
+    ctx = m.fetch_pr_context("o/r", 1)
+
+    assert ctx["base_ref_oid"] == "fallback-base"
+    assert len(calls) == 2
+
+
 def test_fetch_pr_tier_reads_nested_entries(monkeypatch) -> None:
     payload = {
         "version": "merge_authorization_packet.v1",

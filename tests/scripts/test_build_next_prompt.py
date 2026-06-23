@@ -1066,6 +1066,29 @@ def test_stale_owner_prompt_halts_on_possible_unpushed_work(tmp_path: Path) -> N
     assert "recover its unpublished work" in prompt
 
 
+def test_stale_owner_prompt_halts_on_advisory_withheld_unpushed_work(tmp_path: Path) -> None:
+    prompt = prompt_builder.build_stale_owner_steering_prompt(
+        {
+            "owner_state": {
+                "lane_id": "lane-with-advisory",
+                "owner_session": "codex-owner",
+                "status": "working",
+                "branch": "codex/local-only",
+                "last_heartbeat_at": "2026-06-04T14:45:34Z",
+                "advisory_withheld": "possible_unpushed_work",
+                "live_process": {"found": True},
+            }
+        },
+        repo_root=tmp_path,
+        branch="codex/local-only",
+    )
+
+    assert prompt is not None
+    assert "Goal: halt on possible unpushed work" in prompt
+    assert "advisory_withheld: possible_unpushed_work" in prompt
+    assert "recover its unpublished work" in prompt
+
+
 def test_main_guards_unresolved_operator_choice_placeholders(
     tmp_path: Path,
     monkeypatch: Any,

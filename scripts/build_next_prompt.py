@@ -879,9 +879,15 @@ def _is_stale_mailbox_only_owner(owner_state: Any) -> bool:
 def _needs_stale_owner_halt(owner_state: Any) -> bool:
     if not isinstance(owner_state, dict):
         return False
-    if owner_state.get("possible_unpushed_work") is True:
+    if _owner_possible_unpushed_work(owner_state):
         return True
     return _is_stale_mailbox_only_owner(owner_state)
+
+
+def _owner_possible_unpushed_work(owner_state: dict[str, Any]) -> bool:
+    if owner_state.get("possible_unpushed_work") is True:
+        return True
+    return str(owner_state.get("advisory_withheld") or "") == "possible_unpushed_work"
 
 
 def _contains_target_token(text: str, *, pr: int | None, branch: str | None) -> bool:
@@ -1170,7 +1176,8 @@ def build_stale_owner_steering_prompt(
     pending_count = int(owner_state.get("pending_message_count") or 0)
     unread_count = int(owner_state.get("unread_message_count") or 0)
     receipt_count = int(owner_state.get("read_receipt_count") or 0)
-    possible_unpushed = owner_state.get("possible_unpushed_work") is True
+    possible_unpushed = _owner_possible_unpushed_work(owner_state)
+    advisory_withheld = str(owner_state.get("advisory_withheld") or "")
     halt_reason = "possible unpushed work" if possible_unpushed else "stale mailbox-only owner"
 
     return "\n".join(
@@ -1191,6 +1198,7 @@ def build_stale_owner_steering_prompt(
             f"- unread_message_count: {unread_count}",
             f"- read_receipt_count: {receipt_count}",
             f"- possible_unpushed_work: {possible_unpushed}",
+            f"- advisory_withheld: {advisory_withheld or '-'}",
             "",
             "First re-check mailbox, owner state, and unpublished-work indicators from a clean current origin/main checkout.",
             "If this halt condition still holds, do not send another steering message and do not mutate the target. Report the stale/dead owner details and the exact operator action needed: retire/release the lane, recover its unpublished work, or explicitly authorize supersession.",

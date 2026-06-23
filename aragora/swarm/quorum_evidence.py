@@ -89,6 +89,14 @@ WESTERN_FAMILIES: frozenset[str] = frozenset(
 # re-export in the review-queue gate so the two halves cannot drift.
 WESTERN_FRONTIER_FAMILIES: frozenset[str] = frozenset(("claude", "openai"))
 
+# ``mergeable`` can be ``UNKNOWN`` while GitHub computes mergeability; do not let
+# that lazy value block evidence comments when ``mergeStateStatus`` is still a
+# non-conflict state. Explicit conflict states remain fail-closed below.
+EVIDENCE_POSTABLE_MERGEABLE_STATES: frozenset[str] = frozenset(("MERGEABLE", "UNKNOWN"))
+# ``mergeStateStatus`` may be ``BLOCKED`` while branch-protection/quorum checks
+# are waiting on the very evidence this collector is about to post.
+EVIDENCE_POSTABLE_MERGE_STATE_STATUSES: frozenset[str] = frozenset(("CLEAN", "BLOCKED"))
+
 
 def is_western_family(family: str) -> bool:
     """Whether ``family`` counts toward a Western-only quorum (Tier 3-4)."""
@@ -517,21 +525,30 @@ def _context_merge_state_status(ctx: dict[str, Any]) -> str:
     return str(ctx.get("merge_state_status") or ctx.get("mergeStateStatus") or "").strip().upper()
 
 
+def _merge_state_allows_evidence_post(merge_state_status: str) -> bool:
+    return merge_state_status in EVIDENCE_POSTABLE_MERGE_STATE_STATUSES
+
+
 def _settlement_stability_problems(outcome: CollectOutcome) -> list[str]:
     problems: list[str] = []
     if not outcome.base_ref_oid:
         problems.append("missing base_ref_oid")
     if not outcome.mergeable:
         problems.append("missing mergeable state")
-    elif outcome.mergeable != "MERGEABLE":
-        problems.append(f"PR is not mergeable: {outcome.mergeable}")
+    elif outcome.mergeable not in EVIDENCE_POSTABLE_MERGEABLE_STATES:
+        allowed = ", ".join(sorted(EVIDENCE_POSTABLE_MERGEABLE_STATES))
+        problems.append(
+            f"PR mergeability does not allow evidence posting: {outcome.mergeable} "
+            f"(allowed: {allowed})"
+        )
     if not outcome.merge_state_status:
         problems.append("missing merge_state_status")
-    elif outcome.merge_state_status != "CLEAN":
-        problems.append(f"merge state is not clean: {outcome.merge_state_status}")
-    if outcome.failures:
-        failed = ", ".join(failure.family for failure in outcome.failures if failure.family)
-        problems.append(f"reviewer failure present: {failed or 'unknown'}")
+    elif not _merge_state_allows_evidence_post(outcome.merge_state_status):
+        allowed = ", ".join(sorted(EVIDENCE_POSTABLE_MERGE_STATE_STATUSES))
+        problems.append(
+            f"merge state does not allow evidence posting: {outcome.merge_state_status} "
+            f"(allowed: {allowed})"
+        )
     if outcome.dissenting_families:
         problems.append(f"reviewer dissent present: {', '.join(outcome.dissenting_families)}")
     if not outcome.has_supportive_quorum:
@@ -609,7 +626,7 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
     # evidence then evaluates under min(prepared, live), so this strict default can
     # only ever tighten, never loosen, the bar.
     if "tiered_gate" in data:
-        gate_kwargs: dict[str, Any] = {"tiered_gate": bool(data.get("tiered_gate"))}
+        gate_kwargs: dict[str, Any] = {"tiered_gate": data.get("tiered_gate") is True}
     else:
         logger.debug(
             "prepared evidence artifact omits 'tiered_gate'; failing closed to "
@@ -636,7 +653,7 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         base_ref_oid=str(data.get("base_ref_oid") or "").strip(),
         mergeable=str(data.get("mergeable") or "").strip().upper(),
         merge_state_status=str(data.get("merge_state_status") or "").strip().upper(),
-        settlement_stable=bool(data.get("settlement_stable")),
+        settlement_stable=data.get("settlement_stable") is True,
         stability_problems=_string_list(data.get("stability_problems")),
         **gate_kwargs,
     )
@@ -718,11 +735,21 @@ def _reviewer_verdict(text: str) -> str:
         if probe.startswith("verdict:"):
             verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
             if verdict.startswith("pass"):
-                return "pass"
+                return "changes_requested" if _has_blocking_priority_finding(text) else "pass"
             if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
                 return "changes_requested"
             return "unknown"
     return "unknown"
+
+
+def _has_blocking_priority_finding(text: str) -> bool:
+    """Treat real P0-P2 finding bullets as dissent even if the verdict says PASS."""
+    return bool(
+        re.search(
+            r"(?im)^\s*(?:[-*+]\s+|\d+[.)]\s+)?(?:\*\*)?\[(?:P0|P1|P2)\](?:\*\*)?(?=\s|:|-|$)",
+            text,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1934,16 +1961,22 @@ def _prepared_apply_blocker(prepared: CollectOutcome, live: CollectOutcome) -> s
         detail = ", ".join(missing)
         if prepared.stability_problems:
             detail += f"; prepared problems: {'; '.join(prepared.stability_problems)}"
-        return f"prepared evidence artifact missing clean settlement-stability metadata ({detail})"
+        return f"prepared evidence artifact missing settlement-stability metadata ({detail})"
     if prepared.base_ref_oid != live.base_ref_oid:
         return (
             f"prepared base {prepared.base_ref_oid[:7]} does not match current base "
             f"{live.base_ref_oid[:7] or 'unknown'}"
         )
-    if live.mergeable != "MERGEABLE":
-        return f"current PR is not mergeable: {live.mergeable or 'unknown'}"
-    if live.merge_state_status != "CLEAN":
-        return f"current merge state is not clean: {live.merge_state_status or 'unknown'}"
+    if live.mergeable not in EVIDENCE_POSTABLE_MERGEABLE_STATES:
+        return (
+            "current PR mergeability does not allow evidence posting: "
+            f"{live.mergeable or 'unknown'}"
+        )
+    if not _merge_state_allows_evidence_post(live.merge_state_status):
+        return (
+            "current merge state does not allow evidence posting: "
+            f"{live.merge_state_status or 'unknown'}"
+        )
     return None
 
 
@@ -2107,8 +2140,8 @@ def apply_prepared_evidence(
     if (
         recheck_head != head_sha
         or recheck_base != outcome.base_ref_oid
-        or recheck_mergeable != "MERGEABLE"
-        or recheck_merge_state != "CLEAN"
+        or recheck_mergeable not in EVIDENCE_POSTABLE_MERGEABLE_STATES
+        or not _merge_state_allows_evidence_post(recheck_merge_state)
         or recheck_action != "post"
     ):
         outcome.action = "prepare"

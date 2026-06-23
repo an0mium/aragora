@@ -1002,6 +1002,24 @@ def test_collect_low_tier_apply_prepares_exact_head_artifact() -> None:
     assert posted == []
 
 
+def test_collect_low_tier_apply_allows_unknown_mergeability_with_clean_state() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def unknown_mergeable_context(repo: str, pr: int) -> dict:
+        return {**_clean_context(repo, pr), "mergeable": "UNKNOWN"}
+
+    fakes["context_fetcher"] = unknown_mergeable_context
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    )
+
+    assert outcome.action == "prepare"
+    assert outcome.settlement_stable is True
+    assert outcome.mergeable == "UNKNOWN"
+    assert "--prepared-json" in outcome.action_reason
+    assert posted == []
+
+
 def test_collect_runs_reviewers_concurrently() -> None:
     # Deterministic concurrency proof: a 2-party barrier only trips if both
     # reviewers run at once. Serial execution would block the first runner on
@@ -1581,6 +1599,8 @@ def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
             "changes_requested",
         ),
         ("intro preamble line\nVerdict: PASS\n- note", "pass"),
+        ("Verdict: PASS\n- [P2] real defect", "changes_requested"),
+        ("Verdict: PASS\n- **[P1]** real defect", "changes_requested"),
         ("`Verdict: pass`", "pass"),
         ("1. Verdict: PASS", "pass"),
         ("no verdict at all here", "unknown"),
@@ -1841,7 +1861,7 @@ def test_apply_prepared_evidence_requires_stability_metadata(tmp_path) -> None:
     )
 
     assert outcome.action == "prepare"
-    assert "missing clean settlement-stability metadata" in outcome.action_reason
+    assert "missing settlement-stability metadata" in outcome.action_reason
     assert posted == []
 
 
@@ -1870,7 +1890,7 @@ def test_apply_prepared_evidence_rejects_base_drift(tmp_path) -> None:
     assert posted == []
 
 
-def test_apply_prepared_evidence_rejects_non_clean_merge_state(tmp_path) -> None:
+def test_apply_prepared_evidence_rejects_non_postable_merge_state(tmp_path) -> None:
     prepared = _prepared_outcome_file(tmp_path)
     posted: list[str] = []
 
@@ -1891,7 +1911,99 @@ def test_apply_prepared_evidence_rejects_non_clean_merge_state(tmp_path) -> None
     )
 
     assert outcome.action == "prepare"
-    assert "merge state is not clean" in outcome.action_reason
+    assert "merge state does not allow evidence posting" in outcome.action_reason
+    assert posted == []
+
+
+def test_apply_prepared_evidence_rejects_conflicting_mergeability(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[str] = []
+
+    def conflicting_context(repo: str, pr: int) -> dict:
+        return {**_clean_context(repo, pr), "mergeable": "CONFLICTING"}
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=conflicting_context,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_family_linter,
+        poster=lambda repo, pr, body: posted.append(body),
+    )
+
+    assert outcome.action == "prepare"
+    assert "mergeability does not allow evidence posting" in outcome.action_reason
+    assert posted == []
+
+
+def test_apply_prepared_evidence_allows_blocked_merge_state_when_mergeable(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[str] = []
+
+    def blocked_context(repo: str, pr: int) -> dict:
+        return {**_clean_context(repo, pr), "merge_state_status": "BLOCKED"}
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=blocked_context,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_family_linter,
+        poster=lambda repo, pr, body: posted.append(body),
+    )
+
+    assert outcome.action == "post"
+    assert outcome.posted == ["claude", "grok"]
+    assert len(posted) == 2
+
+
+def test_collect_low_tier_apply_treats_blocked_merge_state_as_stable() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def blocked_context(repo: str, pr: int) -> dict:
+        return {**_clean_context(repo, pr), "merge_state_status": "BLOCKED"}
+
+    fakes["context_fetcher"] = blocked_context
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    )
+
+    assert outcome.action == "prepare"
+    assert outcome.settlement_stable is True
+    assert outcome.merge_state_status == "BLOCKED"
+    assert "--prepared-json" in outcome.action_reason
+    assert posted == []
+
+
+def test_collect_low_tier_apply_stable_with_extra_reviewer_failure_when_quorum_met() -> None:
+    fakes, posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "qwen":
+            return ReviewerResult("qwen", "", False, "qwen timeout")
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok", "qwen"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert outcome.has_supportive_quorum is True
+    assert outcome.settlement_stable is True
+    assert [failure.family for failure in outcome.failures] == ["qwen"]
     assert posted == []
 
 
@@ -1911,6 +2023,34 @@ def test_collect_outcome_tiered_gate_roundtrips() -> None:
         )
         assert outcome.to_dict()["tiered_gate"] is gate
         assert qe.collect_outcome_from_dict(outcome.to_dict()).tiered_gate is gate
+
+
+def test_collect_outcome_from_dict_requires_boolean_stability_field() -> None:
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="prepared",
+        items=[
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+            EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
+        ],
+        base_ref_oid=BASE,
+        mergeable="MERGEABLE",
+        merge_state_status="CLEAN",
+        settlement_stable=True,
+    )
+    data = outcome.to_dict()
+    data["settlement_stable"] = "false"
+    data["tiered_gate"] = "true"
+
+    rehydrated = qe.collect_outcome_from_dict(data)
+
+    assert rehydrated.settlement_stable is False
+    assert rehydrated.tiered_gate is False
 
 
 def test_collect_outcome_missing_tiered_gate_fails_closed(monkeypatch) -> None:

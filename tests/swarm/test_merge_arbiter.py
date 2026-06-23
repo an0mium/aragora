@@ -655,6 +655,7 @@ class TestFullRun:
 # ---------------------------------------------------------------------------
 
 from aragora.swarm.merge_arbiter import (  # noqa: E402
+    DEFAULT_FAMILIES,
     QUORUM_REQUIRED_CHECK,
     _result_blocked_only_on_quorum,
     _should_collect_evidence,
@@ -806,6 +807,31 @@ class TestAutoCollectIntegration:
         )
         return arb, calls
 
+    def _arbiter_with_prepared_fakes(self, collector, prepared_applier, *, tier=2, evidence=None):
+        calls = {"n": 0}
+
+        def counting_collector(**kw):
+            calls["n"] += 1
+            return collector(**kw)
+
+        arb = MergeArbiter(
+            config=MergeArbiterConfig(
+                poll_interval_seconds=0.001,
+                max_runtime_hours=0.0003,
+                max_consecutive_failures=99,
+            ),
+            tier_fetcher=lambda *_: tier,
+            context_fetcher=lambda *_: {
+                "head_sha": "deadbeef",
+                "head_committed_at": "2026-06-06T00:00:00Z",
+            },
+            evidence_reader=lambda *_: (evidence or []),
+            collector=counting_collector,
+            prepared_applier=prepared_applier,
+            author_resolver=lambda: "an0mium",
+        )
+        return arb, calls
+
     @pytest.mark.asyncio
     async def test_collects_once_per_head_across_polls(self):
         arb, calls = self._arbiter_with_fakes(lambda **kw: None)
@@ -853,3 +879,54 @@ class TestAutoCollectIntegration:
             summary = await arb.run()  # must not raise
         assert calls["n"] == 1  # attempted once; head recorded so no retry storm
         assert summary.polls >= 1
+
+    @pytest.mark.asyncio
+    async def test_auto_collect_applies_prepared_exact_head_artifact(self):
+        import json as _json
+
+        class PreparedOutcome:
+            settlement_stable = True
+            has_supportive_quorum = True
+            action_reason = "prepared exact-head evidence"
+
+            def to_dict(self):
+                return {
+                    "mode": "collect_evidence",
+                    "head_sha": "deadbeef",
+                    "counting_families": ["claude", "grok"],
+                    "posted_families": [],
+                    "settlement_stable": True,
+                }
+
+        class AppliedOutcome:
+            posted = ["claude", "grok"]
+
+        collect_kwargs = []
+        apply_kwargs = []
+
+        def collector(**kw):
+            collect_kwargs.append(kw)
+            return PreparedOutcome()
+
+        def applier(**kw):
+            apply_kwargs.append(kw)
+            path = kw["prepared_json"]
+            assert path.exists()
+            assert _json.loads(path.read_text(encoding="utf-8"))["head_sha"] == "deadbeef"
+            return AppliedOutcome()
+
+        arb, calls = self._arbiter_with_prepared_fakes(collector, applier)
+        quorum_pr = _pr(53, "codex/x")
+        blocked = MergeResult(
+            53, "codex/x", False, f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE"
+        )
+        with (
+            patch("aragora.swarm.merge_arbiter._list_candidate_prs", return_value=[quorum_pr]),
+            patch("aragora.swarm.merge_arbiter._evaluate_pr", return_value=blocked),
+        ):
+            await arb.run()
+
+        assert calls["n"] == 1
+        assert collect_kwargs[0]["apply"] is False
+        assert apply_kwargs[0]["apply"] is True
+        assert apply_kwargs[0]["families"] == list(DEFAULT_FAMILIES)

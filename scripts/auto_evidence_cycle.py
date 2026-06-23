@@ -6,8 +6,10 @@ behind the merge-quorum gate until a human coordinator runs reviewers by hand.
 This wrapper closes that loop autonomously and *boundedly*: it selects up to
 ``--max-prs`` such PRs, produces two-family evidence through the proven
 ``review-queue collect-evidence`` pipeline (which lint-validates every comment
-with the gate's own ``evidence-lint`` parser *before* posting), then invokes
-``scripts/quorum_rerun_reconciler.py --apply`` so stale quorum checks re-run.
+with the gate's own ``evidence-lint`` parser), applies the exact prepared
+artifact after the collector rechecks the live head/base/merge state, then
+invokes ``scripts/quorum_rerun_reconciler.py --apply`` so stale quorum checks
+re-run.
 
 Probe (cheapest reliable, two stages):
 
@@ -31,8 +33,9 @@ Safety model (mirrors ``quorum_rerun_reconciler.py``):
   cycle (exit 2) — a systemic fault (CLI missing, auth broken) must not burn
   the whole budget. A run of consecutive transport-blocked merge-packet probes
   (GitHub/GraphQL down, auth broken) feeds the same breaker.
-- Never-post-on-lint-fail is enforced *inside* collect-evidence; this wrapper
-  additionally requires >=2 posted families before counting a PR as done.
+- Never-post-on-lint-fail and evidence-last prepared-JSON application are enforced
+  *inside* collect-evidence; this wrapper additionally requires >=2 posted
+  families before counting a PR as done.
 - Tier gating is enforced twice: by this wrapper's selection and again by
   collect-evidence itself (Tier 3+/unknown always prepare-only).
 - Secrets guard: collect-evidence subprocesses run with
@@ -65,6 +68,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -279,6 +283,9 @@ def parse_collect_output(returncode: int, stdout: str, stderr: str) -> dict[str,
     except (TypeError, ValueError):
         tier = None
     error = str(payload.get("error") or "")
+    action = str(payload.get("action") or "")
+    action_reason = str(payload.get("action_reason") or "")
+    settlement_stable = bool(payload.get("settlement_stable"))
     post_errors = list(payload.get("post_errors") or [])
     ok = returncode == 0 and len(counting) >= REQUIRED_FAMILIES and not error
     if not ok and not error:
@@ -292,13 +299,19 @@ def parse_collect_output(returncode: int, stdout: str, stderr: str) -> dict[str,
             for item in payload.get("failures") or []
             if isinstance(item, dict)
         ]
-        error = "; ".join(["<2 counting families"] + failures + problems + post_errors)
+        details = failures + problems + post_errors
+        if action_reason:
+            details.append(action_reason)
+        error = "; ".join(["<2 counting families"] + details)
     return {
         "ok": ok,
         "counting_families": counting,
         "posted_families": posted,
         "head_sha": head_sha,
         "tier": tier,
+        "action": action,
+        "action_reason": action_reason,
+        "settlement_stable": settlement_stable,
         "error": error,
     }
 
@@ -535,7 +548,7 @@ def default_fetch_packet(repo: str, pr: int) -> dict[str, Any]:
 def default_run_collect(
     repo: str, families: tuple[str, ...], pr: int, apply: bool
 ) -> dict[str, Any]:
-    cmd = [
+    base_cmd = [
         sys.executable,
         "-m",
         "aragora.cli.main",
@@ -549,9 +562,8 @@ def default_run_collect(
         *families,
         "--json",
     ]
-    if apply:
-        cmd.append("--apply")
-    try:
+
+    def run(cmd: list[str]) -> tuple[int, str, str]:
         proc = subprocess.run(
             cmd,
             capture_output=True,
@@ -559,6 +571,48 @@ def default_run_collect(
             timeout=COLLECT_TIMEOUT_SECONDS,
             env=_sanitized_env(),
         )
+        return proc.returncode, proc.stdout, proc.stderr
+
+    try:
+        if not apply:
+            return parse_collect_output(*run(base_cmd))
+
+        prepare_code, prepare_stdout, prepare_stderr = run(base_cmd)
+        prepared = parse_collect_output(prepare_code, prepare_stdout, prepare_stderr)
+        if not prepared.get("ok"):
+            return prepared
+        try:
+            payload = json.loads(prepare_stdout or "{}")
+            if not isinstance(payload, dict):
+                raise ValueError("non-object payload")
+        except (json.JSONDecodeError, ValueError):
+            return prepared
+        if not payload.get("settlement_stable"):
+            reason = str(
+                payload.get("action_reason")
+                or "; ".join(payload.get("stability_problems") or [])
+                or "prepared artifact is not settlement-stable"
+            )
+            return {**prepared, "ok": False, "error": reason}
+
+        prepared_path = ""
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                suffix=f"-pr{pr}-prepared-evidence.json",
+                delete=False,
+                encoding="utf-8",
+            ) as fh:
+                json.dump(payload, fh)
+                prepared_path = fh.name
+            apply_cmd = [*base_cmd, "--apply", "--prepared-json", prepared_path]
+            return parse_collect_output(*run(apply_cmd))
+        finally:
+            if prepared_path:
+                try:
+                    os.unlink(prepared_path)
+                except OSError:
+                    pass
     except subprocess.TimeoutExpired:
         return {
             "ok": False,
@@ -566,7 +620,6 @@ def default_run_collect(
             "posted_families": [],
             "error": f"collect-evidence timed out after {COLLECT_TIMEOUT_SECONDS}s",
         }
-    return parse_collect_output(proc.returncode, proc.stdout, proc.stderr)
 
 
 def default_run_dogfood(
@@ -882,7 +935,9 @@ def run_cycle(
             continue
         if result.get("ok"):
             # Collected fine but posted <2 families: not quorum evidence.
-            error = f"only {len(posted)} family posted ({', '.join(posted) or 'none'}); not quorum"
+            error = str(result.get("action_reason") or "") or (
+                f"only {len(posted)} family posted ({', '.join(posted) or 'none'}); not quorum"
+            )
         else:
             error = str(result.get("error") or "collect failed")
         summary["failed_prs"].append(item["pr"])

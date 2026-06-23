@@ -856,6 +856,84 @@ def test_parse_collect_output_missing_head_and_tier_are_absent_not_invented() ->
     assert result["tier"] is None
 
 
+def test_default_run_collect_apply_uses_prepared_json_artifact(monkeypatch: Any) -> None:
+    import json as _json
+
+    class _Proc:
+        def __init__(self, stdout: str) -> None:
+            self.returncode = 0
+            self.stdout = stdout
+            self.stderr = ""
+
+    prepared_payload = {
+        "mode": "collect_evidence",
+        "counting_families": ["claude", "grok"],
+        "posted_families": [],
+        "head_sha": "d" * 40,
+        "tier": 1,
+        "settlement_stable": True,
+        "action": "prepare",
+        "action_reason": "--apply requires --prepared-json",
+    }
+    applied_payload = {
+        **prepared_payload,
+        "posted_families": ["claude", "grok"],
+        "action": "post",
+        "action_reason": "prepared exact-head evidence artifact",
+    }
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> _Proc:
+        calls.append(cmd)
+        if "--prepared-json" in cmd:
+            path = Path(cmd[cmd.index("--prepared-json") + 1])
+            assert _json.loads(path.read_text(encoding="utf-8")) == prepared_payload
+            return _Proc(_json.dumps(applied_payload))
+        assert "--apply" not in cmd
+        return _Proc(_json.dumps(prepared_payload))
+
+    monkeypatch.setattr(cycle.subprocess, "run", fake_run)
+    result = cycle.default_run_collect("owner/repo", ("claude", "grok"), 42, True)
+
+    assert result["ok"] is True
+    assert result["posted_families"] == ["claude", "grok"]
+    assert len(calls) == 2
+    assert "--prepared-json" in calls[1]
+
+
+def test_default_run_collect_apply_refuses_unstable_prepared_artifact(monkeypatch: Any) -> None:
+    import json as _json
+
+    class _Proc:
+        returncode = 0
+        stderr = ""
+        stdout = _json.dumps(
+            {
+                "mode": "collect_evidence",
+                "counting_families": ["claude", "grok"],
+                "posted_families": [],
+                "head_sha": "e" * 40,
+                "tier": 1,
+                "settlement_stable": False,
+                "action": "prepare",
+                "action_reason": "reviewer dissent present: grok",
+            }
+        )
+
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> _Proc:
+        calls.append(cmd)
+        return _Proc()
+
+    monkeypatch.setattr(cycle.subprocess, "run", fake_run)
+    result = cycle.default_run_collect("owner/repo", ("claude", "grok"), 42, True)
+
+    assert result["ok"] is False
+    assert "reviewer dissent" in result["error"]
+    assert len(calls) == 1
+
+
 # --- #8316 DEFECT 1: transport/structural conflation -------------------------
 
 

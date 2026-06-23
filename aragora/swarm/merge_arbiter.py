@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -31,6 +32,7 @@ from aragora.swarm.merge_quorum_io import (
 from aragora.swarm.merge_quorum_reconcile import TIER_REQUIREMENTS, counted_reviewer_ids
 from aragora.swarm.quorum_evidence import (
     DEFAULT_FAMILIES,
+    apply_prepared_evidence,
     collect_evidence,
     resolve_author,
 )
@@ -84,8 +86,8 @@ class MergeArbiterConfig:
     max_consecutive_failures: int = 3
     dry_run: bool = False
     # When True, the arbiter auto-collects model-quorum evidence for ready
-    # candidates blocked solely on the quorum check (Tier 0-2 only). Posting is
-    # tier-gated inside collect_evidence; high-tier PRs never auto-post.
+    # candidates blocked solely on the quorum check (Tier 0-2 only). The collector
+    # prepares first; posting replays that exact artifact after live state recheck.
     auto_collect_evidence: bool = True
     # Reviewer families for auto-collection; falls back to DEFAULT_FAMILIES.
     reviewer_families: list[str] | None = None
@@ -617,6 +619,7 @@ class MergeArbiter:
         context_fetcher=fetch_pr_context,
         evidence_reader=fetch_evidence_comments,
         collector=collect_evidence,
+        prepared_applier=apply_prepared_evidence,
         author_resolver=resolve_author,
     ) -> None:
         self.config = config or MergeArbiterConfig()
@@ -626,6 +629,7 @@ class MergeArbiter:
         self._context_fetcher = context_fetcher
         self._evidence_reader = evidence_reader
         self._collector = collector
+        self._prepared_applier = prepared_applier
         self._author_resolver = author_resolver
 
     def _maybe_collect_evidence(self, pr: dict, result: MergeResult) -> bool:
@@ -650,17 +654,61 @@ class MergeArbiter:
             return False
         self._collected_heads.add(head_sha)
         try:
-            self._collector(
+            families = self.config.reviewer_families or list(DEFAULT_FAMILIES)
+            author = self._author_resolver()
+            outcome = self._collector(
                 repo=self.config.repo,
                 pr=pr["number"],
-                families=self.config.reviewer_families or list(DEFAULT_FAMILIES),
-                author=self._author_resolver(),
-                apply=True,
+                families=families,
+                author=author,
+                apply=False,
             )
+            if not getattr(outcome, "settlement_stable", False):
+                logger.info(
+                    "Prepared quorum evidence for #%s but did not post: %s",
+                    pr.get("number"),
+                    getattr(outcome, "action_reason", "not settlement-stable"),
+                )
+                return True
+            if not getattr(outcome, "has_supportive_quorum", False):
+                logger.info(
+                    "Prepared quorum evidence for #%s but quorum is incomplete: %s",
+                    pr.get("number"),
+                    getattr(outcome, "action_reason", "incomplete quorum"),
+                )
+                return True
+            prepared_path = ""
+            try:
+                with tempfile.NamedTemporaryFile(
+                    "w",
+                    suffix=f"-pr{pr['number']}-prepared-evidence.json",
+                    delete=False,
+                    encoding="utf-8",
+                ) as fh:
+                    json.dump(outcome.to_dict(), fh)
+                    prepared_path = fh.name
+                applied = self._prepared_applier(
+                    repo=self.config.repo,
+                    pr=pr["number"],
+                    prepared_json=Path(prepared_path),
+                    author=author,
+                    apply=True,
+                    families=families,
+                )
+            finally:
+                if prepared_path:
+                    try:
+                        Path(prepared_path).unlink()
+                    except OSError:
+                        pass
         except Exception as exc:  # noqa: BLE001 - best-effort resilience boundary: one bad collection must not abort the poll loop
             logger.warning("evidence collection fault for #%s: %s", pr.get("number"), exc)
             return False
-        logger.info("Auto-collected quorum evidence for #%s", pr.get("number"))
+        logger.info(
+            "Auto-collected quorum evidence for #%s; posted=%s",
+            pr.get("number"),
+            ",".join(getattr(applied, "posted", []) or []) or "none",
+        )
         return True
 
     async def run(self) -> ArbiterSummary:
