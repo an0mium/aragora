@@ -4418,12 +4418,7 @@ def _is_comment_grounded_on_head(
 
 
 def _body_cites_different_head_sha(body: str, head_sha: str) -> bool:
-    """Return True when a comment labels some other SHA as the reviewed head.
-
-    Timestamp recency is a useful fallback for terse comments, but it must not
-    override an explicit ``Head SHA: <old-sha>`` style citation copied from a
-    superseded prompt.
-    """
+    """Return True when a comment labels another SHA as the reviewed head."""
     normalized_head = str(head_sha or "").strip().lower()
     if len(normalized_head) < 7:
         return False
