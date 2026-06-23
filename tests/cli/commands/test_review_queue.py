@@ -1274,10 +1274,57 @@ class TestModelReviewQuorum:
         )
 
         assert quorum["unresolved_dissent"] is False
-        assert quorum["dissenting_views"] == []
+        assert len(quorum["dissenting_views"]) == 1
+        assert quorum["dissenting_views"][0]["highest_finding_priority"] == "P2"
+        assert quorum["dissenting_views"][0]["blocks_merge"] is False
+        assert quorum["dissenting_views"][0]["advisory"] is True
         assert quorum["status"] == "satisfied"
         assert quorum["admin_squash_allowed"] is True
         assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
+
+    def test_severity_gated_explicit_p2_blocker_still_blocks(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "1")
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    "Blockers:\n"
+                    "- [P2] Merge gate can be bypassed."
+                ),
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["dissenting_views"][0]["highest_finding_priority"] == "P2"
+        assert quorum["dissenting_views"][0]["blocks_merge"] is True
+        assert quorum["dissenting_views"][0]["advisory"] is False
 
     def test_severity_gated_p1_changes_requested_still_blocks(
         self,

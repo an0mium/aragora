@@ -122,3 +122,18 @@ def test_severity_gated_model_dissent_blocks_p1_changes_requested():
 def test_severity_gated_model_dissent_blocks_explicit_blockers_without_p_tag():
     body = "Verdict: CHANGES-REQUESTED\nBlocking findings: merge gate can be bypassed."
     assert has_blocking_model_dissent(body, severity_gated=True)
+
+
+def test_severity_gated_blockers_none_priority_line_is_not_blocking():
+    body = "Verdict: CHANGES-REQUESTED\nBlockers:\n- [P2] None: no merge blocker."
+    assert not has_blocking_model_dissent(body, severity_gated=True)
+
+
+def test_severity_gated_explicit_blocker_with_low_priority_label_still_blocks():
+    body = "Verdict: CHANGES-REQUESTED\nBlockers:\n- [P2] Merge gate can be bypassed."
+    assert has_blocking_model_dissent(body, severity_gated=True)
+
+
+def test_explicit_blocker_no_auth_is_not_misread_as_no_blocker():
+    body = "Verdict: CHANGES-REQUESTED\nBlockers: no authentication on admin endpoint."
+    assert has_blocking_model_dissent(body, severity_gated=True)

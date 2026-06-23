@@ -551,6 +551,21 @@ def _reviewer_result_from_dict(raw: Any) -> ReviewerResult:
     )
 
 
+def _prepared_bool(data: dict[str, Any], key: str, *, default: bool = False) -> bool:
+    if key not in data:
+        return default
+    value = data.get(key)
+    if isinstance(value, bool):
+        return value
+    logger.warning(
+        "prepared evidence artifact has non-boolean %s=%r; failing closed to %s",
+        key,
+        value,
+        default,
+    )
+    return default
+
+
 def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
     """Rehydrate the JSON emitted by :meth:`CollectOutcome.to_dict`."""
     if not isinstance(data, dict):
@@ -579,7 +594,7 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
     # only ever tighten, never loosen, the bar.
     if "tiered_gate" in data:
         gate_kwargs: dict[str, Any] = {
-            "tiered_gate": bool(data.get("tiered_gate")),
+            "tiered_gate": _prepared_bool(data, "tiered_gate"),
         }
     else:
         logger.debug(
@@ -590,7 +605,10 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         )
         gate_kwargs = {"tiered_gate": False}
     if "severity_gated_model_dissent" in data:
-        gate_kwargs["severity_gated_model_dissent"] = bool(data.get("severity_gated_model_dissent"))
+        gate_kwargs["severity_gated_model_dissent"] = _prepared_bool(
+            data,
+            "severity_gated_model_dissent",
+        )
     else:
         logger.debug(
             "prepared evidence artifact omits 'severity_gated_model_dissent'; "

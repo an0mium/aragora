@@ -3140,7 +3140,7 @@ def _build_model_review_quorum(
     dissenting_views.extend(comment_dissenting_views)
     blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
     blocking_workflow_state = bool(blocking_workflow_reasons)
-    unresolved_dissent = bool(dissenting_views)
+    unresolved_dissent = any(bool(view.get("blocks_merge", True)) for view in dissenting_views)
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
     review_object_warnings = _review_object_quorum_warnings(
         pr.get("reviews") or [],
@@ -4209,7 +4209,17 @@ def _dissenting_views_from_comments(
             continue
         body = str(comment.get("body", "") or "")
         lower = body.lower()
-        if not _has_blocking_model_dissent(body) or not any(token in lower for token in markers):
+        blocking_dissent = _has_blocking_model_dissent(body)
+        highest_priority = _highest_finding_priority(body)
+        advisory_dissent = (
+            _severity_gated_model_dissent_enabled()
+            and not blocking_dissent
+            and _has_blocking_or_negative_verdict(body)
+            and highest_priority in {"P2", "P3"}
+        )
+        if not (blocking_dissent or advisory_dissent) or not any(
+            token in lower for token in markers
+        ):
             continue
         identity = _resolve_model_review_identity(body)
         if identity.surface_reviewer_id == "unknown_model_reviewer":
@@ -4227,8 +4237,10 @@ def _dissenting_views_from_comments(
                 "reason": _first_nonempty_line(body)[:240],
                 "source": "pr_comment",
                 "github_author": github_author,
-                "highest_finding_priority": _highest_finding_priority(body),
+                "highest_finding_priority": highest_priority,
                 "severity_gated_model_dissent": _severity_gated_model_dissent_enabled(),
+                "blocks_merge": blocking_dissent,
+                "advisory": advisory_dissent,
                 **identity.as_packet_fields(),
             }
         )

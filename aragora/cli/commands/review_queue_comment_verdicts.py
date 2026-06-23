@@ -65,6 +65,17 @@ def _normalize_value(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
 
 
+def _is_no_finding_value(text: str) -> bool:
+    """Return True when a blocker field value explicitly says no blocker exists."""
+    decorated = _strip_decoration(text).replace("**", "").replace("__", "")
+    priority_match = re.match(r"^(?:\*\*)?\[(?:p[0-3])\](?:\*\*)?\s*(?P<rest>.*)$", decorated, re.I)
+    if priority_match:
+        head = _normalize_value(priority_match.group("rest")).split(":", 1)[0].strip(" .;—–-")
+        return head in _NO_FINDING_HEADS
+    candidate = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", _normalize_value(decorated))
+    return candidate in _NO_FINDING_HEADS
+
+
 def _priority_marker(line: str) -> tuple[str, str] | None:
     priority_marker_line = _strip_decoration(line)
     match = re.match(
@@ -109,7 +120,6 @@ def _has_explicit_blocker_label(body: str) -> bool:
     non_blocking_prefixes = (
         "none",
         "none found",
-        "no",
         "no blockers",
         "no blocking findings",
         "not found",
@@ -142,7 +152,38 @@ def _has_explicit_blocker_label(body: str) -> bool:
             if not is_list_item and (follow.startswith("#") or re.match(r"^[^:]+?:\s+\S", follow)):
                 continue
             candidate = _normalize_value(_strip_decoration(follow))
+            if _is_no_finding_value(follow):
+                continue
+        elif _is_no_finding_value(match.group("value")):
+            continue
         if candidate and not _starts_with_phrase(candidate, non_blocking_prefixes):
+            return True
+    return False
+
+
+def _has_explicit_no_blocker_label(body: str) -> bool:
+    """Return True when a blocker field explicitly says there are no blockers."""
+    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    for idx, stripped in enumerate(lines):
+        if not stripped:
+            continue
+        line = _strip_decoration(stripped).replace("**", "").replace("__", "")
+        match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
+        if not match:
+            continue
+        normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
+        normalized_label = normalized_label.strip("*_ ")
+        if normalized_label not in {"blocking finding", "blocking findings", "blocker", "blockers"}:
+            continue
+        if _is_no_finding_value(match.group("value")):
+            return True
+        if _normalize_value(match.group("value")):
+            continue
+        follow = next((entry for entry in lines[idx + 1 :] if entry), "")
+        is_list_item = bool(re.match(r"^(?:[-*+]\s+|\d+[.)]\s+)", follow))
+        if not is_list_item and (follow.startswith("#") or re.match(r"^[^:]+?:\s+\S", follow)):
+            continue
+        if _is_no_finding_value(follow):
             return True
     return False
 
@@ -219,4 +260,7 @@ def has_blocking_model_dissent(
     # Fail closed when a negative verdict does not carry explicit severity metadata.
     # The opt-in gate only downgrades model dissent that states a real low-severity
     # P2/P3 finding; bare CHANGES-REQUESTED remains blocking.
-    return highest_finding_priority(body) not in {"P2", "P3"}
+    priority = highest_finding_priority(body)
+    if priority in {"P2", "P3"}:
+        return False
+    return not (priority is None and _has_explicit_no_blocker_label(body))

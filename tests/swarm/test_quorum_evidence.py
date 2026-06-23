@@ -2013,6 +2013,59 @@ def test_collect_outcome_severity_gate_roundtrips() -> None:
         assert qe.collect_outcome_from_dict(outcome.to_dict()).severity_gated_model_dissent is gate
 
 
+def test_collect_outcome_string_tiered_gate_fails_closed(monkeypatch) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="legacy",
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        tiered_gate=True,
+    )
+    data = outcome.to_dict()
+    data["tiered_gate"] = "true"
+
+    rehydrated = qe.collect_outcome_from_dict(data)
+
+    assert rehydrated.tiered_gate is False
+    assert rehydrated.has_supportive_quorum is False
+
+
+def test_collect_outcome_string_severity_gate_fails_closed(monkeypatch) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "1")
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="legacy",
+        items=[
+            EvidenceItem(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\n- [P2] advisory follow-up",
+                False,
+                [],
+                [],
+                "changes_requested",
+            )
+        ],
+        severity_gated_model_dissent=True,
+    )
+    data = outcome.to_dict()
+    data["severity_gated_model_dissent"] = "false"
+
+    rehydrated = qe.collect_outcome_from_dict(data)
+
+    assert rehydrated.severity_gated_model_dissent is False
+    assert rehydrated.dissenting_families == ["grok"]
+
+
 def test_collect_outcome_missing_tiered_gate_fails_closed(monkeypatch) -> None:
     # Legacy prepared artifacts predate the serialized gate regime. Treat them as
     # strict-gate artifacts rather than inheriting a relaxed live environment.
