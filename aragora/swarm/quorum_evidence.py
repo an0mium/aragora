@@ -1490,6 +1490,34 @@ class _ReviewerThread:
     thread: threading.Thread
 
 
+_TIMED_OUT_REVIEWER_WORKERS: list[_ReviewerThread] = []
+_TIMED_OUT_REVIEWER_WORKERS_LOCK = threading.Lock()
+
+
+def _prune_timed_out_reviewer_workers_locked() -> None:
+    _TIMED_OUT_REVIEWER_WORKERS[:] = [
+        worker for worker in _TIMED_OUT_REVIEWER_WORKERS if worker.thread.is_alive()
+    ]
+
+
+def _timed_out_reviewer_worker_count() -> int:
+    with _TIMED_OUT_REVIEWER_WORKERS_LOCK:
+        _prune_timed_out_reviewer_workers_locked()
+        return len(_TIMED_OUT_REVIEWER_WORKERS)
+
+
+def _remember_timed_out_reviewer_workers(workers: Sequence[_ReviewerThread]) -> None:
+    timed_out = [worker for worker in workers if worker.thread.is_alive()]
+    if not timed_out:
+        return
+    with _TIMED_OUT_REVIEWER_WORKERS_LOCK:
+        _prune_timed_out_reviewer_workers_locked()
+        known_ids = {id(worker.thread) for worker in _TIMED_OUT_REVIEWER_WORKERS}
+        _TIMED_OUT_REVIEWER_WORKERS.extend(
+            worker for worker in timed_out if id(worker.thread) not in known_ids
+        )
+
+
 def _reviewer_thread_target(
     *,
     result_queue: queue.Queue[ReviewerResult],
@@ -1517,6 +1545,7 @@ def _run_reviewer_batch(
     timeout: float,
 ) -> dict[str, ReviewerResult]:
     workers: list[_ReviewerThread] = []
+    timed_out_workers: list[_ReviewerThread] = []
     reviews: dict[str, ReviewerResult] = {}
     for family in families:
         result_queue: queue.Queue[ReviewerResult] = queue.Queue(maxsize=1)
@@ -1552,6 +1581,7 @@ def _run_reviewer_batch(
                 False,
                 f"{worker.family} reviewer worker timed out after {_format_seconds(timeout)}s",
             )
+            timed_out_workers.append(worker)
             continue
         try:
             reviews[worker.family] = worker.result_queue.get_nowait()
@@ -1562,6 +1592,7 @@ def _run_reviewer_batch(
                 False,
                 f"{worker.family} reviewer exited without returning a result",
             )
+    _remember_timed_out_reviewer_workers(timed_out_workers)
     return reviews
 
 
@@ -1586,9 +1617,9 @@ def _collect_supported_reviewer_results(
     reviews: dict[str, ReviewerResult] = {}
     timeout = _reviewer_fanout_timeout_seconds()
     batch_size = max(1, _MAX_REVIEWER_WORKERS)
-    active_timed_out_workers = 0
     start = 0
     while start < len(supported):
+        active_timed_out_workers = _timed_out_reviewer_worker_count()
         available_slots = batch_size - active_timed_out_workers
         if available_slots <= 0:
             for family in supported[start:]:
@@ -1612,9 +1643,6 @@ def _collect_supported_reviewer_results(
             timeout=timeout,
         )
         reviews.update(batch_reviews)
-        active_timed_out_workers += sum(
-            1 for result in batch_reviews.values() if _reviewer_worker_timed_out(result)
-        )
         start += len(batch_families)
     return reviews
 

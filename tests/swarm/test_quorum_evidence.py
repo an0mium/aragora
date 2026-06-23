@@ -2484,6 +2484,8 @@ def test_fanout_timeout_budgets_all_infra_retry_attempts(monkeypatch):
 
 
 def test_reviewer_batch_prefers_queued_result_from_alive_worker(monkeypatch):
+    _clear_timed_out_reviewer_workers()
+
     class FakeThread:
         def __init__(self, *, target, kwargs, name=None, daemon=None):
             self._target = target
@@ -2512,9 +2514,16 @@ def test_reviewer_batch_prefers_queued_result_from_alive_worker(monkeypatch):
 
     assert reviews["claude"].ok is True
     assert reviews["claude"].text == "Verdict: pass"
+    assert qe._timed_out_reviewer_worker_count() == 0
+
+
+def _clear_timed_out_reviewer_workers():
+    with qe._TIMED_OUT_REVIEWER_WORKERS_LOCK:
+        qe._TIMED_OUT_REVIEWER_WORKERS.clear()
 
 
 def test_collect_supported_results_stops_later_batches_after_worker_timeout(monkeypatch):
+    _clear_timed_out_reviewer_workers()
     started = []
 
     monkeypatch.setattr(qe, "_MAX_REVIEWER_WORKERS", 1)
@@ -2536,9 +2545,11 @@ def test_collect_supported_results_stops_later_batches_after_worker_timeout(monk
     assert "timed out" in reviews["claude"].error
     assert reviews["openai"].ok is False
     assert "not started" in reviews["openai"].error
+    _clear_timed_out_reviewer_workers()
 
 
 def test_collect_supported_results_reuses_freed_slot_after_worker_timeout(monkeypatch):
+    _clear_timed_out_reviewer_workers()
     started = []
 
     monkeypatch.setattr(qe, "_MAX_REVIEWER_WORKERS", 2)
@@ -2562,3 +2573,72 @@ def test_collect_supported_results_reuses_freed_slot_after_worker_timeout(monkey
     assert "timed out" in reviews["claude"].error
     assert reviews["openai"].ok is True
     assert reviews["grok"].ok is True
+    _clear_timed_out_reviewer_workers()
+
+
+def test_collect_supported_results_counts_timed_out_workers_across_calls(monkeypatch):
+    _clear_timed_out_reviewer_workers()
+    started = []
+
+    monkeypatch.setattr(qe, "_MAX_REVIEWER_WORKERS", 1)
+    monkeypatch.setattr(qe, "_reviewer_fanout_timeout_seconds", lambda: 0.01)
+
+    def runner(family, prompt):
+        started.append(family)
+        time.sleep(0.1)
+        return _RR(family, "Verdict: pass", True)
+
+    first = qe._collect_supported_reviewer_results(
+        supported=["claude"],
+        prompt="p",
+        reviewer_runner=runner,
+    )
+    second = qe._collect_supported_reviewer_results(
+        supported=["openai"],
+        prompt="p",
+        reviewer_runner=runner,
+    )
+
+    assert started == ["claude"]
+    assert first["claude"].ok is False
+    assert "timed out" in first["claude"].error
+    assert second["openai"].ok is False
+    assert "not started" in second["openai"].error
+    _clear_timed_out_reviewer_workers()
+
+
+def test_timed_out_worker_accounting_prunes_finished_workers(monkeypatch):
+    _clear_timed_out_reviewer_workers()
+    started = []
+    can_finish = threading.Event()
+
+    monkeypatch.setattr(qe, "_MAX_REVIEWER_WORKERS", 1)
+    monkeypatch.setattr(qe, "_reviewer_fanout_timeout_seconds", lambda: 0.01)
+
+    def runner(family, prompt):
+        started.append(family)
+        if family == "claude":
+            can_finish.wait(1)
+        return _RR(family, f"{family} Verdict: pass", True)
+
+    first = qe._collect_supported_reviewer_results(
+        supported=["claude"],
+        prompt="p",
+        reviewer_runner=runner,
+    )
+    can_finish.set()
+    deadline = time.monotonic() + 1
+    while qe._timed_out_reviewer_worker_count() and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    second = qe._collect_supported_reviewer_results(
+        supported=["openai"],
+        prompt="p",
+        reviewer_runner=runner,
+    )
+
+    assert started == ["claude", "openai"]
+    assert first["claude"].ok is False
+    assert "timed out" in first["claude"].error
+    assert second["openai"].ok is True
+    _clear_timed_out_reviewer_workers()
