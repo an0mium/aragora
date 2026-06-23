@@ -94,16 +94,19 @@ human-settlement requirements remain hard stops. If any of those floors fire, pa
 even when the current PR otherwise looks like Tier 0-2 work. The human-facing worker
 assignment / integration cadence in [`docs/guides/CONDUCTOR_WORKFLOW.md`](guides/CONDUCTOR_WORKFLOW.md)
 is separate: that guide governs selecting and coordinating worker lanes; this section governs
-advancing a chosen PR through model evidence and merge-quorum.
+advancing a chosen PR through model evidence and merge-quorum. This section also does **not**
+grant merge authority by itself: merge remains governed by the relevant helper verdict,
+branch protection, and any run-level "never merge by default" rule.
 
 **Autonomy rail — the anti-molasses rule.** Run continuously through bounded units **without
 asking the operator**, as long as every unit stays on Tier 0-2 rails as defined by
 [`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md) and makes *external*
-progress (a merge, a posted-and-counted evidence comment, a repair commit that clears a
-finding, a real archive). Touch the operator **only** at (a) a genuine Tier 3/4 risk
-decision, or (b) a circuit-breaker halt. Do **not** insert a human checkpoint between safe,
-progressing units — that is the molasses failure mode. "One bounded unit, then stop and ask"
-is WRONG unless the next unit is Tier 3/4 or the breaker tripped.
+progress (a posted-and-counted evidence comment, a repair commit that clears a finding, a real
+archive, or a merge only when a separate merge-on-green preference / helper authorization
+already permits it). Touch the operator **only** at (a) a genuine Tier 3/4 risk decision, or
+(b) a circuit-breaker halt. Do **not** insert a human checkpoint between safe, progressing units
+— that is the molasses failure mode. "One bounded unit, then stop and ask" is WRONG unless the
+next unit is Tier 3/4 or the breaker tripped.
 
 **EVIDENCE-LAST (settlement-stability).** A head is *settlement-stable* iff: the latest
 adversarial **dry-run** review was clean for the **current** head (no CHANGES-REQUESTED /
@@ -116,11 +119,29 @@ Loop: dry-run → if findings, repair → dry-run → … → clean → freeze e
 → settle. Settlement head movement is almost entirely review-driven and thus predictable: if
 the dry-run has findings, the head WILL move next, so do not spend on countable evidence yet.
 
+**Operational dry-run / freeze proof.** The concrete proof is a JSON artifact from:
+
+```bash
+python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
+  --reviewers <families...> --json > /tmp/ev_<N>_dry.json
+```
+
+Before any `--apply`, verify the artifact records the live `head_sha`, `dissenting_families`
+is empty, `has_supportive_quorum` is true, and each counted `items[].body` lints for the
+current PR/head. Then re-check `gh pr view <N> --json headRefOid,mergeStateStatus,isDraft`:
+`headRefOid` must still equal the artifact `head_sha`, and the merge state must still be
+clean/mergeable. Only then run the paired apply from the same artifact:
+
+```bash
+python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
+  --prepared-json /tmp/ev_<N>_dry.json --apply --json
+```
+
 **Automation compatibility.** Existing collectors such as `scripts/auto_evidence_cycle.py`
-remain evidence-posting tools, not authority to skip the dry-run/freeze rule. If an automated
-collector cannot prove the head is settlement-stable before posting countable evidence, the
-conductor must run the clean dry-run first or repair the automation/tooling; it must not treat
-automation output as a bypass around this section.
+remain evidence-posting tools, not authority to skip the dry-run/freeze rule. Until an
+automated collector records the same artifact fields and live-head recheck above, conductors
+must treat it as prepare/report-only for countable evidence and must use the explicit
+dry-run → freeze → prepared-json apply sequence.
 
 **NO-TREADMILL.** Batch all known findings into ONE repair per head; never
 repair-then-recollect on the same head. Any CHANGES-REQUESTED / `[P1]` / `[P2]` ends the
@@ -140,8 +161,11 @@ yield. The binding constraint is the reviewer account, not work supply.
 `pre_commit`, fix it once (install the hook runtime) and stop bypassing hooks. Do not
 normalize `--no-verify`.
 
-**Shared root is read-only.** If the shared checkout is dirty, detached, or behind, report
-it and use a disposable worktree for edits; never mutate shared-root dirt.
+**Shared root is read-only.** If the shared checkout is dirty or detached, report it and use a
+disposable worktree for edits; never mutate shared-root dirt. A clean root that is merely
+behind `origin/main` should be fast-forwarded as the conductor/integrator surface per
+[`docs/guides/CONDUCTOR_WORKFLOW.md`](guides/CONDUCTOR_WORKFLOW.md); it still must not become
+a worker implementation lane.
 
 **Reporting honesty.** A merge performed under an explicit operator override (e.g. a
 Dependabot/Tier-3 merge the operator authorized at an exact head) is reported as "merged
@@ -158,8 +182,9 @@ Target: PR #NNNN @ <exact-head>.   Last: <one line>.   Next: <one bounded action
 Run on Tier 0-2 rails per §Conductor; continue through progressing units autonomously.
 Approval-required items, Auto-halt triggers, and Tier 3/4 settlement remain hard stops.
 Use docs/REVIEW_AUTHORITY_PRINCIPLES.md for counted-family / Tier eligibility.
-Sequence for evidence: dry-run clean for the current head -> freeze exact head -> collect one
-linted countable evidence signal -> settle/merge only through the helper gates.
+Sequence for evidence: `collect_quorum_evidence.py` dry-run clean for the current head ->
+verify artifact head still equals live PR head -> `--prepared-json ... --apply` once ->
+settle/merge only through the helper gates and any separate merge authority.
 Stop only at a Tier 3/4 risk decision or a circuit-breaker halt, emit the exact operator
 authorization text needed, then emit the next prompt in THIS thin form.
 ```

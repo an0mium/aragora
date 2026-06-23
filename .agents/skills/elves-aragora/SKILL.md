@@ -58,7 +58,8 @@ complete until all of the following hold, in order:
    - **Tier 0-2** (docs/tests, additive internal, live automation/CLI/observability): a green,
      receipt-backed model quorum with no unresolved dissent is sufficient to record settlement
      autonomously and continue. **Still never merge by default** — settlement records the
-     authorization packet; the human or a recorded merge-on-green preference does the merge.
+     authorization packet; the human or a recorded merge-on-green preference plus helper
+     authorization does the merge. §Conductor never grants merge authority by itself.
    - **Tier 3-4** (semantic correctness, persistence, security/RBAC/auth, public API/SDK,
      migrations; or secrets/deployment/workflow policy/destructive ops/merge-authority
      self-modification): **HARD STOP.** The model quorum prepares the packet, but the run must
@@ -99,6 +100,8 @@ immediately and surface to the user when any of these fire:
 ## Non-negotiables (aragora additions to the Elves base)
 
 - Never merge by default; never approve a merge. Tier 3-4 always requires human settlement first.
+  §Conductor's autonomy rail means "keep advancing safe units"; it does not override this merge
+  rule.
 - Every closing commit carries a `Co-authored-by: codex[bot]` (or `claude[bot]`) trailer.
 - Never modify a test to make it pass; fix the code. Total test count never decreases.
 - One **coordinator** owns the run. Serial batches share the run's branch + worktree.
