@@ -33,6 +33,9 @@ REGISTRY_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "lanes.json"
 RECEIPT_RELATIVE_DIR = Path(".aragora") / "agent-bridge" / "conflict-resolution-receipts"
 RECEIPT_SCHEMA_VERSION = "aragora-lane-conflict-resolution/1.0"
 MERGED_PR_RECEIPT_SCHEMA_VERSION = "aragora-merged-pr-lane-audit/1.0"
+HEARTBEAT_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "heartbeats.json"
+STEERING_INBOX_RELATIVE_DIR = Path(".aragora") / "operator-steering"
+HEARTBEAT_FRESH_SECONDS = 15 * 60
 ACTIVE_STATUSES = {
     "active",
     "running",
@@ -45,6 +48,9 @@ ACTIVE_STATUSES = {
     "blocked",
 }
 INACTIVE_OWNER_STATUSES = {"released", "completed", "superseded"}
+HEARTBEAT_TIMESTAMP_KEYS = ("last_heartbeat_at", "last_seen_at", "heartbeat_at")
+PID_KEYS = ("pid", "owner_pid")
+LOCAL_WORK_KEYS = ("worktree", "local_worktree", "local_work_path")
 
 
 def _canonical_repo_root(path: Path = DEFAULT_REPO_ROOT) -> Path:
@@ -88,6 +94,22 @@ def _default_receipt_dir() -> Path:
     return _automation_state_root() / "agent-bridge" / "conflict-resolution-receipts"
 
 
+def _default_heartbeat_path() -> Path:
+    root = _automation_state_root()
+    if root.name == ".aragora":
+        return root.joinpath(*HEARTBEAT_RELATIVE_PATH.parts[1:])
+    return root / HEARTBEAT_RELATIVE_PATH
+
+
+def _default_steering_inbox_root() -> Path:
+    root = _automation_state_root()
+    return (
+        root.joinpath(*STEERING_INBOX_RELATIVE_DIR.parts[1:])
+        if root.name == ".aragora"
+        else root / STEERING_INBOX_RELATIVE_DIR
+    )
+
+
 def _utc_now_iso() -> str:
     return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -102,6 +124,125 @@ def _read_rows(path: Path) -> list[dict[str, Any]]:
     if not isinstance(payload, list):
         return []
     return [row for row in payload if isinstance(row, dict)]
+
+
+def _parse_timestamp(value: Any) -> float | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.UTC)
+    return parsed.timestamp()
+
+
+def _matching_heartbeat_rows(
+    heartbeats: list[dict[str, Any]],
+    *,
+    lane_id: str,
+    owner_session: str,
+) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in heartbeats
+        if str(row.get("lane_id") or "") == lane_id
+        and str(row.get("owner_session") or "") == owner_session
+    ]
+
+
+def _record_is_terminal(record: dict[str, Any]) -> bool:
+    return bool(record.get("terminal") or record.get("terminal_outcome"))
+
+
+def _fresh_heartbeat_timestamps(
+    records: Sequence[dict[str, Any]],
+    *,
+    now_ts: float,
+    freshness_seconds: int,
+) -> list[str]:
+    fresh: list[str] = []
+    cutoff = now_ts - freshness_seconds
+    for record in records:
+        if _record_is_terminal(record):
+            continue
+        for key in HEARTBEAT_TIMESTAMP_KEYS:
+            raw = record.get(key)
+            ts = _parse_timestamp(raw)
+            if ts is not None and ts >= cutoff:
+                fresh.append(str(raw))
+    return fresh
+
+
+def _process_is_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def _live_pids(records: Sequence[dict[str, Any]]) -> list[int]:
+    live: list[int] = []
+    for record in records:
+        if _record_is_terminal(record):
+            continue
+        for key in PID_KEYS:
+            pid = _coerce_int(record.get(key))
+            if pid is not None and _process_is_alive(pid):
+                live.append(pid)
+    return live
+
+
+def _local_work_claims(records: Sequence[dict[str, Any]]) -> list[str]:
+    claims: list[str] = []
+    for record in records:
+        for key in LOCAL_WORK_KEYS:
+            value = str(record.get(key) or "").strip()
+            if value:
+                claims.append(value)
+        if record.get("possible_unpushed_work") or record.get("has_unpushed_work"):
+            claims.append("possible_unpushed_work")
+    return claims
+
+
+def _safe_steering_inbox(owner_session: str, *, steering_inbox_root: Path) -> Path | None:
+    if (
+        not owner_session
+        or owner_session != owner_session.strip()
+        or "/" in owner_session
+        or "\\" in owner_session
+    ):
+        return None
+    session_path = Path(owner_session)
+    if session_path.is_absolute() or owner_session in {".", ".."} or ".." in session_path.parts:
+        return None
+    root = steering_inbox_root.resolve(strict=False)
+    inbox = (root / owner_session).resolve(strict=False)
+    try:
+        inbox.relative_to(root)
+    except ValueError:
+        return None
+    return inbox
+
+
+def _pending_mailbox_messages(owner_session: str, *, steering_inbox_root: Path) -> list[str]:
+    inbox = _safe_steering_inbox(owner_session, steering_inbox_root=steering_inbox_root)
+    if inbox is None:
+        return ["unsafe_owner_session"]
+    if not inbox.is_dir():
+        return []
+    return sorted(path.name for path in inbox.glob("*.json") if path.is_file())
 
 
 def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -300,6 +441,12 @@ def _active_pr_lane_findings(rows: list[dict[str, Any]], *, pr: int) -> list[dic
                 "status": status,
                 "branch": row.get("branch"),
                 "worktree": row.get("worktree"),
+                "local_worktree": row.get("local_worktree"),
+                "local_work_path": row.get("local_work_path"),
+                "possible_unpushed_work": row.get("possible_unpushed_work"),
+                "has_unpushed_work": row.get("has_unpushed_work"),
+                "pid": row.get("pid"),
+                "owner_pid": row.get("owner_pid"),
                 "next_action": row.get("next_action"),
                 "updated_at": row.get("updated_at"),
                 "last_heartbeat_at": row.get("last_heartbeat_at"),
@@ -308,6 +455,62 @@ def _active_pr_lane_findings(rows: list[dict[str, Any]], *, pr: int) -> list[dic
             }
         )
     return findings
+
+
+def _annotate_terminal_safety(
+    findings: list[dict[str, Any]],
+    *,
+    heartbeats: list[dict[str, Any]],
+    steering_inbox_root: Path,
+    now_ts: float,
+    heartbeat_fresh_seconds: int,
+) -> list[dict[str, Any]]:
+    annotated: list[dict[str, Any]] = []
+    for finding in findings:
+        finding = dict(finding)
+        lane_id = str(finding.get("lane_id") or "")
+        owner_session = str(finding.get("owner_session") or "")
+        heartbeat_rows = _matching_heartbeat_rows(
+            heartbeats,
+            lane_id=lane_id,
+            owner_session=owner_session,
+        )
+        records = [finding, *heartbeat_rows]
+        blockers: list[str] = []
+        details: dict[str, Any] = {}
+
+        live_pids = sorted(set(_live_pids(records)))
+        if live_pids:
+            blockers.append("live_process")
+            details["live_pids"] = live_pids
+
+        fresh_heartbeats = _fresh_heartbeat_timestamps(
+            records,
+            now_ts=now_ts,
+            freshness_seconds=heartbeat_fresh_seconds,
+        )
+        if fresh_heartbeats:
+            blockers.append("fresh_heartbeat")
+            details["fresh_heartbeat_timestamps"] = fresh_heartbeats
+
+        pending_messages = _pending_mailbox_messages(
+            owner_session,
+            steering_inbox_root=steering_inbox_root,
+        )
+        if pending_messages:
+            blockers.append("unread_mailbox")
+            details["pending_mailbox_messages"] = pending_messages
+
+        local_work_claims = sorted(set(_local_work_claims(records)))
+        if local_work_claims:
+            blockers.append("local_work_claim")
+            details["local_work_claims"] = local_work_claims
+
+        finding["terminal_safety_blockers"] = blockers
+        finding["terminal_safety_details"] = details
+        finding["apply_safe"] = not blockers
+        annotated.append(finding)
+    return annotated
 
 
 def _quote_shell_arg(value: Any) -> str:
@@ -404,11 +607,13 @@ def _base_merged_pr_audit_result(
 ) -> dict[str, Any]:
     merge_commit = str(github_state.get("mergeCommit") or "")
     expected = str(expected_merge_commit or "")
+    unsafe_findings = [finding for finding in findings if finding.get("terminal_safety_blockers")]
     apply_eligible = (
         apply
         and operator_authorized
         and bool(expected)
         and bool(findings)
+        and not unsafe_findings
         and github_state.get("available") is True
         and github_state.get("state") == "MERGED"
         and merge_commit == expected
@@ -422,6 +627,8 @@ def _base_merged_pr_audit_result(
         "github_state": github_state,
         "finding_count": len(findings),
         "findings": findings,
+        "safe_finding_count": len(findings) - len(unsafe_findings),
+        "unsafe_finding_count": len(unsafe_findings),
         "owner_steering_text": "\n".join(
             _owner_steering_commands(findings=findings, pr=pr, github_state=github_state)
         ),
@@ -469,6 +676,8 @@ def _merged_pr_audit_blocked_reason(
         return "expected_merge_commit_required"
     if str(github_state.get("mergeCommit") or "") != expected:
         return "merge_commit_mismatch"
+    if any(finding.get("terminal_safety_blockers") for finding in findings):
+        return "unsafe_terminal_owner_gates"
     return None
 
 
@@ -482,6 +691,9 @@ def audit_merged_pr_lanes(
     operator_authorized: bool = False,
     expected_merge_commit: str | None = None,
     resolved_at: str | None = None,
+    heartbeat_path: Path | None = None,
+    steering_inbox_root: Path | None = None,
+    heartbeat_fresh_seconds: int = HEARTBEAT_FRESH_SECONDS,
 ) -> dict[str, Any]:
     """Audit active/blocked lane rows for an already-merged PR.
 
@@ -491,12 +703,22 @@ def audit_merged_pr_lanes(
     """
 
     resolved_at = resolved_at or _utc_now_iso()
+    heartbeat_path = heartbeat_path or _default_heartbeat_path()
+    steering_inbox_root = steering_inbox_root or _default_steering_inbox_root()
+    now_ts = _parse_timestamp(resolved_at) or dt.datetime.now(dt.UTC).timestamp()
     github_state = _fetch_pr_state(pr=pr, gh_bin=gh_bin)
     with _registry_write_lock(registry_path):
         rows = _read_rows(registry_path)
+        heartbeats = _read_rows(heartbeat_path)
         findings: list[dict[str, Any]] = []
         if github_state.get("available") is True and github_state.get("state") == "MERGED":
-            findings = _active_pr_lane_findings(rows, pr=pr)
+            findings = _annotate_terminal_safety(
+                _active_pr_lane_findings(rows, pr=pr),
+                heartbeats=heartbeats,
+                steering_inbox_root=steering_inbox_root,
+                now_ts=now_ts,
+                heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+            )
         blocked_reason = _merged_pr_audit_blocked_reason(
             apply=apply,
             operator_authorized=operator_authorized,
@@ -522,6 +744,10 @@ def audit_merged_pr_lanes(
             (str(finding.get("lane_id") or ""), str(finding.get("owner_session") or ""))
             for finding in findings
         }
+        findings_by_key = {
+            (str(finding.get("lane_id") or ""), str(finding.get("owner_session") or "")): finding
+            for finding in findings
+        }
         receipt_paths: list[str] = []
         out_rows: list[dict[str, Any]] = []
         for row in rows:
@@ -545,6 +771,10 @@ def audit_merged_pr_lanes(
                     "new_status": "superseded",
                     "resolved_at_utc": resolved_at,
                     "resolution": "merged_pr_has_active_lane_row",
+                    "terminal_safety_blockers": findings_by_key.get(row_key, {}).get(
+                        "terminal_safety_blockers",
+                        [],
+                    ),
                 }
                 receipt_paths.append(str(_write_receipt(receipt_dir=receipt_dir, receipt=receipt)))
             out_rows.append(row)
@@ -662,6 +892,24 @@ def build_parser() -> argparse.ArgumentParser:
             "shared automation state root."
         ),
     )
+    parser.add_argument(
+        "--heartbeat-path",
+        type=Path,
+        default=None,
+        help="Override .aragora/agent-bridge/heartbeats.json for terminal safety checks.",
+    )
+    parser.add_argument(
+        "--steering-inbox-root",
+        type=Path,
+        default=None,
+        help="Override .aragora/operator-steering for unread mailbox checks.",
+    )
+    parser.add_argument(
+        "--heartbeat-fresh-seconds",
+        type=int,
+        default=HEARTBEAT_FRESH_SECONDS,
+        help="Fresh heartbeat TTL in seconds for merged-PR apply safety checks.",
+    )
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -691,6 +939,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             apply=bool(args.apply),
             operator_authorized=bool(args.operator_authorized),
             expected_merge_commit=args.expected_merge_commit,
+            heartbeat_path=args.heartbeat_path,
+            steering_inbox_root=args.steering_inbox_root,
+            heartbeat_fresh_seconds=args.heartbeat_fresh_seconds,
         )
         if args.json:
             print(json.dumps(result, indent=2, sort_keys=True))

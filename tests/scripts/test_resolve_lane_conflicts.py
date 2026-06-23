@@ -48,6 +48,20 @@ def _fake_gh(tmp_path: Path, payload: dict[str, Any], *, exit_code: int = 0) -> 
     return gh
 
 
+def _merged_pr_gh(tmp_path: Path, *, merge_commit: str = "merge") -> Path:
+    return _fake_gh(
+        tmp_path,
+        {
+            "number": 7435,
+            "state": "MERGED",
+            "headRefOid": "head",
+            "mergedAt": "2026-05-23T19:16:23Z",
+            "mergeCommit": {"oid": merge_commit},
+            "url": "https://github.com/synaptent/aragora/pull/7435",
+        },
+    )
+
+
 def test_detects_completed_owner_conflict_without_mutating(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     registry.write_text(
@@ -570,4 +584,157 @@ def test_merged_pr_audit_apply_rejects_merge_commit_mismatch(tmp_path: Path) -> 
 
     assert result["resolved_count"] == 0
     assert result["blocked_reason"] == "merge_commit_mismatch"
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_merged_pr_audit_apply_rejects_fresh_heartbeat(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    heartbeats = tmp_path / "heartbeats.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+    _write_json(
+        heartbeats,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "last_seen_at": "2026-05-23T19:19:30Z",
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        resolved_at="2026-05-23T19:20:00Z",
+        heartbeat_path=heartbeats,
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["fresh_heartbeat"]
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_merged_pr_audit_apply_rejects_unread_mailbox(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    steering_root = tmp_path / "operator-steering"
+    inbox = steering_root / "codex-owner"
+    inbox.mkdir(parents=True)
+    (inbox / "message.json").write_text("{}", encoding="utf-8")
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=steering_root,
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
+    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
+        "message.json"
+    ]
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_merged_pr_audit_apply_rejects_live_owner_process(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pid": os.getpid(),
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["live_process"]
+    assert result["findings"][0]["terminal_safety_details"]["live_pids"] == [os.getpid()]
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_merged_pr_audit_apply_rejects_local_work_claim(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "worktree": "/tmp/active-worktree",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["local_work_claim"]
+    assert result["findings"][0]["terminal_safety_details"]["local_work_claims"] == [
+        "/tmp/active-worktree"
+    ]
     assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
