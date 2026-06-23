@@ -138,14 +138,28 @@ def cleanup_safety(inspection: WorktreeInspection) -> dict[str, Any]:
         classification = "cleanup_candidate"
         decision = "cleanup_candidate"
 
+    path_kind = _inspection_path_kind(inspection)
+    requires_purge_path = inspection.exists and not inspection.tracked_worktree
+    next_action = "remove only after a fresh inspect"
+    if decision == "preserve":
+        next_action = "preserve until blockers are resolved"
+    elif requires_purge_path:
+        next_action = (
+            "rerun fresh inspect immediately before remove; use remove --purge-path "
+            "only with explicit cleanup authorization for this exact path"
+        )
+
     return {
         "removable": not inspection.blockers,
         "classification": classification,
         "decision": decision,
+        "next_action": next_action,
         "blocker_details": blocker_details,
         "signals": {
             "exists": inspection.exists,
             "tracked_worktree": inspection.tracked_worktree,
+            "path_kind": path_kind,
+            "requires_purge_path": requires_purge_path,
             "branch": inspection.branch,
             "active_session": inspection.active_session,
             "lock_files": inspection.lock_files,
@@ -158,6 +172,16 @@ def cleanup_safety(inspection: WorktreeInspection) -> dict[str, Any]:
             "pr_lookup_failed": inspection.pr_lookup_failed,
         },
     }
+
+
+def _inspection_path_kind(inspection: WorktreeInspection) -> str:
+    if not inspection.exists:
+        return "missing"
+    if inspection.tracked_worktree:
+        return "tracked_worktree"
+    if _is_empty_nested_wrapper(Path(inspection.path)):
+        return "anchor_only_residue"
+    return "untracked_residue"
 
 
 def _active_lock_files(path: Path) -> list[str]:
@@ -456,6 +480,9 @@ def _print_inspection(inspection: WorktreeInspection, *, as_json: bool) -> None:
     safety = cleanup_safety(inspection)
     print(f"cleanup_classification: {safety['classification']}")
     print(f"cleanup_decision: {safety['decision']}")
+    print(f"path_kind: {safety['signals']['path_kind']}")
+    print(f"requires_purge_path: {safety['signals']['requires_purge_path']}")
+    print(f"cleanup_next_action: {safety['next_action']}")
     if inspection.blockers:
         print("blockers:")
         for detail in safety["blocker_details"]:
@@ -545,6 +572,9 @@ def remove_worktree(
         "removed": False,
         "branch_deleted": False,
         "path_purged": False,
+        "path_kind": _inspection_path_kind(inspection),
+        "removal_mode": "none",
+        "status_explanation": None,
         "requires_purge_path": False,
         "git_remove_failed": False,
         "git_worktree_removed": False,
@@ -560,6 +590,7 @@ def remove_worktree(
         return result
 
     if inspection.tracked_worktree:
+        result["removal_mode"] = "git_worktree_remove"
         try:
             proc = subprocess.run(
                 ["git", "worktree", "remove", "--force", inspection.path],
@@ -594,6 +625,9 @@ def remove_worktree(
         result["status"] = "untracked_path"
         if not purge_path:
             result["requires_purge_path"] = True
+            result["status_explanation"] = (
+                "path is not registered as a git worktree; no filesystem deletion was attempted"
+            )
             result["recovery_action"] = (
                 "rerun remove with --purge-path only after a fresh inspect returns "
                 "removable=true, blockers=[], dirty=false, active_session=false, "
@@ -602,6 +636,10 @@ def remove_worktree(
             return result
 
     if _path_still_exists(path) and purge_path:
+        if result["removal_mode"] == "git_worktree_remove":
+            result["removal_mode"] = "git_worktree_remove+purge_path"
+        else:
+            result["removal_mode"] = "purge_path"
         path_purged, purge_error, residuals = _purge_residual_path(path)
         result["path_purged"] = path_purged
         result["residual_paths"] = residuals

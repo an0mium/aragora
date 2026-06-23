@@ -297,6 +297,89 @@ def test_remove_refuses_untracked_residue_without_purge_path_with_recovery(
     assert worktree.exists() is True
 
 
+def test_anchor_only_residue_inspection_reports_purge_guidance(tmp_path: Path) -> None:
+    import safe_worktree_cleanup as mod
+
+    worktree = tmp_path / "anchor-residue"
+    worktree.mkdir()
+    (worktree / ".claude-session-anchor").write_text("session anchor\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=False,
+        branch=None,
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    safety = mod.cleanup_safety(inspection)
+
+    assert safety["classification"] == "untracked_residue"
+    assert safety["decision"] == "cleanup_candidate"
+    assert safety["removable"] is True
+    assert safety["signals"]["path_kind"] == "anchor_only_residue"
+    assert safety["signals"]["requires_purge_path"] is True
+    assert safety["signals"]["active_session"] is False
+    assert "--purge-path" in safety["next_action"]
+
+
+def test_remove_untracked_anchor_residue_without_purge_reports_noop_truthfully(
+    tmp_path: Path,
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "anchor-residue"
+    worktree.mkdir()
+    (worktree / ".claude-session-anchor").write_text("session anchor\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=False,
+        branch=None,
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=False,
+        force=False,
+    )
+
+    assert result["status"] == "untracked_path"
+    assert result["status_explanation"] == (
+        "path is not registered as a git worktree; no filesystem deletion was attempted"
+    )
+    assert result["path_kind"] == "anchor_only_residue"
+    assert result["removed"] is False
+    assert result["path_purged"] is False
+    assert result["requires_purge_path"] is True
+    assert result["removal_mode"] == "none"
+    assert worktree.exists() is True
+
+
 def test_remove_purge_path_deletes_anchor_only_untracked_residue(tmp_path: Path) -> None:
     import safe_worktree_cleanup as mod
 
