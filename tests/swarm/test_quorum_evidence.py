@@ -2075,6 +2075,51 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
 
 
+def test_apply_prepared_evidence_rejects_timed_out_artifact(tmp_path) -> None:
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="reviewer orchestration overall timeout after 1s",
+        items=[
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+            EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
+        ],
+        orchestration_timed_out=True,
+        timed_out_families=["openai"],
+    )
+    prepared = tmp_path / "timed-out-prepared.json"
+    prepared.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    posted: list[tuple[str, str]] = []
+
+    applied = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok", "openai"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=lambda *args, **kwargs: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+    )
+
+    assert applied.action == "prepare"
+    assert "orchestration timeout" in applied.action_reason
+    assert applied.orchestration_timed_out is True
+    assert applied.timed_out_families == ["openai"]
+    assert applied.posted == []
+    assert posted == []
+
+
 def test_collect_outcome_tiered_gate_roundtrips() -> None:
     # The gate regime an artifact was prepared under must survive serialization so
     # the settlement bar cannot silently change between prepare and apply (#8507 P1).
@@ -2590,6 +2635,51 @@ def test_run_collect_cli_prepared_json_skips_collect_evidence(monkeypatch, tmp_p
     assert seen["prepared_json"] == prepared
     assert seen["apply"] is True
     assert seen["families"] == ("claude", "grok")
+
+
+def test_run_collect_cli_prepared_json_timeout_returns_failure(
+    monkeypatch, tmp_path, capsys
+) -> None:
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="reviewer orchestration overall timeout after 1s",
+        items=[
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+            EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
+        ],
+        orchestration_timed_out=True,
+        timed_out_families=["openai"],
+    )
+    prepared = tmp_path / "timed-out-prepared.json"
+    prepared.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+
+    def fake_apply_prepared_evidence(**kwargs) -> CollectOutcome:
+        assert kwargs["prepared_json"] == prepared
+        return outcome
+
+    monkeypatch.setattr(qe, "apply_prepared_evidence", fake_apply_prepared_evidence)
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok", "openai"],
+        author="me",
+        apply=True,
+        json_output=True,
+        prepared_json=prepared,
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["action"] == "prepare"
+    assert payload["orchestration_timed_out"] is True
+    assert payload["timed_out_families"] == ["openai"]
+    assert payload["posted_families"] == []
 
 
 def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:

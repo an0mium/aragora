@@ -1838,10 +1838,12 @@ def _collect_reviewer_results_with_process_timeout(
                 args=(family, prompt, reviewer_runner, reviewer_timeout_s, result_queue),
             )
             processes[family] = process
+            pending.add(family)
             try:
                 process.start()
             except Exception as exc:  # noqa: BLE001 - fail closed for non-fork/spawn surfaces.
                 processes.pop(family, None)
+                pending.discard(family)
                 reviews[family] = ReviewerResult(
                     family,
                     "",
@@ -2268,6 +2270,8 @@ def apply_prepared_evidence(
         action_reason=action_reason,
         items=_clone_prepared_items(prepared.items),
         failures=_clone_reviewer_failures(prepared.failures),
+        orchestration_timed_out=prepared.orchestration_timed_out,
+        timed_out_families=list(prepared.timed_out_families),
         tiered_gate=effective_tiered_gate,
     )
 
@@ -2276,6 +2280,14 @@ def apply_prepared_evidence(
         outcome.action_reason = (
             f"prepared head {prepared.head_sha[:7]} does not match current head "
             f"{head_sha[:7]}; prepared evidence only"
+        )
+        return outcome
+    if prepared.orchestration_timed_out:
+        outcome.action = "prepare"
+        timed_out = ", ".join(prepared.timed_out_families) or "unknown"
+        outcome.action_reason = (
+            "prepared evidence artifact recorded reviewer orchestration timeout "
+            f"({timed_out}); prepared evidence only"
         )
         return outcome
 
