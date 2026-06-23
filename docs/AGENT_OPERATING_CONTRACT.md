@@ -100,7 +100,9 @@ branch protection, and any run-level "never merge by default" rule.
 Edits to this operating contract, `docs/REVIEW_AUTHORITY_PRINCIPLES.md`, or code that changes
 merge/evidence/settlement authority are merge-authority self-modification: classify them as
 Tier 4 and stop for exact-head human risk settlement before any merge/protection mutation,
-even when the file diff is Markdown-only.
+even when the file diff is Markdown-only. Edits to §Conductor itself (or any merge-authority
+governance) are Tier 4 — they require human risk settlement, not Tier 0-2 auto-merge — by the
+same rule above.
 
 **Autonomy rail — the anti-molasses rule.** Run continuously through bounded units **without
 asking the operator**, as long as every unit stays on Tier 0-2 rails as defined by
@@ -114,11 +116,16 @@ next unit is Tier 3/4 or the breaker tripped. This rail does not override an exi
 batch/lane gate-attempt cap: after the allowed revise-and-retry budget is exhausted, park or
 halt that lane and move only to a different unblocked Tier 0-2 unit.
 
-**EVIDENCE-LAST (settlement-stability).** A head is *settlement-stable* iff: the latest
-adversarial **dry-run** review was clean for the **current** head (no CHANGES-REQUESTED /
-`[P0]` / `[P1]` / `[P2]` from every family that will be counted for this Tier) AND no commit
-has landed since AND the base is unchanged AND the PR is non-draft AND GitHub still reports
-`mergeable` as `MERGEABLE` with `mergeStateStatus` as `CLEAN` or `BLOCKED`. "Clean" is a
+**EVIDENCE-LAST (settlement-stability).** A head is *settlement-stable* iff every checkable
+signal below holds: (1) the latest adversarial **dry-run** review was clean for the **current**
+head (no CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` from every family that will be counted for
+this Tier); (2) no commit has landed since — `headRefOid` still equals the head that was
+reviewed; AND (3) the PR is mergeable — not behind base and free of conflicts — with the PR
+non-draft and GitHub reporting `mergeable` as `MERGEABLE` and `mergeStateStatus` as `CLEAN` or
+`BLOCKED`. These are the only signals quorum_evidence and `gh pr view` actually emit; do not add
+a "base unchanged" condition that depends on a `baseRefOid` / base-OID freeze the helper does not
+record (the `BEHIND` / `DIRTY` exclusion below already rejects a head that drifted behind or
+conflicts with its base). "Clean" is a
 semantic/body-marker requirement, not only the helper's `verdict`, `would_count`, or
 `has_supportive_quorum` fields: a `Verdict: PASS` body that still contains a concrete
 `[P0]`, `[P1]`, or `[P2]` finding is not clean and must become a repair packet, not countable
@@ -133,40 +140,38 @@ Loop: dry-run → if findings, repair → dry-run → … → clean → freeze e
 → settle. Settlement head movement is almost entirely review-driven and thus predictable: if
 the dry-run has findings, the head WILL move next, so do not spend on countable evidence yet.
 
-**Operational dry-run / freeze proof.** The current prepared-evidence artifact records the
-exact `head_sha` but does not yet persist a `baseRefOid` / base OID. Until the helper schema
-does, base freeze is an operator/conductor live check that must be captured in the cycle log
-or a sidecar file next to the artifact; an artifact with no sidecar base proof is
-prepare/report-only for countable evidence. The target enforced interface is a JSON artifact
-from:
+**Operational dry-run re-check.** The prepared-evidence artifact records the exact `head_sha`.
+There is no separate "freeze proof" artifact and no `baseRefOid` / base-OID field in the
+helper schema, so do not claim one exists or gate countable evidence on a recorded base OID;
+re-verify the checkable settlement-stable signals against the live PR instead. The target
+enforced interface is a JSON artifact from:
 
 ```bash
 python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
   --reviewers <families...> --json > /tmp/ev_<N>_dry.json
 ```
 
-Before any `--apply`, verify the artifact records the live `head_sha`, the sidecar/cycle log
-records the live base OID observed at dry-run time, `dissenting_families` is empty,
-`has_supportive_quorum` is true, and each counted `items[].body` both lints for the current
-PR/head and contains no concrete CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` finding. Then
-re-check
-`gh pr view <N> --json headRefOid,baseRefOid,mergeable,mergeStateStatus,isDraft`:
-`headRefOid` must still equal the artifact `head_sha`, `baseRefOid` must still equal the
-sidecar/cycle-log base, `isDraft` must be false, and `mergeable` / `mergeStateStatus` must
-still be in the settlement-stable set above. Only then run the paired apply from the same
-artifact:
+Before any `--apply`, verify the artifact records the live `head_sha`, `dissenting_families` is
+empty, `has_supportive_quorum` is true, and each counted `items[].body` both lints for the
+current PR/head and contains no concrete CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` finding.
+Then re-check
+`gh pr view <N> --json headRefOid,mergeable,mergeStateStatus,isDraft`:
+`headRefOid` must still equal the artifact `head_sha`, `isDraft` must be false, and `mergeable`
+/ `mergeStateStatus` must still be in the settlement-stable set above (a `BEHIND` or `DIRTY`
+state means the head has drifted relative to its base and is not settlement-stable). Only then
+run the paired apply from the same artifact:
 
 ```bash
 python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
   --prepared-json /tmp/ev_<N>_dry.json --apply --json
 ```
 
-If a helper version does not yet record or enforce any freeze-proof field above, treat that
-helper as prepare/report-only for countable evidence unless the missing live checks are
-performed, compared against the frozen artifact/sidecar, and reported immediately before
-posting. The conductor may not claim the weaker `--apply` implementation enforced the full
-rule; either perform and report the missing checks before posting the exact prepared bodies,
-or wait for the enforcement tooling to land.
+If a helper version does not yet record or enforce any of the live re-checks above, treat that
+helper as prepare/report-only for countable evidence unless the missing live checks (head
+unchanged, mergeable, non-draft) are performed against the live PR and reported immediately
+before posting. The conductor may not claim the weaker `--apply` implementation enforced the
+full rule; either perform and report the missing checks before posting the exact prepared
+bodies, or wait for the enforcement tooling to land.
 
 **Automation compatibility.** Existing collectors such as `scripts/auto_evidence_cycle.py`
 remain evidence-posting tools, not authority to skip the dry-run/freeze rule. An automated
@@ -220,7 +225,7 @@ Run on Tier 0-2 rails per §Conductor; continue through progressing units autono
 Approval-required items, Auto-halt triggers, and Tier 3/4 settlement remain hard stops.
 Use docs/REVIEW_AUTHORITY_PRINCIPLES.md for counted-family / Tier eligibility.
 Sequence for evidence: `collect_quorum_evidence.py` dry-run clean for the current head ->
-capture artifact head plus live base proof -> perform, compare, and report live freeze checks ->
+capture artifact head -> re-check head unchanged + mergeable + non-draft against the live PR ->
 `--prepared-json ... --apply` once only if those checks still match the live PR ->
 settle/merge only through the helper gates and any separate merge authority.
 Stop only at a Tier 3/4 risk decision or a circuit-breaker halt, emit the exact operator
