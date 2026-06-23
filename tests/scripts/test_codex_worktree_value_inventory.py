@@ -543,6 +543,39 @@ def test_terminal_receipt_path_heads_ignores_merged_pr_head_mismatch(
     assert refs == {}
 
 
+def test_terminal_receipt_path_heads_ignores_merged_pr_without_head_evidence(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "merged-pr-no-head.json").write_text(
+        json.dumps(
+            {
+                "reconfirmation": {
+                    "github_pr": {
+                        "number": 8148,
+                        "state": "MERGED",
+                    }
+                },
+                "selected_candidate": {
+                    "path": str(root),
+                    "repo_path": str(repo_path),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs == {}
+
+
 def test_terminal_receipt_path_heads_ignores_non_merged_pr_with_merged_at(
     tmp_path: Path,
 ) -> None:
@@ -803,8 +836,37 @@ def test_smart_merge_detection_reclassifies_reverse_applied_commits(
 
     assert candidate.classification == "patch_equivalent_or_merged"
     assert candidate.cleanup_candidate is True
+    assert candidate.git.smart_merge_equivalent_to_base is True
     assert "all unique commit patches reverse-apply to base" in candidate.proof
     assert candidate.links["reverse_applied_commits"] == ["abc123", "def456"]
+
+
+def test_smart_merge_detection_keeps_empty_reverse_apply_protected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod, "branch_subjects_match_recent_main", lambda *_args, **_kwargs: (False, [])
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_commits_reverse_apply_to_base",
+        lambda *_args, **_kwargs: (True, []),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(tmp_path, smart_merge_detection=True),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.smart_merge_equivalent_to_base is False
 
 
 def test_branch_commits_reverse_apply_to_base_with_real_git_repo(tmp_path: Path) -> None:

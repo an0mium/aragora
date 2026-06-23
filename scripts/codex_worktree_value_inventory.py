@@ -427,7 +427,7 @@ def _concrete_receipt_heads_from_value(value: Any) -> set[str]:
 def _merged_pr_receipt_head_matches(github_pr: dict[str, Any], payload: dict[str, Any]) -> bool:
     pr_heads = {head for head in _receipt_heads_from_mapping(github_pr) if head}
     if not pr_heads:
-        return True
+        return False
 
     receipt_heads = {head for head in _receipt_heads_from_mapping(payload) if head}
     for key in (
@@ -1156,7 +1156,8 @@ def classify_candidate(
                         rev or "HEAD",
                         timeout=context.patch_timeout,
                     )
-                    if reverse_equivalent:
+                    if reverse_equivalent and reverse_commits:
+                        git.smart_merge_equivalent_to_base = True
                         classification = "patch_equivalent_or_merged"
                         proof.append("all unique commit patches reverse-apply to base")
                         links["reverse_applied_commits"] = reverse_commits
