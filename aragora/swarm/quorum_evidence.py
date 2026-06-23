@@ -705,8 +705,23 @@ def _trusted_verdict_probe(line: str) -> str:
     stripped = line.strip()
     if not stripped or stripped.startswith((">", "`")):
         return ""
-    probe = stripped.lstrip("*#0123456789.)\t ")
+    probe = stripped.lstrip("*#-0123456789.)\t ")
     return probe.strip("*_ ").lower()
+
+
+def _verdict_from_probe(probe: str) -> str:
+    if not probe.startswith("verdict:"):
+        return ""
+    verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
+    if verdict.startswith("pass"):
+        return "pass"
+    if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
+        return "changes_requested"
+    return ""
+
+
+def _trusted_line_verdict(line: str) -> str:
+    return _verdict_from_probe(_trusted_verdict_probe(line))
 
 
 def _line_has_priority_finding(line: str) -> bool:
@@ -725,22 +740,26 @@ def _strip_thinking_traces(text: str) -> str:
         kept_suffix: list[str] = []
         seen_finding = False
         in_fence = False
+        current_verdict = ""
         for idx, line in enumerate(suffix_lines):
             stripped = line.strip()
             if stripped.startswith(("```", "~~~")):
                 in_fence = not in_fence
                 kept_suffix.append(line)
                 continue
+            if not current_verdict:
+                current_verdict = _trusted_line_verdict(line)
             has_priority = _line_has_priority_finding(line)
             later_has_priority = any(
                 _line_has_priority_finding(rest) for rest in suffix_lines[idx + 1 :]
             )
+            later_has_verdict = any(_trusted_line_verdict(rest) for rest in suffix_lines[idx + 1 :])
             if (
                 _THINKING_OPEN_RE.match(line)
                 and not has_priority
                 and not seen_finding
-                and not later_has_priority
                 and not in_fence
+                and (current_verdict == "pass" or not later_has_priority or later_has_verdict)
             ):
                 break
             if has_priority:
@@ -760,12 +779,12 @@ def _first_verdict_offset(text: str) -> int:
             in_fence = not in_fence
             offset += len(line)
             continue
-        probe = (
+        verdict = (
             ""
             if in_fence or _offset_in_spans(offset, thinking_spans)
-            else _trusted_verdict_probe(line)
+            else _trusted_line_verdict(line)
         )
-        if probe.startswith("verdict:"):
+        if verdict:
             return offset
         offset += len(line)
     return -1
@@ -787,17 +806,11 @@ def _reanchor_at_verdict(text: str) -> str:
             continue
         if in_fence:
             continue
-        probe = _trusted_verdict_probe(line)
-        if probe.startswith("verdict:"):
-            verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
+        verdict = _trusted_line_verdict(line)
+        if verdict:
             verdict_indices.append((idx, verdict))
     if verdict_indices:
-        changes_requested = [
-            idx
-            for idx, verdict in verdict_indices
-            if verdict.startswith("changes-requested") or verdict.startswith("changes requested")
-        ]
-        idx = changes_requested[0] if changes_requested else verdict_indices[0][0]
+        idx = verdict_indices[-1][0]
         return "\n".join(lines[idx:]).strip()
     return text.strip()
 

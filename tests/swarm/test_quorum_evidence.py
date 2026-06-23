@@ -190,6 +190,39 @@ def test_unclosed_trailing_thinking_trace_does_not_pollute_evidence_body() -> No
     assert "qwen" in result["counted_reviewer_ids"]
 
 
+def test_unclosed_trailing_thinking_trace_with_priority_marker_does_not_decount() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "Verdict: PASS\n"
+        "No findings.\n"
+        "<thinking>\n"
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P1] This was private reasoning, not a reviewer finding."
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "private reasoning" not in body
+    assert "CHANGES-REQUESTED" not in body
+    assert "[P1]" not in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+    assert "qwen" in result["counted_reviewer_ids"]
+
+
 def test_closed_post_verdict_thinking_trace_does_not_decount_support() -> None:
     from aragora.cli.commands.review_queue import _lint_evidence_comment
 
@@ -299,6 +332,39 @@ def test_multiple_verdicts_use_last_verdict_without_leading_thinking_tag() -> No
     assert out == "Verdict: CHANGES-REQUESTED\n- [P2] real finding"
 
 
+def test_revised_changes_requested_to_pass_uses_final_trusted_verdict() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P2] preliminary concern, superseded after re-checking.\n"
+        "Final review follows:\n"
+        "Verdict: PASS\n"
+        "No findings."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == "Verdict: PASS\nNo findings."
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+
+
 def test_real_dissent_is_not_overridden_by_quoted_or_code_pass_verdicts() -> None:
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 
@@ -309,6 +375,34 @@ def test_real_dissent_is_not_overridden_by_quoted_or_code_pass_verdicts() -> Non
     out = normalize_reviewer_output(raw)
 
     assert out == raw
+
+
+def test_list_marker_verdict_reanchors_and_counts() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = "Introductory preamble.\n- Verdict: PASS\nNo findings."
+
+    out = normalize_reviewer_output(raw)
+
+    assert "Introductory preamble" not in out
+    assert out == "- Verdict: PASS\nNo findings."
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
 
 
 def test_pre_verdict_inline_thinking_block_is_stripped() -> None:
