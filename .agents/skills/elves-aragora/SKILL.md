@@ -70,6 +70,20 @@ The Tier 3-4 hard stop is the aragora-native expression of Elves' "you never mer
 non-negotiable: autonomy is granted exactly where the governance model grants it, and revoked
 exactly where it requires a human.
 
+## Conductor protocol (evidence-last, anti-molasses) — read every cycle
+
+For any long-running PR-advancing loop, the **single source of truth** is
+`docs/AGENT_OPERATING_CONTRACT.md` **§Conductor**. Re-read it each cycle and obey it verbatim;
+do not re-embed its rules into recursive prompts — carry only the current exact-head target +
+one next action (see §Conductor's thin-prompt template). In one line, §Conductor mandates:
+
+- **Autonomy rail:** run continuously through *progressing* Tier 0-2 units without asking; touch
+  the operator only at a Tier 3/4 risk decision or a circuit-breaker halt. No per-unit checkpoints.
+- **Evidence-last:** never collect countable (`--apply`) evidence on a head that has not just
+  passed a clean adversarial **dry-run** for that exact head with no commit since. Dry-run →
+  repair → dry-run until clean → freeze → collect once → settle.
+- **No-treadmill / circuit-breaker / one-claude / fix-env-once / shared-root-read-only** per §Conductor.
+
 ## Operating-contract auto-halts (always active)
 
 Beyond the per-batch gate, the run obeys `docs/AGENT_OPERATING_CONTRACT.md` at all times. Halt

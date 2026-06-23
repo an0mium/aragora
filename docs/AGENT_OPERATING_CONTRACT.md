@@ -78,6 +78,70 @@ Concretely:
 - Each PR scope ≤800 LOC delta (excluding generated files)
 - Each PR includes `Co-authored-by: <agent-name>[bot]` trailer (e.g. `factory-droid[bot]`, `claude[bot]`, `codex[bot]`)
 
+### §Conductor — autonomous PR-advancing loops (evidence-last, anti-molasses)
+
+This section is the **single source of truth** for any recursive/long-running loop that
+advances PRs through the merge-quorum gate (Codex conductors, `elves-aragora` batches,
+boss-loop ticks). Recursive prompts MUST **reference this section by name** instead of
+re-embedding its rules: carry forward only the current exact-head **target + one next
+action**, never a copy of these invariants. Copying invariants per-cycle burns tokens and
+drifts (a self-replicating prompt mutates); a pointer does not. Use the thin template below.
+
+**Autonomy rail — the anti-molasses rule.** Run continuously through bounded units **without
+asking the operator**, as long as every unit stays on Tier 0-2 rails and makes *external*
+progress (a merge, a posted-and-counted evidence comment, a repair commit that clears a
+finding, a real archive). Touch the operator **only** at (a) a genuine Tier 3/4 risk
+decision, or (b) a circuit-breaker halt. Do **not** insert a human checkpoint between safe,
+progressing units — that is the molasses failure mode. "One bounded unit, then stop and ask"
+is WRONG unless the next unit is Tier 3/4 or the breaker tripped.
+
+**EVIDENCE-LAST (settlement-stability).** A head is *settlement-stable* iff: the latest
+adversarial **dry-run** review was clean for the **current** head (no CHANGES-REQUESTED /
+`[P1]` / `[P2]` from every required family) AND no commit has landed since AND the base is
+unchanged / mergeable. **Never collect countable (`--apply`) evidence on a head that is not
+settlement-stable.** Loop: dry-run → if findings, repair → dry-run → … → clean → freeze →
+collect ONCE → settle. Settlement head movement is almost entirely review-driven and thus
+predictable: if the dry-run has findings, the head WILL move next, so do not spend on
+countable evidence yet.
+
+**NO-TREADMILL.** Batch all known findings into ONE repair per head; never
+repair-then-recollect on the same head. Any CHANGES-REQUESTED / `[P1]` / `[P2]` ends the
+evidence lane and becomes a repair — never post partial or dissenting evidence.
+
+**CIRCUIT-BREAKER + dead-letter ban.** If a loop produces no *external* progress for 3
+consecutive cycles, HALT it and emit ONE operator escalation — do not spin. Never re-message
+a stale/dead lane (stale heartbeat or `possible_unpushed_work`); mailing dead letters is
+forbidden. A loop whose only output is "wrote one steering request" is **not** making
+progress.
+
+**ONE-CLAUDE (scarce-reviewer serialization).** Do not run a claude-family evidence lane
+while a human-driven settlement/review is using the claude account; prefer openai/grok or
+yield. The binding constraint is the reviewer account, not work supply.
+
+**FIX-ENV-ONCE.** If commit/push needs `--no-verify` because the repo `.venv` lacks
+`pre_commit`, fix it once (install the hook runtime) and stop bypassing hooks. Do not
+normalize `--no-verify`.
+
+**Shared root is read-only.** If the shared checkout is dirty, detached, or behind, report
+it and use a disposable worktree for edits; never mutate shared-root dirt.
+
+**Reporting honesty.** A merge performed under an explicit operator override (e.g. a
+Dependabot/Tier-3 merge the operator authorized at an exact head) is reported as "merged
+under explicit operator override", never as "the helper said it was safe".
+
+#### Thin recursive-prompt template (carry this shape forward, not the rules)
+
+```text
+Start from live repo truth in <repo>. Do not trust prior transcript state.
+Operating contract: re-read docs/AGENT_OPERATING_CONTRACT.md §Conductor this cycle.
+
+Target: PR #NNNN @ <exact-head>.   Last: <one line>.   Next: <one bounded action>.
+
+Run on Tier 0-2 rails per §Conductor; continue through progressing units autonomously.
+Stop only at a Tier 3/4 risk decision or a circuit-breaker halt, emit the exact operator
+authorization text needed, then emit the next prompt in THIS thin form.
+```
+
 ---
 
 ## Adversarial Cross-Review (ACR) auto-merge tier
