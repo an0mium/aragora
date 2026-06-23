@@ -251,6 +251,136 @@ def test_remove_purges_residual_path_after_failed_git_remove(
     assert worktree.exists() is False
 
 
+def test_remove_refuses_untracked_residue_without_purge_path_with_recovery(
+    tmp_path: Path,
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "anchor-residue"
+    worktree.mkdir()
+    (worktree / ".claude-session-anchor").write_text("session anchor\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=False,
+        branch=None,
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=False,
+        force=False,
+    )
+
+    assert result["status"] == "untracked_path"
+    assert result["removed"] is False
+    assert result["path_purged"] is False
+    assert result["requires_purge_path"] is True
+    assert "--purge-path" in result["recovery_action"]
+    assert worktree.exists() is True
+
+
+def test_remove_purge_path_deletes_anchor_only_untracked_residue(tmp_path: Path) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "anchor-residue"
+    worktree.mkdir()
+    (worktree / ".claude-session-anchor").write_text("session anchor\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=False,
+        branch=None,
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "purged"
+    assert result["removed"] is True
+    assert result["path_purged"] is True
+    assert result["residual_paths"] == []
+    assert worktree.exists() is False
+
+
+def test_remove_purge_path_reports_incomplete_when_anchor_residue_survives(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "anchor-residue"
+    worktree.mkdir()
+    (worktree / ".claude-session-anchor").write_text("session anchor\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=False,
+        branch=None,
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+    monkeypatch.setattr(mod.shutil, "rmtree", lambda *_args, **_kwargs: None)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "purge_incomplete"
+    assert result["removed"] is False
+    assert result["path_purged"] is False
+    assert result["residual_paths"] == [".claude-session-anchor"]
+    assert "not fully removed" in result["recovery_action"]
+    assert worktree.exists() is True
+
+
 def test_remove_deletes_branch_when_requested(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
