@@ -1900,8 +1900,8 @@ def test_apply_prepared_evidence_rechecks_between_supportive_posts(tmp_path) -> 
 
     assert outcome.action == "prepare"
     assert "changed before posting grok" in outcome.action_reason
-    assert outcome.posted == []
-    assert posted == []
+    assert outcome.posted == ["claude"]
+    assert posted == [("o/r", _prepared_body("claude"))]
 
 
 def test_apply_prepared_evidence_skips_already_posted_family_on_retry(tmp_path) -> None:
@@ -1920,6 +1920,7 @@ def test_apply_prepared_evidence_skips_already_posted_family_on_retry(tmp_path) 
         linter=_family_linter,
         poster=lambda repo, pr, body: posted.append((repo, body)),
         already_posted_families=["claude"],
+        posted_family_verifier=lambda repo, pr, head, committed: ["claude"],
     )
 
     assert outcome.action == "post"

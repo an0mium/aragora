@@ -1996,6 +1996,7 @@ def apply_prepared_evidence(
     quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
     env: dict[str, str] | None = None,
     already_posted_families: Sequence[str] | None = None,
+    posted_family_verifier: Callable[[str, int, str, str], Sequence[str]] | None = None,
 ) -> CollectOutcome:
     """Post an exact-head prepared artifact without re-running reviewers.
 
@@ -2160,10 +2161,21 @@ def apply_prepared_evidence(
     outcome.action_reason = (
         "prepared exact-head evidence artifact; posting without reviewer regeneration"
     )
-    # ``posted_families`` in the prepared artifact is untrusted input. Only an
-    # in-memory caller that just observed a successful post may pass this argument
-    # to resume a partial replay without duplicating already-posted comments.
-    already_posted = {canonical_family(f) for f in (already_posted_families or [])}
+    # ``posted_families`` in the prepared artifact is untrusted input. Resume
+    # credit is honored only when a caller supplies both an in-memory candidate
+    # list and a live verifier that proves those families already count on this
+    # exact head.
+    requested_already_posted = {
+        canonical_family(f) for f in (already_posted_families or []) if canonical_family(f)
+    }
+    already_posted: set[str] = set()
+    if requested_already_posted and posted_family_verifier is not None:
+        verified = {
+            canonical_family(f)
+            for f in posted_family_verifier(repo, pr, head_sha, head_committed_at)
+            if canonical_family(f)
+        }
+        already_posted = requested_already_posted & verified
     outcome.posted = [
         item.family for item in outcome.items if item.supportive and item.family in already_posted
     ]
@@ -2203,7 +2215,6 @@ def apply_prepared_evidence(
                 f"tier {tier}->{item_tier}); prepared only: {item_reason}"
             )
             return outcome
-    for item in items_to_post:
         try:
             poster(repo, pr, item.body)
         except Exception as exc:

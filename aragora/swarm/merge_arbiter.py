@@ -673,6 +673,12 @@ class MergeArbiter:
         def apply_payload(
             payload: dict[str, object], already_posted_families: list[str] | None = None
         ) -> object:
+            def verify_posted_families(
+                repo: str, pr_number: int, verified_head: str, committed_at: str
+            ) -> list[str]:
+                comments = self._evidence_reader(repo, pr_number, verified_head, committed_at)
+                return counted_reviewer_ids(comments)
+
             prepared_path = ""
             try:
                 with tempfile.NamedTemporaryFile(
@@ -692,6 +698,7 @@ class MergeArbiter:
                     families=families,
                     quorum_reconciler=default_quorum_reconciler,
                     already_posted_families=already_posted_families,
+                    posted_family_verifier=verify_posted_families,
                 )
             finally:
                 if prepared_path:
@@ -703,7 +710,20 @@ class MergeArbiter:
         def should_retry_replay(applied: object) -> bool:
             posted = list(getattr(applied, "posted", []) or [])
             supportive = list(getattr(applied, "supportive_families", []) or [])
+            post_errors = list(getattr(applied, "post_errors", []) or [])
+            reason = str(getattr(applied, "action_reason", "") or "")
             if getattr(applied, "action", "") != "prepare":
+                return False
+            transient_prepare = any(
+                marker in reason
+                for marker in (
+                    "could not re-verify",
+                    "changed before posting",
+                    "replay incomplete",
+                    "live state drifted",
+                )
+            )
+            if not (posted or post_errors or transient_prepare):
                 return False
             if supportive:
                 return not set(supportive).issubset(set(posted))
