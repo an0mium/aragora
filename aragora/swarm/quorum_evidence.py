@@ -47,6 +47,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
 from aragora.swarm import merge_quorum_io
 
 logger = logging.getLogger(__name__)
@@ -115,6 +116,35 @@ def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
     signal) is active. Default OFF; see :data:`_TIERED_GATE_ENV`."""
     source = os.environ if env is None else env
     return str(source.get(_TIERED_GATE_ENV, "")).strip().lower() in _TIERED_GATE_TRUE
+
+
+# Opt-in flag for severity-gated dissent. When OFF (default), a reviewer
+# ``Verdict: CHANGES-REQUESTED`` line promotes a *blocking* dissent regardless of
+# finding severity — even a `[P2]`/`[P3]`-only or finding-free comment blocks the
+# merge as hard as a `[P0]` defect (today's behavior). When ON, a CHANGES-REQUESTED
+# comment promotes a blocking dissent ONLY when it carries a real `[P0]`/`[P1]`
+# finding or a populated Blocker label; a `[P2]`/`[P3]`-only or finding-free
+# CHANGES-REQUESTED becomes *advisory* — non-blocking AND non-counting (it still
+# posts and stays visible on the PR; it just no longer blocks). `[P0]`/`[P1]`
+# findings and populated Blocker labels ALWAYS block, flag ON or OFF.
+#
+# Gating this behind the flag keeps it revertible WITHOUT a code change and is the
+# in-tree audit point for the operator's approval. See
+# docs/specs/FINDING_SEVERITY_GATE.md and
+# docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance.
+_SEVERITY_GATED_DISSENT_ENV = "ARAGORA_ENABLE_SEVERITY_GATED_DISSENT"
+_SEVERITY_GATED_DISSENT_TRUE = frozenset(("1", "true", "yes", "on"))
+
+
+def severity_gated_dissent_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in severity-gated dissent gate is active. Default OFF; a
+    `[P2]`/`[P3]`-only CHANGES-REQUESTED only becomes advisory (non-blocking,
+    non-counting) when this is ON. See :data:`_SEVERITY_GATED_DISSENT_ENV`."""
+    source = os.environ if env is None else env
+    return (
+        str(source.get(_SEVERITY_GATED_DISSENT_ENV, "")).strip().lower()
+        in _SEVERITY_GATED_DISSENT_TRUE
+    )
 
 
 @dataclass(frozen=True)
@@ -367,14 +397,35 @@ class EvidenceItem:
     counted_reviewer_ids: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     verdict: str = "unknown"
+    # Captured ONCE at construction (not re-read per property access) so a
+    # security-relevant gate decision stays deterministic within a single
+    # settlement flow even if the process env mutates mid-run — mirrors
+    # ``CollectOutcome.tiered_gate``.
+    severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
     @property
     def supportive(self) -> bool:
+        # Unchanged by the severity gate: advisory ≠ supportive. A downgraded
+        # `[P2]`/`[P3]`-only changes_requested stays non-counting; it just stops
+        # blocking. ``supportive`` requires would_count AND a pass verdict.
         return self.would_count and self.verdict == "pass"
 
     @property
     def dissenting(self) -> bool:
-        return self.verdict == "changes_requested"
+        if self.verdict != "changes_requested":
+            return False
+        if not self.severity_gated:
+            # Default (flag OFF): any changes_requested is a blocking dissent —
+            # byte-identical to historical behavior.
+            return True
+        # Flag ON: a changes_requested is dissenting (blocks / trips prepare-only)
+        # ONLY when backed by a real [P0]/[P1] finding OR a populated Blocker label
+        # (``has_blocking_finding_or_label`` — the SAME helper the review-queue gate
+        # half consults, so the two halves stay in lockstep and Blocker labels always
+        # block per the invariant). A [P2]/[P3]-only or finding-free changes_requested
+        # is advisory — non-blocking, and (because ``supportive`` is unchanged) still
+        # non-counting.
+        return has_blocking_finding_or_label(self.body)
 
 
 @dataclass

@@ -40,52 +40,113 @@ _NO_FINDING_HEADS = frozenset(
     }
 )
 
+# Prefixes a `Verdict:/Decision:/Recommendation:` value may start with to count as a
+# *negative* verdict line. Shared by ``has_blocking_or_negative_verdict``.
+_NEGATIVE_VERDICT_PREFIXES = (
+    "fail",
+    "failed",
+    "failing",
+    "fails",
+    "failure",
+    "block",
+    "blocked",
+    "blocking",
+    "request changes",
+    "request_changes",
+    "changes requested",
+    "reject",
+    "rejected",
+    "not ready",
+    "needs repair",
+)
+
+# Prefixes a populated Blocker-label value may start with that mean "no blocker".
+_NON_BLOCKING_PREFIXES = (
+    "none",
+    "none found",
+    "no",
+    "no blockers",
+    "no blocking findings",
+    "not found",
+    "0",
+    "zero",
+    "false",
+    "n/a",
+    "not applicable",
+    "[]",
+)
+
+_BLOCKER_LABELS = frozenset({"blocking finding", "blocking findings", "blocker", "blockers"})
+
+
+def _starts_with_phrase(value: str, phrases: tuple[str, ...]) -> bool:
+    return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
+
+
+def _strip_decoration(text: str) -> str:
+    return re.sub(r"^(?:[#>\-*+\s]+|\d+[.)]\s+)+", "", text.strip())
+
+
+def _normalize_value(text: str) -> str:
+    text = text.replace("**", "").replace("__", "")
+    text = re.sub(r"[-_]+", " ", text)
+    return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
+
+
+def _priority_finding_severity(stripped: str) -> str | None:
+    """Return ``"P0"``/``"P1"`` if ``stripped`` is a *real* `[P0]`/`[P1]` finding
+    line (head-before-colon NOT in :data:`_NO_FINDING_HEADS`), else ``None``.
+
+    Reuses the exact decoration/normalization/head-extraction logic that
+    :func:`has_blocking_or_negative_verdict` applies, so the severity scanner and
+    the blocking scanner never disagree on what a real finding line is.
+    """
+    priority_marker_line = _strip_decoration(stripped)
+    marker = re.match(
+        r"^(?:\*\*)?\[(?P<sev>p0|p1)\](?:\*\*)?(?:\s|$|[:.;—–-])",
+        priority_marker_line,
+        re.I,
+    )
+    if not marker:
+        return None
+    rest = re.sub(r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?\s*", "", priority_marker_line, flags=re.I)
+    head = _normalize_value(rest).split(":", 1)[0].strip(" .;—–-")
+    if head in _NO_FINDING_HEADS:
+        # explicit "[Pn] None:/N/A/no issues" non-finding
+        return None
+    return marker.group("sev").upper()
+
+
+def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
+    """Whether ``stripped`` is a populated ``Blocking finding(s):/Blocker(s):`` label.
+
+    ``follow_lines`` are the remaining stripped (non-empty filtered happens here)
+    lines after this one, used to resolve a label whose value is on the next line.
+    Mirrors the Blocker-label branch of :func:`has_blocking_or_negative_verdict`.
+    """
+    line = _strip_decoration(stripped).replace("**", "").replace("__", "")
+    match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
+    if not match:
+        return False
+    normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
+    normalized_label = normalized_label.strip("*_ ")
+    if normalized_label not in _BLOCKER_LABELS:
+        return False
+    normalized_value = _normalize_value(match.group("value"))
+    candidate = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", normalized_value)
+    if candidate in {"-", "*", "[]", "[ ]", "—", "–"}:
+        return False
+    if not candidate:
+        follow = next((entry for entry in follow_lines if entry), "")
+        is_list_item = bool(re.match(r"^(?:[-*+]\s+|\d+[.)]\s+)", follow))
+        if not is_list_item and (follow.startswith("#") or re.match(r"^[^:]+?:\s+\S", follow)):
+            return False
+        candidate = _normalize_value(_strip_decoration(follow))
+    return bool(candidate) and not _starts_with_phrase(candidate, _NON_BLOCKING_PREFIXES)
+
 
 def has_blocking_or_negative_verdict(body: str) -> bool:
     """Return True for explicit evidence comments that report blockers."""
-    negative_verdict_prefixes = (
-        "fail",
-        "failed",
-        "failing",
-        "fails",
-        "failure",
-        "block",
-        "blocked",
-        "blocking",
-        "request changes",
-        "request_changes",
-        "changes requested",
-        "reject",
-        "rejected",
-        "not ready",
-        "needs repair",
-    )
-    non_blocking_prefixes = (
-        "none",
-        "none found",
-        "no",
-        "no blockers",
-        "no blocking findings",
-        "not found",
-        "0",
-        "zero",
-        "false",
-        "n/a",
-        "not applicable",
-        "[]",
-    )
-
-    def _starts_with_phrase(value: str, phrases: tuple[str, ...]) -> bool:
-        return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
-
-    def _strip_decoration(text: str) -> str:
-        return re.sub(r"^(?:[#>\-*+\s]+|\d+[.)]\s+)+", "", text.strip())
-
-    def _normalize_value(text: str) -> str:
-        text = text.replace("**", "").replace("__", "")
-        text = re.sub(r"[-_]+", " ", text)
-        return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
-
     lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
     for idx, stripped in enumerate(lines):
         if not stripped:
@@ -110,10 +171,10 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
         normalized_label = normalized_label.strip("*_ ")
         normalized_value = _normalize_value(match.group("value"))
         if normalized_label in {"verdict", "decision", "recommendation"}:
-            if _starts_with_phrase(normalized_value, negative_verdict_prefixes):
+            if _starts_with_phrase(normalized_value, _NEGATIVE_VERDICT_PREFIXES):
                 return True
             continue
-        if normalized_label not in {"blocking finding", "blocking findings", "blocker", "blockers"}:
+        if normalized_label not in _BLOCKER_LABELS:
             continue
         candidate = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", normalized_value)
         if candidate in {"-", "*", "[]", "[ ]", "—", "–"}:
@@ -124,6 +185,48 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
             if not is_list_item and (follow.startswith("#") or re.match(r"^[^:]+?:\s+\S", follow)):
                 continue
             candidate = _normalize_value(_strip_decoration(follow))
-        if candidate and not _starts_with_phrase(candidate, non_blocking_prefixes):
+        if candidate and not _starts_with_phrase(candidate, _NON_BLOCKING_PREFIXES):
+            return True
+    return False
+
+
+def highest_blocking_severity(body: str) -> str | None:
+    """Return ``"P0"``/``"P1"`` if ``body`` carries a real (non-:data:`_NO_FINDING_HEADS`)
+    `[P0]`/`[P1]` finding line, else ``None``.
+
+    Reuses the EXACT `[P0]`/`[P1]` detection that drives
+    :func:`has_blocking_or_negative_verdict`. ``"P0"`` is reported in preference to
+    ``"P1"`` when both are present.
+    """
+    best: str | None = None
+    for raw_line in str(body or "").splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        severity = _priority_finding_severity(stripped)
+        if severity == "P0":
+            return "P0"
+        if severity == "P1":
+            best = "P1"
+    return best
+
+
+def has_blocking_finding_or_label(body: str) -> bool:
+    """Return True when ``body`` carries a real `[P0]`/`[P1]` finding line OR a
+    populated Blocker-label.
+
+    This is everything :func:`has_blocking_or_negative_verdict` blocks on EXCEPT a
+    bare negative ``Verdict:/Decision:/Recommendation:`` line that carries no real
+    finding and no populated Blocker-label. It is the severity-gated trigger: a
+    ``CHANGES-REQUESTED`` comment promotes a *blocking* dissent only when it is
+    backed by a real `[P0]`/`[P1]` finding or a populated Blocker label.
+    """
+    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    for idx, stripped in enumerate(lines):
+        if not stripped:
+            continue
+        if _priority_finding_severity(stripped) is not None:
+            return True
+        if _populated_blocker_label(stripped, lines[idx + 1 :]):
             return True
     return False
