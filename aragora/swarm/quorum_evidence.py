@@ -669,8 +669,8 @@ def decide_action(tier: int | None, apply: bool) -> tuple[str, str]:
 
     Tier 3+ (and unknown tier) always ``prepare`` — high-tier merge authority is
     only ever settled by an operator on the exact head, so this collector refuses
-    to post there regardless of ``apply``. Tier 0-2 posts only when ``apply`` is
-    set; otherwise it is a dry run.
+    to post there regardless of ``apply``. Tier 0-2 is postable only when a
+    prepared replay caller sets ``apply``; otherwise it is a dry run.
     """
     if tier is None or tier < 0:
         return ("prepare", "tier unknown; preparing evidence only (fail-safe)")
@@ -680,7 +680,7 @@ def decide_action(tier: int | None, apply: bool) -> tuple[str, str]:
             f"tier {tier} requires exact-head operator settlement; preparing evidence only",
         )
     if not apply:
-        return ("prepare", "dry-run; re-run with --apply to post")
+        return ("prepare", "dry-run; replay with --apply --prepared-json to post")
     return ("post", f"tier {tier} is auto-postable")
 
 
@@ -2159,9 +2159,14 @@ def apply_prepared_evidence(
     outcome.action_reason = (
         "prepared exact-head evidence artifact; posting without reviewer regeneration"
     )
-    for item in outcome.items:
-        if not item.supportive:
-            continue
+    already_posted = set(prepared.posted)
+    outcome.posted = [
+        item.family for item in outcome.items if item.supportive and item.family in already_posted
+    ]
+    items_to_post = [
+        item for item in outcome.items if item.supportive and item.family not in already_posted
+    ]
+    for item in items_to_post:
         try:
             item_ctx = context_fetcher(repo, pr) or {}
             item_head = str(item_ctx.get("head_sha") or "").strip()
@@ -2194,6 +2199,7 @@ def apply_prepared_evidence(
                 f"tier {tier}->{item_tier}); prepared only: {item_reason}"
             )
             return outcome
+    for item in items_to_post:
         try:
             poster(repo, pr, item.body)
         except Exception as exc:

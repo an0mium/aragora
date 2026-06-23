@@ -692,8 +692,20 @@ class MergeArbiter:
 
         def should_retry_replay(applied: object) -> bool:
             posted = list(getattr(applied, "posted", []) or [])
-            post_errors = list(getattr(applied, "post_errors", []) or [])
-            return not posted and not post_errors and getattr(applied, "action", "") == "prepare"
+            supportive = list(getattr(applied, "supportive_families", []) or [])
+            if getattr(applied, "action", "") != "prepare":
+                return False
+            if supportive:
+                return not set(supportive).issubset(set(posted))
+            return not posted
+
+        def retry_payload(original: dict[str, object], applied: object) -> dict[str, object]:
+            to_dict = getattr(applied, "to_dict", None)
+            if callable(to_dict):
+                payload = to_dict()
+                if isinstance(payload, dict):
+                    return payload
+            return original
 
         try:
             families = self.config.reviewer_families or list(DEFAULT_FAMILIES)
@@ -746,7 +758,7 @@ class MergeArbiter:
             payload = outcome.to_dict()
             applied = apply_payload(payload)
             if head_sha and should_retry_replay(applied):
-                self._prepared_evidence_by_head[head_sha] = payload
+                self._prepared_evidence_by_head[head_sha] = retry_payload(payload, applied)
             else:
                 mark_collected()
         except Exception as exc:  # noqa: BLE001 - best-effort resilience boundary: one bad collection must not abort the poll loop

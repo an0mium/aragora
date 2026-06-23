@@ -997,3 +997,67 @@ class TestAutoCollectIntegration:
         assert calls["n"] == 1
         assert apply_calls["n"] == 2
         assert quorum_pr["headRefOid"] in arb._collected_heads
+
+    def test_auto_collect_retries_partial_replay_without_rerunning_reviewers(self):
+        import json as _json
+
+        class PreparedOutcome:
+            settlement_stable = True
+            has_supportive_quorum = True
+            action_reason = "prepared exact-head evidence"
+
+            def to_dict(self):
+                return {
+                    "mode": "collect_evidence",
+                    "head_sha": "deadbeef",
+                    "counting_families": ["claude", "grok"],
+                    "supportive_families": ["claude", "grok"],
+                    "posted_families": [],
+                    "settlement_stable": True,
+                }
+
+        class PartialOutcome:
+            action = "prepare"
+            posted = ["claude"]
+            supportive_families = ["claude", "grok"]
+            post_errors = ["grok: gh rejected comment"]
+
+            def to_dict(self):
+                return {
+                    "mode": "collect_evidence",
+                    "head_sha": "deadbeef",
+                    "counting_families": ["claude", "grok"],
+                    "supportive_families": ["claude", "grok"],
+                    "posted_families": ["claude"],
+                    "post_errors": ["grok: gh rejected comment"],
+                    "settlement_stable": True,
+                }
+
+        class PostedOutcome:
+            action = "post"
+            posted = ["claude", "grok"]
+            supportive_families = ["claude", "grok"]
+
+        def collector(**kw):
+            return PreparedOutcome()
+
+        applied_payloads = []
+
+        def applier(**kw):
+            payload = _json.loads(kw["prepared_json"].read_text(encoding="utf-8"))
+            applied_payloads.append(payload)
+            return PartialOutcome() if len(applied_payloads) == 1 else PostedOutcome()
+
+        arb, calls = self._arbiter_with_prepared_fakes(collector, applier)
+        quorum_pr = _pr(56, "codex/x")
+        blocked = MergeResult(
+            56, "codex/x", False, f"failing required checks: {QUORUM_REQUIRED_CHECK}=FAILURE"
+        )
+
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
+        assert quorum_pr["headRefOid"] not in arb._collected_heads
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
+        assert calls["n"] == 1
+        assert applied_payloads[0].get("posted_families") == []
+        assert applied_payloads[1].get("posted_families") == ["claude"]
+        assert quorum_pr["headRefOid"] in arb._collected_heads
