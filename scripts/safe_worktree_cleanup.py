@@ -605,7 +605,16 @@ def remove_worktree(
         if purge_error:
             result["purge_error"] = purge_error
         if result["path_purged"]:
-            result["removed"] = True
+            if result["git_remove_failed"]:
+                result["status"] = "remove_failed_path_purged"
+                result["removed"] = False
+                result["recovery_action"] = (
+                    "filesystem path was purged, but git worktree remove failed; "
+                    "rerun inspect and reconcile git worktree metadata before deleting "
+                    "the branch or treating cleanup as complete"
+                )
+            else:
+                result["removed"] = True
         else:
             if result["git_remove_failed"]:
                 result["status"] = "remove_failed_purge_incomplete"
@@ -624,8 +633,6 @@ def remove_worktree(
         result["status"] = "partial"
     elif result.get("status") == "untracked_path" and result["removed"]:
         result["status"] = "purged"
-    elif result.get("status") == "remove_failed" and result["path_purged"]:
-        result["status"] = "purged_after_failed_remove"
 
     return result
 
@@ -659,6 +666,7 @@ def cmd_remove(args: argparse.Namespace) -> int:
     if status in {
         "blocked",
         "remove_failed",
+        "remove_failed_path_purged",
         "remove_failed_purge_incomplete",
         "untracked_path",
         "partial",
