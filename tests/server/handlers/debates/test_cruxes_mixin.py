@@ -21,9 +21,7 @@ from aragora.server.handlers.debates.cruxes import extract_cruxes
 
 
 def test_absent_when_crux_mode_not_run() -> None:
-    payload = extract_cruxes(
-        {"consensus_proof": {"metadata": {"consensus_mode": "majority"}}}
-    )
+    payload = extract_cruxes({"consensus_proof": {"metadata": {"consensus_mode": "majority"}}})
     assert payload["status"] == "absent"
     assert payload["cruxes"] == []
     assert payload["crux_count"] == 0
@@ -61,11 +59,7 @@ def test_present_when_crux_mode_ran_with_cruxes() -> None:
 def test_present_but_zero_cruxes_is_not_absent() -> None:
     # crux mode ran but found no load-bearing disagreement: a real, present
     # result distinct from "mode not run".
-    debate = {
-        "consensus_proof": {
-            "metadata": {"consensus_mode": "crux_finder", "cruxes": []}
-        }
-    }
+    debate = {"consensus_proof": {"metadata": {"consensus_mode": "crux_finder", "cruxes": []}}}
     payload = extract_cruxes(debate)
     assert payload["status"] == "present"
     assert payload["crux_count"] == 0
@@ -101,9 +95,7 @@ def test_skip_reason_yields_honest_absence() -> None:
 def test_never_fabricates_cruxes_from_garbage() -> None:
     # Non-list cruxes value must not produce fabricated entries.
     debate = {
-        "consensus_proof": {
-            "metadata": {"consensus_mode": "crux_finder", "cruxes": "not-a-list"}
-        }
+        "consensus_proof": {"metadata": {"consensus_mode": "crux_finder", "cruxes": "not-a-list"}}
     }
     payload = extract_cruxes(debate)
     assert payload["cruxes"] == []
