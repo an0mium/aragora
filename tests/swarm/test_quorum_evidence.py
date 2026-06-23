@@ -205,6 +205,38 @@ def test_unclosed_leading_thinking_trace_still_reanchors_at_verdict() -> None:
     assert out == "Verdict: PASS\nNo findings."
 
 
+def test_unclosed_leading_thinking_trace_cannot_decoy_pass_verdict() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "<thinking>Internal preamble without a closing tag.\n"
+        "Verdict: PASS\n"
+        "This was only internal reasoning, not the review.\n"
+        "Now the actual review:\n"
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P1] real finding"
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == "Verdict: CHANGES-REQUESTED\n- [P1] real finding"
+
+
+def test_literal_thinking_tags_inside_findings_are_preserved() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P2] `_strip_thinking_traces` truncates at a quoted `<thinking>` literal.\n"
+        "- [P2] The second finding must survive."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert "quoted `<thinking>` literal" in out
+    assert "The second finding must survive" in out
+
+
 def test_normalize_llm_fallback_off_by_default() -> None:
     # With no normalizer model configured and an unparseable verdict, normalization
     # is deterministic-only (returns the thinking-stripped text, no model call).
@@ -1672,12 +1704,13 @@ def test_qwen_openrouter_reviewer_appends_no_think(monkeypatch) -> None:
 
     monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    captured: dict[str, str | None] = {}
+    captured: dict[str, object] = {}
 
-    def _api(fam, prompt, model=None):
+    def _api(fam, prompt, model=None, *, openrouter_enable_fallback=None):
         captured["family"] = fam
         captured["prompt"] = prompt
         captured["model"] = model
+        captured["openrouter_enable_fallback"] = openrouter_enable_fallback
         return q.ReviewerResult(fam, "Verdict: PASS\nNo findings.", True)
 
     monkeypatch.setattr(q, "_run_api_agent", _api)
@@ -1688,6 +1721,7 @@ def test_qwen_openrouter_reviewer_appends_no_think(monkeypatch) -> None:
     assert captured["family"] == "qwen"
     assert captured["model"] == QWEN_235B_VIA_OPENROUTER
     assert captured["prompt"] == "Review this exact-head diff.\n\n/no_think"
+    assert captured["openrouter_enable_fallback"] is False
 
 
 def test_non_qwen_openrouter_reviewer_does_not_append_no_think(monkeypatch) -> None:
@@ -1695,11 +1729,12 @@ def test_non_qwen_openrouter_reviewer_does_not_append_no_think(monkeypatch) -> N
 
     monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    captured: dict[str, str | None] = {}
+    captured: dict[str, object] = {}
 
-    def _api(fam, prompt, model=None):
+    def _api(fam, prompt, model=None, *, openrouter_enable_fallback=None):
         captured["prompt"] = prompt
         captured["model"] = model
+        captured["openrouter_enable_fallback"] = openrouter_enable_fallback
         return q.ReviewerResult(fam, "Verdict: PASS\nNo findings.", True)
 
     monkeypatch.setattr(q, "_run_api_agent", _api)
@@ -1708,6 +1743,19 @@ def test_non_qwen_openrouter_reviewer_does_not_append_no_think(monkeypatch) -> N
 
     assert result.ok
     assert captured["prompt"] == "Review this exact-head diff."
+    assert captured["openrouter_enable_fallback"] is False
+
+
+def test_quorum_openrouter_agent_disables_provider_fallback(monkeypatch) -> None:
+    from aragora.config.model_pins import QWEN_235B_VIA_OPENROUTER
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+
+    agent = q._build_openrouter_agent("qwen", QWEN_235B_VIA_OPENROUTER, enable_fallback=False)
+
+    assert agent.model == QWEN_235B_VIA_OPENROUTER
+    assert agent.enable_fallback is False
 
 
 def test_default_runner_falls_back_to_openrouter_on_infra_failure(monkeypatch) -> None:

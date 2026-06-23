@@ -145,6 +145,7 @@ class OpenRouterAgent(APIAgent):
         )
         self.agent_type = "openrouter"
         self.max_tokens = max_tokens  # Store for use in API calls
+        self.enable_fallback = True if enable_fallback is None else enable_fallback
         if system_prompt:
             self.system_prompt = system_prompt
         else:
@@ -192,6 +193,8 @@ class OpenRouterAgent(APIAgent):
         try:
             return await self._generate_with_model(self.model, prompt, context)
         except (AgentRateLimitError, AgentConnectionError, AgentTimeoutError):
+            if not self.enable_fallback:
+                raise
             # All retries exhausted - try fallback model if available
             fallback = OPENROUTER_FALLBACK_MODELS.get(self.model)
             if fallback:

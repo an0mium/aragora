@@ -678,13 +678,14 @@ def _reviewer_verdict(text: str) -> str:
 # opt-in cheap-reliable-model fallback handles the rare genuinely-malformed case.
 # ---------------------------------------------------------------------------
 
+_THINKING_TAG_NAMES = "think|thinking|reasoning|thought|scratchpad|analysis"
 _THINKING_BLOCK_RE = re.compile(
-    r"<\s*(think|thinking|reasoning|thought|scratchpad|analysis)\s*>.*?<\s*/\s*\1\s*>",
-    re.DOTALL | re.IGNORECASE,
+    rf"^[ \t]*<\s*({_THINKING_TAG_NAMES})\s*>.*?<\s*/\s*\1\s*>[ \t]*(?:\r?\n|$)",
+    re.DOTALL | re.IGNORECASE | re.MULTILINE,
 )
 _THINKING_OPEN_RE = re.compile(
-    r"<\s*(think|thinking|reasoning|thought|scratchpad|analysis)\s*>",
-    re.IGNORECASE,
+    rf"^[ \t]*<\s*({_THINKING_TAG_NAMES})\s*>",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 
@@ -710,6 +711,11 @@ def _first_verdict_offset(text: str) -> int:
     return -1
 
 
+def _starts_with_unclosed_thinking_trace(text: str) -> bool:
+    stripped = text.lstrip()
+    return bool(re.match(rf"<\s*(?:{_THINKING_TAG_NAMES})\s*>", stripped, re.IGNORECASE))
+
+
 def _reanchor_at_verdict(text: str) -> str:
     """Return text from the first verdict line onward (drops pre-verdict preamble).
 
@@ -717,10 +723,18 @@ def _reanchor_at_verdict(text: str) -> str:
     preamble/reasoning that could confuse the identity/verdict parser is dropped.
     """
     lines = text.splitlines()
+    verdict_indices: list[int] = []
     for idx, line in enumerate(lines):
         probe = line.strip().lstrip("*#>-`0123456789.)\t ").lower()
         if probe.startswith("verdict:"):
-            return "\n".join(lines[idx:]).strip()
+            verdict_indices.append(idx)
+    if verdict_indices:
+        idx = (
+            verdict_indices[-1]
+            if _starts_with_unclosed_thinking_trace(text)
+            else verdict_indices[0]
+        )
+        return "\n".join(lines[idx:]).strip()
     return text.strip()
 
 
@@ -1225,7 +1239,12 @@ def _run_openrouter_reviewer(family: str, prompt: str) -> ReviewerResult:
         fam,
         model,
     )
-    result = _run_api_agent(fam, _openrouter_reviewer_prompt(fam, prompt), model=model)
+    result = _run_api_agent(
+        fam,
+        _openrouter_reviewer_prompt(fam, prompt),
+        model=model,
+        openrouter_enable_fallback=False,
+    )
     if result.ok:
         return ReviewerResult(fam, result.text, True, harness=_OPENROUTER_HARNESS)
     return result
@@ -1332,11 +1351,27 @@ def _codex_model_selection_failed(detail: str) -> bool:
     )
 
 
-def _run_api_agent(family: str, prompt: str, model: str | None = None) -> ReviewerResult:
+def _run_api_agent(
+    family: str,
+    prompt: str,
+    model: str | None = None,
+    *,
+    openrouter_enable_fallback: bool | None = None,
+) -> ReviewerResult:
     timeout = _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT)
     ctx = _api_agent_process_context()
     result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
-    process = _start_api_agent_worker_process(ctx, family, prompt, result_queue, model)
+    if openrouter_enable_fallback is None:
+        process = _start_api_agent_worker_process(ctx, family, prompt, result_queue, model)
+    else:
+        process = _start_api_agent_worker_process(
+            ctx,
+            family,
+            prompt,
+            result_queue,
+            model,
+            openrouter_enable_fallback=openrouter_enable_fallback,
+        )
     process.start()
     process.join(timeout + _REVIEWER_CLEANUP_TIMEOUT)
     if process.is_alive():
@@ -1380,10 +1415,11 @@ def _start_api_agent_worker_process(
     prompt: str,
     result_queue: multiprocessing.Queue,
     model: str | None = None,
+    openrouter_enable_fallback: bool | None = None,
 ) -> multiprocessing.Process:
     return ctx.Process(
         target=_api_agent_worker,
-        args=(family, prompt, result_queue, model),
+        args=(family, prompt, result_queue, model, openrouter_enable_fallback),
         daemon=True,
     )
 
@@ -1393,16 +1429,27 @@ def _api_agent_worker(
     prompt: str,
     result_queue: multiprocessing.Queue,
     model: str | None = None,
+    openrouter_enable_fallback: bool | None = None,
 ) -> None:
-    result_queue.put(_run_api_agent_in_current_process(family, prompt, model))
+    result_queue.put(
+        _run_api_agent_in_current_process(
+            family, prompt, model, openrouter_enable_fallback=openrouter_enable_fallback
+        )
+    )
 
 
 def _run_api_agent_in_current_process(
-    family: str, prompt: str, model: str | None = None
+    family: str,
+    prompt: str,
+    model: str | None = None,
+    *,
+    openrouter_enable_fallback: bool | None = None,
 ) -> ReviewerResult:
     try:
         if model:
-            agent = _build_openrouter_agent(family, model)
+            agent = _build_openrouter_agent(
+                family, model, enable_fallback=openrouter_enable_fallback
+            )
         else:
             from aragora.agents import create_agent
 
@@ -1416,7 +1463,7 @@ def _run_api_agent_in_current_process(
     return ReviewerResult(family, _cap_text(text), True)
 
 
-def _build_openrouter_agent(family: str, model: str) -> Any:
+def _build_openrouter_agent(family: str, model: str, *, enable_fallback: bool | None = None) -> Any:
     """Construct an OpenRouter-backed reviewer agent for ``model``.
 
     The returned agent reviews as the requested ``family`` (same model family,
@@ -1424,7 +1471,12 @@ def _build_openrouter_agent(family: str, model: str) -> Any:
     """
     from aragora.agents.api_agents.openrouter import OpenRouterAgent
 
-    return OpenRouterAgent(name=f"{family}_openrouter_reviewer", role="critic", model=model)
+    return OpenRouterAgent(
+        name=f"{family}_openrouter_reviewer",
+        role="critic",
+        model=model,
+        enable_fallback=enable_fallback,
+    )
 
 
 async def _generate_with_api_agent_cleanup(agent: Any, prompt: str) -> str:
@@ -1800,7 +1852,7 @@ def collect_evidence(
                 family=family,
                 body=body,
                 would_count=bool(lint.get("would_count")),
-                verdict=_reviewer_verdict(result.text),
+                verdict=_reviewer_verdict(body),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
             )

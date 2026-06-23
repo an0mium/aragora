@@ -382,3 +382,23 @@ class TestGenerateDecoratorIntegration:
         assert result is not None
         # Primary model retries + fallback model attempts
         assert call_count[0] > 4
+
+    @pytest.mark.asyncio
+    async def test_generate_respects_disabled_model_fallback(self, mock_env_with_api_keys):
+        """Callers that need family-exact evidence can disable OpenRouter fallback."""
+        from aragora.agents.api_agents.openrouter import OpenRouterAgent
+        from aragora.agents.errors import AgentRateLimitError
+
+        agent = OpenRouterAgent(model="qwen/qwen3-235b-a22b", enable_fallback=False)
+        calls: list[str] = []
+
+        async def fail_with_rate_limit(model: str, prompt: str, context=None) -> str:
+            calls.append(model)
+            raise AgentRateLimitError("rate limited")
+
+        agent._generate_with_model = fail_with_rate_limit  # type: ignore[method-assign]
+
+        with pytest.raises(AgentRateLimitError):
+            await agent.generate("Test prompt")
+
+        assert calls == ["qwen/qwen3-235b-a22b"]
