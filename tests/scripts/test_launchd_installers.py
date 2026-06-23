@@ -106,3 +106,31 @@ def test_generated_plist_invokes_wrapper_not_captured_interpreter(
     assert str(fake_py) not in raw
     # No real user home leaked into the generated unit.
     assert "/Users/" not in raw
+
+
+def test_merge_arbiter_refuses_legacy_auto_evidence_without_override(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    scripts = repo / "scripts"
+    scripts.mkdir(parents=True)
+    shutil.copy2(REPO_ROOT / "scripts" / "run_merge_arbiter.sh", scripts / "run_merge_arbiter.sh")
+    _mk(
+        scripts / "aragora_runtime.sh",
+        "#!/usr/bin/env bash\nresolve_aragora_python() { echo /bin/true; }\n",
+        executable=True,
+    )
+
+    env = {
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "ARAGORA_AUTO_EVIDENCE": "1",
+    }
+    proc = subprocess.run(
+        ["/bin/bash", str(scripts / "run_merge_arbiter.sh")],
+        cwd=repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 2
+    assert "Refusing ARAGORA_AUTO_EVIDENCE=1" in proc.stderr

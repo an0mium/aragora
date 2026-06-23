@@ -26,7 +26,8 @@
 ### Always-allowed (autonomous)
 - Code refactors with same/improved tests
 - Test additions and consolidations
-- Doc reconciliation
+- Doc reconciliation that does not change governance, approval, merge, evidence,
+  settlement, or release authority
 - Dep floor **alignment** (raising `ci_install_project.sh` floors to match `pyproject.toml`)
 - Dep floor **patch-level** bumps (`X.Y.Z` → `X.Y.Z+n`)
 - Removing deprecation shims past their stated removal version
@@ -41,12 +42,16 @@
   - Secret/auth setup
   - Pre-commit/pre-push hooks
   - Release workflows (tag/release.yml, publish.yml)
+  - Merge-quorum, model-evidence, human-settlement, or branch-protection helper
+    behavior
 - **Major-version dep bumps** (`X.0` → `X+1.0`)
 - **Public API/SDK surface changes** — removing CLI commands, REST endpoints, SDK methods
 - **Schema migrations** that drop columns or rename tables
 - **Branch deletion** with unmerged commits
 - `git push --force` to any branch
-- Touching `CLAUDE.md`, `AGENTS.md`, `scripts/nomic_loop.py`, `.env`, `secrets/`
+- Touching governance or merge-authority docs: `docs/AGENT_OPERATING_CONTRACT.md`,
+  `docs/REVIEW_AUTHORITY_PRINCIPLES.md`, `CLAUDE.md`, or `AGENTS.md`
+- Touching `scripts/nomic_loop.py`, `.env`, `secrets/`
 - Anything taking >1 CI cycle to validate
 
 ### "Break X" rule (revised from v1)
@@ -120,18 +125,24 @@ halt that lane and move only to a different unblocked Tier 0-2 unit.
 signal below holds: (1) the latest adversarial **dry-run** review was clean for the **current**
 head (no CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` from every family that will be counted for
 this Tier); (2) no commit has landed since — `headRefOid` still equals the head that was
-reviewed; AND (3) the PR is mergeable — not behind base and free of conflicts — with the PR
-non-draft and GitHub reporting `mergeable` as `MERGEABLE` and `mergeStateStatus` as `CLEAN` or
-`BLOCKED`. These are the only signals quorum_evidence and `gh pr view` actually emit; do not add
-a "base unchanged" condition that depends on a `baseRefOid` / base-OID freeze the helper does not
-record (the `BEHIND` / `DIRTY` exclusion below already rejects a head that drifted behind or
-conflicts with its base). "Clean" is a
+reviewed; (3) every branch-protection required check **other than** the exact quorum /
+human-settlement context being satisfied by this evidence/settlement step is green, with no
+non-quorum required check pending, failing, or cancelled; AND (4) the PR is mergeable — not
+behind base and free of conflicts — with the PR non-draft and GitHub reporting `mergeable` as
+`MERGEABLE` and `mergeStateStatus` as `CLEAN` or `BLOCKED`. Required-check gating comes from
+`gh pr checks --required` / merge-packet's required-check surface, not the raw
+`statusCheckRollup`: non-required rollup failures remain advisory, but any failing non-quorum
+required check makes the head not settlement-stable. Do not add a "base unchanged" condition
+that depends on a `baseRefOid` / base-OID freeze the helper does not record (the `BEHIND` /
+`DIRTY` exclusion below already rejects a head that drifted behind or conflicts with its base).
+"Clean" is a
 semantic/body-marker requirement, not only the helper's `verdict`, `would_count`, or
 `has_supportive_quorum` fields: a `Verdict: PASS` body that still contains a concrete
 `[P0]`, `[P1]`, or `[P2]` finding is not clean and must become a repair packet, not countable
-support. `BLOCKED` is allowed only because branch protection / merge-quorum may be waiting on
-the evidence being posted; `DIRTY`, `BEHIND`, `DRAFT`, `UNKNOWN`, `UNSTABLE`, and
-missing/unknown mergeability or `mergeStateStatus` are not settlement-stable. The
+support. `BLOCKED` is allowed only when the blocker is the quorum / exact-head human-settlement
+context this step is designed to satisfy; `BLOCKED` from any other required check failure is
+not settlement-stable. `DIRTY`, `BEHIND`, `DRAFT`, `UNKNOWN`, `UNSTABLE`, and missing/unknown
+mergeability or `mergeStateStatus` are not settlement-stable. The
 counted-family set comes from
 [`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md), especially the
 Tier-eligibility table; do not invent a smaller family set inside a recursive prompt.
@@ -154,11 +165,12 @@ python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
 Before any `--apply`, verify the artifact records the live `head_sha`, `dissenting_families` is
 empty, `has_supportive_quorum` is true, and each counted `items[].body` both lints for the
 current PR/head and contains no concrete CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` finding.
-Then re-check
-`gh pr view <N> --json headRefOid,mergeable,mergeStateStatus,isDraft`:
-`headRefOid` must still equal the artifact `head_sha`, `isDraft` must be false, and `mergeable`
-/ `mergeStateStatus` must still be in the settlement-stable set above (a `BEHIND` or `DIRTY`
-state means the head has drifted relative to its base and is not settlement-stable). Only then
+Then re-check `gh pr checks --required <N>` (or the merge-packet required-check surface) and
+`gh pr view <N> --json headRefOid,mergeable,mergeStateStatus,isDraft`: `headRefOid` must still
+equal the artifact `head_sha`, `isDraft` must be false, every non-quorum required check must
+be green, and `mergeable` / `mergeStateStatus` must still be in the settlement-stable set
+above (a `BEHIND` or `DIRTY` state means the head has drifted relative to its base and is not
+settlement-stable). Only then
 run the paired apply from the same artifact:
 
 ```bash
@@ -176,9 +188,12 @@ bodies, or wait for the enforcement tooling to land.
 **Target state (enforcement is converging).** §Conductor is *normative*: it states the policy
 loops must follow, ahead of full machine-enforcement. Today some clauses are enforced by
 discipline + review, not yet by tooling — e.g. the apply path (`apply_prepared_evidence`)
-currently re-verifies head + tier but not the live `mergeable` / `mergeStateStatus` / draft
-state, and the evidence-lint blocks `[P0]` / `[P1]` but not `[P2]`. Closing those gaps is the
-job of the stability-gate work (the sentinel circuit-breaker PR and the
+currently re-verifies head + tier but not the live `mergeable` / `mergeStateStatus` / draft /
+required-check state, and the evidence-lint blocks `[P0]` / `[P1]` but not `[P2]`. Until the
+lint path rejects `[P2]` itself, a helper `would_count=true` result is insufficient by itself:
+the conductor must scan the exact prepared comment body for CHANGES-REQUESTED / `[P0]` /
+`[P1]` / `[P2]` markers immediately before posting and treat any hit as dissent. Closing those
+gaps is the job of the stability-gate work (the sentinel circuit-breaker PR and the
 `collect_quorum_evidence` settlement-stability gate); until then, treat the unenforced clauses
 as operator-and-reviewer obligations.
 

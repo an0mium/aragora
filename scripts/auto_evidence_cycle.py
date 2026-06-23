@@ -44,8 +44,12 @@ Safety model (mirrors ``quorum_rerun_reconciler.py``):
   a merge-packet probe could not see them (transport_blocked / fetch failure)
   and nothing was posted, so an empty plan does NOT mean the queue is clear.
 
-Opt-in wiring: ``scripts/run_merge_arbiter.sh`` runs this before the arbiter
-when ``ARAGORA_AUTO_EVIDENCE=1`` (default off, non-fatal for the arbiter).
+Legacy opt-in wiring: ``scripts/run_merge_arbiter.sh`` refuses
+``ARAGORA_AUTO_EVIDENCE=1`` unless
+``ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1`` is also set. Direct
+``auto_evidence_cycle.py --apply`` remains a legacy posting path; conductor
+loops must use exact-head prepared-artifact replay instead of this direct apply
+path for countable evidence.
 
 Routing-rationale records (#8233 phase 1): each applied collect run also writes
 a standalone JSON artifact (``--routing-records-dir``, default
