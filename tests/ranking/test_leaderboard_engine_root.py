@@ -320,7 +320,9 @@ class TestGetLeaderboard:
         """Should raise if rating_factory not set."""
         engine = LeaderboardEngine(db=mock_db)
 
-        with pytest.raises(RuntimeError) as exc_info:
+        from aragora.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError) as exc_info:
             engine.get_leaderboard()
         assert "rating_factory" in str(exc_info.value)
 

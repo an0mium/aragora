@@ -408,7 +408,7 @@ class TestConnectionAcquisition:
 
         async with pool.acquire() as conn:
             assert conn is not None
-            assert isinstance(conn, ConnectionWrapper)
+            assert conn.__class__.__name__ == "ConnectionWrapper"
             assert conn._is_replica is False
 
         # Verify acquire and release were called

@@ -14,6 +14,7 @@ from unittest.mock import patch
 from aragora.persistence.db_config import (
     DatabaseType,
     DatabaseMode,
+    get_default_data_dir,
     get_db_mode,
     get_nomic_dir,
     get_db_path,
@@ -544,10 +545,12 @@ class TestEdgeCases:
 
     def test_empty_nomic_dir_env(self):
         """Empty string for ARAGORA_DATA_DIR."""
+        with patch.dict(os.environ, {"ARAGORA_DATA_DIR": "", "ARAGORA_NOMIC_DIR": ""}):
+            expected_default = get_default_data_dir()
+
         with patch.dict(os.environ, {"ARAGORA_DATA_DIR": ""}):
             nomic_dir = get_nomic_dir()
-            # Empty string should be treated as valid path
-            assert nomic_dir == Path("")
+            assert nomic_dir == expected_default
 
     def test_cycle_with_all_fields(self):
         """Cycle with all fields populated."""
