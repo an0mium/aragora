@@ -37,6 +37,14 @@ HEAD = "49a979d587f910aaad4fb0f0bed708dd48c97c35"
 COMMITTED = "2026-06-04T09:57:49-05:00"
 
 
+@pytest.fixture(autouse=True)
+def _enable_tiered_gate(monkeypatch):
+    # This module exercises the opt-in tiered merge gate, so enable it by default.
+    # The production default is OFF (strict 2-distinct-family); tests that assert
+    # that strict default set ARAGORA_ENABLE_TIERED_MERGE_GATE="0" explicitly.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+
+
 # --- decide_action (tier gating) -------------------------------------------
 
 
@@ -1093,13 +1101,15 @@ def test_collect_low_tier_apply_prepares_only_when_reviewer_dissents() -> None:
 
 
 def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> None:
+    # Tiered gate: a lone NON-western-frontier supportive (qwen) does NOT satisfy
+    # Tier 1, so apply still prepares-only (no cheap-model-alone settlement).
     fakes, posted = _fakes(tier=1)
     calls: list[tuple[str, int]] = []
 
     def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            return ReviewerResult("grok", "Verdict: inconclusive\n- unsure", True)
-        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+        if family == "claude":
+            return ReviewerResult("claude", "Verdict: inconclusive\n- unsure", True)
+        return ReviewerResult("qwen", "Verdict: PASS\n- no blockers", True)
 
     def quorum_reconciler(repo: str, pr: int) -> dict:
         calls.append((repo, pr))
@@ -1109,7 +1119,7 @@ def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> 
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
-        families=["claude", "grok"],
+        families=["claude", "qwen"],
         author="me",
         apply=True,
         quorum_reconciler=quorum_reconciler,
@@ -1118,33 +1128,36 @@ def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> 
 
     assert outcome.action == "prepare"
     assert "supportive quorum incomplete" in outcome.action_reason
-    assert outcome.supportive_families == ["claude"]
+    assert outcome.supportive_families == ["qwen"]
     assert posted == []
     assert calls == []
     assert outcome.quorum_rerun is None
 
 
-def test_collect_success_requires_two_supportive_reviewers() -> None:
+def test_collect_tier1_lone_cheap_signal_is_not_supportive_quorum() -> None:
+    # Tiered gate: Tier 1 settles on ONE western-frontier signal. A lone cheap
+    # (non-WF) supportive — even though it counts — is NOT a supportive quorum,
+    # so a cheap model can never solely authorize a low-tier merge.
     fakes, _posted = _fakes(tier=1)
 
     def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            return ReviewerResult("grok", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
-        return ReviewerResult("claude", "Verdict: PASS\n- no blockers", True)
+        if family == "claude":
+            return ReviewerResult("claude", "Verdict: CHANGES-REQUESTED\n- [P1] blocker", True)
+        return ReviewerResult("qwen", "Verdict: PASS\n- no blockers", True)
 
     fakes["reviewer_runner"] = reviewer_runner
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
-        families=["claude", "grok"],
+        families=["claude", "qwen"],
         author="me",
         apply=False,
         **fakes,
     )
 
-    assert outcome.counting_families == ["claude", "grok"]
-    assert outcome.supportive_families == ["claude"]
-    assert outcome.dissenting_families == ["grok"]
+    assert outcome.counting_families == ["claude", "qwen"]
+    assert outcome.supportive_families == ["qwen"]
+    assert outcome.dissenting_families == ["claude"]
     assert outcome.has_supportive_quorum is False
 
 
@@ -1372,18 +1385,21 @@ def test_collect_carries_reviewer_harness_into_comment() -> None:
 
 
 def test_collect_never_fabricates_on_reviewer_failure() -> None:
+    # A failed reviewer's vote is never fabricated. With the western-frontier
+    # reviewer (claude) down and only a cheap survivor (qwen), Tier 1 stays
+    # unsatisfied -> prepare, no post.
     fakes, posted = _fakes(tier=1)
 
     def failing_runner(family: str, prompt: str) -> ReviewerResult:
-        if family == "grok":
-            return ReviewerResult("grok", "", False, "timeout")
-        return ReviewerResult(family, "Verdict: PASS from claude", True)
+        if family == "claude":
+            return ReviewerResult("claude", "", False, "timeout")
+        return ReviewerResult(family, "Verdict: PASS from qwen", True)
 
     fakes["reviewer_runner"] = failing_runner
     outcome = collect_evidence(
-        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+        repo="o/r", pr=1, families=["claude", "qwen"], author="me", apply=True, **fakes
     )
-    assert [f.family for f in outcome.failures] == ["grok"]
+    assert [f.family for f in outcome.failures] == ["claude"]
     assert outcome.action == "prepare"
     assert "supportive quorum incomplete" in outcome.action_reason
     assert outcome.posted == []
@@ -1403,9 +1419,11 @@ def test_collect_does_not_post_uncountable_evidence() -> None:
 
 
 def test_collect_rejects_unsupported_family() -> None:
+    # Survivor is a cheap (non-WF) family, so even after rejecting the bogus
+    # family the Tier-1 western-frontier bar is unmet -> prepare.
     fakes, posted = _fakes(tier=1)
     outcome = collect_evidence(
-        repo="o/r", pr=1, families=["claude", "bogus"], author="me", apply=True, **fakes
+        repo="o/r", pr=1, families=["qwen", "bogus"], author="me", apply=True, **fakes
     )
     assert "bogus" in [f.family for f in outcome.failures]
     assert outcome.action == "prepare"
@@ -1749,6 +1767,126 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
 
 
+def test_collect_outcome_tiered_gate_roundtrips() -> None:
+    # The gate regime an artifact was prepared under must survive serialization so
+    # the settlement bar cannot silently change between prepare and apply (#8507 P1).
+    for gate in (True, False):
+        outcome = CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="x",
+            tiered_gate=gate,
+        )
+        assert outcome.to_dict()["tiered_gate"] is gate
+        assert qe.collect_outcome_from_dict(outcome.to_dict()).tiered_gate is gate
+
+
+def test_collect_outcome_missing_tiered_gate_fails_closed(monkeypatch) -> None:
+    # Legacy prepared artifacts predate the serialized gate regime. Treat them as
+    # strict-gate artifacts rather than inheriting a relaxed live environment.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="legacy",
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        tiered_gate=True,
+    )
+    data = outcome.to_dict()
+    data.pop("tiered_gate")
+
+    rehydrated = qe.collect_outcome_from_dict(data)
+
+    assert rehydrated.tiered_gate is False
+    assert rehydrated.has_supportive_quorum is False
+
+
+def _apply_single_wf(path, monkeypatch, *, flag: str, posted: list) -> "qe.CollectOutcome":
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", flag)
+    return qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=path,
+        author="me",
+        apply=True,
+        families=["claude"],
+        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda r, p: 1,
+        linter=lambda *a, **k: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        poster=lambda r, p, b: posted.append(b),
+    )
+
+
+def _single_wf_artifact(tmp_path, *, tiered_gate: bool):
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="prepared",
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        tiered_gate=tiered_gate,
+    )
+    path = tmp_path / f"prepared_{tiered_gate}.json"
+    path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    return path
+
+
+def test_apply_strict_artifact_not_relaxed_by_live_flag(tmp_path, monkeypatch) -> None:
+    # Artifact prepared under the STRICT gate (tiered_gate=False) with a lone
+    # western-frontier signal. Flipping the relaxing flag ON between prepare and apply
+    # must NOT make it postable: apply-time evaluates under min(prepared, live) =
+    # strict, so Tier 1 still needs two families. It degrades to "prepare" — never a
+    # hard error, so there is no inconsistent-authority / DoS window (#8507 grok+claude P1).
+    path = _single_wf_artifact(tmp_path, tiered_gate=False)
+    posted: list = []
+    outcome = _apply_single_wf(path, monkeypatch, flag="1", posted=posted)
+    assert outcome.action == "prepare"
+    assert outcome.tiered_gate is False  # effective regime = strict (min of False, True)
+    assert "quorum incomplete" in outcome.action_reason
+    assert posted == []
+
+
+def test_apply_relaxed_artifact_restricted_when_operator_reverts_flag(
+    tmp_path, monkeypatch
+) -> None:
+    # A relaxed-prepared artifact (tiered_gate=True, lone WF signal) is re-evaluated
+    # under STRICT rules if the operator later turns the relaxation OFF — the flag is
+    # the operator's revocable approval point. min(True, False) = strict → Tier 1
+    # needs two families → degrades to prepare, lone signal not posted (#8507 claude P1).
+    path = _single_wf_artifact(tmp_path, tiered_gate=True)
+    posted: list = []
+    outcome = _apply_single_wf(path, monkeypatch, flag="0", posted=posted)
+    assert outcome.action == "prepare"
+    assert outcome.tiered_gate is False  # effective regime = strict (min of True, False)
+    assert posted == []
+
+
+def test_apply_relaxed_artifact_posts_when_both_regimes_relaxed(tmp_path, monkeypatch) -> None:
+    # When BOTH the prepare-time and live regimes permit relaxation, a single
+    # western-frontier signal settles Tier 1 and is posted (min(True, True) = relaxed).
+    path = _single_wf_artifact(tmp_path, tiered_gate=True)
+    posted: list = []
+    outcome = _apply_single_wf(path, monkeypatch, flag="1", posted=posted)
+    assert outcome.action == "post"
+    assert outcome.tiered_gate is True
+    assert posted == [_prepared_body("claude")]
+
+
 def test_apply_prepared_evidence_rederives_verdict_from_body(tmp_path) -> None:
     prepared = _prepared_outcome_file(
         tmp_path,
@@ -1816,19 +1954,32 @@ def test_apply_prepared_evidence_uses_fresh_lint_counting(tmp_path) -> None:
     )
 
     assert outcome.action == "prepare"
-    assert "supportive quorum incomplete (0/2)" in outcome.action_reason
+    # Tier 1: the bar is one western-frontier signal, not "2 distinct families",
+    # so the reason names the WF requirement rather than a misleading "(0/2)".
+    assert "supportive quorum incomplete" in outcome.action_reason
+    assert "western-frontier" in outcome.action_reason
+    assert "/2" not in outcome.action_reason
     assert outcome.supportive_families == []
     assert outcome.posted == []
     assert posted == []
 
 
 def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
-    prepared = _prepared_outcome_file(tmp_path)
+    # A prepared grok item whose fresh lint resolves to a different family
+    # (openai) is de-counted on identity mismatch. The matching survivor here is
+    # a cheap (non-WF) family so Tier 1 stays unsatisfied -> prepare.
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("qwen", _prepared_body("qwen"), True, ["qwen"], [], "pass"),
+            EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
+        ],
+    )
     posted: list[tuple[str, str]] = []
 
     def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
-        family = "claude" if "claude body" in body else "grok"
-        counted = ["claude"] if family == "claude" else ["openai"]
+        family = "qwen" if "qwen body" in body else "grok"
+        counted = ["qwen"] if family == "qwen" else ["openai"]
         return {
             "would_count": True,
             "counted_reviewer_ids": counted,
@@ -1841,7 +1992,7 @@ def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
         prepared_json=prepared,
         author="me",
         apply=True,
-        families=["claude", "grok"],
+        families=["qwen", "grok"],
         context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
         tier_fetcher=lambda repo, pr: 1,
         linter=linter,
@@ -1850,8 +2001,10 @@ def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
 
     grok_item = next(item for item in outcome.items if item.family == "grok")
     assert outcome.action == "prepare"
-    assert "supportive quorum incomplete (1/2)" in outcome.action_reason
-    assert outcome.supportive_families == ["claude"]
+    # Lone surviving supportive is cheap (qwen, non-WF) at Tier 1 -> the reason
+    # names the western-frontier requirement, not a misleading "(1/2)".
+    assert "western-frontier" in outcome.action_reason
+    assert outcome.supportive_families == ["qwen"]
     assert not grok_item.would_count
     assert (
         "fresh lint counted reviewer ids do not include prepared family: grok" in grok_item.problems
@@ -2460,3 +2613,118 @@ def test_infra_retry_env_count_respected(monkeypatch):
     runner = _seq_runner([_RR("grok", "", False, "x")])  # always fails
     _retry(runner, "grok", "p")
     assert runner.state["n"] == 3  # 1 initial + 2 retries
+
+
+def _supportive_outcome(tier, *families):
+    items = [EvidenceItem(f, f"## {f.title()} review", True, [f], [], "pass") for f in families]
+    return CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=tier,
+        action="prepare",
+        action_reason="",
+        items=items,
+    )
+
+
+def test_has_supportive_quorum_is_tiered():
+    # Tier 1-2: settle on ONE western-frontier (claude/openai) supportive signal.
+    assert _supportive_outcome(1, "claude").has_supportive_quorum is True
+    assert _supportive_outcome(2, "openai").has_supportive_quorum is True
+    # ...but a lone cheap signal (or even two cheap signals) is NOT enough.
+    assert _supportive_outcome(2, "qwen").has_supportive_quorum is False
+    assert _supportive_outcome(2, "qwen", "kimi").has_supportive_quorum is False
+    # A cheap signal alongside a western-frontier one is fine.
+    assert _supportive_outcome(2, "qwen", "claude").has_supportive_quorum is True
+    # Tier 0: any single supportive family.
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
+    # Tier 3-4 and unknown/None tier: two distinct WESTERN families (Western-only
+    # counted, fail-safe). Chinese-routed families are advisory-only and do NOT
+    # count, so claude+qwen is insufficient but claude+grok (both Western) settles.
+    assert _supportive_outcome(3, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(3, "claude", "qwen").has_supportive_quorum is False
+    assert _supportive_outcome(3, "claude", "grok").has_supportive_quorum is True
+    assert _supportive_outcome(None, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(None, "claude", "openai").has_supportive_quorum is True
+    assert _supportive_outcome(None, "deepseek", "qwen").has_supportive_quorum is False
+
+
+def test_incomplete_quorum_reason_is_tiered():
+    # Tier 1-2 settle on one western-frontier signal, so an incomplete reason
+    # names that requirement instead of a misleading "(n/2)" family denominator.
+    r12 = _supportive_outcome(2, "qwen").incomplete_quorum_reason
+    assert "western-frontier" in r12
+    assert "/2" not in r12
+    # Tier 0: any single supportive family -> report the (n/1) shortfall.
+    assert _supportive_outcome(0).incomplete_quorum_reason == (
+        "supportive quorum incomplete (0/1); prepared evidence only"
+    )
+    # Tier 3-4 / unknown tier report the Western-only shortfall (Chinese-routed
+    # families are advisory-only and excluded from the counted set).
+    r3 = _supportive_outcome(3, "claude").incomplete_quorum_reason
+    assert "Western families" in r3 and "advisory-only" in r3
+    r_none = _supportive_outcome(None).incomplete_quorum_reason
+    assert "Western families" in r_none
+
+
+def test_supportive_quorum_strict_when_flag_off(monkeypatch):
+    # Production default: the Tier 1-2 relaxation is OFF, so those tiers need two
+    # distinct supportive families and the reason uses the family denominator.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")
+    assert _supportive_outcome(2, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(2, "openai").has_supportive_quorum is False
+    # Tier 0 already uses one signal on current main; default-OFF must preserve it.
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
+    assert _supportive_outcome(0, "claude", "grok").has_supportive_quorum is True
+    assert _supportive_outcome(1, "claude", "grok").has_supportive_quorum is True
+    reason = _supportive_outcome(2, "claude").incomplete_quorum_reason
+    assert "(1/2 distinct families)" in reason
+    assert "western-frontier" not in reason
+
+
+def test_supportive_quorum_strict_when_flag_unset(monkeypatch):
+    # The PRODUCTION default is the env var UNSET (not merely "0"); that must also
+    # be the strict gate, so an accidental default-ON regression is caught.
+    monkeypatch.delenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", raising=False)
+    assert qe.tiered_merge_gate_enabled() is False
+    assert _supportive_outcome(0, "qwen").has_supportive_quorum is True
+    assert _supportive_outcome(2, "claude").has_supportive_quorum is False
+    assert _supportive_outcome(1, "claude", "grok").has_supportive_quorum is True
+
+
+def test_tiered_gate_is_captured_at_construction(monkeypatch):
+    # The flag is captured ONCE at outcome construction; mutating the env afterward
+    # must not flip a security-relevant decision mid-settlement-flow.
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "1")
+    outcome = _supportive_outcome(2, "claude")  # tiered ON -> lone WF satisfies
+    assert outcome.tiered_gate is True
+    assert outcome.has_supportive_quorum is True
+    monkeypatch.setenv("ARAGORA_ENABLE_TIERED_MERGE_GATE", "0")  # mutate mid-flow
+    assert outcome.has_supportive_quorum is True  # unchanged: captured at build
+
+
+def test_tier_quorum_rule_matrix():
+    from aragora.swarm.quorum_evidence import TierQuorumRule, tier_quorum_rule
+
+    # Tier 0 (and below): one family of any kind, matching current-main behavior.
+    assert tier_quorum_rule(0, tiered_gate=True) == TierQuorumRule(1, False)
+    assert tier_quorum_rule(-1, tiered_gate=True) == TierQuorumRule(1, False)
+    assert tier_quorum_rule(0, tiered_gate=False) == TierQuorumRule(1, False)
+    assert tier_quorum_rule(-1, tiered_gate=False) == TierQuorumRule(1, False)
+    # Tier 1: ON -> one western-frontier signal; OFF -> two distinct (any family).
+    assert tier_quorum_rule(1, tiered_gate=True) == TierQuorumRule(1, True)
+    assert tier_quorum_rule(1, tiered_gate=False) == TierQuorumRule(2, False)
+    # Tier 2: ON -> one western-frontier; OFF -> two distinct incl. >=1 Western (G2).
+    assert tier_quorum_rule(2, tiered_gate=True) == TierQuorumRule(1, True)
+    assert tier_quorum_rule(2, tiered_gate=False) == TierQuorumRule(
+        2, False, requires_at_least_one_western=True
+    )
+    # Tier 3-4 and unknown/None (fail-safe): two distinct WESTERN families,
+    # Western-only counted (G1) — Chinese-routed families are advisory-only.
+    for tier in (3, 4, None):
+        for gate in (False, True):
+            assert tier_quorum_rule(tier, tiered_gate=gate) == TierQuorumRule(
+                2, False, western_only_counted=True
+            )
