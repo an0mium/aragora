@@ -346,7 +346,7 @@ def _run_reviewers_with_process_timeout(
     start_methods = multiprocessing.get_all_start_methods()
     ctx = multiprocessing.get_context("fork" if "fork" in start_methods else None)
     result_queue = ctx.Queue()
-    processes: dict[str, multiprocessing.Process] = {}
+    processes: dict[str, Any] = {}
     for family in families:
         process = ctx.Process(
             target=_reviewer_process_entry,
