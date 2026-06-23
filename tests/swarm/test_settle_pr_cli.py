@@ -50,6 +50,65 @@ def _payload(**over):
     return base
 
 
+def test_collect_apply_replays_prepared_json(cli, monkeypatch):
+    calls: list[list[str]] = []
+    prepared_paths: list[Path] = []
+
+    def fake_run(cmd, *, timeout=None):
+        calls.append(cmd)
+        if "--prepared-json" in cmd:
+            path = Path(cmd[cmd.index("--prepared-json") + 1])
+            prepared_paths.append(path)
+            assert json.loads(path.read_text(encoding="utf-8"))["head_sha"] == "abc123"
+            return SimpleNamespace(
+                stdout=json.dumps(
+                    _payload(
+                        action="post",
+                        settlement_stable=True,
+                        posted_families=["claude", "grok"],
+                    )
+                ),
+                stderr="",
+                returncode=0,
+            )
+        return SimpleNamespace(
+            stdout=json.dumps(_payload(action="prepare", settlement_stable=True)),
+            stderr="",
+            returncode=1,
+        )
+
+    monkeypatch.setattr(cli, "_run", fake_run)
+
+    result = cli._collect("owner/repo", 8512, ["claude", "grok"], apply=True)
+
+    assert result["action"] == "post"
+    assert len(calls) == 2
+    assert "--apply" not in calls[0]
+    assert "--prepared-json" in calls[1]
+    assert "--apply" in calls[1]
+    assert prepared_paths and not prepared_paths[0].exists()
+
+
+def test_collect_apply_returns_unstable_prepare_without_replay(cli, monkeypatch):
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, *, timeout=None):
+        calls.append(cmd)
+        return SimpleNamespace(
+            stdout=json.dumps(_payload(action="prepare", settlement_stable=False)),
+            stderr="",
+            returncode=1,
+        )
+
+    monkeypatch.setattr(cli, "_run", fake_run)
+
+    result = cli._collect("owner/repo", 8512, ["claude", "grok"], apply=True)
+
+    assert result["action"] == "prepare"
+    assert len(calls) == 1
+    assert "--apply" not in calls[0]
+
+
 def test_tier2_apply_auto_merge_success_exits_0(cli, monkeypatch):
     monkeypatch.setattr(cli, "_collect", lambda *a, **k: _payload())
     monkeypatch.setattr(

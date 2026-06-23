@@ -34,6 +34,7 @@ from aragora.swarm.quorum_evidence import (
     DEFAULT_FAMILIES,
     apply_prepared_evidence,
     collect_evidence,
+    default_quorum_reconciler,
     resolve_author,
 )
 
@@ -636,9 +637,9 @@ class MergeArbiter:
         """Collect quorum evidence at most once per head for a quorum-blocked PR.
 
         Returns True iff a collection was attempted. Posting is tier-gated inside
-        ``collect_evidence`` (Tier 3+ never posts). The head is recorded before
-        collecting so a transient fault never re-triggers the costly multi-model
-        collection on the same head every poll.
+        ``collect_evidence`` (Tier 3+ never posts). A completed prepare attempt or
+        substrate fault records the head so a blocked queue cannot re-trigger the
+        costly multi-model collection on every poll.
         """
         head_sha = str(pr.get("headRefOid") or "")
         if head_sha and head_sha in self._collected_heads:
@@ -652,6 +653,11 @@ class MergeArbiter:
             evidence_reader=self._evidence_reader,
         ):
             return False
+
+        def mark_collected() -> None:
+            if head_sha:
+                self._collected_heads.add(head_sha)
+
         try:
             families = self.config.reviewer_families or list(DEFAULT_FAMILIES)
             author = self._author_resolver()
@@ -664,11 +670,10 @@ class MergeArbiter:
             )
             if not hasattr(outcome, "settlement_stable"):
                 # Compatibility for tests/legacy injected collectors that only signal attempt/fault.
-                self._collected_heads.add(head_sha)
+                mark_collected()
                 return True
+            mark_collected()
             if not getattr(outcome, "settlement_stable", False):
-                if getattr(outcome, "dissenting_families", []):
-                    self._collected_heads.add(head_sha)
                 logger.info(
                     "Prepared quorum evidence for #%s but did not post: %s",
                     pr.get("number"),
@@ -699,6 +704,7 @@ class MergeArbiter:
                     author=author,
                     apply=True,
                     families=families,
+                    quorum_reconciler=default_quorum_reconciler,
                 )
             finally:
                 if prepared_path:
@@ -707,11 +713,9 @@ class MergeArbiter:
                     except OSError:
                         pass
         except Exception as exc:  # noqa: BLE001 - best-effort resilience boundary: one bad collection must not abort the poll loop
-            self._collected_heads.add(head_sha)
+            mark_collected()
             logger.warning("evidence collection fault for #%s: %s", pr.get("number"), exc)
             return False
-        if getattr(applied, "posted", []):
-            self._collected_heads.add(head_sha)
         logger.info(
             "Auto-collected quorum evidence for #%s; posted=%s",
             pr.get("number"),

@@ -16,8 +16,8 @@ reviewer keys present in the environment; it never reads, stores, or prints raw
 secrets.
 
 Tier-aware behavior under ``--apply``:
-  - Tier 0-2: posts evidence (via collect --apply) then runs the existing
-    auto-merge-on-green tool. Fully unattended.
+  - Tier 0-2: prepares exact-head evidence, replays that prepared artifact, then
+    runs the existing auto-merge-on-green tool. Fully unattended.
   - Tier 3-4: collect treats --apply as prepare-only and never posts; this CLI
     honors that invariant and only SURFACES the exact ``settle_tier4_pr.py``
     commands for the operator to run. The Tier-4 human risk settlement is a
@@ -30,6 +30,7 @@ import argparse
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -82,6 +83,17 @@ def _resolve_repo(repo: str | None) -> str | None:
     return out.stdout.strip() or None
 
 
+def _parse_collect_payload(out: subprocess.CompletedProcess[str]) -> dict[str, Any]:
+    try:
+        payload = json.loads(out.stdout)
+        if isinstance(payload, dict):
+            return payload
+    except (json.JSONDecodeError, ValueError):
+        pass
+    detail = (out.stderr or out.stdout or "collect produced no JSON").strip()
+    return {"mode": "collect_evidence", "error": detail[:500]}
+
+
 def _collect(repo: str, pr: int, reviewers: list[str], *, apply: bool) -> dict[str, Any]:
     """Run collect_quorum_evidence and return its JSON payload.
 
@@ -101,17 +113,38 @@ def _collect(repo: str, pr: int, reviewers: list[str], *, apply: bool) -> dict[s
         *reviewers,
         "--json",
     ]
-    if apply:
-        cmd.append("--apply")
-    out = _run(cmd, timeout=_COLLECT_TIMEOUT)
+    prepared = _parse_collect_payload(_run(cmd, timeout=_COLLECT_TIMEOUT))
+    if not apply:
+        return prepared
+    if prepared.get("error"):
+        return prepared
+    if prepared.get("settlement_stable") is not True:
+        return prepared
+    if prepared.get("has_supportive_quorum") is not True:
+        return prepared
+    if prepared.get("dissenting_families"):
+        return prepared
+
+    prepared_path = ""
     try:
-        payload = json.loads(out.stdout)
-        if isinstance(payload, dict):
-            return payload
-    except (json.JSONDecodeError, ValueError):
-        pass
-    detail = (out.stderr or out.stdout or "collect produced no JSON").strip()
-    return {"mode": "collect_evidence", "error": detail[:500]}
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=f"-pr{pr}-prepared-evidence.json", delete=False, encoding="utf-8"
+        ) as fh:
+            json.dump(prepared, fh)
+            prepared_path = fh.name
+        applied_cmd = [
+            *cmd,
+            "--prepared-json",
+            prepared_path,
+            "--apply",
+        ]
+        return _parse_collect_payload(_run(applied_cmd, timeout=_COLLECT_TIMEOUT))
+    finally:
+        if prepared_path:
+            try:
+                Path(prepared_path).unlink()
+            except OSError:
+                pass
 
 
 def _auto_merge(repo: str, pr: int) -> subprocess.CompletedProcess[str]:
@@ -178,8 +211,9 @@ def main(argv: list[str] | None = None) -> int:
         print("error: could not resolve repo (pass --repo owner/name)", file=sys.stderr)
         return 2
 
-    # ONE collect. For Tier 0-2 + --apply, collect itself posts evidence AND runs
-    # the quorum reconciler (the authority's own posting path -- we never re-post).
+    # ONE logical collect. For Tier 0-2 + --apply, _collect prepares exact-head
+    # evidence, replays that artifact, and lets collect run the quorum reconciler
+    # (the authority's own posting path -- we never re-post).
     # For Tier 3-4, collect treats --apply as prepare-only and refuses to post; we
     # honor that invariant and NEVER post Tier 3-4 evidence ourselves -- the human
     # settlement is surfaced, not automated.

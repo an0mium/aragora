@@ -1600,6 +1600,10 @@ def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
             "changes_requested",
         ),
         ("intro preamble line\nVerdict: PASS\n- note", "pass"),
+        (
+            "- [P1] real defect in pre-verdict notes\nVerdict: PASS\nNo findings.",
+            "changes_requested",
+        ),
         ("Verdict: PASS\n- [P2] real defect", "changes_requested"),
         ("Verdict: PASS\n- **[P1]** real defect", "changes_requested"),
         ("`Verdict: pass`", "pass"),

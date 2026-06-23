@@ -736,10 +736,7 @@ def _reviewer_verdict(text: str) -> str:
         if probe.startswith("verdict:"):
             verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
             if verdict.startswith("pass"):
-                findings_text = "\n".join(lines[idx + 1 :])
-                return (
-                    "changes_requested" if _has_blocking_priority_finding(findings_text) else "pass"
-                )
+                return "changes_requested" if _has_blocking_priority_finding(text) else "pass"
             if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
                 return "changes_requested"
             return "unknown"

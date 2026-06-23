@@ -709,8 +709,9 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         description=(
             "Run >=2 genuine heterogeneous model reviewers against a PR's exact head, "
             "compose evidence comments the quorum parsers recognize, and validate each "
-            "with evidence-lint before posting. Only Tier 0-2 PRs auto-post (with "
-            "--apply); Tier 3-4 always prepare evidence for operator settlement. "
+            "with evidence-lint before posting. Fresh runs prepare an exact-head artifact; "
+            "posting requires --apply --prepared-json. Tier 3-4 always prepare evidence "
+            "for operator settlement. "
             "Defaults to a dry run that posts nothing."
         ),
     )
@@ -727,7 +728,9 @@ def add_review_queue_parser(subparsers: argparse._SubParsersAction) -> None:
         "--author", default=None, help="GitHub login for evidence-lint (default: gh user)"
     )
     collect_evidence_arg(
-        "--apply", action="store_true", help="Post Tier 0-2 evidence; Tier 3-4 prepare only."
+        "--apply",
+        action="store_true",
+        help="Apply a prepared artifact with --prepared-json; fresh runs still prepare only.",
     )
     collect_evidence_arg(
         "--prepared-json",

@@ -9,9 +9,10 @@ Two safety invariants (enforced in :mod:`aragora.swarm.quorum_evidence`):
 
 * **Never fabricate** — a comment is only composed from a reviewer that actually
   returned output.
-* **Tier-gated posting** — only Tier 0-2 PRs may be auto-posted (with
-  ``--apply``); Tier 3-4 (and unknown tier) always prepare evidence for an
-  operator and never post.
+* **Tier-gated posting** — fresh runs prepare an exact-head artifact. Tier 0-2
+  posting requires replaying that artifact with ``--apply --prepared-json``;
+  Tier 3-4 (and unknown tier) always prepare evidence for an operator and never
+  post.
 
 Defaults to a dry run (prepares + lints, prints, posts nothing).
 
@@ -21,7 +22,9 @@ Examples
 
     python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr 7720
     python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr 7720 \\
-        --reviewers claude grok --apply
+        --reviewers claude grok --json > /tmp/pr7720-evidence.json
+    python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr 7720 \\
+        --reviewers claude grok --prepared-json /tmp/pr7720-evidence.json --apply
 """
 
 from __future__ import annotations
@@ -54,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Post evidence for Tier 0-2 PRs (Tier 3-4 always prepare-only).",
+        help="Apply a prepared artifact with --prepared-json; fresh runs still prepare only.",
     )
     parser.add_argument(
         "--prepared-json",
