@@ -104,8 +104,7 @@ def load_private_key_from_pem(pem: str | bytes) -> Ed25519PrivateKey:
         raise OdrSigningError("could not parse Ed25519 private key from PEM") from exc
     if not isinstance(key, Ed25519PrivateKey):
         raise OdrSigningError(
-            f"private key is not Ed25519 (got {type(key).__name__}); "
-            "ODR signatures use Ed25519"
+            f"private key is not Ed25519 (got {type(key).__name__}); ODR signatures use Ed25519"
         )
     return key
 
