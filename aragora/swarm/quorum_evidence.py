@@ -656,18 +656,17 @@ def _reviewer_verdict(text: str) -> str:
     with a preamble line. Leading/trailing markdown (``*``, ``#``, ``>``, ``-``,
     backticks) is stripped before matching so a genuine verdict is not lost.
     """
+    in_fence = False
     for line in text.splitlines():
-        stripped = line.strip().lower()
-        if not stripped or _is_markdown_indented_code_line(line):
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
             continue
-        probe = stripped.lstrip("*#>-`0123456789.)\t ")
-        if probe.startswith("verdict:"):
-            verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
-            if verdict.startswith("pass"):
-                return "pass"
-            if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
-                return "changes_requested"
-            return "unknown"
+        if in_fence:
+            continue
+        verdict = _trusted_line_verdict(line)
+        if verdict:
+            return verdict
     return "unknown"
 
 
@@ -704,16 +703,54 @@ def _offset_in_spans(offset: int, spans: list[tuple[int, int]]) -> bool:
     return any(start <= offset < end for start, end in spans)
 
 
+_PRIVATE_REASONING_NONFINDING_RE = re.compile(
+    r"(private|internal|abandoned)\s+reasoning|not\s+(?:a\s+)?reviewer\s+finding|not\s+the\s+review",
+    re.IGNORECASE,
+)
+
+
+def _private_reasoning_nonfinding_context(text: str) -> bool:
+    return bool(_PRIVATE_REASONING_NONFINDING_RE.search(text))
+
+
+def _line_has_concrete_blocking_finding(line: str) -> bool:
+    return _line_has_blocking_priority_finding(line) and not _private_reasoning_nonfinding_context(
+        line
+    )
+
+
+def _closed_thinking_block_is_safe_to_strip(block: str) -> bool:
+    # Thinking traces are normally private model scratchpad. Preserve them only
+    # when they contain concrete blocking evidence markers; otherwise a raw
+    # [P1]/[P2] finding can be stripped into countable PASS support.
+    return not any(_line_has_concrete_blocking_finding(line) for line in block.splitlines())
+
+
 def _strip_closed_thinking_blocks(text: str) -> str:
-    return _THINKING_BLOCK_RE.sub("", text)
+    return _THINKING_BLOCK_RE.sub(
+        lambda match: ""
+        if _closed_thinking_block_is_safe_to_strip(match.group(0))
+        else match.group(0),
+        text,
+    )
+
+
+def _closed_thinking_block_from_lines(lines: list[str], start_idx: int) -> str:
+    match = _THINKING_BLOCK_RE.match("".join(lines[start_idx:]))
+    return match.group(0) if match else ""
 
 
 def _trusted_verdict_probe(line: str) -> str:
     stripped = line.strip()
-    if not stripped or stripped.startswith((">", "`")) or _is_markdown_indented_code_line(line):
+    if (
+        not stripped
+        or stripped.startswith(">")
+        or stripped.startswith(("```", "~~~"))
+        or _is_markdown_indented_code_line(line)
+    ):
         return ""
-    probe = stripped.lstrip("*#-0123456789.)\t ")
-    return probe.strip("*_ ").lower()
+    probe = stripped.lstrip("*#-`0123456789.)\t ")
+    return probe.strip("*_` ").lower()
 
 
 def _verdict_from_probe(probe: str) -> str:
@@ -749,7 +786,7 @@ def _strip_thinking_traces(text: str) -> str:
         suffix = _strip_closed_thinking_blocks(text[verdict_offset:])
         suffix_lines = suffix.splitlines(keepends=True)
         kept_suffix: list[str] = []
-        seen_finding = False
+        seen_blocking_finding = False
         in_fence = False
         current_verdict = ""
         for idx, line in enumerate(suffix_lines):
@@ -760,21 +797,35 @@ def _strip_thinking_traces(text: str) -> str:
                 continue
             if not current_verdict:
                 current_verdict = _trusted_line_verdict(line)
-            has_priority = _line_has_priority_finding(line)
-            later_has_priority = any(
-                _line_has_priority_finding(rest) for rest in suffix_lines[idx + 1 :]
+            has_blocking_priority = _line_has_blocking_priority_finding(line)
+            later_has_blocking_priority = any(
+                _line_has_blocking_priority_finding(rest) for rest in suffix_lines[idx + 1 :]
             )
             later_has_verdict = any(_trusted_line_verdict(rest) for rest in suffix_lines[idx + 1 :])
+            closed_thinking_block = (
+                _closed_thinking_block_from_lines(suffix_lines, idx)
+                if _THINKING_OPEN_RE.match(line)
+                else ""
+            )
+            closed_block_has_concrete_blocking = bool(
+                closed_thinking_block
+                and not _closed_thinking_block_is_safe_to_strip(closed_thinking_block)
+            )
             if (
                 _THINKING_OPEN_RE.match(line)
-                and not has_priority
-                and not seen_finding
+                and not has_blocking_priority
+                and not seen_blocking_finding
+                and not closed_block_has_concrete_blocking
                 and not in_fence
-                and (current_verdict == "pass" or not later_has_priority or later_has_verdict)
+                and (
+                    current_verdict == "pass"
+                    or not later_has_blocking_priority
+                    or later_has_verdict
+                )
             ):
                 break
-            if has_priority:
-                seen_finding = True
+            if has_blocking_priority:
+                seen_blocking_finding = True
             kept_suffix.append(line)
         cleaned = f"{prefix}{''.join(kept_suffix)}"
     return re.sub(r"\n{3,}", "\n\n", cleaned).strip()

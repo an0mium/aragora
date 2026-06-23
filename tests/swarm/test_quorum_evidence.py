@@ -255,6 +255,53 @@ def test_closed_post_verdict_thinking_trace_does_not_decount_support() -> None:
     assert "qwen" in result["counted_reviewer_ids"]
 
 
+def test_closed_post_verdict_thinking_trace_cannot_hide_blocking_finding() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "Verdict: PASS\n"
+        "No findings.\n"
+        "<thinking>\n"
+        "- [P1] Real hidden blocker that must not be stripped into support.\n"
+        "</thinking>"
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "Real hidden blocker" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
+
+
+def test_unclosed_trailing_thinking_after_nonblocking_finding_does_not_flip_pass() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: PASS\n"
+        "- [P3] minor style issue, non-blocking.\n"
+        "<thinking>\n"
+        "Verdict: CHANGES-REQUESTED\n"
+        "This was abandoned private reasoning, not a reviewer finding."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == "Verdict: PASS\n- [P3] minor style issue, non-blocking."
+
+
 def test_unclosed_leading_thinking_trace_still_reanchors_at_verdict() -> None:
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 
@@ -1952,6 +1999,20 @@ def test_reviewer_verdict_tolerates_markdown_and_preamble(body: str, expected: s
     from aragora.swarm.quorum_evidence import _reviewer_verdict
 
     assert _reviewer_verdict(body) == expected
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "> Verdict: CHANGES-REQUESTED\nVerdict: PASS",
+        "```\nVerdict: CHANGES-REQUESTED\n```\nVerdict: PASS",
+        "    Verdict: CHANGES-REQUESTED\nVerdict: PASS",
+    ],
+)
+def test_reviewer_verdict_ignores_untrusted_verdict_lines(body: str) -> None:
+    from aragora.swarm.quorum_evidence import _reviewer_verdict
+
+    assert _reviewer_verdict(body) == "pass"
 
 
 def test_evidence_item_from_dict_canonicalizes_alias_family() -> None:
