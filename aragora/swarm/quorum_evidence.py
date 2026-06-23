@@ -1696,10 +1696,16 @@ def collect_evidence(
     poster: Callable[[str, int, str], None] = default_poster,
     quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
     env: dict[str, str] | None = None,
+    reviewer_timeout: float | None = None,
     overall_timeout: float | None = None,
 ) -> CollectOutcome:
     """Run reviewers, validate evidence, and post only when tier-gating allows."""
     overall_timeout = _validate_positive_timeout(overall_timeout, "overall_timeout")
+    reviewer_timeout = _validate_positive_timeout(reviewer_timeout, "reviewer_timeout")
+    if overall_timeout is not None and (
+        reviewer_timeout is None or reviewer_timeout > overall_timeout
+    ):
+        reviewer_timeout = overall_timeout
     ctx = context_fetcher(repo, pr)
     head_sha = str(ctx.get("head_sha") or "").strip()
     head_committed_at = str(ctx.get("head_committed_at") or "")
@@ -1742,48 +1748,45 @@ def collect_evidence(
     reviews: dict[str, ReviewerResult] = {}
     if supported:
         max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
-        pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
-        future_to_family = {
-            pool.submit(_run_reviewer_with_infra_retry, reviewer_runner, family, prompt): family
-            for family in supported
-        }
-        try:
-            done, pending = concurrent.futures.wait(
-                future_to_family,
-                timeout=overall_timeout,
-                return_when=concurrent.futures.ALL_COMPLETED,
-            )
-            for future in done:
-                family = future_to_family[future]
-                try:
-                    reviews[family] = future.result()
-                except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
-                    reviews[family] = ReviewerResult(
-                        family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
-                    )
-            if pending:
-                outcome.orchestration_timed_out = True
-                timed_out = [
-                    family
-                    for family in ordered_families
-                    if any(future_to_family[future] == family for future in pending)
-                ]
-                outcome.timed_out_families = timed_out
-                timeout_text = _format_seconds(overall_timeout or 0)
-                for future in pending:
-                    future.cancel()
+        with _scoped_reviewer_timeout_env(reviewer_timeout):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+                future_to_family = {
+                    pool.submit(
+                        _run_reviewer_with_infra_retry, reviewer_runner, family, prompt
+                    ): family
+                    for family in supported
+                }
+                done, pending = concurrent.futures.wait(
+                    future_to_family,
+                    timeout=overall_timeout,
+                    return_when=concurrent.futures.ALL_COMPLETED,
+                )
+                for future in done:
                     family = future_to_family[future]
-                    reviews[family] = ReviewerResult(
-                        family,
-                        "",
-                        False,
-                        f"overall collect-evidence timeout after {timeout_text}s",
-                    )
-        finally:
-            # Do not wait here: each built-in reviewer has its own timeout/process
-            # boundary, and this outer deadline exists specifically so orchestration
-            # can return fail-closed JSON instead of hanging in future collection.
-            pool.shutdown(wait=False, cancel_futures=True)
+                    try:
+                        reviews[family] = future.result()
+                    except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
+                        reviews[family] = ReviewerResult(
+                            family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                        )
+                if pending:
+                    outcome.orchestration_timed_out = True
+                    timed_out = [
+                        family
+                        for family in ordered_families
+                        if any(future_to_family[future] == family for future in pending)
+                    ]
+                    outcome.timed_out_families = timed_out
+                    timeout_text = _format_seconds(overall_timeout or 0)
+                    for future in pending:
+                        future.cancel()
+                        family = future_to_family[future]
+                        reviews[family] = ReviewerResult(
+                            family,
+                            "",
+                            False,
+                            f"overall collect-evidence timeout after {timeout_text}s",
+                        )
 
     for family in ordered_families:
         if family not in FAMILY_PROVIDERS:
@@ -2032,6 +2035,8 @@ def apply_prepared_evidence(
         action_reason=action_reason,
         items=_clone_prepared_items(prepared.items),
         failures=_clone_reviewer_failures(prepared.failures),
+        orchestration_timed_out=prepared.orchestration_timed_out,
+        timed_out_families=list(prepared.timed_out_families),
         tiered_gate=effective_tiered_gate,
     )
 
@@ -2040,6 +2045,13 @@ def apply_prepared_evidence(
         outcome.action_reason = (
             f"prepared head {prepared.head_sha[:7]} does not match current head "
             f"{head_sha[:7]}; prepared evidence only"
+        )
+        return outcome
+
+    if outcome.orchestration_timed_out:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            "prepared collect-evidence artifact timed out; refusing to post partial evidence"
         )
         return outcome
 
@@ -2199,6 +2211,7 @@ def run_collect_cli(
                     apply=apply,
                     env=merge_quorum_io.aragora_env(),
                     quorum_reconciler=default_quorum_reconciler if apply else None,
+                    reviewer_timeout=validated_reviewer_timeout,
                     overall_timeout=validated_overall_timeout,
                 )
             else:
@@ -2223,4 +2236,4 @@ def run_collect_cli(
         printer(json.dumps(outcome.to_dict(), indent=2))
     else:
         printer(_render_outcome(outcome))
-    return 0 if outcome.has_supportive_quorum else 1
+    return 0 if outcome.has_supportive_quorum and not outcome.orchestration_timed_out else 1

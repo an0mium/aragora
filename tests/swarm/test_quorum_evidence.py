@@ -1058,7 +1058,6 @@ def test_collect_overall_timeout_fails_closed_without_partial_post() -> None:
         return ReviewerResult(family, f"Verdict: PASS from {family}", True)
 
     fakes["reviewer_runner"] = slow_grok_runner
-    started = time.monotonic()
     outcome = collect_evidence(
         repo="o/r",
         pr=1,
@@ -1068,9 +1067,7 @@ def test_collect_overall_timeout_fails_closed_without_partial_post() -> None:
         overall_timeout=0.05,
         **fakes,
     )
-    elapsed = time.monotonic() - started
 
-    assert elapsed < 0.18
     assert outcome.orchestration_timed_out is True
     assert outcome.timed_out_families == ["grok"]
     assert [f.family for f in outcome.failures] == ["grok"]
@@ -1081,6 +1078,36 @@ def test_collect_overall_timeout_fails_closed_without_partial_post() -> None:
     assert posted == []
     assert outcome.to_dict()["orchestration_timed_out"] is True
     assert outcome.to_dict()["timed_out_families"] == ["grok"]
+
+
+def test_collect_overall_timeout_waits_for_bounded_reviewer_before_env_restore(
+    monkeypatch,
+) -> None:
+    fakes, _ = _fakes(tier=0)
+    runner_done = threading.Event()
+    monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
+
+    def slow_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            assert os.environ.get(qe._REVIEWER_TIMEOUT_ENV) == "0.05"
+            time.sleep(0.2)
+            runner_done.set()
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = slow_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout=0.05,
+        **fakes,
+    )
+
+    assert outcome.orchestration_timed_out is True
+    assert runner_done.is_set()
+    assert os.environ.get(qe._REVIEWER_TIMEOUT_ENV) is None
 
 
 def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
@@ -1804,6 +1831,50 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
 
 
+def test_apply_prepared_evidence_refuses_timed_out_artifact(tmp_path) -> None:
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=0,
+        action="prepare",
+        action_reason="overall collect-evidence timeout after 0.05s; prepared evidence only",
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        failures=[ReviewerResult("grok", "", False, "overall collect-evidence timeout")],
+        orchestration_timed_out=True,
+        timed_out_families=["grok"],
+    )
+    prepared = tmp_path / "timed_out_prepared.json"
+    prepared.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    posted: list[str] = []
+
+    applied = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda r, p: 0,
+        linter=lambda *a, **k: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        poster=lambda r, p, b: posted.append(b),
+    )
+
+    assert applied.action == "prepare"
+    assert applied.orchestration_timed_out is True
+    assert applied.timed_out_families == ["grok"]
+    assert "timed out" in applied.action_reason
+    assert applied.has_supportive_quorum is True
+    assert applied.posted == []
+    assert posted == []
+
+
 def test_collect_outcome_tiered_gate_roundtrips() -> None:
     # The gate regime an artifact was prepared under must survive serialization so
     # the settlement bar cannot silently change between prepare and apply (#8507 P1).
@@ -2254,6 +2325,37 @@ def test_run_collect_cli_exit_code_quorum_incomplete(monkeypatch) -> None:
     rc = qe.run_collect_cli(
         repo="o/r", pr=1, families=None, author=None, apply=False, json_output=False
     )
+    assert rc == 1
+
+
+def test_run_collect_cli_timeout_exit_code_fails_even_with_partial_quorum(monkeypatch) -> None:
+    def fake_collect(**kwargs) -> CollectOutcome:
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=0,
+            action="prepare",
+            action_reason="overall collect-evidence timeout after 0.05s; prepared evidence only",
+            items=[EvidenceItem("claude", "body", True, ["claude"], [], "pass")],
+            failures=[ReviewerResult("grok", "", False, "overall collect-evidence timeout")],
+            orchestration_timed_out=True,
+            timed_out_families=["grok"],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=True,
+        json_output=True,
+    )
+
     assert rc == 1
 
 
