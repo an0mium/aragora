@@ -1964,9 +1964,6 @@ def main(argv: list[str] | None = None) -> int:
         elif all_open_prs_unhealthy and not args.allow_unhealthy_queue_publish:
             payload["published"] = []
             payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
-        elif open_pr_lookup_degraded:
-            payload["published"] = []
-            payload["publish_paused_reason"] = "open_pr_lookup_degraded"
         else:
             if all_open_prs_unhealthy and args.allow_unhealthy_queue_publish:
                 payload["publish_override_reason"] = "allow_unhealthy_queue_publish"

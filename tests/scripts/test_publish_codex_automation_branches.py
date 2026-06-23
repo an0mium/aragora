@@ -1726,7 +1726,7 @@ def test_main_falls_back_to_rest_but_pauses_apply_for_unknown_queue_health(
 
     exit_code = mod.main(["--repo", str(tmp_path), "--apply", "--json"])
 
-    assert exit_code == 0
+    assert exit_code == 1
     assert publish_called is False
     payload = json.loads(capsys.readouterr().out)
     assert payload["open_pr_lookup"]["source"] == "rest"
