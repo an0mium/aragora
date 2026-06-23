@@ -145,7 +145,12 @@ class OpenRouterAgent(APIAgent):
         )
         self.agent_type = "openrouter"
         self.max_tokens = max_tokens  # Store for use in API calls
-        self.enable_fallback = True if enable_fallback is None else enable_fallback
+        if enable_fallback is None:
+            from aragora.agents.fallback import get_default_fallback_enabled
+
+            self.enable_fallback = get_default_fallback_enabled()
+        else:
+            self.enable_fallback = enable_fallback
         if system_prompt:
             self.system_prompt = system_prompt
         else:

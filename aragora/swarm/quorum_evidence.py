@@ -725,13 +725,7 @@ def _line_has_concrete_blocking_finding(line: str) -> bool:
 
 
 def _text_has_concrete_blocking_signal(text: str) -> bool:
-    if _private_reasoning_nonfinding_context(text):
-        return False
-    return any(
-        _line_has_blocking_priority_finding(line)
-        or _trusted_line_verdict(line) == "changes_requested"
-        for line in text.splitlines()
-    )
+    return any(_line_has_concrete_blocking_finding(line) for line in text.splitlines())
 
 
 def _closed_thinking_block_is_safe_to_strip(block: str) -> bool:
@@ -912,8 +906,6 @@ def _reanchor_at_verdict(text: str) -> str:
     if verdict_indices:
         idx = verdict_indices[-1][0]
         for pos, (candidate_idx, verdict) in enumerate(verdict_indices):
-            if verdict != "changes_requested":
-                continue
             next_idx = verdict_indices[pos + 1][0] if pos + 1 < len(verdict_indices) else len(lines)
             if _trusted_blocking_priority_between(lines, candidate_idx, next_idx):
                 idx = candidate_idx

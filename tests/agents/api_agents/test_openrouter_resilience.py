@@ -402,3 +402,27 @@ class TestGenerateDecoratorIntegration:
             await agent.generate("Test prompt")
 
         assert calls == ["qwen/qwen3-235b-a22b"]
+
+    @pytest.mark.asyncio
+    async def test_generate_default_fallback_honors_global_opt_out(
+        self, monkeypatch, mock_env_with_api_keys
+    ):
+        """OpenRouterAgent(enable_fallback=None) follows the global fallback default."""
+        from aragora.agents.api_agents.openrouter import OpenRouterAgent
+        from aragora.agents.errors import AgentRateLimitError
+
+        monkeypatch.setenv("ARAGORA_OPENROUTER_FALLBACK_ENABLED", "false")
+        agent = OpenRouterAgent(model="deepseek/deepseek-v4-pro")
+        calls: list[str] = []
+
+        async def fail_with_rate_limit(model: str, prompt: str, context=None) -> str:
+            calls.append(model)
+            raise AgentRateLimitError("rate limited")
+
+        agent._generate_with_model = fail_with_rate_limit  # type: ignore[method-assign]
+
+        with pytest.raises(AgentRateLimitError):
+            await agent.generate("Test prompt")
+
+        assert agent.enable_fallback is False
+        assert calls == ["deepseek/deepseek-v4-pro"]

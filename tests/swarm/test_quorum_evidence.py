@@ -286,6 +286,38 @@ def test_closed_post_verdict_thinking_trace_cannot_hide_blocking_finding() -> No
     assert "blocking_or_negative_verdict" in result["problems"]
 
 
+def test_closed_thinking_disclaimer_line_cannot_hide_separate_blocker() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "Verdict: PASS\n"
+        "No findings.\n"
+        "<thinking>\n"
+        "This was abandoned private reasoning, not a reviewer finding.\n"
+        "- [P1] Real hidden blocker that must not be stripped into support.\n"
+        "</thinking>"
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "Real hidden blocker" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
+
+
 def test_unclosed_trailing_thinking_after_nonblocking_finding_does_not_flip_pass() -> None:
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 
@@ -309,6 +341,37 @@ def test_unclosed_trailing_thinking_cannot_hide_blocking_finding() -> None:
         "Verdict: PASS\n"
         "No findings.\n"
         "<thinking>\n"
+        "- [P1] Real hidden blocker that must not be stripped into support."
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "Real hidden blocker" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
+
+
+def test_unclosed_thinking_disclaimer_line_cannot_hide_separate_blocker() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "Verdict: PASS\n"
+        "No findings.\n"
+        "<thinking>\n"
+        "This was abandoned private reasoning, not a reviewer finding.\n"
         "- [P1] Real hidden blocker that must not be stripped into support."
     )
     body = compose_evidence_comment(
@@ -440,6 +503,40 @@ def test_revised_nonblocking_changes_requested_to_pass_uses_final_trusted_verdic
         source="test",
     )
     assert result["would_count"] is True, result["problems"]
+
+
+def test_pass_block_with_blocking_finding_is_not_overridden_by_later_pass() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: PASS\n"
+        "- [P2] real finding that must remain blocking.\n\n"
+        "After re-checking formatting, final review follows:\n"
+        "Verdict: PASS\n"
+        "No findings."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == raw
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
 
 
 def test_blocking_dissent_is_not_overridden_by_later_unfenced_pass_verdict() -> None:

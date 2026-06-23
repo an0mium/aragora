@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-# Explicit "no Pn finding" heads. A `[P0]`/`[P1]` line is blocking UNLESS the text
+# Explicit "no Pn finding" heads. A `[P0]`/`[P1]`/`[P2]` line is blocking UNLESS the text
 # before its first colon is EXACTLY one of these — models emit `"[P1] None:"`,
 # `"[P1] N/A"`, `"[P1] no issues: ..."` to declare the absence of a finding. Matched
 # exactly (not as a prefix) so a real finding that merely starts with "none"/"no"
@@ -92,10 +92,15 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
             continue
         priority_marker_line = _strip_decoration(stripped)
         if re.match(
-            r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?(?:\s|$|[:.;—–-])", priority_marker_line, re.I
+            r"^(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?(?:\s|$|[:.;—–-])",
+            priority_marker_line,
+            re.I,
         ):
             rest = re.sub(
-                r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?\s*", "", priority_marker_line, flags=re.I
+                r"^(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?\s*",
+                "",
+                priority_marker_line,
+                flags=re.I,
             )
             head = _normalize_value(rest).split(":", 1)[0].strip(" .;—–-")
             if head not in _NO_FINDING_HEADS:
