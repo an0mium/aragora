@@ -97,6 +97,10 @@ is separate: that guide governs selecting and coordinating worker lanes; this se
 advancing a chosen PR through model evidence and merge-quorum. This section also does **not**
 grant merge authority by itself: merge remains governed by the relevant helper verdict,
 branch protection, and any run-level "never merge by default" rule.
+Edits to this operating contract, `docs/REVIEW_AUTHORITY_PRINCIPLES.md`, or code that changes
+merge/evidence/settlement authority are merge-authority self-modification: classify them as
+Tier 4 and stop for exact-head human risk settlement before any merge/protection mutation,
+even when the file diff is Markdown-only.
 
 **Autonomy rail — the anti-molasses rule.** Run continuously through bounded units **without
 asking the operator**, as long as every unit stays on Tier 0-2 rails as defined by
@@ -110,8 +114,12 @@ next unit is Tier 3/4 or the breaker tripped.
 
 **EVIDENCE-LAST (settlement-stability).** A head is *settlement-stable* iff: the latest
 adversarial **dry-run** review was clean for the **current** head (no CHANGES-REQUESTED /
-`[P1]` / `[P2]` from every family that will be counted for this Tier) AND no commit has
-landed since AND the base is unchanged / mergeable. The counted-family set comes from
+`[P0]` / `[P1]` / `[P2]` from every family that will be counted for this Tier) AND no commit
+has landed since AND the base is unchanged AND the PR is non-draft AND GitHub still reports
+`mergeable` as `MERGEABLE` or `UNKNOWN` with `mergeStateStatus` as `CLEAN` or `BLOCKED`.
+`BLOCKED` is allowed only because branch protection / merge-quorum may be waiting on the
+evidence being posted; `DIRTY`, `BEHIND`, `DRAFT`, `UNSTABLE`, and missing/unknown
+`mergeStateStatus` are not settlement-stable. The counted-family set comes from
 [`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md), especially the
 Tier-eligibility table; do not invent a smaller family set inside a recursive prompt.
 **Never collect countable (`--apply`) evidence on a head that is not settlement-stable.**
@@ -128,9 +136,11 @@ python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
 
 Before any `--apply`, verify the artifact records the live `head_sha`, `dissenting_families`
 is empty, `has_supportive_quorum` is true, and each counted `items[].body` lints for the
-current PR/head. Then re-check `gh pr view <N> --json headRefOid,mergeStateStatus,isDraft`:
-`headRefOid` must still equal the artifact `head_sha`, and the merge state must still be
-clean/mergeable. Only then run the paired apply from the same artifact:
+current PR/head. Then re-check
+`gh pr view <N> --json headRefOid,baseRefOid,mergeable,mergeStateStatus,isDraft`:
+`headRefOid` must still equal the artifact `head_sha`, `baseRefOid` must still equal the
+artifact base, `isDraft` must be false, and `mergeable` / `mergeStateStatus` must still be
+in the settlement-stable set above. Only then run the paired apply from the same artifact:
 
 ```bash
 python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
@@ -138,10 +148,10 @@ python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
 ```
 
 **Automation compatibility.** Existing collectors such as `scripts/auto_evidence_cycle.py`
-remain evidence-posting tools, not authority to skip the dry-run/freeze rule. Until an
-automated collector records the same artifact fields and live-head recheck above, conductors
-must treat it as prepare/report-only for countable evidence and must use the explicit
-dry-run → freeze → prepared-json apply sequence.
+remain evidence-posting tools, not authority to skip the dry-run/freeze rule. An automated
+collector may post countable evidence only when it persists the dry-run artifact and replays
+that exact artifact through a live-head/base/merge-state prepared-json apply. Collectors that
+do not implement that sequence are prepare/report-only for countable evidence.
 
 **NO-TREADMILL.** Batch all known findings into ONE repair per head; never
 repair-then-recollect on the same head. Any CHANGES-REQUESTED / `[P1]` / `[P2]` ends the
@@ -192,6 +202,12 @@ authorization text needed, then emit the next prompt in THIS thin form.
 ---
 
 ## Adversarial Cross-Review (ACR) auto-merge tier
+
+**Precedence note.** The Review Authority **Tier 0-4** vocabulary used by §Conductor and
+[`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md) is distinct from the
+ACR **T1-T4** class table below. ACR describes when low-risk PRs may auto-merge after
+heterogeneous approval; it never overrides Approval-required items, Auto-halt triggers,
+§Conductor evidence-last requirements, or Tier 3/4 human-settlement requirements.
 
 > **Why this section exists.** The original operating contract treated every merge as operator-gated. This was correct when one agent was running and the queue was 1–2 PRs deep. With multiple heterogeneous CLI agents (Claude Code, Codex CLI, Factory Droid) producing PRs in parallel, the operator becomes the bottleneck — the failure mode the project's own thesis names as **rubber-stamp drift** (see `docs/THESIS.md` premise 6, "When does the human actually need to weigh in?"). ACR formalizes the thesis's triage layer in the contract: heterogeneous-agent adversarial cross-review counts as a first-class merge signal for low-risk classes, escalating only the cases the thesis itself flags as requiring human settlement.
 

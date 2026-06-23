@@ -79,9 +79,10 @@ do not re-embed its rules into recursive prompts — carry only the current exac
 one next action (see §Conductor's thin-prompt template). Do **not** maintain a second summary
 of its rules here. The only local reminder is precedence: §Conductor never weakens the
 Approval-required or Auto-halt floors in `docs/AGENT_OPERATING_CONTRACT.md`, and it uses
-`docs/REVIEW_AUTHORITY_PRINCIPLES.md` for Tier and counted-family eligibility. "Evidence-first"
-in this skill means governance must be evidence-grounded; §Conductor's "evidence-last" rule is
-the timing rule for countable evidence after a clean current-head dry-run.
+`docs/REVIEW_AUTHORITY_PRINCIPLES.md` Review Authority Tier 0-4 (not the ACR T1-T4 class
+table) for Tier and counted-family eligibility. "Evidence-first" in this skill means
+governance must be evidence-grounded; §Conductor's "evidence-last" rule is the timing rule for
+countable evidence after a clean current-head dry-run.
 
 ## Operating-contract auto-halts (always active)
 
