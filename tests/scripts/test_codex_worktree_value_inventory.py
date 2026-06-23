@@ -91,6 +91,16 @@ def _stub_clean_git(
         ),
     )
     monkeypatch.setattr(mod, "is_patch_equivalent", lambda *_args, **_kwargs: patch_equivalent)
+    monkeypatch.setattr(
+        mod,
+        "branch_unique_merge_commits",
+        lambda *_args, **_kwargs: ([], None),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_merge_tree_matches_base",
+        lambda *_args, **_kwargs: (False, None),
+    )
 
 
 def test_default_scan_preserves_foreign_repo_as_lookup_failed(
@@ -441,6 +451,58 @@ def test_terminal_receipt_path_heads_reads_harvest_receipt_source_candidate(
     assert refs[str(repo_path.resolve())] == {"abcdef123456"}
 
 
+def test_terminal_receipt_path_heads_reads_object_decision_outcome(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "preserve.json").write_text(
+        json.dumps(
+            {
+                "decision": {"outcome": "preserve_existing_merged_pr"},
+                "selected_candidate": {
+                    "path": str(root),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs[str(root.resolve())] == {"abcdef123456"}
+
+
+def test_terminal_receipt_path_heads_reads_object_decision_status(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "completed.json").write_text(
+        json.dumps(
+            {
+                "decision": {"status": "completed"},
+                "selected_candidate": {
+                    "path": str(root),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs[str(root.resolve())] == {"abcdef123456"}
+
+
 def test_unique_unharvested_when_ahead_and_not_patch_equivalent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -538,7 +600,7 @@ def test_smart_merge_detection_default_off_preserves_unique_harvest(
     assert candidate.decision == "harvest_candidate"
 
 
-def test_smart_merge_detection_reclassifies_matching_subjects(
+def test_smart_merge_detection_keeps_matching_subjects_harvestable_without_patch_proof(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import codex_worktree_value_inventory as mod
@@ -552,6 +614,11 @@ def test_smart_merge_detection_reclassifies_matching_subjects(
             "feat(scripts): list active sessions [lane: P42]",
             "docs(status): inventory receipt [lane: P42]",
         ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (False, []),
     )
 
     candidate = mod.classify_candidate(
@@ -568,14 +635,412 @@ def test_smart_merge_detection_reclassifies_matching_subjects(
         size_lookup_failed=False,
     )
 
-    assert candidate.classification == "patch_equivalent_or_merged"
-    assert candidate.cleanup_candidate is True
-    assert candidate.git.smart_merge_equivalent_to_base is True
-    assert "all unique commit subjects match recent main squash-merge subjects" in candidate.proof
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.smart_merge_equivalent_to_base is False
+    assert (
+        "all unique commit subjects match recent main squash-merge subjects "
+        "(advisory; patch proof still required)"
+    ) in candidate.proof
     assert candidate.links["smart_merge_matched_subjects"] == [
         "feat(scripts): list active sessions [lane: P42]",
         "docs(status): inventory receipt [lane: P42]",
     ]
+
+
+def test_smart_merge_detection_reclassifies_already_present_patches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (False, []),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (True, ["2f2a1f6", "b46d5c6"]),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "patch_equivalent_or_merged"
+    assert candidate.cleanup_candidate is True
+    assert candidate.git.smart_merge_equivalent_to_base is True
+    assert "all unique commit patches are already present on base" in candidate.proof
+    assert candidate.links["smart_merge_matched_commits"] == ["2f2a1f6", "b46d5c6"]
+
+
+def test_smart_merge_detection_reclassifies_noop_merge_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_merge_tree_matches_base",
+        lambda *_args, **_kwargs: (True, None),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "patch_equivalent_or_merged"
+    assert candidate.cleanup_candidate is True
+    assert candidate.git.smart_merge_equivalent_to_base is True
+    assert "merging branch into base leaves base tree unchanged" in candidate.proof
+    assert candidate.links["smart_merge_merge_tree"] == "origin/main"
+
+
+def test_smart_merge_detection_merge_tree_timeout_is_protected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_merge_tree_matches_base",
+        lambda *_args, **_kwargs: (None, "command timed out after 1s"),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "lookup_failed"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.lookup_failed is True
+    assert any(
+        "smart merge merge-tree lookup failed" in item for item in candidate.git.lookup_errors
+    )
+
+
+def test_smart_merge_detection_merge_tree_conflict_falls_through(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_merge_tree_matches_base",
+        lambda *_args, **_kwargs: (False, "CONFLICT (content): tracked.txt"),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (True, ["feat: looks merged"]),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("conflicts must not fall through to patch heuristics")
+        ),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.lookup_failed is False
+    assert candidate.links["smart_merge_merge_tree_error"] == "CONFLICT (content): tracked.txt"
+    assert "merge-tree did not prove branch is already represented on base" in candidate.proof
+
+
+def test_branch_patches_present_on_base_uses_temp_index_only(tmp_path: Path) -> None:
+    import subprocess
+
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return proc.stdout.strip()
+
+    git("init", "-b", "master")
+    git("config", "user.email", "test@example.test")
+    git("config", "user.name", "Test User")
+    (repo / "tracked.txt").write_text("old\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git("commit", "-m", "base")
+    base_commit = git("rev-parse", "HEAD")
+
+    git("checkout", "-b", "stale")
+    (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
+    git("commit", "-am", "stale patch")
+    stale_commit = git("rev-parse", "HEAD")
+
+    git("checkout", "master")
+    (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
+    git("commit", "-am", "main contains patch")
+    git("checkout", "-b", "unrelated-worktree", base_commit)
+
+    present, matched = mod.branch_patches_present_on_base(
+        repo,
+        "master",
+        "stale",
+        timeout=5,
+    )
+
+    assert present is True
+    assert matched == [stale_commit]
+
+
+def test_branch_merge_tree_matches_base_for_noop_merge_commit(tmp_path: Path) -> None:
+    import subprocess
+
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return proc.stdout.strip()
+
+    git("init", "-b", "master")
+    git("config", "user.email", "test@example.test")
+    git("config", "user.name", "Test User")
+    (repo / "tracked.txt").write_text("base\n", encoding="utf-8")
+    git("add", "tracked.txt")
+    git("commit", "-m", "base")
+
+    git("checkout", "-b", "stale")
+    (repo / "tracked.txt").write_text("base\nstale value\n", encoding="utf-8")
+    git("commit", "-am", "stale value")
+
+    git("checkout", "master")
+    (repo / "tracked.txt").write_text("base\nstale value\n", encoding="utf-8")
+    git("commit", "-am", "main already has stale value")
+    git("checkout", "stale")
+    git("merge", "--no-ff", "master", "-m", "merge main into stale")
+
+    matches, error = mod.branch_merge_tree_matches_base(
+        repo,
+        "master",
+        "stale",
+        timeout=5,
+    )
+
+    assert error is None
+    assert matches is True
+
+
+def test_smart_merge_detection_preserves_branches_with_merge_commits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_unique_merge_commits",
+        lambda *_args, **_kwargs: (["merge-sha"], None),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (True, ["feat: already merged"]),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (True, ["commit-sha"]),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=["feat: already merged (#123)"],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.smart_merge_equivalent_to_base is False
+    assert "smart merge detection skipped because branch contains merge commits" in candidate.proof
+    assert candidate.links["smart_merge_merge_commits"] == ["merge-sha"]
+
+
+def test_smart_merge_patch_timeout_is_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (False, []),
+    )
+
+    def fake_patches_present(
+        *_args: Any, lookup_errors: list[str] | None = None, **_kwargs: Any
+    ) -> tuple[bool, list[str]]:
+        if lookup_errors is not None:
+            lookup_errors.append("patch-present rev-list failed: command timed out after 1s")
+        return False, []
+
+    monkeypatch.setattr(mod, "branch_patches_present_on_base", fake_patches_present)
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "lookup_failed"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.lookup_failed is True
+    assert candidate.git.inspect_timeout is True
+    assert any("patch-present rev-list failed" in item for item in candidate.git.lookup_errors)
+    assert any("inspect_timeout" in item for item in candidate.proof)
+
+
+def test_smart_merge_merge_commit_lookup_failure_is_protected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_unique_merge_commits",
+        lambda *_args, **_kwargs: (None, "command timed out after 1s"),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "lookup_failed"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.lookup_failed is True
+    assert candidate.git.inspect_timeout is True
+    assert any(
+        "smart merge merge-commit lookup failed" in item for item in candidate.git.lookup_errors
+    )
+
+
+def test_smart_merge_patch_commit_budget_is_protected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import subprocess
+
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=100, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (False, []),
+    )
+
+    many_commits = "\n".join(f"{idx:040x}" for idx in range(mod.MAX_SMART_MERGE_PATCH_COMMITS + 1))
+
+    def fake_run_git(args: list[str], *_args: Any, **_kwargs: Any) -> Any:
+        if args[:3] == ["rev-list", "--reverse", "--no-merges"]:
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout=many_commits, stderr=""
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "lookup_failed"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.lookup_failed is True
+    assert any("commits exceeds budget" in item for item in candidate.git.lookup_errors)
 
 
 def test_smart_merge_detection_keeps_unmatched_subjects_harvestable(
@@ -592,6 +1057,11 @@ def test_smart_merge_detection_keeps_unmatched_subjects_harvestable(
             "feat(scripts): list active sessions",
             "fix(swarm): new unmerged behavior",
         ],
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (False, []),
     )
 
     candidate = mod.classify_candidate(
@@ -610,6 +1080,40 @@ def test_smart_merge_detection_keeps_unmatched_subjects_harvestable(
     assert candidate.git.smart_merge_equivalent_to_base is False
 
 
+def test_smart_merge_detection_keeps_unapplied_patches_harvestable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "branch_subjects_match_recent_main",
+        lambda *_args, **_kwargs: (False, []),
+    )
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (False, ["2f2a1f6"]),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            smart_merge_detection=True,
+            smart_merge_main_subjects=[],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.cleanup_candidate is False
+    assert candidate.git.smart_merge_equivalent_to_base is False
+
+
 def test_smart_merge_detection_log_failure_keeps_candidate_harvestable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -618,6 +1122,11 @@ def test_smart_merge_detection_log_failure_keeps_candidate_harvestable(
     root = _candidate(tmp_path)
     _stub_clean_git(monkeypatch, ahead=2, patch_equivalent=False)
     monkeypatch.setattr(mod, "branch_unique_commit_subjects", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        mod,
+        "branch_patches_present_on_base",
+        lambda *_args, **_kwargs: (False, []),
+    )
 
     candidate = mod.classify_candidate(
         root,
@@ -969,6 +1478,85 @@ def test_lookup_open_prs_returns_empty_when_branch_not_in_cache(
     assert err is None
 
 
+def test_prefetch_open_pr_heads_uses_open_only_cache_for_open_heads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    calls: list[list[str]] = []
+
+    def fake_run_cmd(args: list[str], *_args: Any, **_kwargs: Any) -> Any:
+        calls.append(args)
+        if "--state" in args and args[args.index("--state") + 1] == "open":
+            payload = [
+                {
+                    "number": 901,
+                    "title": "Older still-open PR",
+                    "url": "https://example.test/pr/901",
+                    "headRefName": "feat/older-open",
+                    "body": "",
+                    "state": "OPEN",
+                    "headRefOid": "older-head",
+                }
+            ]
+        else:
+            payload = [
+                {
+                    "number": 902,
+                    "title": "Recent closed PR",
+                    "url": "https://example.test/pr/902",
+                    "headRefName": "feat/recent-closed",
+                    "body": "",
+                    "state": "CLOSED",
+                    "headRefOid": "closed-head",
+                }
+            ]
+        return mod.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "run_cmd", fake_run_cmd)
+
+    cache, records, branch_records, failed, err = mod.prefetch_open_pr_heads(
+        tmp_path,
+        timeout=1,
+    )
+
+    assert failed is False
+    assert err is None
+    assert [call[call.index("--state") + 1] for call in calls] == ["open", "all"]
+    assert cache == {
+        "feat/older-open": [
+            {
+                "number": 901,
+                "title": "Older still-open PR",
+                "url": "https://example.test/pr/901",
+                "headRefName": "feat/older-open",
+                "body": "",
+                "state": "OPEN",
+                "headRefOid": "older-head",
+            }
+        ]
+    }
+    assert records == cache["feat/older-open"]
+    assert branch_records == {
+        "feat/recent-closed": [
+            {
+                "number": 902,
+                "title": "Recent closed PR",
+                "url": "https://example.test/pr/902",
+                "headRefName": "feat/recent-closed",
+                "body": "",
+                "state": "CLOSED",
+                "headRefOid": "closed-head",
+            }
+        ]
+    }
+
+
 def test_classify_candidate_marks_open_pr_when_cache_hit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1005,6 +1593,117 @@ def test_classify_candidate_marks_open_pr_when_cache_hit(
     assert candidate.links["open_prs"] == [
         {"number": 999, "title": "Open PR for feat/x", "url": "https://example.test/pr/999"}
     ]
+
+
+def test_classify_candidate_preserves_closed_pr_superseded_by_open_pr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, branch="feat/stale", ahead=3, patch_equivalent=False)
+
+    def fail_if_called(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("cached branch PR records should avoid per-candidate gh calls")
+
+    monkeypatch.setattr(mod, "run_cmd", fail_if_called)
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            branch_pr_records_cache={
+                "feat/stale": [
+                    {
+                        "number": 8255,
+                        "state": "CLOSED",
+                        "title": "stale source",
+                        "url": "https://example.test/pr/8255",
+                    }
+                ],
+            },
+            open_pr_records_cache=[
+                {
+                    "number": 8543,
+                    "title": "feat: replacement",
+                    "body": "Re-cut fresh against current main; supersedes stale PR #8255.",
+                    "url": "https://example.test/pr/8543",
+                    "headRefName": "feat/recut",
+                }
+            ],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "open_pr_or_outbox"
+    assert candidate.decision == "preserve"
+    assert "open PR explicitly supersedes closed source PR for branch" in candidate.proof
+    assert candidate.links["superseding_open_prs"] == [
+        {
+            "number": 8543,
+            "title": "feat: replacement",
+            "url": "https://example.test/pr/8543",
+            "headRefName": "feat/recut",
+            "supersedes_pr": 8255,
+        }
+    ]
+
+
+def test_classify_candidate_keeps_generic_pr_reference_harvestable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    _stub_clean_git(monkeypatch, branch="feat/stale", ahead=3, patch_equivalent=False)
+    monkeypatch.setattr(
+        mod,
+        "lookup_branch_prs",
+        lambda *_args, **_kwargs: (
+            [
+                {
+                    "number": 8255,
+                    "state": "CLOSED",
+                    "title": "stale source",
+                    "url": "https://example.test/pr/8255",
+                }
+            ],
+            False,
+            None,
+        ),
+    )
+
+    candidate = mod.classify_candidate(
+        root,
+        context=_context(
+            tmp_path,
+            branch_pr_records_cache={
+                "feat/stale": [
+                    {
+                        "number": 8255,
+                        "state": "CLOSED",
+                        "title": "stale source",
+                        "url": "https://example.test/pr/8255",
+                    }
+                ],
+            },
+            open_pr_records_cache=[
+                {
+                    "number": 8543,
+                    "title": "feat: related work",
+                    "body": "Refs #8255 for historical background.",
+                    "url": "https://example.test/pr/8543",
+                    "headRefName": "feat/related",
+                }
+            ],
+        ),
+        size_bytes=1024,
+        size_lookup_failed=False,
+    )
+
+    assert candidate.classification == "unique_unharvested"
+    assert candidate.links["superseding_open_prs"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -1044,6 +1743,23 @@ def test_run_cmd_missing_binary_still_returns_completed_process(tmp_path: Path) 
 
     assert proc.returncode == 124
     assert proc.stdout == ""
+
+
+def test_run_cmd_replaces_invalid_utf8_output(tmp_path: Path) -> None:
+    import codex_worktree_value_inventory as mod
+
+    proc = mod.run_cmd(
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.stdout.buffer.write(b'patch\\xffpayload')",
+        ],
+        tmp_path,
+        timeout=5,
+    )
+
+    assert proc.returncode == 0
+    assert "patch\ufffdpayload" in proc.stdout
 
 
 def test_timeout_raising_runner_marks_candidate_inspect_timeout_protected(

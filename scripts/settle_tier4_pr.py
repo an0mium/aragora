@@ -13,7 +13,7 @@ import os
 import shlex
 import subprocess
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -34,7 +34,7 @@ except Exception:  # pragma: no cover - script must still run in partial checkou
     gh_subprocess_run = None  # type: ignore[assignment]
 
     def github_cli_env(
-        base_env: dict[str, str] | None = None,
+        base_env: Mapping[str, str] | None = None,
         *,
         prefer_app: bool = True,
     ) -> dict[str, str]:
@@ -61,6 +61,7 @@ OPERATOR_COMMENT_BLOCKER = "missing repo-visible Tier 4 operator settlement comm
 REQUIRED_CHECKS_BLOCKER = "required checks are missing"
 REQUIRED_CHECK_VISIBILITY_SKEW_BLOCKER = "required_check_visibility_skew"
 REQUIRED_CHECK_REST_VISIBILITY_CONTEXT = "required check REST visibility"
+BRANCH_PROTECTION_PREFLIGHT_BLOCKER = "branch protection preflight failed"
 MERGE_QUORUM_SETTLEMENT_PROOF_BLOCKER = (
     "aragora-merge-quorum failure is not proven to be missing human settlement"
 )
@@ -573,6 +574,8 @@ def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: 
     if isinstance(required, list) and str(pr) in {str(item) for item in required}:
         return True
     tier = entry.get("tier")
+    if not isinstance(tier, str | int | float):
+        return False
     try:
         return int(tier) >= 4
     except (TypeError, ValueError):
@@ -1558,7 +1561,7 @@ def _load_live_inputs(
 
 def _required_status_check_patch(*, repo: str, cwd: Path) -> tuple[list[str], str] | None:
     endpoint = f"repos/{repo}/branches/main/protection/required_status_checks"
-    current = _run_json(["gh", "api", endpoint], cwd=cwd)
+    current = _run_json(["gh", "api", endpoint], cwd=cwd, write_op=True)
     contexts = current.get("contexts")
     if not isinstance(contexts, list):
         checks = current.get("checks")
@@ -1621,8 +1624,22 @@ def _top_level_rule_absent(top_level: dict[str, Any], key: str) -> bool:
 
 
 def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
-    login = _current_gh_login(cwd=cwd)
-    if not _login_has_admin_permission(login, repo, cwd):
+    try:
+        login = _current_gh_login(cwd=cwd)
+        has_admin_permission = _login_has_admin_permission(login, repo, cwd)
+    except RuntimeError as exc:
+        raise Tier4ApplyError(
+            f"Tier 4 branch-protection preflight failed before merge mutation: "
+            f"could not probe gh admin permission: {exc}",
+            phase="preflight",
+            mutation_occurred=False,
+            completed_commands=0,
+            recovery_action=(
+                "verify gh auth is available and the eventual merge applier has "
+                "branch-protection admin access, then rerun --merge-apply"
+            ),
+        ) from exc
+    if not has_admin_permission:
         raise Tier4ApplyError(
             f"Tier 4 branch-protection preflight failed: gh login {login} lacks admin permission",
             phase="preflight",
@@ -1633,7 +1650,7 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
 
     base = f"repos/{repo}/branches/main/protection"
     try:
-        top_level = _run_json(["gh", "api", base], cwd=cwd)
+        top_level = _run_json(["gh", "api", base], cwd=cwd, write_op=True)
     except RuntimeError as exc:
         raise Tier4ApplyError(
             f"Tier 4 branch-protection preflight failed before merge mutation: {base}: {exc}",
@@ -1652,7 +1669,7 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
         ("enforce_admins", f"{base}/enforce_admins"),
     ):
         try:
-            _run_json(["gh", "api", endpoint], cwd=cwd)
+            _run_json(["gh", "api", endpoint], cwd=cwd, write_op=True)
         except RuntimeError as exc:
             if _is_not_found_error(exc) and _top_level_rule_absent(top_level, key):
                 continue
@@ -1669,11 +1686,69 @@ def _preflight_branch_protection_reconcile(*, repo: str, cwd: Path) -> None:
             ) from exc
 
 
+def _branch_protection_preflight_is_observational_permission_probe(
+    exc: Tier4ApplyError,
+) -> bool:
+    """Return whether ``--check`` only proved the current observer lacks admin."""
+
+    return (
+        exc.phase == "preflight"
+        and exc.mutation_occurred is False
+        and exc.completed_commands == 0
+        and "lacks admin permission" in str(exc)
+    )
+
+
+def _branch_protection_preflight_report(
+    *,
+    repo: str,
+    cwd: Path,
+    authorized_actions: Collection[str],
+) -> dict[str, Any]:
+    """Run the merge-apply branch-protection capability probe without mutating."""
+
+    if "branch_protection" not in authorized_actions:
+        return {
+            "required": False,
+            "ok": True,
+            "skipped_reason": "branch_protection_reconcile was not authorized",
+        }
+    try:
+        _preflight_branch_protection_reconcile(repo=repo, cwd=cwd)
+    except Tier4ApplyError as exc:
+        payload = exc.to_payload()
+        if _branch_protection_preflight_is_observational_permission_probe(exc):
+            return {
+                **payload,
+                "required": True,
+                "ok": True,
+                "advisory": True,
+                "error": str(exc),
+                "non_blocking_reason": (
+                    "current gh login lacks admin permission; --check is observational "
+                    "and the eventual --merge-apply operator may use a different trusted login"
+                ),
+            }
+        return {
+            **payload,
+            "required": True,
+            "ok": False,
+            "error": str(exc),
+        }
+    return {
+        "required": True,
+        "ok": True,
+        "phase": "preflight",
+        "mutation_occurred": False,
+        "completed_commands": 0,
+    }
+
+
 def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
     base = f"repos/{repo}/branches/main/protection"
     snapshot: dict[str, Any] = {}
     try:
-        top_level = _run_json(["gh", "api", base], cwd=cwd)
+        top_level = _run_json(["gh", "api", base], cwd=cwd, write_op=True)
     except RuntimeError as exc:
         snapshot["branch_protection"] = {"snapshot_error": str(exc)}
         return snapshot
@@ -1684,7 +1759,7 @@ def _branch_protection_snapshot(*, repo: str, cwd: Path) -> dict[str, Any]:
         "enforce_admins": f"{base}/enforce_admins",
     }.items():
         try:
-            snapshot[key] = _run_json(["gh", "api", endpoint], cwd=cwd)
+            snapshot[key] = _run_json(["gh", "api", endpoint], cwd=cwd, write_op=True)
         except RuntimeError as exc:
             if _is_not_found_error(exc) and _top_level_rule_absent(top_level, key):
                 snapshot[key] = None
@@ -2023,6 +2098,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cwd=args.cwd,
                 trusted_operator_logins=args.trusted_operator_login,
             )
+            if args.check and gate["ok"]:
+                branch_protection_preflight = _branch_protection_preflight_report(
+                    repo=args.repo,
+                    cwd=args.cwd,
+                    authorized_actions=set(gate.get("authorized_actions") or []),
+                )
+                gate["branch_protection_preflight"] = branch_protection_preflight
+                preflight_required = bool(branch_protection_preflight.get("required"))
+                preflight_ok = bool(branch_protection_preflight.get("ok"))
+                if preflight_required and not preflight_ok:
+                    error = str(branch_protection_preflight.get("error") or "").strip()
+                    blocker = BRANCH_PROTECTION_PREFLIGHT_BLOCKER
+                    if error:
+                        blocker = f"{blocker}: {error}"
+                    gate["blockers"].append(blocker)
+                    gate["settle_eligible"] = False
+                    gate["ok"] = False
         if args.merge_apply:
             if not gate["ok"]:
                 raise RuntimeError("Tier 4 gate is not satisfied; refusing --merge-apply")

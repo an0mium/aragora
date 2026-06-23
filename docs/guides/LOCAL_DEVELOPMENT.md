@@ -212,10 +212,10 @@ packages like `redis`, `z3`, or `sentence-transformers`, install the relevant
 extras:
 
 ```bash
-pip install -e ".[redis]"          # Redis support
-pip install -e ".[ml]"             # scikit-learn, sentence-transformers
-pip install -e ".[observability]"  # OpenTelemetry, Prometheus
-pip install -e ".[documents]"     # PDF, DOCX, XLSX parsing
+pip install redis                  # Redis support
+pip install scikit-learn sentence-transformers  # ML support
+pip install opentelemetry-sdk prometheus-client  # OpenTelemetry, Prometheus
+pip install pypdf python-docx openpyxl  # PDF, DOCX, XLSX parsing
 ```
 
 ### Telegram/connector collection errors
@@ -225,5 +225,5 @@ The Telegram connector test file has a pre-existing collection error. Use
 
 ### Server won't start without API keys
 
-Use `--offline` mode for local development without any API keys configured.
+Use `--demo` mode for local development without any API keys configured.
 This provides demo data and SQLite storage.

@@ -2413,7 +2413,7 @@ Generate audio podcasts from debate traces.
 #### POST /api/debates/:id/broadcast
 Generate an MP3 podcast from a debate.
 
-**Rate limited**. Requires the broadcast module (`pip install aragora[broadcast]`).
+**Rate limited**. Requires TTS dependencies (`pip install edge-tts pydub`).
 
 **Response:**
 ```json
