@@ -969,27 +969,43 @@ def default_reviewer_runner(family: str, prompt: str) -> ReviewerResult:
     return result
 
 
-def _claude_reviewer_command() -> list[str]:
+@contextmanager
+def _claude_empty_mcp_config_file() -> Iterator[Path]:
+    """Write Claude's empty MCP config to a real file for CLI compatibility."""
+
+    fd, path_text = tempfile.mkstemp(prefix="aragora-claude-mcp-", suffix=".json")
+    path = Path(path_text)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump({"mcpServers": {}}, handle)
+            handle.write("\n")
+        yield path
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _claude_reviewer_command(mcp_config_path: Path) -> list[str]:
     """Argv for the merge-gate claude reviewer with MCP servers disabled.
 
     The reviewer only reads a diff to emit a verdict, so it needs no MCP
     servers. Disabling them avoids claude's startup MCP handshake, which blocks
     until the full timeout when a local MCP server is wedged.
     """
-    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}']
+    return ["claude", "-p", "--strict-mcp-config", "--mcp-config", str(mcp_config_path)]
 
 
 def _run_claude_cli(prompt: str) -> ReviewerResult:
     timeout = _timeout_seconds(_CLAUDE_TIMEOUT_ENV, _CLAUDE_TIMEOUT)
     try:
-        proc = subprocess.run(
-            _claude_reviewer_command(),
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
+        with _claude_empty_mcp_config_file() as mcp_config_path:
+            proc = subprocess.run(
+                _claude_reviewer_command(mcp_config_path),
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
     except FileNotFoundError:
         return ReviewerResult("claude", "", False, "claude CLI not found on PATH")
     except subprocess.TimeoutExpired:
