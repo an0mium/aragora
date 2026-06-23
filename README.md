@@ -390,7 +390,7 @@ aragora/
 │   ├── consensus.py      # Consensus detection and proofs
 │   ├── convergence.py    # Semantic similarity detection
 │   └── phases/           # Propose, critique, revise, vote, judge
-├── agents/         # 43 registered agent types (CLI, direct API, OpenRouter, local)
+├── agents/         # 46 registered agent types (CLI, direct API, OpenRouter, local)
 │   ├── api_agents/       # Anthropic, OpenAI, Gemini, Grok, Mistral, OpenRouter
 │   ├── cli_agents.py     # Claude Code, Codex, Gemini CLI, Grok CLI
 │   └── fallback.py       # OpenRouter fallback on quota errors
@@ -406,8 +406,7 @@ aragora/
 └── workflow/       # DAG-based automation engine
 ```
 
-**Scale:** 4,069 tracked Python files | 135 top-level modules | 216,000+ test functions across 5,078 test files
-(canonical, auto-regenerated numbers: [`docs/METRICS.md`](docs/METRICS.md))
+**Scale:** See [`docs/METRICS.md`](docs/METRICS.md) for canonical, auto-regenerated codebase counts (Python files, top-level modules, test functions, API operations).
 
 ### Performance and Costs
 

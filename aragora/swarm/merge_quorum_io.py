@@ -17,6 +17,7 @@ import sys
 import tempfile
 from typing import Any
 
+from aragora.swarm import github_app_auth
 from aragora.swarm.merge_quorum_reconcile import (
     EvidenceComment,
     PacketClassification,
@@ -68,6 +69,19 @@ def aragora_env() -> dict[str, str]:
     return env
 
 
+def _read_env() -> dict[str, str]:
+    """Environment for *read-only* ``gh`` calls.
+
+    Prefer the GitHub App installation token so reads draw on the App's separate
+    API budget instead of starving the operator's shared per-user PAT quota (the
+    chronic GraphQL-exhaustion failure mode). Degrades transparently to the
+    ambient/operator auth when no App config is present. Read-only by design --
+    the App installation 403s on classic branch-protection writes, so write call
+    sites deliberately keep ``run()``'s default (PAT) env instead of this helper.
+    """
+    return github_app_auth.github_cli_env(aragora_env())
+
+
 def run(
     args: list[str], *, env: dict[str, str] | None = None, timeout: int | None = _GH_TIMEOUT
 ) -> subprocess.CompletedProcess:
@@ -105,7 +119,8 @@ def list_open_prs(repo: str, *, limit: int, author: str | None) -> list[int]:
                 str(limit),
                 "--json",
                 "number,isDraft,author",
-            ]
+            ],
+            env=_read_env(),
         )
         or []
     )
@@ -133,7 +148,8 @@ def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
             repo,
             "--json",
             "headRefOid,commits,statusCheckRollup",
-        ]
+        ],
+        env=_read_env(),
     )
     head_sha = str(data.get("headRefOid") or "").strip()
     commits = data.get("commits") or []
@@ -146,7 +162,9 @@ def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
         # The head may be beyond the returned commit slice; fetch its date
         # directly rather than guessing from the last listed commit.
         try:
-            commit = run_json(["gh", "api", f"repos/{repo}/commits/{head_sha}"]) or {}
+            commit = (
+                run_json(["gh", "api", f"repos/{repo}/commits/{head_sha}"], env=_read_env()) or {}
+            )
         except RuntimeError:
             commit = {}
         committer = (commit.get("commit") or {}).get("committer") or {}
@@ -185,7 +203,8 @@ def fetch_latest_quorum_run(repo: str, head_sha: str) -> QuorumRun | None:
             "gh",
             "api",
             f"repos/{repo}/actions/workflows/{QUORUM_WORKFLOW_FILE}/runs?head_sha={head_sha}&per_page=1",
-        ]
+        ],
+        env=_read_env(),
     )
     runs = (data or {}).get("workflow_runs") or []
     if not runs:
@@ -210,7 +229,10 @@ def fetch_human_settlement_present(repo: str, head_sha: str) -> bool:
     if not head_sha:
         return False
     try:
-        statuses = run_json(["gh", "api", f"repos/{repo}/commits/{head_sha}/statuses"]) or []
+        statuses = (
+            run_json(["gh", "api", f"repos/{repo}/commits/{head_sha}/statuses"], env=_read_env())
+            or []
+        )
     except RuntimeError:
         return False
     for status in statuses:
@@ -243,7 +265,7 @@ def fetch_merge_packet_classification(repo: str, pr: int) -> PacketClassificatio
                 repo,
                 "--json",
             ],
-            env=aragora_env(),
+            env=_read_env(),
             timeout=_MERGE_PACKET_TIMEOUT,
         )
     except subprocess.TimeoutExpired:

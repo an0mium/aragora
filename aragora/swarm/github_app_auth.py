@@ -362,6 +362,7 @@ def _bucket_for_args(args: Sequence[str], stderr: str) -> str:
 def gh_subprocess_run(
     args: Sequence[str],
     *,
+    cwd: Path | None = None,
     timeout: float = 30.0,
     prefer_app: bool = True,
     write_op: bool = False,
@@ -406,6 +407,7 @@ def gh_subprocess_run(
     while attempt <= max_retries:
         result = subprocess.run(  # noqa: S603 - controlled gh invocation
             ["gh", *list(args)],
+            cwd=cwd,
             capture_output=True,
             text=True,
             timeout=timeout,
