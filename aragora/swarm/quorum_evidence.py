@@ -680,7 +680,7 @@ def _reviewer_verdict(text: str) -> str:
 
 _THINKING_TAG_NAMES = "think|thinking|reasoning|thought|scratchpad|analysis"
 _THINKING_BLOCK_RE = re.compile(
-    rf"^[ \t]*<\s*({_THINKING_TAG_NAMES})\s*>.*?<\s*/\s*\1\s*>[ \t]*(?:\r?\n|$)",
+    rf"<\s*({_THINKING_TAG_NAMES})\s*>.*?<\s*/\s*\1\s*>[ \t]*",
     re.DOTALL | re.IGNORECASE | re.MULTILINE,
 )
 _THINKING_OPEN_RE = re.compile(
@@ -691,13 +691,18 @@ _THINKING_OPEN_RE = re.compile(
 
 def _strip_thinking_traces(text: str) -> str:
     """Remove reasoning-trace blocks some models emit before or after answering."""
-    cleaned = _THINKING_BLOCK_RE.sub("", text)
-    verdict_offset = _first_verdict_offset(cleaned)
-    if verdict_offset != -1:
-        for match in _THINKING_OPEN_RE.finditer(cleaned):
-            if match.start() > verdict_offset:
-                cleaned = cleaned[: match.start()].rstrip()
+    verdict_offset = _first_verdict_offset(text)
+    if verdict_offset == -1:
+        cleaned = _THINKING_BLOCK_RE.sub("", text)
+    else:
+        prefix = _THINKING_BLOCK_RE.sub("", text[:verdict_offset])
+        suffix = text[verdict_offset:]
+        kept_suffix: list[str] = []
+        for line in suffix.splitlines(keepends=True):
+            if _THINKING_OPEN_RE.match(line) and not re.search(r"\[P[0-3]\]", line, re.IGNORECASE):
                 break
+            kept_suffix.append(line)
+        cleaned = f"{prefix}{''.join(kept_suffix)}"
     return re.sub(r"\n{3,}", "\n\n", cleaned).strip()
 
 
@@ -709,11 +714,6 @@ def _first_verdict_offset(text: str) -> int:
             return offset
         offset += len(line)
     return -1
-
-
-def _starts_with_unclosed_thinking_trace(text: str) -> bool:
-    stripped = text.lstrip()
-    return bool(re.match(rf"<\s*(?:{_THINKING_TAG_NAMES})\s*>", stripped, re.IGNORECASE))
 
 
 def _reanchor_at_verdict(text: str) -> str:
@@ -729,11 +729,7 @@ def _reanchor_at_verdict(text: str) -> str:
         if probe.startswith("verdict:"):
             verdict_indices.append(idx)
     if verdict_indices:
-        idx = (
-            verdict_indices[-1]
-            if _starts_with_unclosed_thinking_trace(text)
-            else verdict_indices[0]
-        )
+        idx = verdict_indices[-1] if len(verdict_indices) > 1 else verdict_indices[0]
         return "\n".join(lines[idx:]).strip()
     return text.strip()
 
@@ -1206,8 +1202,6 @@ def _openrouter_reviewer_available() -> bool:
 def _openrouter_reviewer_prompt(family: str, prompt: str) -> str:
     """Return the prompt sent to OpenRouter for the reviewer family."""
     if canonical_family(family) not in _OPENROUTER_NO_THINK_FAMILIES:
-        return prompt
-    if "/no_think" in prompt:
         return prompt
     return f"{prompt.rstrip()}\n\n/no_think"
 

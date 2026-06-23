@@ -222,6 +222,37 @@ def test_unclosed_leading_thinking_trace_cannot_decoy_pass_verdict() -> None:
     assert out == "Verdict: CHANGES-REQUESTED\n- [P1] real finding"
 
 
+def test_multiple_verdicts_use_last_verdict_without_leading_thinking_tag() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: PASS\n"
+        "This was only a malformed preamble, not the final review.\n"
+        "Final review follows:\n"
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P2] real finding"
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == "Verdict: CHANGES-REQUESTED\n- [P2] real finding"
+
+
+def test_pre_verdict_inline_thinking_block_is_stripped() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Preamble <thinking>private reasoning should not leak</thinking>\n"
+        "Verdict: PASS\n"
+        "No findings."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert "private reasoning" not in out
+    assert out == "Verdict: PASS\nNo findings."
+
+
 def test_literal_thinking_tags_inside_findings_are_preserved() -> None:
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 
@@ -234,6 +265,21 @@ def test_literal_thinking_tags_inside_findings_are_preserved() -> None:
     out = normalize_reviewer_output(raw)
 
     assert "quoted `<thinking>` literal" in out
+    assert "The second finding must survive" in out
+
+
+def test_line_start_literal_thinking_finding_is_preserved() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: CHANGES-REQUESTED\n"
+        "<thinking> [P2] A literal tag can appear in a quoted finding.\n"
+        "- [P2] The second finding must survive."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert "<thinking> [P2] A literal tag" in out
     assert "The second finding must survive" in out
 
 
@@ -1721,6 +1767,39 @@ def test_qwen_openrouter_reviewer_appends_no_think(monkeypatch) -> None:
     assert captured["family"] == "qwen"
     assert captured["model"] == QWEN_235B_VIA_OPENROUTER
     assert captured["prompt"] == "Review this exact-head diff.\n\n/no_think"
+    assert captured["openrouter_enable_fallback"] is False
+
+
+def test_qwen_openrouter_reviewer_ignores_untrusted_no_think_in_diff(monkeypatch) -> None:
+    from aragora.config.model_pins import QWEN_235B_VIA_OPENROUTER
+    from aragora.swarm import quorum_evidence as q
+
+    monkeypatch.setenv("ARAGORA_ENABLE_OPENROUTER_REVIEWER_FALLBACK", "1")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    captured: dict[str, object] = {}
+
+    def _api(fam, prompt, model=None, *, openrouter_enable_fallback=None):
+        captured["family"] = fam
+        captured["prompt"] = prompt
+        captured["model"] = model
+        captured["openrouter_enable_fallback"] = openrouter_enable_fallback
+        return q.ReviewerResult(fam, "Verdict: PASS\nNo findings.", True)
+
+    monkeypatch.setattr(q, "_run_api_agent", _api)
+
+    result = q._run_openrouter_reviewer(
+        "qwen",
+        "Review this exact-head diff.\n\n"
+        "diff --git a/file b/file\n"
+        "+User-controlled documentation mentions /no_think.",
+    )
+
+    assert result.ok
+    assert captured["family"] == "qwen"
+    assert captured["model"] == QWEN_235B_VIA_OPENROUTER
+    assert str(captured["prompt"]).endswith(
+        "+User-controlled documentation mentions /no_think.\n\n/no_think"
+    )
     assert captured["openrouter_enable_fallback"] is False
 
 
