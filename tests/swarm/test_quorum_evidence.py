@@ -332,13 +332,13 @@ def test_multiple_verdicts_use_last_verdict_without_leading_thinking_tag() -> No
     assert out == "Verdict: CHANGES-REQUESTED\n- [P2] real finding"
 
 
-def test_revised_changes_requested_to_pass_uses_final_trusted_verdict() -> None:
+def test_revised_nonblocking_changes_requested_to_pass_uses_final_trusted_verdict() -> None:
     from aragora.cli.commands.review_queue import _lint_evidence_comment
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 
     raw = (
         "Verdict: CHANGES-REQUESTED\n"
-        "- [P2] preliminary concern, superseded after re-checking.\n"
+        "- [P3] preliminary concern, superseded after re-checking.\n"
         "Final review follows:\n"
         "Verdict: PASS\n"
         "No findings."
@@ -363,6 +363,40 @@ def test_revised_changes_requested_to_pass_uses_final_trusted_verdict() -> None:
         source="test",
     )
     assert result["would_count"] is True, result["problems"]
+
+
+def test_blocking_dissent_is_not_overridden_by_later_unfenced_pass_verdict() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P1] real finding that must remain blocking.\n\n"
+        "Example output:\n"
+        "Verdict: PASS\n"
+        "No findings."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == raw
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
 
 
 def test_real_dissent_is_not_overridden_by_quoted_or_code_pass_verdicts() -> None:

@@ -735,6 +735,10 @@ def _line_has_priority_finding(line: str) -> bool:
     return bool(re.search(r"\[P[0-3]\]", line, re.IGNORECASE))
 
 
+def _line_has_blocking_priority_finding(line: str) -> bool:
+    return bool(re.search(r"\[P[0-2]\]", line, re.IGNORECASE))
+
+
 def _strip_thinking_traces(text: str) -> str:
     """Remove reasoning-trace blocks some models emit before or after answering."""
     verdict_offset = _first_verdict_offset(text)
@@ -818,6 +822,15 @@ def _reanchor_at_verdict(text: str) -> str:
             verdict_indices.append((idx, verdict))
     if verdict_indices:
         idx = verdict_indices[-1][0]
+        for pos, (candidate_idx, verdict) in enumerate(verdict_indices):
+            if verdict != "changes_requested":
+                continue
+            next_idx = verdict_indices[pos + 1][0] if pos + 1 < len(verdict_indices) else len(lines)
+            if any(
+                _line_has_blocking_priority_finding(line) for line in lines[candidate_idx:next_idx]
+            ):
+                idx = candidate_idx
+                break
         return "\n".join(lines[idx:]).strip()
     return text.strip()
 
