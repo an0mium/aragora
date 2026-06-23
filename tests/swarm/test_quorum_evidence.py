@@ -302,6 +302,36 @@ def test_unclosed_trailing_thinking_after_nonblocking_finding_does_not_flip_pass
     assert out == "Verdict: PASS\n- [P3] minor style issue, non-blocking."
 
 
+def test_unclosed_trailing_thinking_cannot_hide_blocking_finding() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "Verdict: PASS\n"
+        "No findings.\n"
+        "<thinking>\n"
+        "- [P1] Real hidden blocker that must not be stripped into support."
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "Real hidden blocker" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
+
+
 def test_unclosed_leading_thinking_trace_still_reanchors_at_verdict() -> None:
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 
@@ -444,6 +474,26 @@ def test_blocking_dissent_is_not_overridden_by_later_unfenced_pass_verdict() -> 
     )
     assert result["would_count"] is False
     assert "blocking_or_negative_verdict" in result["problems"]
+
+
+@pytest.mark.parametrize(
+    "example",
+    [
+        "```\n- [P1] example only\n```",
+        "> - [P1] example only",
+        "    - [P1] example only",
+    ],
+)
+def test_reanchor_ignores_untrusted_priority_examples_before_final_pass(example: str) -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        f"Verdict: CHANGES-REQUESTED\n{example}\nFinal review follows:\nVerdict: PASS\nNo findings."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == "Verdict: PASS\nNo findings."
 
 
 def test_real_dissent_is_not_overridden_by_quoted_or_code_pass_verdicts() -> None:

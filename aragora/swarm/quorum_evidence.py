@@ -713,9 +713,24 @@ def _private_reasoning_nonfinding_context(text: str) -> bool:
     return bool(_PRIVATE_REASONING_NONFINDING_RE.search(text))
 
 
+def _line_is_untrusted_example(line: str) -> bool:
+    stripped = line.strip()
+    return stripped.startswith(">") or _is_markdown_indented_code_line(line)
+
+
 def _line_has_concrete_blocking_finding(line: str) -> bool:
     return _line_has_blocking_priority_finding(line) and not _private_reasoning_nonfinding_context(
         line
+    )
+
+
+def _text_has_concrete_blocking_signal(text: str) -> bool:
+    if _private_reasoning_nonfinding_context(text):
+        return False
+    return any(
+        _line_has_blocking_priority_finding(line)
+        or _trusted_line_verdict(line) == "changes_requested"
+        for line in text.splitlines()
     )
 
 
@@ -723,7 +738,7 @@ def _closed_thinking_block_is_safe_to_strip(block: str) -> bool:
     # Thinking traces are normally private model scratchpad. Preserve them only
     # when they contain concrete blocking evidence markers; otherwise a raw
     # [P1]/[P2] finding can be stripped into countable PASS support.
-    return not any(_line_has_concrete_blocking_finding(line) for line in block.splitlines())
+    return not _text_has_concrete_blocking_signal(block)
 
 
 def _strip_closed_thinking_blocks(text: str) -> str:
@@ -738,6 +753,20 @@ def _strip_closed_thinking_blocks(text: str) -> str:
 def _closed_thinking_block_from_lines(lines: list[str], start_idx: int) -> str:
     match = _THINKING_BLOCK_RE.match("".join(lines[start_idx:]))
     return match.group(0) if match else ""
+
+
+def _trusted_blocking_priority_between(lines: list[str], start_idx: int, end_idx: int) -> bool:
+    in_fence = False
+    for line in lines[start_idx:end_idx]:
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence or _line_is_untrusted_example(line):
+            continue
+        if _line_has_concrete_blocking_finding(line):
+            return True
+    return False
 
 
 def _trusted_verdict_probe(line: str) -> str:
@@ -799,9 +828,12 @@ def _strip_thinking_traces(text: str) -> str:
                 current_verdict = _trusted_line_verdict(line)
             has_blocking_priority = _line_has_blocking_priority_finding(line)
             later_has_blocking_priority = any(
-                _line_has_blocking_priority_finding(rest) for rest in suffix_lines[idx + 1 :]
+                _line_has_concrete_blocking_finding(rest) for rest in suffix_lines[idx + 1 :]
             )
             later_has_verdict = any(_trusted_line_verdict(rest) for rest in suffix_lines[idx + 1 :])
+            open_thinking_tail = (
+                "".join(suffix_lines[idx:]) if _THINKING_OPEN_RE.match(line) else ""
+            )
             closed_thinking_block = (
                 _closed_thinking_block_from_lines(suffix_lines, idx)
                 if _THINKING_OPEN_RE.match(line)
@@ -811,11 +843,17 @@ def _strip_thinking_traces(text: str) -> str:
                 closed_thinking_block
                 and not _closed_thinking_block_is_safe_to_strip(closed_thinking_block)
             )
+            open_tail_has_concrete_blocking = bool(
+                open_thinking_tail
+                and not closed_thinking_block
+                and _text_has_concrete_blocking_signal(open_thinking_tail)
+            )
             if (
                 _THINKING_OPEN_RE.match(line)
                 and not has_blocking_priority
                 and not seen_blocking_finding
                 and not closed_block_has_concrete_blocking
+                and not open_tail_has_concrete_blocking
                 and not in_fence
                 and (
                     current_verdict == "pass"
@@ -877,9 +915,7 @@ def _reanchor_at_verdict(text: str) -> str:
             if verdict != "changes_requested":
                 continue
             next_idx = verdict_indices[pos + 1][0] if pos + 1 < len(verdict_indices) else len(lines)
-            if any(
-                _line_has_blocking_priority_finding(line) for line in lines[candidate_idx:next_idx]
-            ):
+            if _trusted_blocking_priority_between(lines, candidate_idx, next_idx):
                 idx = candidate_idx
                 break
         return "\n".join(lines[idx:]).strip()
