@@ -1,10 +1,10 @@
-"""Tests for the [P0]/[P1] non-finding false-positive in the verdict scanner.
+"""Tests for the [P0]/[P1]/[P2] non-finding false-positive in the verdict scanner.
 
 `has_blocking_or_negative_verdict` is the blocking-language scan used at BOTH
 collect-time and gate-time to decide whether a reviewer's evidence counts. It
-treated ANY line starting with `[P0]`/`[P1]` as a blocking finding — including
+treated ANY line starting with `[P0]`/`[P1]`/`[P2]` as a blocking finding — including
 `"[P1] None:"` / `"[P1] N/A"`, which low-cost models (and claude/codex) emit to
-say "no P0/P1 issues". That silently de-counted a PASS vote.
+say "no P0/P1/P2 issues". That silently de-counted a PASS vote.
 
 The fix must be conservative: a real finding that merely *starts with* "none"/"no"
 (e.g. `[P1] None of the inputs are validated`, `[P1] no auth check`) MUST still
@@ -82,6 +82,14 @@ def test_bare_p1_tag_blocks_conservatively():
 
 def test_p0_real_finding_still_blocks():
     assert has_blocking_or_negative_verdict("[P0] settlement gate bypass")
+
+
+def test_p2_real_finding_still_blocks():
+    assert has_blocking_or_negative_verdict("[P2] prepared apply bypasses the freeze proof")
+
+
+def test_p3_finding_remains_non_blocking():
+    assert not has_blocking_or_negative_verdict("[P3] clarify operator warning text")
 
 
 def test_negative_verdict_line_still_blocks():

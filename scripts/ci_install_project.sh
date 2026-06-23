@@ -15,7 +15,7 @@ readonly LEGACY_CONTROL_PLANE_MARKER_PATH="aragora/server"
 # two files disagree creates noise and confusion. If pyproject.toml raises
 # any floor, mirror it here.
 LEGACY_CONTROL_PLANE_BASE_DEPS=(
-  "aiohttp>=3.13.3,<4.0"
+  "aiohttp>=3.14.1,<4.0"             # aligned to pyproject base/[blockchain]/[all]
   "websockets>=13.0,<15.1"
   "pyyaml>=6.0.3,<7.0"
   "pydantic>=2.13.2,<3.0"            # aligned to pyproject [test]

@@ -293,10 +293,64 @@ def run_cmd(
     )
 
 
+def run_cmd_bytes(
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: int,
+    env: dict[str, str] | None = None,
+    input_bytes: bytes | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    try:
+        proc = subprocess.Popen(
+            args,
+            cwd=cwd,
+            stdin=subprocess.PIPE if input_bytes is not None else subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        return subprocess.CompletedProcess(
+            args=args, returncode=124, stdout=b"", stderr=str(exc).encode()
+        )
+    try:
+        if input_bytes is None:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        else:
+            stdout, stderr = proc.communicate(input=input_bytes, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=124,
+            stdout=b"",
+            stderr=f"command timed out after {timeout}s: {' '.join(args)}".encode(),
+        )
+    except (OSError, ValueError) as exc:
+        _kill_process_tree(proc)
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=125,
+            stdout=b"",
+            stderr=f"command failed while reading output: {type(exc).__name__}: {exc}".encode(),
+        )
+    return subprocess.CompletedProcess(
+        args=args, returncode=proc.returncode, stdout=stdout or b"", stderr=stderr or b""
+    )
+
+
 def run_git(
     args: list[str], cwd: Path, *, timeout: int = GIT_TIMEOUT_SECONDS
 ) -> subprocess.CompletedProcess[str]:
     return run_cmd(["git", *args], cwd, timeout=timeout)
+
+
+def run_git_bytes(
+    args: list[str], cwd: Path, *, timeout: int = GIT_TIMEOUT_SECONDS
+) -> subprocess.CompletedProcess[bytes]:
+    return run_cmd_bytes(["git", *args], cwd, timeout=timeout)
 
 
 def resolve_repo(path: Path) -> Path:
@@ -424,6 +478,55 @@ def _receipt_heads_from_mapping(payload: dict[str, Any]) -> set[str | None]:
     return heads
 
 
+def _concrete_receipt_heads_from_value(value: Any) -> set[str]:
+    heads: set[str] = set()
+    if isinstance(value, dict):
+        heads.update(head for head in _receipt_heads_from_mapping(value) if head)
+        for item in value.values():
+            heads.update(_concrete_receipt_heads_from_value(item))
+    elif isinstance(value, list):
+        for item in value:
+            heads.update(_concrete_receipt_heads_from_value(item))
+    return heads
+
+
+def _merged_pr_receipt_head_matches(github_pr: dict[str, Any], payload: dict[str, Any]) -> bool:
+    pr_heads = {head for head in _receipt_heads_from_mapping(github_pr) if head}
+    if not pr_heads:
+        return False
+
+    receipt_heads = {head for head in _receipt_heads_from_mapping(payload) if head}
+    for key in (
+        "candidate",
+        "candidates",
+        "local_evidence",
+        "requested_action",
+        "selected_candidate",
+        "source_candidate",
+        "source_candidates",
+    ):
+        receipt_heads.update(_concrete_receipt_heads_from_value(payload.get(key)))
+
+    reconfirmation = payload.get("reconfirmation")
+    if isinstance(reconfirmation, dict):
+        for key in (
+            "candidate",
+            "candidates",
+            "local_evidence",
+            "requested_action",
+            "selected_candidate",
+            "source_candidate",
+            "source_candidates",
+        ):
+            receipt_heads.update(_concrete_receipt_heads_from_value(reconfirmation.get(key)))
+
+    return bool(receipt_heads) and any(
+        _commit_prefix_matches(pr_head, receipt_head)
+        for pr_head in pr_heads
+        for receipt_head in receipt_heads
+    )
+
+
 def _receipt_path_head_pairs(
     value: Any,
     *,
@@ -469,6 +572,14 @@ def _terminal_path_receipt(payload: dict[str, Any]) -> bool:
         return True
     if decision.startswith(TERMINAL_HARVEST_DECISION_PREFIXES):
         return True
+    github_pr = payload.get("github_pr")
+    reconfirmation = payload.get("reconfirmation")
+    if isinstance(reconfirmation, dict) and not isinstance(github_pr, dict):
+        github_pr = reconfirmation.get("github_pr")
+    if isinstance(github_pr, dict):
+        state = str(github_pr.get("state") or "").strip().upper()
+        if state == "MERGED" and _merged_pr_receipt_head_matches(github_pr, payload):
+            return True
     return False
 
 
@@ -772,23 +883,31 @@ def branch_patches_present_on_base(
 
         verified: list[str] = []
         for commit in commits:
-            patch = run_git(["show", "--format=", "--binary", commit], repo_path, timeout=timeout)
+            patch = run_git_bytes(
+                ["show", "--format=", "--binary", commit], repo_path, timeout=timeout
+            )
             if patch.returncode != 0 or not patch.stdout.strip():
                 if lookup_errors is not None:
-                    detail = (patch.stderr or patch.stdout or "").strip()
+                    detail = (
+                        (patch.stderr or patch.stdout or b"").decode("utf-8", "replace").strip()
+                    )
                     reason = "empty patch" if patch.returncode == 0 else detail or patch.returncode
                     lookup_errors.append(f"patch-present show failed for {commit}: {reason}")
                 return False, verified
-            reverse_check = run_cmd(
+            reverse_check = run_cmd_bytes(
                 ["git", "apply", "--cached", "--reverse", "--check", "-"],
                 repo_path,
                 timeout=timeout,
                 env=env,
-                input_text=patch.stdout,
+                input_bytes=patch.stdout,
             )
             if reverse_check.returncode != 0:
                 if lookup_errors is not None and reverse_check.returncode == 124:
-                    detail = (reverse_check.stderr or reverse_check.stdout or "").strip()
+                    detail = (
+                        (reverse_check.stderr or reverse_check.stdout or b"")
+                        .decode("utf-8", "replace")
+                        .strip()
+                    )
                     lookup_errors.append(
                         f"patch-present reverse-check failed for {commit}: "
                         f"{detail or reverse_check.returncode}"

@@ -221,7 +221,8 @@ def check_outbox(
         oldest_days = _age_hours(oldest, now) / 24.0
         if oldest_days > max_age_days:
             problems.append(
-                f"oldest item {oldest.name} is {oldest_days:.1f}d old (max {max_age_days}d)"
+                f"{len(items)} item(s) queued; oldest item {oldest.name} is "
+                f"{oldest_days:.1f}d old (max {max_age_days}d)"
             )
     if problems:
         result = _result(name, "breach", "; ".join(problems))

@@ -503,6 +503,144 @@ def test_terminal_receipt_path_heads_reads_object_decision_status(
     assert refs[str(root.resolve())] == {"abcdef123456"}
 
 
+def test_terminal_receipt_path_heads_reads_merged_pr_evidence(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "merged-pr.json").write_text(
+        json.dumps(
+            {
+                "reconfirmation": {
+                    "github_pr": {
+                        "number": 8148,
+                        "state": "MERGED",
+                        "head_sha": "abcdef123456",
+                    }
+                },
+                "selected_candidate": {
+                    "path": str(root),
+                    "repo_path": str(repo_path),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs[str(root.resolve())] == {"abcdef123456"}
+    assert refs[str(repo_path.resolve())] == {"abcdef123456"}
+
+
+def test_terminal_receipt_path_heads_ignores_merged_pr_head_mismatch(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "merged-pr-stale-head.json").write_text(
+        json.dumps(
+            {
+                "reconfirmation": {
+                    "github_pr": {
+                        "number": 8148,
+                        "state": "MERGED",
+                        "head_sha": "abcdef123456",
+                    }
+                },
+                "selected_candidate": {
+                    "path": str(root),
+                    "repo_path": str(repo_path),
+                    "head": "999999999999",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs == {}
+
+
+def test_terminal_receipt_path_heads_ignores_merged_pr_without_head_evidence(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "merged-pr-no-head.json").write_text(
+        json.dumps(
+            {
+                "reconfirmation": {
+                    "github_pr": {
+                        "number": 8148,
+                        "state": "MERGED",
+                    }
+                },
+                "selected_candidate": {
+                    "path": str(root),
+                    "repo_path": str(repo_path),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert refs == {}
+
+
+def test_terminal_receipt_path_heads_ignores_non_merged_pr_with_merged_at(
+    tmp_path: Path,
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    root = _candidate(tmp_path)
+    repo_path = root / "aragora"
+    receipt_dir = tmp_path / ".aragora" / "worktree-harvest" / "harvest-receipts"
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / "open-pr-with-merged-at.json").write_text(
+        json.dumps(
+            {
+                "reconfirmation": {
+                    "github_pr": {
+                        "number": 8148,
+                        "state": "OPEN",
+                        "merged_at": "2026-06-18T03:40:27Z",
+                        "head_sha": "abcdef123456",
+                    }
+                },
+                "selected_candidate": {
+                    "path": str(root),
+                    "repo_path": str(repo_path),
+                    "head": "abcdef123456",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    refs = mod.terminal_receipt_path_heads([receipt_dir])
+
+    assert str(root.resolve()) not in refs
+    assert str(repo_path.resolve()) not in refs
+
+
 def test_unique_unharvested_when_ahead_and_not_patch_equivalent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -836,6 +974,145 @@ def test_branch_patches_present_on_base_uses_temp_index_only(tmp_path: Path) -> 
 
     assert present is True
     assert matched == [stale_commit]
+
+
+def test_branch_patches_present_on_base_handles_binary_file(tmp_path: Path) -> None:
+    import subprocess
+
+    import codex_worktree_value_inventory as mod
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return proc.stdout.strip()
+
+    git("init", "-b", "master")
+    git("config", "user.email", "test@example.test")
+    git("config", "user.name", "Test User")
+    (repo / "asset.bin").write_bytes(b"\x00old\xff\x00")
+    git("add", "asset.bin")
+    git("commit", "-m", "base binary")
+
+    git("checkout", "-b", "stale")
+    (repo / "asset.bin").write_bytes(b"\x00new\xfe\x00")
+    git("add", "asset.bin")
+    git("commit", "-m", "stale binary patch")
+    stale_commit = git("rev-parse", "HEAD")
+
+    git("checkout", "master")
+    (repo / "asset.bin").write_bytes(b"\x00new\xfe\x00")
+    git("add", "asset.bin")
+    git("commit", "-m", "main contains binary patch")
+
+    present, matched = mod.branch_patches_present_on_base(
+        repo,
+        "master",
+        "stale",
+        timeout=5,
+    )
+
+    assert present is True
+    assert matched == [stale_commit]
+
+
+def test_branch_patches_present_on_base_pipes_patch_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import subprocess
+
+    import codex_worktree_value_inventory as mod
+
+    binary_patch = b"patch bytes before invalid utf8 \xff\xfe after\n"
+    piped_patch: bytes | None = None
+
+    def completed(
+        args: list[str], *, stdout: str = "", returncode: int = 0
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=args, returncode=returncode, stdout=stdout, stderr=""
+        )
+
+    def completed_bytes(
+        args: list[str], *, stdout: bytes = b"", returncode: int = 0
+    ) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(
+            args=args, returncode=returncode, stdout=stdout, stderr=b""
+        )
+
+    def fake_run_git(
+        args: list[str],
+        _cwd: Path,
+        *,
+        timeout: int = mod.GIT_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
+        _ = timeout
+        if args[:3] == ["rev-list", "--reverse", "--no-merges"]:
+            return completed(args, stdout="binarycommit\n")
+        return completed(args, returncode=1)
+
+    def fake_run_git_bytes(
+        args: list[str],
+        _cwd: Path,
+        *,
+        timeout: int = mod.GIT_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[bytes]:
+        _ = timeout
+        if args[:3] == ["show", "--format=", "--binary"]:
+            return completed_bytes(args, stdout=binary_patch)
+        return completed_bytes(args, returncode=1)
+
+    def fake_run_cmd(
+        args: list[str],
+        _cwd: Path,
+        *,
+        timeout: int,
+        env: dict[str, str] | None = None,
+        input_text: str | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        _ = timeout, env, input_text
+        if args == ["git", "read-tree", "main"]:
+            return completed(args)
+        return completed(args, returncode=1)
+
+    def fake_run_cmd_bytes(
+        args: list[str],
+        _cwd: Path,
+        *,
+        timeout: int,
+        env: dict[str, str] | None = None,
+        input_bytes: bytes | None = None,
+    ) -> subprocess.CompletedProcess[bytes]:
+        nonlocal piped_patch
+        _ = timeout, env
+        if args == ["git", "apply", "--cached", "--reverse", "--check", "-"]:
+            piped_patch = input_bytes
+            return completed_bytes(args)
+        return completed_bytes(args, returncode=1)
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "run_git_bytes", fake_run_git_bytes)
+    monkeypatch.setattr(mod, "run_cmd", fake_run_cmd)
+    monkeypatch.setattr(mod, "run_cmd_bytes", fake_run_cmd_bytes)
+
+    present, matched = mod.branch_patches_present_on_base(
+        tmp_path,
+        "main",
+        "feature",
+        timeout=5,
+    )
+
+    assert present is True
+    assert matched == ["binarycommit"]
+    assert piped_patch == binary_patch
 
 
 def test_branch_merge_tree_matches_base_for_noop_merge_commit(tmp_path: Path) -> None:

@@ -30,8 +30,12 @@ except ImportError:
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[1]
 HEARTBEAT_RELATIVE_PATH = Path(".aragora") / "agent-bridge" / "heartbeats.json"
+FINALIZER_RECEIPTS_RELATIVE_PATH = (
+    Path(".aragora") / "agent-bridge" / "heartbeat-finalizer-receipts.jsonl"
+)
 AUTOMATION_STATE_ROOT_ENV = "ARAGORA_AUTOMATION_STATE_ROOT"
 SAFE_OWNER_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+TERMINAL_OUTCOMES = frozenset({"completed", "failed", "cancelled", "handoff"})
 
 
 def _utc_now_iso() -> str:
@@ -118,6 +122,14 @@ def resolve_heartbeat_path(*, repo_root: Path, explicit: Path | None = None) -> 
     )
 
 
+def resolve_finalizer_receipt_path(*, repo_root: Path, explicit: Path | None = None) -> Path:
+    if explicit is not None:
+        return explicit
+    return _automation_state_default_path(
+        _automation_state_root(repo_root), FINALIZER_RECEIPTS_RELATIVE_PATH
+    )
+
+
 @contextmanager
 def _heartbeat_write_lock(path: Path) -> Iterator[None]:
     """Serialize heartbeat read-modify-write cycles across harnesses."""
@@ -136,6 +148,48 @@ def _heartbeat_write_lock(path: Path) -> Iterator[None]:
 
 def _compact(row: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in row.items() if value not in ("", None)}
+
+
+def _append_jsonl(path: Path, row: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        json.dump(row, handle, sort_keys=True)
+        handle.write("\n")
+
+
+def _heartbeat_identity_matches(row: dict[str, Any], *, lane_id: str, owner_session: str) -> bool:
+    return (
+        str(row.get("lane_id") or "") == lane_id
+        and str(row.get("owner_session") or "") == owner_session
+    )
+
+
+def _terminal_heartbeat_fields(receipt: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "terminal": True,
+        "terminal_outcome": receipt["outcome"],
+        "terminal_reason": receipt["reason"],
+        "terminal_finalized_at": receipt["finalized_at"],
+    }
+
+
+def _mark_matching_heartbeat_terminal(heartbeat_path: Path, *, receipt: dict[str, Any]) -> None:
+    rows = _read_rows(heartbeat_path)
+    if not rows:
+        return
+    lane_id = str(receipt["lane_id"])
+    owner_session = str(receipt["owner_session"])
+    terminal_fields = _terminal_heartbeat_fields(receipt)
+    out: list[dict[str, Any]] = []
+    changed = False
+    for existing in rows:
+        if _heartbeat_identity_matches(existing, lane_id=lane_id, owner_session=owner_session):
+            out.append({**existing, **terminal_fields})
+            changed = True
+        else:
+            out.append(existing)
+    if changed:
+        _atomic_write(heartbeat_path, out)
 
 
 def record_heartbeat(
@@ -189,8 +243,62 @@ def record_heartbeat(
     return row
 
 
+def record_finalizer_receipt(
+    *,
+    heartbeat_path: Path,
+    receipt_path: Path,
+    lane_id: str,
+    owner_session: str,
+    outcome: str,
+    reason: str,
+    thread_id: str = "",
+    pid: int | None = None,
+    cwd: str = "",
+    worktree: str = "",
+    branch: str = "",
+    pr_number: int | None = None,
+    finalized_at: str | None = None,
+) -> dict[str, Any]:
+    """Append terminal owner proof and mark the matching heartbeat non-live."""
+    if not lane_id:
+        raise ValueError("lane_id must not be empty")
+    _validate_owner_session(owner_session)
+    if outcome not in TERMINAL_OUTCOMES:
+        allowed = ", ".join(sorted(TERMINAL_OUTCOMES))
+        raise ValueError(f"outcome must be one of: {allowed}")
+    if not reason.strip():
+        raise ValueError("reason must not be empty")
+
+    row = _compact(
+        {
+            "schema_version": "aragora-agent-finalizer-receipt/1.0",
+            "lane_id": lane_id,
+            "owner_session": owner_session,
+            "thread_id": thread_id,
+            "pid": pid,
+            "cwd": cwd or os.getcwd(),
+            "worktree": worktree,
+            "branch": branch,
+            "pr_number": pr_number,
+            "outcome": outcome,
+            "reason": reason,
+            "finalized_at": finalized_at or _utc_now_iso(),
+        }
+    )
+
+    with _heartbeat_write_lock(heartbeat_path):
+        _append_jsonl(receipt_path, row)
+        _mark_matching_heartbeat_terminal(heartbeat_path, receipt=row)
+    return row
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--finalize",
+        action="store_true",
+        help="Append a terminal owner lifecycle receipt instead of a heartbeat row.",
+    )
     parser.add_argument("--lane-id", required=True)
     parser.add_argument("--owner-session", required=True)
     parser.add_argument("--thread-id", default=os.environ.get("CODEX_THREAD_ID", ""))
@@ -201,10 +309,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pr-number", type=int, default=None)
     parser.add_argument("--last-seen-at", default=None)
     parser.add_argument(
+        "--outcome",
+        choices=sorted(TERMINAL_OUTCOMES),
+        default=None,
+        help="Terminal outcome for --finalize receipts.",
+    )
+    parser.add_argument("--reason", default="", help="Human-readable terminal receipt reason.")
+    parser.add_argument("--finalized-at", default=None)
+    parser.add_argument(
         "--heartbeat-path",
         type=Path,
         default=None,
         help="Override heartbeat sidecar path.",
+    )
+    parser.add_argument(
+        "--finalizer-receipt-path",
+        type=Path,
+        default=None,
+        help="Override finalizer receipt JSONL path.",
     )
     parser.add_argument(
         "--repo-root",
@@ -221,26 +343,59 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    heartbeat_path = resolve_heartbeat_path(repo_root=args.repo_root, explicit=args.heartbeat_path)
     try:
-        row = record_heartbeat(
-            heartbeat_path=heartbeat_path,
-            lane_id=args.lane_id,
-            owner_session=args.owner_session,
-            thread_id=args.thread_id,
-            pid=args.pid,
-            cwd=args.cwd,
-            worktree=args.worktree,
-            branch=args.branch,
-            pr_number=args.pr_number,
-            last_seen_at=args.last_seen_at,
-        )
+        if args.finalize:
+            receipt_path = resolve_finalizer_receipt_path(
+                repo_root=args.repo_root,
+                explicit=args.finalizer_receipt_path,
+            )
+            if args.outcome is None:
+                raise ValueError("--outcome is required with --finalize")
+            row = record_finalizer_receipt(
+                heartbeat_path=resolve_heartbeat_path(
+                    repo_root=args.repo_root,
+                    explicit=args.heartbeat_path,
+                ),
+                receipt_path=receipt_path,
+                lane_id=args.lane_id,
+                owner_session=args.owner_session,
+                thread_id=args.thread_id,
+                pid=args.pid,
+                cwd=args.cwd,
+                worktree=args.worktree,
+                branch=args.branch,
+                pr_number=args.pr_number,
+                outcome=args.outcome,
+                reason=args.reason,
+                finalized_at=args.finalized_at,
+            )
+        else:
+            heartbeat_path = resolve_heartbeat_path(
+                repo_root=args.repo_root, explicit=args.heartbeat_path
+            )
+            row = record_heartbeat(
+                heartbeat_path=heartbeat_path,
+                lane_id=args.lane_id,
+                owner_session=args.owner_session,
+                thread_id=args.thread_id,
+                pid=args.pid,
+                cwd=args.cwd,
+                worktree=args.worktree,
+                branch=args.branch,
+                pr_number=args.pr_number,
+                last_seen_at=args.last_seen_at,
+            )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
     if args.json:
         print(json.dumps(row, indent=2, sort_keys=True))
+    elif args.finalize:
+        print(
+            f"finalizer lane_id={row['lane_id']} owner_session={row['owner_session']} "
+            f"outcome={row['outcome']} finalized_at={row['finalized_at']}"
+        )
     else:
         print(
             f"heartbeat lane_id={row['lane_id']} owner_session={row['owner_session']} "
