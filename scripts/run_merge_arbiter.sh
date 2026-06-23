@@ -85,24 +85,29 @@ fi
 # Legacy direct auto-evidence cycle (throughput lever 1, run-20260610 c07b).
 # This path posts evidence via auto_evidence_cycle.py --apply without the
 # §Conductor prepared-artifact replay proof, so ARAGORA_AUTO_EVIDENCE=1 is no
-# longer sufficient by itself. The called script enforces the explicit
-# ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1 override and fails closed before any
-# posting when it is absent; this wrapper treats that evidence-step failure as
-# non-fatal so the merge-arbiter still starts.
+# longer sufficient by itself. The wrapper enforces the explicit
+# ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1 override before invoking the legacy
+# command; without it the evidence step is skipped and the merge-arbiter still
+# starts.
 if [[ "${ARAGORA_AUTO_EVIDENCE:-0}" == "1" ]]; then
-    echo "Running bounded auto-evidence cycle (legacy direct apply; guarded by override env)..."
-    # Reuses the shared per-pass App token minted above (same
-    # ARAGORA_GH_APP_AUTH gate). Applied inside this subshell so the
-    # long-running arbiter exec'd below does NOT inherit the one-shot token
-    # (installation tokens expire after ~1h; the arbiter refreshes its own per
-    # call via aragora.swarm.github_app_auth). Fail-safe: when the token is
-    # empty (App auth off or config absent) this degrades to existing gh auth.
-    (
-        apply_arbiter_gh_app_token
-        # --max-scan 40 mitigates scan starvation (harmless even after the
-        # #8316 fix lands; it only widens the per-pass probe window).
-        exec "${PYTHON_BIN}" scripts/auto_evidence_cycle.py --apply --max-scan 40
-    ) || echo "Auto-evidence cycle reported failures (non-fatal for the arbiter)." >&2
+    if [[ "${ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY:-0}" != "1" ]]; then
+        echo "Skipping ARAGORA_AUTO_EVIDENCE=1: legacy direct apply requires ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1 under §Conductor." >&2
+        echo "The merge-arbiter will still start; set the override only for an explicit operator exception." >&2
+    else
+        echo "Running bounded auto-evidence cycle (legacy direct apply override mode)..."
+        # Reuses the shared per-pass App token minted above (same
+        # ARAGORA_GH_APP_AUTH gate). Applied inside this subshell so the
+        # long-running arbiter exec'd below does NOT inherit the one-shot token
+        # (installation tokens expire after ~1h; the arbiter refreshes its own per
+        # call via aragora.swarm.github_app_auth). Fail-safe: when the token is
+        # empty (App auth off or config absent) this degrades to existing gh auth.
+        (
+            apply_arbiter_gh_app_token
+            # --max-scan 40 mitigates scan starvation (harmless even after the
+            # #8316 fix lands; it only widens the per-pass probe window).
+            exec "${PYTHON_BIN}" scripts/auto_evidence_cycle.py --apply --max-scan 40
+        ) || echo "Auto-evidence cycle reported failures (non-fatal for the arbiter)." >&2
+    fi
 fi
 
 echo "Starting swarm merge-arbiter..."

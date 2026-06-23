@@ -88,5 +88,9 @@ def test_p2_real_finding_still_blocks():
     assert has_blocking_or_negative_verdict("[P2] prepared apply bypasses the freeze proof")
 
 
+def test_p3_finding_remains_non_blocking():
+    assert not has_blocking_or_negative_verdict("[P3] clarify operator warning text")
+
+
 def test_negative_verdict_line_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: CHANGES-REQUESTED")

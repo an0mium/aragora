@@ -200,6 +200,11 @@ prepared-apply live-state gaps is the job of the `collect_quorum_evidence`
 settlement-stability gate follow-up; until then, prepared evidence posting is manual
 exact-head operator work, not unattended conductor automation.
 
+Migration note: re-scanning older `Verdict: PASS` evidence can de-count comments that include
+concrete `[P2]` findings. That is intentional; repair the underlying P2 or collect fresh
+exact-head evidence after the finding is resolved. Explicit non-finding heads such as
+`[P2] None:` remain countable.
+
 **Automation compatibility.** Existing collectors such as `scripts/auto_evidence_cycle.py`
 remain evidence-posting tools, not authority to skip the dry-run/freeze rule. An automated
 collector may post countable evidence only when it persists the dry-run artifact and replays
