@@ -1478,6 +1478,85 @@ def test_lookup_open_prs_returns_empty_when_branch_not_in_cache(
     assert err is None
 
 
+def test_prefetch_open_pr_heads_uses_open_only_cache_for_open_heads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_value_inventory as mod
+
+    calls: list[list[str]] = []
+
+    def fake_run_cmd(args: list[str], *_args: Any, **_kwargs: Any) -> Any:
+        calls.append(args)
+        if "--state" in args and args[args.index("--state") + 1] == "open":
+            payload = [
+                {
+                    "number": 901,
+                    "title": "Older still-open PR",
+                    "url": "https://example.test/pr/901",
+                    "headRefName": "feat/older-open",
+                    "body": "",
+                    "state": "OPEN",
+                    "headRefOid": "older-head",
+                }
+            ]
+        else:
+            payload = [
+                {
+                    "number": 902,
+                    "title": "Recent closed PR",
+                    "url": "https://example.test/pr/902",
+                    "headRefName": "feat/recent-closed",
+                    "body": "",
+                    "state": "CLOSED",
+                    "headRefOid": "closed-head",
+                }
+            ]
+        return mod.subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "run_cmd", fake_run_cmd)
+
+    cache, records, branch_records, failed, err = mod.prefetch_open_pr_heads(
+        tmp_path,
+        timeout=1,
+    )
+
+    assert failed is False
+    assert err is None
+    assert [call[call.index("--state") + 1] for call in calls] == ["open", "all"]
+    assert cache == {
+        "feat/older-open": [
+            {
+                "number": 901,
+                "title": "Older still-open PR",
+                "url": "https://example.test/pr/901",
+                "headRefName": "feat/older-open",
+                "body": "",
+                "state": "OPEN",
+                "headRefOid": "older-head",
+            }
+        ]
+    }
+    assert records == cache["feat/older-open"]
+    assert branch_records == {
+        "feat/recent-closed": [
+            {
+                "number": 902,
+                "title": "Recent closed PR",
+                "url": "https://example.test/pr/902",
+                "headRefName": "feat/recent-closed",
+                "body": "",
+                "state": "CLOSED",
+                "headRefOid": "closed-head",
+            }
+        ]
+    }
+
+
 def test_classify_candidate_marks_open_pr_when_cache_hit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

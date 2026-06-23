@@ -860,7 +860,31 @@ def prefetch_open_pr_heads(
     bool,
     str | None,
 ]:
-    proc = run_cmd(
+    open_proc = run_cmd(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--limit",
+            "500",
+            "--json",
+            "number,title,url,headRefName,body,state,headRefOid",
+        ],
+        repo,
+        timeout=timeout,
+    )
+    if open_proc.returncode != 0:
+        return {}, [], {}, True, open_proc.stderr.strip() or "gh pr open prefetch failed"
+    try:
+        open_payload = json.loads(open_proc.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        return {}, [], {}, True, f"failed to parse gh pr open prefetch output: {exc}"
+    if not isinstance(open_payload, list):
+        return {}, [], {}, True, "gh pr open prefetch output was not a list"
+
+    all_proc = run_cmd(
         [
             "gh",
             "pr",
@@ -875,18 +899,19 @@ def prefetch_open_pr_heads(
         repo,
         timeout=timeout,
     )
-    if proc.returncode != 0:
-        return {}, [], {}, True, proc.stderr.strip() or "gh pr prefetch failed"
+    if all_proc.returncode != 0:
+        return {}, [], {}, True, all_proc.stderr.strip() or "gh pr all-state prefetch failed"
     try:
-        payload = json.loads(proc.stdout or "[]")
+        all_payload = json.loads(all_proc.stdout or "[]")
     except json.JSONDecodeError as exc:
-        return {}, [], {}, True, f"failed to parse gh pr prefetch output: {exc}"
-    if not isinstance(payload, list):
-        return {}, [], {}, True, "gh pr prefetch output was not a list"
+        return {}, [], {}, True, f"failed to parse gh pr all-state prefetch output: {exc}"
+    if not isinstance(all_payload, list):
+        return {}, [], {}, True, "gh pr all-state prefetch output was not a list"
+
     cache: dict[str, list[dict[str, Any]]] = {}
     records: list[dict[str, Any]] = []
     branch_records: dict[str, list[dict[str, Any]]] = {}
-    for item in payload:
+    for item in all_payload:
         if not isinstance(item, dict):
             continue
         head = item.get("headRefName")
@@ -898,8 +923,19 @@ def prefetch_open_pr_heads(
             if k in ("number", "title", "url", "headRefName", "body", "state", "headRefOid")
         }
         branch_records.setdefault(head, []).append(record)
-        if str(item.get("state") or "").upper() != "OPEN":
+    for item in open_payload:
+        if not isinstance(item, dict):
             continue
+        head = item.get("headRefName")
+        if not isinstance(head, str) or not head:
+            continue
+        if str(item.get("state") or "OPEN").upper() != "OPEN":
+            continue
+        record = {
+            k: v
+            for k, v in item.items()
+            if k in ("number", "title", "url", "headRefName", "body", "state", "headRefOid")
+        }
         records.append(record)
         cache.setdefault(head, []).append(record)
     return cache, records, branch_records, False, None
