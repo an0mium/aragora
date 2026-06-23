@@ -1398,3 +1398,67 @@ def test_trail_reconcile_real_chain_tamper_detected(tmp_path: Path) -> None:
     assert result["status"] == "breach"
     assert "tampered" in result["detail"]
     assert "seq 0" in result["detail"]
+
+
+# ---------------------------------------------------------------------------
+# outbox_drain_progress (circuit-breaker — §Conductor)
+# ---------------------------------------------------------------------------
+
+
+def _ledger_with_depths(path: Path, depths: list[int]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        json.dumps(
+            {"checks": [{"check": "outbox_depth", "status": "ok", "detail": f"{d} item(s) queued"}]}
+        )
+        for d in depths
+    ]
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def _outbox_with(path: Path, count: int) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    for i in range(count):
+        (path / f"item-{i}.json").write_text("{}")
+    return path
+
+
+def test_outbox_drain_progress_stalled_breaches(tmp_path: Path) -> None:
+    # Depth non-decreasing at/above the floor across the window, still congested now.
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50, 52, 55])
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "breach"
+    assert "not draining" in r["detail"] and "dead-letter" in r["detail"]
+
+
+def test_outbox_drain_progress_draining_is_ok(tmp_path: Path) -> None:
+    # Depth fell over the window -> the loop is making external progress.
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [60, 55, 52])
+    outbox = _outbox_with(tmp_path / "outbox", 50)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+
+
+def test_outbox_drain_progress_below_floor_is_ok(tmp_path: Path) -> None:
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50, 52, 55])
+    outbox = _outbox_with(tmp_path / "outbox", 10)  # below floor -> not congested
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+    assert "below floor" in r["detail"]
+
+
+def test_outbox_drain_progress_insufficient_history_is_ok(tmp_path: Path) -> None:
+    ledger = _ledger_with_depths(tmp_path / "ledger.jsonl", [50])  # only one prior cycle
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+    assert r["status"] == "ok"
+
+
+def test_outbox_drain_progress_no_ledger_is_ok(tmp_path: Path) -> None:
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    r = sentinel.check_outbox_drain_progress(
+        tmp_path / "absent.jsonl", outbox, stall_cycles=3, min_floor=50
+    )
+    assert r["status"] == "ok"
