@@ -96,32 +96,47 @@ The Tier 1-2 relaxation (`tiered_gate` ON) never lowers the bar below "one
 *western-frontier* signal," so a Chinese-routed family can never solo-authorize a
 merge at any Tier, and the Tier 3-4 western-only rule is independent of the flag.
 
-### Prepared-artifact policy snapshot (replaces `tiered_gate: bool`)
+### Prepared-artifact regime + version stamp
 
-A prepared evidence artifact stores a versioned `policy_snapshot` (policy version +
-the resolved flag regime) rather than a bare boolean. At apply time the effective
-policy is the **stricter** of the prepared snapshot and the live policy
-(`stricter(prepared, live)`): relaxation requires *both* regimes to permit it.
-This is fail-safe — evidence insufficient under the effective policy degrades to
-"prepare", never a hard error — and it is the same monotonic-restrictive rule the
-live merge gate would reach, removing the apparent live-vs-apply divergence. A
-legacy artifact lacking the snapshot fails closed to the strict regime and logs.
+A prepared evidence artifact stores the boolean `tiered_gate` regime it was collected
+under, plus a `policy_version` stamp (`QUORUM_POLICY_VERSION`). At apply time the
+effective regime is the **stricter** of the prepared and live regimes — for the single
+boolean relaxation dimension this is exactly `effective = prepared.tiered_gate AND
+live_gate`: relaxation requires *both* regimes to permit it. This is fail-safe —
+evidence insufficient under the effective regime degrades to "prepare", never a hard
+error — and reaches the same monotonic-restrictive result the live merge gate would,
+removing the apparent live-vs-apply divergence. A legacy artifact lacking the field
+fails closed to the strict regime and logs.
 
-`policy_snapshot` carries no authority the live flag does not already grant: a
-forged snapshot cannot relax a merge while the live flag is OFF, and an artifact is
-trusted only after it is matched to the live exact-head SHA and re-linted.
+The `tiered_gate` regime carries no authority the live flag does not already grant: a
+forged `tiered_gate=true` cannot relax a merge while the live flag is OFF, and an
+artifact is trusted only after it is matched to the live exact-head SHA and re-linted.
+`policy_version` is a **forward-compat audit stamp** — it records which policy encoding
+produced the artifact so a future migration can detect a stale one; it is not itself an
+apply-time gate today (the boolean `tiered_gate` reconciliation is). The jurisdiction
+rules (Tier 2 ≥1-Western, Tier 3-4 Western-only) are not part of the prepared regime:
+they are unconditional and re-derived live from the PR's tier at both collect and
+apply, so they cannot go stale.
 
-## Implementation Plan
+## Implementation Plan (as shipped)
 
-1. Add `WESTERN_FAMILIES`, jurisdiction helpers, and `QuorumPolicy` (with the
-   satisfaction predicate and a `stricter()` combinator) to `quorum_evidence.py`.
-   Keep `tier_quorum_rule` as a thin shim returning the new policy for back-compat.
+1. Add `WESTERN_FAMILIES`, `is_western_family`, and the jurisdiction fields +
+   `is_satisfied_by`/`counted_families` predicate to `TierQuorumRule` (aliased as
+   `QuorumPolicy`) in `quorum_evidence.py`. `tier_quorum_rule` remains the single
+   source of truth and encodes the full per-Tier table.
 2. Route `review_queue._tier_requirement` / `_build_model_review_quorum` and
-   `CollectOutcome.has_supportive_quorum` through `QuorumPolicy`.
-3. Derive `merge_quorum_reconcile.TIER_REQUIREMENTS` from `QuorumPolicy` (or replace
-   its lookups) so the diagnostic cannot drift.
-4. Replace the serialized `tiered_gate` with `policy_snapshot` (back-compat read of
-   the legacy boolean); apply path uses `stricter(prepared, live)`.
+   `CollectOutcome.has_supportive_quorum` through that policy (the gate reads the
+   jurisdiction fields; `WESTERN_FAMILIES` is re-exported, not duplicated).
+3. Keep `merge_quorum_reconcile.TIER_REQUIREMENTS` a literal (a module-load
+   derivation would be a circular import via `merge_quorum_io`) and pin it to the
+   policy with `test_reconcile_diagnostic_matches_policy` so it cannot drift.
+4. Keep the serialized boolean `tiered_gate` regime and add a `policy_version`
+   forward-compat stamp; the apply path reconciles via the stricter regime
+   (`effective = prepared.tiered_gate AND live_gate`) — functionally the
+   monotonic-restrictive `stricter(prepared, live)`, expressed for the single
+   boolean dimension. (A full serialized `policy_snapshot` object was considered
+   and rejected as redundant: the jurisdiction rules are unconditional and
+   re-derived from tier, so only the relaxation flag needs to travel on the artifact.)
 5. Governance + unit tests green; re-collect Western quorum; Tier-4 human settlement.
 
 ## Governance Test Mapping

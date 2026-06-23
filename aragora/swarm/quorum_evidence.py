@@ -93,12 +93,18 @@ def is_western_family(family: str) -> bool:
     """Whether ``family`` counts toward a Western-only quorum (Tier 3-4)."""
     return str(family).strip().lower() in WESTERN_FAMILIES
 
-# Opt-in flag for the tiered merge gate. Default OFF preserves current-main Tier 0
-# behavior (one supportive family) while keeping Tier 1-2 on the strict
-# two-distinct-family bar. When an operator sets ARAGORA_ENABLE_TIERED_MERGE_GATE=1,
-# Tier 1-2 relax to one supportive western-frontier signal. Gating that relaxation
-# behind the flag keeps this merge-authority change revertible WITHOUT a code change
-# and is the in-tree audit point for the operator's approval.
+# Opt-in flag for the Tier 1-2 *relaxation* only. The flag's SOLE effect is to let a
+# Tier 1-2 PR settle on one supportive western-frontier signal (claude/openai) instead
+# of two distinct families; default OFF, those tiers keep the two-distinct bar. Gating
+# that relaxation behind the flag keeps it revertible WITHOUT a code change and is the
+# in-tree audit point for the operator's approval.
+#
+# IMPORTANT — the flag does NOT control the jurisdiction tightenings: the Tier 2
+# "at least one Western family" and Tier 3-4 "Western-only counted quorum" rules
+# (docs/REVIEW_AUTHORITY_PRINCIPLES.md, G1/G2) are applied UNCONDITIONALLY by
+# tier_quorum_rule, flag ON or OFF. They land the moment this change merges; the flag
+# never relaxes them. (claude #8507: prior comment wrongly implied flag-OFF preserved
+# current-main Tier 2-4 behavior.)
 _TIERED_GATE_ENV = "ARAGORA_ENABLE_TIERED_MERGE_GATE"
 _TIERED_GATE_TRUE = frozenset(("1", "true", "yes", "on"))
 
@@ -149,10 +155,12 @@ class TierQuorumRule:
 #: The canonical per-tier quorum policy object (alias for the design-doc name).
 QuorumPolicy = TierQuorumRule
 
-#: Version of the quorum-policy encoding. Stamped into prepared evidence artifacts
-#: so a policy *code* change (not just a flag flip) between prepare and apply is
-#: detectable/auditable. The apply path reconciles the regime via the stricter of
-#: (prepared, live); the version is the audit anchor for that reconciliation.
+#: Version of the quorum-policy encoding, stamped into prepared evidence artifacts as
+#: a FORWARD-COMPAT AUDIT marker: it records which policy encoding produced the
+#: artifact so a future policy migration can detect a stale one. It is NOT an
+#: apply-time gate today — the regime reconciliation is the boolean ``tiered_gate``
+#: (``effective = prepared.tiered_gate AND live_gate``); this version is not currently
+#: compared at apply (claude #8507 flagged the prior comment for overstating its role).
 QUORUM_POLICY_VERSION = 1
 
 
