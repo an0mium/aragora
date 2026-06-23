@@ -82,6 +82,11 @@ dev = [
     "types-PyYAML>=6.0.12.20260518,<7.0",
     "types-croniter>=6.2.2.20260518,<7.0",
     "bandit>=1.9.4,<2.0",
+    # Hook runtime for .git/hooks/pre-commit (which execs `.venv/bin/python
+    # -mpre_commit`). Declaring it here means `uv sync --extra dev` self-heals the
+    # env, so agents never need to fall back to `--no-verify`
+    # (FIX-ENV-ONCE — docs/AGENT_OPERATING_CONTRACT.md §Conductor).
+    "pre-commit>=4.0,<5.0",
 ]
 all = [
     "fastapi>=0.138.0,<1.0",
