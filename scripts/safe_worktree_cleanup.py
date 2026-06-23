@@ -525,7 +525,10 @@ def _purge_residual_path(path: Path) -> tuple[bool, str | None, list[str]]:
     except OSError as exc:
         purge_error = str(exc)
     residuals = _residual_paths(path)
-    return not _path_still_exists(path), purge_error, residuals
+    path_purged = not _path_still_exists(path)
+    if path_purged:
+        purge_error = None
+    return path_purged, purge_error, residuals
 
 
 def remove_worktree(
@@ -543,6 +546,7 @@ def remove_worktree(
         "branch_deleted": False,
         "path_purged": False,
         "requires_purge_path": False,
+        "git_remove_failed": False,
         "recovery_action": None,
         "residual_paths": [],
         "purge_error": None,
@@ -570,6 +574,7 @@ def remove_worktree(
             return result
         if proc.returncode != 0:
             result["status"] = "remove_failed"
+            result["git_remove_failed"] = True
             result["stderr"] = proc.stderr.strip()
             if not purge_path:
                 return result
@@ -596,14 +601,17 @@ def remove_worktree(
         if result["path_purged"]:
             result["removed"] = True
         else:
+            if result["git_remove_failed"]:
+                result["status"] = "remove_failed_purge_incomplete"
+            else:
+                result["status"] = "purge_incomplete"
             result["removed"] = False
-            result["status"] = "purge_incomplete"
             result["recovery_action"] = (
                 "path was not fully removed; inspect residual_paths and rerun cleanup "
                 "only after the remaining files are proven disposable"
             )
 
-    if delete_branch and inspection.branch:
+    if delete_branch and inspection.branch and result.get("removed"):
         result["branch_deleted"] = _delete_branch(repo_root, inspection.branch)
 
     if result.get("status") in {"removed", "untracked_path"} and not result["removed"]:
@@ -642,7 +650,14 @@ def cmd_remove(args: argparse.Namespace) -> int:
     else:
         print(json.dumps(result, indent=2))
     status = str(result.get("status", ""))
-    if status in {"blocked", "remove_failed", "untracked_path", "partial", "purge_incomplete"}:
+    if status in {
+        "blocked",
+        "remove_failed",
+        "remove_failed_purge_incomplete",
+        "untracked_path",
+        "partial",
+        "purge_incomplete",
+    }:
         return 1
     return 0
 

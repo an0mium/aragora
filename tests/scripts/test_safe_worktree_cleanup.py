@@ -436,6 +436,165 @@ def test_tracked_remove_purge_failure_reports_not_removed(
     assert "not fully removed" in result["recovery_action"]
 
 
+def test_failed_git_remove_and_failed_purge_preserve_both_signals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-residue"
+    worktree.mkdir()
+    (worktree / "leftover.txt").write_text("residue\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=255,
+            stdout="",
+            stderr="Directory not empty",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.shutil, "rmtree", lambda *_args, **_kwargs: None)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "remove_failed_purge_incomplete"
+    assert result["git_remove_failed"] is True
+    assert result["stderr"] == "Directory not empty"
+    assert result["removed"] is False
+    assert result["path_purged"] is False
+    assert result["residual_paths"] == ["leftover.txt"]
+
+
+def test_purge_race_success_clears_stale_purge_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "anchor-residue"
+    worktree.mkdir()
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=False,
+        branch=None,
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def race_remove(path: Path) -> None:
+        path.rmdir()
+        raise OSError("path disappeared during purge")
+
+    monkeypatch.setattr(mod.shutil, "rmtree", race_remove)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "purged"
+    assert result["path_purged"] is True
+    assert result["purge_error"] is None
+    assert result["residual_paths"] == []
+
+
+def test_purge_incomplete_does_not_delete_branch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-residue"
+    worktree.mkdir()
+    (worktree / "leftover.txt").write_text("residue\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+    branch_delete_calls: list[list[str]] = []
+
+    def fake_run(*args, **kwargs):
+        command = list(args[0])
+        if command[:3] == ["git", "branch", "-D"]:
+            branch_delete_calls.append(command)
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.autopilot, "_branch_exists", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(mod.shutil, "rmtree", lambda *_args, **_kwargs: None)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=True,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "purge_incomplete"
+    assert result["branch_deleted"] is False
+    assert branch_delete_calls == []
+
+
 def test_residual_paths_are_bounded_without_rglob(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
