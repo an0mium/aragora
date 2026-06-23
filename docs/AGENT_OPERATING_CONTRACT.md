@@ -163,22 +163,22 @@ python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
 
 If a helper version does not yet record or enforce any freeze-proof field above, treat that
 helper as prepare/report-only for countable evidence unless the missing live checks are
-captured outside the helper and compared immediately before posting. The conductor may not
-claim the weaker `--apply` implementation enforced the full rule; either report the missing
-checks explicitly before posting the exact prepared bodies, or wait for the enforcement tooling
-to land.
+performed, compared against the frozen artifact/sidecar, and reported immediately before
+posting. The conductor may not claim the weaker `--apply` implementation enforced the full
+rule; either perform and report the missing checks before posting the exact prepared bodies,
+or wait for the enforcement tooling to land.
 
 **Automation compatibility.** Existing collectors such as `scripts/auto_evidence_cycle.py`
 remain evidence-posting tools, not authority to skip the dry-run/freeze rule. An automated
 collector may post countable evidence only when it persists the dry-run artifact and replays
 that exact artifact through a live-head/base/merge-state prepared-json apply. Collectors that
 do not implement that sequence are prepare/report-only for countable evidence and must not be
-used by conductor loops for countable posting. In particular, the `ARAGORA_AUTO_EVIDENCE=1`
-path in `scripts/run_merge_arbiter.sh` still invokes `scripts/auto_evidence_cycle.py --apply`
-directly; until that path is converted to prepared-artifact replay or disabled in the live
-arbiter configuration, it is not §Conductor-compliant countable posting. Treat any use of that
-legacy path as an explicit operator override/reporting event, not settlement-stable conductor
-automation.
+used by conductor loops for countable posting. In particular, legacy direct apply via
+`ARAGORA_AUTO_EVIDENCE=1` and `scripts/auto_evidence_cycle.py --apply` is disabled unless a
+separate `ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1` override is present. That override is an
+explicit operator exception/reporting event, not settlement-stable conductor automation, and
+must stay unset for conductor-compliant merge-arbiter launches until the path is converted to
+prepared-artifact replay.
 
 **NO-TREADMILL.** Batch all known findings into ONE repair per head; never
 repair-then-recollect on the same head. Any CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` ends the
@@ -220,8 +220,8 @@ Run on Tier 0-2 rails per §Conductor; continue through progressing units autono
 Approval-required items, Auto-halt triggers, and Tier 3/4 settlement remain hard stops.
 Use docs/REVIEW_AUTHORITY_PRINCIPLES.md for counted-family / Tier eligibility.
 Sequence for evidence: `collect_quorum_evidence.py` dry-run clean for the current head ->
-capture artifact head plus live base proof -> verify both still equal the live PR ->
-`--prepared-json ... --apply` once only if the missing freeze checks are enforced or reported ->
+capture artifact head plus live base proof -> perform, compare, and report live freeze checks ->
+`--prepared-json ... --apply` once only if those checks still match the live PR ->
 settle/merge only through the helper gates and any separate merge authority.
 Stop only at a Tier 3/4 risk decision or a circuit-breaker halt, emit the exact operator
 authorization text needed, then emit the next prompt in THIS thin form.

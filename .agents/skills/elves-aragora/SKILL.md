@@ -95,7 +95,8 @@ immediately and surface to the user when any of these fire:
 - The work touches an **approval-required** item: GitHub Actions workflows, runner/CI matrix,
   secrets/auth, pre-commit/pre-push hooks, release workflows, major-version dep bumps, public
   API/SDK removals, schema drops/renames, branch deletion with unmerged commits, `git push
-  --force`, or edits to `CLAUDE.md` / `AGENTS.md` / `scripts/nomic_loop.py` / `.env` / `secrets/`.
+  --force`, or edits to `CLAUDE.md` / `AGENTS.md` / `docs/AGENT_OPERATING_CONTRACT.md` /
+  `docs/REVIEW_AUTHORITY_PRINCIPLES.md` / `scripts/nomic_loop.py` / `.env` / `secrets/`.
   These are never autonomous — pause and ask.
 
 ## Non-negotiables (aragora additions to the Elves base)
