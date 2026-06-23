@@ -49,6 +49,7 @@ ALL_CHECKS = (
     "gh_auth",
     "checkout_invariant",
     "outbox_depth",
+    "outbox_progress",
     "disk_free",
     "lane_liveness",
     "github_api_health",
@@ -220,6 +221,65 @@ def check_outbox(
     if problems:
         return _result(name, "breach", "; ".join(problems))
     return _result(name, "ok", f"{len(items)} item(s) queued")
+
+
+def _active_outbox_signature(outbox_dir: Path) -> dict[str, Any]:
+    if not outbox_dir.is_dir():
+        return {"count": 0, "oldest": ""}
+    items = sorted(p for p in outbox_dir.glob("*.json") if p.is_file())
+    if not items:
+        return {"count": 0, "oldest": ""}
+    oldest = min(items, key=lambda p: p.stat().st_mtime)
+    return {"count": len(items), "oldest": oldest.name}
+
+
+def check_outbox_progress(
+    outbox_dir: Path,
+    *,
+    state_path: Path,
+    no_progress_threshold: int,
+    now: datetime,
+) -> CheckResult:
+    """Breach when the active outbox count and oldest item do not change."""
+    name = "outbox_progress"
+    try:
+        signature = _active_outbox_signature(outbox_dir)
+    except OSError as exc:
+        return _result(name, "unknown", f"could not inspect outbox: {exc}")
+
+    previous: dict[str, Any] = {}
+    if state_path.exists():
+        try:
+            previous = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return _result(name, "unknown", f"unreadable progress state: {exc.__class__.__name__}")
+
+    previous_signature = previous.get("signature") if isinstance(previous, dict) else None
+    previous_streak = int(previous.get("unchanged_evaluations") or 0) if previous else 0
+    unchanged = previous_signature == signature
+    streak = previous_streak + 1 if unchanged else 1
+    state = {
+        "signature": signature,
+        "unchanged_evaluations": streak,
+        "updated_at": now.isoformat(),
+    }
+    try:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = state_path.with_name(f"{state_path.name}.tmp")
+        tmp_path.write_text(json.dumps(state, sort_keys=True), encoding="utf-8")
+        tmp_path.replace(state_path)
+    except OSError as exc:
+        return _result(name, "unknown", f"could not write progress state: {exc}")
+
+    if signature["count"] == 0:
+        return _result(name, "ok", "outbox empty")
+    detail = (
+        f"{signature['count']} active item(s); oldest={signature['oldest']}; "
+        f"unchanged_evaluations={streak}/{no_progress_threshold}"
+    )
+    if streak >= no_progress_threshold:
+        return _result(name, "breach", f"no outbox progress: {detail}")
+    return _result(name, "ok", detail)
 
 
 def check_disk_free(
@@ -1027,6 +1087,15 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         now=now,
                     )
                 )
+            elif name == "outbox_progress":
+                results.append(
+                    check_outbox_progress(
+                        Path(args.outbox_dir),
+                        state_path=Path(args.outbox_progress_state),
+                        no_progress_threshold=args.outbox_no_progress_cycles,
+                        now=now,
+                    )
+                )
             elif name == "disk_free":
                 results.append(
                     check_disk_free(Path(args.repo_root), min_free_gib=args.min_free_gib)
@@ -1112,6 +1181,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--outbox-dir", default=str(repo_root / ".aragora" / "automation-outbox"))
     parser.add_argument("--outbox-max", type=int, default=50)
     parser.add_argument("--outbox-max-age-days", type=float, default=7.0)
+    parser.add_argument(
+        "--outbox-progress-state",
+        default=str(repo_root / ".aragora" / "fleet-sentinel" / "outbox-progress.json"),
+    )
+    parser.add_argument("--outbox-no-progress-cycles", type=int, default=3)
     parser.add_argument("--min-free-gib", type=float, default=25.0)
     parser.add_argument(
         "--lanes-glob",

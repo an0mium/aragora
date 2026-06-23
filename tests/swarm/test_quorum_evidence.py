@@ -34,6 +34,7 @@ from aragora.swarm.quorum_evidence import (
 )
 
 HEAD = "49a979d587f910aaad4fb0f0bed708dd48c97c35"
+BASE = "b" * 40
 COMMITTED = "2026-06-04T09:57:49-05:00"
 
 
@@ -949,7 +950,13 @@ def _fakes(*, tier: int, head: str = HEAD, would_count: bool = True):
     posted: list[tuple[str, str]] = []
 
     def context_fetcher(repo: str, pr: int) -> dict:
-        return {"head_sha": head, "head_committed_at": COMMITTED}
+        return {
+            "head_sha": head,
+            "head_committed_at": COMMITTED,
+            "base_ref_oid": BASE,
+            "mergeable": "MERGEABLE",
+            "merge_state_status": "CLEAN",
+        }
 
     def tier_fetcher(repo: str, pr: int):
         return tier
@@ -980,14 +987,19 @@ def _fakes(*, tier: int, head: str = HEAD, would_count: bool = True):
     ), posted
 
 
-def test_collect_low_tier_apply_posts_both() -> None:
+def test_collect_low_tier_apply_prepares_exact_head_artifact() -> None:
     fakes, posted = _fakes(tier=1)
     outcome = collect_evidence(
         repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
     )
-    assert outcome.action == "post"
-    assert sorted(outcome.posted) == ["claude", "grok"]
-    assert len(posted) == 2
+    assert outcome.action == "prepare"
+    assert "--prepared-json" in outcome.action_reason
+    assert outcome.settlement_stable is True
+    assert outcome.base_ref_oid == BASE
+    assert outcome.mergeable == "MERGEABLE"
+    assert outcome.merge_state_status == "CLEAN"
+    assert outcome.posted == []
+    assert posted == []
 
 
 def test_collect_runs_reviewers_concurrently() -> None:
@@ -1046,7 +1058,7 @@ def test_collect_records_raising_reviewer_as_failure() -> None:
     assert "reviewer boom" in outcome.failures[0].error
 
 
-def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
+def test_collect_low_tier_apply_does_not_reconcile_without_prepared_json() -> None:
     fakes, posted = _fakes(tier=1)
     calls: list[tuple[str, int, int]] = []
 
@@ -1064,8 +1076,10 @@ def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts()
         **fakes,
     )
 
-    assert calls == [("o/r", 1, 2)]
-    assert outcome.quorum_rerun == {"should_rerun": True, "run_id": 123, "applied": True}
+    assert posted == []
+    assert calls == []
+    assert outcome.quorum_rerun is None
+    assert "--prepared-json" in outcome.action_reason
 
 
 def test_collect_low_tier_apply_prepares_only_when_reviewer_dissents() -> None:
@@ -1179,10 +1193,12 @@ def test_locked_quorum_state_recovers_stale_pid_lock(
     assert not lock_file.exists()
 
 
-def test_collect_records_quorum_reconciler_error_after_successful_posts() -> None:
+def test_collect_apply_without_prepared_json_never_calls_quorum_reconciler() -> None:
     fakes, posted = _fakes(tier=1)
+    calls: list[tuple[str, int]] = []
 
     def quorum_reconciler(repo: str, pr: int) -> dict:
+        calls.append((repo, pr))
         raise RuntimeError("rerun surface unavailable")
 
     outcome = collect_evidence(
@@ -1195,9 +1211,11 @@ def test_collect_records_quorum_reconciler_error_after_successful_posts() -> Non
         **fakes,
     )
 
-    assert len(posted) == 2
-    assert sorted(outcome.posted) == ["claude", "grok"]
-    assert outcome.quorum_rerun == {"applied": False, "error": "rerun surface unavailable"}
+    assert posted == []
+    assert calls == []
+    assert outcome.posted == []
+    assert outcome.quorum_rerun is None
+    assert "--prepared-json" in outcome.action_reason
 
 
 def test_collect_does_not_reconcile_when_no_evidence_was_posted() -> None:
@@ -1433,19 +1451,30 @@ def test_collect_rejects_unsupported_family() -> None:
     assert "bogus" not in outcome.counting_families
 
 
-def test_collect_records_post_errors_without_losing_others() -> None:
-    fakes, _ = _fakes(tier=1)
+def test_apply_prepared_records_post_errors_without_losing_others(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[str] = []
 
     def flaky_poster(repo: str, pr: int, body: str) -> None:
-        if "Grok" in body:
+        if "grok body" in body:
             raise RuntimeError("gh rejected comment")
+        posted.append(body)
 
-    fakes["poster"] = flaky_poster
-    outcome = collect_evidence(
-        repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=_clean_context,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_family_linter,
+        poster=flaky_poster,
     )
     assert outcome.posted == ["claude"]
     assert any("grok" in e for e in outcome.post_errors)
+    assert posted == [_prepared_body("claude")]
 
 
 def test_collect_recheck_exception_prepares_without_posting() -> None:
@@ -1456,14 +1485,14 @@ def test_collect_recheck_exception_prepares_without_posting() -> None:
         calls["n"] += 1
         if calls["n"] >= 2:  # first call ok, recheck blows up
             raise RuntimeError("transient gh error")
-        return {"head_sha": HEAD, "head_committed_at": COMMITTED}
+        return _clean_context(repo, pr)
 
     fakes["context_fetcher"] = flaky_context
     outcome = collect_evidence(
         repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
     )
     assert outcome.action == "prepare"
-    assert "re-verify" in outcome.action_reason
+    assert "--prepared-json" in outcome.action_reason
     assert posted == []
 
 
@@ -1472,14 +1501,14 @@ def test_collect_skips_post_when_head_moves_before_posting() -> None:
     heads = iter([HEAD, "0" * 40])  # initial fetch, then recheck = moved head
 
     def moving_context(repo: str, pr: int) -> dict:
-        return {"head_sha": next(heads), "head_committed_at": COMMITTED}
+        return {**_clean_context(repo, pr), "head_sha": next(heads)}
 
     fakes["context_fetcher"] = moving_context
     outcome = collect_evidence(
         repo="o/r", pr=1, families=["claude", "grok"], author="me", apply=True, **fakes
     )
     assert outcome.action == "prepare"
-    assert "changed before posting" in outcome.action_reason
+    assert "--prepared-json" in outcome.action_reason
     assert posted == []
 
 
@@ -1707,6 +1736,25 @@ def _prepared_body(family: str, verdict: str = "PASS") -> str:
     return f"Verdict: {verdict}\n\n{family} body\n"
 
 
+def _clean_context(repo: str = "o/r", pr: int = 1) -> dict:
+    return {
+        "head_sha": HEAD,
+        "head_committed_at": COMMITTED,
+        "base_ref_oid": BASE,
+        "mergeable": "MERGEABLE",
+        "merge_state_status": "CLEAN",
+    }
+
+
+def _family_linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+    family = "claude" if "claude body" in body else "grok"
+    return {
+        "would_count": True,
+        "counted_reviewer_ids": [family],
+        "problems": [],
+    }
+
+
 def _prepared_outcome_file(tmp_path, *, items: list[EvidenceItem] | None = None) -> Path:
     outcome = CollectOutcome(
         repo="o/r",
@@ -1721,6 +1769,10 @@ def _prepared_outcome_file(tmp_path, *, items: list[EvidenceItem] | None = None)
             EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
             EvidenceItem("grok", _prepared_body("grok"), True, ["grok"], [], "pass"),
         ],
+        base_ref_oid=BASE,
+        mergeable="MERGEABLE",
+        merge_state_status="CLEAN",
+        settlement_stable=True,
     )
     path = tmp_path / "prepared.json"
     path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
@@ -1732,7 +1784,7 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     posted: list[tuple[str, str]] = []
 
     def context_fetcher(repo: str, pr: int) -> dict:
-        return {"head_sha": HEAD, "head_committed_at": COMMITTED}
+        return _clean_context(repo, pr)
 
     def tier_fetcher(repo: str, pr: int):
         return 1
@@ -1765,6 +1817,82 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert "without reviewer regeneration" in outcome.action_reason
     assert outcome.posted == ["claude", "grok"]
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
+
+
+def test_apply_prepared_evidence_requires_stability_metadata(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    data = json.loads(prepared.read_text(encoding="utf-8"))
+    for key in ("base_ref_oid", "mergeable", "merge_state_status", "settlement_stable"):
+        data.pop(key)
+    prepared.write_text(json.dumps(data), encoding="utf-8")
+    posted: list[str] = []
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=_clean_context,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_family_linter,
+        poster=lambda repo, pr, body: posted.append(body),
+    )
+
+    assert outcome.action == "prepare"
+    assert "missing clean settlement-stability metadata" in outcome.action_reason
+    assert posted == []
+
+
+def test_apply_prepared_evidence_rejects_base_drift(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[str] = []
+
+    def drifted_context(repo: str, pr: int) -> dict:
+        return {**_clean_context(repo, pr), "base_ref_oid": "c" * 40}
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=drifted_context,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_family_linter,
+        poster=lambda repo, pr, body: posted.append(body),
+    )
+
+    assert outcome.action == "prepare"
+    assert "prepared base" in outcome.action_reason
+    assert posted == []
+
+
+def test_apply_prepared_evidence_rejects_non_clean_merge_state(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
+    posted: list[str] = []
+
+    def dirty_context(repo: str, pr: int) -> dict:
+        return {**_clean_context(repo, pr), "merge_state_status": "DIRTY"}
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=dirty_context,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_family_linter,
+        poster=lambda repo, pr, body: posted.append(body),
+    )
+
+    assert outcome.action == "prepare"
+    assert "merge state is not clean" in outcome.action_reason
+    assert posted == []
 
 
 def test_collect_outcome_tiered_gate_roundtrips() -> None:
@@ -1818,7 +1946,7 @@ def _apply_single_wf(path, monkeypatch, *, flag: str, posted: list) -> "qe.Colle
         author="me",
         apply=True,
         families=["claude"],
-        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        context_fetcher=_clean_context,
         tier_fetcher=lambda r, p: 1,
         linter=lambda *a, **k: {
             "would_count": True,
@@ -1839,6 +1967,10 @@ def _single_wf_artifact(tmp_path, *, tiered_gate: bool):
         action="prepare",
         action_reason="prepared",
         items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        base_ref_oid=BASE,
+        mergeable="MERGEABLE",
+        merge_state_status="CLEAN",
+        settlement_stable=True,
         tiered_gate=tiered_gate,
     )
     path = tmp_path / f"prepared_{tiered_gate}.json"
@@ -1919,7 +2051,7 @@ def test_apply_prepared_evidence_rederives_verdict_from_body(tmp_path) -> None:
         author="me",
         apply=True,
         families=["claude", "grok"],
-        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        context_fetcher=_clean_context,
         tier_fetcher=lambda repo, pr: 1,
         linter=linter,
         poster=lambda repo, pr, body: posted.append((repo, body)),
@@ -1943,7 +2075,7 @@ def test_apply_prepared_evidence_uses_fresh_lint_counting(tmp_path) -> None:
         author="me",
         apply=True,
         families=["claude", "grok"],
-        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        context_fetcher=_clean_context,
         tier_fetcher=lambda repo, pr: 1,
         linter=lambda *args, **kwargs: {
             "would_count": False,
@@ -1993,7 +2125,7 @@ def test_apply_prepared_evidence_requires_lint_identity_match(tmp_path) -> None:
         author="me",
         apply=True,
         families=["qwen", "grok"],
-        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        context_fetcher=_clean_context,
         tier_fetcher=lambda repo, pr: 1,
         linter=linter,
         poster=lambda repo, pr, body: posted.append((repo, body)),
@@ -2030,7 +2162,7 @@ def test_apply_prepared_evidence_rejects_unsupported_family(tmp_path) -> None:
             author="me",
             apply=True,
             families=["claude", "factory"],
-            context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+            context_fetcher=_clean_context,
             tier_fetcher=lambda repo, pr: 1,
             linter=lambda *args, **kwargs: {
                 "would_count": True,
@@ -2058,7 +2190,7 @@ def test_apply_prepared_evidence_rejects_duplicate_family(tmp_path) -> None:
             author="me",
             apply=True,
             families=["claude"],
-            context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+            context_fetcher=_clean_context,
             tier_fetcher=lambda repo, pr: 1,
             linter=lambda *args, **kwargs: {
                 "would_count": True,
@@ -2086,7 +2218,7 @@ def test_apply_prepared_evidence_honors_requested_family_allowlist(tmp_path) -> 
             author="me",
             apply=True,
             families=["claude", "grok"],
-            context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+            context_fetcher=_clean_context,
             tier_fetcher=lambda repo, pr: 1,
             linter=lambda *args, **kwargs: {
                 "would_count": True,
@@ -2102,7 +2234,7 @@ def test_apply_prepared_evidence_refuses_stale_head(tmp_path) -> None:
     posted: list[tuple[str, str]] = []
 
     def context_fetcher(repo: str, pr: int) -> dict:
-        return {"head_sha": "different-head", "head_committed_at": COMMITTED}
+        return {**_clean_context(repo, pr), "head_sha": "different-head"}
 
     outcome = qe.apply_prepared_evidence(
         repo="o/r",

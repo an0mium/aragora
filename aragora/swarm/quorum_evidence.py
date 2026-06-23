@@ -13,10 +13,11 @@ Two safety invariants are enforced here, not by the caller:
 * **Never fabricate.** A comment is only ever composed from a reviewer that
   actually returned non-empty output; failed/empty reviewers are recorded as
   failures and produce no comment.
-* **Tier-gated posting.** Only Tier 0-2 PRs may be auto-posted (and only with
-  ``apply=True``). Tier 3-4 (and unknown tier) always *prepare* the evidence for
-  an operator and never post — the same human-settlement boundary the rest of
-  the boss loop respects.
+* **Evidence-last posting.** Fresh reviewer runs always prepare an exact-head
+  artifact. Countable posting requires ``--apply --prepared-json`` so the dry-run
+  artifact's head/base/merge-state snapshot can be rechecked immediately before
+  posting. Tier 3-4 (and unknown tier) still always *prepare* the evidence for an
+  operator and never post.
 
 The decision logic (:func:`decide_action`) and comment composition
 (:func:`compose_evidence_comment`) are pure so they can be unit-tested offline;
@@ -391,6 +392,11 @@ class CollectOutcome:
     posted: list[str] = field(default_factory=list)
     post_errors: list[str] = field(default_factory=list)
     quorum_rerun: dict[str, Any] | None = None
+    base_ref_oid: str = ""
+    mergeable: str = ""
+    merge_state_status: str = ""
+    settlement_stable: bool = False
+    stability_problems: list[str] = field(default_factory=list)
     # Captured ONCE at construction (not re-read from os.environ per property
     # access) so a security-relevant gate decision stays deterministic within a
     # single settlement flow even if the process env mutates mid-run.
@@ -464,6 +470,11 @@ class CollectOutcome:
             "tier": self.tier,
             "tiered_gate": self.tiered_gate,
             "policy_version": QUORUM_POLICY_VERSION,
+            "base_ref_oid": self.base_ref_oid,
+            "mergeable": self.mergeable,
+            "merge_state_status": self.merge_state_status,
+            "settlement_stable": self.settlement_stable,
+            "stability_problems": list(self.stability_problems),
             "action": self.action,
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,
@@ -492,6 +503,52 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if str(item)]
+
+
+def _context_base_ref_oid(ctx: dict[str, Any]) -> str:
+    return str(ctx.get("base_ref_oid") or "").strip()
+
+
+def _context_mergeable(ctx: dict[str, Any]) -> str:
+    return str(ctx.get("mergeable") or "").strip().upper()
+
+
+def _context_merge_state_status(ctx: dict[str, Any]) -> str:
+    return str(ctx.get("merge_state_status") or ctx.get("mergeStateStatus") or "").strip().upper()
+
+
+def _settlement_stability_problems(outcome: CollectOutcome) -> list[str]:
+    problems: list[str] = []
+    if not outcome.base_ref_oid:
+        problems.append("missing base_ref_oid")
+    if not outcome.mergeable:
+        problems.append("missing mergeable state")
+    elif outcome.mergeable != "MERGEABLE":
+        problems.append(f"PR is not mergeable: {outcome.mergeable}")
+    if not outcome.merge_state_status:
+        problems.append("missing merge_state_status")
+    elif outcome.merge_state_status != "CLEAN":
+        problems.append(f"merge state is not clean: {outcome.merge_state_status}")
+    if outcome.failures:
+        failed = ", ".join(failure.family for failure in outcome.failures if failure.family)
+        problems.append(f"reviewer failure present: {failed or 'unknown'}")
+    if outcome.dissenting_families:
+        problems.append(f"reviewer dissent present: {', '.join(outcome.dissenting_families)}")
+    if not outcome.has_supportive_quorum:
+        problems.append(outcome.incomplete_quorum_reason)
+    return problems
+
+
+def _refresh_stability(outcome: CollectOutcome) -> None:
+    outcome.stability_problems = _settlement_stability_problems(outcome)
+    outcome.settlement_stable = not outcome.stability_problems
+
+
+def _copy_context_stability_fields(outcome: CollectOutcome, ctx: dict[str, Any]) -> None:
+    outcome.base_ref_oid = _context_base_ref_oid(ctx)
+    outcome.mergeable = _context_mergeable(ctx)
+    outcome.merge_state_status = _context_merge_state_status(ctx)
+    _refresh_stability(outcome)
 
 
 def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
@@ -576,6 +633,11 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
         quorum_rerun=data.get("quorum_rerun")
         if isinstance(data.get("quorum_rerun"), dict)
         else None,
+        base_ref_oid=str(data.get("base_ref_oid") or "").strip(),
+        mergeable=str(data.get("mergeable") or "").strip().upper(),
+        merge_state_status=str(data.get("merge_state_status") or "").strip().upper(),
+        settlement_stable=bool(data.get("settlement_stable")),
+        stability_problems=_string_list(data.get("stability_problems")),
         **gate_kwargs,
     )
 
@@ -1698,6 +1760,7 @@ def collect_evidence(
         action=action,
         action_reason=action_reason,
     )
+    _copy_context_stability_fields(outcome, ctx)
 
     prompt = prompt_builder(repo, pr, ctx)
 
@@ -1770,6 +1833,7 @@ def collect_evidence(
         )
 
     if action == "post":
+        _refresh_stability(outcome)
         if outcome.dissenting_families:
             outcome.action = "prepare"
             outcome.action_reason = (
@@ -1781,42 +1845,21 @@ def collect_evidence(
             outcome.action = "prepare"
             outcome.action_reason = outcome.incomplete_quorum_reason
             return outcome
-        # Reviewers can take minutes; re-verify the head and tier immediately
-        # before posting so a head that moved or a PR promoted to a settlement
-        # tier in the meantime is never posted against.
-        try:
-            recheck_head = str((context_fetcher(repo, pr) or {}).get("head_sha") or "").strip()
-            recheck_tier = tier_fetcher(repo, pr)
-        except Exception as exc:
+        if not outcome.settlement_stable:
             outcome.action = "prepare"
             outcome.action_reason = (
-                f"could not re-verify head/tier before posting ({str(exc)[:120]}); prepared only"
+                "dry-run artifact is not settlement-stable "
+                f"({'; '.join(outcome.stability_problems)}); prepared evidence only"
             )
             return outcome
-        recheck_action, recheck_reason = decide_action(recheck_tier, apply)
-        if recheck_head != head_sha or recheck_action != "post":
-            outcome.action = "prepare"
-            outcome.action_reason = (
-                f"head/tier changed before posting "
-                f"(head {head_sha[:7]}->{recheck_head[:7] or 'none'}, "
-                f"tier {tier}->{recheck_tier}); prepared only: {recheck_reason}"
-            )
-        else:
-            for item in outcome.items:
-                if not item.supportive:
-                    continue
-                try:
-                    poster(repo, pr, item.body)
-                except Exception as exc:
-                    # One failed post must not lose the record of the others.
-                    outcome.post_errors.append(f"{item.family}: {str(exc)[:200]}")
-                    continue
-                outcome.posted.append(item.family)
-        if outcome.posted and outcome.has_supportive_quorum and quorum_reconciler is not None:
-            try:
-                outcome.quorum_rerun = quorum_reconciler(repo, pr)
-            except Exception as exc:  # noqa: BLE001 - evidence posts should remain reported.
-                outcome.quorum_rerun = {"applied": False, "error": str(exc)[:200]}
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            "--apply requires --prepared-json from a settlement-stable exact-head "
+            "dry-run artifact; prepared evidence only"
+        )
+        return outcome
+
+    _refresh_stability(outcome)
 
     return outcome
 
@@ -1874,6 +1917,34 @@ def _validate_prepared_item_families(
                 f"prepared evidence artifact family {family} is not in requested reviewer allowlist"
             )
         seen.add(family)
+
+
+def _prepared_apply_blocker(prepared: CollectOutcome, live: CollectOutcome) -> str | None:
+    def _missing_stability_field(field: str) -> bool:
+        if field == "settlement_stable":
+            return not prepared.settlement_stable
+        return not getattr(prepared, field)
+
+    missing = [
+        field
+        for field in ("base_ref_oid", "mergeable", "merge_state_status", "settlement_stable")
+        if _missing_stability_field(field)
+    ]
+    if missing:
+        detail = ", ".join(missing)
+        if prepared.stability_problems:
+            detail += f"; prepared problems: {'; '.join(prepared.stability_problems)}"
+        return f"prepared evidence artifact missing clean settlement-stability metadata ({detail})"
+    if prepared.base_ref_oid != live.base_ref_oid:
+        return (
+            f"prepared base {prepared.base_ref_oid[:7]} does not match current base "
+            f"{live.base_ref_oid[:7] or 'unknown'}"
+        )
+    if live.mergeable != "MERGEABLE":
+        return f"current PR is not mergeable: {live.mergeable or 'unknown'}"
+    if live.merge_state_status != "CLEAN":
+        return f"current merge state is not clean: {live.merge_state_status or 'unknown'}"
+    return None
 
 
 def apply_prepared_evidence(
@@ -1956,6 +2027,7 @@ def apply_prepared_evidence(
         failures=_clone_reviewer_failures(prepared.failures),
         tiered_gate=effective_tiered_gate,
     )
+    _copy_context_stability_fields(outcome, ctx)
 
     if prepared.head_sha != head_sha:
         outcome.action = "prepare"
@@ -1963,6 +2035,11 @@ def apply_prepared_evidence(
             f"prepared head {prepared.head_sha[:7]} does not match current head "
             f"{head_sha[:7]}; prepared evidence only"
         )
+        return outcome
+    blocker = _prepared_apply_blocker(prepared, outcome)
+    if blocker:
+        outcome.action = "prepare"
+        outcome.action_reason = f"{blocker}; prepared evidence only"
         return outcome
 
     relinted_items: list[EvidenceItem] = []
@@ -1990,6 +2067,7 @@ def apply_prepared_evidence(
             )
         )
     outcome.items = relinted_items
+    _refresh_stability(outcome)
 
     if action != "post":
         return outcome
@@ -2004,22 +2082,42 @@ def apply_prepared_evidence(
         outcome.action = "prepare"
         outcome.action_reason = outcome.incomplete_quorum_reason
         return outcome
+    if not outcome.settlement_stable:
+        outcome.action = "prepare"
+        outcome.action_reason = (
+            "fresh lint/live state is not settlement-stable "
+            f"({'; '.join(outcome.stability_problems)}); prepared evidence only"
+        )
+        return outcome
 
     try:
-        recheck_head = str((context_fetcher(repo, pr) or {}).get("head_sha") or "").strip()
+        recheck_ctx = context_fetcher(repo, pr) or {}
+        recheck_head = str(recheck_ctx.get("head_sha") or "").strip()
+        recheck_base = _context_base_ref_oid(recheck_ctx)
+        recheck_mergeable = _context_mergeable(recheck_ctx)
+        recheck_merge_state = _context_merge_state_status(recheck_ctx)
         recheck_tier = tier_fetcher(repo, pr)
     except Exception as exc:
         outcome.action = "prepare"
         outcome.action_reason = (
-            f"could not re-verify head/tier before posting ({str(exc)[:120]}); prepared only"
+            f"could not re-verify head/base/tier before posting ({str(exc)[:120]}); prepared only"
         )
         return outcome
     recheck_action, recheck_reason = decide_action(recheck_tier, apply)
-    if recheck_head != head_sha or recheck_action != "post":
+    if (
+        recheck_head != head_sha
+        or recheck_base != outcome.base_ref_oid
+        or recheck_mergeable != "MERGEABLE"
+        or recheck_merge_state != "CLEAN"
+        or recheck_action != "post"
+    ):
         outcome.action = "prepare"
         outcome.action_reason = (
-            f"head/tier changed before posting "
+            f"head/base/merge-state/tier changed before posting "
             f"(head {head_sha[:7]}->{recheck_head[:7] or 'none'}, "
+            f"base {outcome.base_ref_oid[:7] or 'none'}->{recheck_base[:7] or 'none'}, "
+            f"mergeable {outcome.mergeable or 'unknown'}->{recheck_mergeable or 'unknown'}, "
+            f"merge_state {outcome.merge_state_status or 'unknown'}->{recheck_merge_state or 'unknown'}, "
             f"tier {tier}->{recheck_tier}); prepared only: {recheck_reason}"
         )
         return outcome
@@ -2050,10 +2148,16 @@ def _render_outcome(outcome: CollectOutcome) -> str:
         f"collect-evidence: PR #{outcome.pr} ({outcome.repo})",
         f"  head: {outcome.head_sha[:10]}  tier: {outcome.tier}",
         f"  action: {outcome.action} ({outcome.action_reason})",
+        f"  settlement stable: {outcome.settlement_stable}",
+        f"  base: {outcome.base_ref_oid[:10] or 'unknown'}  "
+        f"mergeable: {outcome.mergeable or 'unknown'}  "
+        f"merge_state: {outcome.merge_state_status or 'unknown'}",
         f"  counting families: {', '.join(outcome.counting_families) or 'none'}",
         f"  supportive families: {', '.join(outcome.supportive_families) or 'none'}",
         f"  dissenting families: {', '.join(outcome.dissenting_families) or 'none'}",
     ]
+    if outcome.stability_problems:
+        lines.append(f"  stability problems: {'; '.join(outcome.stability_problems)}")
     if outcome.posted:
         lines.append(f"  posted: {', '.join(outcome.posted)}")
     if outcome.post_errors:
@@ -2091,11 +2195,10 @@ def run_collect_cli(
 ) -> int:
     """Shared entry point for the script and ``review-queue collect-evidence``.
 
-    Returns 0 when >=2 reviewers produced counting evidence, else 1. Note that a
-    non-zero exit does not imply nothing was posted: with ``--apply`` on a
-    low-tier PR a single genuine reviewer can post one counting comment and still
-    return 1 (quorum is enforced as N-of-M elsewhere). Inspect ``posted_families``
-    in the JSON output rather than treating exit-code 1 as "nothing posted".
+    Returns 0 when the requested reviewers produced a supportive quorum, else 1.
+    Fresh runs with ``--apply`` prepare only; posting requires
+    ``--apply --prepared-json`` so reviewers are not regenerated between dry-run
+    and apply.
     """
     fams = tuple(families) if families else DEFAULT_FAMILIES
     resolved_author = author or resolve_author()

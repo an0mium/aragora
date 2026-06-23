@@ -303,6 +303,67 @@ def test_outbox_missing_dir_is_ok(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# outbox_progress
+# ---------------------------------------------------------------------------
+
+
+def test_outbox_progress_breaches_on_third_unchanged_snapshot(tmp_path: Path) -> None:
+    outbox = tmp_path / "outbox"
+    state = tmp_path / "state.json"
+    _touch(outbox / "oldest.json", age_hours=2)
+    _touch(outbox / "newer.json", age_hours=1)
+
+    first = sentinel.check_outbox_progress(
+        outbox, state_path=state, no_progress_threshold=3, now=NOW
+    )
+    second = sentinel.check_outbox_progress(
+        outbox, state_path=state, no_progress_threshold=3, now=NOW
+    )
+    third = sentinel.check_outbox_progress(
+        outbox, state_path=state, no_progress_threshold=3, now=NOW
+    )
+
+    assert first["status"] == "ok"
+    assert second["status"] == "ok"
+    assert third["status"] == "breach"
+    assert "oldest=oldest.json" in third["detail"]
+    assert "unchanged_evaluations=3/3" in third["detail"]
+
+
+def test_outbox_progress_resets_when_count_or_oldest_changes(tmp_path: Path) -> None:
+    outbox = tmp_path / "outbox"
+    state = tmp_path / "state.json"
+    _touch(outbox / "oldest.json", age_hours=2)
+    _touch(outbox / "newer.json", age_hours=1)
+
+    sentinel.check_outbox_progress(outbox, state_path=state, no_progress_threshold=3, now=NOW)
+    sentinel.check_outbox_progress(outbox, state_path=state, no_progress_threshold=3, now=NOW)
+    (outbox / "oldest.json").unlink()
+
+    result = sentinel.check_outbox_progress(
+        outbox, state_path=state, no_progress_threshold=3, now=NOW
+    )
+
+    assert result["status"] == "ok"
+    assert "oldest=newer.json" in result["detail"]
+    assert "unchanged_evaluations=1/3" in result["detail"]
+
+
+def test_outbox_progress_corrupt_state_is_unknown(tmp_path: Path) -> None:
+    outbox = tmp_path / "outbox"
+    state = tmp_path / "state.json"
+    _touch(outbox / "one.json", age_hours=1)
+    state.write_text("{not-json", encoding="utf-8")
+
+    result = sentinel.check_outbox_progress(
+        outbox, state_path=state, no_progress_threshold=3, now=NOW
+    )
+
+    assert result["status"] == "unknown"
+    assert "unreadable progress state" in result["detail"]
+
+
+# ---------------------------------------------------------------------------
 # disk_free
 # ---------------------------------------------------------------------------
 

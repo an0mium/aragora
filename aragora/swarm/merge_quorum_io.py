@@ -137,7 +137,7 @@ def list_open_prs(repo: str, *, limit: int, author: str | None) -> list[int]:
 
 
 def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
-    """Head SHA, head committedDate, quorum conclusion, and real-failure flag."""
+    """PR head/base snapshot, merge state, quorum conclusion, and real-failure flag."""
     data = run_json(
         [
             "gh",
@@ -147,11 +147,22 @@ def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
             "--repo",
             repo,
             "--json",
-            "headRefOid,commits,statusCheckRollup",
+            "headRefOid,baseRefName,commits,mergeable,mergeStateStatus,statusCheckRollup",
         ],
         env=_read_env(),
     )
     head_sha = str(data.get("headRefOid") or "").strip()
+    base_ref_name = str(data.get("baseRefName") or "").strip()
+    base_ref_oid = ""
+    if base_ref_name:
+        try:
+            base_ref = run_json(
+                ["gh", "api", f"repos/{repo}/git/ref/heads/{base_ref_name}"],
+                env=_read_env(),
+            )
+            base_ref_oid = str(((base_ref or {}).get("object") or {}).get("sha") or "").strip()
+        except RuntimeError:
+            base_ref_oid = ""
     commits = data.get("commits") or []
     head_committed_at = ""
     for entry in commits:
@@ -190,6 +201,10 @@ def fetch_pr_context(repo: str, pr: int) -> dict[str, Any]:
     return {
         "head_sha": head_sha,
         "head_committed_at": head_committed_at,
+        "base_ref_name": base_ref_name,
+        "base_ref_oid": base_ref_oid,
+        "mergeable": str(data.get("mergeable") or "").strip().upper(),
+        "merge_state_status": str(data.get("mergeStateStatus") or "").strip().upper(),
         "quorum_conclusion": quorum_conclusion,
         "has_real_required_failure": real_failure,
     }

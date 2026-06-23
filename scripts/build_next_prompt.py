@@ -38,11 +38,10 @@ SENSITIVE_KEYS = {
     "transcript_path",
 }
 CommandRunner = Callable[[list[str]], subprocess.CompletedProcess[str]]
-CONVERGENCE_SENTENCE = (
-    "If the prompt above accomplishes no incremental progress make the next prompt one "
-    "that does, include this sentence in all subsequent prompts to ensure they converge "
-    "towards prompts that make incremental progress."
+CONDUCTOR_POINTER = (
+    "Operating contract: re-read docs/AGENT_OPERATING_CONTRACT.md §Conductor this cycle."
 )
+CONVERGENCE_SENTENCE = CONDUCTOR_POINTER
 PENDING_CHECK_STATES = {
     "ACTION_REQUIRED",
     "EXPECTED",
@@ -358,8 +357,6 @@ def build_product_proof_loop_prompt(
             "If blocked, report the exact blocker and produce the next recursive prompt.",
             "Final report: signal mode, duplicate/owner findings, action taken or withheld, validation if any, PR URL if any, and the next best recursive prompt.",
             CONVERGENCE_SENTENCE,
-            "If any of the work involved can be better automated and made more autonomous by improving Aragora tooling at a meta level create a plan to do that instead, include this sentence in all subsequent prompts to ensure they converge towards automating and making more autonomous all steps at a meta level where this makes sense for the repo and project.",
-            "Always include a final summary or report section with the best next recursive prompt in a form similar to this one, include this sentence in all subsequent prompts to ensure they converge towards prompts that produce their next best recursive prompt.",
             "",
         ]
     )
@@ -879,6 +876,14 @@ def _is_stale_mailbox_only_owner(owner_state: Any) -> bool:
     )
 
 
+def _needs_stale_owner_halt(owner_state: Any) -> bool:
+    if not isinstance(owner_state, dict):
+        return False
+    if owner_state.get("possible_unpushed_work") is True:
+        return True
+    return _is_stale_mailbox_only_owner(owner_state)
+
+
 def _contains_target_token(text: str, *, pr: int | None, branch: str | None) -> bool:
     lowered = text.lower()
     if pr is not None and str(pr) in lowered:
@@ -1148,10 +1153,10 @@ def build_stale_owner_steering_prompt(
     pr: int | None = None,
     branch: str | None = None,
 ) -> str | None:
-    """Build a concrete steering prompt for stale mailbox-only owner lanes."""
+    """Build a halt/escalation prompt for stale or unsafe owner lanes."""
 
     owner_state = packet.get("owner_state")
-    if not _is_stale_mailbox_only_owner(owner_state):
+    if not _needs_stale_owner_halt(owner_state):
         return None
     assert isinstance(owner_state, dict)
     owner_session = str(owner_state.get("owner_session") or "")
@@ -1165,35 +1170,16 @@ def build_stale_owner_steering_prompt(
     pending_count = int(owner_state.get("pending_message_count") or 0)
     unread_count = int(owner_state.get("unread_message_count") or 0)
     receipt_count = int(owner_state.get("read_receipt_count") or 0)
-    body = (
-        f"Please finish or explicitly retire lane {lane_id} for {target}. "
-        "The lane is mailbox-only/stale: no live process is dispatchable, "
-        f"last heartbeat is {heartbeat}, pending_message_count={pending_count}, "
-        f"unread_message_count={unread_count}, read_receipt_count={receipt_count}. "
-        "Do not leave the target blocked by stale ownership; write an outcome receipt "
-        "or update the lane status to completed, released, or superseded."
-    )
-    steering_command = " ".join(
-        [
-            "python3",
-            "scripts/send_operator_steering.py",
-            "--to",
-            shlex.quote(owner_session),
-            "--lane-id",
-            shlex.quote(lane_id),
-            "--priority",
-            "blocking",
-            "--body",
-            shlex.quote(body),
-        ]
-    )
+    possible_unpushed = owner_state.get("possible_unpushed_work") is True
+    halt_reason = "possible unpushed work" if possible_unpushed else "stale mailbox-only owner"
 
     return "\n".join(
         [
             f"Start from live repo truth in {repo_root}. Do not trust prior transcript state.",
+            CONDUCTOR_POINTER,
             "Do not duplicate active lanes. Do not touch unrelated PRs. Do not merge without separate explicit operator authorization. Do not use or mutate dirty root source files.",
             "",
-            f"Goal: steer stale mailbox-only owner lane for {target}; do not supersede it from this session.",
+            f"Goal: halt on {halt_reason} for {target}; do not supersede it from this session.",
             "",
             "Live owner state to verify, not trust:",
             f"- lane_id: {lane_id}",
@@ -1204,12 +1190,12 @@ def build_stale_owner_steering_prompt(
             f"- pending_message_count: {pending_count}",
             f"- unread_message_count: {unread_count}",
             f"- read_receipt_count: {receipt_count}",
+            f"- possible_unpushed_work: {possible_unpushed}",
             "",
-            "First re-check mailbox and owner state from a clean current origin/main checkout. If the lane still resolves stale/mailbox-only and no explicit retirement/supersession authority is present, send this exact steering command and stop:",
-            steering_command,
-            "",
+            "First re-check mailbox, owner state, and unpublished-work indicators from a clean current origin/main checkout.",
+            "If this halt condition still holds, do not send another steering message and do not mutate the target. Report the stale/dead owner details and the exact operator action needed: retire/release the lane, recover its unpublished work, or explicitly authorize supersession.",
             "If the lane has retired or no longer owns the target, re-ground the target from live gh state before doing any further work.",
-            "Final report: mailbox receipt state, owner status, steering command run or withheld, and the next recursive prompt.",
+            "Final report: mailbox receipt state, owner status, halt reason, action withheld, and the next thin recursive prompt.",
             CONVERGENCE_SENTENCE,
             "",
         ]
@@ -1447,8 +1433,8 @@ def build_decision_packet(
         blockers.append("active owner exists for target")
     if len(target_active_lanes) > 1:
         blockers.append("multiple active owners exist for target")
-    if _is_stale_mailbox_only_owner(owner_state):
-        blockers.append("stale mailbox-only owner needs steering")
+    if _needs_stale_owner_halt(owner_state):
+        blockers.append("stale/dead owner halt required")
 
     packet: dict[str, Any] = {
         "owner": _sanitize(lane) if lane else None,
@@ -1482,8 +1468,8 @@ def build_decision_packet(
         "merge_packet": {},
         "post_merge_lane_coordination": {},
         "blockers": blockers,
-        "selected_action": "stale_owner_steering_prompt"
-        if "stale mailbox-only owner needs steering" in blockers
+        "selected_action": "stale_owner_halt_prompt"
+        if "stale/dead owner halt required" in blockers
         else "read_only_owner_routing"
         if "active owner exists for target" in blockers
         else "queue_prompt_from_clean_checkout"

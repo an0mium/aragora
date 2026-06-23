@@ -124,7 +124,7 @@ def test_prompt_starts_with_mailbox_and_owner_verification(tmp_path: Path) -> No
         in prompt
     )
     assert (
-        "If the prompt above accomplishes no incremental progress make the next prompt one that does"
+        "Operating contract: re-read docs/AGENT_OPERATING_CONTRACT.md §Conductor this cycle."
         in prompt
     )
 
@@ -717,7 +717,7 @@ def test_settlement_guard_prompt_includes_live_state_and_mailbox(tmp_path: Path)
     assert "Live head: live-head" in prompt
     assert "Pending required checks: Aragora Merge Quorum / aragora-merge-quorum" in prompt
     assert (
-        "If the prompt above accomplishes no incremental progress make the next prompt one that does"
+        "Operating contract: re-read docs/AGENT_OPERATING_CONTRACT.md §Conductor this cycle."
         in prompt
     )
 
@@ -1035,11 +1035,35 @@ def test_main_routes_stale_mailbox_only_owner_to_steering_prompt(
     )
 
     out = capsys.readouterr().out
-    assert "Goal: steer stale mailbox-only owner lane" in out
-    assert "scripts/send_operator_steering.py" in out
-    assert "--to engineering-autopilot-2-Q324-build-next-prompt" in out
-    assert "--lane-id Q324-repair-build-next-prompt-merged-active-lane-handoff" in out
-    assert "last heartbeat is 2026-06-04T14:45:34Z" in out
+    assert "Goal: halt on stale mailbox-only owner" in out
+    assert "scripts/send_operator_steering.py" not in out
+    assert "owner_session: engineering-autopilot-2-Q324-build-next-prompt" in out
+    assert "lane_id: Q324-repair-build-next-prompt-merged-active-lane-handoff" in out
+    assert "last_heartbeat_at: 2026-06-04T14:45:34Z" in out
+    assert "retire/release the lane" in out
+
+
+def test_stale_owner_prompt_halts_on_possible_unpushed_work(tmp_path: Path) -> None:
+    prompt = prompt_builder.build_stale_owner_steering_prompt(
+        {
+            "owner_state": {
+                "lane_id": "lane-with-local-work",
+                "owner_session": "codex-owner",
+                "status": "working",
+                "branch": "codex/local-only",
+                "last_heartbeat_at": "2026-06-04T14:45:34Z",
+                "possible_unpushed_work": True,
+                "live_process": {"found": True},
+            }
+        },
+        repo_root=tmp_path,
+        branch="codex/local-only",
+    )
+
+    assert prompt is not None
+    assert "Goal: halt on possible unpushed work" in prompt
+    assert "scripts/send_operator_steering.py" not in prompt
+    assert "recover its unpublished work" in prompt
 
 
 def test_main_guards_unresolved_operator_choice_placeholders(
