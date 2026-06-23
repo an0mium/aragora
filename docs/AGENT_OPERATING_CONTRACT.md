@@ -110,16 +110,18 @@ archive, or a merge only when a separate merge-on-green preference / helper auth
 already permits it). Touch the operator **only** at (a) a genuine Tier 3/4 risk decision, or
 (b) a circuit-breaker halt. Do **not** insert a human checkpoint between safe, progressing units
 — that is the molasses failure mode. "One bounded unit, then stop and ask" is WRONG unless the
-next unit is Tier 3/4 or the breaker tripped.
+next unit is Tier 3/4 or the breaker tripped. This rail does not override an existing
+batch/lane gate-attempt cap: after the allowed revise-and-retry budget is exhausted, park or
+halt that lane and move only to a different unblocked Tier 0-2 unit.
 
 **EVIDENCE-LAST (settlement-stability).** A head is *settlement-stable* iff: the latest
 adversarial **dry-run** review was clean for the **current** head (no CHANGES-REQUESTED /
 `[P0]` / `[P1]` / `[P2]` from every family that will be counted for this Tier) AND no commit
 has landed since AND the base is unchanged AND the PR is non-draft AND GitHub still reports
-`mergeable` as `MERGEABLE` or `UNKNOWN` with `mergeStateStatus` as `CLEAN` or `BLOCKED`.
-`BLOCKED` is allowed only because branch protection / merge-quorum may be waiting on the
-evidence being posted; `DIRTY`, `BEHIND`, `DRAFT`, `UNSTABLE`, and missing/unknown
-`mergeStateStatus` are not settlement-stable. The counted-family set comes from
+`mergeable` as `MERGEABLE` with `mergeStateStatus` as `CLEAN` or `BLOCKED`. `BLOCKED` is
+allowed only because branch protection / merge-quorum may be waiting on the evidence being
+posted; `DIRTY`, `BEHIND`, `DRAFT`, `UNKNOWN`, `UNSTABLE`, and missing/unknown
+mergeability or `mergeStateStatus` are not settlement-stable. The counted-family set comes from
 [`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md), especially the
 Tier-eligibility table; do not invent a smaller family set inside a recursive prompt.
 **Never collect countable (`--apply`) evidence on a head that is not settlement-stable.**
@@ -127,34 +129,40 @@ Loop: dry-run → if findings, repair → dry-run → … → clean → freeze e
 → settle. Settlement head movement is almost entirely review-driven and thus predictable: if
 the dry-run has findings, the head WILL move next, so do not spend on countable evidence yet.
 
-**Operational dry-run / freeze proof.** The concrete proof is a JSON artifact from:
+**Operational dry-run / freeze proof.** The target enforced interface is a JSON artifact from:
 
 ```bash
 python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
   --reviewers <families...> --json > /tmp/ev_<N>_dry.json
 ```
 
-Before any `--apply`, verify the artifact records the live `head_sha`, `dissenting_families`
-is empty, `has_supportive_quorum` is true, and each counted `items[].body` lints for the
-current PR/head. Then re-check
+Before any `--apply`, verify the artifact records the live `head_sha`, the live base OID,
+`dissenting_families` is empty, `has_supportive_quorum` is true, and each counted
+`items[].body` lints for the current PR/head. Then re-check
 `gh pr view <N> --json headRefOid,baseRefOid,mergeable,mergeStateStatus,isDraft`:
 `headRefOid` must still equal the artifact `head_sha`, `baseRefOid` must still equal the
-artifact base, `isDraft` must be false, and `mergeable` / `mergeStateStatus` must still be
-in the settlement-stable set above. Only then run the paired apply from the same artifact:
+artifact base, `isDraft` must be false, and `mergeable` / `mergeStateStatus` must still be in
+the settlement-stable set above. Only then run the paired apply from the same artifact:
 
 ```bash
 python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
   --prepared-json /tmp/ev_<N>_dry.json --apply --json
 ```
 
+If a helper version does not yet record or enforce any freeze-proof field above, treat that
+helper as prepare/report-only for countable evidence. The conductor may not rely on a weaker
+`--apply` implementation; either perform and report the missing live checks outside the helper
+before posting the exact prepared bodies, or wait for the enforcement tooling to land.
+
 **Automation compatibility.** Existing collectors such as `scripts/auto_evidence_cycle.py`
 remain evidence-posting tools, not authority to skip the dry-run/freeze rule. An automated
 collector may post countable evidence only when it persists the dry-run artifact and replays
 that exact artifact through a live-head/base/merge-state prepared-json apply. Collectors that
-do not implement that sequence are prepare/report-only for countable evidence.
+do not implement that sequence are prepare/report-only for countable evidence and must not be
+used by conductor loops for countable posting.
 
 **NO-TREADMILL.** Batch all known findings into ONE repair per head; never
-repair-then-recollect on the same head. Any CHANGES-REQUESTED / `[P1]` / `[P2]` ends the
+repair-then-recollect on the same head. Any CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` ends the
 evidence lane and becomes a repair — never post partial or dissenting evidence.
 
 **CIRCUIT-BREAKER + dead-letter ban.** If a loop produces no *external* progress for 3
