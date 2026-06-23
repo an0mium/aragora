@@ -173,6 +173,15 @@ before posting. The conductor may not claim the weaker `--apply` implementation 
 full rule; either perform and report the missing checks before posting the exact prepared
 bodies, or wait for the enforcement tooling to land.
 
+**Target state (enforcement is converging).** §Conductor is *normative*: it states the policy
+loops must follow, ahead of full machine-enforcement. Today some clauses are enforced by
+discipline + review, not yet by tooling — e.g. the apply path (`apply_prepared_evidence`)
+currently re-verifies head + tier but not the live `mergeable` / `mergeStateStatus` / draft
+state, and the evidence-lint blocks `[P0]` / `[P1]` but not `[P2]`. Closing those gaps is the
+job of the stability-gate work (the sentinel circuit-breaker PR and the
+`collect_quorum_evidence` settlement-stability gate); until then, treat the unenforced clauses
+as operator-and-reviewer obligations.
+
 **Automation compatibility.** Existing collectors such as `scripts/auto_evidence_cycle.py`
 remain evidence-posting tools, not authority to skip the dry-run/freeze rule. An automated
 collector may post countable evidence only when it persists the dry-run artifact and replays
