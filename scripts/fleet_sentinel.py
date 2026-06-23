@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import glob as glob_module
+import hashlib
 import json
 import plistlib
 import re
@@ -208,8 +209,10 @@ def check_outbox(
     if not outbox_dir.is_dir():
         result = _result(name, "ok", f"no outbox dir at {outbox_dir}")
         result["depth"] = 0
+        result["fingerprint"] = _outbox_fingerprint([])
         return result
     items = sorted(p for p in outbox_dir.glob("*.json") if p.is_file())
+    fingerprint = _outbox_fingerprint(items)
     problems: list[str] = []
     if len(items) > max_items:
         problems.append(f"{len(items)} items queued (max {max_items})")
@@ -223,10 +226,20 @@ def check_outbox(
     if problems:
         result = _result(name, "breach", "; ".join(problems))
         result["depth"] = len(items)
+        result["fingerprint"] = fingerprint
         return result
     result = _result(name, "ok", f"{len(items)} item(s) queued")
     result["depth"] = len(items)
+    result["fingerprint"] = fingerprint
     return result
+
+
+def _outbox_fingerprint(items: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for item in sorted(items, key=lambda p: p.name):
+        digest.update(item.name.encode("utf-8", "surrogateescape"))
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def _extract_outbox_depth(check: dict[str, Any]) -> int | None:
@@ -239,6 +252,20 @@ def _extract_outbox_depth(check: dict[str, Any]) -> int | None:
     if match:
         return int(match.group(1))
     return None
+
+
+def _extract_outbox_fingerprint(check: dict[str, Any]) -> str | None:
+    fingerprint = check.get("fingerprint")
+    if isinstance(fingerprint, str) and fingerprint:
+        return fingerprint
+    return None
+
+
+def _extract_outbox_sample(checks: Any) -> tuple[int | None, str | None]:
+    for check in checks or []:
+        if isinstance(check, dict) and check.get("check") == "outbox_depth":
+            return _extract_outbox_depth(check), _extract_outbox_fingerprint(check)
+    return None, None
 
 
 def check_outbox_drain_progress(
@@ -262,49 +289,65 @@ def check_outbox_drain_progress(
     name = "outbox_drain_progress"
     if stall_cycles < 1:
         return _result(name, "unknown", f"invalid stall cycle count {stall_cycles}; must be >= 1")
-    current = sum(1 for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else 0
+    current_items = (
+        sorted(p for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else []
+    )
+    current = len(current_items)
+    current_fingerprint = _outbox_fingerprint(current_items)
     if current < min_floor:
         return _result(name, "ok", f"outbox depth {current} below floor {min_floor}")
     if not ledger.exists():
         return _result(name, "ok", f"no ledger history at {ledger}; cannot assess drain")
-    history: list[int] = []
-    valid_entries = 0
+    samples: list[tuple[int | None, str | None]] = []
     for line in _read_tail_lines(ledger, stall_cycles + 4):
         try:
             entry = json.loads(line)
         except (ValueError, TypeError):
+            samples.append((None, None))
             continue
         if not isinstance(entry, dict):
+            samples.append((None, None))
             continue
-        valid_entries += 1
-        for check in entry.get("checks") or []:
-            if isinstance(check, dict) and check.get("check") == "outbox_depth":
-                depth = _extract_outbox_depth(check)
-                if depth is not None:
-                    history.append(depth)
-                break
-    if len(history) < stall_cycles:
-        if valid_entries >= stall_cycles:
-            return _result(
-                name,
-                "unknown",
-                f"only {len(history)} usable outbox_depth sample(s) in {valid_entries} recent ledger cycle(s); cannot assess drain",
-            )
+        samples.append(_extract_outbox_sample(entry.get("checks")))
+    if len(samples) < stall_cycles:
+        usable = sum(1 for depth, _fingerprint in samples if depth is not None)
         return _result(
-            name, "ok", f"only {len(history)} prior cycle(s); need {stall_cycles} to assess drain"
+            name, "ok", f"only {usable} prior cycle(s); need {stall_cycles} to assess drain"
         )
-    window = history[-stall_cycles:]
+    recent_samples = samples[-stall_cycles:]
+    if any(depth is None for depth, _fingerprint in recent_samples):
+        usable = sum(1 for depth, _fingerprint in recent_samples if depth is not None)
+        return _result(
+            name,
+            "unknown",
+            f"only {usable} usable outbox_depth sample(s) in the last {stall_cycles} ledger cycle(s); cannot assess drain",
+        )
+    window = [depth for depth, _fingerprint in recent_samples if depth is not None]
     series = [*window, current]
     congested = all(depth >= min_floor for depth in series)
     not_draining = current >= window[-1] and current >= window[0]
+    fingerprints = [fingerprint for _depth, fingerprint in recent_samples] + [current_fingerprint]
+    if congested and not_draining and any(not fingerprint for fingerprint in fingerprints):
+        return _result(
+            name,
+            "unknown",
+            "outbox depth did not improve, but recent ledger samples lack item fingerprints; cannot distinguish backlog stall from saturated throughput",
+        )
+    fingerprint_changed = len(set(fingerprints)) > 1
+    if congested and not_draining and fingerprint_changed:
+        return _result(
+            name,
+            "ok",
+            f"outbox depth stayed high but item fingerprint changed (recent depths {window}, now {current}); drain loop has throughput",
+        )
     if congested and not_draining:
         return _result(
             name,
             "breach",
             f"outbox not draining: net depth {window[0]}->{current} stayed at/above {min_floor} "
-            f"across {stall_cycles} prior cycles plus live depth — the drain loop is making no net "
-            "backlog progress; HALT it and escalate to the operator, do not keep re-messaging stale lanes "
-            "(§Conductor dead-letter ban)",
+            f"across {stall_cycles} prior cycles plus live depth and item fingerprint did not change — "
+            "the drain loop is making no net backlog progress; HALT it and escalate to the operator, "
+            "do not keep re-messaging stale lanes (§Conductor dead-letter ban)",
         )
     return _result(
         name, "ok", f"outbox draining or fluctuating (recent depths {window}, now {current})"
