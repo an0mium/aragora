@@ -35,12 +35,23 @@ dependencies = [
     # ``aragora --help`` time — click/httpx/typer via cli/ submodules, plus
     # config/settings which need pydantic + PyYAML). Declared in base so any
     # install yields a working CLI, not just ``[test]``.
-    "click>=8.1,<9.0",
+    "click>=8.4.1,<9.0",
     "httpx>=0.27,<1.0",
     "typer>=0.26.7,<1.0",
     "PyYAML>=6.0.3,<7.0",
     "pydantic>=2.13.4,<3.0",
     "pydantic-settings>=2.14.2,<3.0",
+    # Core async runtime floor, audited against the bootable base set in
+    # scripts/ci_install_project.sh (LEGACY_CONTROL_PLANE_BASE_DEPS, the floor
+    # both Dockerfiles boot from). aiohttp has the widest runtime footprint
+    # (server handlers, agents, connectors) and websockets backs the
+    # aragora/server/stream/* WebSocket surface. Declared in base so these
+    # import cleanly from a plain ``pip install aragora``; the FastAPI/uvicorn
+    # gateway and the other optional stacks stay in their extras ([gateway],
+    # [enterprise], ...). The aiohttp floor matches the [blockchain]/[all]
+    # extras for one consistent pin.
+    "aiohttp>=3.14.1,<4.0",
+    "websockets>=13.0,<15.1",
 ]
 
 [project.scripts]

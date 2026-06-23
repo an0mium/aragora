@@ -37,10 +37,15 @@ from datetime import datetime, timezone
 import re
 from typing import Final
 
-# Mirrors aragora/cli/commands/review_queue.py::_tier_requirement. This is a
-# read-only *diagnostic* mapping used only to render the "next action" hint; it
+# Read-only *diagnostic* mapping used only to render the "next action" hint; it
 # never gates a merge. Tuple = (required_model_signals, requires_dogfood,
-# requires_human_settlement). Kept tiny and annotated so drift is obvious.
+# requires_human_settlement). This is the strict-regime (default-OFF) projection of
+# the canonical QuorumPolicy (aragora.swarm.quorum_evidence.tier_quorum_rule). It is
+# a literal (not a module-load derivation) only because quorum_evidence imports this
+# module transitively via merge_quorum_io — a runtime derivation would be a circular
+# import. Drift from the policy is prevented by test_tiered_merge_gate_quorum_policy::
+# test_reconcile_diagnostic_matches_policy, which asserts equality against
+# tier_quorum_rule(tier, tiered_gate=False) (claude/Codex #8507 single-source).
 TIER_REQUIREMENTS: Final[dict[int, tuple[int, bool, bool]]] = {
     0: (1, False, False),
     1: (2, True, False),
@@ -373,12 +378,38 @@ def summarize_settlement(
     required_signals, requires_dogfood, requires_human = TIER_REQUIREMENTS.get(
         tier if tier is not None else -1, (2, True, True)
     )
+    # Apply the canonical jurisdiction rules so this diagnostic cannot tell an
+    # operator "settle-ready" for a pair the live gate would block (e.g. a
+    # claude+deepseek Tier 3-4 PR, where deepseek is advisory-only). The reconcile
+    # table is the strict/default-OFF projection, so evaluate the rule with
+    # tiered_gate=False to match that regime. Function-level import avoids a
+    # circular import (quorum_evidence imports this module via merge_quorum_io).
+    from aragora.swarm.quorum_evidence import WESTERN_FAMILIES, tier_quorum_rule
+
+    rule = tier_quorum_rule(tier, tiered_gate=False)
+    # Jurisdiction-eligible count: drops Chinese-routed families at Tier 3-4. This
+    # is what actually drives the gate's quorum decision, not the raw id count.
+    counted = rule.counted_families(ids)
+    advisory_only = bool(set(ids) - counted)
+    needs_western = rule.requires_at_least_one_western and not (counted & WESTERN_FAMILIES)
 
     if quorum_conclusion.upper() == _SUCCESS:
         next_action = "none — quorum check is green; PR is ready to merge"
-    elif len(ids) < required_signals:
-        missing = required_signals - len(ids)
-        next_action = f"collect {missing} more distinct model signal(s) on the current head"
+    elif len(counted) < required_signals:
+        missing = required_signals - len(counted)
+        if advisory_only:
+            next_action = (
+                f"collect {missing} more distinct Western model signal(s) on the current "
+                "head; Chinese-routed families are advisory-only at this tier and do not "
+                "count toward the quorum"
+            )
+        else:
+            next_action = f"collect {missing} more distinct model signal(s) on the current head"
+    elif needs_western:
+        next_action = (
+            "collect at least one Western model signal on the current head; the counted "
+            "families are advisory-only and do not satisfy the Tier 2 Western requirement"
+        )
     elif requires_dogfood and not has_dogfood:
         next_action = "post adversarial-dogfood evidence on the current head"
     elif requires_human and not human_settlement_present:
