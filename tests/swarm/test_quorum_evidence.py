@@ -1906,8 +1906,31 @@ def test_apply_prepared_evidence_rechecks_between_supportive_posts(tmp_path) -> 
 
 def test_apply_prepared_evidence_skips_already_posted_family_on_retry(tmp_path) -> None:
     prepared = _prepared_outcome_file(tmp_path)
+    posted: list[tuple[str, str]] = []
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=_clean_context,
+        tier_fetcher=lambda repo, pr: 1,
+        linter=_family_linter,
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+        already_posted_families=["claude"],
+    )
+
+    assert outcome.action == "post"
+    assert outcome.posted == ["claude", "grok"]
+    assert posted == [("o/r", _prepared_body("grok"))]
+
+
+def test_apply_prepared_evidence_ignores_artifact_posted_families(tmp_path) -> None:
+    prepared = _prepared_outcome_file(tmp_path)
     data = json.loads(prepared.read_text(encoding="utf-8"))
-    data["posted_families"] = ["claude"]
+    data["posted_families"] = ["claude", "grok"]
     prepared.write_text(json.dumps(data), encoding="utf-8")
     posted: list[tuple[str, str]] = []
 
@@ -1926,7 +1949,7 @@ def test_apply_prepared_evidence_skips_already_posted_family_on_retry(tmp_path) 
 
     assert outcome.action == "post"
     assert outcome.posted == ["claude", "grok"]
-    assert posted == [("o/r", _prepared_body("grok"))]
+    assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
 
 
 def test_apply_prepared_evidence_requires_stability_metadata(tmp_path) -> None:

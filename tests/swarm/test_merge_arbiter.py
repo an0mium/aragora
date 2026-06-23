@@ -877,7 +877,7 @@ class TestAutoCollectIntegration:
             patch("aragora.swarm.merge_arbiter._evaluate_pr", return_value=blocked),
         ):
             summary = await arb.run()  # must not raise
-        assert calls["n"] == 1  # attempted once; head recorded so no retry storm
+        assert calls["n"] == 2  # one retry, then the head is recorded to avoid a storm
         assert summary.polls >= 1
 
     def test_auto_collect_retries_unstable_supportive_prepare_once(self):
@@ -993,9 +993,11 @@ class TestAutoCollectIntegration:
         assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
         assert quorum_pr["headRefOid"] not in arb._collected_heads
         assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
+        assert quorum_pr["headRefOid"] not in arb._collected_heads
+        assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
         assert arb._maybe_collect_evidence(quorum_pr, blocked) is False
         assert calls["n"] == 1
-        assert apply_calls["n"] == 2
+        assert apply_calls["n"] == 3
         assert quorum_pr["headRefOid"] in arb._collected_heads
 
     def test_auto_collect_retries_partial_replay_without_rerunning_reviewers(self):
@@ -1042,10 +1044,12 @@ class TestAutoCollectIntegration:
             return PreparedOutcome()
 
         applied_payloads = []
+        trusted_posted = []
 
         def applier(**kw):
             payload = _json.loads(kw["prepared_json"].read_text(encoding="utf-8"))
             applied_payloads.append(payload)
+            trusted_posted.append(kw.get("already_posted_families"))
             return PartialOutcome() if len(applied_payloads) == 1 else PostedOutcome()
 
         arb, calls = self._arbiter_with_prepared_fakes(collector, applier)
@@ -1059,5 +1063,6 @@ class TestAutoCollectIntegration:
         assert arb._maybe_collect_evidence(quorum_pr, blocked) is True
         assert calls["n"] == 1
         assert applied_payloads[0].get("posted_families") == []
-        assert applied_payloads[1].get("posted_families") == ["claude"]
+        assert applied_payloads[1].get("posted_families") == []
+        assert trusted_posted == [None, ["claude"]]
         assert quorum_pr["headRefOid"] in arb._collected_heads

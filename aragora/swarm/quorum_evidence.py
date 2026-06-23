@@ -1995,6 +1995,7 @@ def apply_prepared_evidence(
     poster: Callable[[str, int, str], None] = default_poster,
     quorum_reconciler: Callable[[str, int], dict[str, Any] | None] | None = None,
     env: dict[str, str] | None = None,
+    already_posted_families: Sequence[str] | None = None,
 ) -> CollectOutcome:
     """Post an exact-head prepared artifact without re-running reviewers.
 
@@ -2159,7 +2160,10 @@ def apply_prepared_evidence(
     outcome.action_reason = (
         "prepared exact-head evidence artifact; posting without reviewer regeneration"
     )
-    already_posted = set(prepared.posted)
+    # ``posted_families`` in the prepared artifact is untrusted input. Only an
+    # in-memory caller that just observed a successful post may pass this argument
+    # to resume a partial replay without duplicating already-posted comments.
+    already_posted = {canonical_family(f) for f in (already_posted_families or [])}
     outcome.posted = [
         item.family for item in outcome.items if item.supportive and item.family in already_posted
     ]

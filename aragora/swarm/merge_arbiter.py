@@ -54,6 +54,7 @@ AUTOMATION_BRANCH_PREFIXES: list[str] = [
 ]
 PASSING_CHECK_STATES = frozenset({"SUCCESS", "NEUTRAL", "SKIPPED"})
 READY_SUITE_GATE_CHECKS = frozenset({"Prioritize Required Checks"})
+MAX_PREPARED_REPLAY_ATTEMPTS_PER_HEAD = 3
 REDUCED_LANE_ONLY_CHECKS = frozenset(
     {
         "PR Admission Signal (Advisory)",
@@ -627,7 +628,10 @@ class MergeArbiter:
         self._consecutive_failures = 0
         self._collected_heads: set[str] = set()
         self._prepared_evidence_by_head: dict[str, dict[str, object]] = {}
+        self._prepared_replay_attempts_by_head: dict[str, int] = {}
+        self._trusted_posted_families_by_head: dict[str, list[str]] = {}
         self._unstable_prepare_retried_heads: set[str] = set()
+        self._fault_retried_heads: set[str] = set()
         self._tier_fetcher = tier_fetcher
         self._context_fetcher = context_fetcher
         self._evidence_reader = evidence_reader
@@ -661,9 +665,14 @@ class MergeArbiter:
             if head_sha:
                 self._collected_heads.add(head_sha)
                 self._prepared_evidence_by_head.pop(head_sha, None)
+                self._prepared_replay_attempts_by_head.pop(head_sha, None)
+                self._trusted_posted_families_by_head.pop(head_sha, None)
                 self._unstable_prepare_retried_heads.discard(head_sha)
+                self._fault_retried_heads.discard(head_sha)
 
-        def apply_payload(payload: dict[str, object]) -> object:
+        def apply_payload(
+            payload: dict[str, object], already_posted_families: list[str] | None = None
+        ) -> object:
             prepared_path = ""
             try:
                 with tempfile.NamedTemporaryFile(
@@ -682,6 +691,7 @@ class MergeArbiter:
                     apply=True,
                     families=families,
                     quorum_reconciler=default_quorum_reconciler,
+                    already_posted_families=already_posted_families,
                 )
             finally:
                 if prepared_path:
@@ -699,20 +709,29 @@ class MergeArbiter:
                 return not set(supportive).issubset(set(posted))
             return not posted
 
-        def retry_payload(original: dict[str, object], applied: object) -> dict[str, object]:
-            to_dict = getattr(applied, "to_dict", None)
-            if callable(to_dict):
-                payload = to_dict()
-                if isinstance(payload, dict):
-                    return payload
-            return original
+        def cache_replay_retry(payload: dict[str, object], applied: object) -> bool:
+            if not head_sha or not should_retry_replay(applied):
+                return False
+            attempts = self._prepared_replay_attempts_by_head.get(head_sha, 0) + 1
+            if attempts >= MAX_PREPARED_REPLAY_ATTEMPTS_PER_HEAD:
+                return False
+            self._prepared_replay_attempts_by_head[head_sha] = attempts
+            self._prepared_evidence_by_head[head_sha] = payload
+            existing = self._trusted_posted_families_by_head.get(head_sha, [])
+            posted = list(getattr(applied, "posted", []) or [])
+            self._trusted_posted_families_by_head[head_sha] = sorted({*existing, *posted})
+            return True
 
         try:
             families = self.config.reviewer_families or list(DEFAULT_FAMILIES)
             author = self._author_resolver()
             if head_sha and head_sha in self._prepared_evidence_by_head:
-                applied = apply_payload(self._prepared_evidence_by_head[head_sha])
-                mark_collected()
+                applied = apply_payload(
+                    self._prepared_evidence_by_head[head_sha],
+                    self._trusted_posted_families_by_head.get(head_sha),
+                )
+                if not cache_replay_retry(self._prepared_evidence_by_head[head_sha], applied):
+                    mark_collected()
                 logger.info(
                     "Retried prepared quorum evidence for #%s; posted=%s",
                     pr.get("number"),
@@ -757,12 +776,13 @@ class MergeArbiter:
                 return True
             payload = outcome.to_dict()
             applied = apply_payload(payload)
-            if head_sha and should_retry_replay(applied):
-                self._prepared_evidence_by_head[head_sha] = retry_payload(payload, applied)
-            else:
+            if not cache_replay_retry(payload, applied):
                 mark_collected()
         except Exception as exc:  # noqa: BLE001 - best-effort resilience boundary: one bad collection must not abort the poll loop
-            mark_collected()
+            if head_sha and head_sha not in self._fault_retried_heads:
+                self._fault_retried_heads.add(head_sha)
+            else:
+                mark_collected()
             logger.warning("evidence collection fault for #%s: %s", pr.get("number"), exc)
             return False
         logger.info(
