@@ -318,9 +318,13 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
 
     result = qe._run_claude_cli("review prompt")
 
-    assert seen["args"] == (
-        ["claude", "-p", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}'],
-    )
+    argv = seen["args"][0]
+    assert argv[:2] == ["claude", "-p"]
+    assert "--strict-mcp-config" in argv
+    assert "--mcp-config" in argv
+    mcp_config = Path(argv[argv.index("--mcp-config") + 1])
+    assert mcp_config.name.endswith(".json")
+    assert str(mcp_config) != '{"mcpServers":{}}'
     assert seen["timeout"] == 7.0
     assert result == ReviewerResult(
         "claude",
@@ -330,12 +334,34 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
 
+def test_run_claude_cli_uses_file_backed_mcp_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(args, **_kwargs):
+        config_arg = args[args.index("--mcp-config") + 1]
+        config_path = Path(config_arg)
+        seen["config_arg"] = config_arg
+        seen["exists_during_run"] = config_path.exists()
+        seen["config_payload"] = json.loads(config_path.read_text(encoding="utf-8"))
+        return subprocess.CompletedProcess(args, 0, stdout="Verdict: PASS\n", stderr="")
+
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_claude_cli("review prompt")
+
+    config_path = Path(str(seen["config_arg"]))
+    assert seen["exists_during_run"] is True
+    assert seen["config_payload"] == {"mcpServers": {}}
+    assert not config_path.exists()
+    assert result == ReviewerResult("claude", "Verdict: PASS", True)
+
+
 def test_claude_reviewer_command_disables_mcp() -> None:
-    cmd = qe._claude_reviewer_command()
+    cmd = qe._claude_reviewer_command(Path("/tmp/empty-mcp.json"))
 
     assert cmd[:2] == ["claude", "-p"]
     assert "--mcp-config" in cmd
-    assert cmd[cmd.index("--mcp-config") + 1] == '{"mcpServers":{}}'
+    assert cmd[cmd.index("--mcp-config") + 1] == "/tmp/empty-mcp.json"
     assert "--strict-mcp-config" in cmd
 
 

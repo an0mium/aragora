@@ -8,7 +8,7 @@ import re
 _SEVERITY_GATED_DISSENT_ENV = "ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT"
 _TRUE_VALUES = frozenset(("1", "true", "yes", "on"))
 
-# Explicit "no Pn finding" heads. A `[P0]`/`[P1]` line is blocking UNLESS the text
+# Explicit "no Pn finding" heads. A `[P0]`/`[P1]`/`[P2]` line is blocking UNLESS the text
 # before its first colon is EXACTLY one of these — models emit `"[P1] None:"`,
 # `"[P1] N/A"`, `"[P1] no issues: ..."` to declare the absence of a finding. Matched
 # exactly (not as a prefix) so a real finding that merely starts with "none"/"no"
@@ -173,7 +173,7 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
             continue
         marker = _priority_marker(stripped)
         if marker:
-            if marker[0] in {"P0", "P1"}:
+            if marker[0] in {"P0", "P1", "P2"}:
                 return True
             # explicit "[Pn] None:/N/A/no issues" non-finding -> keep scanning
             continue
