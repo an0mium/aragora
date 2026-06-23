@@ -1861,7 +1861,9 @@ def test_apply_strict_artifact_not_relaxed_by_live_flag(tmp_path, monkeypatch) -
     assert posted == []
 
 
-def test_apply_relaxed_artifact_restricted_when_operator_reverts_flag(tmp_path, monkeypatch) -> None:
+def test_apply_relaxed_artifact_restricted_when_operator_reverts_flag(
+    tmp_path, monkeypatch
+) -> None:
     # A relaxed-prepared artifact (tiered_gate=True, lone WF signal) is re-evaluated
     # under STRICT rules if the operator later turns the relaxation OFF — the flag is
     # the operator's revocable approval point. min(True, False) = strict → Tier 1

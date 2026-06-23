@@ -142,6 +142,7 @@ from aragora.swarm.quorum_evidence import (  # noqa: E402
     WESTERN_FAMILIES as WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
 )
+
 DIRECT_MODEL_FAMILY_MARKERS: dict[str, tuple[str, ...]] = {
     "claude": ("claude", "anthropic"),
     "openai": ("openai",),
@@ -3145,27 +3146,27 @@ def _build_model_review_quorum(
     # Jurisdiction-counted signals (docs/REVIEW_AUTHORITY_PRINCIPLES.md::Tier-
     # eligibility). At Tier 3-4 only Western families count toward the quorum;
     # Chinese-routed families remain advisory — they still post and stay in
-    # counted_reviewer_ids for the audit trail, but do not satisfy the count.
-    # signal_count is therefore the jurisdiction-eligible count that drives the
-    # gate decision and the reasons.
+    # counted_reviewer_ids for the audit trail, but do not satisfy the count. So
+    # signal_count is the jurisdiction-eligible count that drives the gate decision
+    # and the reasons (not the raw recognized-family count).
     counted_family_set = {str(rid).strip().lower() for rid in counted_reviewer_ids}
     if requirement.get("western_only_counted"):
         jurisdiction_counted = {f for f in counted_family_set if f in WESTERN_FAMILIES}
     else:
         jurisdiction_counted = counted_family_set
     signal_count = len(jurisdiction_counted)
-    # The western-frontier check below is derived from the model-review signals
-    # ONLY (empty dogfood list). _counted_model_reviewer_ids only ever ADDS
-    # dogfood-attributable ids, so the signal-only set is a guaranteed subset of
-    # counted_reviewer_ids — any western-frontier signal that satisfies the WF
-    # requirement is also counted (claude #8507 P2). Pinned by
+    # The western-frontier check is derived from the model-review signals ONLY (empty
+    # dogfood list). _counted_model_reviewer_ids only ever ADDS dogfood-attributable
+    # ids, so the signal-only set is a guaranteed subset of counted_reviewer_ids —
+    # any western-frontier signal that satisfies the WF requirement is therefore also
+    # counted toward signal_count (claude #8507 P2). Pinned by
     # test_western_frontier_signal_set_is_subset_of_counted.
     counted_reviewer_signal_ids = _counted_model_reviewer_ids(reviewer_signals, [])
     has_required_dogfood = not requirement["requires_adversarial_dogfood"] or any(
         _known_model_reviewer_id(item) for item in dogfood_evidence
     )
-    # The western-frontier requirement must be satisfied by a model-review signal,
-    # not by dogfood-only metadata. Dogfood remains separately required for Tier 1+.
+    # The WF requirement must be met by a model-review signal, not by dogfood-only
+    # metadata. Dogfood remains separately required for Tier 1+.
     has_western_frontier_signal = bool(
         {str(rid).strip().lower() for rid in counted_reviewer_signal_ids}
         & WESTERN_FRONTIER_FAMILIES
@@ -3174,9 +3175,9 @@ def _build_model_review_quorum(
         not requirement.get("requires_western_frontier_signal") or has_western_frontier_signal
     )
     # Tier 2: at least one counted family must be Western.
-    at_least_one_western_satisfied = not requirement.get(
-        "requires_at_least_one_western"
-    ) or bool(jurisdiction_counted & WESTERN_FAMILIES)
+    at_least_one_western_satisfied = not requirement.get("requires_at_least_one_western") or bool(
+        jurisdiction_counted & WESTERN_FAMILIES
+    )
     quorum_satisfied = (
         signal_count >= requirement["required_model_signals"]
         and has_required_dogfood
@@ -3260,17 +3261,13 @@ def _build_model_review_quorum(
             reasons.append(
                 "a western-frontier model signal (claude/openai) is required to settle this tier"
             )
-        if requirement.get("western_only_counted") and (
-            counted_family_set - jurisdiction_counted
-        ):
+        if requirement.get("western_only_counted") and (counted_family_set - jurisdiction_counted):
             reasons.append(
                 "Tier 3-4 requires a Western-only counted quorum; Chinese-routed "
                 "families are advisory-only and do not count toward the quorum"
             )
         if not at_least_one_western_satisfied:
-            reasons.append(
-                "at least one counted model signal must be from a Western family"
-            )
+            reasons.append("at least one counted model signal must be from a Western family")
         reasons.extend(review_object_warnings)
     admin_squash_allowed = False
     requires_human_risk_settlement = bool(requirement["requires_human_risk_settlement"])
@@ -3381,22 +3378,22 @@ def _classify_model_review_tier(
 
 def _tier_requirement(tier: int) -> dict[str, Any]:
     # Single source of truth for the model-quorum bar: the shared tier_quorum_rule
-    # (also used by the auto-settle path's CollectOutcome.has_supportive_quorum) so
-    # the merge gate and the collector share one tier→requirement mapping and one WF
+    # (also used by the auto-settle path's CollectOutcome.has_supportive_quorum) so the
+    # merge gate and the collector share one tier→requirement mapping and one WF
     # allowlist; they cannot drift on WHAT each tier requires.
     #
     # The two paths intentionally differ on regime SELECTION, and the asymmetry is by
-    # design (claude #8507 P1):
+    # design (claude #8507 P1; full rationale in docs/specs/TIERED_MERGE_GATE_QUORUM_POLICY.md):
     #   * This live merge gate is evaluated fresh on every CI run against the PR's
     #     current evidence, so there is no prepare→apply staleness window to reconcile.
-    #     It therefore reads the live flag directly. The flag is default OFF, and
-    #     enabling it is itself the operator's deliberate, Tier-4-gated audit point —
-    #     the global flag *is* the revocation control (flip OFF to revoke everywhere).
+    #     It reads the live flag directly. The flag is default OFF, and enabling it is
+    #     itself the operator's deliberate, Tier-4-gated audit point — the global flag
+    #     *is* the revocation control (flip OFF to revoke everywhere).
     #   * The auto-settle apply path stores a prepared artifact with a real time gap
     #     between prepare and apply, so it additionally reconciles via min(prepared,
     #     live) to stop a flag flip from retroactively relaxing a stale artifact.
-    # Both are strict-by-default and monotonic toward the strict bar; only the apply
-    # path needs the extra reconciliation because only it has stored, deferrable state.
+    # Both are strict-by-default; only the apply path needs the extra reconciliation
+    # because only it has stored, deferrable state.
     from aragora.swarm.quorum_evidence import tier_quorum_rule, tiered_merge_gate_enabled
 
     rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())

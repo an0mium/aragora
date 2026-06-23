@@ -93,6 +93,7 @@ def is_western_family(family: str) -> bool:
     """Whether ``family`` counts toward a Western-only quorum (Tier 3-4)."""
     return str(family).strip().lower() in WESTERN_FAMILIES
 
+
 # Opt-in flag for the Tier 1-2 *relaxation* only. The flag's SOLE effect is to let a
 # Tier 1-2 PR settle on one supportive western-frontier signal (claude/openai) instead
 # of two distinct families; default OFF, those tiers keep the two-distinct bar. Gating
