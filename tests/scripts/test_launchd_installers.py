@@ -108,25 +108,41 @@ def test_generated_plist_invokes_wrapper_not_captured_interpreter(
     assert "/Users/" not in raw
 
 
-def _merge_arbiter_wrapper_repo(tmp_path: Path) -> Path:
+def _merge_arbiter_wrapper_repo(tmp_path: Path) -> tuple[Path, Path]:
     repo = tmp_path / "repo"
     scripts = repo / "scripts"
     scripts.mkdir(parents=True)
     shutil.copy2(REPO_ROOT / "scripts" / "run_merge_arbiter.sh", scripts / "run_merge_arbiter.sh")
-    _mk(
-        scripts / "aragora_runtime.sh",
-        "#!/usr/bin/env bash\nresolve_aragora_python() { echo /usr/bin/true; }\n",
+    fake_python = _mk(
+        repo / "fake-python",
+        """#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${FAKE_PYTHON_LOG:?}"
+case "$*" in
+  *"scripts/auto_evidence_cycle.py"*)
+    if [[ "${FAKE_AUTO_EVIDENCE_RC:-0}" != "0" ]]; then
+      echo "fake auto-evidence failure" >&2
+      exit "${FAKE_AUTO_EVIDENCE_RC}"
+    fi
+    ;;
+esac
+exit 0
+""",
         executable=True,
     )
-    return repo
+    _mk(
+        scripts / "aragora_runtime.sh",
+        f"#!/usr/bin/env bash\nresolve_aragora_python() {{ echo {fake_python}; }}\n",
+        executable=True,
+    )
+    return repo, repo / "fake-python.log"
 
 
 def test_merge_arbiter_starts_with_default_env(tmp_path: Path) -> None:
-    repo = _merge_arbiter_wrapper_repo(tmp_path)
+    repo, log = _merge_arbiter_wrapper_repo(tmp_path)
     proc = subprocess.run(
         ["/bin/bash", str(repo / "scripts" / "run_merge_arbiter.sh")],
         cwd=repo,
-        env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin"},
+        env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "FAKE_PYTHON_LOG": str(log)},
         capture_output=True,
         text=True,
         check=False,
@@ -134,13 +150,20 @@ def test_merge_arbiter_starts_with_default_env(tmp_path: Path) -> None:
 
     assert proc.returncode == 0
     assert "Starting swarm merge-arbiter" in proc.stdout
+    recorded = log.read_text(encoding="utf-8")
+    assert "scripts/auto_evidence_cycle.py" not in recorded
+    assert "-u -m aragora.cli.main swarm merge-arbiter" in recorded
 
 
-def test_merge_arbiter_refuses_legacy_auto_evidence_but_starts_arbiter(tmp_path: Path) -> None:
-    repo = _merge_arbiter_wrapper_repo(tmp_path)
+def test_merge_arbiter_reports_legacy_auto_evidence_failure_but_starts_arbiter(
+    tmp_path: Path,
+) -> None:
+    repo, log = _merge_arbiter_wrapper_repo(tmp_path)
     env = {
         "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "FAKE_PYTHON_LOG": str(log),
         "ARAGORA_AUTO_EVIDENCE": "1",
+        "FAKE_AUTO_EVIDENCE_RC": "23",
     }
     proc = subprocess.run(
         ["/bin/bash", str(repo / "scripts" / "run_merge_arbiter.sh")],
@@ -152,14 +175,18 @@ def test_merge_arbiter_refuses_legacy_auto_evidence_but_starts_arbiter(tmp_path:
     )
 
     assert proc.returncode == 0
-    assert "Refusing legacy auto-evidence apply" in proc.stderr
+    assert "Auto-evidence cycle reported failures" in proc.stderr
     assert "Starting swarm merge-arbiter" in proc.stdout
+    recorded = log.read_text(encoding="utf-8")
+    assert "scripts/auto_evidence_cycle.py --apply --max-scan 40" in recorded
+    assert "-u -m aragora.cli.main swarm merge-arbiter" in recorded
 
 
 def test_merge_arbiter_legacy_override_runs_auto_evidence_step(tmp_path: Path) -> None:
-    repo = _merge_arbiter_wrapper_repo(tmp_path)
+    repo, log = _merge_arbiter_wrapper_repo(tmp_path)
     env = {
         "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "FAKE_PYTHON_LOG": str(log),
         "ARAGORA_AUTO_EVIDENCE": "1",
         "ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY": "1",
     }
@@ -173,5 +200,8 @@ def test_merge_arbiter_legacy_override_runs_auto_evidence_step(tmp_path: Path) -
     )
 
     assert proc.returncode == 0
-    assert "Running bounded auto-evidence cycle (legacy apply override mode)" in proc.stdout
+    assert "Running bounded auto-evidence cycle" in proc.stdout
     assert "Starting swarm merge-arbiter" in proc.stdout
+    recorded = log.read_text(encoding="utf-8")
+    assert "scripts/auto_evidence_cycle.py --apply --max-scan 40" in recorded
+    assert "-u -m aragora.cli.main swarm merge-arbiter" in recorded

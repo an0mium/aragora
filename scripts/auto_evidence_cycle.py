@@ -44,12 +44,14 @@ Safety model (mirrors ``quorum_rerun_reconciler.py``):
   a merge-packet probe could not see them (transport_blocked / fetch failure)
   and nothing was posted, so an empty plan does NOT mean the queue is clear.
 
-Legacy opt-in wiring: ``scripts/run_merge_arbiter.sh`` refuses the posting step
-for ``ARAGORA_AUTO_EVIDENCE=1`` unless
-``ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1`` is also set, then continues to
-start the merge-arbiter. Direct ``auto_evidence_cycle.py --apply`` is guarded by
-the same override. Conductor loops must use exact-head prepared-artifact replay
-instead of this direct apply path for countable evidence.
+Legacy opt-in wiring: ``scripts/run_merge_arbiter.sh`` calls this guarded path
+for ``ARAGORA_AUTO_EVIDENCE=1``; without
+``ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1`` the evidence step fails closed
+before posting and the wrapper still starts the merge-arbiter. Direct
+``auto_evidence_cycle.py --apply`` and imported ``run_cycle(..., apply=True)``
+are guarded by the same explicit override. Conductor loops must use exact-head
+prepared-artifact replay instead of this direct apply path for countable
+evidence.
 
 Routing-rationale records (#8233 phase 1): each applied collect run also writes
 a standalone JSON artifact (``--routing-records-dir``, default
@@ -720,6 +722,7 @@ def run_cycle(
     families: tuple[str, ...] = DEFAULT_FAMILIES,
     clock: Callable[[], float] = time.monotonic,
     log: Callable[[str], None] = print,
+    allow_legacy_apply: bool = False,
 ) -> dict[str, Any]:
     """Plan and (with ``apply``) execute one bounded auto-evidence cycle.
 
@@ -754,11 +757,28 @@ def run_cycle(
         "dogfood_skipped_prs": [],
         "routing_records": [],
         "routing_record_errors": [],
+        "legacy_apply_refused": False,
         "breaker_tripped": False,
         "budget_exhausted": False,
         "reconciler_exit": None,
         "exit_code": EXIT_OK,
     }
+
+    if apply and not allow_legacy_apply:
+        summary["legacy_apply_refused"] = True
+        summary["exit_code"] = EXIT_FAILURES
+        log(
+            json.dumps(
+                {
+                    "result": "legacy_apply_refused",
+                    "reason": (
+                        "legacy direct auto-evidence apply requires "
+                        f"{LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV}=1"
+                    ),
+                }
+            )
+        )
+        return summary
 
     candidates = stage1_candidates(list_prs())
     # ``--max-scan`` now bounds ELIGIBLE-or-INDETERMINATE examinations, not raw
@@ -1091,6 +1111,7 @@ def main(argv: list[str] | None = None) -> int:
             max_scan=max(0, args.max_scan),
             budget_seconds=args.budget_seconds,
             breaker_threshold=max(1, args.breaker_threshold),
+            allow_legacy_apply=legacy_auto_evidence_apply_allowed(),
         )
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
