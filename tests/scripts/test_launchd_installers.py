@@ -108,23 +108,42 @@ def test_generated_plist_invokes_wrapper_not_captured_interpreter(
     assert "/Users/" not in raw
 
 
-def test_merge_arbiter_refuses_legacy_auto_evidence_without_override(tmp_path: Path) -> None:
+def _merge_arbiter_wrapper_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     scripts = repo / "scripts"
     scripts.mkdir(parents=True)
     shutil.copy2(REPO_ROOT / "scripts" / "run_merge_arbiter.sh", scripts / "run_merge_arbiter.sh")
     _mk(
         scripts / "aragora_runtime.sh",
-        "#!/usr/bin/env bash\nresolve_aragora_python() { echo /bin/true; }\n",
+        "#!/usr/bin/env bash\nresolve_aragora_python() { echo /usr/bin/true; }\n",
         executable=True,
     )
+    return repo
 
+
+def test_merge_arbiter_starts_with_default_env(tmp_path: Path) -> None:
+    repo = _merge_arbiter_wrapper_repo(tmp_path)
+    proc = subprocess.run(
+        ["/bin/bash", str(repo / "scripts" / "run_merge_arbiter.sh")],
+        cwd=repo,
+        env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0
+    assert "Starting swarm merge-arbiter" in proc.stdout
+
+
+def test_merge_arbiter_refuses_legacy_auto_evidence_but_starts_arbiter(tmp_path: Path) -> None:
+    repo = _merge_arbiter_wrapper_repo(tmp_path)
     env = {
         "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
         "ARAGORA_AUTO_EVIDENCE": "1",
     }
     proc = subprocess.run(
-        ["/bin/bash", str(scripts / "run_merge_arbiter.sh")],
+        ["/bin/bash", str(repo / "scripts" / "run_merge_arbiter.sh")],
         cwd=repo,
         env=env,
         capture_output=True,
@@ -132,5 +151,27 @@ def test_merge_arbiter_refuses_legacy_auto_evidence_without_override(tmp_path: P
         check=False,
     )
 
-    assert proc.returncode == 2
-    assert "Refusing ARAGORA_AUTO_EVIDENCE=1" in proc.stderr
+    assert proc.returncode == 0
+    assert "Refusing legacy auto-evidence apply" in proc.stderr
+    assert "Starting swarm merge-arbiter" in proc.stdout
+
+
+def test_merge_arbiter_legacy_override_runs_auto_evidence_step(tmp_path: Path) -> None:
+    repo = _merge_arbiter_wrapper_repo(tmp_path)
+    env = {
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "ARAGORA_AUTO_EVIDENCE": "1",
+        "ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY": "1",
+    }
+    proc = subprocess.run(
+        ["/bin/bash", str(repo / "scripts" / "run_merge_arbiter.sh")],
+        cwd=repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0
+    assert "Running bounded auto-evidence cycle (legacy apply override mode)" in proc.stdout
+    assert "Starting swarm merge-arbiter" in proc.stdout

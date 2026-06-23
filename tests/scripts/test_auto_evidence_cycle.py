@@ -413,6 +413,30 @@ def test_sanitized_env_forces_secrets_off(monkeypatch: Any) -> None:
     assert env["ARAGORA_USE_SECRETS_MANAGER"] == "false"
 
 
+def test_main_apply_refuses_without_legacy_override(monkeypatch: Any, capsys: Any) -> None:
+    monkeypatch.delenv(cycle.LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV, raising=False)
+
+    rc = cycle.main(["--apply"])
+
+    assert rc == cycle.EXIT_FAILURES
+    err = capsys.readouterr().err
+    assert "legacy direct auto-evidence apply is disabled" in err
+    assert cycle.LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV in err
+
+
+def test_main_apply_with_legacy_override_can_reach_cycle(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    monkeypatch.setenv(cycle.LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV, "1")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(cycle, "default_list_prs", lambda repo: [])
+
+    rc = cycle.main(["--apply", "--repo", "owner/repo", "--no-routing-records"])
+
+    assert rc == cycle.EXIT_OK
+    assert '"plan": "empty"' in capsys.readouterr().out
+
+
 # --- Result parsing --------------------------------------------------------------
 
 

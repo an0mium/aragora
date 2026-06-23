@@ -44,12 +44,12 @@ Safety model (mirrors ``quorum_rerun_reconciler.py``):
   a merge-packet probe could not see them (transport_blocked / fetch failure)
   and nothing was posted, so an empty plan does NOT mean the queue is clear.
 
-Legacy opt-in wiring: ``scripts/run_merge_arbiter.sh`` refuses
-``ARAGORA_AUTO_EVIDENCE=1`` unless
-``ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1`` is also set. Direct
-``auto_evidence_cycle.py --apply`` remains a legacy posting path; conductor
-loops must use exact-head prepared-artifact replay instead of this direct apply
-path for countable evidence.
+Legacy opt-in wiring: ``scripts/run_merge_arbiter.sh`` refuses the posting step
+for ``ARAGORA_AUTO_EVIDENCE=1`` unless
+``ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1`` is also set, then continues to
+start the merge-arbiter. Direct ``auto_evidence_cycle.py --apply`` is guarded by
+the same override. Conductor loops must use exact-head prepared-artifact replay
+instead of this direct apply path for countable evidence.
 
 Routing-rationale records (#8233 phase 1): each applied collect run also writes
 a standalone JSON artifact (``--routing-records-dir``, default
@@ -70,6 +70,7 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -80,6 +81,7 @@ ROUTING_RECORD_SCHEMA = "aragora.routing_rationale/v1"
 SELECTABLE_STATUS = "needs_model_review_quorum"
 AUTO_POSTABLE_TIERS = {0, 1, 2}
 REQUIRED_FAMILIES = 2
+LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV = "ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY"
 GH_TIMEOUT_SECONDS = 120
 PACKET_TIMEOUT_SECONDS = 300
 COLLECT_TIMEOUT_SECONDS = 1200
@@ -692,6 +694,10 @@ def default_lock_path() -> str:
     return os.path.join(os.path.expanduser("~"), ".aragora", "auto_evidence_cycle.lock")
 
 
+def legacy_auto_evidence_apply_allowed(env: Mapping[str, str] = os.environ) -> bool:
+    return env.get(LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV, "").strip() == "1"
+
+
 # --- Orchestrator --------------------------------------------------------------
 
 
@@ -1028,6 +1034,15 @@ def main(argv: list[str] | None = None) -> int:
     families = tuple(f.strip() for f in str(args.families).split(",") if f.strip())
     if len(families) < REQUIRED_FAMILIES:
         print(f"error: need >= {REQUIRED_FAMILIES} reviewer families", file=sys.stderr)
+        return EXIT_FAILURES
+
+    if args.apply and not legacy_auto_evidence_apply_allowed():
+        print(
+            "error: legacy direct auto-evidence apply is disabled by §Conductor; "
+            f"set {LEGACY_AUTO_EVIDENCE_APPLY_OVERRIDE_ENV}=1 only for an explicit "
+            "operator override, or use prepared-artifact replay",
+            file=sys.stderr,
+        )
         return EXIT_FAILURES
 
     release: Callable[[], None] = lambda: None

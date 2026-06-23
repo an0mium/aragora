@@ -85,16 +85,15 @@ fi
 # Legacy direct auto-evidence cycle (throughput lever 1, run-20260610 c07b).
 # This path posts evidence via auto_evidence_cycle.py --apply without the
 # §Conductor prepared-artifact replay proof, so ARAGORA_AUTO_EVIDENCE=1 is no
-# longer sufficient by itself. Misconfigured launches fail closed instead of
-# silently skipping evidence and then continuing. Operators who intentionally
-# accept legacy behavior must also set ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1;
-# conductor-compliant launches should leave that override unset until this path
-# is converted to prepared replay.
+# longer sufficient by itself. Misconfigured launches fail closed for evidence
+# posting only: the wrapper refuses the legacy posting step but still starts the
+# merge-arbiter. Operators who intentionally accept legacy behavior must also set
+# ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1; conductor-compliant launches should
+# leave that override unset until this path is converted to prepared replay.
 if [[ "${ARAGORA_AUTO_EVIDENCE:-0}" == "1" ]]; then
     if [[ "${ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY:-0}" != "1" ]]; then
-        echo "Refusing ARAGORA_AUTO_EVIDENCE=1: legacy direct apply is disabled by §Conductor until prepared-artifact replay lands." >&2
+        echo "Refusing legacy auto-evidence apply: ARAGORA_AUTO_EVIDENCE=1 requires ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1 until prepared-artifact replay lands." >&2
         echo "Set ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1 only for an explicit operator override." >&2
-        exit 2
     else
         echo "Running bounded auto-evidence cycle (legacy apply override mode)..."
         # Reuses the shared per-pass App token minted above (same
