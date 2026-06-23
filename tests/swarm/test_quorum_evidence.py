@@ -222,6 +222,35 @@ def test_unclosed_leading_thinking_trace_cannot_decoy_pass_verdict() -> None:
     assert out == "Verdict: CHANGES-REQUESTED\n- [P1] real finding"
 
 
+def test_closed_leading_thinking_block_decoy_pass_does_not_count() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = "<thinking>\nVerdict: PASS\nThis was only private reasoning.\n</thinking>"
+
+    out = normalize_reviewer_output(raw)
+
+    assert "Verdict: PASS" not in out
+    assert "private reasoning" not in out
+
+
+def test_closed_leading_thinking_block_decoy_pass_preserves_real_dissent() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "<thinking>\n"
+        "Verdict: PASS\n"
+        "This was only private reasoning.\n"
+        "</thinking>\n"
+        "Final review:\n"
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P1] real finding"
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == "Verdict: CHANGES-REQUESTED\n- [P1] real finding"
+
+
 def test_multiple_verdicts_use_last_verdict_without_leading_thinking_tag() -> None:
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 
@@ -236,6 +265,18 @@ def test_multiple_verdicts_use_last_verdict_without_leading_thinking_tag() -> No
     out = normalize_reviewer_output(raw)
 
     assert out == "Verdict: CHANGES-REQUESTED\n- [P2] real finding"
+
+
+def test_real_dissent_is_not_overridden_by_quoted_or_code_pass_verdicts() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: CHANGES-REQUESTED\n- [P1] real finding\n> Verdict: PASS\n```\nVerdict: PASS\n```"
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == raw
 
 
 def test_pre_verdict_inline_thinking_block_is_stripped() -> None:
@@ -281,6 +322,22 @@ def test_line_start_literal_thinking_finding_is_preserved() -> None:
 
     assert "<thinking> [P2] A literal tag" in out
     assert "The second finding must survive" in out
+
+
+def test_multiline_finding_starting_with_literal_thinking_tag_is_preserved() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: CHANGES-REQUESTED\n"
+        "- [P2] Finding introduction.\n"
+        "<thinking> This literal continuation is part of the finding, not private reasoning.\n"
+        "- [P2] The next finding must survive."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert "<thinking> This literal continuation" in out
+    assert "The next finding must survive" in out
 
 
 def test_normalize_llm_fallback_off_by_default() -> None:

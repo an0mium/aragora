@@ -689,18 +689,42 @@ _THINKING_OPEN_RE = re.compile(
 )
 
 
+def _closed_thinking_spans(text: str) -> list[tuple[int, int]]:
+    return [match.span() for match in _THINKING_BLOCK_RE.finditer(text)]
+
+
+def _offset_in_spans(offset: int, spans: list[tuple[int, int]]) -> bool:
+    return any(start <= offset < end for start, end in spans)
+
+
+def _strip_closed_thinking_blocks(text: str) -> str:
+    return _THINKING_BLOCK_RE.sub("", text)
+
+
+def _trusted_verdict_probe(line: str) -> str:
+    stripped = line.strip()
+    if not stripped or stripped.startswith((">", "`")):
+        return ""
+    probe = stripped.lstrip("*#0123456789.)\t ")
+    return probe.strip("*_ ").lower()
+
+
 def _strip_thinking_traces(text: str) -> str:
     """Remove reasoning-trace blocks some models emit before or after answering."""
     verdict_offset = _first_verdict_offset(text)
     if verdict_offset == -1:
-        cleaned = _THINKING_BLOCK_RE.sub("", text)
+        cleaned = _strip_closed_thinking_blocks(text)
     else:
-        prefix = _THINKING_BLOCK_RE.sub("", text[:verdict_offset])
+        prefix = _strip_closed_thinking_blocks(text[:verdict_offset])
         suffix = text[verdict_offset:]
         kept_suffix: list[str] = []
+        seen_finding = False
         for line in suffix.splitlines(keepends=True):
-            if _THINKING_OPEN_RE.match(line) and not re.search(r"\[P[0-3]\]", line, re.IGNORECASE):
+            has_priority = bool(re.search(r"\[P[0-3]\]", line, re.IGNORECASE))
+            if _THINKING_OPEN_RE.match(line) and not has_priority and not seen_finding:
                 break
+            if has_priority:
+                seen_finding = True
             kept_suffix.append(line)
         cleaned = f"{prefix}{''.join(kept_suffix)}"
     return re.sub(r"\n{3,}", "\n\n", cleaned).strip()
@@ -708,8 +732,19 @@ def _strip_thinking_traces(text: str) -> str:
 
 def _first_verdict_offset(text: str) -> int:
     offset = 0
+    thinking_spans = _closed_thinking_spans(text)
+    in_fence = False
     for line in text.splitlines(keepends=True):
-        probe = line.strip().lstrip("*#>-`0123456789.)\t ").lower()
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            offset += len(line)
+            continue
+        probe = (
+            ""
+            if in_fence or _offset_in_spans(offset, thinking_spans)
+            else _trusted_verdict_probe(line)
+        )
         if probe.startswith("verdict:"):
             return offset
         offset += len(line)
@@ -717,19 +752,32 @@ def _first_verdict_offset(text: str) -> int:
 
 
 def _reanchor_at_verdict(text: str) -> str:
-    """Return text from the first verdict line onward (drops pre-verdict preamble).
+    """Return text from a trusted verdict line onward (drops pre-verdict preamble).
 
     Findings conventionally follow the verdict, so they are preserved; only leading
     preamble/reasoning that could confuse the identity/verdict parser is dropped.
     """
     lines = text.splitlines()
-    verdict_indices: list[int] = []
+    verdict_indices: list[tuple[int, str]] = []
+    in_fence = False
     for idx, line in enumerate(lines):
-        probe = line.strip().lstrip("*#>-`0123456789.)\t ").lower()
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        probe = _trusted_verdict_probe(line)
         if probe.startswith("verdict:"):
-            verdict_indices.append(idx)
+            verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
+            verdict_indices.append((idx, verdict))
     if verdict_indices:
-        idx = verdict_indices[-1] if len(verdict_indices) > 1 else verdict_indices[0]
+        changes_requested = [
+            idx
+            for idx, verdict in verdict_indices
+            if verdict.startswith("changes-requested") or verdict.startswith("changes requested")
+        ]
+        idx = changes_requested[0] if changes_requested else verdict_indices[0][0]
         return "\n".join(lines[idx:]).strip()
     return text.strip()
 
