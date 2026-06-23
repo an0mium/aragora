@@ -123,6 +123,24 @@ def _tier4_packet(
     }
 
 
+def _live_inputs_sequence(
+    *items: tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]],
+) -> Any:
+    calls = list(items)
+
+    def _loader(
+        pr: int,
+        cwd: Path,
+        repo: str = settler.DEFAULT_REPO,
+    ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+        del pr, cwd, repo
+        if len(calls) > 1:
+            return calls.pop(0)
+        return calls[0]
+
+    return _loader
+
+
 def _tier4_repair_packet_missing_settlement(pr: int = 7423) -> dict[str, Any]:
     packet = _tier4_packet(pr=pr)
     packet["not_ready"] = [pr]
@@ -3791,19 +3809,31 @@ def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Pat
     commands: list[list[str]] = []
     recorded: dict[str, Any] = {}
 
+    required_checks = [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "FAILURE"},
+    ]
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
-            _pr_view(head, comments=[], human_settlement_state=None),
-            _tier4_packet(human_preapproval_recorded=False),
-            [
-                {"name": "lint", "state": "SUCCESS"},
-                {"name": "aragora-merge-quorum", "state": "FAILURE"},
-            ],
+        _live_inputs_sequence(
+            (
+                _pr_view(head, comments=[], human_settlement_state=None),
+                _tier4_packet(human_preapproval_recorded=False),
+                required_checks,
+            ),
+            (
+                _pr_view(
+                    head,
+                    comments=[_authorized_comment(head)],
+                    human_settlement_state="SUCCESS",
+                ),
+                _tier4_packet(human_preapproval_recorded=True),
+                required_checks,
+            ),
         ),
     )
-    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "scarmani")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
     monkeypatch.setattr(
         settler,
@@ -3818,7 +3848,7 @@ def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Pat
                     "post_github_status": post_github_status,
                 }
             )
-            or {"written": True, "actor": "trusted-member", "receipt_sha256": "sha256:abc"}
+            or {"written": True, "actor": "scarmani", "receipt_sha256": "sha256:abc"}
         ),
     )
     monkeypatch.setattr(
@@ -3847,7 +3877,7 @@ def test_settle_apply_records_signals_and_reruns(monkeypatch: Any, tmp_path: Pat
             "--head",
             head,
             "--trusted-operator-login",
-            "trusted-member",
+            "scarmani",
             "--cwd",
             str(tmp_path),
         ]
@@ -3889,10 +3919,21 @@ def test_settle_apply_allows_quorum_only_repair_packet_with_log_proof(
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
-            _pr_view(head, comments=[], human_settlement_state=None),
-            packet,
-            required_checks,
+        _live_inputs_sequence(
+            (
+                _pr_view(head, comments=[], human_settlement_state=None),
+                packet,
+                required_checks,
+            ),
+            (
+                _pr_view(
+                    head,
+                    comments=[_authorized_comment(head)],
+                    human_settlement_state="SUCCESS",
+                ),
+                _tier4_packet(human_preapproval_recorded=True),
+                required_checks,
+            ),
         ),
     )
 
@@ -3901,11 +3942,11 @@ def test_settle_apply_allows_quorum_only_repair_packet_with_log_proof(
         return True
 
     monkeypatch.setattr(settler, "_quorum_failure_log_proves_missing_settlement", fake_quorum_proof)
-    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "scarmani")
     monkeypatch.setattr(
         settler,
         "_login_has_admin_permission",
-        lambda login, repo, cwd: login == "trusted-member",
+        lambda login, repo, cwd: login == "scarmani",
     )
     monkeypatch.setattr(
         settler,
@@ -3943,7 +3984,7 @@ def test_settle_apply_allows_quorum_only_repair_packet_with_log_proof(
             "--head",
             head,
             "--trusted-operator-login",
-            "trusted-member",
+            "scarmani",
             "--cwd",
             str(tmp_path),
         ]
@@ -3979,7 +4020,7 @@ def test_settle_apply_rejects_dirty_worktree_before_receipt_recording(
         "_settle_apply_dirty_worktree_entries",
         lambda *, cwd: [" M scripts/settle_tier4_pr.py"],
     )
-    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "scarmani")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
 
     def _boom(*args: Any, **kwargs: Any) -> Any:
@@ -4005,7 +4046,7 @@ def test_settle_apply_rejects_dirty_worktree_before_receipt_recording(
             "--head",
             head,
             "--trusted-operator-login",
-            "trusted-member",
+            "scarmani",
             "--cwd",
             str(tmp_path),
             "--json",
@@ -4025,11 +4066,10 @@ def test_settle_apply_rejects_dirty_worktree_before_receipt_recording(
     }
 
 
-def test_settle_apply_keeps_receipt_when_comment_post_fails(
+def test_settle_apply_rejects_trusted_invoker_that_would_fail_status_creator_pin(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
-    recorded: dict[str, Any] = {}
 
     monkeypatch.setattr(
         settler,
@@ -4044,6 +4084,127 @@ def test_settle_apply_keeps_receipt_when_comment_post_fails(
         ),
     )
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+
+    def _record_boom(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("must not record a receipt when status creator pin will fail")
+
+    monkeypatch.setattr(settler, "_record_settlement", _record_boom)
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["phase"] == "settlement_creator_pin"
+    assert payload["mutation_occurred"] is False
+    assert settler.SETTLE_APPLY_CREATOR_PIN_BLOCKER in payload["error"]
+    assert payload["details"]["invoker_login"] == "trusted-member"
+    assert payload["details"]["trusted_settlement_creator"] == "scarmani"
+
+
+def test_settle_apply_rejects_existing_merge_packet_creator_pin_failure(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    packet = _tier4_packet(human_preapproval_recorded=False)
+    packet["entries"][0]["settlement_creator_pin"] = {
+        "checked": True,
+        "verified": False,
+        "reason": "settlement-creator pin: newest status was created by trusted-member",
+    }
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
+            _pr_view(head, comments=[], human_settlement_state="SUCCESS"),
+            packet,
+            [
+                {"name": "lint", "state": "SUCCESS"},
+                {"name": "aragora-merge-quorum", "state": "FAILURE"},
+            ],
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "scarmani")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+
+    def _record_boom(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("must not record a receipt while creator-pin is failed")
+
+    monkeypatch.setattr(settler, "_record_settlement", _record_boom)
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "scarmani",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["phase"] == "settlement_creator_pin"
+    assert payload["mutation_occurred"] is False
+    assert "newest status was created by trusted-member" in payload["error"]
+    assert (
+        payload["details"]["settlement_creator_pin"]
+        == packet["entries"][0]["settlement_creator_pin"]
+    )
+
+
+def test_settle_apply_keeps_receipt_when_comment_post_fails(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    recorded: dict[str, Any] = {}
+
+    required_checks = [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "FAILURE"},
+    ]
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        _live_inputs_sequence(
+            (
+                _pr_view(head, comments=[], human_settlement_state=None),
+                _tier4_packet(human_preapproval_recorded=False),
+                required_checks,
+            ),
+            (
+                _pr_view(
+                    head,
+                    comments=[_authorized_comment(head)],
+                    human_settlement_state="SUCCESS",
+                ),
+                _tier4_packet(human_preapproval_recorded=True),
+                required_checks,
+            ),
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "scarmani")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
 
     def _comment_boom(command: list[str], cwd: Path, input_text: str | None = None) -> str:
@@ -4067,7 +4228,7 @@ def test_settle_apply_keeps_receipt_when_comment_post_fails(
             "--head",
             head,
             "--trusted-operator-login",
-            "trusted-member",
+            "scarmani",
             "--cwd",
             str(tmp_path),
             "--json",
@@ -4110,7 +4271,7 @@ def test_settle_apply_does_not_post_comment_when_receipt_recording_fails(
             ],
         ),
     )
-    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "scarmani")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
 
     def _record_boom(*args: Any, **kwargs: Any) -> Any:
@@ -4131,7 +4292,7 @@ def test_settle_apply_does_not_post_comment_when_receipt_recording_fails(
             "--head",
             head,
             "--trusted-operator-login",
-            "trusted-member",
+            "scarmani",
             "--cwd",
             str(tmp_path),
             "--json",
@@ -4150,6 +4311,86 @@ def test_settle_apply_does_not_post_comment_when_receipt_recording_fails(
     assert payload["details"]["github_status_requested"] is True
 
 
+def test_settle_apply_fails_until_refreshed_merge_packet_recognizes_preapproval(
+    monkeypatch: Any, tmp_path: Path, capsys: Any
+) -> None:
+    head = "57c740022e3c432718462efa12ca79f1df4f674d"
+    text_commands: list[list[str]] = []
+    commands: list[list[str]] = []
+    recorded: dict[str, Any] = {}
+    required_checks = [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "FAILURE"},
+    ]
+
+    monkeypatch.setattr(
+        settler,
+        "_load_live_inputs",
+        _live_inputs_sequence(
+            (
+                _pr_view(head, comments=[], human_settlement_state="SUCCESS"),
+                _tier4_packet(human_preapproval_recorded=False),
+                required_checks,
+            ),
+            (
+                _pr_view(
+                    head,
+                    comments=[_authorized_comment(head)],
+                    human_settlement_state="SUCCESS",
+                ),
+                _tier4_packet(human_preapproval_recorded=False),
+                required_checks,
+            ),
+        ),
+    )
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
+    monkeypatch.setattr(
+        settler,
+        "_record_settlement",
+        lambda pr, head, reason, repo, cwd, post_github_status=False: (
+            recorded.update({"post_github_status": post_github_status}) or {"written": True}
+        ),
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_text_command",
+        lambda command, cwd, input_text=None: text_commands.append(command) or "",
+    )
+    monkeypatch.setattr(
+        settler,
+        "_run_command",
+        lambda command, cwd, input_text=None: commands.append(command),
+    )
+    monkeypatch.setattr(settler, "_quorum_run_ids", lambda head, repo, cwd: [("99", "success")])
+
+    rc = settler.main(
+        [
+            "--settle-apply",
+            "--pr",
+            "7423",
+            "--head",
+            head,
+            "--trusted-operator-login",
+            "trusted-member",
+            "--cwd",
+            str(tmp_path),
+            "--json",
+        ]
+    )
+
+    assert rc == 2
+    assert recorded == {"post_github_status": False}
+    assert text_commands and text_commands[0][:3] == ["gh", "pr", "comment"]
+    payload = settler.json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["phase"] == "settlement_recognition"
+    assert payload["details"]["human_preapproval_recorded"] is False
+    assert payload["details"]["settlement_status_present"] is True
+    assert payload["details"]["settlement_comment_present"] is True
+    assert settler.SETTLE_APPLY_RECOGNITION_BLOCKER in payload["error"]
+
+
 def test_settle_apply_posts_missing_comment_when_status_already_success(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
@@ -4157,16 +4398,28 @@ def test_settle_apply_posts_missing_comment_when_status_already_success(
     text_commands: list[list[str]] = []
     commands: list[list[str]] = []
 
+    required_checks = [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "FAILURE"},
+    ]
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
-            _pr_view(head, comments=[], human_settlement_state="SUCCESS"),
-            _tier4_packet(human_preapproval_recorded=False),
-            [
-                {"name": "lint", "state": "SUCCESS"},
-                {"name": "aragora-merge-quorum", "state": "FAILURE"},
-            ],
+        _live_inputs_sequence(
+            (
+                _pr_view(head, comments=[], human_settlement_state="SUCCESS"),
+                _tier4_packet(human_preapproval_recorded=False),
+                required_checks,
+            ),
+            (
+                _pr_view(
+                    head,
+                    comments=[_authorized_comment(head)],
+                    human_settlement_state="SUCCESS",
+                ),
+                _tier4_packet(human_preapproval_recorded=True),
+                required_checks,
+            ),
         ),
     )
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
@@ -4219,7 +4472,7 @@ def test_settle_apply_posts_missing_comment_when_status_already_success(
     assert payload["settlement_already_present"] is False
     assert payload["human_preapproval_recorded_before_apply"] is False
     assert payload["human_preapproval_recorded"] is True
-    assert payload["human_preapproval_recorded_source"] == "record_settlement"
+    assert payload["human_preapproval_recorded_source"] == "merge_packet_refresh"
 
 
 def test_settle_apply_posts_missing_comment_without_duplicate_receipt(
@@ -4229,16 +4482,28 @@ def test_settle_apply_posts_missing_comment_without_duplicate_receipt(
     text_commands: list[list[str]] = []
     commands: list[list[str]] = []
 
+    required_checks = [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "FAILURE"},
+    ]
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
-            _pr_view(head, comments=[], human_settlement_state="SUCCESS"),
-            _tier4_packet(human_preapproval_recorded=True),
-            [
-                {"name": "lint", "state": "SUCCESS"},
-                {"name": "aragora-merge-quorum", "state": "FAILURE"},
-            ],
+        _live_inputs_sequence(
+            (
+                _pr_view(head, comments=[], human_settlement_state="SUCCESS"),
+                _tier4_packet(human_preapproval_recorded=True),
+                required_checks,
+            ),
+            (
+                _pr_view(
+                    head,
+                    comments=[_authorized_comment(head)],
+                    human_settlement_state="SUCCESS",
+                ),
+                _tier4_packet(human_preapproval_recorded=True),
+                required_checks,
+            ),
         ),
     )
     monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
@@ -4294,29 +4559,45 @@ def test_settle_apply_repairs_missing_status_without_duplicate_receipt_or_commen
     text_commands: list[list[str]] = []
     commands: list[list[str]] = []
 
+    required_checks = [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "FAILURE"},
+    ]
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
-            _pr_view(
-                head,
-                comments=[_authorized_comment(head)],
-                human_settlement_state=None,
+        _live_inputs_sequence(
+            (
+                _pr_view(
+                    head,
+                    comments=[_authorized_comment(head)],
+                    human_settlement_state=None,
+                ),
+                _tier4_packet(human_preapproval_recorded=True),
+                required_checks,
             ),
-            _tier4_packet(human_preapproval_recorded=True),
-            [
-                {"name": "lint", "state": "SUCCESS"},
-                {"name": "aragora-merge-quorum", "state": "FAILURE"},
-            ],
+            (
+                _pr_view(
+                    head,
+                    comments=[_authorized_comment(head)],
+                    human_settlement_state="SUCCESS",
+                ),
+                _tier4_packet(human_preapproval_recorded=True),
+                required_checks,
+            ),
         ),
     )
-    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "scarmani")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
-
-    def _record_boom(*args: Any, **kwargs: Any) -> Any:
-        raise AssertionError("must not duplicate receipt when it is already recorded")
-
-    monkeypatch.setattr(settler, "_record_settlement", _record_boom)
+    recorded: dict[str, Any] = {}
+    monkeypatch.setattr(
+        settler,
+        "_record_settlement",
+        lambda pr, head, reason, repo, cwd, post_github_status=False: (
+            recorded.update({"post_github_status": post_github_status})
+            or {"written": False, "receipt_sha256": "sha256:existing"}
+        ),
+    )
     monkeypatch.setattr(
         settler,
         "_run_text_command",
@@ -4337,7 +4618,7 @@ def test_settle_apply_repairs_missing_status_without_duplicate_receipt_or_commen
             "--head",
             head,
             "--trusted-operator-login",
-            "trusted-member",
+            "scarmani",
             "--cwd",
             str(tmp_path),
             "--json",
@@ -4349,12 +4630,12 @@ def test_settle_apply_repairs_missing_status_without_duplicate_receipt_or_commen
     status_commands = [
         command for command in commands if any("statuses/" in part for part in command)
     ]
-    assert len(status_commands) == 1
-    assert f"repos/{settler.DEFAULT_REPO}/statuses/{head}" in status_commands[0]
+    assert status_commands == []
+    assert recorded["post_github_status"] is True
     assert ["gh", "run", "rerun", "99", "--failed"] in commands
     payload = settler.json.loads(capsys.readouterr().out)
     assert payload["human_preapproval_recorded"] is True
-    assert payload["receipt"]["skipped"] is True
+    assert payload["receipt"]["receipt_sha256"] == "sha256:existing"
     assert payload["settlement_status_already_present"] is False
     assert payload["settlement_status_repaired_now"] is True
     assert payload["settlement_comment_already_present"] is True
@@ -4368,19 +4649,31 @@ def test_settle_apply_succeeds_when_quorum_rerun_fails_after_signals(
     text_commands: list[list[str]] = []
     recorded: dict[str, Any] = {}
 
+    required_checks = [
+        {"name": "lint", "state": "SUCCESS"},
+        {"name": "aragora-merge-quorum", "state": "FAILURE"},
+    ]
     monkeypatch.setattr(
         settler,
         "_load_live_inputs",
-        lambda pr, cwd, repo=settler.DEFAULT_REPO: (
-            _pr_view(head, comments=[], human_settlement_state=None),
-            _tier4_packet(human_preapproval_recorded=False),
-            [
-                {"name": "lint", "state": "SUCCESS"},
-                {"name": "aragora-merge-quorum", "state": "FAILURE"},
-            ],
+        _live_inputs_sequence(
+            (
+                _pr_view(head, comments=[], human_settlement_state=None),
+                _tier4_packet(human_preapproval_recorded=False),
+                required_checks,
+            ),
+            (
+                _pr_view(
+                    head,
+                    comments=[_authorized_comment(head)],
+                    human_settlement_state="SUCCESS",
+                ),
+                _tier4_packet(human_preapproval_recorded=True),
+                required_checks,
+            ),
         ),
     )
-    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "trusted-member")
+    monkeypatch.setattr(settler, "_current_gh_login", lambda cwd: "scarmani")
     monkeypatch.setattr(settler, "_login_has_admin_permission", lambda login, repo, cwd: True)
     monkeypatch.setattr(
         settler,
@@ -4412,7 +4705,7 @@ def test_settle_apply_succeeds_when_quorum_rerun_fails_after_signals(
             "--head",
             head,
             "--trusted-operator-login",
-            "trusted-member",
+            "scarmani",
             "--cwd",
             str(tmp_path),
             "--json",

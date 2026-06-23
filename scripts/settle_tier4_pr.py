@@ -53,6 +53,8 @@ TRUSTED_OPERATOR_MEMBER_ASSOCIATIONS = {"MEMBER"}
 # live repo-admin permission check before accepting it for Tier 4 settlement.
 TRUSTED_OPERATOR_ALLOWLIST_ADMIN_ASSOCIATIONS = {"COLLABORATOR"}
 TRUSTED_OPERATOR_LOGINS_ENV = "ARAGORA_TIER4_TRUSTED_OPERATORS"
+DEFAULT_TRUSTED_SETTLEMENT_CREATOR = "scarmani"
+SETTLEMENT_CREATOR_ENV_VAR = "ARAGORA_SETTLEMENT_CREATOR"
 PermissionChecker = Callable[[str], bool]
 HUMAN_SETTLEMENT_CONTEXT = "aragora/human-settlement"
 HUMAN_SETTLEMENT_STATUS_BLOCKER = f"missing or unsuccessful {HUMAN_SETTLEMENT_CONTEXT} status"
@@ -75,6 +77,13 @@ SETTLE_ONLY_RECEIPT_BLOCKER = (
 )
 SETTLE_APPLY_DIRTY_WORKTREE_BLOCKER = (
     "--settle-apply requires a clean worktree before recording the Tier 4 preapproval receipt"
+)
+SETTLE_APPLY_CREATOR_PIN_BLOCKER = (
+    "--settle-apply cannot post aragora/human-settlement from a gh login that "
+    "merge-packet will reject by settlement-creator pin"
+)
+SETTLE_APPLY_RECOGNITION_BLOCKER = (
+    "--settle-apply did not reach receipt-backed Tier 4 preapproval recognition"
 )
 TIER4_EVIDENCE_BLOCKER = "missing Tier 4 model/dogfood settlement evidence"
 HUMAN_PREAPPROVAL_RECEIPT_BLOCKER = (
@@ -732,6 +741,69 @@ def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: 
 def _packet_human_preapproval_recorded(merge_packet: dict[str, Any], *, pr: int) -> bool:
     entry = _entry_for_pr(merge_packet, pr=pr)
     return bool(entry and entry.get("human_preapproval_recorded"))
+
+
+def _trusted_settlement_creator() -> str:
+    return (
+        str(os.environ.get(SETTLEMENT_CREATOR_ENV_VAR, "") or "").strip()
+        or DEFAULT_TRUSTED_SETTLEMENT_CREATOR
+    )
+
+
+def _require_settle_apply_status_creator(*, invoker_login: str) -> None:
+    expected = _trusted_settlement_creator()
+    actual = str(invoker_login or "").strip()
+    if actual and actual.casefold() == expected.casefold():
+        return
+    raise Tier4ApplyError(
+        (
+            f"{SETTLE_APPLY_CREATOR_PIN_BLOCKER}: gh login "
+            f"{actual or '<unknown>'} is not trusted settlement creator {expected}"
+        ),
+        phase="settlement_creator_pin",
+        mutation_occurred=False,
+        completed_commands=0,
+        recovery_action=(
+            f"rerun --settle-apply from gh login {expected}, or set "
+            f"{SETTLEMENT_CREATOR_ENV_VAR} to the repo-approved status creator "
+            "before recording or repairing the exact-head Tier 4 receipt/status"
+        ),
+        details={
+            "invoker_login": actual,
+            "trusted_settlement_creator": expected,
+            "status_context": HUMAN_SETTLEMENT_CONTEXT,
+        },
+    )
+
+
+def _packet_settlement_creator_pin_failure(
+    merge_packet: dict[str, Any], *, pr: int
+) -> dict[str, Any] | None:
+    entry = _entry_for_pr(merge_packet, pr=pr) or {}
+    pin = entry.get("settlement_creator_pin")
+    if not isinstance(pin, dict):
+        return None
+    if not bool(pin.get("checked")):
+        return None
+    if bool(pin.get("verified")):
+        return None
+    return dict(pin)
+
+
+def _raise_settle_apply_creator_pin_failure(pin: dict[str, Any]) -> None:
+    reason = str(pin.get("reason") or "settlement creator pin failed").strip()
+    raise Tier4ApplyError(
+        f"{SETTLE_APPLY_CREATOR_PIN_BLOCKER}: {reason}",
+        phase="settlement_creator_pin",
+        mutation_occurred=False,
+        completed_commands=0,
+        recovery_action=(
+            "repair or replace the exact-head aragora/human-settlement status "
+            "with the trusted settlement creator before recording Tier 4 "
+            "settlement/preapproval"
+        ),
+        details={"settlement_creator_pin": pin},
+    )
 
 
 def _mergeability_blockers(*, pr: int, pr_view: dict[str, Any]) -> list[str]:
@@ -2256,6 +2328,41 @@ def _rerun_failed_quorum(*, head: str, repo: str, cwd: Path) -> dict[str, Any]:
     return {"rerun": True, "run_id": target, "commands": [command]}
 
 
+def _settle_apply_recognition_report(
+    *,
+    pr: int,
+    head: str,
+    repo: str,
+    cwd: Path,
+    trusted_operator_logins: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    pr_view, merge_packet, required_checks = _load_live_inputs(pr, cwd=cwd, repo=repo)
+    status_success = _human_settlement_status_is_success(pr_view)
+    comment_present = _operator_settlement_comment_is_present(
+        pr_view,
+        pr=pr,
+        head=head,
+        repo=repo,
+        cwd=cwd,
+        trusted_operator_logins=trusted_operator_logins,
+    )
+    entry = _entry_for_pr(merge_packet, pr=pr) or {}
+    human_preapproval_recorded = _packet_human_preapproval_recorded(merge_packet, pr=pr)
+    return {
+        "recognized": bool(status_success and comment_present and human_preapproval_recorded),
+        "human_preapproval_recorded": human_preapproval_recorded,
+        "settlement_status_present": status_success,
+        "settlement_comment_present": comment_present,
+        "settlement_creator_pin": entry.get("settlement_creator_pin"),
+        "merge_packet": _merge_packet_entry_diagnostics(merge_packet, pr=pr),
+        "required_failing": [
+            f"{_required_check_name(check)}={_required_check_state(check)}"
+            for check in required_checks or []
+            if not _state_is_success(_required_check_state(check))
+        ],
+    }
+
+
 def _apply_merge(
     *,
     pr: int,
@@ -2563,6 +2670,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 status_already_present and comment_already_present
             )
             settlement_status_repaired_now = False
+            receipt_recorded_now = False
+            creator_pin_failure = _packet_settlement_creator_pin_failure(merge_packet, pr=args.pr)
+            if creator_pin_failure is not None:
+                _raise_settle_apply_creator_pin_failure(creator_pin_failure)
+            if not human_preapproval_recorded or not status_already_present:
+                _require_clean_receipt_worktree_for_settle_apply(cwd=args.cwd)
+            if not status_already_present:
+                _require_settle_apply_status_creator(invoker_login=invoker_login)
             if human_preapproval_recorded:
                 extra_out["receipt"] = {
                     "skipped": True,
@@ -2570,13 +2685,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 }
                 if not status_already_present:
                     try:
-                        applied_commands.append(
-                            _post_human_settlement_status(
-                                pr=args.pr,
-                                head=args.head,
-                                repo=args.repo,
-                                cwd=args.cwd,
-                            )
+                        extra_out["receipt"] = _record_settlement(
+                            pr=args.pr,
+                            head=args.head,
+                            reason=reason,
+                            repo=args.repo,
+                            cwd=args.cwd,
+                            post_github_status=True,
                         )
                     except RuntimeError as exc:
                         raise Tier4ApplyError(
@@ -2601,7 +2716,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                     settlement_status_repaired_now = True
                     extra_out["settlement_status_repaired_now"] = True
             else:
-                _require_clean_receipt_worktree_for_settle_apply(cwd=args.cwd)
                 try:
                     extra_out["receipt"] = _record_settlement(
                         pr=args.pr,
@@ -2632,21 +2746,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                             "settlement_comment_already_present": comment_already_present,
                         },
                     ) from exc
-                human_preapproval_recorded = True
-                extra_out["human_preapproval_recorded"] = True
-                extra_out["human_preapproval_recorded_source"] = "record_settlement"
+                receipt_recorded_now = True
+                extra_out["receipt_recorded_now"] = True
+                extra_out["human_preapproval_recorded_source"] = "pending_merge_packet_refresh"
             if not comment_already_present:
                 try:
-                    applied_commands = _apply_settlement_signal(
-                        pr=args.pr,
-                        head=args.head,
-                        repo=args.repo,
-                        cwd=args.cwd,
-                        post_status=False,
+                    applied_commands.extend(
+                        _apply_settlement_signal(
+                            pr=args.pr,
+                            head=args.head,
+                            repo=args.repo,
+                            cwd=args.cwd,
+                            post_status=False,
+                        )
                     )
                 except RuntimeError as exc:
-                    receipt_recorded_now = not human_preapproval_recorded_before_apply
-                    mutation_occurred = receipt_recorded_now or settlement_status_repaired_now
+                    mutation_occurred = (
+                        receipt_recorded_now
+                        or settlement_status_repaired_now
+                        or not comment_already_present
+                    )
                     details = {
                         "receipt_recorded_before_apply": human_preapproval_recorded_before_apply,
                         "receipt_recorded_now": receipt_recorded_now,
@@ -2675,6 +2794,72 @@ def main(argv: Sequence[str] | None = None) -> int:
             extra_out["quorum_rerun"] = _rerun_failed_quorum(
                 head=args.head, repo=args.repo, cwd=args.cwd
             )
+            try:
+                settlement_recognition = _settle_apply_recognition_report(
+                    pr=args.pr,
+                    head=args.head,
+                    repo=args.repo,
+                    cwd=args.cwd,
+                    trusted_operator_logins=args.trusted_operator_login,
+                )
+            except RuntimeError as exc:
+                raise Tier4ApplyError(
+                    "Tier 4 settlement recognition refresh failed after "
+                    f"receipt/comment/status/quorum actions: {exc}",
+                    phase="settlement_recognition",
+                    mutation_occurred=(
+                        receipt_recorded_now
+                        or settlement_status_repaired_now
+                        or not comment_already_present
+                    ),
+                    completed_commands=len(applied_commands) + int(receipt_recorded_now),
+                    recovery_action=(
+                        "rerun --check and review-queue merge-packet for the same exact head; "
+                        "do not treat --settle-apply as complete until merge-packet reports "
+                        "human_preapproval_recorded=true"
+                    ),
+                    details={
+                        "receipt_recorded_before_apply": human_preapproval_recorded_before_apply,
+                        "receipt_recorded_now": receipt_recorded_now,
+                        "settlement_status_repaired_now": settlement_status_repaired_now,
+                        "settlement_comment_already_present": comment_already_present,
+                    },
+                ) from exc
+            extra_out["settlement_recognition"] = settlement_recognition
+            extra_out["human_preapproval_recorded"] = bool(
+                settlement_recognition.get("human_preapproval_recorded")
+            )
+            extra_out["human_preapproval_recorded_source"] = "merge_packet_refresh"
+            if not settlement_recognition.get("recognized"):
+                raise Tier4ApplyError(
+                    SETTLE_APPLY_RECOGNITION_BLOCKER,
+                    phase="settlement_recognition",
+                    mutation_occurred=(
+                        receipt_recorded_now
+                        or settlement_status_repaired_now
+                        or not comment_already_present
+                    ),
+                    completed_commands=len(applied_commands) + int(receipt_recorded_now),
+                    recovery_action=(
+                        "inspect the refreshed merge-packet settlement_creator_pin and "
+                        "aragora/human-settlement status, then retry only after the "
+                        "receipt-backed Tier 4 gate recognizes this exact head"
+                    ),
+                    details={
+                        "receipt_recorded_before_apply": human_preapproval_recorded_before_apply,
+                        "receipt_recorded_now": receipt_recorded_now,
+                        "settlement_status_repaired_now": settlement_status_repaired_now,
+                        "settlement_comment_already_present": comment_already_present,
+                        **settlement_recognition,
+                    },
+                )
+            gate = {
+                "ok": True,
+                "blockers": [],
+                "pr": args.pr,
+                "expected_head": args.head,
+                "settlement_recognition": settlement_recognition,
+            }
         else:
             gate = evaluate_tier4_gate(
                 pr=args.pr,
