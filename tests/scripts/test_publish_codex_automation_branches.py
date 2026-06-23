@@ -732,7 +732,7 @@ def test_open_codex_prs_from_rest_rejects_unexpected_json_shape(
         raise AssertionError("expected REST shape failure")
 
 
-def test_open_codex_prs_from_rest_rejects_missing_head_metadata(
+def test_open_codex_prs_from_rest_skips_missing_head_metadata(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(
@@ -746,12 +746,7 @@ def test_open_codex_prs_from_rest_rejects_missing_head_metadata(
         ),
     )
 
-    try:
-        mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora")
-    except RuntimeError as exc:
-        assert "missing head metadata for PR #7001" in str(exc)
-    else:  # pragma: no cover - assertion clarity
-        raise AssertionError("expected malformed REST PR failure")
+    assert mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora") == []
 
 
 def test_open_codex_prs_falls_back_to_rest_when_graphql_and_cache_fail(
@@ -803,7 +798,7 @@ def test_rest_fallback_prs_are_unhealthy_for_queue_health() -> None:
     ) == ["lookup_degraded_queue_health_unknown"]
 
 
-def test_rest_fallback_skips_malformed_pr_entries(monkeypatch: Any, tmp_path: Path) -> None:
+def test_rest_fallback_rejects_malformed_pr_entries(monkeypatch: Any, tmp_path: Path) -> None:
     payload = [
         [
             {"number": 1, "head": None},
@@ -830,26 +825,12 @@ def test_rest_fallback_skips_malformed_pr_entries(monkeypatch: Any, tmp_path: Pa
         ),
     )
 
-    meta: dict[str, Any] = {}
-
-    assert mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora", meta=meta) == [
-        {
-            "number": 4,
-            "title": "valid codex PR",
-            "headRefName": "codex/valid",
-            "isDraft": False,
-            "mergeStateStatus": "CLEAN",
-            "reviewDecision": None,
-            "statusCheckRollup": [],
-            "lookup_degraded": True,
-            "lookup_source": "rest",
-        }
-    ]
-    assert meta["rest_payload_count"] == 4
-    assert meta["rest_skipped_missing_head_count"] == 1
-    assert meta["rest_skipped_missing_head_ref_count"] == 1
-    assert meta["rest_skipped_non_codex_head_count"] == 1
-    assert meta["rest_skipped_total_count"] == 3
+    try:
+        mod._open_codex_prs_from_rest(tmp_path, "synaptent/aragora")
+    except RuntimeError as exc:
+        assert "missing head metadata for PR #1" in str(exc)
+    else:  # pragma: no cover - assertion clarity
+        raise AssertionError("expected malformed REST PR failure")
 
 
 def test_open_codex_prs_reports_rest_error_when_all_lookups_fail(

@@ -911,14 +911,10 @@ def _open_codex_prs_from_rest(
     for item in flattened:
         head = item.get("head")
         if not isinstance(head, Mapping):
-            number = item.get("number")
-            suffix = f" for PR #{number}" if number is not None else ""
-            raise RuntimeError(f"REST PR lookup missing head metadata{suffix}")
+            continue
         branch = head.get("ref")
         if not isinstance(branch, str):
-            number = item.get("number")
-            suffix = f" for PR #{number}" if number is not None else ""
-            raise RuntimeError(f"REST PR lookup missing head ref{suffix}")
+            continue
         if not branch.startswith(CODEX_BRANCH_PREFIX):
             skipped_non_codex_head += 1
             continue
@@ -1968,6 +1964,9 @@ def main(argv: list[str] | None = None) -> int:
         elif all_open_prs_unhealthy and not args.allow_unhealthy_queue_publish:
             payload["published"] = []
             payload["publish_paused_reason"] = "open_pr_queue_unhealthy"
+        elif open_pr_lookup_degraded:
+            payload["published"] = []
+            payload["publish_paused_reason"] = "open_pr_lookup_degraded"
         else:
             if all_open_prs_unhealthy and args.allow_unhealthy_queue_publish:
                 payload["publish_override_reason"] = "allow_unhealthy_queue_publish"
