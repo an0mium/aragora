@@ -381,6 +381,82 @@ def test_remove_purge_path_reports_incomplete_when_anchor_residue_survives(
     assert worktree.exists() is True
 
 
+def test_tracked_remove_purge_failure_reports_not_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "tracked-residue"
+    residual = worktree / "build" / "cache"
+    residual.mkdir(parents=True)
+    (residual / "leftover.txt").write_text("residue\n")
+
+    inspection = mod.WorktreeInspection(
+        path=str(worktree),
+        exists=True,
+        tracked_worktree=True,
+        branch="codex/test",
+        active_session=False,
+        lock_files=[],
+        dirty=False,
+        unique_commits_ahead=0,
+        ahead_lookup_failed=False,
+        patch_equivalent_to_origin_main=False,
+        patch_equivalence_lookup_failed=False,
+        open_prs=[],
+        pr_lookup_failed=False,
+        blockers=[],
+    )
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod.shutil, "rmtree", lambda *_args, **_kwargs: None)
+
+    result = mod.remove_worktree(
+        repo_root,
+        inspection,
+        delete_branch=False,
+        purge_path=True,
+        force=False,
+    )
+
+    assert result["status"] == "purge_incomplete"
+    assert result["removed"] is False
+    assert result["path_purged"] is False
+    assert "build" in result["residual_paths"]
+    assert "not fully removed" in result["recovery_action"]
+
+
+def test_residual_paths_are_bounded_without_rglob(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import safe_worktree_cleanup as mod
+
+    residue = tmp_path / "large-residue"
+    residue.mkdir()
+    for index in range(60):
+        (residue / f"leftover-{index:02d}.txt").write_text("x")
+
+    def fail_rglob(*_args, **_kwargs):
+        raise AssertionError("residual lookup must not traverse with rglob")
+
+    monkeypatch.setattr(Path, "rglob", fail_rglob)
+
+    residuals = mod._residual_paths(residue, limit=50)
+
+    assert len(residuals) == 51
+    assert residuals[-1] == "..."
+
+
 def test_remove_deletes_branch_when_requested(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

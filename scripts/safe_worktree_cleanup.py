@@ -491,14 +491,23 @@ def _residual_paths(path: Path, *, limit: int = 50) -> list[str]:
     if path.is_file() or path.is_symlink():
         return ["."]
     residuals: list[str] = []
-    try:
-        for entry in sorted(path.rglob("*"), key=lambda item: str(item.relative_to(path))):
-            residuals.append(str(entry.relative_to(path)))
-            if len(residuals) >= limit:
-                residuals.append("...")
-                break
-    except OSError:
-        return ["<lookup_failed>"]
+    pending = [path]
+    while pending:
+        current = pending.pop()
+        try:
+            entries = current.iterdir()
+            for entry in entries:
+                residuals.append(str(entry.relative_to(path)))
+                if entry.is_dir() and not entry.is_symlink():
+                    pending.append(entry)
+                if len(residuals) >= limit:
+                    residuals.append("...")
+                    return residuals
+        except OSError:
+            if residuals:
+                residuals.append("<lookup_failed>")
+                return residuals
+            return ["<lookup_failed>"]
     return residuals or ["."]
 
 
@@ -587,6 +596,7 @@ def remove_worktree(
         if result["path_purged"]:
             result["removed"] = True
         else:
+            result["removed"] = False
             result["status"] = "purge_incomplete"
             result["recovery_action"] = (
                 "path was not fully removed; inspect residual_paths and rerun cleanup "
