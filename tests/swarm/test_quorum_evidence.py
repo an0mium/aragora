@@ -1046,6 +1046,43 @@ def test_collect_records_raising_reviewer_as_failure() -> None:
     assert "reviewer boom" in outcome.failures[0].error
 
 
+def test_collect_overall_timeout_fails_closed_without_partial_post() -> None:
+    # Tier 0 would be satisfied by the fast claude result alone, but an
+    # orchestration timeout means the evidence set is incomplete. It must fail
+    # closed to prepare-only and never post a partial quorum.
+    fakes, posted = _fakes(tier=0)
+
+    def slow_grok_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            time.sleep(0.2)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = slow_grok_runner
+    started = time.monotonic()
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout=0.05,
+        **fakes,
+    )
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 0.18
+    assert outcome.orchestration_timed_out is True
+    assert outcome.timed_out_families == ["grok"]
+    assert [f.family for f in outcome.failures] == ["grok"]
+    assert "overall collect-evidence timeout" in outcome.failures[0].error
+    assert outcome.action == "prepare"
+    assert "overall collect-evidence timeout" in outcome.action_reason
+    assert outcome.posted == []
+    assert posted == []
+    assert outcome.to_dict()["orchestration_timed_out"] is True
+    assert outcome.to_dict()["timed_out_families"] == ["grok"]
+
+
 def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
     fakes, posted = _fakes(tier=1)
     calls: list[tuple[str, int, int]] = []
@@ -2244,6 +2281,109 @@ def test_run_collect_cli_catches_runtime_error(monkeypatch, capsys) -> None:
     )
     assert rc == 1
     assert "empty diff" in capsys.readouterr().out
+
+
+def test_run_collect_cli_scopes_reviewer_timeout_env_and_forwards_overall(
+    monkeypatch, capsys
+) -> None:
+    seen: dict[str, object] = {}
+    monkeypatch.setenv(qe._CLAUDE_TIMEOUT_ENV, "old-claude")
+    monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
+    monkeypatch.setenv(qe._CODEX_TIMEOUT_ENV, "old-codex")
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        seen.update(kwargs)
+        seen["claude_timeout_env"] = os.environ.get(qe._CLAUDE_TIMEOUT_ENV)
+        seen["reviewer_timeout_env"] = os.environ.get(qe._REVIEWER_TIMEOUT_ENV)
+        seen["codex_timeout_env"] = os.environ.get(qe._CODEX_TIMEOUT_ENV)
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=1,
+            action="prepare",
+            action_reason="dry-run",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=False,
+        json_output=True,
+        reviewer_timeout=12.5,
+        overall_timeout=45.0,
+    )
+
+    assert rc == 0
+    assert seen["overall_timeout"] == 45.0
+    assert seen["claude_timeout_env"] == "12.5"
+    assert seen["reviewer_timeout_env"] == "12.5"
+    assert seen["codex_timeout_env"] == "12.5"
+    assert os.environ.get(qe._CLAUDE_TIMEOUT_ENV) == "old-claude"
+    assert os.environ.get(qe._REVIEWER_TIMEOUT_ENV) is None
+    assert os.environ.get(qe._CODEX_TIMEOUT_ENV) == "old-codex"
+    assert "collect_evidence" in capsys.readouterr().out
+
+
+def test_run_collect_cli_overall_timeout_caps_default_reviewer_env(monkeypatch) -> None:
+    seen: dict[str, object] = {}
+    monkeypatch.delenv(qe._CLAUDE_TIMEOUT_ENV, raising=False)
+    monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
+    monkeypatch.delenv(qe._CODEX_TIMEOUT_ENV, raising=False)
+
+    def fake_collect(**kwargs) -> CollectOutcome:
+        seen["overall_timeout"] = kwargs.get("overall_timeout")
+        seen["claude_timeout_env"] = os.environ.get(qe._CLAUDE_TIMEOUT_ENV)
+        seen["reviewer_timeout_env"] = os.environ.get(qe._REVIEWER_TIMEOUT_ENV)
+        seen["codex_timeout_env"] = os.environ.get(qe._CODEX_TIMEOUT_ENV)
+        return CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=4,
+            action="prepare",
+            action_reason="settlement",
+            items=[
+                EvidenceItem("claude", "body", True, ["claude"], [], "pass"),
+                EvidenceItem("grok", "body", True, ["grok"], [], "pass"),
+            ],
+        )
+
+    monkeypatch.setattr(qe, "collect_evidence", fake_collect)
+    monkeypatch.setattr(qe, "resolve_author", lambda default="local": "me")
+
+    rc = qe.run_collect_cli(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author=None,
+        apply=False,
+        json_output=False,
+        reviewer_timeout=None,
+        overall_timeout=30.0,
+    )
+
+    assert rc == 0
+    assert seen == {
+        "overall_timeout": 30.0,
+        "claude_timeout_env": "30",
+        "reviewer_timeout_env": "30",
+        "codex_timeout_env": "30",
+    }
+    assert os.environ.get(qe._CLAUDE_TIMEOUT_ENV) is None
+    assert os.environ.get(qe._REVIEWER_TIMEOUT_ENV) is None
+    assert os.environ.get(qe._CODEX_TIMEOUT_ENV) is None
 
 
 # --- build_review_prompt: complete file list + fair per-file body bounding ---

@@ -65,6 +65,18 @@ def main(argv: list[str] | None = None) -> int:
             "re-running reviewers."
         ),
     )
+    parser.add_argument(
+        "--reviewer-timeout",
+        type=float,
+        default=None,
+        help="Per-reviewer timeout in seconds for this invocation.",
+    )
+    parser.add_argument(
+        "--overall-timeout",
+        type=float,
+        default=None,
+        help="Overall reviewer orchestration timeout in seconds; fail-closed on expiry.",
+    )
     parser.add_argument("--json", dest="json_output", action="store_true", help="Output as JSON")
     args = parser.parse_args(argv)
 
@@ -76,6 +88,8 @@ def main(argv: list[str] | None = None) -> int:
         apply=args.apply,
         json_output=args.json_output,
         prepared_json=args.prepared_json,
+        reviewer_timeout=args.reviewer_timeout,
+        overall_timeout=args.overall_timeout,
     )
 
 
