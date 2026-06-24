@@ -239,6 +239,35 @@ def test_severity_gated_explicit_no_blockers_can_be_advisory():
     assert has_blocking_model_dissent(body, severity_gated=True) is False
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: CHANGES-REQUESTED\nThis is not follow-up-only; auth remains broken.",
+        "Verdict: CHANGES-REQUESTED\nDo not treat the SQLi as non-blocking follow-ups.",
+        "Verdict: CHANGES-REQUESTED\nNot non-blocking follow-ups: release is unsafe.",
+    ],
+)
+def test_severity_gated_negated_followup_only_still_blocks(body):
+    assert has_blocking_model_dissent(body, severity_gated=True) is True
+
+
+def test_severity_gated_anchored_followup_only_can_be_advisory():
+    body = "Verdict: CHANGES-REQUESTED\nFollow-up-only: add docs polish."
+    assert has_blocking_model_dissent(body, severity_gated=True) is False
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\nAuth bypass remains untriaged.",
+        "Verdict: CHANGES-REQUESTED because auth remains broken.\n[P2] Add docs.",
+        "Verdict: CHANGES-REQUESTED\n[P3] Add docs.\nRecommendation: do not merge until auth is fixed.",
+    ],
+)
+def test_severity_gated_p2_p3_plus_unstructured_prose_still_blocks(body):
+    assert has_blocking_model_dissent(body, severity_gated=True) is True
+
+
 def test_p0_p1_block_both_paths():
     for sev in ("P0", "P1"):
         body = f"[{sev}] settlement gate can be bypassed"

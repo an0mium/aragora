@@ -1325,6 +1325,58 @@ class TestModelReviewQuorum:
         assert quorum["admin_squash_allowed"] is False
         assert quorum["advisory_views"] == []
 
+    @pytest.mark.parametrize(
+        "dissent_body",
+        [
+            "This is not follow-up-only; auth remains broken.",
+            "Do not treat the SQLi as non-blocking follow-ups.",
+            "[P2] Add stronger smoke coverage.\nAuth bypass remains untriaged.",
+            "[P3] Docs polish.\nRecommendation: do not merge until auth is fixed.",
+        ],
+    )
+    def test_severity_gated_negated_or_mixed_changes_requested_still_blocks(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        dissent_body: str,
+    ) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    f"{dissent_body}"
+                ),
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["advisory_views"] == []
+        assert quorum["dissenting_views"][0]["agent"] == "claude"
+
     def test_severity_gated_protocol_dissent_still_blocks(
         self,
         monkeypatch: pytest.MonkeyPatch,

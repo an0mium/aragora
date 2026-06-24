@@ -1190,6 +1190,44 @@ def test_collect_severity_gated_finding_free_changes_requested_still_blocks(
     assert posted == []
 
 
+@pytest.mark.parametrize(
+    "grok_body",
+    [
+        "Verdict: CHANGES-REQUESTED\nThis is not follow-up-only; auth remains broken.",
+        "Verdict: CHANGES-REQUESTED\nDo not treat the SQLi as non-blocking follow-ups.",
+        "Verdict: CHANGES-REQUESTED\n- [P2] Follow-up coverage.\nAuth bypass remains untriaged.",
+        "Verdict: CHANGES-REQUESTED\n- [P3] Docs polish.\nRecommendation: do not merge until auth is fixed.",
+    ],
+)
+def test_collect_severity_gated_negated_or_mixed_dissent_still_blocks(
+    monkeypatch: pytest.MonkeyPatch,
+    grok_body: str,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    fakes, posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult("grok", grok_body, True)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "openai", "grok"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert outcome.action == "prepare"
+    assert "reviewer dissent" in outcome.action_reason
+    assert outcome.dissenting_families == ["grok"]
+    assert sorted(outcome.supportive_families) == ["claude", "openai"]
+    assert posted == []
+
+
 def test_evidence_item_dissenting_uses_captured_outcome_policy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

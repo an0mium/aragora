@@ -170,6 +170,26 @@ _ANY_PRIORITY_MARKER = re.compile(
     r"^(?:\*\*)?\[(?P<sev>p0|p1|p2|p3)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I
 )
 _ANY_PRIORITY_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1|p2|p3)\](?:\*\*)?\s*", re.I)
+_REVIEW_METADATA_LABELS = frozenset(
+    {"reviewer", "head", "head sha", "current head", "pr", "model family", "dogfood"}
+)
+_SIMPLE_VERDICT_VALUES = (
+    "pass",
+    "passed",
+    "approve",
+    "approved",
+    "approval",
+    "support",
+    "supportive",
+    "request changes",
+    "changes requested",
+    "fail",
+    "failed",
+    "reject",
+    "rejected",
+    "not ready",
+    "needs repair",
+)
 
 
 def _strip_decoration(text: str) -> str:
@@ -215,32 +235,103 @@ def _priority_finding_priority(stripped: str) -> str | None:
     return marker.group("sev").upper()
 
 
+def _line_match(stripped: str) -> re.Match[str] | None:
+    line = _strip_decoration(stripped).replace("**", "").replace("__", "")
+    return re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
+
+
+def _line_label_and_value(stripped: str) -> tuple[str, str] | None:
+    match = _line_match(stripped)
+    if not match:
+        return None
+    label = re.sub(r"\s+", " ", match.group("label").strip().lower()).strip("*_ ")
+    return label, _normalize_value(match.group("value"))
+
+
+def _is_no_blocker_label(stripped: str) -> bool:
+    label_value = _line_label_and_value(stripped)
+    if label_value is None:
+        return False
+    normalized_label, normalized_value = label_value
+    return normalized_label in _BLOCKER_LABELS and _starts_with_phrase(
+        normalized_value, _NON_BLOCKING_PREFIXES, match_no_finding=True
+    )
+
+
+def _is_followup_only_declaration(stripped: str) -> bool:
+    """Whether one line is an anchored, non-negated follow-up-only declaration."""
+    line = _strip_decoration(stripped).replace("**", "").replace("__", "")
+    normalized = _normalize_value(line)
+    if not normalized:
+        return False
+    if re.match(r"^(?:not|no|never|do not|dont|don't)\b", normalized):
+        return False
+    if re.search(
+        r"\b(?:not|never|do not|dont|don't)\s+(?:follow up only|follow ups only)\b", normalized
+    ):
+        return False
+    if re.search(r"\b(?:not|never|do not|dont|don't)\s+non blocking follow ups?\b", normalized):
+        return False
+    return bool(
+        re.match(
+            r"^(?:follow up only|follow ups only|non blocking follow ups?|advisory follow ups?)\b",
+            normalized,
+        )
+    )
+
+
 def _explicit_no_blockers_or_followup_only(body: str) -> bool:
     """Whether a negative verdict explicitly says there are no blockers.
 
     The severity-gated path must fail closed for bare ``CHANGES-REQUESTED`` text.
-    Only bounded, explicit no-blocker / follow-up-only declarations can be
-    advisory without a P2/P3 marker.
+    Only bounded, anchored, non-negated no-blocker / follow-up-only declarations
+    can be advisory without a P2/P3 marker.
     """
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
-    for idx, stripped in enumerate(lines):
+    for stripped in (raw_line.strip() for raw_line in str(body or "").splitlines()):
         if not stripped:
             continue
-        line = _strip_decoration(stripped).replace("**", "").replace("__", "")
-        match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
-        if match:
-            normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
-            normalized_label = normalized_label.strip("*_ ")
-            normalized_value = _normalize_value(match.group("value"))
-            if normalized_label in _BLOCKER_LABELS and _starts_with_phrase(
-                normalized_value, _NON_BLOCKING_PREFIXES, match_no_finding=True
-            ):
-                return True
-        normalized_line = _normalize_value(line)
-        if re.search(r"\bfollow[- ]?up(?:s)?[- ]?only\b", normalized_line):
+        if _is_no_blocker_label(stripped) or _is_followup_only_declaration(stripped):
             return True
-        if re.search(r"\bnon[- ]?blocking\s+follow[- ]?up(?:s)?\b", normalized_line):
+    return False
+
+
+def _is_review_metadata_line(stripped: str) -> bool:
+    line = _strip_decoration(stripped).replace("**", "").replace("__", "")
+    normalized_line = _normalize_value(line)
+    if not normalized_line:
+        return True
+    if "independent model review" in normalized_line:
+        return True
+    label_value = _line_label_and_value(stripped)
+    if label_value is not None and label_value[0] in _REVIEW_METADATA_LABELS:
+        return True
+    if label_value is not None and label_value[0] in {"verdict", "decision", "recommendation"}:
+        return _is_simple_verdict_value(label_value[1])
+    return False
+
+
+def _is_simple_verdict_value(normalized_value: str) -> bool:
+    value = normalized_value.strip(" .;:!?)]—–-")
+    for phrase in _SIMPLE_VERDICT_VALUES:
+        if value == phrase:
             return True
+        if value.startswith(f"{phrase} from "):
+            return True
+    return False
+
+
+def _has_unstructured_dissent_content(body: str) -> bool:
+    """Whether a negative review body has non-priority substantive dissent text."""
+    for stripped in (raw_line.strip() for raw_line in str(body or "").splitlines()):
+        if not stripped:
+            continue
+        if _priority_finding_priority(stripped) is not None:
+            continue
+        if _is_no_blocker_label(stripped) or _is_followup_only_declaration(stripped):
+            continue
+        if _is_review_metadata_line(stripped):
+            continue
+        return True
     return False
 
 
@@ -386,7 +477,7 @@ def has_blocking_model_dissent(body: str, *, severity_gated: bool) -> bool:
     if has_blocking_finding_or_label(body):
         return True
     priority = highest_finding_priority(body)
-    if priority in {"P2", "P3"}:
+    if priority in {"P2", "P3"} and not _has_unstructured_dissent_content(body):
         return False
     if _explicit_no_blockers_or_followup_only(body):
         return False
