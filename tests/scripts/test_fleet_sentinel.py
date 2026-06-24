@@ -145,6 +145,25 @@ def test_publisher_status_default_is_live_cache_path() -> None:
     assert default.parts[-3:] == (".aragora", "automation-github-status", "latest.json")
 
 
+def test_stale_terminal_owner_defaults_use_automation_state_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    state_root = tmp_path / "shared-state"
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    args = sentinel.build_parser().parse_args([])
+
+    root = state_root / ".aragora"
+    assert Path(args.agent_bridge_lanes) == root / "agent-bridge" / "lanes.json"
+    assert Path(args.agent_heartbeats) == root / "agent-bridge" / "heartbeats.json"
+    assert Path(args.operator_steering_root) == root / "operator-steering"
+    assert (
+        Path(args.stale_terminal_owner_receipt_dir)
+        == root / "agent-bridge" / "conflict-resolution-receipts"
+    )
+
+
 # ---------------------------------------------------------------------------
 # boss_metrics_heartbeat
 # ---------------------------------------------------------------------------
@@ -794,6 +813,57 @@ def test_stale_terminal_owner_reports_safe_merged_pr_with_guarded_commands(
     assert "--apply --json" in result["candidates"][0]["reconciler_apply_command"]
 
 
+def test_stale_terminal_owner_passes_repo_scoped_state_to_terminal_auditor(
+    tmp_path: Path,
+) -> None:
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+    seen_state: dict[str, Any] = {}
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        assert repo_slug == "synaptent/aragora"
+        assert gh_bin == "gh"
+        return {
+            "available": True,
+            "number": pr,
+            "state": "MERGED",
+            "merge_commit": "repo-scoped-merge",
+            "url": "https://github.test/pr/9001",
+        }
+
+    def audit_terminal(**kwargs: Any) -> dict[str, Any]:
+        seen_state.update(kwargs["github_state"])
+        return {
+            "github_state": kwargs["github_state"],
+            "findings": [
+                {
+                    "lane_id": "Q900-stale-terminal",
+                    "owner_session": "codex-owner",
+                    "terminal_safety_blockers": [],
+                    "terminal_safety_details": {},
+                }
+            ],
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=audit_terminal,
+    )
+
+    assert seen_state["merge_commit"] == "repo-scoped-merge"
+    assert result["status"] == "breach"
+    assert (
+        "--expected-merge-commit repo-scoped-merge"
+        in result["candidates"][0]["reconciler_apply_command"]
+    )
+
+
 def test_stale_terminal_owner_suppresses_fresh_heartbeat_rows(tmp_path: Path) -> None:
     result, audit_calls = _stale_owner_result(
         tmp_path,
@@ -998,7 +1068,7 @@ def test_default_terminal_owner_auditor_uses_no_lock_read_only_path(
             return NOW.timestamp()
 
         def _fetch_pr_state(self, *, pr: int, gh_bin: str) -> dict[str, Any]:
-            return {"available": True, "state": "MERGED", "mergeCommit": "abc123"}
+            raise AssertionError("sentinel must reuse its repo-scoped PR state")
 
         def _read_rows_checked(self, path: Path) -> tuple[list[dict[str, Any]], str | None]:
             if path.name == "lanes.json":
@@ -1051,6 +1121,7 @@ def test_default_terminal_owner_auditor_uses_no_lock_read_only_path(
 
     result = sentinel._default_terminal_owner_auditor(
         pr=9001,
+        github_state={"available": True, "state": "MERGED", "merge_commit": "abc123"},
         registry_path=tmp_path / "lanes.json",
         receipt_dir=tmp_path / "receipts",
         gh_bin="gh",
@@ -1060,6 +1131,7 @@ def test_default_terminal_owner_auditor_uses_no_lock_read_only_path(
     )
 
     assert result["github_state"]["state"] == "MERGED"
+    assert result["github_state"]["mergeCommit"] == "abc123"
     assert result["findings"][0]["terminal_safety_blockers"] == []
 
 

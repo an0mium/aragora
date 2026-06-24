@@ -31,6 +31,7 @@ import glob as glob_module
 import hashlib
 import importlib.util
 import json
+import os
 import plistlib
 import re
 import shlex
@@ -72,6 +73,14 @@ LANE_TIMESTAMP_KEYS = (
 )
 LIVE_OWNER_BLOCKERS = frozenset({"fresh_heartbeat", "live_process"})
 _RESOLVER_MODULE: Any | None = None
+
+
+def _automation_state_root(repo_root: Path) -> Path:
+    configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    if configured:
+        root = Path(configured).expanduser()
+        return root if root.name == ".aragora" else root / ".aragora"
+    return repo_root / ".aragora"
 
 
 def parse_iso(value: str) -> datetime:
@@ -672,6 +681,7 @@ def _active_lane_statuses() -> set[str]:
 def _default_terminal_owner_auditor(
     *,
     pr: int,
+    github_state: dict[str, Any],
     registry_path: Path,
     receipt_dir: Path,
     gh_bin: str,
@@ -682,7 +692,9 @@ def _default_terminal_owner_auditor(
     resolver = _load_resolver_module()
     resolved_at = resolver._utc_now_iso()
     now_ts = resolver._parse_timestamp(resolved_at)
-    github_state = resolver._fetch_pr_state(pr=pr, gh_bin=gh_bin)
+    github_state = dict(github_state)
+    if "mergeCommit" not in github_state and github_state.get("merge_commit"):
+        github_state["mergeCommit"] = github_state["merge_commit"]
     rows, row_load_error = resolver._read_rows_checked(registry_path)
     heartbeats, heartbeat_load_error = resolver._read_rows_checked(heartbeat_path)
     findings: list[dict[str, Any]] = []
@@ -872,6 +884,7 @@ def check_stale_terminal_owner(
         if terminal_state == "MERGED":
             audit = audit_terminal(
                 pr=pr,
+                github_state=state,
                 registry_path=registry_path,
                 receipt_dir=receipt_dir,
                 gh_bin=gh_bin,
@@ -1698,6 +1711,7 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     repo_root = Path(__file__).resolve().parents[1]
+    automation_state_root = _automation_state_root(repo_root)
     parser.add_argument("--repo-root", default=str(repo_root))
     parser.add_argument(
         "--publisher-status",
@@ -1739,17 +1753,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--orphan-branch-age-hours", type=float, default=24.0)
     parser.add_argument(
         "--agent-bridge-lanes",
-        default=str(repo_root / ".aragora" / "agent-bridge" / "lanes.json"),
+        default=str(automation_state_root / "agent-bridge" / "lanes.json"),
         help="lane owner registry used by stale_terminal_owner",
     )
     parser.add_argument(
         "--agent-heartbeats",
-        default=str(repo_root / ".aragora" / "agent-bridge" / "heartbeats.json"),
+        default=str(automation_state_root / "agent-bridge" / "heartbeats.json"),
         help="heartbeat registry used by stale_terminal_owner safety checks",
     )
     parser.add_argument(
         "--operator-steering-root",
-        default=str(repo_root / ".aragora" / "operator-steering"),
+        default=str(automation_state_root / "operator-steering"),
         help="operator-steering inbox root used by stale_terminal_owner safety checks",
     )
     parser.add_argument(
@@ -1760,7 +1774,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--stale-terminal-owner-receipt-dir",
-        default=str(repo_root / ".aragora" / "agent-bridge" / "conflict-resolution-receipts"),
+        default=str(automation_state_root / "agent-bridge" / "conflict-resolution-receipts"),
         help="receipt directory to print in guarded resolve_lane_conflicts commands",
     )
     parser.add_argument(
