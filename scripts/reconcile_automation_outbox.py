@@ -984,6 +984,39 @@ def _archive_with_terminal_disposition(
     return destination
 
 
+def _archive_with_synthetic_receipt(
+    *,
+    path: Path,
+    archive_dir: Path,
+    payload: dict[str, Any],
+    reason: str,
+    pr_number: int | None,
+    terminal_info: Mapping[str, Any],
+    receipt_dir: Path,
+) -> Path:
+    """Archive a handoff and write its synthetic receipt without receipt/live split-brain."""
+    archived = {key: value for key, value in payload.items() if key != "__source_file"}
+    archived["terminal_disposition"] = dict(terminal_info)
+    destination = archive_dir / path.name
+    destination.write_text(json.dumps(archived, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    receipt_path = _write_synthetic_receipt(
+        receipt_dir=receipt_dir,
+        outbox_payload=payload,
+        reason=reason,
+        pr_number=pr_number,
+        apply=True,
+    )
+    try:
+        path.unlink()
+    except OSError:
+        try:
+            receipt_path.unlink()
+        except OSError:
+            pass
+        raise
+    return destination
+
+
 def _exact_open_pr_representation_candidate(
     *,
     root: Path,
@@ -1651,13 +1684,21 @@ def main(argv: list[str] | None = None) -> int:
                     }
                 )
                 if args.apply:
-                    shutil.move(str(path), str(archive_dir / path.name))
-                    _write_synthetic_receipt(
+                    _archive_with_synthetic_receipt(
+                        path=path,
+                        archive_dir=archive_dir,
+                        payload=payload,
+                        terminal_info={
+                            "disposition": EXACT_OPEN_PR_REPRESENTATION_REASON,
+                            "reason": EXACT_OPEN_PR_REPRESENTATION_REASON,
+                            "pr_number": int(representation["number"]),
+                            "pr_url": representation["url"],
+                            "head_sha": representation["head_sha"],
+                            "archived_by": "scripts/reconcile_automation_outbox.py",
+                        },
                         receipt_dir=receipt_dir,
-                        outbox_payload=payload,
                         reason=EXACT_OPEN_PR_REPRESENTATION_REASON,
                         pr_number=int(representation["number"]),
-                        apply=True,
                     )
                 continue
             if blocked_reason is not None:

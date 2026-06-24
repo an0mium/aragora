@@ -168,6 +168,13 @@ def test_repo_root_rebases_repo_state_defaults(tmp_path: Path, monkeypatch: Any)
 
     assert [check["status"] for check in checks] == ["ok", "ok", "ok"]
     assert checks[2]["depth"] == 1
+    assert Path(args.agent_bridge_lanes) == state / "agent-bridge" / "lanes.json"
+    assert Path(args.agent_heartbeats) == state / "agent-bridge" / "heartbeats.json"
+    assert Path(args.operator_steering_root) == state / "operator-steering"
+    assert (
+        Path(args.stale_terminal_owner_receipt_dir)
+        == state / "agent-bridge" / "conflict-resolution-receipts"
+    )
 
 
 def test_stale_terminal_owner_defaults_use_automation_state_root(

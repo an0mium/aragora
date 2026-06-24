@@ -270,7 +270,7 @@ def test_exact_open_pr_representation_apply_blocks_when_reverify_fails(
     assert not (tmp_path / ".aragora" / "automation-receipts" / f"{outbox_file.stem}.json").exists()
 
 
-def test_exact_open_pr_representation_move_failure_does_not_write_receipt(
+def test_exact_open_pr_representation_receipt_failure_keeps_live_outbox(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
     outbox_file = _write_outbox(tmp_path)
@@ -283,12 +283,12 @@ def test_exact_open_pr_representation_move_failure_does_not_write_receipt(
         representation["apply_reverified"] = True
         return representation, None
 
-    def fail_move(source: str, destination: str) -> None:
-        raise OSError("move failed")
+    def fail_receipt(**kwargs: Any) -> Path:
+        raise OSError("receipt failed")
 
     monkeypatch.setattr(reconcile, "classify_handoffs", fake_classify_handoffs)
     monkeypatch.setattr(reconcile, "_verify_exact_open_pr_representation", fake_reverify)
-    monkeypatch.setattr(reconcile.shutil, "move", fail_move)
+    monkeypatch.setattr(reconcile, "_write_synthetic_receipt", fail_receipt)
 
     with pytest.raises(OSError):
         reconcile.main(

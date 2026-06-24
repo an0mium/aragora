@@ -130,6 +130,12 @@ def _repo_state_defaults(repo_root: Path) -> dict[str, Path]:
         "publisher_log": state_root / "overnight" / "codex-automation-publisher.log",
         "trail_chain": state_root / "trail" / "intent-chain.jsonl",
         "ledger": state_root / "fleet-sentinel" / "ledger.jsonl",
+        "agent_bridge_lanes": state_root / "agent-bridge" / "lanes.json",
+        "agent_heartbeats": state_root / "agent-bridge" / "heartbeats.json",
+        "operator_steering_root": state_root / "operator-steering",
+        "stale_terminal_owner_receipt_dir": (
+            state_root / "agent-bridge" / "conflict-resolution-receipts"
+        ),
     }
 
 
@@ -1869,7 +1875,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     repo_root = DEFAULT_REPO_ROOT
     repo_defaults = _repo_state_defaults(repo_root)
-    automation_state_root = _automation_state_root(repo_root)
     parser.add_argument("--repo-root", default=str(repo_root))
     parser.add_argument(
         "--publisher-status",
@@ -1916,17 +1921,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--orphan-branch-age-hours", type=float, default=24.0)
     parser.add_argument(
         "--agent-bridge-lanes",
-        default=str(automation_state_root / "agent-bridge" / "lanes.json"),
+        default=str(repo_defaults["agent_bridge_lanes"]),
         help="lane owner registry used by stale_terminal_owner",
     )
     parser.add_argument(
         "--agent-heartbeats",
-        default=str(automation_state_root / "agent-bridge" / "heartbeats.json"),
+        default=str(repo_defaults["agent_heartbeats"]),
         help="heartbeat registry used by stale_terminal_owner safety checks",
     )
     parser.add_argument(
         "--operator-steering-root",
-        default=str(automation_state_root / "operator-steering"),
+        default=str(repo_defaults["operator_steering_root"]),
         help="operator-steering inbox root used by stale_terminal_owner safety checks",
     )
     parser.add_argument(
@@ -1937,7 +1942,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--stale-terminal-owner-receipt-dir",
-        default=str(automation_state_root / "agent-bridge" / "conflict-resolution-receipts"),
+        default=str(repo_defaults["stale_terminal_owner_receipt_dir"]),
         help="receipt directory to print in guarded resolve_lane_conflicts commands",
     )
     parser.add_argument(
