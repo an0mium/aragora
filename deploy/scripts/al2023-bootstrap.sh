@@ -4,7 +4,7 @@
 # Standalone version for manual execution on EC2 instances
 #
 # Usage:
-#   curl -O https://raw.githubusercontent.com/aragora/aragora/main/deploy/scripts/al2023-bootstrap.sh
+#   curl -O https://raw.githubusercontent.com/synaptent/aragora/main/deploy/scripts/al2023-bootstrap.sh
 #   chmod +x al2023-bootstrap.sh
 #   sudo ./al2023-bootstrap.sh [environment] [role] [region] [git_ref]
 #
@@ -154,6 +154,11 @@ source /opt/aragora/venv/bin/activate
 pip install --upgrade pip wheel setuptools
 
 echo "Cloning Aragora repository at ref '$ARAGORA_GIT_REF'..."
+# This checkout is chowned to aragora:aragora later in the script, so a root
+# re-run over an existing clone would otherwise abort with git's "detected
+# dubious ownership" error (and set -ex would exit). Mark it safe for root's
+# git before any fetch/checkout/reset.
+git config --global --add safe.directory /opt/aragora/src
 if [ -d /opt/aragora/src/.git ]; then
     # Re-run on an existing checkout: fetch and hard-reset to the pinned ref so
     # the install uses the intended revision, not a stale prior checkout.
@@ -314,8 +319,13 @@ MISTRAL_API_KEY=
 
 # Monitoring
 SENTRY_DSN=
-# prometheus_client is NOT installed by the prod extras above; keep disabled
-# unless you install it separately.
+# METRICS_ENABLED (read by aragora/observability/config.py, default "true") is
+# the runtime gate for the Prometheus metrics subsystem, which requires
+# prometheus_client. That client is NOT pulled by the
+# [gateway,enterprise,connectors] extras installed above, so keep metrics
+# disabled here unless you install prometheus_client separately. PROMETHEUS_ENABLED
+# is retained for compatibility but is not read by the runtime.
+METRICS_ENABLED=false
 PROMETHEUS_ENABLED=false
 
 # Instance metadata

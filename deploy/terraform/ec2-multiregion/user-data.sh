@@ -120,10 +120,18 @@ pip install --upgrade pip wheel setuptools
 
 # Clone (or update) the Aragora source at the pinned git ref. aragora_git_ref
 # defaults to "main" (tracks mainline); set it to a release tag or commit SHA
-# via the Terraform variable for reproducible, rollback-capable deploys.
-ARAGORA_GIT_REF="${aragora_git_ref}"
+# via the Terraform variable for reproducible, rollback-capable deploys. The
+# variable is validated against ^[A-Za-z0-9._/-]+$ in variables.tf and is
+# single-quoted below so a Terraform-interpolated value cannot inject shell at
+# user-data time.
+ARAGORA_GIT_REF='${aragora_git_ref}'
 
 echo "=== Cloning Aragora repository at ref '$ARAGORA_GIT_REF' ==="
+# A prior run (or the post-clone chown below) makes this checkout aragora-owned,
+# so a root re-run via SSM or a manual re-exec would otherwise abort with git's
+# "detected dubious ownership" error (and set -ex would exit). Mark it safe for
+# root's git before any fetch/checkout/reset.
+git config --global --add safe.directory /opt/aragora/src
 if [ -d /opt/aragora/src/.git ]; then
     # Re-run on an existing checkout: fetch and hard-reset to the pinned ref so
     # the install uses the intended revision, not a stale prior checkout.
@@ -365,8 +373,13 @@ GEMINI_API_KEY=
 
 # Optional: Monitoring
 SENTRY_DSN=
-# prometheus_client is NOT installed by the prod extras above; keep disabled
-# unless you install it separately.
+# METRICS_ENABLED (read by aragora/observability/config.py, default "true") is
+# the runtime gate for the Prometheus metrics subsystem, which requires
+# prometheus_client. That client is NOT pulled by the
+# [gateway,enterprise,connectors] extras installed above, so keep metrics
+# disabled here unless you install prometheus_client separately. PROMETHEUS_ENABLED
+# is retained for compatibility but is not read by the runtime.
+METRICS_ENABLED=false
 PROMETHEUS_ENABLED=false
 
 # Instance metadata

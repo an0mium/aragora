@@ -82,4 +82,9 @@ variable "aragora_git_ref" {
   description = "Git ref (branch, tag, or commit SHA) of synaptent/aragora to clone and install during bootstrap. Default 'main' tracks mainline; pin to a tag or commit SHA for reproducible, rollback-capable deploys."
   type        = string
   default     = "main"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._/-]+$", var.aragora_git_ref))
+    error_message = "aragora_git_ref may contain only letters, digits, and the characters . _ / - (no whitespace or shell metacharacters); it is interpolated into the bootstrap shell script."
+  }
 }

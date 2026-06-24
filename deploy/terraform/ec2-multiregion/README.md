@@ -244,9 +244,14 @@ variable "supermemory_api_key" {
 
 ### Update Aragora
 
-To move an instance to a new revision, set `aragora_git_ref` and re-apply (on a
-re-run the bootstrap fetches and hard-resets `/opt/aragora/src` to that ref), or
-update in place via SSM:
+The instance sets `user_data_replace_on_change = true`, so changing
+`aragora_git_ref` and running `terraform apply` **recreates the instance** at the
+new ref (with `create_before_destroy`, a fresh instance boots and clones the new
+ref before the old one is destroyed). That is the Terraform-driven update path.
+The bootstrap's fetch-and-hard-reset branch runs only on an in-place re-execution
+of the script over the existing `/opt/aragora/src` checkout (SSM or a manual
+re-run), **not** on `terraform apply`. To update an existing instance in place
+without recreating it, use SSM:
 
 ```bash
 # Connect via SSM
@@ -326,7 +331,7 @@ sudo cat /etc/aragora/env
 For manual installation without Terraform, use:
 
 ```bash
-curl -O https://raw.githubusercontent.com/aragora/aragora/main/deploy/scripts/al2023-bootstrap.sh
+curl -O https://raw.githubusercontent.com/synaptent/aragora/main/deploy/scripts/al2023-bootstrap.sh
 chmod +x al2023-bootstrap.sh
 # Optional 4th argument pins the git ref (branch, tag, or commit SHA; default: main)
 sudo ./al2023-bootstrap.sh production primary us-east-2 main

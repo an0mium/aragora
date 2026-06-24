@@ -42,6 +42,13 @@ admin_cidr_blocks = []
 # Leave empty to skip (recommended - use SSM instead)
 key_name = ""
 
+# Git ref (branch, tag, or commit SHA) of synaptent/aragora to clone and install
+# during bootstrap. Default "main" tracks mainline; pin to a release tag or a
+# commit SHA for reproducible, rollback-capable deploys. Must match
+# ^[A-Za-z0-9._/-]+$ (no whitespace or shell metacharacters). Changing this and
+# re-applying recreates the instance at the new ref (user_data_replace_on_change).
+# aragora_git_ref = "main"
+
 # =============================================================================
 # Example Configurations
 # =============================================================================

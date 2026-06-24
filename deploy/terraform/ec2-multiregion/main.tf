@@ -129,6 +129,12 @@ resource "aws_instance" "aragora" {
     aragora_git_ref = var.aragora_git_ref
   })
 
+  # Recreate the instance when user_data changes (e.g. a new aragora_git_ref) so a
+  # terraform apply boots a fresh clone at the new ref. With create_before_destroy
+  # below the replacement is zero-downtime. The bootstrap's in-place
+  # fetch/hard-reset branch serves SSM/manual re-runs, not terraform apply.
+  user_data_replace_on_change = true
+
   root_block_device {
     volume_size           = var.root_volume_size
     volume_type           = "gp3"
