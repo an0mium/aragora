@@ -1085,6 +1085,43 @@ class TestModelReviewQuorum:
         assert tier == 3
         assert "semantic" in reason
 
+    def test_crypto_receipt_signing_surface_requires_tier_four(self) -> None:
+        files = [
+            "aragora/gauntlet/odr_signing.py",
+            "pyproject.toml",
+            "tests/gauntlet/test_odr_mldsa_hybrid.py",
+        ]
+        pr = _make_pr(
+            title="feat(gauntlet): post-quantum hybrid ODR receipt signing",
+            files=files,
+            body="Raises cryptography floor to >=49 for FIPS 204 ML-DSA-65 signing.",
+        )
+        tier, tier_name, reason = _classify_model_review_tier(files, pr=pr)
+        assert tier == 4
+        assert tier_name == "tier_4_preapproval_required"
+        assert "cryptographic signing" in reason
+
+    def test_pyproject_crypto_dependency_floor_requires_tier_four(self) -> None:
+        files = ["pyproject.toml"]
+        pr = _make_pr(
+            title="chore(deps): raise cryptography floor",
+            files=files,
+            body="Floor bumped from 48.0.1 to 49 for ML-DSA support.",
+        )
+        tier, _, reason = _classify_model_review_tier(files, pr=pr)
+        assert tier == 4
+        assert "dependency" in reason
+
+    def test_non_security_additive_internal_code_remains_tier_one(self) -> None:
+        files = ["aragora/agents/router.py"]
+        tier, tier_name, reason = _classify_model_review_tier(
+            files,
+            pr=_make_pr(title="feat(router): add internal helper", files=files),
+        )
+        assert tier == 1
+        assert tier_name == "tier_1_additive_internal"
+        assert "bounded internal" in reason
+
     def test_tier_zero_satisfied_by_one_dogfood_note(self) -> None:
         pr = _make_pr(files=["docs/status/report.md"])
         pr["comments"] = [_dogfood_comment()]
@@ -1784,6 +1821,32 @@ class TestModelReviewQuorum:
         assert quorum["status"] == "human_risk_settlement_required"
         assert quorum["admin_squash_allowed"] is False
         assert quorum["requires_human_risk_settlement"] is True
+
+    def test_crypto_dependency_quorum_requires_human_risk_settlement(self) -> None:
+        files = [
+            "aragora/gauntlet/odr_signing.py",
+            "pyproject.toml",
+            "tests/gauntlet/test_odr_mldsa_hybrid.py",
+        ]
+        pr = _make_pr(
+            title="feat(gauntlet): post-quantum hybrid ODR receipt signing",
+            files=files,
+            body="Raises cryptography floor to >=49 for FIPS 204 ML-DSA-65 signing.",
+        )
+        pr["comments"] = [_dogfood_comment()]
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=files,
+            protocol=_executed_protocol(),
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+        assert quorum["tier"] == 4
+        assert quorum["status"] == "human_preapproval_required"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["requires_human_risk_settlement"] is True
+        assert quorum["requires_human_preapproval"] is True
 
     def test_tier_three_human_risk_settlement_allows_admin_squash(self) -> None:
         pr = _make_pr(files=["aragora/reputation/store.py"])

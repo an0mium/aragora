@@ -271,6 +271,39 @@ TIER_4_PREFIXES: tuple[str, ...] = (
     "scripts/settle_one_pr.py",
     "scripts/merge_codex_automation_prs.py",
 )
+TIER_4_CRYPTO_PATH_MARKERS: tuple[str, ...] = (
+    "crypto",
+    "cryptography",
+    "mldsa",
+    "ml_dsa",
+    "odr_signing",
+    "signature",
+    "signing",
+)
+TIER_4_CRYPTO_METADATA_MARKERS: tuple[str, ...] = (
+    "cryptography",
+    "ed25519",
+    "fips 204",
+    "mldsa",
+    "ml-dsa",
+    "ml_dsa",
+    "post-quantum",
+    "pqc",
+    "quantum",
+    "receipt signing",
+    "signature",
+    "signing",
+)
+TIER_4_DEPENDENCY_BUMP_MARKERS: tuple[str, ...] = (
+    "dependency",
+    "dep bump",
+    "floor bump",
+    "floor bumped",
+    "floor raised",
+    "major bump",
+    "major-version",
+    "upgrade",
+)
 PARKED_LABELS: tuple[str, ...] = ("stale", "do-not-merge", "wip", "blocked")
 MERGE_QUORUM_CHECK_NAME = "aragora-merge-quorum"
 MERGE_QUORUM_WORKFLOW_NAME = "Aragora Merge Quorum"
@@ -3377,10 +3410,21 @@ def _classify_model_review_tier(
 ) -> tuple[int, str, str]:
     normalized = [path.strip() for path in files if path.strip()]
     title = str((pr or {}).get("title", "") or "").lower()
+    body = str((pr or {}).get("body", "") or "").lower()
     if not normalized:
         return (1, "tier_1_additive_internal", "no changed files reported; defaulting to Tier 1")
     if any(_matches_prefix(path, TIER_4_PREFIXES) for path in normalized):
         return (4, "tier_4_preapproval_required", "workflow/deploy/destructive surface touched")
+    if _touches_approval_required_crypto_or_dependency_surface(
+        normalized,
+        title=title,
+        body=body,
+    ):
+        return (
+            4,
+            "tier_4_preapproval_required",
+            "approval-required dependency or cryptographic signing surface touched",
+        )
     if any(_matches_prefix(path, TIER_3_PREFIXES) for path in normalized) or any(
         keyword in title for keyword in TIER_3_TITLE_KEYWORDS
     ):
@@ -3400,6 +3444,37 @@ def _classify_model_review_tier(
             "live automation, CLI, observability, retry, or cache surface touched",
         )
     return (1, "tier_1_additive_internal", "bounded internal code surface")
+
+
+def _touches_approval_required_crypto_or_dependency_surface(
+    files: list[str],
+    *,
+    title: str,
+    body: str,
+) -> bool:
+    """Fail closed on approval-required crypto/signing and major dependency signals.
+
+    The merge-packet path has PR metadata and changed-file paths, not a full diff.
+    This therefore only classifies surfaces it can prove from those inputs: source
+    paths that are themselves crypto/signing surfaces, and dependency files paired
+    with explicit PR title/body metadata naming a crypto or major-version bump.
+    """
+
+    source_paths = [
+        path.lower()
+        for path in files
+        if not _is_docs_tests_or_status_path(path) and path.lower() != "pyproject.toml"
+    ]
+    if any(marker in path for path in source_paths for marker in TIER_4_CRYPTO_PATH_MARKERS):
+        return True
+
+    metadata = f"{title}\n{body}"
+    touches_dependency_manifest = any(path.lower() == "pyproject.toml" for path in files)
+    if not touches_dependency_manifest:
+        return False
+    if any(marker in metadata for marker in TIER_4_CRYPTO_METADATA_MARKERS):
+        return True
+    return any(marker in metadata for marker in TIER_4_DEPENDENCY_BUMP_MARKERS)
 
 
 def _tier_requirement(tier: int) -> dict[str, Any]:
