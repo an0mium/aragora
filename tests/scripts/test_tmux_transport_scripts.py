@@ -145,10 +145,19 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     assert any(
         call[:2] == ["send-keys", "-t"]
         and call[2] == "@17"
-        and "./scripts/codex_session.sh" in call[3]
-        and "--agent testpane" in call[3]
+        and "testpane.heartbeat-launch.sh" in call[3]
         for call in calls
     )
+    heartbeat_launcher = (
+        Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "testpane.heartbeat-launch.sh"
+    )
+    heartbeat_body = heartbeat_launcher.read_text(encoding="utf-8")
+    assert "scripts/agent_heartbeat.py" in heartbeat_body
+    assert "--finalize" in heartbeat_body
+    assert "ARAGORA_TMUX_HEARTBEAT_INTERVAL_SECONDS" in heartbeat_body
+    assert '_heartbeat_interval="60"' in heartbeat_body
+    assert "./scripts/codex_session.sh" in heartbeat_body
+    assert "--agent testpane" in heartbeat_body
     registry_payload = json.loads(
         (tmp_path / ".aragora" / "session_mux" / "registry.json").read_text()
     )
@@ -193,7 +202,7 @@ def test_tmux_session_launcher_autonomous_codex_prompt_uses_exec(
         call[:2] == ["send-keys", "-t"]
         and call[2] == "@17"
         and "bash '" in call[3]
-        and "codex-auto.launch.sh" in call[3]
+        and "codex-auto.heartbeat-launch.sh" in call[3]
         and "--full-auto" not in call[3]
         for call in calls
     )
@@ -215,6 +224,15 @@ def test_tmux_session_launcher_autonomous_codex_prompt_uses_exec(
     )
     assert meta["has_prompt"] is True
     assert meta["prompt_file"].endswith("codex-auto.prompt.md")
+    heartbeat_launcher = (
+        Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "codex-auto.heartbeat-launch.sh"
+    )
+    heartbeat_body = heartbeat_launcher.read_text(encoding="utf-8")
+    assert "scripts/agent_heartbeat.py" in heartbeat_body
+    assert "LANE_ID=Q123" in heartbeat_body
+    assert "OWNER_SESSION=codex-auto" in heartbeat_body
+    assert "codex-auto.launch.sh" in heartbeat_body
+    assert "codex exec --dangerously-bypass-approvals-and-sandbox" not in heartbeat_body
 
 
 def test_tmux_session_launcher_rejects_autonomous_codex_without_lease(
@@ -454,10 +472,16 @@ def test_tmux_session_launcher_supports_droid_agent(tmp_path: Path) -> None:
     assert any(
         call[:2] == ["send-keys", "-t"]
         and call[2] == "@17"
-        and "droid exec --auto 'high'" in call[3]
-        and "-f" in call[3]
+        and "factory-review.heartbeat-launch.sh" in call[3]
         for call in calls
     )
+    heartbeat_launcher = (
+        Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "factory-review.heartbeat-launch.sh"
+    )
+    heartbeat_body = heartbeat_launcher.read_text(encoding="utf-8")
+    assert "scripts/agent_heartbeat.py" in heartbeat_body
+    assert "droid exec --auto 'high'" in heartbeat_body
+    assert "-f" in heartbeat_body
     assert not any("review only" in json.dumps(call) for call in calls)
     meta = json.loads(
         (Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "factory-review.meta.json").read_text(
@@ -503,10 +527,15 @@ def test_tmux_session_launcher_supports_droid_prompt_file(tmp_path: Path) -> Non
     assert any(
         call[:2] == ["send-keys", "-t"]
         and call[2] == "@17"
-        and "droid exec --auto 'high'" in call[3]
-        and f"-f '{prompt_file}'" in call[3]
+        and "factory-review.heartbeat-launch.sh" in call[3]
         for call in calls
     )
+    heartbeat_launcher = (
+        Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "factory-review.heartbeat-launch.sh"
+    )
+    heartbeat_body = heartbeat_launcher.read_text(encoding="utf-8")
+    assert "droid exec --auto 'high'" in heartbeat_body
+    assert f"-f '{prompt_file}'" in heartbeat_body
     assert not any("review from file" in json.dumps(call) for call in calls)
 
 

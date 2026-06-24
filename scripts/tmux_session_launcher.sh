@@ -143,6 +143,110 @@ default_init_wait_seconds() {
     esac
 }
 
+build_heartbeat_launch_wrapper() {
+    local runner_file="$1"
+    local launch_cmd="$2"
+    local lane_id="$3"
+    local owner_session="$4"
+
+    python3 -c '
+import os
+import shlex
+import sys
+from pathlib import Path
+
+runner_file, repo_root, workdir, launch_cmd, lane_id, owner_session = sys.argv[1:7]
+heartbeat_log = str(Path(runner_file).with_suffix(".heartbeat.log"))
+body = "\n".join(
+    [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        f"REPO_ROOT={shlex.quote(repo_root)}",
+        f"WORKDIR={shlex.quote(workdir)}",
+        f"LANE_ID={shlex.quote(lane_id)}",
+        f"OWNER_SESSION={shlex.quote(owner_session)}",
+        f"HEARTBEAT_LOG={shlex.quote(heartbeat_log)}",
+        "_heartbeat_interval=\"${ARAGORA_TMUX_HEARTBEAT_INTERVAL_SECONDS:-60}\"",
+        "if ! [[ \"${_heartbeat_interval}\" =~ ^[0-9]+$ ]] || (( _heartbeat_interval < 1 )); then",
+        "    _heartbeat_interval=\"60\"",
+        "fi",
+        "_heartbeat_loop_pid=\"\"",
+        "_finalizer_signal=\"\"",
+        "_finalized=\"0\"",
+        "",
+        "_record_heartbeat() {",
+        "    local branch",
+        "    branch=\"$(git -C \"${WORKDIR}\" rev-parse --abbrev-ref HEAD 2>/dev/null || true)\"",
+        "    python3 \"${REPO_ROOT}/scripts/agent_heartbeat.py\" \\",
+        "        --repo-root \"${REPO_ROOT}\" \\",
+        "        --lane-id \"${LANE_ID}\" \\",
+        "        --owner-session \"${OWNER_SESSION}\" \\",
+        "        --pid \"$$\" \\",
+        "        --cwd \"${WORKDIR}\" \\",
+        "        --worktree \"${WORKDIR}\" \\",
+        "        --branch \"${branch}\" \\",
+        "        --json >/dev/null 2>>\"${HEARTBEAT_LOG}\" || true",
+        "}",
+        "",
+        "_heartbeat_loop() {",
+        "    _record_heartbeat",
+        "    while sleep \"${_heartbeat_interval}\"; do",
+        "        _record_heartbeat",
+        "    done",
+        "}",
+        "",
+        "_finalize_heartbeat() {",
+        "    local rc=$?",
+        "    if [[ \"${_finalized}\" == \"1\" ]]; then",
+        "        exit \"${rc}\"",
+        "    fi",
+        "    _finalized=\"1\"",
+        "    if [[ -n \"${_heartbeat_loop_pid}\" ]]; then",
+        "        kill \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
+        "        wait \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
+        "    fi",
+        "    local outcome reason branch",
+        "    branch=\"$(git -C \"${WORKDIR}\" rev-parse --abbrev-ref HEAD 2>/dev/null || true)\"",
+        "    if [[ -n \"${_finalizer_signal}\" ]]; then",
+        "        outcome=\"cancelled\"",
+        "        reason=\"tmux launcher received ${_finalizer_signal}\"",
+        "    elif [[ \"${rc}\" == \"0\" ]]; then",
+        "        outcome=\"completed\"",
+        "        reason=\"tmux launcher command exited successfully\"",
+        "    else",
+        "        outcome=\"failed\"",
+        "        reason=\"tmux launcher command exited with status ${rc}\"",
+        "    fi",
+        "    python3 \"${REPO_ROOT}/scripts/agent_heartbeat.py\" \\",
+        "        --repo-root \"${REPO_ROOT}\" \\",
+        "        --finalize \\",
+        "        --lane-id \"${LANE_ID}\" \\",
+        "        --owner-session \"${OWNER_SESSION}\" \\",
+        "        --pid \"$$\" \\",
+        "        --cwd \"${WORKDIR}\" \\",
+        "        --worktree \"${WORKDIR}\" \\",
+        "        --branch \"${branch}\" \\",
+        "        --outcome \"${outcome}\" \\",
+        "        --reason \"${reason}\" \\",
+        "        --json >/dev/null 2>>\"${HEARTBEAT_LOG}\" || true",
+        "    exit \"${rc}\"",
+        "}",
+        "",
+        "trap _finalize_heartbeat EXIT",
+        "trap \"_finalizer_signal=INT; exit 130\" INT",
+        "trap \"_finalizer_signal=TERM; exit 143\" TERM",
+        "_heartbeat_loop &",
+        "_heartbeat_loop_pid=\"$!\"",
+        launch_cmd,
+        "",
+    ]
+)
+path = Path(runner_file)
+path.write_text(body, encoding="utf-8")
+os.chmod(path, 0o700)
+' "${runner_file}" "${REPO_ROOT}" "${WORKDIR}" "${launch_cmd}" "${lane_id}" "${owner_session}"
+}
+
 # --- argument parsing ---
 NAME=""
 AGENT="codex"
@@ -413,6 +517,11 @@ else
     echo "Unknown agent: ${AGENT}. Use 'codex', 'claude', 'droid', or 'factory'." >&2
     exit 1
 fi
+
+HEARTBEAT_LANE_ID="${TASK_ID:-${NAME}}"
+HEARTBEAT_LAUNCH_FILE="${LOG_DIR}/${NAME}.heartbeat-launch.sh"
+build_heartbeat_launch_wrapper "${HEARTBEAT_LAUNCH_FILE}" "${LAUNCH_CMD}" "${HEARTBEAT_LANE_ID}" "${NAME}"
+LAUNCH_CMD="bash '${HEARTBEAT_LAUNCH_FILE}'"
 
 # Create new tmux window with logging
 WINDOW_TARGET="$(tmux new-window -P -F '#{window_id}' -t "${TMUX_SESSION}" -n "${NAME}")"
