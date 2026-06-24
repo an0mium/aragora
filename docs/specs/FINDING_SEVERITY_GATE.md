@@ -42,9 +42,10 @@ head, and the PR can never settle. The negative *word* — not the finding *seve
 ## Proposed behavior (opt-in)
 
 Behind `ARAGORA_ENABLE_SEVERITY_GATED_DISSENT` (default OFF), a CHANGES-REQUESTED
-comment promotes a **blocking** dissent only when it carries a real `[P0]`/`[P1]`
-finding **or** a populated Blocker label. A `[P2]`/`[P3]`-only or finding-free
-CHANGES-REQUESTED becomes **advisory**:
+comment with only explicit `[P2]`/`[P3]` findings becomes **advisory**. It still
+promotes a **blocking** dissent when it carries a real `[P0]`/`[P1]` finding, a
+populated Blocker label, or a finding-free / unstructured negative verdict that
+does not explicitly declare no blockers or follow-up-only work:
 
 - **non-blocking** — it no longer trips `unresolved_dissent` (review-queue gate) and
   no longer flips the evidence collector to prepare-only (`quorum_evidence`); and

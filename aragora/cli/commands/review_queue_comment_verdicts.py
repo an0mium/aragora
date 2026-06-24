@@ -222,7 +222,7 @@ _SUBSTANTIVE_METADATA_DISSENT = re.compile(
     r"merge|ship|exploit|sqli|xss|regression|fail|failed|failing|error|bug|"
     r"defect|production|untriaged|blocking|issue|issues|problem|problems|"
     r"concern|concerns|missing|null|leak|leaks|leaked|leaking|risky|risk|"
-    r"unfixed)\b",
+    r"unfixed|security|hole|incorrect|logic|validate|validation|input|inputs)\b",
     re.I,
 )
 _SIMPLE_VERDICT_VALUES = (

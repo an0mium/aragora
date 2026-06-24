@@ -417,6 +417,12 @@ def test_severity_gated_known_family_metadata_with_low_severity_finding_is_advis
         "Verdict: CHANGES-REQUESTED\nReviewer: openai found issues\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\nReviewer: grok has concerns\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
+        "Reviewer: claude security hole\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
+        "Reviewer: claude incorrect logic\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
+        "Model family: grok validate inputs carefully\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
         "Reviewer: claude missing auth\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
         "Model family: openai null leak\nFollow-up-only: yes",
