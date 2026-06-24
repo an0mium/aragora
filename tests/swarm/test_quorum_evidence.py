@@ -1154,11 +1154,11 @@ def test_collect_severity_gated_p2_only_dissent_is_advisory(
     assert outcome.action == "post"
     assert outcome.dissenting_families == []
     assert sorted(outcome.supportive_families) == ["claude", "openai"]
-    assert sorted(outcome.posted) == ["claude", "openai"]
-    assert all("changes-requested" not in body.lower() for _repo, body in posted)
+    assert sorted(outcome.posted) == ["claude", "grok", "openai"]
+    assert any("changes-requested" in body.lower() for _repo, body in posted)
 
 
-def test_collect_severity_gated_finding_free_changes_requested_is_advisory(
+def test_collect_severity_gated_finding_free_changes_requested_still_blocks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
@@ -1183,11 +1183,11 @@ def test_collect_severity_gated_finding_free_changes_requested_is_advisory(
         **fakes,
     )
 
-    assert outcome.action == "post"
-    assert outcome.dissenting_families == []
+    assert outcome.action == "prepare"
+    assert "reviewer dissent" in outcome.action_reason
+    assert outcome.dissenting_families == ["grok"]
     assert sorted(outcome.supportive_families) == ["claude", "openai"]
-    assert sorted(outcome.posted) == ["claude", "openai"]
-    assert all("changes-requested" not in body.lower() for _repo, body in posted)
+    assert posted == []
 
 
 def test_evidence_item_dissenting_uses_captured_outcome_policy(
@@ -1216,6 +1216,18 @@ def test_evidence_item_dissenting_uses_captured_outcome_policy(
 
     assert outcome.items[0].dissenting is False
     assert outcome.dissenting_families == []
+
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "0")
+    strict_item = EvidenceItem(
+        "grok",
+        "Verdict: CHANGES-REQUESTED\n- [P2] advisory follow-up",
+        False,
+        [],
+        [],
+        "changes_requested",
+    )
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    assert strict_item.dissenting is True
 
 
 def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> None:
@@ -1883,6 +1895,54 @@ def test_apply_prepared_evidence_posts_without_rerunning_reviewers(tmp_path) -> 
     assert "without reviewer regeneration" in outcome.action_reason
     assert outcome.posted == ["claude", "grok"]
     assert posted == [("o/r", _prepared_body("claude")), ("o/r", _prepared_body("grok"))]
+
+
+def test_apply_prepared_evidence_posts_advisory_low_severity_without_counting(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    advisory_body = "Verdict: CHANGES-REQUESTED\n\n- [P2] Follow-up coverage."
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+            EvidenceItem(
+                "grok",
+                advisory_body,
+                False,
+                [],
+                [],
+                "changes_requested",
+                severity_gated=True,
+            ),
+        ],
+    )
+    posted: list[tuple[str, str]] = []
+
+    def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        if "claude body" in body:
+            return {"would_count": True, "counted_reviewer_ids": ["claude"], "problems": []}
+        return {"would_count": False, "counted_reviewer_ids": [], "problems": []}
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=linter,
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+    )
+
+    assert outcome.action == "post"
+    assert outcome.supportive_families == ["claude"]
+    assert outcome.dissenting_families == []
+    assert outcome.items[1].advisory is True
+    assert outcome.posted == ["claude", "grok"]
+    assert posted == [("o/r", _prepared_body("claude")), ("o/r", advisory_body)]
 
 
 def test_collect_outcome_tiered_gate_roundtrips() -> None:

@@ -1278,10 +1278,52 @@ class TestModelReviewQuorum:
         assert len(quorum["advisory_views"]) == 1
         assert quorum["advisory_views"][0]["position"] == "advisory_changes_requested"
         assert quorum["advisory_views"][0]["blocking"] is False
-        assert quorum["advisory_views"][0]["highest_severity"] is None
+        assert quorum["advisory_views"][0]["highest_severity"] == "P2"
+        assert any("advisory finding from claude: P2" in reason for reason in quorum["reasons"])
         assert quorum["status"] == "satisfied"
         assert quorum["admin_squash_allowed"] is True
         assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
+
+    def test_severity_gated_finding_free_changes_requested_still_blocks(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n"
+                    f"Current head: {head}\n"
+                    "Verdict: CHANGES-REQUESTED\n"
+                    "Needs another look before merge."
+                ),
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["advisory_views"] == []
 
     def test_severity_gated_protocol_dissent_still_blocks(
         self,

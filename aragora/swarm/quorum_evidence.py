@@ -47,7 +47,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
+from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_model_dissent
 from aragora.swarm import merge_quorum_io
 
 logger = logging.getLogger(__name__)
@@ -122,11 +122,12 @@ def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
 # ``Verdict: CHANGES-REQUESTED`` line promotes a *blocking* dissent regardless of
 # finding severity — even a `[P2]`/`[P3]`-only or finding-free comment blocks the
 # merge as hard as a `[P0]` defect (today's behavior). When ON, a CHANGES-REQUESTED
-# comment promotes a blocking dissent ONLY when it carries a real `[P0]`/`[P1]`
-# finding or a populated Blocker label; a `[P2]`/`[P3]`-only or finding-free
-# CHANGES-REQUESTED becomes *advisory* — non-blocking AND non-counting (it still
-# posts and stays visible on the PR; it just no longer blocks). `[P0]`/`[P1]`
-# findings and populated Blocker labels ALWAYS block, flag ON or OFF.
+# comment is advisory only when it carries explicit `[P2]`/`[P3]` follow-up
+# findings or explicitly declares no blockers / follow-up-only. Finding-free or
+# unstructured CHANGES-REQUESTED remains blocking, so missing severity metadata
+# fails closed. Advisory comments still post and stay visible on the PR, but never
+# satisfy model quorum. `[P0]`/`[P1]` findings and populated Blocker labels ALWAYS
+# block, flag ON or OFF.
 #
 # Gating this behind the flag keeps it revertible WITHOUT a code change and is the
 # in-tree audit point for the operator's approval. See
@@ -424,21 +425,20 @@ class EvidenceItem:
         return self.would_count and self.verdict == "pass"
 
     @property
+    def advisory(self) -> bool:
+        """Whether this is visible advisory evidence, never countable support."""
+        return (
+            self.verdict == "changes_requested"
+            and self.severity_gated
+            and not self.dissenting
+            and has_blocking_model_dissent(self.body, severity_gated=False)
+        )
+
+    @property
     def dissenting(self) -> bool:
         if self.verdict != "changes_requested":
             return False
-        if not self.severity_gated:
-            # Default (flag OFF): any changes_requested is a blocking dissent —
-            # byte-identical to historical behavior.
-            return True
-        # Flag ON: a changes_requested is dissenting (blocks / trips prepare-only)
-        # ONLY when backed by a real [P0]/[P1] finding OR a populated Blocker label
-        # (``has_blocking_finding_or_label`` — the SAME helper the review-queue gate
-        # half consults, so the two halves stay in lockstep and Blocker labels always
-        # block per the invariant). A [P2]/[P3]-only or finding-free changes_requested
-        # is advisory — non-blocking, and (because ``supportive`` is unchanged) still
-        # non-counting.
-        return has_blocking_finding_or_label(self.body)
+        return has_blocking_model_dissent(self.body, severity_gated=self.severity_gated)
 
 
 @dataclass
@@ -1895,7 +1895,7 @@ def collect_evidence(
             )
         else:
             for item in outcome.items:
-                if not item.supportive:
+                if not (item.supportive or item.advisory):
                     continue
                 try:
                     poster(repo, pr, item.body)
@@ -2142,7 +2142,7 @@ def apply_prepared_evidence(
         "prepared exact-head evidence artifact; posting without reviewer regeneration"
     )
     for item in outcome.items:
-        if not item.supportive:
+        if not (item.supportive or item.advisory):
             continue
         try:
             poster(repo, pr, item.body)

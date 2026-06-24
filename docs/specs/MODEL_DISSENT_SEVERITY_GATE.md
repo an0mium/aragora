@@ -21,6 +21,10 @@ dissent blocks merge quorum only when the comment carries:
 for merge-quorum blocking. They do not count as supportive evidence and must not
 satisfy model quorum.
 
+Finding-free or unstructured `Verdict: CHANGES-REQUESTED` remains blocking under
+the flag. Missing severity metadata must fail closed unless the comment
+explicitly declares there are no blockers / follow-up-only work.
+
 With the flag disabled, the legacy rule remains in force: a negative verdict
 blocks.
 

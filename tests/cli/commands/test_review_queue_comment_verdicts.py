@@ -18,7 +18,9 @@ import pytest
 
 from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label,
+    has_blocking_model_dissent,
     highest_blocking_severity,
+    highest_finding_priority,
     has_blocking_or_negative_verdict,
 )
 
@@ -223,6 +225,18 @@ def test_p2_blocks_default_path_but_is_advisory_under_severity_gate():
     # flag-ON severity helpers: [P2] is NOT a blocking finding/label -> advisory
     assert has_blocking_finding_or_label(body) is False
     assert highest_blocking_severity(body) is None
+    assert highest_finding_priority(body) == "P2"
+    assert has_blocking_model_dissent(body, severity_gated=True) is False
+
+
+def test_severity_gated_bare_changes_requested_still_blocks():
+    body = "Verdict: CHANGES-REQUESTED\nNeeds another look before merge."
+    assert has_blocking_model_dissent(body, severity_gated=True) is True
+
+
+def test_severity_gated_explicit_no_blockers_can_be_advisory():
+    body = "Verdict: CHANGES-REQUESTED\nBlockers: none\nFollow-up-only polish."
+    assert has_blocking_model_dissent(body, severity_gated=True) is False
 
 
 def test_p0_p1_block_both_paths():

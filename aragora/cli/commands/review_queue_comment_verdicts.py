@@ -166,6 +166,10 @@ _DEFAULT_BLOCKING_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)
 # by default and is advisory under the flag — these two marker sets encode exactly that.
 _PRIORITY_MARKER = re.compile(r"^(?:\*\*)?\[(?P<sev>p0|p1)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I)
 _PRIORITY_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?\s*", re.I)
+_ANY_PRIORITY_MARKER = re.compile(
+    r"^(?:\*\*)?\[(?P<sev>p0|p1|p2|p3)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I
+)
+_ANY_PRIORITY_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1|p2|p3)\](?:\*\*)?\s*", re.I)
 
 
 def _strip_decoration(text: str) -> str:
@@ -196,6 +200,48 @@ def _priority_finding_severity(stripped: str) -> str | None:
         # explicit "[Pn] None:/N/A/no issues" non-finding
         return None
     return marker.group("sev").upper()
+
+
+def _priority_finding_priority(stripped: str) -> str | None:
+    """Return ``"P0"``..``"P3"`` for a real priority finding line, else ``None``."""
+    priority_marker_line = _strip_decoration(stripped)
+    marker = _ANY_PRIORITY_MARKER.match(priority_marker_line)
+    if not marker:
+        return None
+    rest = _ANY_PRIORITY_MARKER_STRIP.sub("", priority_marker_line)
+    head = _normalize_value(rest).split(":", 1)[0].strip(" .;—–-")
+    if head in _NO_FINDING_HEADS:
+        return None
+    return marker.group("sev").upper()
+
+
+def _explicit_no_blockers_or_followup_only(body: str) -> bool:
+    """Whether a negative verdict explicitly says there are no blockers.
+
+    The severity-gated path must fail closed for bare ``CHANGES-REQUESTED`` text.
+    Only bounded, explicit no-blocker / follow-up-only declarations can be
+    advisory without a P2/P3 marker.
+    """
+    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    for idx, stripped in enumerate(lines):
+        if not stripped:
+            continue
+        line = _strip_decoration(stripped).replace("**", "").replace("__", "")
+        match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
+        if match:
+            normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
+            normalized_label = normalized_label.strip("*_ ")
+            normalized_value = _normalize_value(match.group("value"))
+            if normalized_label in _BLOCKER_LABELS and _starts_with_phrase(
+                normalized_value, _NON_BLOCKING_PREFIXES, match_no_finding=True
+            ):
+                return True
+        normalized_line = _normalize_value(line)
+        if re.search(r"\bfollow[- ]?up(?:s)?[- ]?only\b", normalized_line):
+            return True
+        if re.search(r"\bnon[- ]?blocking\s+follow[- ]?up(?:s)?\b", normalized_line):
+            return True
+    return False
 
 
 def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
@@ -292,6 +338,24 @@ def highest_blocking_severity(body: str) -> str | None:
     return best
 
 
+def highest_finding_priority(body: str) -> str | None:
+    """Return the highest real priority marker in ``body`` (`P0` before `P3`)."""
+    order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+    best: str | None = None
+    for raw_line in str(body or "").splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        priority = _priority_finding_priority(stripped)
+        if priority is None:
+            continue
+        if best is None or order[priority] < order[best]:
+            best = priority
+            if best == "P0":
+                return best
+    return best
+
+
 def has_blocking_finding_or_label(body: str) -> bool:
     """Return True when ``body`` carries a real `[P0]`/`[P1]` finding line OR a
     populated Blocker-label.
@@ -311,3 +375,21 @@ def has_blocking_finding_or_label(body: str) -> bool:
         if _populated_blocker_label(stripped, lines[idx + 1 :]):
             return True
     return False
+
+
+def has_blocking_model_dissent(body: str, *, severity_gated: bool) -> bool:
+    """Return whether a model review body is blocking dissent under the gate regime."""
+    if not has_blocking_or_negative_verdict(body):
+        return False
+    if not severity_gated:
+        return True
+    if has_blocking_finding_or_label(body):
+        return True
+    priority = highest_finding_priority(body)
+    if priority in {"P2", "P3"}:
+        return False
+    if _explicit_no_blockers_or_followup_only(body):
+        return False
+    # Fail closed: bare/finding-free CHANGES-REQUESTED or missing severity metadata
+    # stays blocking.
+    return True

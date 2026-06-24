@@ -42,9 +42,9 @@ from aragora.cli.commands.review_queue_parsers import (
     add_record_settlement_parser,
 )
 from aragora.cli.commands.review_queue_comment_verdicts import (
-    has_blocking_finding_or_label as _has_blocking_finding_or_label,
+    has_blocking_model_dissent as _has_blocking_model_dissent,
     has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
-    highest_blocking_severity as _highest_blocking_severity,
+    highest_finding_priority as _highest_finding_priority,
 )
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
@@ -4212,13 +4212,9 @@ def _dissenting_views_from_comments(
     populated Blocker label, OR a bare negative ``Verdict:`` line — promotes a
     blocking dissent, byte-identical to historical behavior.
 
-    When the flag is ON, only a comment backed by a real ``[P0]``/``[P1]`` finding
-    or a populated Blocker label (``_has_blocking_finding_or_label``) promotes a
-    blocking dissent. A ``[P2]``/``[P3]``-only or finding-free CHANGES-REQUESTED is
-    downgraded to *advisory*: non-blocking, and — because it is excluded from the
-    returned blocking-dissent list and never marked supportive — non-counting. The
-    downgraded comment is still recorded (in ``advisory_views`` when provided) so the
-    review quality stays visible on the PR / in the audit packet.
+    When the flag is ON, only explicit low-severity ``[P2]``/``[P3]`` follow-up
+    findings (or explicit no-blocker/follow-up-only declarations) are advisory.
+    Finding-free / unstructured ``CHANGES-REQUESTED`` remains blocking.
     """
     markers = (
         "dogfood",
@@ -4244,14 +4240,7 @@ def _dissenting_views_from_comments(
         lower = body.lower()
         if not any(token in lower for token in markers):
             continue
-        # Flag OFF: a bare negative Verdict line still blocks (historical behavior).
-        # Flag ON: only a real [P0]/[P1] finding or a populated Blocker label blocks;
-        # a [P2]/[P3]-only or finding-free CHANGES-REQUESTED becomes advisory.
-        blocks = (
-            _has_blocking_finding_or_label(body)
-            if severity_gated
-            else _has_blocking_or_negative_verdict(body)
-        )
+        blocks = _has_blocking_model_dissent(body, severity_gated=severity_gated)
         if not blocks:
             if severity_gated and advisory_views is not None:
                 advisory = _build_advisory_view(comment, body)
@@ -4282,8 +4271,9 @@ def _dissenting_views_from_comments(
 
 def _build_advisory_view(comment: dict[str, Any], body: str) -> dict[str, Any] | None:
     """Build the advisory (non-blocking, non-counting) record for a CHANGES-REQUESTED
-    comment that, under the severity gate, carries only ``[P2]``/``[P3]`` (or no)
-    findings. Returns ``None`` if the reviewer identity is unrecognized.
+    comment that, under the severity gate, carries only explicit low-severity
+    ``[P2]``/``[P3]`` findings or an explicit no-blocker/follow-up-only marker.
+    Returns ``None`` if the reviewer identity is unrecognized.
     """
     # The comment WOULD have blocked under the strict (flag-OFF) regime: it is a
     # genuine negative verdict, just not backed by a real [P0]/[P1] finding or a
@@ -4299,12 +4289,12 @@ def _build_advisory_view(comment: dict[str, Any], body: str) -> dict[str, Any] |
     github_author = ""
     if isinstance(author_payload, dict):
         github_author = str(author_payload.get("login", "") or "")
-    severity = _highest_blocking_severity(body)
+    severity = _highest_finding_priority(body)
     return {
         "agent": identity.model_family or identity.surface_reviewer_id,
         "position": "advisory_changes_requested",
         "blocking": False,
-        "highest_severity": severity,  # None for finding-free, never P0/P1 here
+        "highest_severity": severity,  # P2/P3 for low-severity findings; None for no-blockers.
         "reason": _first_nonempty_line(body)[:240],
         "source": "pr_comment",
         "github_author": github_author,
