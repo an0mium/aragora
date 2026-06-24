@@ -786,6 +786,7 @@ def test_merged_pr_audit_apply_rejects_local_work_claim(tmp_path: Path) -> None:
                 "owner_session": "codex-owner",
                 "status": "active",
                 "worktree": "/tmp/active-worktree",
+                "possible_unpushed_work": True,
                 "pr_number": 7435,
             }
         ],
@@ -810,3 +811,40 @@ def test_merged_pr_audit_apply_rejects_local_work_claim(tmp_path: Path) -> None:
         "/tmp/active-worktree"
     ]
     assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_merged_pr_audit_apply_allows_recorded_worktree_without_local_work_risk(
+    tmp_path: Path,
+) -> None:
+    registry = tmp_path / "lanes.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "worktree": "/tmp/active-worktree",
+                "possible_unpushed_work": "false",
+                "has_unpushed_work": False,
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 1
+    assert result["blocked_reason"] is None
+    rows = json.loads(registry.read_text(encoding="utf-8"))
+    assert rows[0]["status"] == "superseded"

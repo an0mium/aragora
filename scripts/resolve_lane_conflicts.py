@@ -220,14 +220,28 @@ def _live_pids(records: Sequence[dict[str, Any]]) -> list[int]:
     return live
 
 
+def _truthy_flag(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    text = str(value or "").strip().lower()
+    return text in {"1", "true", "yes", "y", "on"}
+
+
 def _local_work_claims(records: Sequence[dict[str, Any]]) -> list[str]:
     claims: list[str] = []
     for record in records:
+        has_local_work_risk = _truthy_flag(record.get("possible_unpushed_work")) or _truthy_flag(
+            record.get("has_unpushed_work")
+        )
+        if not has_local_work_risk:
+            continue
         for key in LOCAL_WORK_KEYS:
             value = str(record.get(key) or "").strip()
             if value:
                 claims.append(value)
-        if record.get("possible_unpushed_work") or record.get("has_unpushed_work"):
+        if not any(str(record.get(key) or "").strip() for key in LOCAL_WORK_KEYS):
             claims.append("possible_unpushed_work")
     return claims
 
