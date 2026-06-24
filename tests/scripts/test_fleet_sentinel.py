@@ -787,7 +787,7 @@ def _active_owner_row(**overrides: Any) -> dict[str, Any]:
     return row
 
 
-def test_stale_terminal_owner_missing_registry_is_unknown(tmp_path: Path) -> None:
+def test_stale_terminal_owner_missing_registry_is_ok_skipped(tmp_path: Path) -> None:
     result = sentinel.check_stale_terminal_owner(
         tmp_path / "missing-lanes.json",
         receipt_dir=tmp_path / "receipts",
@@ -802,8 +802,30 @@ def test_stale_terminal_owner_missing_registry_is_unknown(tmp_path: Path) -> Non
         terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
     )
 
+    assert result["status"] == "ok"
+    assert "agent-bridge state absent" in result["detail"]
+
+
+def test_stale_terminal_owner_invalid_registry_stays_unknown(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("{not json", encoding="utf-8")
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("no PR state fetch")
+        ),
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
     assert result["status"] == "unknown"
-    assert "lane registry unreadable: missing" in result["detail"]
+    assert "lane registry unreadable" in result["detail"]
 
 
 def test_stale_terminal_owner_reports_safe_merged_pr_with_guarded_commands(
@@ -1172,6 +1194,42 @@ def test_default_terminal_owner_auditor_uses_no_lock_read_only_path(
     assert result["github_state"]["state"] == "MERGED"
     assert result["github_state"]["mergeCommit"] == "abc123"
     assert result["findings"][0]["terminal_safety_blockers"] == []
+
+
+def test_stale_terminal_owner_default_auditor_uses_real_resolver_module(
+    tmp_path: Path,
+) -> None:
+    sentinel._RESOLVER_MODULE = None
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        assert pr == 9001
+        assert repo_slug == "synaptent/aragora"
+        assert gh_bin == "gh"
+        return {
+            "available": True,
+            "number": pr,
+            "state": "MERGED",
+            "merge_commit": "real-resolver-merge",
+            "url": "https://github.test/pr/9001",
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+    )
+
+    assert result["status"] == "breach"
+    candidate = result["candidates"][0]
+    assert candidate["lane_id"] == "Q900-stale-terminal"
+    assert candidate["terminal_safety_blockers"] == []
+    assert "--expected-merge-commit real-resolver-merge" in candidate["reconciler_apply_command"]
 
 
 # ---------------------------------------------------------------------------

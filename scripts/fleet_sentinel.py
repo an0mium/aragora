@@ -838,6 +838,12 @@ def check_stale_terminal_owner(
     name = "stale_terminal_owner"
     rows, load_error = _read_json_list(registry_path)
     if load_error:
+        if load_error == "missing":
+            return _result(
+                name,
+                "ok",
+                f"lane registry missing: {registry_path} — agent-bridge state absent; check skipped",
+            )
         return _result(name, "unknown", f"lane registry unreadable: {load_error}")
 
     active_lane_statuses = _active_lane_statuses()
