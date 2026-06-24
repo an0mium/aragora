@@ -37,23 +37,18 @@ from aragora.debate.cognitive_limiter import (
 )
 
 # Check for official RLM library (use factory for consistent initialization)
-get_rlm: Any
-get_compressor: Any
-DebateContextAdapter: Any
-RLMBackendConfig: Any
-
 try:
     from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
-    from aragora.rlm.bridge import DebateContextAdapter, RLMBackendConfig  # type: ignore[no-redef]
+    from aragora.rlm.bridge import DebateContextAdapter, RLMBackendConfig
 
     HAS_RLM_FACTORY = True
 except ImportError:
     HAS_OFFICIAL_RLM = False
     HAS_RLM_FACTORY = False
-    get_rlm = None
-    get_compressor = None
-    DebateContextAdapter = None
-    RLMBackendConfig = None
+    get_rlm: Any = None  # type: ignore[no-redef]
+    get_compressor: Any = None  # type: ignore[no-redef]
+    DebateContextAdapter: Any = None  # type: ignore[no-redef]
+    RLMBackendConfig: Any = None  # type: ignore[no-redef]
 
 if TYPE_CHECKING:
     from aragora.rlm.compressor import HierarchicalCompressor
@@ -181,7 +176,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         # Real RLM integration - use factory for consistent initialization
         self._rlm_model = rlm_model
-        self._aragora_rlm: Any = None
+        self._aragora_rlm: Any | None = None
         self._debate_adapter: Any | None = None
 
         if HAS_RLM_FACTORY and get_rlm is not None:
@@ -251,7 +246,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             ...     strategy="grep"
             ... )
         """
-        if not self.has_real_rlm:
+        rlm = self._aragora_rlm
+        if rlm is None:
             logger.warning("Real RLM not available, using fallback search")
             return self._fallback_search(query, messages)
 
@@ -263,7 +259,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
             formatted_context = self._format_messages_for_rlm(messages)
 
             # Use AragoraRLM for query
-            result = await self._aragora_rlm.compress_and_query(
+            result = await rlm.compress_and_query(
                 query=query,
                 content=formatted_context,
                 source_type="debate",
