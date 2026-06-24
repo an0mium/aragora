@@ -77,3 +77,9 @@ variable "enable_detailed_monitoring" {
   type        = bool
   default     = true
 }
+
+variable "aragora_git_ref" {
+  description = "Git ref (branch, tag, or commit SHA) of synaptent/aragora to clone and install during bootstrap. Default 'main' tracks mainline; pin to a tag or commit SHA for reproducible, rollback-capable deploys."
+  type        = string
+  default     = "main"
+}

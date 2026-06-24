@@ -98,6 +98,7 @@ cp terraform.tfvars.example terraform.tfvars
 | `subnet_id` | Subnet ID (empty for auto-select) | `""` |
 | `admin_cidr_blocks` | CIDR blocks for SSH access | `[]` |
 | `key_name` | EC2 key pair name (SSM preferred) | `""` |
+| `aragora_git_ref` | Git ref (branch/tag/SHA) of synaptent/aragora to install | `main` |
 
 ## What Gets Deployed
 
@@ -110,7 +111,9 @@ cp terraform.tfvars.example terraform.tfvars
 ### Software Stack
 - Python 3.11 with virtual environment
 - Aragora installed **from source**: the bootstrap clones
-  `https://github.com/synaptent/aragora.git` into `/opt/aragora/src` and runs
+  `https://github.com/synaptent/aragora.git` into `/opt/aragora/src`, checks out
+  the `aragora_git_ref` variable (default `main`; pin to a release tag or commit
+  SHA for reproducible, rollback-capable deploys), and runs
   `pip install "/opt/aragora/src[gateway,enterprise,connectors]"`, which resolves
   these production extras against the repository's own `pyproject.toml`:
   - `gateway` - FastAPI/uvicorn API server
@@ -241,12 +244,19 @@ variable "supermemory_api_key" {
 
 ### Update Aragora
 
+To move an instance to a new revision, set `aragora_git_ref` and re-apply (on a
+re-run the bootstrap fetches and hard-resets `/opt/aragora/src` to that ref), or
+update in place via SSM:
+
 ```bash
 # Connect via SSM
 aws ssm start-session --target <instance-id>
 
-# Update from source
-sudo -u aragora git -C /opt/aragora/src pull
+# Update from source to a chosen ref (branch, tag, or commit SHA)
+REF=main
+sudo -u aragora git -C /opt/aragora/src fetch --tags --force origin
+sudo -u aragora git -C /opt/aragora/src checkout --force "$REF"
+sudo -u aragora git -C /opt/aragora/src reset --hard "origin/$REF" 2>/dev/null || true
 sudo -u aragora /opt/aragora/venv/bin/pip install --upgrade "/opt/aragora/src[gateway,enterprise,connectors]"
 
 # Restart
@@ -318,7 +328,8 @@ For manual installation without Terraform, use:
 ```bash
 curl -O https://raw.githubusercontent.com/aragora/aragora/main/deploy/scripts/al2023-bootstrap.sh
 chmod +x al2023-bootstrap.sh
-sudo ./al2023-bootstrap.sh production primary us-east-2
+# Optional 4th argument pins the git ref (branch, tag, or commit SHA; default: main)
+sudo ./al2023-bootstrap.sh production primary us-east-2 main
 ```
 
 See `deploy/scripts/al2023-bootstrap.sh` for details.

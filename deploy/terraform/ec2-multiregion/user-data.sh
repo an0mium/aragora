@@ -7,6 +7,7 @@
 #   - environment: ${environment}
 #   - role: ${role}
 #   - region: ${region}
+#   - aragora_git_ref: ${aragora_git_ref}
 # =============================================================================
 
 set -ex
@@ -79,12 +80,15 @@ dnf install -y \
     libxslt-devel || echo "XML libraries not available, skipping"
 
 # SAML/xmlsec build dependencies: the `enterprise` extra pulls python3-saml,
-# which compiles a native binding against libxmlsec1. These are REQUIRED (not
-# optional) for the enterprise extra, so the install fails hard if unavailable.
-# On AL2023 the pkg-config provider is `pkgconf-pkg-config` (not `pkgconfig`).
+# which compiles a native binding against libxmlsec1. xmlsec1-devel and the
+# pkg-config provider are REQUIRED (not optional) for that extra, so their
+# install fails hard if unavailable. On AL2023 the pkg-config provider is
+# `pkgconf-pkg-config` (not `pkgconfig`).
 dnf install -y \
     xmlsec1-devel \
     pkgconf-pkg-config
+# libtool-ltdl-devel (libltdl) is a best-effort helper for some xmlsec build
+# configurations; it is NOT required on AL2023, so this install is soft.
 dnf install -y libtool-ltdl-devel || echo "libtool-ltdl-devel not available, skipping"
 
 # =============================================================================
@@ -114,8 +118,23 @@ pip install --upgrade pip wheel setuptools
 # Install Aragora from Source with Production Extras
 # =============================================================================
 
-echo "=== Cloning Aragora repository ==="
-[ -d /opt/aragora/src/.git ] || git clone https://github.com/synaptent/aragora.git /opt/aragora/src
+# Clone (or update) the Aragora source at the pinned git ref. aragora_git_ref
+# defaults to "main" (tracks mainline); set it to a release tag or commit SHA
+# via the Terraform variable for reproducible, rollback-capable deploys.
+ARAGORA_GIT_REF="${aragora_git_ref}"
+
+echo "=== Cloning Aragora repository at ref '$ARAGORA_GIT_REF' ==="
+if [ -d /opt/aragora/src/.git ]; then
+    # Re-run on an existing checkout: fetch and hard-reset to the pinned ref so
+    # the install uses the intended revision, not a stale prior checkout.
+    git -C /opt/aragora/src fetch --tags --force origin
+    git -C /opt/aragora/src checkout --force "$ARAGORA_GIT_REF"
+    git -C /opt/aragora/src reset --hard "origin/$ARAGORA_GIT_REF" 2>/dev/null \
+        || git -C /opt/aragora/src reset --hard "$ARAGORA_GIT_REF"
+else
+    git clone https://github.com/synaptent/aragora.git /opt/aragora/src
+    git -C /opt/aragora/src checkout "$ARAGORA_GIT_REF"
+fi
 
 echo "=== Installing Aragora with production extras ==="
 pip install "/opt/aragora/src[gateway,enterprise,connectors]"
@@ -330,7 +349,9 @@ cat > /etc/aragora/env.template << 'ENV_TEMPLATE'
 # Required: Database connection
 DATABASE_URL=postgresql://user:password@host:5432/aragora
 
-# Required: Redis connection
+# Optional: Redis connection. The redis client is NOT pulled by the
+# [gateway,enterprise,connectors] extras installed above; only set this if you
+# additionally install a redis client and run a Redis-backed configuration.
 ARAGORA_REDIS_URL=redis://host:6379
 
 # Required: API keys (at least one)
@@ -344,7 +365,9 @@ GEMINI_API_KEY=
 
 # Optional: Monitoring
 SENTRY_DSN=
-PROMETHEUS_ENABLED=true
+# prometheus_client is NOT installed by the prod extras above; keep disabled
+# unless you install it separately.
+PROMETHEUS_ENABLED=false
 
 # Instance metadata
 ARAGORA_INSTANCE_ROLE=${role}

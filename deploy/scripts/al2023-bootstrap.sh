@@ -6,12 +6,13 @@
 # Usage:
 #   curl -O https://raw.githubusercontent.com/aragora/aragora/main/deploy/scripts/al2023-bootstrap.sh
 #   chmod +x al2023-bootstrap.sh
-#   sudo ./al2023-bootstrap.sh [environment] [role] [region]
+#   sudo ./al2023-bootstrap.sh [environment] [role] [region] [git_ref]
 #
 # Arguments:
 #   environment: production, staging, development (default: production)
 #   role: primary, secondary, dr (default: primary)
 #   region: us-east-2, eu-west-1, ap-south-1 (default: us-east-2)
+#   git_ref: branch, tag, or commit SHA of synaptent/aragora to install (default: main)
 # =============================================================================
 
 set -ex
@@ -20,6 +21,7 @@ set -ex
 ENVIRONMENT="${1:-production}"
 ROLE="${2:-primary}"
 REGION="${3:-us-east-2}"
+ARAGORA_GIT_REF="${4:-main}"
 
 # Log all output
 LOG_FILE="/var/log/aragora-bootstrap-$(date +%Y%m%d-%H%M%S).log"
@@ -32,6 +34,7 @@ echo "Started at: $(date)"
 echo "Environment: $ENVIRONMENT"
 echo "Role: $ROLE"
 echo "Region: $REGION"
+echo "Git ref: $ARAGORA_GIT_REF"
 echo "Log file: $LOG_FILE"
 echo "=============================================="
 
@@ -108,10 +111,13 @@ dnf install -y libjpeg-devel libpng-devel 2>/dev/null || echo "Image libraries s
 dnf install -y libxml2-devel libxslt-devel 2>/dev/null || echo "XML libraries skipped"
 
 # SAML/xmlsec build dependencies: the `enterprise` extra pulls python3-saml,
-# which compiles a native binding against libxmlsec1. These are REQUIRED (not
-# optional) for the enterprise extra, so the install fails hard if unavailable.
-# On AL2023 the pkg-config provider is `pkgconf-pkg-config` (not `pkgconfig`).
+# which compiles a native binding against libxmlsec1. xmlsec1-devel and the
+# pkg-config provider are REQUIRED (not optional) for that extra, so their
+# install fails hard if unavailable. On AL2023 the pkg-config provider is
+# `pkgconf-pkg-config` (not `pkgconfig`).
 dnf install -y xmlsec1-devel pkgconf-pkg-config
+# libtool-ltdl-devel (libltdl) is a best-effort helper for some xmlsec build
+# configurations; it is NOT required on AL2023, so this install is soft.
 dnf install -y libtool-ltdl-devel 2>/dev/null || echo "libtool-ltdl-devel skipped"
 
 # =============================================================================
@@ -147,8 +153,18 @@ source /opt/aragora/venv/bin/activate
 
 pip install --upgrade pip wheel setuptools
 
-echo "Cloning Aragora repository..."
-[ -d /opt/aragora/src/.git ] || git clone https://github.com/synaptent/aragora.git /opt/aragora/src
+echo "Cloning Aragora repository at ref '$ARAGORA_GIT_REF'..."
+if [ -d /opt/aragora/src/.git ]; then
+    # Re-run on an existing checkout: fetch and hard-reset to the pinned ref so
+    # the install uses the intended revision, not a stale prior checkout.
+    git -C /opt/aragora/src fetch --tags --force origin
+    git -C /opt/aragora/src checkout --force "$ARAGORA_GIT_REF"
+    git -C /opt/aragora/src reset --hard "origin/$ARAGORA_GIT_REF" 2>/dev/null \
+        || git -C /opt/aragora/src reset --hard "$ARAGORA_GIT_REF"
+else
+    git clone https://github.com/synaptent/aragora.git /opt/aragora/src
+    git -C /opt/aragora/src checkout "$ARAGORA_GIT_REF"
+fi
 
 echo "Installing Aragora with production extras..."
 pip install "/opt/aragora/src[gateway,enterprise,connectors]"
@@ -283,7 +299,9 @@ cat > /etc/aragora/env.template << ENVTEMPLATE
 # Database (required)
 DATABASE_URL=postgresql://user:password@host:5432/aragora
 
-# Redis (required)
+# Redis (optional). The redis client is NOT pulled by the
+# [gateway,enterprise,connectors] extras installed above; only set this if you
+# additionally install a redis client and run a Redis-backed configuration.
 ARAGORA_REDIS_URL=redis://host:6379
 
 # API Keys (at least one required)
@@ -296,7 +314,9 @@ MISTRAL_API_KEY=
 
 # Monitoring
 SENTRY_DSN=
-PROMETHEUS_ENABLED=true
+# prometheus_client is NOT installed by the prod extras above; keep disabled
+# unless you install it separately.
+PROMETHEUS_ENABLED=false
 
 # Instance metadata
 ARAGORA_INSTANCE_ROLE=$ROLE

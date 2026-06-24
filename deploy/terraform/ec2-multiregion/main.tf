@@ -123,9 +123,10 @@ resource "aws_instance" "aragora" {
   subnet_id              = var.subnet_id != "" ? var.subnet_id : data.aws_subnets.public.ids[0]
 
   user_data = templatefile("${path.module}/user-data.sh", {
-    environment = var.environment
-    role        = var.role
-    region      = var.region
+    environment     = var.environment
+    role            = var.role
+    region          = var.region
+    aragora_git_ref = var.aragora_git_ref
   })
 
   root_block_device {
