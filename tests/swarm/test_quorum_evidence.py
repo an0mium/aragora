@@ -2725,3 +2725,89 @@ def test_tier_quorum_rule_matrix():
             assert tier_quorum_rule(tier, tiered_gate=gate) == TierQuorumRule(
                 2, False, western_only_counted=True
             )
+
+
+# --- severity_gated prepare/apply round-trip (claude/grok #8574 P2) ---
+def test_evidence_item_severity_gated_roundtrips() -> None:
+    # The severity-gate regime an artifact was prepared under must survive
+    # serialization, exactly like tiered_gate, so apply can't silently re-decide.
+    for regime in (True, False):
+        outcome = CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=4,
+            action="prepare",
+            action_reason="x",
+            items=[
+                EvidenceItem(
+                    "claude",
+                    _prepared_body("claude"),
+                    True,
+                    ["claude"],
+                    [],
+                    "pass",
+                    severity_gated=regime,
+                )
+            ],
+        )
+        assert outcome.to_dict()["items"][0]["severity_gated"] is regime
+        rehydrated = qe.collect_outcome_from_dict(outcome.to_dict())
+        assert rehydrated.items[0].severity_gated is regime
+
+
+def test_evidence_item_missing_severity_gated_fails_closed() -> None:
+    # Legacy/forged artifacts that omit severity_gated default to the STRICT regime
+    # (False) so a missing field can never relax dissent.
+    item = qe._evidence_item_from_dict(
+        {
+            "family": "claude",
+            "body": _prepared_body("claude"),
+            "would_count": True,
+            "verdict": "pass",
+        }
+    )
+    assert item.severity_gated is False
+
+
+def test_clone_prepared_items_reconciles_severity_gated_min() -> None:
+    # min(prepared, live): the relaxed regime survives only when BOTH agree.
+    relaxed = EvidenceItem(
+        "claude", "- [P2] nit", True, ["claude"], [], "changes_requested", severity_gated=True
+    )
+    strict = EvidenceItem(
+        "claude", "- [P2] nit", True, ["claude"], [], "changes_requested", severity_gated=False
+    )
+    assert qe._clone_prepared_items([relaxed], live_severity_gated=True)[0].severity_gated is True
+    assert qe._clone_prepared_items([relaxed], live_severity_gated=False)[0].severity_gated is False
+    assert qe._clone_prepared_items([strict], live_severity_gated=True)[0].severity_gated is False
+    assert qe._clone_prepared_items([relaxed])[0].severity_gated is True  # None preserves prepared
+
+
+def test_severity_gated_regime_controls_p2_dissent_after_roundtrip() -> None:
+    # A [P2]-only changes_requested is advisory under the relaxed regime and blocking
+    # under strict — and the regime that decides it survives serialization.
+    body = "Verdict: CHANGES-REQUESTED\n\n- [P2] minor style nit"
+    assert (
+        EvidenceItem(
+            "grok", body, False, ["grok"], [], "changes_requested", severity_gated=True
+        ).dissenting
+        is False
+    )
+    assert (
+        EvidenceItem(
+            "grok", body, False, ["grok"], [], "changes_requested", severity_gated=False
+        ).dissenting
+        is True
+    )
+    rt = qe._evidence_item_from_dict(
+        {
+            "family": "grok",
+            "body": body,
+            "would_count": False,
+            "verdict": "changes_requested",
+            "severity_gated": True,
+        }
+    )
+    assert rt.severity_gated is True and rt.dissenting is False

@@ -533,6 +533,11 @@ class CollectOutcome:
                     "counted_reviewer_ids": item.counted_reviewer_ids,
                     "problems": item.problems,
                     "body": item.body,
+                    # The prepare-time severity-gate regime, persisted so apply can
+                    # reconcile it under min(prepared, live) — the SAME treatment as
+                    # ``tiered_gate``. This is also the audit trail of which regime
+                    # prepared the artifact (claude/grok #8574 P2).
+                    "severity_gated": item.severity_gated,
                 }
                 for item in self.items
             ],
@@ -562,6 +567,12 @@ def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
         counted_reviewer_ids=_string_list(raw.get("counted_reviewer_ids")),
         problems=_string_list(raw.get("problems")),
         verdict=str(raw.get("verdict") or "unknown"),
+        # Restore the prepare-time regime; default fail-CLOSED (strict — every
+        # changes_requested blocks) when an older/forged artifact omits it, so a
+        # missing field can never RELAX the gate. apply_prepared_evidence then
+        # AND-reconciles this with the live flag (min(prepared, live)), mirroring
+        # ``tiered_gate`` (claude/grok #8574 P2).
+        severity_gated=bool(raw.get("severity_gated", False)),
     )
 
 
@@ -1889,7 +1900,14 @@ def collect_evidence(
     return outcome
 
 
-def _clone_prepared_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
+def _clone_prepared_items(
+    items: Sequence[EvidenceItem], *, live_severity_gated: bool | None = None
+) -> list[EvidenceItem]:
+    # ``live_severity_gated`` None preserves the prepared regime verbatim; at apply
+    # the caller passes the live flag so the clone carries the reconciled
+    # ``effective = prepared.severity_gated AND live`` (min(prepared, live)) — the
+    # same fail-closed reconciliation ``tiered_gate`` gets, so a forged or stale
+    # ``severity_gated=true`` cannot relax dissent while the live flag is OFF.
     return [
         EvidenceItem(
             family=item.family,
@@ -1898,6 +1916,11 @@ def _clone_prepared_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
             counted_reviewer_ids=list(item.counted_reviewer_ids),
             problems=list(item.problems),
             verdict=item.verdict,
+            severity_gated=(
+                item.severity_gated
+                if live_severity_gated is None
+                else (item.severity_gated and live_severity_gated)
+            ),
         )
         for item in items
     ]
@@ -2009,6 +2032,10 @@ def apply_prepared_evidence(
     # boundary — this field grants no authority beyond what the live flag already does.
     live_gate = tiered_merge_gate_enabled()
     effective_tiered_gate = bool(prepared.tiered_gate) and live_gate
+    # Reconcile the severity-gate regime the same way: a relaxed-prepared artifact
+    # only stays relaxed when the live flag also relaxes; otherwise dissent is
+    # re-evaluated under the strict regime. Mirrors effective_tiered_gate.
+    live_severity_gated = severity_gated_dissent_enabled()
 
     tier = tier_fetcher(repo, pr)
     action, action_reason = decide_action(tier, apply)
@@ -2020,7 +2047,7 @@ def apply_prepared_evidence(
         tier=tier,
         action=action,
         action_reason=action_reason,
-        items=_clone_prepared_items(prepared.items),
+        items=_clone_prepared_items(prepared.items, live_severity_gated=live_severity_gated),
         failures=_clone_reviewer_failures(prepared.failures),
         tiered_gate=effective_tiered_gate,
     )
