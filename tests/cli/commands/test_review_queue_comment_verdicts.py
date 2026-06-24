@@ -18,6 +18,7 @@ from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_model_dissent,
     has_blocking_or_negative_verdict,
     highest_finding_priority,
+    severity_gated_model_dissent_from_body,
 )
 
 
@@ -124,9 +125,14 @@ def test_severity_gated_model_dissent_blocks_explicit_blockers_without_p_tag():
     assert has_blocking_model_dissent(body, severity_gated=True)
 
 
-def test_severity_gated_blockers_none_priority_line_is_not_blocking():
-    body = "Verdict: CHANGES-REQUESTED\nBlockers:\n- [P2] None: no merge blocker."
+def test_severity_gated_pass_blockers_none_priority_line_is_not_blocking():
+    body = "Verdict: PASS\nBlockers:\n- [P2] None: no merge blocker."
     assert not has_blocking_model_dissent(body, severity_gated=True)
+
+
+def test_severity_gated_bare_changes_requested_with_no_blockers_still_blocks():
+    body = "Verdict: CHANGES-REQUESTED\nBlockers:\n- [P2] None: no merge blocker."
+    assert has_blocking_model_dissent(body, severity_gated=True)
 
 
 def test_severity_gated_explicit_blocker_with_low_priority_label_still_blocks():
@@ -137,3 +143,9 @@ def test_severity_gated_explicit_blocker_with_low_priority_label_still_blocks():
 def test_explicit_blocker_no_auth_is_not_misread_as_no_blocker():
     body = "Verdict: CHANGES-REQUESTED\nBlockers: no authentication on admin endpoint."
     assert has_blocking_model_dissent(body, severity_gated=True)
+
+
+def test_severity_gated_policy_can_be_frozen_in_comment_body():
+    assert severity_gated_model_dissent_from_body("Severity-gated model dissent: true") is True
+    assert severity_gated_model_dissent_from_body("Severity gated model dissent: off") is False
+    assert severity_gated_model_dissent_from_body("Verdict: PASS") is None

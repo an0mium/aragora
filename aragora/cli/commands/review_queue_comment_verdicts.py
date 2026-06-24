@@ -7,6 +7,7 @@ import re
 
 _SEVERITY_GATED_DISSENT_ENV = "ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT"
 _TRUE_VALUES = frozenset(("1", "true", "yes", "on"))
+_FALSE_VALUES = frozenset(("0", "false", "no", "off"))
 
 # Explicit "no Pn finding" heads. A `[P0]`/`[P1]`/`[P2]` line is blocking UNLESS the text
 # before its first colon is EXACTLY one of these — models emit `"[P1] None:"`,
@@ -49,6 +50,25 @@ def severity_gated_model_dissent_enabled(env: dict[str, str] | None = None) -> b
     """Whether model-review dissent blocks only on explicit high-severity findings."""
     source = os.environ if env is None else env
     return str(source.get(_SEVERITY_GATED_DISSENT_ENV, "")).strip().lower() in _TRUE_VALUES
+
+
+def severity_gated_model_dissent_from_body(body: str) -> bool | None:
+    """Return the severity-gate regime frozen into an evidence comment, if present."""
+    for raw_line in str(body or "").splitlines():
+        line = _strip_decoration(raw_line).replace("**", "").replace("__", "")
+        match = re.match(
+            r"^severity[- ]gated model dissent\s*(?::|—|–|-)\s*(?P<value>.*)$",
+            line,
+            re.I,
+        )
+        if not match:
+            continue
+        normalized_value = _normalize_value(match.group("value"))
+        if normalized_value in _TRUE_VALUES:
+            return True
+        if normalized_value in _FALSE_VALUES:
+            return False
+    return None
 
 
 def _starts_with_phrase(value: str, phrases: tuple[str, ...]) -> bool:
@@ -161,33 +181,6 @@ def _has_explicit_blocker_label(body: str) -> bool:
     return False
 
 
-def _has_explicit_no_blocker_label(body: str) -> bool:
-    """Return True when a blocker field explicitly says there are no blockers."""
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
-    for idx, stripped in enumerate(lines):
-        if not stripped:
-            continue
-        line = _strip_decoration(stripped).replace("**", "").replace("__", "")
-        match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
-        if not match:
-            continue
-        normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
-        normalized_label = normalized_label.strip("*_ ")
-        if normalized_label not in {"blocking finding", "blocking findings", "blocker", "blockers"}:
-            continue
-        if _is_no_finding_value(match.group("value")):
-            return True
-        if _normalize_value(match.group("value")):
-            continue
-        follow = next((entry for entry in lines[idx + 1 :] if entry), "")
-        is_list_item = bool(re.match(r"^(?:[-*+]\s+|\d+[.)]\s+)", follow))
-        if not is_list_item and (follow.startswith("#") or re.match(r"^[^:]+?:\s+\S", follow)):
-            continue
-        if _is_no_finding_value(follow):
-            return True
-    return False
-
-
 def has_blocking_or_negative_verdict(body: str) -> bool:
     """Return True for explicit evidence comments that report blockers."""
     negative_verdict_prefixes = (
@@ -263,4 +256,4 @@ def has_blocking_model_dissent(
     priority = highest_finding_priority(body)
     if priority in {"P2", "P3"}:
         return False
-    return not (priority is None and _has_explicit_no_blocker_label(body))
+    return True

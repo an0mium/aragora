@@ -45,6 +45,7 @@ from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_model_dissent as _has_blocking_model_dissent,
     has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
     highest_finding_priority as _highest_finding_priority,
+    severity_gated_model_dissent_from_body as _severity_gated_model_dissent_from_body,
     severity_gated_model_dissent_enabled as _severity_gated_model_dissent_enabled,
 )
 from aragora.cli.commands.review_queue_transport import (
@@ -3134,9 +3135,7 @@ def _build_model_review_quorum(
         head_sha=head_sha,
         head_committed_at=head_committed_at,
     )
-    dissenting_views = [
-        view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
-    ]
+    dissenting_views = _normalized_protocol_dissenting_views(protocol.get("dissenting_views") or [])
     dissenting_views.extend(comment_dissenting_views)
     blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
     blocking_workflow_state = bool(blocking_workflow_reasons)
@@ -4209,10 +4208,13 @@ def _dissenting_views_from_comments(
             continue
         body = str(comment.get("body", "") or "")
         lower = body.lower()
-        blocking_dissent = _has_blocking_model_dissent(body)
+        severity_gated = _severity_gated_model_dissent_from_body(body)
+        if severity_gated is None:
+            severity_gated = _severity_gated_model_dissent_enabled()
+        blocking_dissent = _has_blocking_model_dissent(body, severity_gated=severity_gated)
         highest_priority = _highest_finding_priority(body)
         advisory_dissent = (
-            _severity_gated_model_dissent_enabled()
+            severity_gated
             and not blocking_dissent
             and _has_blocking_or_negative_verdict(body)
             and highest_priority in {"P2", "P3"}
@@ -4238,13 +4240,50 @@ def _dissenting_views_from_comments(
                 "source": "pr_comment",
                 "github_author": github_author,
                 "highest_finding_priority": highest_priority,
-                "severity_gated_model_dissent": _severity_gated_model_dissent_enabled(),
+                "severity_gated_model_dissent": severity_gated,
                 "blocks_merge": blocking_dissent,
                 "advisory": advisory_dissent,
                 **identity.as_packet_fields(),
             }
         )
     return dissent[:5]
+
+
+def _normalized_protocol_dissenting_views(raw_views: list[Any]) -> list[dict[str, Any]]:
+    views: list[dict[str, Any]] = []
+    severity_gated = _severity_gated_model_dissent_enabled()
+    for raw in raw_views:
+        if not isinstance(raw, dict):
+            continue
+        view = dict(raw)
+        text = "\n".join(
+            part
+            for part in (
+                f"Verdict: {view.get('position', '')}",
+                str(view.get("reason", "") or ""),
+                str(view.get("body", "") or ""),
+                str(view.get("summary", "") or ""),
+            )
+            if part.strip()
+        )
+        highest_priority = _highest_finding_priority(text)
+        if "blocks_merge" not in view:
+            blocking_dissent = _has_blocking_model_dissent(text, severity_gated=severity_gated)
+            advisory_dissent = (
+                severity_gated
+                and not blocking_dissent
+                and _has_blocking_or_negative_verdict(text)
+                and highest_priority in {"P2", "P3"}
+            )
+            view["blocks_merge"] = blocking_dissent
+            view["advisory"] = advisory_dissent
+        else:
+            view["blocks_merge"] = bool(view.get("blocks_merge"))
+            view.setdefault("advisory", not view["blocks_merge"])
+        view.setdefault("highest_finding_priority", highest_priority)
+        view.setdefault("severity_gated_model_dissent", severity_gated)
+        views.append(view)
+    return views
 
 
 def _model_review_signals_from_comments(

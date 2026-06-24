@@ -174,10 +174,12 @@ def test_composed_comment_includes_head_and_family() -> None:
         head_committed_at=COMMITTED,
         pr=42,
         reviewer_text="Verdict: PASS",
+        severity_gated_model_dissent=True,
     )
     assert HEAD[:7] in body
     assert HEAD in body
     assert "Model family: claude" in body
+    assert "Severity-gated model dissent: true" in body
     assert "independent model review" in body.lower()
     assert "dogfood: yes" in body
 
@@ -1153,9 +1155,12 @@ def test_collect_severity_gated_p2_only_dissent_is_advisory(
 
     assert outcome.action == "post"
     assert outcome.dissenting_families == []
+    assert outcome.advisory_families == ["grok"]
     assert sorted(outcome.supportive_families) == ["claude", "openai"]
-    assert sorted(outcome.posted) == ["claude", "openai"]
-    assert all("grok" not in body.lower() for _repo, body in posted)
+    assert sorted(outcome.posted) == ["claude", "grok", "openai"]
+    assert any(
+        "grok" in body.lower() and "changes-requested" in body.lower() for _repo, body in posted
+    )
 
 
 def test_collect_severity_gated_bare_changes_requested_still_blocks(
@@ -1977,6 +1982,66 @@ def test_apply_prepared_severity_gate_honors_explicit_env(
 
     assert result.severity_gated_model_dissent is True
     assert result.dissenting_families == []
+
+
+def test_apply_prepared_posts_advisory_dissent_with_supportive_quorum(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "1")
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="prepared",
+        items=[
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+            EvidenceItem("openai", _prepared_body("openai"), True, ["openai"], [], "pass"),
+            EvidenceItem(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\n- [P2] advisory follow-up",
+                False,
+                [],
+                [],
+                "changes_requested",
+            ),
+        ],
+        severity_gated_model_dissent=True,
+    )
+    path = tmp_path / "prepared.json"
+    path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    posted: list[tuple[str, str]] = []
+
+    result = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=path,
+        author="me",
+        apply=True,
+        families=["claude", "openai", "grok"],
+        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda r, p: 1,
+        linter=lambda *a, **k: {
+            "would_count": "claude body" in a[4] or "openai body" in a[4],
+            "counted_reviewer_ids": ["claude"]
+            if "claude body" in a[4]
+            else ["openai"]
+            if "openai body" in a[4]
+            else [],
+            "problems": [],
+        },
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+        env={"ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT": "1"},
+    )
+
+    assert result.action == "post"
+    assert result.dissenting_families == []
+    assert result.advisory_families == ["grok"]
+    assert sorted(result.posted) == ["claude", "grok", "openai"]
+    assert any("advisory follow-up" in body for _repo, body in posted)
 
 
 def test_collect_outcome_tiered_gate_roundtrips() -> None:

@@ -48,7 +48,9 @@ from pathlib import Path
 from typing import Any
 
 from aragora.cli.commands.review_queue_comment_verdicts import (
+    has_blocking_or_negative_verdict,
     has_blocking_model_dissent,
+    highest_finding_priority,
     severity_gated_model_dissent_enabled,
 )
 from aragora.swarm import merge_quorum_io
@@ -381,6 +383,20 @@ class EvidenceItem:
     def dissenting(self) -> bool:
         return self.blocks_merge_dissent(severity_gated=self.severity_gated_model_dissent)
 
+    @property
+    def advisory_dissent(self) -> bool:
+        return (
+            self.severity_gated_model_dissent
+            and self.verdict == "changes_requested"
+            and not self.dissenting
+            and has_blocking_or_negative_verdict(self.body)
+            and highest_finding_priority(self.body) in {"P2", "P3"}
+        )
+
+    @property
+    def postable(self) -> bool:
+        return self.supportive or self.advisory_dissent
+
     def blocks_merge_dissent(self, *, severity_gated: bool) -> bool:
         return self.verdict == "changes_requested" and has_blocking_model_dissent(
             self.body,
@@ -432,6 +448,10 @@ class CollectOutcome:
                 severity_gated=self.severity_gated_model_dissent,
             )
         ]
+
+    @property
+    def advisory_families(self) -> list[str]:
+        return [item.family for item in self.items if item.advisory_dissent]
 
     @property
     def has_supportive_quorum(self) -> bool:
@@ -494,6 +514,7 @@ class CollectOutcome:
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,
             "supportive_families": self.supportive_families,
+            "advisory_families": self.advisory_families,
             "dissenting_families": self.dissenting_families,
             "has_supportive_quorum": self.has_supportive_quorum,
             "posted_families": list(self.posted),
@@ -831,6 +852,7 @@ def compose_evidence_comment(
     pr: int | str,
     reviewer_text: str,
     harness: str = "",
+    severity_gated_model_dissent: bool | None = None,
 ) -> str:
     """Compose an evidence comment the quorum parsers recognize and count.
 
@@ -850,6 +872,11 @@ def compose_evidence_comment(
     # be hijacked even if the field ever carries caller-influenced text.
     safe_committed = re.sub(r"[^A-Za-z0-9:.+\- TZ]", "", head_committed_at)[:40]
     committed = f", committed {safe_committed}" if safe_committed else ""
+    severity_line = (
+        f"Severity-gated model dissent: {str(severity_gated_model_dissent).lower()}\n"
+        if severity_gated_model_dissent is not None
+        else ""
+    )
     return (
         f"## {display} independent model review\n\n"
         f"Reviewer: {fam} ({provider}) — independent adversarial model review via "
@@ -857,6 +884,7 @@ def compose_evidence_comment(
         f"Head: {short} ({head_sha}){committed}.\n"
         f"PR: #{pr}.\n"
         f"Model family: {fam}\n\n"
+        f"{severity_line}"
         f"{_neutralize_reviewer_text(normalize_reviewer_output(reviewer_text, family=family))}\n\n"
         f"dogfood: yes\n"
     )
@@ -1830,6 +1858,7 @@ def collect_evidence(
             pr=pr,
             reviewer_text=result.text,
             harness=result.harness,
+            severity_gated_model_dissent=outcome.severity_gated_model_dissent,
         )
         lint = linter(pr, head_sha, head_committed_at, author, body, env or {})
         outcome.items.append(
@@ -1878,7 +1907,7 @@ def collect_evidence(
             )
         else:
             for item in outcome.items:
-                if not item.supportive:
+                if not item.postable:
                     continue
                 try:
                     poster(repo, pr, item.body)
@@ -2112,7 +2141,7 @@ def apply_prepared_evidence(
         "prepared exact-head evidence artifact; posting without reviewer regeneration"
     )
     for item in outcome.items:
-        if not item.supportive:
+        if not item.postable:
             continue
         try:
             poster(repo, pr, item.body)
