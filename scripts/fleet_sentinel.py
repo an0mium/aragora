@@ -316,10 +316,25 @@ def check_outbox(
         result["depth"] = 0
         result["actionable_depth"] = 0
         result["fingerprint"] = _outbox_fingerprint([])
+        result["actionable_fingerprint"] = _outbox_fingerprint([])
         return result
     items = sorted(p for p in outbox_dir.glob("*.json") if p.is_file())
     fingerprint = _outbox_fingerprint(items)
+    github = handoff_state.get("github") if isinstance(handoff_state, Mapping) else None
+    if isinstance(github, Mapping) and github.get("mode") == "degraded":
+        result = _result(
+            name,
+            "unknown",
+            f"handoff classifier degraded ({github.get('error') or 'unknown error'}); cannot safely assess actionable outbox depth",
+        )
+        result["depth"] = len(items)
+        result["actionable_depth"] = None
+        result["fingerprint"] = fingerprint
+        if handoff_counts := _handoff_state_counts(handoff_state):
+            result["handoff_state_counts"] = handoff_counts
+        return result
     actionable_items = _actionable_outbox_items(items, handoff_state)
+    actionable_fingerprint = _outbox_fingerprint(actionable_items)
     actionable_depth = len(actionable_items)
     handoff_counts = _handoff_state_counts(handoff_state)
     problems: list[str] = []
@@ -342,6 +357,7 @@ def check_outbox(
         result["depth"] = len(items)
         result["actionable_depth"] = actionable_depth
         result["fingerprint"] = fingerprint
+        result["actionable_fingerprint"] = actionable_fingerprint
         if handoff_counts:
             result["handoff_state_counts"] = handoff_counts
         return result
@@ -353,6 +369,7 @@ def check_outbox(
     result["depth"] = len(items)
     result["actionable_depth"] = actionable_depth
     result["fingerprint"] = fingerprint
+    result["actionable_fingerprint"] = actionable_fingerprint
     if handoff_counts:
         result["handoff_state_counts"] = handoff_counts
     return result
@@ -411,8 +428,15 @@ def _load_handoff_state(args: argparse.Namespace) -> Mapping[str, Any] | None:
             github_repo=getattr(args, "github_repo", None),
             github_timeout_seconds=5,
         )
-    except Exception:
-        return None
+    except Exception as exc:  # noqa: BLE001 - sentinel should surface classifier blindness
+        return {
+            "github": {
+                "mode": "degraded",
+                "error": f"classifier failed: {exc.__class__.__name__}: {exc}",
+            },
+            "counts": {},
+            "items": [],
+        }
     github = payload.get("github") if isinstance(payload, Mapping) else None
     if not isinstance(github, Mapping):
         return None
@@ -457,6 +481,9 @@ def _extract_outbox_depth(check: dict[str, Any]) -> tuple[int | None, str]:
 
 
 def _extract_outbox_fingerprint(check: dict[str, Any]) -> str | None:
+    actionable_fingerprint = check.get("actionable_fingerprint")
+    if isinstance(actionable_fingerprint, str) and actionable_fingerprint:
+        return actionable_fingerprint
     fingerprint = check.get("fingerprint")
     if isinstance(fingerprint, str) and fingerprint:
         return fingerprint
@@ -477,6 +504,7 @@ def check_outbox_drain_progress(
     *,
     stall_cycles: int,
     min_floor: int,
+    handoff_state: Mapping[str, Any] | None = None,
 ) -> CheckResult:
     """Circuit-breaker: flag an outbox that stays congested without draining.
 
@@ -495,8 +523,16 @@ def check_outbox_drain_progress(
     current_items = (
         sorted(p for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else []
     )
-    current = len(current_items)
-    current_fingerprint = _outbox_fingerprint(current_items)
+    github = handoff_state.get("github") if isinstance(handoff_state, Mapping) else None
+    if isinstance(github, Mapping) and github.get("mode") == "degraded":
+        return _result(
+            name,
+            "unknown",
+            f"handoff classifier degraded ({github.get('error') or 'unknown error'}); cannot safely assess outbox drain progress",
+        )
+    current_actionable_items = _actionable_outbox_items(current_items, handoff_state)
+    current = len(current_actionable_items)
+    current_fingerprint = _outbox_fingerprint(current_actionable_items)
     if current < min_floor:
         return _result(name, "ok", f"outbox depth {current} below floor {min_floor}")
     if not ledger.exists():
@@ -1774,6 +1810,11 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
     if unknown_names:
         raise SystemExit(f"unknown check(s): {sorted(unknown_names)}")
     results: list[CheckResult] = []
+    handoff_state = (
+        _load_handoff_state(args)
+        if "outbox_depth" in selected or "outbox_drain_progress" in selected
+        else None
+    )
     for name in selected:
         try:
             if name == "publisher_status":
@@ -1809,7 +1850,7 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         max_items=args.outbox_max,
                         max_age_days=args.outbox_max_age_days,
                         now=now,
-                        handoff_state=_load_handoff_state(args),
+                        handoff_state=handoff_state,
                     )
                 )
             elif name == "outbox_drain_progress":
@@ -1819,6 +1860,7 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         Path(args.outbox_dir),
                         stall_cycles=args.outbox_drain_stall_cycles,
                         min_floor=args.outbox_max,
+                        handoff_state=handoff_state,
                     )
                 )
             elif name == "disk_free":

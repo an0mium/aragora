@@ -481,23 +481,24 @@ def test_nonterminal_steering_receipt_still_blocks(tmp_path: Path) -> None:
 
     item = _classify_one(tmp_path)
 
-    assert item["state"] == mod.HandoffState.BLOCKED_BY_HUMAN.value
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["evidence"]["steering"]["pending_message_count"] == 1
     assert item["evidence"]["steering"]["resolved_message_count"] == 0
     assert item["evidence"]["steering"]["blocking_message_count"] == 1
-    assert item["evidence"]["steering"]["human_message_count"] == 1
+    assert item["evidence"]["steering"]["human_message_count"] == 0
     assert item["evidence"]["steering"]["latest_read_receipt"]["outcome"] == "blocked"
 
 
-def test_operator_steering_without_human_keyword_is_human_gate(tmp_path: Path) -> None:
+def test_operator_steering_without_human_keyword_is_owner_block(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(tmp_path, branch="codex/example")
     _write_steering_message(tmp_path, branch="codex/example")
 
     item = _classify_one(tmp_path)
 
-    assert item["state"] == mod.HandoffState.BLOCKED_BY_HUMAN.value
-    assert item["evidence"]["steering"]["human_message_count"] == 1
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["steering"]["blocking_message_count"] == 1
+    assert item["evidence"]["steering"]["human_message_count"] == 0
 
 
 def test_human_detection_ignores_operator_steering_path() -> None:
@@ -513,7 +514,45 @@ def test_human_detection_ignores_operator_steering_path() -> None:
         is False
     )
     assert mod._looks_human({"body": "non-human automated advisory"}) is False  # noqa: SLF001
-    assert mod._looks_human({"from": "operator"}) is True  # noqa: SLF001
+    assert mod._looks_human({"from": "operator"}) is False  # noqa: SLF001
+    assert mod._looks_human({"body": "operator approval required"}) is True  # noqa: SLF001
+
+
+def test_steering_lane_hint_requires_exact_token(tmp_path: Path) -> None:
+    inbox = tmp_path / ".aragora" / "operator-steering" / "engineering-autopilot-Q100"
+    inbox.mkdir(parents=True, exist_ok=True)
+    (inbox / "2026-06-24T00-00-00-000Z-q100.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "aragora-operator-steering/1.0",
+                "to_session": "engineering-autopilot-Q100",
+                "lane_id_hint": "Q100-read-steering",
+                "priority": "blocking",
+                "subject": "Block codex/other",
+                "body": "This message is for codex/other.",
+                "message_sha256": "fixture-sha",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = mod.steering_evidence_for_branch(
+        state_root=tmp_path,
+        branch="codex/example",
+        owner_session=None,
+        lane_id="Q1",
+    )
+
+    assert evidence.pending_message_count == 0
+
+
+def test_heads_match_requires_exact_full_sha_when_either_side_is_full() -> None:
+    full_sha = "abcdef1234567890abcdef1234567890abcdef12"
+
+    assert mod.heads_match(full_sha, full_sha) is True
+    assert mod.heads_match("abcdef1", "abcdef1") is True
+    assert mod.heads_match("abcdef1", full_sha) is False
+    assert mod.heads_match(full_sha, "abcdef1") is False
 
 
 def test_narrow_rest_queries_when_open_pr_cache_lacks_branch(

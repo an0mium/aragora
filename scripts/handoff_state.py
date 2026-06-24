@@ -801,14 +801,13 @@ def steering_evidence_for_branch(
         payload = _load_json(path)
         if not isinstance(payload, dict):
             continue
-        raw = json.dumps(payload, sort_keys=True)
         to_session = str(payload.get("to_session") or "")
         lane_hint = str(payload.get("lane_id_hint") or "")
         if owner_session and to_session == owner_session:
             pass
-        elif lane_id and lane_id in lane_hint:
+        elif lane_id and _lane_hint_matches(lane_hint, lane_id):
             pass
-        elif branch and branch in raw:
+        elif branch and _steering_branch_matches(payload, branch):
             pass
         else:
             continue
@@ -955,7 +954,15 @@ def heads_match(expected: str, actual: str) -> bool:
     actual_value = str(actual or "").strip().lower()
     if len(expected_value) < 7 or len(actual_value) < 7:
         return False
-    return actual_value.startswith(expected_value) or expected_value.startswith(actual_value)
+    expected_full = _full_sha_or_none(expected_value)
+    actual_full = _full_sha_or_none(actual_value)
+    if expected_full is not None or actual_full is not None:
+        return expected_full is not None and expected_full == actual_full
+    return expected_value == actual_value
+
+
+def _full_sha_or_none(value: str) -> str | None:
+    return value if re.fullmatch(r"[0-9a-f]{40}", value) else None
 
 
 def _remote_ref_matches(remote_ref: Mapping[str, Any] | None, desired_head: str) -> bool:
@@ -977,7 +984,7 @@ def _human_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
         owner.status,
         owner.owner_blocking_state,
     ]
-    if any("human" in str(token or "").lower() for token in tokens):
+    if any(_contains_human_token(str(token or "")) for token in tokens):
         return True
     return steering.human_message_count > 0
 
@@ -1001,15 +1008,65 @@ def _looks_human(mapping: Mapping[str, Any]) -> bool:
     # ".aragora/operator-steering", which would make every matched message look
     # human/operator-gated.
     fields = (
-        "from",
         "subject",
         "body",
         "to_session",
         "lane_id_hint",
-        "priority",
     )
     text = " ".join(str(mapping.get(field) or "") for field in fields).lower()
-    return re.search(r"(?<![\w-])(human|operator)(?![\w-])", text) is not None
+    if _contains_human_token(text):
+        return True
+    operator_phrases = (
+        "operator approval",
+        "operator authorization",
+        "operator decision",
+        "operator settlement",
+        "operator must",
+        "ask operator",
+    )
+    return any(phrase in text for phrase in operator_phrases)
+
+
+def _contains_human_token(value: str) -> bool:
+    return re.search(r"(?<!non-)\bhuman\b", value.lower()) is not None
+
+
+def _lane_hint_matches(lane_hint: str, lane_id: str) -> bool:
+    normalized_lane = lane_id.strip()
+    if not normalized_lane:
+        return False
+    hints = [part.strip() for part in re.split(r"[,;\s]+", lane_hint) if part.strip()]
+    return normalized_lane in hints
+
+
+def _steering_branch_matches(payload: Mapping[str, Any], branch: str) -> bool:
+    text_keys = (
+        "branch",
+        "head_branch",
+        "target_branch",
+        "source_branch",
+        "base_branch",
+        "subject",
+        "body",
+        "summary",
+        "requested_next_action",
+    )
+    for key in text_keys:
+        if branch in str(payload.get(key) or ""):
+            return True
+    for key in ("branches", "branch_names"):
+        value = payload.get(key)
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            if any(str(item) == branch for item in value):
+                return True
+    for key in ("metadata", "context", "evidence"):
+        value = payload.get(key)
+        if not isinstance(value, Mapping):
+            continue
+        for nested_key in text_keys:
+            if branch in str(value.get(nested_key) or ""):
+                return True
+    return False
 
 
 def latest_read_receipt_for_message(message_path: Path) -> dict[str, Any] | None:

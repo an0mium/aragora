@@ -26,6 +26,7 @@ import argparse
 import ast
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1255,7 +1256,15 @@ def _heads_match(expected: str, actual: str) -> bool:
     actual_value = actual.strip().lower()
     if len(expected_value) < 7 or len(actual_value) < 7:
         return False
-    return actual_value.startswith(expected_value) or expected_value.startswith(actual_value)
+    expected_full = _full_sha_or_none(expected_value)
+    actual_full = _full_sha_or_none(actual_value)
+    if expected_full is not None or actual_full is not None:
+        return expected_full is not None and expected_full == actual_full
+    return expected_value == actual_value
+
+
+def _full_sha_or_none(value: str) -> str | None:
+    return value if re.fullmatch(r"[0-9a-f]{40}", value) else None
 
 
 def _git_ref_head(root: Path, ref: str) -> str:
@@ -1701,7 +1710,7 @@ def main(argv: list[str] | None = None) -> int:
                 path=path,
                 payload=payload,
             )
-            if representation is not None:
+            if representation is not None and args.apply:
                 verified, verify_error = _reverify_exact_open_pr_representation_for_apply(
                     root=root,
                     state_root=state_root,

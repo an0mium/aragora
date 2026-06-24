@@ -517,6 +517,7 @@ def test_run_checks_loads_handoff_classifier_for_outbox_depth(
             "depth": 1,
             "actionable_depth": 0,
             "fingerprint": checks[0]["fingerprint"],
+            "actionable_fingerprint": checks[0]["actionable_fingerprint"],
             "handoff_state_counts": {"represented_by_exact_remote_branch": 1},
         }
     ]
@@ -580,7 +581,7 @@ def test_run_checks_uses_raw_depth_for_custom_outbox_dir(tmp_path: Path, monkeyp
     assert "handoff_state_counts" not in checks[0]
 
 
-def test_run_checks_uses_partial_classifier_payload_when_github_degraded(
+def test_run_checks_reports_unknown_when_handoff_classifier_degraded(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
@@ -616,10 +617,43 @@ def test_run_checks_uses_partial_classifier_payload_when_github_degraded(
 
     checks = sentinel.run_checks(args, NOW)
 
-    assert checks[0]["status"] == "ok"
+    assert checks[0]["status"] == "unknown"
     assert checks[0]["depth"] == 1
-    assert checks[0]["actionable_depth"] == 0
+    assert checks[0]["actionable_depth"] is None
     assert checks[0]["handoff_state_counts"] == {"represented_by_exact_remote_branch": 1}
+
+
+def test_run_checks_reports_unknown_when_handoff_classifier_raises(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    _touch(outbox / "represented.json", age_hours=9 * 24)
+
+    def fail_classify(**kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("classifier exploded")
+
+    monkeypatch.setattr(sentinel, "classify_handoffs", fail_classify)
+    args = sentinel.build_parser().parse_args(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--outbox-dir",
+            str(outbox),
+            "--checks",
+            "outbox_depth",
+            "--outbox-max",
+            "0",
+            "--outbox-max-age-days",
+            "7",
+        ]
+    )
+
+    checks = sentinel.run_checks(args, NOW)
+
+    assert checks[0]["status"] == "unknown"
+    assert checks[0]["depth"] == 1
+    assert checks[0]["actionable_depth"] is None
+    assert "classifier failed: RuntimeError: classifier exploded" in checks[0]["detail"]
 
 
 def test_apply_repo_root_defaults_tolerates_partial_namespace(tmp_path: Path) -> None:
@@ -2441,6 +2475,41 @@ def test_outbox_drain_progress_does_not_compare_actionable_samples_to_live_raw(
 
     assert r["status"] == "ok"
     assert "now 5" in r["detail"]
+
+
+def test_outbox_drain_progress_uses_current_actionable_depth(tmp_path: Path) -> None:
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    handoff_state = {
+        "items": [
+            {"outbox_file": f"item-{i}.json", "state": "represented_by_exact_remote_branch"}
+            for i in range(55)
+        ]
+    }
+    ledger = _ledger_with_checks(
+        tmp_path / "ledger.jsonl",
+        [
+            [
+                {
+                    "check": "outbox_depth",
+                    "status": "ok",
+                    "depth": 55,
+                    "actionable_depth": 0,
+                    "detail": "55 queued; 0 actionable",
+                }
+            ],
+        ],
+    )
+
+    r = sentinel.check_outbox_drain_progress(
+        ledger,
+        outbox,
+        stall_cycles=1,
+        min_floor=50,
+        handoff_state=handoff_state,
+    )
+
+    assert r["status"] == "ok"
+    assert "outbox depth 0 below floor 50" in r["detail"]
 
 
 def test_outbox_drain_progress_saturated_throughput_is_ok(tmp_path: Path) -> None:

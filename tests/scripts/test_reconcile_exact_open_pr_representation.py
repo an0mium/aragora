@@ -84,9 +84,7 @@ def test_exact_open_pr_representation_dry_run_reports_archive_without_writes(
     monkeypatch.setattr(reconcile, "classify_handoffs", fake_classify_handoffs)
 
     def fake_reverify(**kwargs: Any) -> tuple[dict[str, Any] | None, str | None]:
-        representation = dict(kwargs["representation"])
-        representation["apply_reverified"] = True
-        return representation, None
+        raise AssertionError("dry-run must not run apply reverify")
 
     monkeypatch.setattr(
         reconcile, "_reverify_exact_open_pr_representation_for_apply", fake_reverify
@@ -116,6 +114,15 @@ def test_exact_open_pr_representation_dry_run_reports_archive_without_writes(
     assert payload["actions"][0]["representation_pr"]["number"] == 8589
     assert outbox_file.exists()
     assert not (tmp_path / ".aragora" / "automation-receipts" / f"{outbox_file.stem}.json").exists()
+
+
+def test_heads_match_requires_exact_full_sha_when_either_side_is_full() -> None:
+    full_sha = "abcdef1234567890abcdef1234567890abcdef12"
+
+    assert reconcile._heads_match(full_sha, full_sha) is True  # noqa: SLF001
+    assert reconcile._heads_match("abcdef1", "abcdef1") is True  # noqa: SLF001
+    assert reconcile._heads_match("abcdef1", full_sha) is False  # noqa: SLF001
+    assert reconcile._heads_match(full_sha, "abcdef1") is False  # noqa: SLF001
 
 
 def test_exact_open_pr_representation_apply_writes_receipt_and_archives(
