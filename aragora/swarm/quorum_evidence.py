@@ -118,33 +118,40 @@ def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
     return str(source.get(_TIERED_GATE_ENV, "")).strip().lower() in _TIERED_GATE_TRUE
 
 
-# Opt-in flag for severity-gated dissent. When OFF (default), a reviewer
-# ``Verdict: CHANGES-REQUESTED`` line promotes a *blocking* dissent regardless of
-# finding severity — even a `[P2]`/`[P3]`-only or finding-free comment blocks the
-# merge as hard as a `[P0]` defect (today's behavior). When ON, a CHANGES-REQUESTED
+# Activation flag for severity-gated dissent. By default, a CHANGES-REQUESTED
 # comment promotes a blocking dissent ONLY when it carries a real `[P0]`/`[P1]`
 # finding or a populated Blocker label; a `[P2]`/`[P3]`-only or finding-free
 # CHANGES-REQUESTED becomes *advisory* — non-blocking AND non-counting (it still
 # posts and stays visible on the PR; it just no longer blocks). `[P0]`/`[P1]`
-# findings and populated Blocker labels ALWAYS block, flag ON or OFF.
+# findings and populated Blocker labels ALWAYS block. Operators can explicitly
+# opt out to the legacy strict behavior with ARAGORA_ENABLE_SEVERITY_GATED_DISSENT=0.
 #
-# Gating this behind the flag keeps it revertible WITHOUT a code change and is the
-# in-tree audit point for the operator's approval. See
+# Keeping an explicit opt-out keeps the policy revertible WITHOUT a code change after
+# the operator-approved activation. See
 # docs/specs/FINDING_SEVERITY_GATE.md and
 # docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance.
 _SEVERITY_GATED_DISSENT_ENV = "ARAGORA_ENABLE_SEVERITY_GATED_DISSENT"
 _SEVERITY_GATED_DISSENT_TRUE = frozenset(("1", "true", "yes", "on"))
+_SEVERITY_GATED_DISSENT_FALSE = frozenset(("0", "false", "no", "off"))
 
 
 def severity_gated_dissent_enabled(env: dict[str, str] | None = None) -> bool:
-    """Whether the opt-in severity-gated dissent gate is active. Default OFF; a
-    `[P2]`/`[P3]`-only CHANGES-REQUESTED only becomes advisory (non-blocking,
-    non-counting) when this is ON. See :data:`_SEVERITY_GATED_DISSENT_ENV`."""
+    """Whether the severity-gated dissent gate is active.
+
+    Default ON after the operator-approved activation; explicit falsey values opt out
+    to the legacy strict behavior. Unknown non-empty values fail strict.
+    See :data:`_SEVERITY_GATED_DISSENT_ENV`.
+    """
     source = os.environ if env is None else env
-    return (
-        str(source.get(_SEVERITY_GATED_DISSENT_ENV, "")).strip().lower()
-        in _SEVERITY_GATED_DISSENT_TRUE
-    )
+    raw = source.get(_SEVERITY_GATED_DISSENT_ENV)
+    if raw is None or str(raw).strip() == "":
+        return True
+    value = str(raw).strip().lower()
+    if value in _SEVERITY_GATED_DISSENT_TRUE:
+        return True
+    if value in _SEVERITY_GATED_DISSENT_FALSE:
+        return False
+    return False
 
 
 def _coerce_relaxed_flag(value: Any) -> bool:

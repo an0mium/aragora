@@ -6,14 +6,14 @@ These tests are the pre-approval regression target for the design in
 to *what blocks a merge at a given Tier* is a Tier 4 merge-authority
 self-modification).
 
-They pin BOTH regimes of the opt-in ``ARAGORA_ENABLE_SEVERITY_GATED_DISSENT`` flag:
+They pin BOTH regimes of the ``ARAGORA_ENABLE_SEVERITY_GATED_DISSENT`` activation flag:
 
-* **Flag OFF (default / strict)** — byte-identical to today: a
+* **Default / flag ON** — a CHANGES-REQUESTED comment with only ``[P2]``/``[P3]``
+  (or no finding) is *advisory*: non-blocking AND non-counting; a real ``[P1]``
+  finding or a populated Blocker label STILL blocks; a clean PASS still counts.
+* **Flag OFF (explicit strict opt-out)** — byte-identical to legacy strict behavior: a
   ``Verdict: CHANGES-REQUESTED`` comment blocks regardless of finding severity, even
   one that lists only ``[P2]``; ``[P0]``/``[P1]`` blocks; a clean PASS counts.
-* **Flag ON** — a CHANGES-REQUESTED comment with only ``[P2]``/``[P3]`` (or no
-  finding) is *advisory*: non-blocking AND non-counting; a real ``[P1]`` finding or a
-  populated Blocker label STILL blocks; a clean PASS still counts.
 
 The two gate halves — ``review_queue._dissenting_views_from_comments`` and
 ``quorum_evidence.EvidenceItem.dissenting`` — are asserted to AGREE for the same body
@@ -134,15 +134,21 @@ def _evidence(body: str, *, verdict: str = "changes_requested") -> EvidenceItem:
 # --------------------------------------------------------------------------- #
 
 
-def test_flag_defaults_off(monkeypatch):
+def test_flag_defaults_on(monkeypatch):
     monkeypatch.delenv(_FLAG, raising=False)
-    assert severity_gated_dissent_enabled() is False
+    assert severity_gated_dissent_enabled() is True
 
 
 @pytest.mark.parametrize("value", ["1", "true", "yes", "on", "TRUE", "On"])
 def test_flag_truthy_values(monkeypatch, value):
     monkeypatch.setenv(_FLAG, value)
     assert severity_gated_dissent_enabled() is True
+
+
+@pytest.mark.parametrize("value", ["0", "false", "no", "off", "FALSE", "Off", "bogus"])
+def test_flag_falsey_and_unknown_values_fail_strict(monkeypatch, value):
+    monkeypatch.setenv(_FLAG, value)
+    assert severity_gated_dissent_enabled() is False
 
 
 def test_highest_blocking_severity_pins_finding_recognition():
@@ -220,13 +226,13 @@ class TestFlagOnBlockerLabelSecurityBypass:
 
 
 # --------------------------------------------------------------------------- #
-# Flag OFF (default / strict) — pins TODAY's behavior
+# Explicit flag OFF / strict opt-out — pins legacy strict behavior
 # --------------------------------------------------------------------------- #
 
 
 class TestFlagOffStrict:
     def test_p2_only_changes_requested_still_blocks(self, monkeypatch):
-        monkeypatch.delenv(_FLAG, raising=False)
+        monkeypatch.setenv(_FLAG, "0")
         dissent = _dissenting_views_from_comments(
             [_comment(_P2_ONLY_CHANGES_REQUESTED)], head_sha=_HEAD
         )
@@ -236,7 +242,7 @@ class TestFlagOffStrict:
         assert _evidence(_P2_ONLY_CHANGES_REQUESTED).dissenting is True
 
     def test_p1_changes_requested_blocks(self, monkeypatch):
-        monkeypatch.delenv(_FLAG, raising=False)
+        monkeypatch.setenv(_FLAG, "0")
         assert (
             len(_dissenting_views_from_comments([_comment(_P1_CHANGES_REQUESTED)], head_sha=_HEAD))
             == 1
@@ -252,7 +258,7 @@ class TestFlagOffStrict:
         assert item.supportive is True
 
     def test_integration_p2_only_blocks_quorum(self, monkeypatch):
-        monkeypatch.delenv(_FLAG, raising=False)
+        monkeypatch.setenv(_FLAG, "0")
         pr = _grounded_pr([*_supporting_comments(), _comment(_P2_ONLY_CHANGES_REQUESTED)])
         quorum = _build_model_review_quorum(
             pr=pr,
@@ -384,7 +390,7 @@ class TestFlagOnSeverityGated:
 )
 def test_both_gate_halves_agree(monkeypatch, body, off_blocks, on_blocks):
     # Flag OFF
-    monkeypatch.delenv(_FLAG, raising=False)
+    monkeypatch.setenv(_FLAG, "0")
     rq_off = bool(_dissenting_views_from_comments([_comment(body)], head_sha=_HEAD))
     qe_off = _evidence(body).dissenting
     assert rq_off == qe_off == off_blocks

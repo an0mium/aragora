@@ -39,9 +39,9 @@ treadmill: the reviewer keeps re-raising the same low-severity nits against each
 head, and the PR can never settle. The negative *word* — not the finding *severity*
 — is what blocks.
 
-## Proposed behavior (opt-in)
+## Proposed behavior (active by default, explicit opt-out)
 
-Behind `ARAGORA_ENABLE_SEVERITY_GATED_DISSENT` (default OFF), a CHANGES-REQUESTED
+With `ARAGORA_ENABLE_SEVERITY_GATED_DISSENT` unset or truthy, a CHANGES-REQUESTED
 comment promotes a **blocking** dissent only when it carries a real `[P0]`/`[P1]`
 finding **or** a populated Blocker label. A `[P2]`/`[P3]`-only or finding-free
 CHANGES-REQUESTED becomes **advisory**:
@@ -60,11 +60,13 @@ of a low-severity dissent is removed.
 
 ## Invariants
 
-1. **Flag OFF = zero severity-gating behavior change, plus one disclosed security
-   fix.** With the flag unset/falsey the severity-gating semantics are byte-identical
-   to today — the existing review_queue / quorum_evidence suites stay green and the
-   flag-OFF characterization tests in `tests/governance/test_finding_severity_gate.py`
-   pin it. The **one** deliberate flag-independent change is a security fix to the
+1. **Explicit flag OFF = legacy strict behavior, plus one disclosed security
+   fix.** With the flag explicitly falsey (`0`, `false`, `no`, `off`) the
+   severity-gating semantics are byte-identical to legacy strict behavior — the
+   existing review_queue / quorum_evidence suites stay green and the flag-OFF
+   characterization tests in `tests/governance/test_finding_severity_gate.py`
+   pin it. Unknown non-empty values also fail strict. The **one** deliberate
+   flag-independent change is a security fix to the
    pre-existing Blocker-label scanner: a populated Blocker label whose finding text
    begins with a bare "no" (e.g. `Blockers: no authentication on admin endpoint`)
    previously matched the non-blocking prefix `"no"` and was silently demoted to
@@ -92,7 +94,9 @@ Four changes; flag OFF ⇒ identical behavior:
 1. **Flag** `ARAGORA_ENABLE_SEVERITY_GATED_DISSENT` + helper
    `severity_gated_dissent_enabled(env=None)` in
    `aragora/swarm/quorum_evidence.py`, mirroring `tiered_merge_gate_enabled`
-   exactly (same truthy set `{1, true, yes, on}`, default OFF).
+   for truthy values `{1, true, yes, on}` and adding explicit opt-out values
+   `{0, false, no, off}`. The default is ON after activation; unknown non-empty
+   values fail strict.
 2. **Shared helpers** in `aragora/cli/commands/review_queue_comment_verdicts.py`:
    - `highest_blocking_severity(body) -> "P0" | "P1" | None` — reuses the exact
      `[P0]`/`[P1]` detection (and `_NO_FINDING_HEADS`) that
@@ -127,6 +131,6 @@ Four changes; flag OFF ⇒ identical behavior:
 
 ## Rollout
 
-Phase 1 of the nitpick-vs-real plan: land the opt-in flag (default OFF) plus
-pre-approval artifacts, so the operator can enable it per the governance contract.
-No CI default is changed by this PR.
+Phase 1 of the nitpick-vs-real plan landed the flag and pre-approval artifacts.
+The activation PR turns the policy on by default across CI and local/operator
+probes, while preserving an explicit environment opt-out for fast rollback.

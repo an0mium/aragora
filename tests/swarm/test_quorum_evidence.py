@@ -2005,7 +2005,10 @@ def test_apply_relaxed_artifact_posts_when_both_regimes_relaxed(tmp_path, monkey
     assert posted == [_prepared_body("claude")]
 
 
-def test_apply_prepared_evidence_rederives_verdict_from_body(tmp_path) -> None:
+def test_apply_prepared_evidence_rederives_verdict_from_body(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "0")
     prepared = _prepared_outcome_file(
         tmp_path,
         items=[

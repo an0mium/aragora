@@ -3412,14 +3412,14 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
     # design (claude #8507 P1; full rationale in docs/specs/TIERED_MERGE_GATE_QUORUM_POLICY.md):
     #   * This live merge gate is evaluated fresh on every CI run against the PR's
     #     current evidence, so there is no prepare→apply staleness window to reconcile.
-    #     It reads the live flag directly. The flag is default OFF, and enabling it is
-    #     itself the operator's deliberate, Tier-4-gated audit point — the global flag
-    #     *is* the revocation control (flip OFF to revoke everywhere).
+    #     It reads the live flag directly. The activated default is ON, and the
+    #     operator's explicit opt-out flag is the revocation control (set it falsey
+    #     to restore strict behavior everywhere).
     #   * The auto-settle apply path stores a prepared artifact with a real time gap
     #     between prepare and apply, so it additionally reconciles via min(prepared,
     #     live) to stop a flag flip from retroactively relaxing a stale artifact.
-    # Both are strict-by-default; only the apply path needs the extra reconciliation
-    # because only it has stored, deferrable state.
+    # Only the apply path needs the extra reconciliation because only it has stored,
+    # deferrable state.
     rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())
     return {
         "required_model_signals": rule.required_signals,
@@ -4207,18 +4207,18 @@ def _dissenting_views_from_comments(
 ) -> list[dict[str, Any]]:
     """Extract exact-head model-review comments that visibly request changes.
 
-    When ``ARAGORA_ENABLE_SEVERITY_GATED_DISSENT`` is OFF (default) a comment that
-    ``_has_blocking_or_negative_verdict`` — a real ``[P0]``/``[P1]`` finding, a
-    populated Blocker label, OR a bare negative ``Verdict:`` line — promotes a
-    blocking dissent, byte-identical to historical behavior.
-
-    When the flag is ON, only a comment backed by a real ``[P0]``/``[P1]`` finding
+    By default, only a comment backed by a real ``[P0]``/``[P1]`` finding
     or a populated Blocker label (``_has_blocking_finding_or_label``) promotes a
     blocking dissent. A ``[P2]``/``[P3]``-only or finding-free CHANGES-REQUESTED is
     downgraded to *advisory*: non-blocking, and — because it is excluded from the
     returned blocking-dissent list and never marked supportive — non-counting. The
     downgraded comment is still recorded (in ``advisory_views`` when provided) so the
     review quality stays visible on the PR / in the audit packet.
+
+    When ``ARAGORA_ENABLE_SEVERITY_GATED_DISSENT=0`` (or another explicit falsey
+    value), a comment that ``_has_blocking_or_negative_verdict`` — a real ``[P0]`` /
+    ``[P1]`` finding, a populated Blocker label, OR a bare negative ``Verdict:`` line
+    — promotes a blocking dissent, byte-identical to legacy strict behavior.
     """
     markers = (
         "dogfood",
@@ -4244,9 +4244,10 @@ def _dissenting_views_from_comments(
         lower = body.lower()
         if not any(token in lower for token in markers):
             continue
-        # Flag OFF: a bare negative Verdict line still blocks (historical behavior).
-        # Flag ON: only a real [P0]/[P1] finding or a populated Blocker label blocks;
-        # a [P2]/[P3]-only or finding-free CHANGES-REQUESTED becomes advisory.
+        # Severity-gated ON: only a real [P0]/[P1] finding or a populated Blocker
+        # label blocks; a [P2]/[P3]-only or finding-free CHANGES-REQUESTED becomes
+        # advisory. Explicit OFF preserves legacy strict behavior, where a bare
+        # negative Verdict line still blocks.
         blocks = (
             _has_blocking_finding_or_label(body)
             if severity_gated
