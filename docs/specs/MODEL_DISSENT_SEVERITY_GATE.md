@@ -11,7 +11,7 @@ invalidate otherwise good evidence.
 
 ## Phase 1 Rule
 
-Behind `ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT=1`, exact-head model-review
+Behind `ARAGORA_ENABLE_SEVERITY_GATED_DISSENT=1`, exact-head model-review
 dissent blocks merge quorum only when the comment carries:
 
 - a real `[P0]` or `[P1]` finding, or

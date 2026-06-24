@@ -14,11 +14,12 @@ block. Only an explicit no-finding *head* (the text before any colon being exact
 
 from __future__ import annotations
 
+import pytest
+
 from aragora.cli.commands.review_queue_comment_verdicts import (
-    has_blocking_model_dissent,
+    has_blocking_finding_or_label,
+    highest_blocking_severity,
     has_blocking_or_negative_verdict,
-    highest_finding_priority,
-    severity_gated_model_dissent_from_body,
 )
 
 
@@ -99,53 +100,182 @@ def test_negative_verdict_line_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: CHANGES-REQUESTED")
 
 
-def test_highest_finding_priority_ignores_no_finding_heads():
-    body = "- [P1] None: no blocker\n- [P2] test coverage follow-up"
-    assert highest_finding_priority(body) == "P2"
+# --- Blocker-label path: bare "no" finding bypass (openai #8574 P1) --------
+#
+# `_NON_BLOCKING_PREFIXES` used to include a bare "no", so a populated Blocker
+# label whose finding text started with "no" ("no authentication", "no
+# validation", ...) was wrongly demoted to advisory under the severity gate — a
+# merge-gate bypass for common security phrasing. The invariant: a populated
+# Blocker label ALWAYS blocks.
 
 
-def test_severity_gated_model_dissent_keeps_p2_changes_requested_advisory():
-    body = "Verdict: CHANGES-REQUESTED\n- [P2] Add stronger smoke coverage."
-    assert has_blocking_model_dissent(body, severity_gated=False)
-    assert not has_blocking_model_dissent(body, severity_gated=True)
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Blockers: no authentication on admin endpoint",
+        "Blockers: no validation",
+        "Blockers: no authorization",
+        "Blockers: no rate limiting on the login route",
+        "Blocking finding: no input sanitization",
+    ],
+)
+def test_blocker_label_security_phrasing_starting_with_no_blocks(body):
+    assert has_blocking_finding_or_label(body) is True
+    assert has_blocking_or_negative_verdict(body) is True
 
 
-def test_severity_gated_model_dissent_blocks_bare_changes_requested():
-    body = "Verdict: CHANGES-REQUESTED\nNeeds another look before merge."
-    assert has_blocking_model_dissent(body, severity_gated=True)
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Blockers: none",
+        "Blockers: no issues",
+        "Blockers: no issue",
+        "Blockers: no findings",
+        "Blockers: no blockers",
+        "Blocking findings: no blocking findings",
+        "Blockers: no concerns",
+        "Blockers: no problems",
+        "Blockers: no changes needed",
+    ],
+)
+def test_blocker_label_genuine_no_finding_stays_non_blocking(body):
+    assert has_blocking_finding_or_label(body) is False
+    assert has_blocking_or_negative_verdict(body) is False
 
 
-def test_severity_gated_model_dissent_blocks_p1_changes_requested():
-    body = "Verdict: CHANGES-REQUESTED\n- [P1] Merge gate can be bypassed."
-    assert has_blocking_model_dissent(body, severity_gated=True)
+def test_p1_none_head_unchanged_no_finding():
+    # The [P0]/[P1] no-finding head behavior is preserved by the fix.
+    assert has_blocking_finding_or_label("[P1] None: clean") is False
+    assert has_blocking_finding_or_label("[P1] N/A") is False
+    assert has_blocking_finding_or_label("[P1] no issues") is False
 
 
-def test_severity_gated_model_dissent_blocks_explicit_blockers_without_p_tag():
-    body = "Verdict: CHANGES-REQUESTED\nBlocking findings: merge gate can be bypassed."
-    assert has_blocking_model_dissent(body, severity_gated=True)
+# --- Regression: the no-finding "no <noun>" match must NOT leak into the
+# negative-verdict (Verdict/Decision/Recommendation) check. A *positive* verdict
+# phrased "no concerns" / "no changes needed" / "no blockers" is an APPROVAL and
+# must stay non-blocking on the default flag-OFF merge-gate path. (Caught by both
+# claude and openai on #8574; the shared helper had short-circuited unconditionally.)
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: no concerns",
+        "Verdict: no blocking issues found",
+        "Decision: no blockers",
+        "Recommendation: no changes needed",
+        "Verdict: no issues",
+    ],
+)
+def test_positive_verdict_with_no_noun_is_not_blocking(body):
+    assert has_blocking_or_negative_verdict(body) is False
 
 
-def test_severity_gated_pass_blockers_none_priority_line_is_not_blocking():
-    body = "Verdict: PASS\nBlockers:\n- [P2] None: no merge blocker."
-    assert not has_blocking_model_dissent(body, severity_gated=True)
+def test_approving_model_review_with_no_concerns_not_blocking():
+    body = (
+        "## Independent model review\n"
+        "Reviewer: openai\n\n"
+        "Verdict: no concerns\n\n"
+        "- The change is well-scoped and tested.\n"
+    )
+    assert has_blocking_or_negative_verdict(body) is False
 
 
-def test_severity_gated_bare_changes_requested_with_no_blockers_still_blocks():
-    body = "Verdict: CHANGES-REQUESTED\nBlockers:\n- [P2] None: no merge blocker."
-    assert has_blocking_model_dissent(body, severity_gated=True)
+# --- Blocker-label no-finding regex precision (claude #8574 collect-3 P2s) ---
+@pytest.mark.parametrize(
+    "value",
+    [
+        "no major concerns",
+        "no significant issues",
+        "no serious problems",
+        "no remaining blockers",
+        "no other findings",
+        "no minor issues",
+        "no blocking findings",  # legacy form, via optional "blocking " prefix
+    ],
+)
+def test_blocker_label_hedged_no_finding_stays_non_blocking(value):
+    # Adjective-hedged no-finding declarations must NOT over-block (#1).
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is False
 
 
-def test_severity_gated_explicit_blocker_with_low_priority_label_still_blocks():
-    body = "Verdict: CHANGES-REQUESTED\nBlockers:\n- [P2] Merge gate can be bypassed."
-    assert has_blocking_model_dissent(body, severity_gated=True)
+@pytest.mark.parametrize(
+    "value",
+    [
+        "no blocking on the auth path but SQLi on line 40",  # the fail-open edge (#2)
+        "no authentication on admin endpoint",
+        "no validation of user input",
+        "no rate limiting and an open redirect",
+    ],
+)
+def test_blocker_label_real_finding_with_no_prefix_still_blocks(value):
+    # Standalone "blocking" token dropped: a real finding phrased "no blocking … but X"
+    # (or "no authentication …") must still block — no merge-gate bypass.
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is True
 
 
-def test_explicit_blocker_no_auth_is_not_misread_as_no_blocker():
-    body = "Verdict: CHANGES-REQUESTED\nBlockers: no authentication on admin endpoint."
-    assert has_blocking_model_dissent(body, severity_gated=True)
+# --- Reconciliation with #8555 (main makes [P2] block the DEFAULT gate) vs the
+# severity-gate flag (which makes [P2] advisory). Pins the divergence: a [P2] marker
+# blocks has_blocking_or_negative_verdict (flag-OFF default) but is NOT a blocking
+# severity for the flag-ON helpers, so it becomes advisory under the flag.
+def test_p2_blocks_default_path_but_is_advisory_under_severity_gate():
+    body = "[P2] prepared apply bypasses the freeze proof"
+    # flag-OFF default scanner: [P2] blocks (matches main #8555)
+    assert has_blocking_or_negative_verdict(body) is True
+    # flag-ON severity helpers: [P2] is NOT a blocking finding/label -> advisory
+    assert has_blocking_finding_or_label(body) is False
+    assert highest_blocking_severity(body) is None
 
 
-def test_severity_gated_policy_can_be_frozen_in_comment_body():
-    assert severity_gated_model_dissent_from_body("Severity-gated model dissent: true") is True
-    assert severity_gated_model_dissent_from_body("Severity gated model dissent: off") is False
-    assert severity_gated_model_dissent_from_body("Verdict: PASS") is None
+def test_p0_p1_block_both_paths():
+    for sev in ("P0", "P1"):
+        body = f"[{sev}] settlement gate can be bypassed"
+        assert has_blocking_or_negative_verdict(body) is True
+        assert has_blocking_finding_or_label(body) is True
+        assert highest_blocking_severity(body) == sev
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "no major concerns but SQLi on line 40",
+        "no issues except an open redirect",
+        "no blockers however auth is missing",
+        "no significant problems aside from the race condition",
+    ],
+)
+def test_blocker_label_hedged_no_finding_with_real_tail_blocks(value):
+    # Fail-closed: a no-finding prefix followed by a contrastive real finding blocks.
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "no issues found",
+        "no concerns identified",
+        "no blockers noted",
+        "no major issues.",
+        "no findings whatsoever",
+    ],
+)
+def test_blocker_label_pure_no_finding_with_benign_tail_stays_non_blocking(value):
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is False
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "none but SQLi on line 40",
+        "n/a - auth bypass remains",
+        "zero, but the open redirect is unfixed",
+        "not applicable however the race condition stands",
+    ],
+)
+def test_blocker_label_legacy_prefix_with_real_tail_blocks(value):
+    # openai #8574 P2: legacy _NON_BLOCKING_PREFIXES (none/n-a/zero) must also be
+    # fail-closed — a substantive contrastive tail still blocks.
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is True
+
+
+@pytest.mark.parametrize("value", ["none", "none found", "n/a", "not applicable", "zero", "[]"])
+def test_blocker_label_legacy_prefix_pure_stays_non_blocking(value):
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is False

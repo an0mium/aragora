@@ -47,12 +47,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from aragora.cli.commands.review_queue_comment_verdicts import (
-    has_blocking_or_negative_verdict,
-    has_blocking_model_dissent,
-    highest_finding_priority,
-    severity_gated_model_dissent_enabled,
-)
+from aragora.cli.commands.review_queue_comment_verdicts import has_blocking_finding_or_label
 from aragora.swarm import merge_quorum_io
 
 logger = logging.getLogger(__name__)
@@ -121,6 +116,47 @@ def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
     signal) is active. Default OFF; see :data:`_TIERED_GATE_ENV`."""
     source = os.environ if env is None else env
     return str(source.get(_TIERED_GATE_ENV, "")).strip().lower() in _TIERED_GATE_TRUE
+
+
+# Opt-in flag for severity-gated dissent. When OFF (default), a reviewer
+# ``Verdict: CHANGES-REQUESTED`` line promotes a *blocking* dissent regardless of
+# finding severity — even a `[P2]`/`[P3]`-only or finding-free comment blocks the
+# merge as hard as a `[P0]` defect (today's behavior). When ON, a CHANGES-REQUESTED
+# comment promotes a blocking dissent ONLY when it carries a real `[P0]`/`[P1]`
+# finding or a populated Blocker label; a `[P2]`/`[P3]`-only or finding-free
+# CHANGES-REQUESTED becomes *advisory* — non-blocking AND non-counting (it still
+# posts and stays visible on the PR; it just no longer blocks). `[P0]`/`[P1]`
+# findings and populated Blocker labels ALWAYS block, flag ON or OFF.
+#
+# Gating this behind the flag keeps it revertible WITHOUT a code change and is the
+# in-tree audit point for the operator's approval. See
+# docs/specs/FINDING_SEVERITY_GATE.md and
+# docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance.
+_SEVERITY_GATED_DISSENT_ENV = "ARAGORA_ENABLE_SEVERITY_GATED_DISSENT"
+_SEVERITY_GATED_DISSENT_TRUE = frozenset(("1", "true", "yes", "on"))
+
+
+def severity_gated_dissent_enabled(env: dict[str, str] | None = None) -> bool:
+    """Whether the opt-in severity-gated dissent gate is active. Default OFF; a
+    `[P2]`/`[P3]`-only CHANGES-REQUESTED only becomes advisory (non-blocking,
+    non-counting) when this is ON. See :data:`_SEVERITY_GATED_DISSENT_ENV`."""
+    source = os.environ if env is None else env
+    return (
+        str(source.get(_SEVERITY_GATED_DISSENT_ENV, "")).strip().lower()
+        in _SEVERITY_GATED_DISSENT_TRUE
+    )
+
+
+def _coerce_relaxed_flag(value: Any) -> bool:
+    """Coerce a serialized gate-regime flag (``severity_gated`` / ``tiered_gate``) to
+    bool, fail-closed. A real bool passes through; a string counts as relaxed ONLY for
+    the explicit relaxed tokens, so a stringly serialized ``"false"`` — which ``bool()``
+    would truthify — cannot accidentally enable the relaxed regime (claude/grok #8574 P2)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in _SEVERITY_GATED_DISSENT_TRUE
+    return bool(value)
 
 
 @dataclass(frozen=True)
@@ -373,35 +409,36 @@ class EvidenceItem:
     counted_reviewer_ids: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     verdict: str = "unknown"
-    severity_gated_model_dissent: bool = False
+    # Captured ONCE at construction (not re-read per property access) so a
+    # security-relevant gate decision stays deterministic within a single
+    # settlement flow even if the process env mutates mid-run. Uses the same
+    # capture-once pattern as ``CollectOutcome.tiered_gate`` (a different flag —
+    # ``severity_gated_dissent_enabled`` here vs ``tiered_merge_gate_enabled`` there).
+    severity_gated: bool = field(default_factory=severity_gated_dissent_enabled)
 
     @property
     def supportive(self) -> bool:
+        # Unchanged by the severity gate: advisory ≠ supportive. A downgraded
+        # `[P2]`/`[P3]`-only changes_requested stays non-counting; it just stops
+        # blocking. ``supportive`` requires would_count AND a pass verdict.
         return self.would_count and self.verdict == "pass"
 
     @property
     def dissenting(self) -> bool:
-        return self.blocks_merge_dissent(severity_gated=self.severity_gated_model_dissent)
-
-    @property
-    def advisory_dissent(self) -> bool:
-        return (
-            self.severity_gated_model_dissent
-            and self.verdict == "changes_requested"
-            and not self.dissenting
-            and has_blocking_or_negative_verdict(self.body)
-            and highest_finding_priority(self.body) in {"P2", "P3"}
-        )
-
-    @property
-    def postable(self) -> bool:
-        return self.supportive or self.advisory_dissent
-
-    def blocks_merge_dissent(self, *, severity_gated: bool) -> bool:
-        return self.verdict == "changes_requested" and has_blocking_model_dissent(
-            self.body,
-            severity_gated=severity_gated,
-        )
+        if self.verdict != "changes_requested":
+            return False
+        if not self.severity_gated:
+            # Default (flag OFF): any changes_requested is a blocking dissent —
+            # byte-identical to historical behavior.
+            return True
+        # Flag ON: a changes_requested is dissenting (blocks / trips prepare-only)
+        # ONLY when backed by a real [P0]/[P1] finding OR a populated Blocker label
+        # (``has_blocking_finding_or_label`` — the SAME helper the review-queue gate
+        # half consults, so the two halves stay in lockstep and Blocker labels always
+        # block per the invariant). A [P2]/[P3]-only or finding-free changes_requested
+        # is advisory — non-blocking, and (because ``supportive`` is unchanged) still
+        # non-counting.
+        return has_blocking_finding_or_label(self.body)
 
 
 @dataclass
@@ -422,14 +459,6 @@ class CollectOutcome:
     # access) so a security-relevant gate decision stays deterministic within a
     # single settlement flow even if the process env mutates mid-run.
     tiered_gate: bool = field(default_factory=tiered_merge_gate_enabled)
-    severity_gated_model_dissent: bool = field(default_factory=severity_gated_model_dissent_enabled)
-
-    def __post_init__(self) -> None:
-        self._bind_item_dissent_policy()
-
-    def _bind_item_dissent_policy(self) -> None:
-        for item in self.items:
-            item.severity_gated_model_dissent = self.severity_gated_model_dissent
 
     @property
     def counting_families(self) -> list[str]:
@@ -441,17 +470,7 @@ class CollectOutcome:
 
     @property
     def dissenting_families(self) -> list[str]:
-        return [
-            item.family
-            for item in self.items
-            if item.blocks_merge_dissent(
-                severity_gated=self.severity_gated_model_dissent,
-            )
-        ]
-
-    @property
-    def advisory_families(self) -> list[str]:
-        return [item.family for item in self.items if item.advisory_dissent]
+        return [item.family for item in self.items if item.dissenting]
 
     @property
     def has_supportive_quorum(self) -> bool:
@@ -508,13 +527,11 @@ class CollectOutcome:
             "head_committed_at": self.head_committed_at,
             "tier": self.tier,
             "tiered_gate": self.tiered_gate,
-            "severity_gated_model_dissent": self.severity_gated_model_dissent,
             "policy_version": QUORUM_POLICY_VERSION,
             "action": self.action,
             "action_reason": self.action_reason,
             "counting_families": self.counting_families,
             "supportive_families": self.supportive_families,
-            "advisory_families": self.advisory_families,
             "dissenting_families": self.dissenting_families,
             "has_supportive_quorum": self.has_supportive_quorum,
             "posted_families": list(self.posted),
@@ -528,6 +545,11 @@ class CollectOutcome:
                     "counted_reviewer_ids": item.counted_reviewer_ids,
                     "problems": item.problems,
                     "body": item.body,
+                    # The prepare-time severity-gate regime, persisted so apply can
+                    # reconcile it under min(prepared, live) — the SAME treatment as
+                    # ``tiered_gate``. This is also the audit trail of which regime
+                    # prepared the artifact (claude/grok #8574 P2).
+                    "severity_gated": item.severity_gated,
                 }
                 for item in self.items
             ],
@@ -557,6 +579,13 @@ def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
         counted_reviewer_ids=_string_list(raw.get("counted_reviewer_ids")),
         problems=_string_list(raw.get("problems")),
         verdict=str(raw.get("verdict") or "unknown"),
+        # Restore the prepare-time regime; default fail-CLOSED (strict — every
+        # changes_requested blocks) when an older/forged artifact omits it, so a
+        # missing field can never RELAX the gate. apply_prepared_evidence then
+        # AND-reconciles this with the live flag (min(prepared, live)), mirroring
+        # ``tiered_gate`` (claude/grok #8574 P2). Coerced fail-closed so a stringly
+        # serialized ``"false"`` cannot truthify into the relaxed regime.
+        severity_gated=_coerce_relaxed_flag(raw.get("severity_gated", False)),
     )
 
 
@@ -570,21 +599,6 @@ def _reviewer_result_from_dict(raw: Any) -> ReviewerResult:
         error=str(raw.get("error") or ""),
         harness=str(raw.get("harness") or ""),
     )
-
-
-def _prepared_bool(data: dict[str, Any], key: str, *, default: bool = False) -> bool:
-    if key not in data:
-        return default
-    value = data.get(key)
-    if isinstance(value, bool):
-        return value
-    logger.warning(
-        "prepared evidence artifact has non-boolean %s=%r; failing closed to %s",
-        key,
-        value,
-        default,
-    )
-    return default
 
 
 def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
@@ -614,9 +628,7 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
     # evidence then evaluates under min(prepared, live), so this strict default can
     # only ever tighten, never loosen, the bar.
     if "tiered_gate" in data:
-        gate_kwargs: dict[str, Any] = {
-            "tiered_gate": _prepared_bool(data, "tiered_gate"),
-        }
+        gate_kwargs: dict[str, Any] = {"tiered_gate": _coerce_relaxed_flag(data.get("tiered_gate"))}
     else:
         logger.debug(
             "prepared evidence artifact omits 'tiered_gate'; failing closed to "
@@ -625,19 +637,6 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
             pr,
         )
         gate_kwargs = {"tiered_gate": False}
-    if "severity_gated_model_dissent" in data:
-        gate_kwargs["severity_gated_model_dissent"] = _prepared_bool(
-            data,
-            "severity_gated_model_dissent",
-        )
-    else:
-        logger.debug(
-            "prepared evidence artifact omits 'severity_gated_model_dissent'; "
-            "failing closed to strict dissent blocking (repo=%s pr=%s)",
-            repo,
-            pr,
-        )
-        gate_kwargs["severity_gated_model_dissent"] = False
     return CollectOutcome(
         repo=repo,
         pr=pr,
@@ -852,7 +851,6 @@ def compose_evidence_comment(
     pr: int | str,
     reviewer_text: str,
     harness: str = "",
-    severity_gated_model_dissent: bool | None = None,
 ) -> str:
     """Compose an evidence comment the quorum parsers recognize and count.
 
@@ -872,11 +870,6 @@ def compose_evidence_comment(
     # be hijacked even if the field ever carries caller-influenced text.
     safe_committed = re.sub(r"[^A-Za-z0-9:.+\- TZ]", "", head_committed_at)[:40]
     committed = f", committed {safe_committed}" if safe_committed else ""
-    severity_line = (
-        f"Severity-gated model dissent: {str(severity_gated_model_dissent).lower()}\n"
-        if severity_gated_model_dissent is not None
-        else ""
-    )
     return (
         f"## {display} independent model review\n\n"
         f"Reviewer: {fam} ({provider}) — independent adversarial model review via "
@@ -884,7 +877,6 @@ def compose_evidence_comment(
         f"Head: {short} ({head_sha}){committed}.\n"
         f"PR: #{pr}.\n"
         f"Model family: {fam}\n\n"
-        f"{severity_line}"
         f"{_neutralize_reviewer_text(normalize_reviewer_output(reviewer_text, family=family))}\n\n"
         f"dogfood: yes\n"
     )
@@ -1797,8 +1789,6 @@ def collect_evidence(
         tier=tier,
         action=action,
         action_reason=action_reason,
-        tiered_gate=tiered_merge_gate_enabled(env),
-        severity_gated_model_dissent=severity_gated_model_dissent_enabled(env),
     )
 
     prompt = prompt_builder(repo, pr, ctx)
@@ -1858,7 +1848,6 @@ def collect_evidence(
             pr=pr,
             reviewer_text=result.text,
             harness=result.harness,
-            severity_gated_model_dissent=outcome.severity_gated_model_dissent,
         )
         lint = linter(pr, head_sha, head_committed_at, author, body, env or {})
         outcome.items.append(
@@ -1869,7 +1858,6 @@ def collect_evidence(
                 verdict=_reviewer_verdict(result.text),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
-                severity_gated_model_dissent=outcome.severity_gated_model_dissent,
             )
         )
 
@@ -1907,7 +1895,7 @@ def collect_evidence(
             )
         else:
             for item in outcome.items:
-                if not item.postable:
+                if not item.supportive:
                     continue
                 try:
                     poster(repo, pr, item.body)
@@ -1925,7 +1913,14 @@ def collect_evidence(
     return outcome
 
 
-def _clone_prepared_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
+def _clone_prepared_items(
+    items: Sequence[EvidenceItem], *, live_severity_gated: bool | None = None
+) -> list[EvidenceItem]:
+    # ``live_severity_gated`` None preserves the prepared regime verbatim; at apply
+    # the caller passes the live flag so the clone carries the reconciled
+    # ``effective = prepared.severity_gated AND live`` (min(prepared, live)) — the
+    # same fail-closed reconciliation ``tiered_gate`` gets, so a forged or stale
+    # ``severity_gated=true`` cannot relax dissent while the live flag is OFF.
     return [
         EvidenceItem(
             family=item.family,
@@ -1934,7 +1929,11 @@ def _clone_prepared_items(items: Sequence[EvidenceItem]) -> list[EvidenceItem]:
             counted_reviewer_ids=list(item.counted_reviewer_ids),
             problems=list(item.problems),
             verdict=item.verdict,
-            severity_gated_model_dissent=item.severity_gated_model_dissent,
+            severity_gated=(
+                item.severity_gated
+                if live_severity_gated is None
+                else (item.severity_gated and live_severity_gated)
+            ),
         )
         for item in items
     ]
@@ -2018,13 +2017,11 @@ def apply_prepared_evidence(
     if not head_sha:
         raise ValueError(f"could not resolve head SHA for PR #{pr} in {repo}")
 
-    # Security: a prepared artifact carries the relaxing gate regimes it was collected
+    # Security: a prepared artifact carries the tiered-gate regime it was collected
     # under. Apply-time sufficiency is evaluated under the MORE RESTRICTIVE of the
     # prepare-time and live regimes (relaxation requires BOTH to permit it):
     #
     #     effective_tiered_gate = prepared.tiered_gate AND live_gate
-    #     effective_severity_gate =
-    #         prepared.severity_gated_model_dissent AND live_severity_gate
     #
     # This preserves both security directions without coupling merge-authority to a
     # mutable live-env *equality* check (grok #8507 P1 + claude #8507 P1):
@@ -2041,16 +2038,17 @@ def apply_prepared_evidence(
     # Artifact trust boundary (claude #8507 P2): a prepared artifact is trusted only
     # after it is matched to this repo/PR and to the LIVE exact-head SHA and then
     # re-linted against the same parser used before posting. The `min(prepared, live)`
-    # rule means a forged relaxation flag cannot relax a merge while the corresponding
-    # live flag is OFF; it can only assert relaxation when the operator has ALREADY
-    # enabled it live (itself the Tier-4-gated decision). Anyone who can forge the
-    # artifact JSON can also forge reviewer bodies, so artifact integrity is the caller's
-    # trust boundary — these fields grant no authority beyond what the live flags already
-    # do.
-    live_gate = tiered_merge_gate_enabled(env)
+    # rule means a forged `tiered_gate=true` cannot relax a merge while the live flag
+    # is OFF; it can only assert relaxation when the operator has ALREADY enabled it
+    # live (itself the Tier-4-gated decision). Anyone who can forge the artifact JSON
+    # can also forge reviewer bodies, so artifact integrity is the caller's trust
+    # boundary — this field grants no authority beyond what the live flag already does.
+    live_gate = tiered_merge_gate_enabled()
     effective_tiered_gate = bool(prepared.tiered_gate) and live_gate
-    live_severity_gate = severity_gated_model_dissent_enabled(env)
-    effective_severity_gate = bool(prepared.severity_gated_model_dissent) and live_severity_gate
+    # Reconcile the severity-gate regime the same way: a relaxed-prepared artifact
+    # only stays relaxed when the live flag also relaxes; otherwise dissent is
+    # re-evaluated under the strict regime. Mirrors effective_tiered_gate.
+    live_severity_gated = severity_gated_dissent_enabled()
 
     tier = tier_fetcher(repo, pr)
     action, action_reason = decide_action(tier, apply)
@@ -2062,10 +2060,9 @@ def apply_prepared_evidence(
         tier=tier,
         action=action,
         action_reason=action_reason,
-        items=_clone_prepared_items(prepared.items),
+        items=_clone_prepared_items(prepared.items, live_severity_gated=live_severity_gated),
         failures=_clone_reviewer_failures(prepared.failures),
         tiered_gate=effective_tiered_gate,
-        severity_gated_model_dissent=effective_severity_gate,
     )
 
     if prepared.head_sha != head_sha:
@@ -2098,11 +2095,15 @@ def apply_prepared_evidence(
                 counted_reviewer_ids=counted_reviewer_ids,
                 problems=problems,
                 verdict=_reviewer_verdict(item.body),
-                severity_gated_model_dissent=effective_severity_gate,
+                # Preserve the regime already reconciled by _clone_prepared_items
+                # (effective = prepared AND live). Re-running the linter must NOT
+                # let EvidenceItem.default_factory re-read the live env and undo
+                # min(prepared, live) — a strict-prepared artifact stays strict even
+                # when the live flag is ON (claude/grok #8574 P1).
+                severity_gated=item.severity_gated,
             )
         )
     outcome.items = relinted_items
-    outcome._bind_item_dissent_policy()
 
     if action != "post":
         return outcome
@@ -2141,7 +2142,7 @@ def apply_prepared_evidence(
         "prepared exact-head evidence artifact; posting without reviewer regeneration"
     )
     for item in outcome.items:
-        if not item.postable:
+        if not item.supportive:
             continue
         try:
             poster(repo, pr, item.body)

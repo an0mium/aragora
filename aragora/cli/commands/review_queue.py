@@ -42,11 +42,9 @@ from aragora.cli.commands.review_queue_parsers import (
     add_record_settlement_parser,
 )
 from aragora.cli.commands.review_queue_comment_verdicts import (
-    has_blocking_model_dissent as _has_blocking_model_dissent,
+    has_blocking_finding_or_label as _has_blocking_finding_or_label,
     has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
-    highest_finding_priority as _highest_finding_priority,
-    severity_gated_model_dissent_from_body as _severity_gated_model_dissent_from_body,
-    severity_gated_model_dissent_enabled as _severity_gated_model_dissent_enabled,
+    highest_blocking_severity as _highest_blocking_severity,
 )
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
@@ -145,6 +143,7 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
 from aragora.swarm.quorum_evidence import (  # noqa: E402
     WESTERN_FAMILIES as WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
+    severity_gated_dissent_enabled as severity_gated_dissent_enabled,
     tier_quorum_rule as tier_quorum_rule,
     tiered_merge_gate_enabled as tiered_merge_gate_enabled,
 )
@@ -3130,16 +3129,24 @@ def _build_model_review_quorum(
         head_sha=head_sha,
         head_committed_at=head_committed_at,
     )
+    advisory_views: list[dict[str, Any]] = []
     comment_dissenting_views = _dissenting_views_from_comments(
         pr.get("comments") or [],
         head_sha=head_sha,
         head_committed_at=head_committed_at,
+        advisory_views=advisory_views,
     )
-    dissenting_views = _normalized_protocol_dissenting_views(protocol.get("dissenting_views") or [])
+    # Bound advisory_views symmetrically with the dissent list (which returns [:5]),
+    # so a PR with many recognized comments cannot flood the merge packet's
+    # advisory_views field or its `reasons` notes (claude #8574 P3).
+    del advisory_views[5:]
+    dissenting_views = [
+        view for view in (protocol.get("dissenting_views") or []) if isinstance(view, dict)
+    ]
     dissenting_views.extend(comment_dissenting_views)
     blocking_workflow_reasons = _blocking_workflow_state_reasons(pr)
     blocking_workflow_state = bool(blocking_workflow_reasons)
-    unresolved_dissent = any(bool(view.get("blocks_merge", True)) for view in dissenting_views)
+    unresolved_dissent = bool(dissenting_views)
     counted_reviewer_ids = _counted_model_reviewer_ids(reviewer_signals, dogfood_evidence)
     review_object_warnings = _review_object_quorum_warnings(
         pr.get("reviews") or [],
@@ -3257,6 +3264,16 @@ def _build_model_review_quorum(
         reasons.extend(blocking_workflow_reasons)
     if unresolved_dissent and not settlement_recorded:
         reasons.append("unresolved model dissent is present")
+    for advisory in advisory_views:
+        family = str(advisory.get("agent", "") or "unknown")
+        severity = advisory.get("highest_severity")
+        # ``highest_severity`` is None both for a [P2]/[P3]-only CR and for a
+        # finding-free CR, so don't assert "[P2]/[P3] only" — report the accurate
+        # invariant (no blocking [P0]/[P1] finding) in the audit packet.
+        sev_note = severity if severity else "no blocking [P0]/[P1] finding"
+        reasons.append(
+            f"advisory finding from {family}: {sev_note} — not blocking (severity-gated dissent)"
+        )
     if not quorum_satisfied and not settlement_recorded:
         if signal_count < requirement["required_model_signals"]:
             reasons.append(
@@ -3347,6 +3364,7 @@ def _build_model_review_quorum(
         "counted_reviewer_ids": counted_reviewer_ids,
         "counted_model_families": counted_reviewer_ids,
         "dissenting_views": dissenting_views,
+        "advisory_views": advisory_views,
         "unresolved_dissent": unresolved_dissent,
         "reasons": reasons,
     }
@@ -4185,8 +4203,23 @@ def _dissenting_views_from_comments(
     *,
     head_sha: str = "",
     head_committed_at: str = "",
+    advisory_views: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Extract exact-head model-review comments that visibly request changes."""
+    """Extract exact-head model-review comments that visibly request changes.
+
+    When ``ARAGORA_ENABLE_SEVERITY_GATED_DISSENT`` is OFF (default) a comment that
+    ``_has_blocking_or_negative_verdict`` — a real ``[P0]``/``[P1]`` finding, a
+    populated Blocker label, OR a bare negative ``Verdict:`` line — promotes a
+    blocking dissent, byte-identical to historical behavior.
+
+    When the flag is ON, only a comment backed by a real ``[P0]``/``[P1]`` finding
+    or a populated Blocker label (``_has_blocking_finding_or_label``) promotes a
+    blocking dissent. A ``[P2]``/``[P3]``-only or finding-free CHANGES-REQUESTED is
+    downgraded to *advisory*: non-blocking, and — because it is excluded from the
+    returned blocking-dissent list and never marked supportive — non-counting. The
+    downgraded comment is still recorded (in ``advisory_views`` when provided) so the
+    review quality stays visible on the PR / in the audit packet.
+    """
     markers = (
         "dogfood",
         "adversarial",
@@ -4200,6 +4233,7 @@ def _dissenting_views_from_comments(
         "independent model review",
         "model-family semantic signal",
     )
+    severity_gated = severity_gated_dissent_enabled()
     dissent: list[dict[str, Any]] = []
     for comment in comments:
         if not isinstance(comment, dict) or not _is_comment_grounded_on_head(
@@ -4208,20 +4242,21 @@ def _dissenting_views_from_comments(
             continue
         body = str(comment.get("body", "") or "")
         lower = body.lower()
-        severity_gated = _severity_gated_model_dissent_from_body(body)
-        if severity_gated is None:
-            severity_gated = _severity_gated_model_dissent_enabled()
-        blocking_dissent = _has_blocking_model_dissent(body, severity_gated=severity_gated)
-        highest_priority = _highest_finding_priority(body)
-        advisory_dissent = (
-            severity_gated
-            and not blocking_dissent
-            and _has_blocking_or_negative_verdict(body)
-            and highest_priority in {"P2", "P3"}
+        if not any(token in lower for token in markers):
+            continue
+        # Flag OFF: a bare negative Verdict line still blocks (historical behavior).
+        # Flag ON: only a real [P0]/[P1] finding or a populated Blocker label blocks;
+        # a [P2]/[P3]-only or finding-free CHANGES-REQUESTED becomes advisory.
+        blocks = (
+            _has_blocking_finding_or_label(body)
+            if severity_gated
+            else _has_blocking_or_negative_verdict(body)
         )
-        if not (blocking_dissent or advisory_dissent) or not any(
-            token in lower for token in markers
-        ):
+        if not blocks:
+            if severity_gated and advisory_views is not None:
+                advisory = _build_advisory_view(comment, body)
+                if advisory is not None:
+                    advisory_views.append(advisory)
             continue
         identity = _resolve_model_review_identity(body)
         if identity.surface_reviewer_id == "unknown_model_reviewer":
@@ -4239,51 +4274,42 @@ def _dissenting_views_from_comments(
                 "reason": _first_nonempty_line(body)[:240],
                 "source": "pr_comment",
                 "github_author": github_author,
-                "highest_finding_priority": highest_priority,
-                "severity_gated_model_dissent": severity_gated,
-                "blocks_merge": blocking_dissent,
-                "advisory": advisory_dissent,
                 **identity.as_packet_fields(),
             }
         )
     return dissent[:5]
 
 
-def _normalized_protocol_dissenting_views(raw_views: list[Any]) -> list[dict[str, Any]]:
-    views: list[dict[str, Any]] = []
-    severity_gated = _severity_gated_model_dissent_enabled()
-    for raw in raw_views:
-        if not isinstance(raw, dict):
-            continue
-        view = dict(raw)
-        text = "\n".join(
-            part
-            for part in (
-                f"Verdict: {view.get('position', '')}",
-                str(view.get("reason", "") or ""),
-                str(view.get("body", "") or ""),
-                str(view.get("summary", "") or ""),
-            )
-            if part.strip()
-        )
-        highest_priority = _highest_finding_priority(text)
-        if "blocks_merge" not in view:
-            blocking_dissent = _has_blocking_model_dissent(text, severity_gated=severity_gated)
-            advisory_dissent = (
-                severity_gated
-                and not blocking_dissent
-                and _has_blocking_or_negative_verdict(text)
-                and highest_priority in {"P2", "P3"}
-            )
-            view["blocks_merge"] = blocking_dissent
-            view["advisory"] = advisory_dissent
-        else:
-            view["blocks_merge"] = bool(view.get("blocks_merge"))
-            view.setdefault("advisory", not view["blocks_merge"])
-        view.setdefault("highest_finding_priority", highest_priority)
-        view.setdefault("severity_gated_model_dissent", severity_gated)
-        views.append(view)
-    return views
+def _build_advisory_view(comment: dict[str, Any], body: str) -> dict[str, Any] | None:
+    """Build the advisory (non-blocking, non-counting) record for a CHANGES-REQUESTED
+    comment that, under the severity gate, carries only ``[P2]``/``[P3]`` (or no)
+    findings. Returns ``None`` if the reviewer identity is unrecognized.
+    """
+    # The comment WOULD have blocked under the strict (flag-OFF) regime: it is a
+    # genuine negative verdict, just not backed by a real [P0]/[P1] finding or a
+    # populated Blocker label. Recording it preserves the reviewer's signal.
+    if not _has_blocking_or_negative_verdict(body):
+        return None
+    identity = _resolve_model_review_identity(body)
+    if identity.surface_reviewer_id == "unknown_model_reviewer":
+        identity = _resolve_dogfood_identity(body)
+    if identity.surface_reviewer_id == "unknown_model_reviewer":
+        return None
+    author_payload = comment.get("author")
+    github_author = ""
+    if isinstance(author_payload, dict):
+        github_author = str(author_payload.get("login", "") or "")
+    severity = _highest_blocking_severity(body)
+    return {
+        "agent": identity.model_family or identity.surface_reviewer_id,
+        "position": "advisory_changes_requested",
+        "blocking": False,
+        "highest_severity": severity,  # None for finding-free, never P0/P1 here
+        "reason": _first_nonempty_line(body)[:240],
+        "source": "pr_comment",
+        "github_author": github_author,
+        **identity.as_packet_fields(),
+    }
 
 
 def _model_review_signals_from_comments(

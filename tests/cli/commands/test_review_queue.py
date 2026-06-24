@@ -1241,7 +1241,7 @@ class TestModelReviewQuorum:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
         head = "cd87c5a1b2db34f04167906553502db3ede9525e"
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head
@@ -1274,61 +1274,20 @@ class TestModelReviewQuorum:
         )
 
         assert quorum["unresolved_dissent"] is False
-        assert len(quorum["dissenting_views"]) == 1
-        assert quorum["dissenting_views"][0]["highest_finding_priority"] == "P2"
-        assert quorum["dissenting_views"][0]["blocks_merge"] is False
-        assert quorum["dissenting_views"][0]["advisory"] is True
+        assert quorum["dissenting_views"] == []
+        assert len(quorum["advisory_views"]) == 1
+        assert quorum["advisory_views"][0]["position"] == "advisory_changes_requested"
+        assert quorum["advisory_views"][0]["blocking"] is False
+        assert quorum["advisory_views"][0]["highest_severity"] is None
         assert quorum["status"] == "satisfied"
         assert quorum["admin_squash_allowed"] is True
         assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
 
-    def test_comment_frozen_severity_gate_overrides_live_env(
+    def test_severity_gated_protocol_dissent_still_blocks(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "0")
-        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
-        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
-        pr["headRefOid"] = head
-        pr["comments"] = [
-            _codex_openai_review_comment(
-                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
-            ),
-            {
-                "author": {"login": "an0mium"},
-                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
-            },
-            {
-                "author": {"login": "an0mium"},
-                "body": (
-                    "## Claude independent model review\n"
-                    f"Current head: {head}\n"
-                    "Severity-gated model dissent: true\n"
-                    "Verdict: CHANGES-REQUESTED\n"
-                    "[P2] Add stronger smoke coverage in a follow-up."
-                ),
-            },
-        ]
-
-        quorum = _build_model_review_quorum(
-            pr=pr,
-            files=["aragora/cli/commands/swarm.py"],
-            protocol={"status": "metadata_heuristic"},
-            machine_recommendation="approve_candidate",
-            has_pending=False,
-            has_failures=False,
-        )
-
-        assert quorum["unresolved_dissent"] is False
-        assert quorum["dissenting_views"][0]["severity_gated_model_dissent"] is True
-        assert quorum["dissenting_views"][0]["blocks_merge"] is False
-        assert quorum["dissenting_views"][0]["advisory"] is True
-
-    def test_severity_gated_protocol_p2_dissent_is_advisory(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
         protocol = _executed_protocol()
         protocol["dissenting_views"] = [
             {
@@ -1349,16 +1308,15 @@ class TestModelReviewQuorum:
             has_failures=False,
         )
 
-        assert quorum["unresolved_dissent"] is False
-        assert quorum["dissenting_views"][0]["blocks_merge"] is False
-        assert quorum["dissenting_views"][0]["advisory"] is True
-        assert quorum["status"] == "satisfied"
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
 
     def test_severity_gated_explicit_p2_blocker_still_blocks(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
         head = "cd87c5a1b2db34f04167906553502db3ede9525e"
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head
@@ -1394,15 +1352,13 @@ class TestModelReviewQuorum:
         assert quorum["unresolved_dissent"] is True
         assert quorum["status"] == "unresolved_dissent"
         assert quorum["admin_squash_allowed"] is False
-        assert quorum["dissenting_views"][0]["highest_finding_priority"] == "P2"
-        assert quorum["dissenting_views"][0]["blocks_merge"] is True
-        assert quorum["dissenting_views"][0]["advisory"] is False
+        assert quorum["dissenting_views"][0]["agent"] == "claude"
 
     def test_severity_gated_p1_changes_requested_still_blocks(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_MODEL_DISSENT", "1")
+        monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
         head = "cd87c5a1b2db34f04167906553502db3ede9525e"
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
         pr["headRefOid"] = head
@@ -1437,7 +1393,7 @@ class TestModelReviewQuorum:
         assert quorum["unresolved_dissent"] is True
         assert quorum["status"] == "unresolved_dissent"
         assert quorum["admin_squash_allowed"] is False
-        assert quorum["dissenting_views"][0]["highest_finding_priority"] == "P1"
+        assert quorum["dissenting_views"][0]["agent"] == "claude"
 
     def test_github_actions_bot_changes_requested_comment_blocks_quorum(self) -> None:
         head = "cd87c5a1b2db34f04167906553502db3ede9525e"
