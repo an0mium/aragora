@@ -2082,6 +2082,12 @@ def apply_prepared_evidence(
                 counted_reviewer_ids=counted_reviewer_ids,
                 problems=problems,
                 verdict=_reviewer_verdict(item.body),
+                # Preserve the regime already reconciled by _clone_prepared_items
+                # (effective = prepared AND live). Re-running the linter must NOT
+                # let EvidenceItem.default_factory re-read the live env and undo
+                # min(prepared, live) — a strict-prepared artifact stays strict even
+                # when the live flag is ON (claude/grok #8574 P1).
+                severity_gated=item.severity_gated,
             )
         )
     outcome.items = relinted_items

@@ -114,11 +114,16 @@ Four changes; flag OFF ⇒ identical behavior:
    comments are recorded in `advisory_views` and surfaced as a non-blocking
    `reasons` note.
 4. **`EvidenceItem.dissenting`** (quorum_evidence) is `dissenting` only when
-   `verdict == "changes_requested" AND highest_blocking_severity(body) is not None`
-   while the flag is ON; OFF ⇒ `dissenting = (verdict == "changes_requested")` as
-   today. The flag is captured once at construction (`severity_gated` field, default
-   factory) so a gate decision stays deterministic within a settlement flow — the
-   same pattern as `CollectOutcome.tiered_gate`. `supportive` is unchanged.
+   `verdict == "changes_requested" AND has_blocking_finding_or_label(body)` while the
+   flag is ON — i.e. a real `[P0]`/`[P1]` finding OR a populated Blocker label (the
+   latter blocks even without a `[P0]`/`[P1]` marker, matching the review-queue half;
+   this is strictly broader than `highest_blocking_severity(body) is not None`, which
+   only detects `[P0]`/`[P1]`). OFF ⇒ `dissenting = (verdict == "changes_requested")`
+   as today. The flag is captured once at construction (`severity_gated` field) and —
+   like `CollectOutcome.tiered_gate` — is serialized into prepared artifacts and
+   reconciled `effective = prepared AND live` at apply, so a gate decision stays
+   deterministic and cannot be relaxed by flipping the env between prepare and apply.
+   `supportive` is unchanged.
 
 ## Rollout
 

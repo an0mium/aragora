@@ -2811,3 +2811,47 @@ def test_severity_gated_regime_controls_p2_dissent_after_roundtrip() -> None:
         }
     )
     assert rt.severity_gated is True and rt.dissenting is False
+
+
+def test_apply_relint_preserves_reconciled_severity_gated(tmp_path, monkeypatch) -> None:
+    # End-to-end apply: a STRICT-prepared (severity_gated=False) [P2]-only
+    # changes_requested item must stay strict (dissenting) even when the live flag is
+    # ON. The relint loop must not let EvidenceItem.default_factory re-read the live
+    # env and undo min(prepared, live) (claude/grok #8574 P1).
+    body = "Verdict: CHANGES-REQUESTED\n\n- [P2] minor style nit"
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=4,
+        action="prepare",
+        action_reason="prepared",
+        items=[
+            EvidenceItem(
+                "grok", body, True, ["grok"], [], "changes_requested", severity_gated=False
+            )
+        ],
+    )
+    path = tmp_path / "strict_p2.json"
+    path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")  # live ON would relax it
+    applied = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=path,
+        author="me",
+        apply=True,
+        families=["grok"],
+        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda r, p: 4,
+        linter=lambda *a, **k: {
+            "would_count": True,
+            "counted_reviewer_ids": ["grok"],
+            "problems": [],
+        },
+        poster=lambda r, p, b: None,
+    )
+    assert applied.items[0].severity_gated is False  # reconciled strict survives relint
+    assert applied.items[0].dissenting is True
+    assert "grok" in applied.dissenting_families
