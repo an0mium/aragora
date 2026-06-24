@@ -341,6 +341,40 @@ def test_outbox_depth_uses_classifier_actionable_depth_when_available(tmp_path: 
     assert "0 actionable" in result["detail"]
 
 
+def test_outbox_depth_treats_preserved_and_gated_states_as_non_actionable(
+    tmp_path: Path,
+) -> None:
+    outbox = tmp_path / "outbox"
+    non_actionable_states = [
+        "represented_by_exact_open_pr",
+        "represented_by_exact_remote_branch",
+        "blocked_by_owner",
+        "blocked_by_human",
+        "blocked_by_possible_unpushed_work",
+        "preserved_not_actionable",
+    ]
+    classifier_items: list[dict[str, str]] = []
+    counts: dict[str, int] = {}
+    for index, state in enumerate(non_actionable_states):
+        item = _touch(outbox / f"item-{index}.json", age_hours=14 * 24)
+        classifier_items.append({"outbox_file": item.name, "state": state})
+        counts[state] = 1
+
+    result = sentinel.check_outbox(
+        outbox,
+        max_items=0,
+        max_age_days=1,
+        now=NOW,
+        handoff_state={"counts": counts, "items": classifier_items},
+    )
+
+    assert result["status"] == "ok"
+    assert result["depth"] == len(non_actionable_states)
+    assert result["actionable_depth"] == 0
+    assert result["handoff_state_counts"] == counts
+    assert "0 actionable" in result["detail"]
+
+
 def test_outbox_depth_breaches_on_old_actionable_classifier_item(tmp_path: Path) -> None:
     outbox = tmp_path / "outbox"
     _touch(outbox / "actionable.json", age_hours=8 * 24)
