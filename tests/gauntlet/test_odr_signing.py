@@ -5,7 +5,7 @@ Two layers:
      dependency) — sign, manual Ed25519 verify over the raw digest, tamper
      detection, key_id formula, no-mutation, replace/append modes.
   2. A true round-trip against the SHIPPED verifier (``aragora_verify``),
-     skip-gated when that package is not importable, proving producer and
+     hard-failing when that package is not importable, proving producer and
      consumer are compatible — the whole point of #8225 (the verifier landed
      first via #8388).
 """
@@ -132,6 +132,20 @@ def test_input_is_not_mutated() -> None:
     assert original["signatures"] == []
 
 
+def test_signed_receipt_is_deep_copied_from_input() -> None:
+    key = generate_signing_key()
+    original = _valid_odr()
+    signed = sign_odr_receipt(original, key)
+
+    original["claim"]["statement"] = "mutated after signing"
+    original["subject"]["digest"]["value"] = "cafebabe"
+
+    assert signed["claim"]["statement"] == "merge PR #8360"
+    assert signed["subject"]["digest"]["value"] == "deadbeef"
+    sig = base64.b64decode(signed["signatures"][0]["signature"])
+    key.public_key().verify(sig, bytes.fromhex(odr_content_digest(signed)))
+
+
 def test_tampering_invalidates_signature() -> None:
     key = generate_signing_key()
     signed = sign_odr_receipt(_valid_odr(), key)
@@ -161,6 +175,26 @@ def test_replace_mode_drops_prior_signatures() -> None:
     replaced = sign_odr_receipt(once, k2, replace=True)
     assert len(replaced["signatures"]) == 1
     assert replaced["signatures"][0]["key_id"] == compute_key_id(k2.public_key())
+
+
+def test_append_mode_rejects_invalid_existing_signatures() -> None:
+    key = generate_signing_key()
+    odr = _valid_odr()
+    odr["signatures"] = [{"alg": "Ed25519", "key_id": "ed25519-old"}]
+
+    with pytest.raises(OdrSigningError, match="existing signatures\\[0\\]"):
+        sign_odr_receipt(odr, key)
+
+
+def test_replace_mode_drops_invalid_existing_signatures() -> None:
+    key = generate_signing_key()
+    odr = _valid_odr()
+    odr["signatures"] = [{"alg": "Ed25519", "key_id": "ed25519-old"}]
+
+    signed = sign_odr_receipt(odr, key, replace=True)
+
+    assert len(signed["signatures"]) == 1
+    assert signed["signatures"][0]["key_id"] == compute_key_id(key.public_key())
 
 
 def test_pem_round_trip() -> None:
@@ -257,6 +291,47 @@ def test_load_signing_key_from_binary_aws_secret(monkeypatch: pytest.MonkeyPatch
         ),
     )
     monkeypatch.setattr(SecretManager, "_get_aws_client", lambda self, region: DummyClient())
+
+    loaded = load_signing_key_from_secrets()
+    assert compute_key_id(loaded.public_key()) == compute_key_id(key.public_key())
+
+
+def test_empty_aws_region_falls_through_to_next_region(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aragora.config.secrets import SecretManager, SecretsConfig
+
+    key = generate_signing_key()
+    pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode()
+
+    class DummyClient:
+        def __init__(self, region: str) -> None:
+            self.region = region
+
+        def get_secret_value(self, *, SecretId: str) -> dict[str, str]:
+            assert SecretId == DEFAULT_SIGNING_KEY_SECRET
+            if self.region == "us-east-1":
+                return {"SecretString": ""}
+            return {"SecretString": pem}
+
+    monkeypatch.setattr(
+        SecretsConfig,
+        "from_env",
+        classmethod(
+            lambda cls: cls(
+                use_aws=True,
+                aws_region="us-east-1",
+                aws_regions=["us-east-1", "us-west-2"],
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        SecretManager,
+        "_get_aws_client",
+        lambda self, region: DummyClient(region),
+    )
 
     loaded = load_signing_key_from_secrets()
     assert compute_key_id(loaded.public_key()) == compute_key_id(key.public_key())

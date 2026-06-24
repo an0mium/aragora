@@ -32,6 +32,7 @@ Key management (per the post-incident security architecture):
 from __future__ import annotations
 
 import base64
+import copy
 import hashlib
 import logging
 import os
@@ -173,12 +174,14 @@ def _load_pem_secret_from_aws(secret_id: str) -> str:
         if isinstance(secret_binary, bytes) and secret_binary:
             try:
                 return secret_binary.decode("utf-8")
-            except UnicodeDecodeError as exc:
-                raise OdrSigningError(
+            except UnicodeDecodeError:
+                last_error = OdrSigningError(
                     f"ODR signing key secret '{secret_label}' binary value is not UTF-8 PEM"
-                ) from exc
+                )
+                continue
 
-        raise OdrSigningError(f"ODR signing key secret '{secret_label}' is empty")
+        last_error = OdrSigningError(f"ODR signing key secret '{secret_label}' is empty")
+        continue
 
     detail = f" (last error: {type(last_error).__name__})" if last_error else ""
     raise OdrSigningError(
@@ -244,10 +247,25 @@ def sign_odr_receipt(
         ``bytes.fromhex(odr_content_digest(odr))`` — exactly what the verifier
         re-derives and checks.
     """
-    signed = dict(odr)
+    signed = copy.deepcopy(odr)
 
-    existing = odr.get("signatures")
-    signatures: list[Any] = [] if replace or not isinstance(existing, list) else list(existing)
+    existing = signed.get("signatures")
+    signatures: list[Any] = []
+    if not replace and isinstance(existing, list):
+        invalid_index = next(
+            (
+                index
+                for index, entry in enumerate(existing)
+                if not _is_signature_entry_compatible(entry)
+            ),
+            None,
+        )
+        if invalid_index is not None:
+            raise OdrSigningError(
+                f"existing signatures[{invalid_index}] is not a valid ODR signature entry; "
+                "use replace=True to drop existing signatures before signing"
+            )
+        signatures = existing
 
     # The digest excludes the signatures array (detached) — compute it against
     # the payload as the verifier will, regardless of what's already attached.
@@ -266,6 +284,18 @@ def sign_odr_receipt(
     signatures.append(entry)
     signed["signatures"] = signatures
     return signed
+
+
+def _is_signature_entry_compatible(entry: Any) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    if entry.get("alg") != ODR_SIGNATURE_ALG:
+        return False
+    for field in ("key_id", "signature"):
+        if not isinstance(entry.get(field), str) or not entry[field]:
+            return False
+    signed_at = entry.get("signed_at")
+    return signed_at is None or isinstance(signed_at, str)
 
 
 __all__ = [
