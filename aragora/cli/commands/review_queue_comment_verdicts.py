@@ -173,6 +173,30 @@ _ANY_PRIORITY_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1|p2|p3)\](?:\*\*)?
 _REVIEW_METADATA_LABELS = frozenset(
     {"reviewer", "head", "head sha", "current head", "pr", "model family", "dogfood"}
 )
+_REVIEWER_FAMILY_PREFIXES = (
+    "claude",
+    "anthropic",
+    "grok",
+    "xai",
+    "openai",
+    "open ai",
+    "gpt",
+    "gemini",
+    "google",
+    "qwen",
+    "deepseek",
+    "deep seek",
+    "mistral",
+    "kimi",
+    "llama",
+    "codex",
+)
+_SUBSTANTIVE_METADATA_DISSENT = re.compile(
+    r"\b(?:auth|authorization|bypass|broken|unsafe|critical|do not|dont|don't|"
+    r"merge|ship|exploit|sqli|xss|regression|fail|failed|failing|error|bug|"
+    r"defect|production|untriaged|blocking)\b",
+    re.I,
+)
 _SIMPLE_VERDICT_VALUES = (
     "pass",
     "passed",
@@ -189,6 +213,18 @@ _SIMPLE_VERDICT_VALUES = (
     "rejected",
     "not ready",
     "needs repair",
+)
+_NEGATIVE_SIMPLE_VERDICT_VALUES = frozenset(
+    {
+        "request changes",
+        "changes requested",
+        "fail",
+        "failed",
+        "reject",
+        "rejected",
+        "not ready",
+        "needs repair",
+    }
 )
 _SIMPLE_DOGFOOD_VALUES = frozenset(
     {
@@ -320,16 +356,45 @@ def _is_review_metadata_line(stripped: str) -> bool:
     normalized_line = _normalize_value(line)
     if not normalized_line:
         return True
-    if "independent model review" in normalized_line:
+    if re.fullmatch(r"(?:[a-z0-9][a-z0-9 ]*\s+)?independent model review", normalized_line):
         return True
     label_value = _line_label_and_value(stripped)
     if label_value is not None and label_value[0] == "dogfood":
         return label_value[1].strip(" .;:!?)]—–-") in _SIMPLE_DOGFOOD_VALUES
     if label_value is not None and label_value[0] in _REVIEW_METADATA_LABELS:
-        return True
+        return _is_safe_review_metadata_value(label_value[0], label_value[1])
     if label_value is not None and label_value[0] in {"verdict", "decision", "recommendation"}:
         return _is_simple_verdict_value(label_value[1])
     return False
+
+
+def _is_safe_review_metadata_value(label: str, normalized_value: str) -> bool:
+    value = normalized_value.strip(" .;:!?)]—–-")
+    if not value:
+        return False
+    if label in {"head", "head sha", "current head"}:
+        return bool(re.match(r"^[0-9a-f]{7,40}\b", value, re.I))
+    if label == "pr":
+        return bool(re.fullmatch(r"#?\d+", value))
+    if label == "model family":
+        return _starts_with_known_reviewer_family(
+            value
+        ) and not _SUBSTANTIVE_METADATA_DISSENT.search(value)
+    if label == "reviewer":
+        if _SUBSTANTIVE_METADATA_DISSENT.search(value):
+            return False
+        if not _starts_with_known_reviewer_family(value):
+            return False
+        if "independent adversarial model review" in value:
+            return True
+        return bool(re.fullmatch(r"[a-z0-9 .()]+", value) and len(value.split()) <= 4)
+    return False
+
+
+def _starts_with_known_reviewer_family(value: str) -> bool:
+    return any(
+        value == prefix or value.startswith(f"{prefix} ") for prefix in _REVIEWER_FAMILY_PREFIXES
+    )
 
 
 def _is_simple_verdict_value(normalized_value: str) -> bool:
@@ -338,7 +403,7 @@ def _is_simple_verdict_value(normalized_value: str) -> bool:
         if value == phrase:
             return True
         if value.startswith(f"{phrase} from "):
-            return True
+            return phrase not in _NEGATIVE_SIMPLE_VERDICT_VALUES
     return False
 
 

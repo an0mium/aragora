@@ -281,6 +281,42 @@ def test_severity_gated_declarations_with_substantive_dissent_still_block(body):
     assert has_blocking_model_dissent(body, severity_gated=True) is True
 
 
+def test_severity_gated_standard_metadata_with_low_severity_finding_is_advisory():
+    body = "\n".join(
+        [
+            "## Claude independent model review",
+            "Reviewer: claude (anthropic) - independent adversarial model review "
+            "via the Aragora Claude reviewer, grounded on the exact PR head.",
+            "Head: a6ffdd9 (a6ffdd9aa4cb6a2838c8647a2f436d5b9135e5a6), "
+            "committed 2026-06-24T13:56:06Z.",
+            "PR: #8590.",
+            "Model family: claude",
+            "Verdict: CHANGES-REQUESTED",
+            "- [P2] Add a follow-up regression test.",
+            "dogfood: yes",
+        ]
+    )
+
+    assert has_blocking_model_dissent(body, severity_gated=True) is False
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: CHANGES-REQUESTED\nReviewer: auth bypass on admin endpoint\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\n[P3] nit\nReviewer: this is actually critical, do not merge.",
+        "Verdict: CHANGES-REQUESTED\nBlockers: none\nPR: merging this will break production.",
+        "Verdict: CHANGES-REQUESTED\n[P3] nit\nHead-of-line blocking is the real "
+        "defect; do not ship.",
+        "## Claude independent model review found auth bypass\n"
+        "Verdict: CHANGES-REQUESTED\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED from grok\nFollow-up-only: yes",
+    ],
+)
+def test_severity_gated_metadata_hiding_dissent_still_blocks(body):
+    assert has_blocking_model_dissent(body, severity_gated=True) is True
+
+
 def test_p0_p1_block_both_paths():
     for sev in ("P0", "P1"):
         body = f"[{sev}] settlement gate can be bypassed"
