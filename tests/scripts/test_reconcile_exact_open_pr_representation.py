@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 import scripts.handoff_state as handoff_state
 import scripts.reconcile_automation_outbox as reconcile
 
@@ -264,6 +266,44 @@ def test_exact_open_pr_representation_apply_blocks_when_reverify_fails(
     assert payload["counts"]["blocked_exact_open_pr_representation"] == 1
     assert payload["actions"][0]["decision"] == "keep"
     assert "PR head changed" in payload["actions"][0]["reason"]
+    assert outbox_file.exists()
+    assert not (tmp_path / ".aragora" / "automation-receipts" / f"{outbox_file.stem}.json").exists()
+
+
+def test_exact_open_pr_representation_move_failure_does_not_write_receipt(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    outbox_file = _write_outbox(tmp_path)
+
+    def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
+        return _classifier_payload(outbox_file.name)
+
+    def fake_reverify(**kwargs: Any) -> tuple[dict[str, Any] | None, str | None]:
+        representation = dict(kwargs["representation"])
+        representation["apply_reverified"] = True
+        return representation, None
+
+    def fail_move(source: str, destination: str) -> None:
+        raise OSError("move failed")
+
+    monkeypatch.setattr(reconcile, "classify_handoffs", fake_classify_handoffs)
+    monkeypatch.setattr(reconcile, "_verify_exact_open_pr_representation", fake_reverify)
+    monkeypatch.setattr(reconcile.shutil, "move", fail_move)
+
+    with pytest.raises(OSError):
+        reconcile.main(
+            [
+                "--repo",
+                str(tmp_path),
+                "--state-root",
+                str(tmp_path),
+                "--outbox-file",
+                outbox_file.name,
+                "--apply",
+                "--json",
+            ]
+        )
+
     assert outbox_file.exists()
     assert not (tmp_path / ".aragora" / "automation-receipts" / f"{outbox_file.stem}.json").exists()
 

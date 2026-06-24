@@ -375,16 +375,21 @@ def _actionable_outbox_items(
     raw_items = handoff_state.get("items")
     if not isinstance(raw_items, Sequence) or isinstance(raw_items, (str, bytes, bytearray)):
         return list(items)
+    classified_names = {
+        str(item.get("outbox_file") or "").strip()
+        for item in raw_items
+        if isinstance(item, Mapping)
+    }
     actionable_names = {
         str(item.get("outbox_file") or "").strip()
         for item in raw_items
         if isinstance(item, Mapping)
         and str(item.get("state") or "").strip() in ACTIONABLE_HANDOFF_STATES
     }
-    if not actionable_names:
-        return []
     by_name = {item.name: item for item in items}
-    return [by_name[name] for name in sorted(actionable_names) if name in by_name]
+    actionable = [by_name[name] for name in sorted(actionable_names) if name in by_name]
+    missing = [item for item in items if item.name not in classified_names]
+    return actionable + missing
 
 
 def _load_handoff_state(args: argparse.Namespace) -> Mapping[str, Any] | None:
@@ -393,10 +398,11 @@ def _load_handoff_state(args: argparse.Namespace) -> Mapping[str, Any] | None:
     default_outbox_dir = _repo_state_defaults(repo_root)["outbox_dir"].expanduser().resolve()
     if outbox_dir != default_outbox_dir:
         return None
+    state_root = default_outbox_dir.parent
     try:
         payload = classify_handoffs(
             repo_root=repo_root,
-            state_root=repo_root,
+            state_root=state_root,
             github_repo=getattr(args, "github_repo", None),
         )
     except Exception:

@@ -469,7 +469,7 @@ def test_run_checks_loads_handoff_classifier_for_outbox_depth(
 
     def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
         assert kwargs["repo_root"] == tmp_path
-        assert kwargs["state_root"] == tmp_path
+        assert kwargs["state_root"] == tmp_path / ".aragora"
         return {
             "github": {"mode": "ready", "error": None},
             "counts": {"represented_by_exact_remote_branch": 1},
@@ -510,6 +510,33 @@ def test_run_checks_loads_handoff_classifier_for_outbox_depth(
             "handoff_state_counts": {"represented_by_exact_remote_branch": 1},
         }
     ]
+
+
+def test_outbox_depth_treats_classifier_missing_items_as_actionable(tmp_path: Path) -> None:
+    outbox = tmp_path / "outbox"
+    represented = _touch(outbox / "represented.json", age_hours=9 * 24)
+    missing = _touch(outbox / "missing.json", age_hours=9 * 24)
+
+    result = sentinel.check_outbox(
+        outbox,
+        max_items=0,
+        max_age_days=7,
+        now=NOW,
+        handoff_state={
+            "counts": {"represented_by_exact_remote_branch": 1},
+            "items": [
+                {
+                    "outbox_file": represented.name,
+                    "state": "represented_by_exact_remote_branch",
+                }
+            ],
+        },
+    )
+
+    assert result["status"] == "breach"
+    assert result["depth"] == 2
+    assert result["actionable_depth"] == 1
+    assert f"oldest actionable item {missing.name}" in result["detail"]
 
 
 def test_run_checks_uses_raw_depth_for_custom_outbox_dir(tmp_path: Path, monkeypatch: Any) -> None:

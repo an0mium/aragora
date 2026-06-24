@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import ast
 import dataclasses
 import json
 import os
@@ -329,19 +328,14 @@ class LaneRegistryOwnerProbe:
         blocking_state = None
         if status in {"active", "blocked", "blocked_on_publication", "claimed"}:
             blocking_state = "live_owner"
-        return OwnerEvidence(
-            available=True,
-            matched=True,
-            lane_id=_first_text(row, "lane_id", "lane"),
-            owner_session=_first_text(row, "owner_session", "session"),
-            source=_first_text(row, "source"),
-            status=status or None,
-            owner_blocking_state=blocking_state,
-            owner_blocking_state_reason=(
-                "lane registry status is active/blocking" if blocking_state else None
-            ),
-            payload=dict(row),
+        evidence = owner_evidence_from_payload(row)
+        evidence.status = status or evidence.status
+        evidence.owner_blocking_state = evidence.owner_blocking_state or blocking_state
+        evidence.owner_blocking_state_reason = evidence.owner_blocking_state_reason or (
+            "lane registry status is active/blocking" if blocking_state else None
         )
+        evidence.advisory_withheld = evidence.advisory_withheld or _possible_unpushed_marker(row)
+        return evidence
 
 
 def owner_evidence_from_payload(payload: Mapping[str, Any]) -> OwnerEvidence:
@@ -365,6 +359,11 @@ def owner_evidence_from_payload(payload: Mapping[str, Any]) -> OwnerEvidence:
         stale_claim_available=available,
         payload=dict(payload),
     )
+
+
+def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
+    text = json.dumps(payload, sort_keys=True).lower()
+    return "possible_unpushed_work" if "possible_unpushed_work" in text else None
 
 
 def classify_handoffs(
@@ -501,20 +500,6 @@ def classify_handoff_item(
 
     github = github_evidence_for_branch(github_client, branch, desired_head)
     evidence["github"] = dataclasses.asdict(github)
-    if github.exact_open_pr is not None:
-        number = github.exact_open_pr.get("number")
-        return HandoffClassification(
-            outbox_file=path.name,
-            idempotency_key=idem,
-            branch=branch,
-            desired_head_sha=desired_head or None,
-            state=HandoffState.REPRESENTED_BY_EXACT_OPEN_PR,
-            reason=f"branch has exact-head open PR #{number}",
-            evidence=evidence,
-            next_mutation_candidate="write_representation_receipt_then_archive",
-            safe_to_mutate=True,
-        )
-
     owner = owner_probe.probe(branch) if branch else OwnerEvidence()
     evidence["owner"] = dataclasses.asdict(owner)
     steering = steering_evidence_for_branch(
@@ -524,6 +509,24 @@ def classify_handoff_item(
         lane_id=owner.lane_id,
     )
     evidence["steering"] = dataclasses.asdict(steering)
+    if github.exact_open_pr is not None:
+        number = github.exact_open_pr.get("number")
+        mutation_safe = not (
+            _possible_unpushed(owner)
+            or _human_blocked(owner, steering)
+            or _owner_blocked(owner, steering)
+        )
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.REPRESENTED_BY_EXACT_OPEN_PR,
+            reason=f"branch has exact-head open PR #{number}",
+            evidence=evidence,
+            next_mutation_candidate="write_representation_receipt_then_archive",
+            safe_to_mutate=mutation_safe,
+        )
 
     if _remote_ref_matches(github.remote_ref, desired_head) and not _possible_unpushed(owner):
         return HandoffClassification(
@@ -1112,11 +1115,7 @@ def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
         parsed = None
     if isinstance(parsed, Mapping):
         return parsed
-    try:
-        parsed = ast.literal_eval(text)
-    except (SyntaxError, ValueError):
-        return None
-    return parsed if isinstance(parsed, Mapping) else None
+    return None
 
 
 def _local_evidence_mappings(value: Any) -> list[Mapping[str, Any]]:

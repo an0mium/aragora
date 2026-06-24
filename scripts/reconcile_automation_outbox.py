@@ -23,7 +23,6 @@ a JSON report.
 from __future__ import annotations
 
 import argparse
-import ast
 import json
 import os
 import shutil
@@ -191,12 +190,6 @@ def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
     if isinstance(parsed, Mapping):
         return parsed
 
-    try:
-        parsed = ast.literal_eval(text)
-    except (SyntaxError, ValueError):
-        return None
-    if isinstance(parsed, Mapping):
-        return parsed
     return None
 
 
@@ -1658,6 +1651,7 @@ def main(argv: list[str] | None = None) -> int:
                     }
                 )
                 if args.apply:
+                    shutil.move(str(path), str(archive_dir / path.name))
                     _write_synthetic_receipt(
                         receipt_dir=receipt_dir,
                         outbox_payload=payload,
@@ -1665,7 +1659,6 @@ def main(argv: list[str] | None = None) -> int:
                         pr_number=int(representation["number"]),
                         apply=True,
                     )
-                    shutil.move(str(path), str(archive_dir / path.name))
                 continue
             if blocked_reason is not None:
                 counts["blocked_exact_open_pr_representation"] += 1
