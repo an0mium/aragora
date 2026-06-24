@@ -38,17 +38,10 @@ import shlex
 import shutil
 import subprocess
 import sys
-from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Callable
-
-SCRIPTS_DIR = Path(__file__).resolve().parent
-DEFAULT_REPO_ROOT = SCRIPTS_DIR.parent
-sys.path.insert(0, str(SCRIPTS_DIR))
-
-from handoff_state import classify_handoffs  # noqa: E402
 
 CheckResult = dict[str, Any]
 
@@ -71,10 +64,6 @@ ALL_CHECKS = (
 # ledger-less orphan-branch sweep (failure class A, 2026-06-10/11: coordinator
 # lanes died at setup leaving empty elves/run-* branches nobody noticed).
 ORPHAN_BRANCH_PATTERNS = ("elves/*", "aragora/boss*")
-ACTIONABLE_HANDOFF_STATES = {
-    "publication_requested",
-    "unknown",
-}
 LANE_TIMESTAMP_KEYS = (
     "updated_at",
     "last_heartbeat_at",
@@ -117,41 +106,6 @@ def _automation_state_root(repo_root: Path) -> Path:
         root = Path(configured).expanduser()
         return root if root.name == ".aragora" else root / ".aragora"
     return _canonical_repo_root(repo_root) / ".aragora"
-
-
-def _repo_state_defaults(repo_root: Path) -> dict[str, Path]:
-    state_root = _automation_state_root(repo_root)
-    return {
-        "publisher_status": state_root / "automation-github-status" / "latest.json",
-        "boss_metrics": state_root / "overnight" / "boss_metrics.jsonl",
-        "outbox_dir": state_root / "automation-outbox",
-        "lanes_glob": state_root / "run-*" / "lanes",
-        "publisher_log": state_root / "overnight" / "codex-automation-publisher.log",
-        "trail_chain": state_root / "trail" / "intent-chain.jsonl",
-        "ledger": state_root / "fleet-sentinel" / "ledger.jsonl",
-        "agent_bridge_lanes": state_root / "agent-bridge" / "lanes.json",
-        "agent_heartbeats": state_root / "agent-bridge" / "heartbeats.json",
-        "operator_steering_root": state_root / "operator-steering",
-        "stale_terminal_owner_receipt_dir": (
-            state_root / "agent-bridge" / "conflict-resolution-receipts"
-        ),
-    }
-
-
-def _apply_repo_root_defaults(args: argparse.Namespace) -> argparse.Namespace:
-    """Rebase repo-local default paths after ``--repo-root`` is parsed.
-
-    The sentinel is often executed from an implementation worktree while checking
-    the shared root checkout.  Argparse defaults are computed before
-    ``--repo-root`` is known, so dependent ``.aragora`` paths must be adjusted
-    here unless the caller supplied an explicit non-default override.
-    """
-    old_defaults = _repo_state_defaults(DEFAULT_REPO_ROOT)
-    new_defaults = _repo_state_defaults(Path(args.repo_root))
-    for field, old_default in old_defaults.items():
-        if Path(str(getattr(args, field, old_default))) == old_default:
-            setattr(args, field, str(new_defaults[field]))
-    return args
 
 
 def parse_iso(value: str) -> datetime:
@@ -302,149 +256,37 @@ def check_checkout_invariant(repo: Path, *, branch_reader: Callable[[Path], str]
 
 
 def check_outbox(
-    outbox_dir: Path,
-    *,
-    max_items: int,
-    max_age_days: float,
-    now: datetime,
-    handoff_state: Mapping[str, Any] | None = None,
+    outbox_dir: Path, *, max_items: int, max_age_days: float, now: datetime
 ) -> CheckResult:
-    """Outbox depth and oldest actionable-item age (archive/ excluded)."""
+    """Outbox depth and oldest-item age (archive/ excluded)."""
     name = "outbox_depth"
     if not outbox_dir.is_dir():
         result = _result(name, "ok", f"no outbox dir at {outbox_dir}")
         result["depth"] = 0
-        result["actionable_depth"] = 0
         result["fingerprint"] = _outbox_fingerprint([])
-        result["actionable_fingerprint"] = _outbox_fingerprint([])
         return result
     items = sorted(p for p in outbox_dir.glob("*.json") if p.is_file())
     fingerprint = _outbox_fingerprint(items)
-    github = handoff_state.get("github") if isinstance(handoff_state, Mapping) else None
-    if isinstance(github, Mapping) and github.get("mode") == "degraded":
-        result = _result(
-            name,
-            "unknown",
-            f"handoff classifier degraded ({github.get('error') or 'unknown error'}); cannot safely assess actionable outbox depth",
-        )
-        result["depth"] = len(items)
-        result["actionable_depth"] = None
-        result["fingerprint"] = fingerprint
-        if handoff_counts := _handoff_state_counts(handoff_state):
-            result["handoff_state_counts"] = handoff_counts
-        return result
-    actionable_items = _actionable_outbox_items(items, handoff_state)
-    actionable_fingerprint = _outbox_fingerprint(actionable_items)
-    actionable_depth = len(actionable_items)
-    handoff_counts = _handoff_state_counts(handoff_state)
     problems: list[str] = []
-    if actionable_depth > max_items:
-        problems.append(
-            f"{actionable_depth} actionable item(s) queued "
-            f"(raw depth {len(items)}, max {max_items})"
-        )
-    if actionable_items:
-        oldest = min(actionable_items, key=lambda p: p.stat().st_mtime)
+    if len(items) > max_items:
+        problems.append(f"{len(items)} items queued (max {max_items})")
+    if items:
+        oldest = min(items, key=lambda p: p.stat().st_mtime)
         oldest_days = _age_hours(oldest, now) / 24.0
         if oldest_days > max_age_days:
             problems.append(
-                f"{len(items)} item(s) queued; {actionable_depth} actionable item(s); "
-                f"oldest actionable item {oldest.name} is {oldest_days:.1f}d old "
-                f"(max {max_age_days}d)"
+                f"{len(items)} item(s) queued; oldest item {oldest.name} is "
+                f"{oldest_days:.1f}d old (max {max_age_days}d)"
             )
     if problems:
         result = _result(name, "breach", "; ".join(problems))
         result["depth"] = len(items)
-        result["actionable_depth"] = actionable_depth
         result["fingerprint"] = fingerprint
-        result["actionable_fingerprint"] = actionable_fingerprint
-        if handoff_counts:
-            result["handoff_state_counts"] = handoff_counts
         return result
-    result = _result(
-        name,
-        "ok",
-        f"{len(items)} item(s) queued; {actionable_depth} actionable",
-    )
+    result = _result(name, "ok", f"{len(items)} item(s) queued")
     result["depth"] = len(items)
-    result["actionable_depth"] = actionable_depth
     result["fingerprint"] = fingerprint
-    result["actionable_fingerprint"] = actionable_fingerprint
-    if handoff_counts:
-        result["handoff_state_counts"] = handoff_counts
     return result
-
-
-def _handoff_state_counts(handoff_state: Mapping[str, Any] | None) -> dict[str, int]:
-    counts = handoff_state.get("counts") if isinstance(handoff_state, Mapping) else None
-    if not isinstance(counts, Mapping):
-        return {}
-    normalized: dict[str, int] = {}
-    for key, value in counts.items():
-        try:
-            normalized[str(key)] = int(value)
-        except (TypeError, ValueError):
-            continue
-    return dict(sorted(normalized.items()))
-
-
-def _actionable_outbox_items(
-    items: Sequence[Path],
-    handoff_state: Mapping[str, Any] | None,
-) -> list[Path]:
-    if not handoff_state:
-        return list(items)
-    raw_items = handoff_state.get("items")
-    if not isinstance(raw_items, Sequence) or isinstance(raw_items, (str, bytes, bytearray)):
-        return list(items)
-    classified_names = {
-        str(item.get("outbox_file") or "").strip()
-        for item in raw_items
-        if isinstance(item, Mapping)
-    }
-    actionable_names = {
-        str(item.get("outbox_file") or "").strip()
-        for item in raw_items
-        if isinstance(item, Mapping)
-        and str(item.get("state") or "").strip() in ACTIONABLE_HANDOFF_STATES
-    }
-    by_name = {item.name: item for item in items}
-    actionable = [by_name[name] for name in sorted(actionable_names) if name in by_name]
-    missing = [item for item in items if item.name not in classified_names]
-    return actionable + missing
-
-
-def _load_handoff_state(args: argparse.Namespace) -> Mapping[str, Any] | None:
-    repo_root = Path(args.repo_root).expanduser().resolve()
-    outbox_dir = Path(args.outbox_dir).expanduser().resolve()
-    default_outbox_dir = _repo_state_defaults(repo_root)["outbox_dir"].expanduser().resolve()
-    if outbox_dir != default_outbox_dir:
-        return None
-    state_root = default_outbox_dir.parent
-    try:
-        payload = classify_handoffs(
-            repo_root=repo_root,
-            state_root=state_root,
-            github_repo=getattr(args, "github_repo", None),
-            github_timeout_seconds=5,
-        )
-    except Exception as exc:  # noqa: BLE001 - sentinel should surface classifier blindness
-        return {
-            "github": {
-                "mode": "degraded",
-                "error": f"classifier failed: {exc.__class__.__name__}: {exc}",
-            },
-            "counts": {},
-            "items": [],
-        }
-    github = payload.get("github") if isinstance(payload, Mapping) else None
-    if not isinstance(github, Mapping):
-        return None
-    if github.get("mode") != "ready":
-        items = payload.get("items") if isinstance(payload, Mapping) else None
-        if not isinstance(items, list):
-            return None
-    return payload if isinstance(payload, Mapping) else None
 
 
 def _outbox_fingerprint(items: list[Path]) -> str:
@@ -455,47 +297,30 @@ def _outbox_fingerprint(items: list[Path]) -> str:
     return digest.hexdigest()
 
 
-def _extract_outbox_depth(check: dict[str, Any]) -> tuple[int | None, str]:
-    actionable_depth = check.get("actionable_depth")
-    if isinstance(actionable_depth, int) and actionable_depth >= 0:
-        return actionable_depth, "actionable"
-    if (
-        isinstance(actionable_depth, float)
-        and actionable_depth.is_integer()
-        and actionable_depth >= 0
-    ):
-        return int(actionable_depth), "actionable"
+def _extract_outbox_depth(check: dict[str, Any]) -> int | None:
     depth = check.get("depth")
     if isinstance(depth, int) and depth >= 0:
-        return depth, "raw"
+        return depth
     if isinstance(depth, float) and depth.is_integer() and depth >= 0:
-        return int(depth), "raw"
-    detail = str(check.get("detail") or "")
-    match = re.search(r"(\d+)\s+actionable", detail)
+        return int(depth)
+    match = re.search(r"(\d+)\s+item", str(check.get("detail") or ""))
     if match:
-        return int(match.group(1)), "actionable"
-    match = re.search(r"(\d+)\s+item", detail)
-    if match:
-        return int(match.group(1)), "raw"
-    return None, "unknown"
+        return int(match.group(1))
+    return None
 
 
 def _extract_outbox_fingerprint(check: dict[str, Any]) -> str | None:
-    actionable_fingerprint = check.get("actionable_fingerprint")
-    if isinstance(actionable_fingerprint, str) and actionable_fingerprint:
-        return actionable_fingerprint
     fingerprint = check.get("fingerprint")
     if isinstance(fingerprint, str) and fingerprint:
         return fingerprint
     return None
 
 
-def _extract_outbox_sample(checks: Any) -> tuple[int | None, str | None, str]:
+def _extract_outbox_sample(checks: Any) -> tuple[int | None, str | None]:
     for check in checks or []:
         if isinstance(check, dict) and check.get("check") == "outbox_depth":
-            depth, source = _extract_outbox_depth(check)
-            return depth, _extract_outbox_fingerprint(check), source
-    return None, None, "unknown"
+            return _extract_outbox_depth(check), _extract_outbox_fingerprint(check)
+    return None, None
 
 
 def check_outbox_drain_progress(
@@ -504,7 +329,6 @@ def check_outbox_drain_progress(
     *,
     stall_cycles: int,
     min_floor: int,
-    handoff_state: Mapping[str, Any] | None = None,
 ) -> CheckResult:
     """Circuit-breaker: flag an outbox that stays congested without draining.
 
@@ -523,55 +347,41 @@ def check_outbox_drain_progress(
     current_items = (
         sorted(p for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else []
     )
-    github = handoff_state.get("github") if isinstance(handoff_state, Mapping) else None
-    if isinstance(github, Mapping) and github.get("mode") == "degraded":
-        return _result(
-            name,
-            "unknown",
-            f"handoff classifier degraded ({github.get('error') or 'unknown error'}); cannot safely assess outbox drain progress",
-        )
-    current_actionable_items = _actionable_outbox_items(current_items, handoff_state)
-    current = len(current_actionable_items)
-    current_fingerprint = _outbox_fingerprint(current_actionable_items)
+    current = len(current_items)
+    current_fingerprint = _outbox_fingerprint(current_items)
     if current < min_floor:
         return _result(name, "ok", f"outbox depth {current} below floor {min_floor}")
     if not ledger.exists():
         return _result(name, "ok", f"no ledger history at {ledger}; cannot assess drain")
-    samples: list[tuple[int | None, str | None, str]] = []
+    samples: list[tuple[int | None, str | None]] = []
     for line in _read_tail_lines(ledger, stall_cycles + 4):
         try:
             entry = json.loads(line)
         except (ValueError, TypeError):
-            samples.append((None, None, "unknown"))
+            samples.append((None, None))
             continue
         if not isinstance(entry, dict):
-            samples.append((None, None, "unknown"))
+            samples.append((None, None))
             continue
         samples.append(_extract_outbox_sample(entry.get("checks")))
     if len(samples) < stall_cycles:
-        usable = sum(1 for depth, _fingerprint, _source in samples if depth is not None)
+        usable = sum(1 for depth, _fingerprint in samples if depth is not None)
         return _result(
             name, "ok", f"only {usable} prior cycle(s); need {stall_cycles} to assess drain"
         )
     recent_samples = samples[-stall_cycles:]
-    if any(depth is None for depth, _fingerprint, _source in recent_samples):
-        usable = sum(1 for depth, _fingerprint, _source in recent_samples if depth is not None)
+    if any(depth is None for depth, _fingerprint in recent_samples):
+        usable = sum(1 for depth, _fingerprint in recent_samples if depth is not None)
         return _result(
             name,
             "unknown",
             f"only {usable} usable outbox_depth sample(s) in the last {stall_cycles} ledger cycle(s); cannot assess drain",
         )
-    window = [depth for depth, _fingerprint, _source in recent_samples if depth is not None]
-    sources = [source for _depth, _fingerprint, source in recent_samples]
-    current_depth = (
-        window[-1] if sources and all(source == "actionable" for source in sources) else current
-    )
-    series = [*window, current_depth]
+    window = [depth for depth, _fingerprint in recent_samples if depth is not None]
+    series = [*window, current]
     congested = all(depth >= min_floor for depth in series)
-    not_draining = current_depth >= window[-1] and current_depth >= window[0]
-    fingerprints = [fingerprint for _depth, fingerprint, _source in recent_samples] + [
-        current_fingerprint
-    ]
+    not_draining = current >= window[-1] and current >= window[0]
+    fingerprints = [fingerprint for _depth, fingerprint in recent_samples] + [current_fingerprint]
     if congested and not_draining and any(not fingerprint for fingerprint in fingerprints):
         return _result(
             name,
@@ -583,19 +393,19 @@ def check_outbox_drain_progress(
         return _result(
             name,
             "ok",
-            f"outbox depth stayed high but item fingerprint changed (recent depths {window}, now {current_depth}); drain loop has throughput",
+            f"outbox depth stayed high but item fingerprint changed (recent depths {window}, now {current}); drain loop has throughput",
         )
     if congested and not_draining:
         return _result(
             name,
             "breach",
-            f"outbox not draining: net depth {window[0]}->{current_depth} stayed at/above {min_floor} "
+            f"outbox not draining: net depth {window[0]}->{current} stayed at/above {min_floor} "
             f"across {stall_cycles} prior cycles plus live depth and item fingerprint did not change — "
             "the drain loop is making no net backlog progress; HALT it and escalate to the operator, "
             "do not keep re-messaging stale lanes (§Conductor dead-letter ban)",
         )
     return _result(
-        name, "ok", f"outbox draining or fluctuating (recent depths {window}, now {current_depth})"
+        name, "ok", f"outbox draining or fluctuating (recent depths {window}, now {current})"
     )
 
 
@@ -1804,17 +1614,11 @@ def append_ledger(ledger: Path, report: dict[str, Any]) -> None:
 
 
 def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
-    args = _apply_repo_root_defaults(args)
     selected = [c.strip() for c in args.checks.split(",") if c.strip()]
     unknown_names = set(selected) - set(ALL_CHECKS)
     if unknown_names:
         raise SystemExit(f"unknown check(s): {sorted(unknown_names)}")
     results: list[CheckResult] = []
-    handoff_state = (
-        _load_handoff_state(args)
-        if "outbox_depth" in selected or "outbox_drain_progress" in selected
-        else None
-    )
     for name in selected:
         try:
             if name == "publisher_status":
@@ -1850,7 +1654,6 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         max_items=args.outbox_max,
                         max_age_days=args.outbox_max_age_days,
                         now=now,
-                        handoff_state=handoff_state,
                     )
                 )
             elif name == "outbox_drain_progress":
@@ -1860,7 +1663,6 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         Path(args.outbox_dir),
                         stall_cycles=args.outbox_drain_stall_cycles,
                         min_floor=args.outbox_max,
-                        handoff_state=handoff_state,
                     )
                 )
             elif name == "disk_free":
@@ -1939,8 +1741,8 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    repo_root = DEFAULT_REPO_ROOT
-    repo_defaults = _repo_state_defaults(repo_root)
+    repo_root = Path(__file__).resolve().parents[1]
+    automation_state_root = _automation_state_root(repo_root)
     parser.add_argument("--repo-root", default=str(repo_root))
     parser.add_argument(
         "--publisher-status",
@@ -1949,24 +1751,19 @@ def build_parser() -> argparse.ArgumentParser:
         # .aragora/automation-publisher-status.json, has been an orphan since
         # its writer moved (~2026-05-24) — watching it would alarm forever on
         # stale data or, worse, stay green on a frozen healthy snapshot.
-        default=str(repo_defaults["publisher_status"]),
+        default=str(repo_root / ".aragora" / "automation-github-status" / "latest.json"),
     )
     parser.add_argument("--publisher-max-age-hours", type=float, default=24.0)
     parser.add_argument(
         "--boss-metrics",
-        default=str(repo_defaults["boss_metrics"]),
+        default=str(repo_root / ".aragora" / "overnight" / "boss_metrics.jsonl"),
     )
     parser.add_argument("--metrics-max-age-hours", type=float, default=48.0)
     parser.add_argument(
         "--launch-agents-dir", default=str(Path.home() / "Library" / "LaunchAgents")
     )
     parser.add_argument("--gh-auth-cmd", default="gh auth status")
-    parser.add_argument(
-        "--github-repo",
-        default="synaptent/aragora",
-        help="GitHub repository used by the handoff-state classifier.",
-    )
-    parser.add_argument("--outbox-dir", default=str(repo_defaults["outbox_dir"]))
+    parser.add_argument("--outbox-dir", default=str(repo_root / ".aragora" / "automation-outbox"))
     parser.add_argument("--outbox-max", type=int, default=50)
     parser.add_argument("--outbox-max-age-days", type=float, default=7.0)
     parser.add_argument(
@@ -1980,24 +1777,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--lanes-glob",
         # Lane-ledger convention: .aragora/run-*/lanes/<lane>.json
-        default=str(repo_defaults["lanes_glob"]),
+        default=str(repo_root / ".aragora" / "run-*" / "lanes"),
         help="glob for lane-ledger directories (entries are <lane>.json inside)",
     )
     parser.add_argument("--lane-max-age-hours", type=float, default=3.0)
     parser.add_argument("--orphan-branch-age-hours", type=float, default=24.0)
     parser.add_argument(
         "--agent-bridge-lanes",
-        default=str(repo_defaults["agent_bridge_lanes"]),
+        default=str(automation_state_root / "agent-bridge" / "lanes.json"),
         help="lane owner registry used by stale_terminal_owner",
     )
     parser.add_argument(
         "--agent-heartbeats",
-        default=str(repo_defaults["agent_heartbeats"]),
+        default=str(automation_state_root / "agent-bridge" / "heartbeats.json"),
         help="heartbeat registry used by stale_terminal_owner safety checks",
     )
     parser.add_argument(
         "--operator-steering-root",
-        default=str(repo_defaults["operator_steering_root"]),
+        default=str(automation_state_root / "operator-steering"),
         help="operator-steering inbox root used by stale_terminal_owner safety checks",
     )
     parser.add_argument(
@@ -2008,7 +1805,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--stale-terminal-owner-receipt-dir",
-        default=str(repo_defaults["stale_terminal_owner_receipt_dir"]),
+        default=str(automation_state_root / "agent-bridge" / "conflict-resolution-receipts"),
         help="receipt directory to print in guarded resolve_lane_conflicts commands",
     )
     parser.add_argument(
@@ -2023,10 +1820,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=30.0,
         help="timeout for stale_terminal_owner GitHub CLI PR-state probes",
     )
+    parser.add_argument("--github-repo", default="synaptent/aragora")
     parser.add_argument("--gh-bin", default="gh")
     parser.add_argument(
         "--publisher-log",
-        default=str(repo_defaults["publisher_log"]),
+        default=str(repo_root / ".aragora" / "overnight" / "codex-automation-publisher.log"),
     )
     parser.add_argument("--publisher-log-tail-lines", type=int, default=2000)
     parser.add_argument(
@@ -2046,7 +1844,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trail-witness-repo", default="synaptent/aragora")
     parser.add_argument(
         "--trail-chain",
-        default=str(repo_defaults["trail_chain"]),
+        default=str(repo_root / ".aragora" / "trail" / "intent-chain.jsonl"),
         help="anchored intent chain (TET Component 2; lane TA's intent_chain module)",
     )
     parser.add_argument(
@@ -2062,7 +1860,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trail-window-hours", type=float, default=24.0)
     parser.add_argument(
         "--ledger",
-        default=str(repo_defaults["ledger"]),
+        default=str(repo_root / ".aragora" / "fleet-sentinel" / "ledger.jsonl"),
     )
     parser.add_argument("--checks", default=",".join(ALL_CHECKS))
     parser.add_argument("--json", action="store_true", help="emit the JSON report to stdout")

@@ -26,7 +26,6 @@ import argparse
 import ast
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -42,8 +41,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
     open_pr_heads,
     run_git,
 )
-from github_cli_health import check_github_cli_health, github_cli_env  # noqa: E402
-from handoff_state import HandoffState, classify_handoffs  # noqa: E402
+from github_cli_health import check_github_cli_health  # noqa: E402
 from identify_lane_owner import build_worktree_reference_preservation_proof  # noqa: E402
 
 UTC = timezone.utc
@@ -61,8 +59,6 @@ DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
 DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
 TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
-EXACT_OPEN_PR_REPRESENTATION_REASON = "exact_open_pr_representation"
-PR_PUBLICATION_IDEMPOTENCY_PREFIXES = ("open-pr-", "update-pr-")
 LOCAL_WORK_MARKER_KEYS = (
     "uncommitted_changes",
     "has_uncommitted_changes",
@@ -188,13 +184,16 @@ def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
-        try:
-            parsed = ast.literal_eval(text)
-        except (SyntaxError, ValueError):
-            parsed = None
+        parsed = None
     if isinstance(parsed, Mapping):
         return parsed
 
+    try:
+        parsed = ast.literal_eval(text)
+    except (SyntaxError, ValueError):
+        return None
+    if isinstance(parsed, Mapping):
+        return parsed
     return None
 
 
@@ -604,20 +603,13 @@ def _requested_action_type(payload: Mapping[str, Any]) -> str:
     requested_action = payload.get("requested_action")
     requested_action_mapping = _mapping_from_action(requested_action)
     if requested_action_mapping is not None:
-        return (
-            str(
-                requested_action_mapping.get("type") or requested_action_mapping.get("action") or ""
-            )
-            .strip()
-            .lower()
-        )
+        return str(requested_action_mapping.get("type") or "").strip().lower()
     if isinstance(requested_action, str):
         return requested_action.strip().lower()
     return ""
 
 
 def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
-    idempotency_key = str(payload.get("idempotency_key") or "")
     return _requested_action_type(payload) in {
         "open_pr",
         "open_pull_request",
@@ -627,7 +619,7 @@ def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
         "push_branch_and_open_pull_request",
         "push_branch_and_open_or_update_pr",
         "push_branch_and_open_or_update_pull_request",
-    } or idempotency_key.startswith(PR_PUBLICATION_IDEMPOTENCY_PREFIXES)
+    }
 
 
 def _receipt_has_pr_reference(receipt: Mapping[str, Any]) -> bool:
@@ -702,7 +694,6 @@ def _target_pr_state(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=20,
-            env=github_cli_env(os.environ),
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -990,248 +981,6 @@ def _archive_with_terminal_disposition(
     return destination
 
 
-def _archive_with_synthetic_receipt(
-    *,
-    path: Path,
-    archive_dir: Path,
-    payload: dict[str, Any],
-    reason: str,
-    pr_number: int | None,
-    terminal_info: Mapping[str, Any],
-    receipt_dir: Path,
-) -> Path:
-    """Archive a handoff and write its synthetic receipt without receipt/live split-brain."""
-    archived = {key: value for key, value in payload.items() if key != "__source_file"}
-    archived["terminal_disposition"] = dict(terminal_info)
-    destination = archive_dir / path.name
-    destination.write_text(json.dumps(archived, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    receipt_path = _write_synthetic_receipt(
-        receipt_dir=receipt_dir,
-        outbox_payload=payload,
-        reason=reason,
-        pr_number=pr_number,
-        apply=True,
-    )
-    try:
-        path.unlink()
-    except OSError:
-        try:
-            receipt_path.unlink()
-        except OSError:
-            pass
-        raise
-    return destination
-
-
-def _exact_open_pr_representation_candidate(
-    *,
-    root: Path,
-    state_root: Path,
-    repo_name: str,
-    path: Path,
-    payload: Mapping[str, Any],
-) -> tuple[dict[str, Any] | None, str | None]:
-    """Return exact open-PR representation evidence for this handoff.
-
-    This is intentionally scoped to one outbox file and delegates the narrow
-    exact branch/head REST checks to the read-only handoff classifier. It never
-    treats broad queue cache state or owner release state as representation.
-    """
-
-    if not _is_pr_publication_request(payload):
-        return None, None
-
-    branch = _branch_from_payload(dict(payload))
-    desired_head = _desired_head_from_payload(dict(payload))
-    if not branch or not desired_head:
-        return None, None
-
-    try:
-        classification = classify_handoffs(
-            repo_root=root,
-            state_root=state_root,
-            github_repo=repo_name,
-            outbox_file=path.name,
-            with_liveness_helper=True,
-        )
-    except Exception as exc:
-        return None, f"exact-open-pr representation classifier failed ({exc.__class__.__name__})"
-
-    items = classification.get("items") if isinstance(classification, Mapping) else None
-    if not isinstance(items, Sequence) or isinstance(items, (str, bytes, bytearray)):
-        return None, "exact-open-pr representation classifier returned no item list"
-
-    idem = str(payload.get("idempotency_key") or path.stem).strip()
-    item = next(
-        (
-            candidate
-            for candidate in items
-            if isinstance(candidate, Mapping)
-            and (
-                str(candidate.get("outbox_file") or "") == path.name
-                or str(candidate.get("idempotency_key") or "") == idem
-            )
-        ),
-        None,
-    )
-    if item is None:
-        return None, "exact-open-pr representation classifier did not return target item"
-
-    if str(item.get("state") or "") != HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value:
-        return None, None
-    if item.get("safe_to_mutate") is not True:
-        return None, "exact-open-pr representation classifier did not mark target safe_to_mutate"
-
-    item_branch = str(item.get("branch") or "").strip()
-    item_head = str(item.get("desired_head_sha") or "").strip()
-    if item_branch != branch or not _heads_match(desired_head, item_head):
-        return None, "exact-open-pr representation classifier returned inconsistent target"
-
-    evidence = item.get("evidence") if isinstance(item.get("evidence"), Mapping) else {}
-    github = evidence.get("github") if isinstance(evidence.get("github"), Mapping) else {}
-    exact_pr = (
-        github.get("exact_open_pr") if isinstance(github.get("exact_open_pr"), Mapping) else None
-    )
-    if exact_pr is None:
-        return None, "exact-open-pr representation lacked exact PR evidence"
-
-    pr_head = str(exact_pr.get("head_sha") or "").strip()
-    if not _heads_match(desired_head, pr_head):
-        return None, "exact-open-pr representation PR head mismatched desired head"
-
-    pr_number = _pr_number_from_value(exact_pr.get("number")) or _pr_number_from_value(
-        exact_pr.get("html_url")
-    )
-    if pr_number is None:
-        return None, "exact-open-pr representation lacked PR number"
-
-    pr_url = str(exact_pr.get("html_url") or "").strip()
-    if not pr_url:
-        pr_url = f"https://github.com/{repo_name}/pull/{pr_number}"
-
-    return (
-        {
-            "number": pr_number,
-            "url": pr_url,
-            "head": str(exact_pr.get("head") or branch),
-            "head_sha": pr_head,
-            "draft": exact_pr.get("draft"),
-            "state": exact_pr.get("state"),
-            "classifier_state": item.get("state"),
-            "classifier_reason": item.get("reason"),
-        },
-        None,
-    )
-
-
-def _verify_exact_open_pr_representation(
-    *,
-    root: Path,
-    repo_name: str,
-    representation: Mapping[str, Any],
-    branch: str,
-    desired_head: str,
-) -> tuple[dict[str, Any] | None, str | None]:
-    """Re-read exact PR state immediately before mutating an outbox item."""
-    pr_number = _pr_number_from_value(representation.get("number")) or _pr_number_from_value(
-        representation.get("url")
-    )
-    if pr_number is None:
-        return None, "exact-open-pr apply reverify lacked PR number"
-    try:
-        proc = subprocess.run(
-            ["gh", "api", f"repos/{repo_name}/pulls/{pr_number}"],
-            cwd=root,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=20,
-            env=github_cli_env(os.environ),
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return None, f"exact-open-pr apply reverify failed ({exc.__class__.__name__})"
-    if proc.returncode != 0:
-        detail = (proc.stderr or "").strip().splitlines()
-        return None, (
-            "exact-open-pr apply reverify failed "
-            f"(gh api exited {proc.returncode}: {detail[0] if detail else ''})"
-        )
-    try:
-        payload = json.loads(proc.stdout)
-    except json.JSONDecodeError:
-        return None, "exact-open-pr apply reverify failed (unparseable PR JSON)"
-    if not isinstance(payload, Mapping):
-        return None, "exact-open-pr apply reverify failed (PR response was not a mapping)"
-    state = str(payload.get("state") or "").lower()
-    head = payload.get("head") if isinstance(payload.get("head"), Mapping) else {}
-    head_ref = str(head.get("ref") or "").strip()
-    head_sha = str(head.get("sha") or "").strip()
-    if state != "open":
-        return (
-            None,
-            f"exact-open-pr apply reverify failed (PR #{pr_number} is {state or 'unknown'})",
-        )
-    if head_ref != branch:
-        return None, "exact-open-pr apply reverify failed (PR branch changed)"
-    if not _heads_match(desired_head, head_sha):
-        return None, "exact-open-pr apply reverify failed (PR head changed)"
-    return (
-        {
-            "number": pr_number,
-            "url": str(payload.get("html_url") or representation.get("url") or "").strip()
-            or f"https://github.com/{repo_name}/pull/{pr_number}",
-            "head": head_ref,
-            "head_sha": head_sha,
-            "draft": payload.get("draft"),
-            "state": payload.get("state"),
-            "classifier_state": representation.get("classifier_state"),
-            "classifier_reason": representation.get("classifier_reason"),
-            "apply_reverified": True,
-        },
-        None,
-    )
-
-
-def _reverify_exact_open_pr_representation_for_apply(
-    *,
-    root: Path,
-    state_root: Path,
-    repo_name: str,
-    path: Path,
-    payload: Mapping[str, Any],
-    representation: Mapping[str, Any],
-    branch: str,
-    desired_head: str,
-) -> tuple[dict[str, Any] | None, str | None]:
-    """Re-run classifier safety and exact PR state before archiving an outbox item."""
-    fresh_representation, blocked_reason = _exact_open_pr_representation_candidate(
-        root=root,
-        state_root=state_root,
-        repo_name=repo_name,
-        path=path,
-        payload=payload,
-    )
-    if fresh_representation is None:
-        return None, blocked_reason or "exact-open-pr apply safety recheck failed"
-
-    original_number = _pr_number_from_value(representation.get("number")) or _pr_number_from_value(
-        representation.get("url")
-    )
-    fresh_number = _pr_number_from_value(
-        fresh_representation.get("number")
-    ) or _pr_number_from_value(fresh_representation.get("url"))
-    if original_number is not None and fresh_number is not None and original_number != fresh_number:
-        return None, "exact-open-pr apply reverify failed (represented PR changed)"
-
-    return _verify_exact_open_pr_representation(
-        root=root,
-        repo_name=repo_name,
-        representation=fresh_representation,
-        branch=branch,
-        desired_head=desired_head,
-    )
-
-
 def _archive_with_preservation_proof(
     path: Path,
     archive_dir: Path,
@@ -1256,15 +1005,7 @@ def _heads_match(expected: str, actual: str) -> bool:
     actual_value = actual.strip().lower()
     if len(expected_value) < 7 or len(actual_value) < 7:
         return False
-    expected_full = _full_sha_or_none(expected_value)
-    actual_full = _full_sha_or_none(actual_value)
-    if expected_full is not None or actual_full is not None:
-        return expected_full is not None and expected_full == actual_full
-    return expected_value == actual_value
-
-
-def _full_sha_or_none(value: str) -> str | None:
-    return value if re.fullmatch(r"[0-9a-f]{40}", value) else None
+    return actual_value.startswith(expected_value) or expected_value.startswith(actual_value)
 
 
 def _git_ref_head(root: Path, ref: str) -> str:
@@ -1666,11 +1407,9 @@ def main(argv: list[str] | None = None) -> int:
 
     counts = {
         "satisfied_by_existing_receipt": 0,
-        "satisfied_by_exact_open_pr_representation": 0,
         "archived_superseded_by_existing_issue": 0,
         "blocked_receipt_pr_head_mismatch": 0,
         "blocked_receipt_issue_only": 0,
-        "blocked_exact_open_pr_representation": 0,
         "satisfied_by_superseded_handoff": 0,
         "satisfied_by_landed_on_main": 0,
         "satisfied_by_open_pr_merged": 0,  # placeholder; we only know open PRs
@@ -1699,80 +1438,8 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         receipt = receipt_payloads_by_key.get(idem)
-        issue_only_keep_reason = (
-            _issue_only_pr_receipt_keep_reason(payload, receipt) if receipt is not None else None
-        )
-        if receipt is None or issue_only_keep_reason is not None:
-            representation, blocked_reason = _exact_open_pr_representation_candidate(
-                root=root,
-                state_root=state_root,
-                repo_name=args.repo_name,
-                path=path,
-                payload=payload,
-            )
-            if representation is not None and args.apply:
-                verified, verify_error = _reverify_exact_open_pr_representation_for_apply(
-                    root=root,
-                    state_root=state_root,
-                    repo_name=args.repo_name,
-                    path=path,
-                    payload=payload,
-                    representation=representation,
-                    branch=branch,
-                    desired_head=_desired_head_from_payload(payload),
-                )
-                if verified is None:
-                    blocked_reason = verify_error or "exact-open-pr apply reverify failed"
-                    representation = None
-                else:
-                    representation = verified
-            if representation is not None:
-                counts["satisfied_by_exact_open_pr_representation"] += 1
-                actions.append(
-                    {
-                        "path": str(path),
-                        "branch": branch,
-                        "decision": "archive",
-                        "reason": (
-                            "branch is represented by exact-head open PR "
-                            f"#{representation['number']}"
-                        ),
-                        "representation_pr": representation,
-                        "synthetic_receipt": True,
-                    }
-                )
-                if args.apply:
-                    _archive_with_synthetic_receipt(
-                        path=path,
-                        archive_dir=archive_dir,
-                        payload=payload,
-                        terminal_info={
-                            "disposition": EXACT_OPEN_PR_REPRESENTATION_REASON,
-                            "reason": EXACT_OPEN_PR_REPRESENTATION_REASON,
-                            "pr_number": int(representation["number"]),
-                            "pr_url": representation["url"],
-                            "head_sha": representation["head_sha"],
-                            "archived_by": "scripts/reconcile_automation_outbox.py",
-                        },
-                        receipt_dir=receipt_dir,
-                        reason=EXACT_OPEN_PR_REPRESENTATION_REASON,
-                        pr_number=int(representation["number"]),
-                    )
-                continue
-            if blocked_reason is not None:
-                counts["blocked_exact_open_pr_representation"] += 1
-                counts["still_protecting_active_work"] += 1
-                actions.append(
-                    {
-                        "path": str(path),
-                        "branch": branch,
-                        "decision": "keep",
-                        "reason": blocked_reason,
-                        "synthetic_receipt": False,
-                    }
-                )
-                continue
         if receipt is not None:
+            issue_only_keep_reason = _issue_only_pr_receipt_keep_reason(payload, receipt)
             if issue_only_keep_reason is not None:
                 terminal_info, gate_detail = _existing_issue_terminal_candidate(
                     path=path,
