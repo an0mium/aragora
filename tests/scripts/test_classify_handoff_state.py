@@ -25,14 +25,18 @@ class FakeGitHub:
         self.open_prs = open_prs or {}
         self.refs = refs or {}
         self.errors = errors or {}
+        self.pr_calls = 0
+        self.ref_calls = 0
 
     def open_prs_for_branch(self, branch: str) -> tuple[list[dict[str, Any]] | None, str | None]:
+        self.pr_calls += 1
         error = self.errors.get(f"pr:{branch}")
         if error:
             return None, error
         return self.open_prs.get(branch, []), None
 
     def remote_ref(self, branch: str) -> tuple[dict[str, Any] | None, str | None]:
+        self.ref_calls += 1
         error = self.errors.get(f"ref:{branch}")
         if error:
             return None, error
@@ -95,6 +99,7 @@ def _write_status_cache(
     open_pr_cap_reached: bool = False,
     degraded: bool = False,
     generated_at: str | None = None,
+    open_pr_heads: list[str] | None = None,
 ) -> None:
     status = state_root / ".aragora" / "automation-github-status"
     status.mkdir(parents=True, exist_ok=True)
@@ -106,7 +111,9 @@ def _write_status_cache(
                 "github_queue": {
                     "degraded": degraded,
                     "degraded_reason": "heavy_open_pr_query_failed:HTTP 504" if degraded else None,
-                    "open_codex_pr_count": 144,
+                    "open_pr_heads": open_pr_heads if open_pr_heads is not None else [],
+                    "open_pr_heads_cached_at": timestamp,
+                    "open_codex_pr_count": len(open_pr_heads) if open_pr_heads is not None else 144,
                     "pressure": {"open_pr_cap_reached": open_pr_cap_reached},
                 },
                 "limits": {"max_open_prs": 120},
@@ -216,6 +223,7 @@ def test_exact_open_pr_representation_wins_over_owner_noise(tmp_path: Path) -> N
     assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
     assert item["evidence"]["github"]["exact_open_pr"]["number"] == 8570
     assert item["next_mutation_candidate"] == "write_representation_receipt_then_archive"
+    assert item["safe_to_mutate"] is True
 
 
 def test_issue_only_receipt_limbo_stays_publication_requested(tmp_path: Path) -> None:
@@ -386,11 +394,60 @@ def test_nonterminal_steering_receipt_still_blocks(tmp_path: Path) -> None:
 
     item = _classify_one(tmp_path)
 
-    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_HUMAN.value
     assert item["evidence"]["steering"]["pending_message_count"] == 1
     assert item["evidence"]["steering"]["resolved_message_count"] == 0
     assert item["evidence"]["steering"]["blocking_message_count"] == 1
+    assert item["evidence"]["steering"]["human_message_count"] == 1
     assert item["evidence"]["steering"]["latest_read_receipt"]["outcome"] == "blocked"
+
+
+def test_operator_steering_without_human_keyword_is_human_gate(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    _write_steering_message(tmp_path, branch="codex/example")
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_HUMAN.value
+    assert item["evidence"]["steering"]["human_message_count"] == 1
+
+
+def test_narrow_rest_skips_absent_open_pr_branch_when_fresh_cache_says_absent(
+    tmp_path: Path,
+) -> None:
+    client = mod.NarrowGitHubClient(
+        repo_root=tmp_path,
+        github_repo="synaptent/aragora",
+        known_open_pr_heads=set(),
+    )
+
+    def unexpected_api(endpoint: str) -> tuple[Any | None, str | None]:
+        raise AssertionError(f"unexpected REST call: {endpoint}")
+
+    client._api = unexpected_api  # type: ignore[method-assign]
+
+    open_prs, error = client.open_prs_for_branch("codex/example")
+
+    assert error is None
+    assert open_prs == []
+
+
+def test_open_pr_head_cache_is_trusted_only_when_complete(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path, open_pr_heads=["codex/example"])
+    status_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
+
+    assert mod.load_fresh_open_pr_head_cache(status_path) == {"codex/example"}
+
+    payload = json.loads(status_path.read_text(encoding="utf-8"))
+    payload["github_queue"]["open_codex_pr_count"] = 2
+    status_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert mod.load_fresh_open_pr_head_cache(status_path) is None
+
+
+def test_update_pr_idempotency_key_is_pr_publication_request() -> None:
+    assert mod.is_pr_publication_request({"idempotency_key": "update-pr-codex-example-abc123"})
 
 
 def test_graphql_degraded_cache_still_uses_rest_open_pr_fallback(tmp_path: Path) -> None:

@@ -60,6 +60,7 @@ DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
 DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
 TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
 EXACT_OPEN_PR_REPRESENTATION_REASON = "exact_open_pr_representation"
+PR_PUBLICATION_IDEMPOTENCY_PREFIXES = ("open-pr-", "update-pr-")
 
 
 def _mute_stdout_after_broken_pipe() -> None:
@@ -251,13 +252,20 @@ def _requested_action_type(payload: Mapping[str, Any]) -> str:
     requested_action = payload.get("requested_action")
     requested_action_mapping = _mapping_from_action(requested_action)
     if requested_action_mapping is not None:
-        return str(requested_action_mapping.get("type") or "").strip().lower()
+        return (
+            str(
+                requested_action_mapping.get("type") or requested_action_mapping.get("action") or ""
+            )
+            .strip()
+            .lower()
+        )
     if isinstance(requested_action, str):
         return requested_action.strip().lower()
     return ""
 
 
 def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
+    idempotency_key = str(payload.get("idempotency_key") or "")
     return _requested_action_type(payload) in {
         "open_pr",
         "open_pull_request",
@@ -267,7 +275,7 @@ def _is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
         "push_branch_and_open_pull_request",
         "push_branch_and_open_or_update_pr",
         "push_branch_and_open_or_update_pull_request",
-    }
+    } or idempotency_key.startswith(PR_PUBLICATION_IDEMPOTENCY_PREFIXES)
 
 
 def _receipt_has_pr_reference(receipt: Mapping[str, Any]) -> bool:
@@ -684,6 +692,8 @@ def _exact_open_pr_representation_candidate(
 
     if str(item.get("state") or "") != HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value:
         return None, None
+    if item.get("safe_to_mutate") is not True:
+        return None, "exact-open-pr representation classifier did not mark target safe_to_mutate"
 
     item_branch = str(item.get("branch") or "").strip()
     item_head = str(item.get("desired_head_sha") or "").strip()
@@ -722,6 +732,73 @@ def _exact_open_pr_representation_candidate(
             "state": exact_pr.get("state"),
             "classifier_state": item.get("state"),
             "classifier_reason": item.get("reason"),
+        },
+        None,
+    )
+
+
+def _verify_exact_open_pr_representation(
+    *,
+    root: Path,
+    repo_name: str,
+    representation: Mapping[str, Any],
+    branch: str,
+    desired_head: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Re-read exact PR state immediately before mutating an outbox item."""
+    pr_number = _pr_number_from_value(representation.get("number")) or _pr_number_from_value(
+        representation.get("url")
+    )
+    if pr_number is None:
+        return None, "exact-open-pr apply reverify lacked PR number"
+    try:
+        proc = subprocess.run(
+            ["gh", "api", f"repos/{repo_name}/pulls/{pr_number}"],
+            cwd=root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"exact-open-pr apply reverify failed ({exc.__class__.__name__})"
+    if proc.returncode != 0:
+        detail = (proc.stderr or "").strip().splitlines()
+        return None, (
+            "exact-open-pr apply reverify failed "
+            f"(gh api exited {proc.returncode}: {detail[0] if detail else ''})"
+        )
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None, "exact-open-pr apply reverify failed (unparseable PR JSON)"
+    if not isinstance(payload, Mapping):
+        return None, "exact-open-pr apply reverify failed (PR response was not a mapping)"
+    state = str(payload.get("state") or "").lower()
+    head = payload.get("head") if isinstance(payload.get("head"), Mapping) else {}
+    head_ref = str(head.get("ref") or "").strip()
+    head_sha = str(head.get("sha") or "").strip()
+    if state != "open":
+        return (
+            None,
+            f"exact-open-pr apply reverify failed (PR #{pr_number} is {state or 'unknown'})",
+        )
+    if head_ref != branch:
+        return None, "exact-open-pr apply reverify failed (PR branch changed)"
+    if not _heads_match(desired_head, head_sha):
+        return None, "exact-open-pr apply reverify failed (PR head changed)"
+    return (
+        {
+            "number": pr_number,
+            "url": str(payload.get("html_url") or representation.get("url") or "").strip()
+            or f"https://github.com/{repo_name}/pull/{pr_number}",
+            "head": head_ref,
+            "head_sha": head_sha,
+            "draft": payload.get("draft"),
+            "state": payload.get("state"),
+            "classifier_state": representation.get("classifier_state"),
+            "classifier_reason": representation.get("classifier_reason"),
+            "apply_reverified": True,
         },
         None,
     )
@@ -1177,6 +1254,20 @@ def main(argv: list[str] | None = None) -> int:
                 path=path,
                 payload=payload,
             )
+            if representation is not None:
+                if args.apply:
+                    verified, verify_error = _verify_exact_open_pr_representation(
+                        root=root,
+                        repo_name=args.repo_name,
+                        representation=representation,
+                        branch=branch,
+                        desired_head=_desired_head_from_payload(payload),
+                    )
+                    if verified is None:
+                        blocked_reason = verify_error or "exact-open-pr apply reverify failed"
+                        representation = None
+                    else:
+                        representation = verified
             if representation is not None:
                 counts["satisfied_by_exact_open_pr_representation"] += 1
                 actions.append(

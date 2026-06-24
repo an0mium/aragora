@@ -473,6 +473,37 @@ def test_run_checks_loads_handoff_classifier_for_outbox_depth(
     ]
 
 
+def test_run_checks_uses_raw_depth_for_custom_outbox_dir(tmp_path: Path, monkeypatch: Any) -> None:
+    outbox = tmp_path / "custom-outbox"
+    _touch(outbox / "represented.json", age_hours=9 * 24)
+
+    def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("custom outbox should not use default classifier payload")
+
+    monkeypatch.setattr(sentinel, "classify_handoffs", fake_classify_handoffs)
+    args = sentinel.build_parser().parse_args(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--outbox-dir",
+            str(outbox),
+            "--checks",
+            "outbox_depth",
+            "--outbox-max",
+            "0",
+            "--outbox-max-age-days",
+            "7",
+        ]
+    )
+
+    checks = sentinel.run_checks(args, NOW)
+
+    assert checks[0]["status"] == "breach"
+    assert checks[0]["depth"] == 1
+    assert checks[0]["actionable_depth"] == 1
+    assert "handoff_state_counts" not in checks[0]
+
+
 def test_run_checks_falls_back_to_raw_outbox_depth_when_classifier_degraded(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

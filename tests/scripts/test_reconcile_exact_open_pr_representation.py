@@ -60,7 +60,7 @@ def _classifier_payload(outbox_file: str) -> dict[str, Any]:
                 "next_mutation_candidate": "write_representation_receipt_then_archive",
                 "outbox_file": outbox_file,
                 "reason": "branch has exact-head open PR #8589",
-                "safe_to_mutate": False,
+                "safe_to_mutate": True,
                 "state": handoff_state.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value,
             }
         ],
@@ -116,6 +116,19 @@ def test_exact_open_pr_representation_apply_writes_receipt_and_archives(
 
     monkeypatch.setattr(reconcile, "classify_handoffs", fake_classify_handoffs)
 
+    def fake_reverify(**kwargs: Any) -> tuple[dict[str, Any] | None, str | None]:
+        return {
+            "number": 8589,
+            "url": "https://github.com/synaptent/aragora/pull/8589",
+            "head": "codex/example",
+            "head_sha": HEAD,
+            "draft": True,
+            "state": "open",
+            "apply_reverified": True,
+        }, None
+
+    monkeypatch.setattr(reconcile, "_verify_exact_open_pr_representation", fake_reverify)
+
     rc = reconcile.main(
         [
             "--repo",
@@ -142,3 +155,120 @@ def test_exact_open_pr_representation_apply_writes_receipt_and_archives(
     assert receipt["reason"] == "exact_open_pr_representation"
     assert receipt["existing_pr_url"] == "https://github.com/synaptent/aragora/pull/8589"
     assert receipt["synthetic"] is True
+
+
+def test_exact_open_pr_representation_requires_safe_to_mutate(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    outbox_file = _write_outbox(tmp_path)
+
+    def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
+        payload = _classifier_payload(outbox_file.name)
+        payload["items"][0]["safe_to_mutate"] = False
+        return payload
+
+    monkeypatch.setattr(reconcile, "classify_handoffs", fake_classify_handoffs)
+
+    rc = reconcile.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--state-root",
+            str(tmp_path),
+            "--outbox-file",
+            outbox_file.name,
+            "--dry-run",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["archived"] == 0
+    assert payload["counts"]["blocked_exact_open_pr_representation"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "safe_to_mutate" in payload["actions"][0]["reason"]
+    assert outbox_file.exists()
+
+
+def test_exact_open_pr_representation_apply_reverifies_before_mutating(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    outbox_file = _write_outbox(tmp_path)
+    calls: list[dict[str, Any]] = []
+
+    def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
+        return _classifier_payload(outbox_file.name)
+
+    def fake_reverify(**kwargs: Any) -> tuple[dict[str, Any] | None, str | None]:
+        calls.append(dict(kwargs))
+        representation = dict(kwargs["representation"])
+        representation["apply_reverified"] = True
+        return representation, None
+
+    monkeypatch.setattr(reconcile, "classify_handoffs", fake_classify_handoffs)
+    monkeypatch.setattr(reconcile, "_verify_exact_open_pr_representation", fake_reverify)
+
+    rc = reconcile.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--state-root",
+            str(tmp_path),
+            "--outbox-file",
+            outbox_file.name,
+            "--apply",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["archived"] == 1
+    assert calls
+    assert calls[0]["branch"] == "codex/example"
+    assert calls[0]["desired_head"] == HEAD
+    assert not outbox_file.exists()
+
+
+def test_exact_open_pr_representation_apply_blocks_when_reverify_fails(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    outbox_file = _write_outbox(tmp_path)
+
+    def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
+        return _classifier_payload(outbox_file.name)
+
+    def fake_reverify(**kwargs: Any) -> tuple[dict[str, Any] | None, str | None]:
+        return None, "exact-open-pr apply reverify failed (PR head changed)"
+
+    monkeypatch.setattr(reconcile, "classify_handoffs", fake_classify_handoffs)
+    monkeypatch.setattr(reconcile, "_verify_exact_open_pr_representation", fake_reverify)
+
+    rc = reconcile.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--state-root",
+            str(tmp_path),
+            "--outbox-file",
+            outbox_file.name,
+            "--apply",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["archived"] == 0
+    assert payload["counts"]["blocked_exact_open_pr_representation"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "PR head changed" in payload["actions"][0]["reason"]
+    assert outbox_file.exists()
+    assert not (tmp_path / ".aragora" / "automation-receipts" / f"{outbox_file.stem}.json").exists()
+
+
+def test_update_pr_idempotency_key_is_pr_publication_request() -> None:
+    assert reconcile._is_pr_publication_request(
+        {"idempotency_key": "update-pr-codex-example-abc123"}
+    )

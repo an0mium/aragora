@@ -334,10 +334,15 @@ def _actionable_outbox_items(
 
 
 def _load_handoff_state(args: argparse.Namespace) -> Mapping[str, Any] | None:
+    repo_root = Path(args.repo_root).expanduser().resolve()
+    outbox_dir = Path(args.outbox_dir).expanduser().resolve()
+    default_outbox_dir = _repo_state_defaults(repo_root)["outbox_dir"].expanduser().resolve()
+    if outbox_dir != default_outbox_dir:
+        return None
     try:
         payload = classify_handoffs(
-            repo_root=Path(args.repo_root),
-            state_root=Path(args.repo_root),
+            repo_root=repo_root,
+            state_root=repo_root,
             github_repo=getattr(args, "github_repo", None),
         )
     except Exception:

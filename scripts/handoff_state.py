@@ -42,6 +42,7 @@ PR_PUBLICATION_ACTIONS = {
     "push_branch_and_open_or_update_pr",
     "push_branch_and_open_or_update_pull_request",
 }
+PR_PUBLICATION_IDEMPOTENCY_PREFIXES = ("open-pr-", "update-pr-")
 
 
 class HandoffState(str, Enum):
@@ -159,11 +160,13 @@ class NarrowGitHubClient:
         github_repo: str,
         disabled: bool = False,
         timeout_seconds: int = 20,
+        known_open_pr_heads: set[str] | None = None,
     ) -> None:
         self.repo_root = repo_root
         self.github_repo = github_repo
         self.disabled = disabled
         self.timeout_seconds = timeout_seconds
+        self.known_open_pr_heads = known_open_pr_heads
         self._pr_cache: dict[str, tuple[list[dict[str, Any]] | None, str | None]] = {}
         self._ref_cache: dict[str, tuple[dict[str, Any] | None, str | None]] = {}
 
@@ -178,6 +181,10 @@ class NarrowGitHubClient:
             return None, "github disabled"
         if branch in self._pr_cache:
             return self._pr_cache[branch]
+        if self.known_open_pr_heads is not None and branch not in self.known_open_pr_heads:
+            result = ([], None)
+            self._pr_cache[branch] = result
+            return result
         owner = self.github_repo.split("/", 1)[0]
         head = quote(f"{owner}:{branch}", safe="")
         endpoint = f"repos/{self.github_repo}/pulls?state=open&head={head}&per_page=5"
@@ -384,12 +391,19 @@ def classify_handoffs(
         status_cache_path,
         max_age_seconds=queue_cache_max_age_seconds,
     )
+    known_open_pr_heads = None
+    if not no_github:
+        known_open_pr_heads = load_fresh_open_pr_head_cache(
+            status_cache_path,
+            max_age_seconds=queue_cache_max_age_seconds,
+        )
     receipts = load_terminal_receipts(receipt_dir)
     outbox_files = _selected_outbox_files(outbox_dir, outbox_file)
     gh = github_client or NarrowGitHubClient(
         repo_root=repo_root,
         github_repo=github_repo,
         disabled=no_github,
+        known_open_pr_heads=known_open_pr_heads,
     )
     if owner_probe is not None:
         owner = owner_probe
@@ -498,6 +512,7 @@ def classify_handoff_item(
             reason=f"branch has exact-head open PR #{number}",
             evidence=evidence,
             next_mutation_candidate="write_representation_receipt_then_archive",
+            safe_to_mutate=True,
         )
 
     owner = owner_probe.probe(branch) if branch else OwnerEvidence()
@@ -734,6 +749,40 @@ def load_queue_cap_evidence(
     )
 
 
+def load_fresh_open_pr_head_cache(
+    path: Path,
+    *,
+    max_age_seconds: int = DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS,
+    now: datetime | None = None,
+) -> set[str] | None:
+    """Return fresh cached open PR head refs, or None when cache cannot be trusted."""
+    payload = _load_json(path)
+    if isinstance(payload, list):
+        payload = next((item for item in reversed(payload) if isinstance(item, dict)), None)
+    if not isinstance(payload, dict):
+        return None
+    github_queue = (
+        payload.get("github_queue") if isinstance(payload.get("github_queue"), Mapping) else {}
+    )
+    raw_heads = github_queue.get("open_pr_heads")
+    if not isinstance(raw_heads, Sequence) or isinstance(raw_heads, (str, bytes, bytearray)):
+        return None
+    heads = {str(head).strip() for head in raw_heads if str(head).strip()}
+    open_count = _int_or_none(github_queue.get("open_codex_pr_count"))
+    if open_count is not None and open_count != len(heads):
+        return None
+    generated_at = str(
+        github_queue.get("open_pr_heads_cached_at") or payload.get("generated_at") or ""
+    )
+    generated_dt = _parse_datetime(generated_at)
+    if generated_dt is None:
+        return None
+    current = now or datetime.now(UTC)
+    if max(0.0, (current - generated_dt).total_seconds()) > max_age_seconds:
+        return None
+    return heads
+
+
 def receipt_evidence_from_payload(
     receipt: Mapping[str, Any] | None,
     outbox_payload: Mapping[str, Any],
@@ -868,8 +917,9 @@ def desired_head_from_payload(payload: Mapping[str, Any]) -> str:
 
 def is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
     action = requested_action_type(payload)
-    return action in PR_PUBLICATION_ACTIONS or str(payload.get("idempotency_key") or "").startswith(
-        "open-pr-"
+    idempotency_key = str(payload.get("idempotency_key") or "")
+    return action in PR_PUBLICATION_ACTIONS or idempotency_key.startswith(
+        PR_PUBLICATION_IDEMPOTENCY_PREFIXES
     )
 
 
@@ -969,7 +1019,7 @@ def _owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
 
 def _looks_human(mapping: Mapping[str, Any]) -> bool:
     text = json.dumps(mapping, sort_keys=True).lower()
-    return "human" in text or "operator" in text and "human" in text
+    return "human" in text or "operator" in text
 
 
 def latest_read_receipt_for_message(message_path: Path) -> dict[str, Any] | None:
