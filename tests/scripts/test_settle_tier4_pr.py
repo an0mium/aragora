@@ -1247,6 +1247,67 @@ def test_packet_requires_unrecorded_human_preapproval_helper() -> None:
     assert settler._packet_requires_unrecorded_human_preapproval(_tier4_packet(), pr=9999) is False
 
 
+@pytest.mark.parametrize("recorded_value", ["false", "0", 1])
+def test_packet_human_preapproval_recorded_requires_literal_boolean_true(
+    recorded_value: Any,
+) -> None:
+    packet = _tier4_packet(human_preapproval_recorded=True)
+    packet["entries"][0]["human_preapproval_recorded"] = recorded_value
+
+    assert settler._packet_human_preapproval_recorded(packet, pr=7423) is False
+    assert settler._packet_requires_unrecorded_human_preapproval(packet, pr=7423) is True
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "no operator settlement required",
+        "operator settlement is not required",
+        "human preapproval not required",
+        "does not require human preapproval",
+    ],
+)
+def test_negated_preapproval_reasons_do_not_require_tier4_receipt(reason: str) -> None:
+    packet = _tier4_packet(
+        requires_human_preapproval=False,
+        human_preapproval_recorded=False,
+    )
+    packet["not_ready"] = []
+    packet["human_risk_settlement_required"] = []
+    packet["entries"][0]["status"] = "ready"
+    packet["entries"][0]["requires_human_risk_settlement"] = False
+    packet["entries"][0]["tier_name"] = ""
+    packet["entries"][0]["reasons"] = [reason]
+
+    assert settler._reason_indicates_human_preapproval(reason) is False
+    assert settler._packet_marks_tier4_settlement_surface(packet, pr=7423) is False
+    assert settler._packet_requires_unrecorded_human_preapproval(packet, pr=7423) is False
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "operator settlement required",
+        "Tier-4 human preapproval required",
+        "no exact-head human settlement signal exists",
+    ],
+)
+def test_positive_preapproval_reasons_still_require_tier4_receipt(reason: str) -> None:
+    packet = _tier4_packet(
+        requires_human_preapproval=False,
+        human_preapproval_recorded=False,
+    )
+    packet["human_risk_settlement_required"] = []
+    packet["entries"][0].pop("requires_human_preapproval")
+    packet["entries"][0]["status"] = "repair_or_wait"
+    packet["entries"][0]["requires_human_risk_settlement"] = False
+    packet["entries"][0]["tier_name"] = ""
+    packet["entries"][0]["reasons"] = [reason]
+
+    assert settler._reason_indicates_human_preapproval(reason) is True
+    assert settler._packet_requires_unrecorded_human_preapproval(packet, pr=7423) is True
+
+
 def test_generic_tier4_repair_packet_is_not_settlement_surface() -> None:
     packet = _tier4_packet(
         requires_human_preapproval=False,

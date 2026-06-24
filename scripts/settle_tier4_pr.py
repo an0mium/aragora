@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -533,7 +534,7 @@ def _packet_requires_unrecorded_human_preapproval(merge_packet: dict[str, Any], 
         merge_packet,
         entry=entry,
         pr=pr,
-    ) and not bool(entry.get("human_preapproval_recorded"))
+    ) and not _packet_entry_human_preapproval_recorded(entry)
 
 
 def _packet_entry_requires_human_preapproval(
@@ -573,17 +574,29 @@ def _normalize_packet_signal(value: Any) -> str:
 
 def _reason_indicates_human_preapproval(value: Any) -> bool:
     reason = _normalize_packet_signal(value)
-    return any(
-        token in reason
-        for token in (
-            "human preapproval",
-            "human risk settlement",
-            "human settlement",
-            "operator settlement",
-            "tier 4 preapproval",
-            "tier 4 human risk settlement",
-        )
+    tokens = (
+        "human preapproval",
+        "human risk settlement",
+        "human settlement",
+        "operator settlement",
+        "tier 4 preapproval",
+        "tier 4 human risk settlement",
     )
+    return any(
+        token in reason and not _reason_negates_requirement(reason, token) for token in tokens
+    )
+
+
+def _reason_negates_requirement(reason: str, token: str) -> bool:
+    escaped = re.escape(token)
+    patterns = (
+        rf"\bno\s+{escaped}\s+required\b",
+        rf"\b{escaped}\s+(?:is\s+)?not\s+required\b",
+        rf"\b{escaped}\s+not\s+needed\b",
+        rf"\bdoes\s+not\s+require\s+{escaped}\b",
+        rf"\bdo\s+not\s+require\s+{escaped}\b",
+    )
+    return any(re.search(pattern, reason) for pattern in patterns)
 
 
 def _entry_is_tier4(entry: dict[str, Any]) -> bool:
@@ -740,7 +753,11 @@ def _packet_marks_tier4_settlement_surface(merge_packet: dict[str, Any], *, pr: 
 
 def _packet_human_preapproval_recorded(merge_packet: dict[str, Any], *, pr: int) -> bool:
     entry = _entry_for_pr(merge_packet, pr=pr)
-    return bool(entry and entry.get("human_preapproval_recorded"))
+    return bool(entry and _packet_entry_human_preapproval_recorded(entry))
+
+
+def _packet_entry_human_preapproval_recorded(entry: dict[str, Any]) -> bool:
+    return entry.get("human_preapproval_recorded") is True
 
 
 def _trusted_settlement_creator() -> str:
