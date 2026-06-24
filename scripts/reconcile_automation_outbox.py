@@ -42,6 +42,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
     run_git,
 )
 from github_cli_health import check_github_cli_health  # noqa: E402
+from identify_lane_owner import build_worktree_reference_preservation_proof  # noqa: E402
 
 UTC = timezone.utc
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
@@ -243,6 +244,80 @@ def _desired_head_from_payload(payload: dict[str, Any]) -> str:
             if head:
                 return head
     return ""
+
+
+def _lane_record_from_payload(payload: Mapping[str, Any], branch: str) -> dict[str, Any]:
+    """Build the minimal lane-like record needed for preservation proof helpers."""
+    record: dict[str, Any] = {"branch": branch}
+
+    desired_head = _desired_head_from_payload(dict(payload))
+    if desired_head:
+        record["desired_head_sha"] = desired_head
+        record["head_sha"] = desired_head
+
+    lane = payload.get("lane")
+    if isinstance(lane, Mapping):
+        lane_id = str(lane.get("lane_id") or lane.get("lane") or "").strip()
+        if lane_id:
+            record["lane_id"] = lane_id
+
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        worktree = str(local_evidence.get("worktree") or "").strip()
+        if worktree:
+            record["worktree"] = worktree
+        for key in (
+            "uncommitted_changes",
+            "has_uncommitted_changes",
+            "uncommitted",
+            "unpushed_commits",
+            "local_changes",
+            "local_work",
+            "dirty",
+        ):
+            if local_evidence.get(key):
+                record[key] = local_evidence.get(key)
+
+    worktree = str(payload.get("worktree") or "").strip()
+    if worktree and "worktree" not in record:
+        record["worktree"] = worktree
+    return record
+
+
+def _merged_pr_commit_preservation_proof(
+    *,
+    root: Path,
+    state_root: Path,
+    payload: dict[str, Any],
+    branch: str,
+) -> Mapping[str, Any] | None:
+    """Return proof that an outbox head is already preserved by a merged PR.
+
+    This intentionally accepts only the merged-PR commit-list proof. A remote
+    branch at the exact desired head still represents unpublished PR-intent work,
+    so it must keep protecting the outbox handoff.
+    """
+
+    if not _is_pr_publication_request(payload):
+        return None
+    record = _lane_record_from_payload(payload, branch)
+    if not record.get("worktree") or not record.get("desired_head_sha"):
+        return None
+    try:
+        proof = build_worktree_reference_preservation_proof(
+            record,
+            repo_root=root,
+            state_root=state_root,
+        )
+    except Exception:
+        return None
+    if not isinstance(proof, Mapping) or proof.get("available") is not True:
+        return None
+    upstream = proof.get("upstream_preservation")
+    if not isinstance(upstream, Mapping):
+        return None
+    if upstream.get("method") != "merged_pr_commit_list" or upstream.get("proven") is not True:
+        return None
+    return proof
 
 
 def _requested_action_type(payload: Mapping[str, Any]) -> str:
@@ -1040,6 +1115,7 @@ def main(argv: list[str] | None = None) -> int:
         "satisfied_by_superseded_handoff": 0,
         "satisfied_by_landed_on_main": 0,
         "satisfied_by_open_pr_merged": 0,  # placeholder; we only know open PRs
+        "satisfied_by_merged_pr_commit_proof": 0,
         "still_protecting_active_work": 0,
         "missing_branch": 0,
         "blocked_missing_branch_open_pr_unknown": 0,
@@ -1096,6 +1172,32 @@ def main(argv: list[str] | None = None) -> int:
                         _archive_with_terminal_disposition(
                             path, archive_dir, payload, terminal_info
                         )
+                    continue
+                merged_pr_proof = _merged_pr_commit_preservation_proof(
+                    root=root,
+                    state_root=state_root,
+                    payload=payload,
+                    branch=branch,
+                )
+                if merged_pr_proof is not None:
+                    upstream = merged_pr_proof.get("upstream_preservation") or {}
+                    pr_number = upstream.get("pr_number") if isinstance(upstream, Mapping) else None
+                    reason = "desired head preserved by merged PR commit list" + (
+                        f" (PR #{pr_number})" if pr_number is not None else ""
+                    )
+                    counts["satisfied_by_merged_pr_commit_proof"] += 1
+                    actions.append(
+                        {
+                            "path": str(path),
+                            "branch": branch,
+                            "decision": "archive",
+                            "reason": reason,
+                            "preservation_proof": merged_pr_proof,
+                            "synthetic_receipt": False,
+                        }
+                    )
+                    if args.apply:
+                        shutil.move(str(path), str(archive_dir / path.name))
                     continue
                 issue_only_kept_reason = (
                     issue_only_keep_reason
@@ -1357,6 +1459,40 @@ def main(argv: list[str] | None = None) -> int:
                     "synthetic_receipt": False,
                 }
             )
+            continue
+
+        merged_pr_proof = _merged_pr_commit_preservation_proof(
+            root=root,
+            state_root=state_root,
+            payload=payload,
+            branch=branch,
+        )
+        if merged_pr_proof is not None:
+            upstream = merged_pr_proof.get("upstream_preservation") or {}
+            pr_number = upstream.get("pr_number") if isinstance(upstream, Mapping) else None
+            reason = "desired head preserved by merged PR commit list" + (
+                f" (PR #{pr_number})" if pr_number is not None else ""
+            )
+            counts["satisfied_by_merged_pr_commit_proof"] += 1
+            actions.append(
+                {
+                    "path": str(path),
+                    "branch": branch,
+                    "decision": "archive",
+                    "reason": reason,
+                    "preservation_proof": merged_pr_proof,
+                    "synthetic_receipt": True,
+                }
+            )
+            if args.apply:
+                _write_synthetic_receipt(
+                    receipt_dir=receipt_dir,
+                    outbox_payload=payload,
+                    reason=reason,
+                    pr_number=int(pr_number) if isinstance(pr_number, int) else None,
+                    apply=True,
+                )
+                shutil.move(str(path), str(archive_dir / path.name))
             continue
 
         reason = (
