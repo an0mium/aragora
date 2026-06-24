@@ -147,6 +147,18 @@ def severity_gated_dissent_enabled(env: dict[str, str] | None = None) -> bool:
     )
 
 
+def _coerce_relaxed_flag(value: Any) -> bool:
+    """Coerce a serialized gate-regime flag (``severity_gated`` / ``tiered_gate``) to
+    bool, fail-closed. A real bool passes through; a string counts as relaxed ONLY for
+    the explicit relaxed tokens, so a stringly serialized ``"false"`` — which ``bool()``
+    would truthify — cannot accidentally enable the relaxed regime (claude/grok #8574 P2)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in _SEVERITY_GATED_DISSENT_TRUE
+    return bool(value)
+
+
 @dataclass(frozen=True)
 class TierQuorumRule:
     """The per-tier model-quorum bar (a.k.a. :data:`QuorumPolicy`): how many distinct
@@ -571,8 +583,9 @@ def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
         # changes_requested blocks) when an older/forged artifact omits it, so a
         # missing field can never RELAX the gate. apply_prepared_evidence then
         # AND-reconciles this with the live flag (min(prepared, live)), mirroring
-        # ``tiered_gate`` (claude/grok #8574 P2).
-        severity_gated=bool(raw.get("severity_gated", False)),
+        # ``tiered_gate`` (claude/grok #8574 P2). Coerced fail-closed so a stringly
+        # serialized ``"false"`` cannot truthify into the relaxed regime.
+        severity_gated=_coerce_relaxed_flag(raw.get("severity_gated", False)),
     )
 
 
@@ -615,7 +628,7 @@ def collect_outcome_from_dict(data: dict[str, Any]) -> CollectOutcome:
     # evidence then evaluates under min(prepared, live), so this strict default can
     # only ever tighten, never loosen, the bar.
     if "tiered_gate" in data:
-        gate_kwargs: dict[str, Any] = {"tiered_gate": bool(data.get("tiered_gate"))}
+        gate_kwargs: dict[str, Any] = {"tiered_gate": _coerce_relaxed_flag(data.get("tiered_gate"))}
     else:
         logger.debug(
             "prepared evidence artifact omits 'tiered_gate'; failing closed to "

@@ -106,6 +106,18 @@ _NO_FINDING_NO_PHRASE = re.compile(
     re.I,
 )
 
+# What may follow a matched no-finding phrase for the value to still read as a PURE
+# no-finding declaration: only benign closers ("found"/"identified"/"noted"/…) and
+# punctuation/whitespace. Anything else (notably a contrastive "… but <real
+# finding>") means the value carries a substantive blocker and must NOT be demoted.
+_NO_FINDING_TAIL = re.compile(
+    r"[\s.,;:!?)\]—–-]*"
+    r"(?:found|identified|noted|detected|seen|present|reported|observed|raised|flagged|"
+    r"needed|required|necessary|requested|warranted|remaining|here|at all|whatsoever)?"
+    r"[\s.,;:!?)\]—–-]*",
+    re.I,
+)
+
 _BLOCKER_LABELS = frozenset({"blocking finding", "blocking findings", "blocker", "blockers"})
 
 
@@ -118,8 +130,16 @@ def _starts_with_phrase(
     # as "Verdict: no concerns" / "Recommendation: no changes needed" / "Decision: no
     # blockers" would otherwise be promoted to a blocking dissent — a regression in the
     # default flag-OFF merge-gate path. So the no-finding match is opt-in per caller.
-    if match_no_finding and _NO_FINDING_NO_PHRASE.match(value):
-        return True
+    if match_no_finding:
+        m = _NO_FINDING_NO_PHRASE.match(value)
+        # Fail-CLOSED: the no-finding phrase must be essentially the WHOLE value.
+        # Only benign trailing words ("found"/"identified"/…) and punctuation may
+        # follow. A contrastive continuation ("no major concerns BUT SQLi on L40")
+        # leaves substantive content in the tail, so it does NOT read as no-finding
+        # and the Blocker label still blocks — closing the hedged-prefix fail-open
+        # (claude/grok #8574 P2).
+        if m and _NO_FINDING_TAIL.fullmatch(value[m.end() :]):
+            return True
     return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
 
 

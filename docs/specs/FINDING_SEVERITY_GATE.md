@@ -54,8 +54,8 @@ CHANGES-REQUESTED becomes **advisory**:
 
 The advisory comment **still posts and stays visible** on the PR, and is recorded in
 the merge packet (`advisory_views` field + a non-blocking `reasons` note like
-`"advisory finding from <family>: [P2]/[P3] only — not blocking (severity-gated
-dissent)"`). Review quality is preserved and auditable; only the *blocking* effect
+`"advisory finding from <family>: no blocking [P0]/[P1] finding — not blocking
+(severity-gated dissent)"`). Review quality is preserved and auditable; only the *blocking* effect
 of a low-severity dissent is removed.
 
 ## Invariants

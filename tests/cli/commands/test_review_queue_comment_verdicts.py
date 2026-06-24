@@ -231,3 +231,31 @@ def test_p0_p1_block_both_paths():
         assert has_blocking_or_negative_verdict(body) is True
         assert has_blocking_finding_or_label(body) is True
         assert highest_blocking_severity(body) == sev
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "no major concerns but SQLi on line 40",
+        "no issues except an open redirect",
+        "no blockers however auth is missing",
+        "no significant problems aside from the race condition",
+    ],
+)
+def test_blocker_label_hedged_no_finding_with_real_tail_blocks(value):
+    # Fail-closed: a no-finding prefix followed by a contrastive real finding blocks.
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "no issues found",
+        "no concerns identified",
+        "no blockers noted",
+        "no major issues.",
+        "no findings whatsoever",
+    ],
+)
+def test_blocker_label_pure_no_finding_with_benign_tail_stays_non_blocking(value):
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is False

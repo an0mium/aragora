@@ -2855,3 +2855,37 @@ def test_apply_relint_preserves_reconciled_severity_gated(tmp_path, monkeypatch)
     assert applied.items[0].severity_gated is False  # reconciled strict survives relint
     assert applied.items[0].dissenting is True
     assert "grok" in applied.dissenting_families
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        (True, True),
+        (False, False),
+        ("true", True),
+        ("1", True),
+        ("on", True),
+        ("false", False),
+        ("0", False),
+        ("", False),
+        (None, False),
+        (1, True),
+        (0, False),
+    ],
+)
+def test_coerce_relaxed_flag(raw, expected) -> None:
+    # bool("false") would be True; the coercion fails closed for stringly flags.
+    assert qe._coerce_relaxed_flag(raw) is expected
+
+
+def test_severity_gated_string_false_stays_strict_through_restore() -> None:
+    item = qe._evidence_item_from_dict(
+        {
+            "family": "claude",
+            "body": _prepared_body("claude"),
+            "would_count": True,
+            "verdict": "pass",
+            "severity_gated": "false",
+        }
+    )
+    assert item.severity_gated is False
