@@ -149,7 +149,7 @@ def _apply_repo_root_defaults(args: argparse.Namespace) -> argparse.Namespace:
     old_defaults = _repo_state_defaults(DEFAULT_REPO_ROOT)
     new_defaults = _repo_state_defaults(Path(args.repo_root))
     for field, old_default in old_defaults.items():
-        if Path(str(getattr(args, field))) == old_default:
+        if Path(str(getattr(args, field, old_default))) == old_default:
             setattr(args, field, str(new_defaults[field]))
     return args
 
@@ -409,12 +409,17 @@ def _load_handoff_state(args: argparse.Namespace) -> Mapping[str, Any] | None:
             repo_root=repo_root,
             state_root=state_root,
             github_repo=getattr(args, "github_repo", None),
+            github_timeout_seconds=5,
         )
     except Exception:
         return None
     github = payload.get("github") if isinstance(payload, Mapping) else None
-    if not isinstance(github, Mapping) or github.get("mode") != "ready":
+    if not isinstance(github, Mapping):
         return None
+    if github.get("mode") != "ready":
+        items = payload.get("items") if isinstance(payload, Mapping) else None
+        if not isinstance(items, list):
+            return None
     return payload if isinstance(payload, Mapping) else None
 
 
@@ -441,7 +446,11 @@ def _extract_outbox_depth(check: dict[str, Any]) -> int | None:
         return depth
     if isinstance(depth, float) and depth.is_integer() and depth >= 0:
         return int(depth)
-    match = re.search(r"(\d+)\s+item", str(check.get("detail") or ""))
+    detail = str(check.get("detail") or "")
+    match = re.search(r"(\d+)\s+actionable", detail)
+    if match:
+        return int(match.group(1))
+    match = re.search(r"(\d+)\s+item", detail)
     if match:
         return int(match.group(1))
     return None

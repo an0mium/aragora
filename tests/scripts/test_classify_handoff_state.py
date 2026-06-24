@@ -471,13 +471,27 @@ def test_operator_steering_without_human_keyword_is_human_gate(tmp_path: Path) -
     assert item["evidence"]["steering"]["human_message_count"] == 1
 
 
+def test_human_detection_ignores_operator_steering_path() -> None:
+    assert (
+        mod._looks_human(  # noqa: SLF001 - regression coverage for classifier helper
+            {
+                "path": "/repo/.aragora/operator-steering/worker/message.json",
+                "from": "automation",
+                "subject": "Block codex/example",
+                "body": "Machine-generated lane advisory",
+            }
+        )
+        is False
+    )
+    assert mod._looks_human({"from": "operator"}) is True  # noqa: SLF001
+
+
 def test_narrow_rest_queries_when_open_pr_cache_lacks_branch(
     tmp_path: Path,
 ) -> None:
     client = mod.NarrowGitHubClient(
         repo_root=tmp_path,
         github_repo="synaptent/aragora",
-        known_open_pr_heads=set(),
     )
     seen: list[str] = []
 
@@ -516,19 +530,6 @@ def test_narrow_rest_open_pr_query_preserves_owner_separator(tmp_path: Path) -> 
     assert seen == [
         "repos/synaptent/aragora/pulls?state=open&head=synaptent:codex%2Fexample&per_page=5"
     ]
-
-
-def test_open_pr_head_cache_is_trusted_only_when_complete(tmp_path: Path) -> None:
-    _write_status_cache(tmp_path, open_pr_heads=["codex/example"])
-    status_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
-
-    assert mod.load_fresh_open_pr_head_cache(status_path) == {"codex/example"}
-
-    payload = json.loads(status_path.read_text(encoding="utf-8"))
-    payload["github_queue"]["open_codex_pr_count"] = 2
-    status_path.write_text(json.dumps(payload), encoding="utf-8")
-
-    assert mod.load_fresh_open_pr_head_cache(status_path) is None
 
 
 def test_update_pr_idempotency_key_is_pr_publication_request() -> None:

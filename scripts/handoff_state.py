@@ -175,13 +175,11 @@ class NarrowGitHubClient:
         github_repo: str,
         disabled: bool = False,
         timeout_seconds: int = 20,
-        known_open_pr_heads: set[str] | None = None,
     ) -> None:
         self.repo_root = repo_root
         self.github_repo = github_repo
         self.disabled = disabled
         self.timeout_seconds = timeout_seconds
-        self.known_open_pr_heads = known_open_pr_heads
         self._pr_cache: dict[str, tuple[list[dict[str, Any]] | None, str | None]] = {}
         self._ref_cache: dict[str, tuple[dict[str, Any] | None, str | None]] = {}
 
@@ -387,6 +385,7 @@ def classify_handoffs(
     outbox_file: str | Path | None = None,
     no_github: bool = False,
     owner_timeout_seconds: int = 20,
+    github_timeout_seconds: int = 20,
     with_liveness_helper: bool = False,
     queue_cache_max_age_seconds: int = DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS,
     github_client: Any | None = None,
@@ -403,19 +402,13 @@ def classify_handoffs(
         status_cache_path,
         max_age_seconds=queue_cache_max_age_seconds,
     )
-    known_open_pr_heads = None
-    if not no_github:
-        known_open_pr_heads = load_fresh_open_pr_head_cache(
-            status_cache_path,
-            max_age_seconds=queue_cache_max_age_seconds,
-        )
     receipts = load_terminal_receipts(receipt_dir)
     outbox_files = _selected_outbox_files(outbox_dir, outbox_file)
     gh = github_client or NarrowGitHubClient(
         repo_root=repo_root,
         github_repo=github_repo,
         disabled=no_github,
-        known_open_pr_heads=known_open_pr_heads,
+        timeout_seconds=github_timeout_seconds,
     )
     if owner_probe is not None:
         owner = owner_probe
@@ -765,40 +758,6 @@ def load_queue_cap_evidence(
     )
 
 
-def load_fresh_open_pr_head_cache(
-    path: Path,
-    *,
-    max_age_seconds: int = DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS,
-    now: datetime | None = None,
-) -> set[str] | None:
-    """Return fresh cached open PR head refs, or None when cache cannot be trusted."""
-    payload = _load_json(path)
-    if isinstance(payload, list):
-        payload = next((item for item in reversed(payload) if isinstance(item, dict)), None)
-    if not isinstance(payload, dict):
-        return None
-    github_queue = (
-        payload.get("github_queue") if isinstance(payload.get("github_queue"), Mapping) else {}
-    )
-    raw_heads = github_queue.get("open_pr_heads")
-    if not isinstance(raw_heads, Sequence) or isinstance(raw_heads, (str, bytes, bytearray)):
-        return None
-    heads = {str(head).strip() for head in raw_heads if str(head).strip()}
-    open_count = _int_or_none(github_queue.get("open_codex_pr_count"))
-    if open_count is not None and open_count != len(heads):
-        return None
-    generated_at = str(
-        github_queue.get("open_pr_heads_cached_at") or payload.get("generated_at") or ""
-    )
-    generated_dt = _parse_datetime(generated_at)
-    if generated_dt is None:
-        return None
-    current = now or datetime.now(UTC)
-    if max(0.0, (current - generated_dt).total_seconds()) > max_age_seconds:
-        return None
-    return heads
-
-
 def receipt_evidence_from_payload(
     receipt: Mapping[str, Any] | None,
     outbox_payload: Mapping[str, Any],
@@ -861,6 +820,7 @@ def steering_evidence_for_branch(
                 "lane_id_hint": lane_hint or None,
                 "priority": str(payload.get("priority") or "").lower() or None,
                 "subject": payload.get("subject"),
+                "body": payload.get("body"),
                 "sent_at_utc": payload.get("sent_at_utc"),
                 "from": payload.get("from"),
                 "latest_read_receipt": receipt,
@@ -1034,7 +994,18 @@ def _owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
 
 
 def _looks_human(mapping: Mapping[str, Any]) -> bool:
-    text = json.dumps(mapping, sort_keys=True).lower()
+    # Do not inspect the filesystem path: all steering messages live under
+    # ".aragora/operator-steering", which would make every matched message look
+    # human/operator-gated.
+    fields = (
+        "from",
+        "subject",
+        "body",
+        "to_session",
+        "lane_id_hint",
+        "priority",
+    )
+    text = " ".join(str(mapping.get(field) or "") for field in fields).lower()
     return "human" in text or "operator" in text
 
 

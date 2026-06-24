@@ -314,6 +314,49 @@ def test_exact_open_pr_representation_apply_blocks_when_reverify_fails(
     assert not (tmp_path / ".aragora" / "automation-receipts" / f"{outbox_file.stem}.json").exists()
 
 
+def test_exact_open_pr_representation_apply_rechecks_safe_to_mutate(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    outbox_file = _write_outbox(tmp_path)
+    classify_calls = 0
+
+    def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
+        nonlocal classify_calls
+        classify_calls += 1
+        payload = _classifier_payload(outbox_file.name)
+        if classify_calls > 1:
+            payload["items"][0]["safe_to_mutate"] = False
+        return payload
+
+    def fail_reverify(**kwargs: Any) -> tuple[dict[str, Any] | None, str | None]:
+        raise AssertionError("PR reverify should not run after apply safety recheck fails")
+
+    monkeypatch.setattr(reconcile, "classify_handoffs", fake_classify_handoffs)
+    monkeypatch.setattr(reconcile, "_verify_exact_open_pr_representation", fail_reverify)
+
+    rc = reconcile.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--state-root",
+            str(tmp_path),
+            "--outbox-file",
+            outbox_file.name,
+            "--apply",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert classify_calls == 2
+    assert payload["archived"] == 0
+    assert payload["counts"]["blocked_exact_open_pr_representation"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "safe_to_mutate" in payload["actions"][0]["reason"]
+    assert outbox_file.exists()
+
+
 def test_exact_open_pr_representation_receipt_failure_keeps_live_outbox(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

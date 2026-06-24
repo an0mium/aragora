@@ -1191,6 +1191,46 @@ def _verify_exact_open_pr_representation(
     )
 
 
+def _reverify_exact_open_pr_representation_for_apply(
+    *,
+    root: Path,
+    state_root: Path,
+    repo_name: str,
+    path: Path,
+    payload: Mapping[str, Any],
+    representation: Mapping[str, Any],
+    branch: str,
+    desired_head: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Re-run classifier safety and exact PR state before archiving an outbox item."""
+    fresh_representation, blocked_reason = _exact_open_pr_representation_candidate(
+        root=root,
+        state_root=state_root,
+        repo_name=repo_name,
+        path=path,
+        payload=payload,
+    )
+    if fresh_representation is None:
+        return None, blocked_reason or "exact-open-pr apply safety recheck failed"
+
+    original_number = _pr_number_from_value(representation.get("number")) or _pr_number_from_value(
+        representation.get("url")
+    )
+    fresh_number = _pr_number_from_value(
+        fresh_representation.get("number")
+    ) or _pr_number_from_value(fresh_representation.get("url"))
+    if original_number is not None and fresh_number is not None and original_number != fresh_number:
+        return None, "exact-open-pr apply reverify failed (represented PR changed)"
+
+    return _verify_exact_open_pr_representation(
+        root=root,
+        repo_name=repo_name,
+        representation=fresh_representation,
+        branch=branch,
+        desired_head=desired_head,
+    )
+
+
 def _archive_with_preservation_proof(
     path: Path,
     archive_dir: Path,
@@ -1663,9 +1703,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             if representation is not None:
                 if args.apply:
-                    verified, verify_error = _verify_exact_open_pr_representation(
+                    verified, verify_error = _reverify_exact_open_pr_representation_for_apply(
                         root=root,
+                        state_root=state_root,
                         repo_name=args.repo_name,
+                        path=path,
+                        payload=payload,
                         representation=representation,
                         branch=branch,
                         desired_head=_desired_head_from_payload(payload),

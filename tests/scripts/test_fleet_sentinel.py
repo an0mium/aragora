@@ -6,6 +6,7 @@ fixture paths and injected command runners — no network, no live state.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import os
@@ -478,6 +479,7 @@ def test_run_checks_loads_handoff_classifier_for_outbox_depth(
     def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
         assert kwargs["repo_root"] == tmp_path
         assert kwargs["state_root"] == tmp_path / ".aragora"
+        assert kwargs["github_timeout_seconds"] == 5
         return {
             "github": {"mode": "ready", "error": None},
             "counts": {"represented_by_exact_remote_branch": 1},
@@ -578,7 +580,7 @@ def test_run_checks_uses_raw_depth_for_custom_outbox_dir(tmp_path: Path, monkeyp
     assert "handoff_state_counts" not in checks[0]
 
 
-def test_run_checks_falls_back_to_raw_outbox_depth_when_classifier_degraded(
+def test_run_checks_uses_partial_classifier_payload_when_github_degraded(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
     outbox = tmp_path / ".aragora" / "automation-outbox"
@@ -614,10 +616,27 @@ def test_run_checks_falls_back_to_raw_outbox_depth_when_classifier_degraded(
 
     checks = sentinel.run_checks(args, NOW)
 
-    assert checks[0]["status"] == "breach"
+    assert checks[0]["status"] == "ok"
     assert checks[0]["depth"] == 1
-    assert checks[0]["actionable_depth"] == 1
-    assert "handoff_state_counts" not in checks[0]
+    assert checks[0]["actionable_depth"] == 0
+    assert checks[0]["handoff_state_counts"] == {"represented_by_exact_remote_branch": 1}
+
+
+def test_apply_repo_root_defaults_tolerates_partial_namespace(tmp_path: Path) -> None:
+    args = argparse.Namespace(repo_root=str(tmp_path))
+
+    sentinel._apply_repo_root_defaults(args)
+
+    assert args.outbox_dir == str(tmp_path / ".aragora" / "automation-outbox")
+
+
+def test_extract_outbox_depth_prefers_actionable_detail() -> None:
+    assert (
+        sentinel._extract_outbox_depth(  # noqa: SLF001 - regression coverage for parser helper
+            {"detail": "26 item(s) queued; 0 actionable"}
+        )
+        == 0
+    )
 
 
 def test_outbox_missing_dir_is_ok(tmp_path: Path) -> None:
