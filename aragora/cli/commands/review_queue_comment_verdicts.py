@@ -219,7 +219,8 @@ _SUBSTANTIVE_METADATA_DISSENT = re.compile(
     r"\b(?:auth|authorization|bypass|broken|unsafe|critical|do not|dont|don't|"
     r"merge|ship|exploit|sqli|xss|regression|fail|failed|failing|error|bug|"
     r"defect|production|untriaged|blocking|issue|issues|problem|problems|"
-    r"concern|concerns)\b",
+    r"concern|concerns|missing|null|leak|leaks|leaked|leaking|risky|risk|"
+    r"unfixed)\b",
     re.I,
 )
 _SIMPLE_VERDICT_VALUES = (
@@ -369,7 +370,7 @@ def _is_followup_only_declaration(stripped: str) -> bool:
     if not match:
         return False
     tail = normalized[match.end() :].strip(" .;:!?)]—–-")
-    return tail in {"", "yes", "true", "only", "none", "n/a", "not applicable"}
+    return tail in {"", "yes", "true", "only"}
 
 
 def _explicit_no_blockers_or_followup_only(body: str) -> bool:

@@ -274,6 +274,15 @@ def test_severity_gated_anchored_followup_only_can_be_advisory():
 
 
 @pytest.mark.parametrize(
+    "followup_value",
+    ["none", "n/a", "not applicable"],
+)
+def test_severity_gated_negating_followup_only_value_still_blocks(followup_value):
+    body = f"Verdict: CHANGES-REQUESTED\nFollow-up-only: {followup_value}"
+    assert has_blocking_model_dissent(body, severity_gated=True) is True
+
+
+@pytest.mark.parametrize(
     "body",
     [
         "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\nAuth bypass remains untriaged.",
@@ -370,6 +379,12 @@ def test_severity_gated_known_family_metadata_with_low_severity_finding_is_advis
         "Verdict: CHANGES-REQUESTED\nReviewer: claude noted problems\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\nReviewer: openai found issues\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\nReviewer: grok has concerns\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
+        "Reviewer: claude missing auth\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
+        "Model family: openai null leak\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
+        "Reviewer: grok risky endpoint\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\nHead: deadbeef auth bypass remains\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
         "Head: a6ffdd9 (deadbeef) do not merge\nFollow-up-only: yes",

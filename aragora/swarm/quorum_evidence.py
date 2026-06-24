@@ -131,7 +131,7 @@ def tiered_merge_gate_enabled(env: dict[str, str] | None = None) -> bool:
 #
 # Gating this behind the flag keeps it revertible WITHOUT a code change and is the
 # in-tree audit point for the operator's approval. See
-# docs/specs/FINDING_SEVERITY_GATE.md and
+# docs/specs/MODEL_DISSENT_SEVERITY_GATE.md and
 # docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance.
 _SEVERITY_GATED_DISSENT_ENV = "ARAGORA_ENABLE_SEVERITY_GATED_DISSENT"
 _SEVERITY_GATED_DISSENT_TRUE = frozenset(("1", "true", "yes", "on"))
