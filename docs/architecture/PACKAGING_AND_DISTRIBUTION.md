@@ -46,12 +46,18 @@ documented `aragora serve` path was impossible pre-P3). The `exclude` keeps the
 
 ## 4. Dependency audit (traced from actual imports)
 
-Method: count distinct files under `aragora/` that import each module
-(`rg -l 'import|from <mod>' aragora/`), cross-referenced against the empirically
-bootable runtime list in `scripts/ci_install_project.sh`
-(`LEGACY_CONTROL_PLANE_BASE_DEPS`, the floor both Dockerfiles boot from).
+Method: count distinct files under `aragora/` with an **anchored import** of
+each module's import name, using `rg -l '^\s*(import|from)\s+<mod>\b' aragora/`
+(here `<mod>` is the import name, e.g. `yaml` for PyYAML). Anchoring to the start
+of an `import` / `from` statement counts genuine import sites and excludes
+incidental mentions in comments or strings, so a broad `rg -l <mod> aragora/`
+reports materially higher (e.g. ~144 for aiohttp, ~15 for websockets). The counts
+below are a point-in-time anchored-import trace at the audit head,
+cross-referenced against the empirically bootable runtime list in
+`scripts/ci_install_project.sh` (`LEGACY_CONTROL_PLANE_BASE_DEPS`, the floor both
+Dockerfiles boot from).
 
-| Dependency | Import sites under `aragora/` | Genuinely needed by | In base `[project.dependencies]`? | Status |
+| Dependency | Anchored import sites under `aragora/` | Genuinely needed by | In base `[project.dependencies]`? | Status |
 |---|---:|---|---|---|
 | `pydantic` | 33 | config, core, server, cli | yes (`>=2.13.4,<3.0`) | floor ✓ |
 | `PyYAML` (`yaml`) | 49 | config, hooks, templates | yes (`>=6.0.3,<7.0`) | floor ✓ |
@@ -118,8 +124,10 @@ surface (`ask`, `serve`, `quickstart`, `gauntlet`, `receipt`, ...).
 
 ## 8. Security floors (already on main)
 
-- `pydantic-settings>=2.14.2` closes **GHSA-4xgf-cpjx-pc3j** (the sole open CVE;
-  vulnerable code path has 0 in-tree usages). Declared in base + `[test]`.
+- `pydantic-settings>=2.14.2` closes **GHSA-4xgf-cpjx-pc3j**, the sole open CVE
+  in a directly-declared dependency (cryptography and starlette, floored below,
+  were already remediated, so they are not open); the vulnerable code path has 0
+  in-tree usages. Declared in base + `[test]`.
 - `cryptography>=48.0.1` and `starlette>=1.3.1` are floored via
   `[tool.uv].constraint-dependencies`. Already remediated — do not re-fix.
 

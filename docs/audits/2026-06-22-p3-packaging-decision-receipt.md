@@ -65,10 +65,14 @@ most." The debate explicitly respected the concern that a unified offering must
 **not entangle the independent core verifier** — i.e. ODR-3's standalone
 `aragora-verify` must stay separable.
 
-The receipt JSON is reproducible from the loop and verifiable offline:
+The receipt JSON is committed at
+`docs/receipts/9ea6b178-a438-4964-9836-3ba84230bd03_275a182b60fc8e1c.json`
+(sha256 `5fa4f45c10e4925df8ff7b95757ba861beccb62772d1072da53ec2a7fea0e6b1`, equal to
+the `receipt sha256` recorded above), so the hashes in this record are
+reproducible from the loop and independently verifiable offline from the tree:
 
 ```
-aragora receipt verify <path>/9ea6b178-a438-4964-9836-3ba84230bd03_275a182b60fc8e1c.json
+aragora receipt verify docs/receipts/9ea6b178-a438-4964-9836-3ba84230bd03_275a182b60fc8e1c.json
 ```
 
 ## Decision
