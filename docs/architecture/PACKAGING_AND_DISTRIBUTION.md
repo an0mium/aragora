@@ -62,8 +62,8 @@ Dockerfiles boot from).
 |---|---:|---|---|---|
 | `pydantic` | 33 | config, core, server, cli | yes (`>=2.13.4,<3.0`) | floor ✓ |
 | `PyYAML` (`yaml`) | 49 | config, hooks, templates | yes (`>=6.0.3,<7.0`) | floor ✓ |
-| `aiohttp` | 98 | server handlers, agents, connectors | **no** (only `[blockchain]`,`[all]`) | floor GAP ⚠ |
-| `websockets` | 7 | `aragora/server/stream/*` | **no** (undeclared anywhere) | floor GAP ⚠ |
+| `aiohttp` | 98 | server handlers, agents, connectors | yes (`>=3.14.1,<4.0`, #8554) | floor ✓ |
+| `websockets` | 7 | `aragora/server/stream/*` | yes (`>=13.0,<15.1`, #8554) | floor ✓ |
 | `pydantic-settings` | 1 | config | yes (`>=2.14.2,<3.0`) | floor ✓ + CVE floor |
 | `click` / `typer` / `httpx` / `python-dateutil` | n/a | cli entry surface | yes | CLI floor ✓ |
 
@@ -72,21 +72,22 @@ essentials (click, typer, httpx, python-dateutil) and `pydantic-settings`.
 
 ### Finding (coordination, not fixed here)
 
-Base `[project.dependencies]` under-declares the real runtime floor relative to
-the bootable `LEGACY_CONTROL_PLANE_BASE_DEPS` set. Most importantly:
+`#8554` folded `aiohttp` (`>=3.14.1,<4.0`) and `websockets` (`>=13.0,<15.1`) into
+the base `[project.dependencies]` floor, so the four audited deps (aiohttp +
+websockets + pyyaml + pydantic) now satisfy the VAL-P3-003 expectation that they
+appear in the declared dependencies. What remains is the rest of the empirically
+bootable `LEGACY_CONTROL_PLANE_BASE_DEPS` set that is still absent from the base
+floor:
 
-- `aiohttp` (102 import sites) is present only in `[blockchain]`/`[all]`, not the base floor.
-- `websockets` (7 import sites, server streaming) is not declared in any section.
+- bcrypt, cryptography, jinja2, numpy, boto3, PyJWT, python-multipart, mcp,
+  fastapi, and uvicorn are in the bootable set but not declared in base
+  `[project.dependencies]`, so a base install can still miss them.
 
 Recommendation for the pyproject-owning P3 follow-ups (`p3-verification-suite` /
-`p3-deploy-finalize`): fold `aiohttp` + `websockets` (and the rest of the
-empirical base set: bcrypt, cryptography, jinja2, numpy, boto3, PyJWT,
-python-multipart, mcp, fastapi, uvicorn) into the base floor or a dedicated
+`p3-deploy-finalize`): fold that remaining set into the base floor or a dedicated
 `[server]` extra, so a documented install is bootable without pulling `[all]`.
-This also brings the declared floor in line with the VAL-P3-003 expectation
-(aiohttp + websockets + pyyaml + pydantic in the declared dependencies).
 
-> This design doc does not edit `pyproject.toml` — that file is owned by other
+> This design doc does not edit `pyproject.toml`; that file is owned by other
 > P3 features and is path-frozen by several open PRs.
 
 ## 5. Extras layout (shipped)
