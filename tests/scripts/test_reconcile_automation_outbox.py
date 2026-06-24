@@ -847,7 +847,7 @@ def test_reconcile_archives_issue_only_pr_handoff_when_merged_pr_proves_head_pre
         ),
     )
 
-    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+    assert mod.main(["--repo", str(tmp_path), "--apply", "--json"]) == 0
 
     result = json.loads(capsys.readouterr().out)
     assert result["counts"]["satisfied_by_merged_pr_commit_proof"] == 1
@@ -856,7 +856,14 @@ def test_reconcile_archives_issue_only_pr_handoff_when_merged_pr_proves_head_pre
     assert result["actions"][0]["decision"] == "archive"
     assert result["actions"][0]["synthetic_receipt"] is False
     assert "merged PR commit list (PR #8583)" in result["actions"][0]["reason"]
-    assert handoff.exists()
+    assert not handoff.exists()
+    archived = tmp_path / ".aragora" / "automation-outbox-archive" / handoff.name
+    archive_payload = json.loads(archived.read_text(encoding="utf-8"))
+    disposition = archive_payload["terminal_disposition"]
+    assert disposition["reason"] == "desired head preserved by merged PR commit list (PR #8583)"
+    assert disposition["preservation_proof"]["upstream_preservation"]["method"] == (
+        "merged_pr_commit_list"
+    )
 
 
 def test_reconcile_keeps_target_pr_receipt_when_desired_head_not_published(
@@ -1326,6 +1333,7 @@ def test_unique_branch_archives_when_desired_head_preserved_by_merged_pr_commit_
     monkeypatch.setattr(mod, "run_git", fake_run_git)
     monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
     monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+    monkeypatch.setattr(mod, "_gh_api_paginated_items", lambda *_args: [])
     monkeypatch.setattr(
         mod,
         "build_worktree_reference_preservation_proof",
@@ -1426,6 +1434,92 @@ def test_unique_branch_keeps_when_preservation_proof_is_remote_branch_only(
     assert payload["counts"]["still_protecting_active_work"] == 1
     assert payload["actions"][0]["decision"] == "keep"
     assert "actively protecting" in payload["actions"][0]["reason"]
+
+
+def test_unique_branch_archives_when_remote_branch_also_has_merged_pr_proof(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-remote-and-merged-proof-abc123"
+    branch = "codex/remote-and-merged-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree": str(tmp_path / "missing-worktree"),
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout=f"+ {desired_head}\n"
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    def fake_gh_items(_root: Path, endpoint: str) -> list[dict[str, Any]]:
+        if endpoint == f"repos/synaptent/aragora/commits/{desired_head}/pulls":
+            return [{"number": 8583, "merged_at": "2026-06-24T00:00:00Z"}]
+        if endpoint == "repos/synaptent/aragora/pulls/8583/commits?per_page=100":
+            return [
+                {"sha": "1111111111111111111111111111111111111111"},
+                {"sha": desired_head},
+            ]
+        raise AssertionError(f"unexpected gh endpoint: {endpoint}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+    monkeypatch.setattr(mod, "_gh_api_paginated_items", fake_gh_items)
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree_paths": [str(tmp_path / "missing-worktree")],
+            "worktree_inspections": [
+                {
+                    "path": str(tmp_path / "missing-worktree"),
+                    "absent_noop": True,
+                    "source": "safe_worktree_cleanup.inspect",
+                    "classification": "absent_noop",
+                }
+            ],
+            "upstream_preservation": {
+                "proven": True,
+                "method": "remote_branch_exact_head",
+                "remote_head_sha": desired_head,
+            },
+        },
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["satisfied_by_merged_pr_commit_proof"] == 1
+    assert payload["counts"]["still_protecting_active_work"] == 0
+    assert payload["actions"][0]["decision"] == "archive"
+    assert "merged PR commit list (PR #8583)" in payload["actions"][0]["reason"]
+    proof = payload["actions"][0]["preservation_proof"]
+    assert proof["upstream_preservation"]["source"] == "gh_api_paginated"
+    assert proof["upstream_preservation_fallback"]["from"]["method"] == "remote_branch_exact_head"
 
 
 def test_unique_branch_keeps_when_preservation_proof_is_unavailable(

@@ -289,6 +289,7 @@ def _merged_pr_commit_preservation_proof(
     state_root: Path,
     payload: dict[str, Any],
     branch: str,
+    repo_name: str,
 ) -> Mapping[str, Any] | None:
     """Return proof that an outbox head is already preserved by a merged PR.
 
@@ -310,14 +311,123 @@ def _merged_pr_commit_preservation_proof(
         )
     except Exception:
         return None
-    if not isinstance(proof, Mapping) or proof.get("available") is not True:
+    if not isinstance(proof, Mapping):
         return None
+    if proof.get("available") is not True:
+        if proof.get("reason") != "upstream_preservation_unproven":
+            return None
+        if not _preservation_proof_has_absent_worktree(proof):
+            return None
+        desired_head = str(proof.get("desired_head_sha") or "").strip()
+        merged_pr = _merged_pr_commit_list_preservation(root, repo_name, desired_head)
+        if merged_pr.get("proven") is not True:
+            return None
+        enriched = dict(proof)
+        enriched["available"] = True
+        enriched["upstream_preservation"] = merged_pr
+        enriched["upstream_preservation_fallback"] = "direct_paginated_merged_pr_lookup"
+        return enriched
     upstream = proof.get("upstream_preservation")
     if not isinstance(upstream, Mapping):
         return None
     if upstream.get("method") != "merged_pr_commit_list" or upstream.get("proven") is not True:
-        return None
+        if not _preservation_proof_has_absent_worktree(proof):
+            return None
+        desired_head = str(proof.get("desired_head_sha") or "").strip()
+        merged_pr = _merged_pr_commit_list_preservation(root, repo_name, desired_head)
+        if merged_pr.get("proven") is not True:
+            return None
+        enriched = dict(proof)
+        enriched["upstream_preservation"] = merged_pr
+        enriched["upstream_preservation_fallback"] = {
+            "from": dict(upstream),
+            "method": "direct_paginated_merged_pr_lookup",
+        }
+        return enriched
     return proof
+
+
+def _preservation_proof_has_absent_worktree(proof: Mapping[str, Any]) -> bool:
+    inspections = proof.get("worktree_inspections")
+    if not isinstance(inspections, Sequence) or isinstance(inspections, (str, bytes, bytearray)):
+        return False
+    return bool(inspections) and all(
+        isinstance(item, Mapping) and item.get("absent_noop") is True for item in inspections
+    )
+
+
+def _gh_api_paginated_items(root: Path, endpoint: str) -> list[Mapping[str, Any]] | None:
+    try:
+        proc = subprocess.run(
+            ["gh", "api", "--paginate", "--slurp", endpoint],
+            cwd=root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        pages = json.loads(proc.stdout or "[]")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(pages, list):
+        return None
+    items: list[Mapping[str, Any]] = []
+    for page in pages:
+        if isinstance(page, list):
+            items.extend(item for item in page if isinstance(item, Mapping))
+        elif isinstance(page, Mapping):
+            items.append(page)
+    return items
+
+
+def _merged_pr_commit_list_preservation(
+    root: Path,
+    repo_name: str,
+    desired_head: str,
+) -> Mapping[str, Any]:
+    if not desired_head:
+        return {
+            "proven": False,
+            "method": "merged_pr_commit_list",
+            "reason": "desired_head_unavailable",
+        }
+    pulls = _gh_api_paginated_items(root, f"repos/{repo_name}/commits/{desired_head}/pulls")
+    if pulls is None:
+        return {
+            "proven": False,
+            "method": "merged_pr_commit_list",
+            "reason": "commit_pulls_unavailable",
+        }
+    for pull in pulls:
+        if not pull.get("merged_at"):
+            continue
+        number = pull.get("number")
+        if not isinstance(number, int):
+            continue
+        commits = _gh_api_paginated_items(
+            root,
+            f"repos/{repo_name}/pulls/{number}/commits?per_page=100",
+        )
+        if commits is None:
+            continue
+        if any(item.get("sha") == desired_head for item in commits):
+            return {
+                "proven": True,
+                "method": "merged_pr_commit_list",
+                "pr_number": number,
+                "repo": repo_name,
+                "source": "gh_api_paginated",
+            }
+    return {
+        "proven": False,
+        "method": "merged_pr_commit_list",
+        "reason": "no_merged_pr_commit_contains_desired_head",
+    }
 
 
 def _requested_action_type(payload: Mapping[str, Any]) -> str:
@@ -696,6 +806,25 @@ def _archive_with_terminal_disposition(
     """
     archived = {key: value for key, value in payload.items() if key != "__source_file"}
     archived["terminal_disposition"] = dict(terminal_info)
+    destination = archive_dir / path.name
+    destination.write_text(json.dumps(archived, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.unlink()
+    return destination
+
+
+def _archive_with_preservation_proof(
+    path: Path,
+    archive_dir: Path,
+    payload: Mapping[str, Any],
+    proof: Mapping[str, Any],
+    reason: str,
+) -> Path:
+    archived = {key: value for key, value in payload.items() if key != "__source_file"}
+    archived["terminal_disposition"] = {
+        "archived_by": "scripts/reconcile_automation_outbox.py",
+        "reason": reason,
+        "preservation_proof": dict(proof),
+    }
     destination = archive_dir / path.name
     destination.write_text(json.dumps(archived, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     path.unlink()
@@ -1178,6 +1307,7 @@ def main(argv: list[str] | None = None) -> int:
                     state_root=state_root,
                     payload=payload,
                     branch=branch,
+                    repo_name=args.repo_name,
                 )
                 if merged_pr_proof is not None:
                     upstream = merged_pr_proof.get("upstream_preservation") or {}
@@ -1197,7 +1327,9 @@ def main(argv: list[str] | None = None) -> int:
                         }
                     )
                     if args.apply:
-                        shutil.move(str(path), str(archive_dir / path.name))
+                        _archive_with_preservation_proof(
+                            path, archive_dir, payload, merged_pr_proof, reason
+                        )
                     continue
                 issue_only_kept_reason = (
                     issue_only_keep_reason
@@ -1466,6 +1598,7 @@ def main(argv: list[str] | None = None) -> int:
             state_root=state_root,
             payload=payload,
             branch=branch,
+            repo_name=args.repo_name,
         )
         if merged_pr_proof is not None:
             upstream = merged_pr_proof.get("upstream_preservation") or {}
@@ -1492,7 +1625,9 @@ def main(argv: list[str] | None = None) -> int:
                     pr_number=int(pr_number) if isinstance(pr_number, int) else None,
                     apply=True,
                 )
-                shutil.move(str(path), str(archive_dir / path.name))
+                _archive_with_preservation_proof(
+                    path, archive_dir, payload, merged_pr_proof, reason
+                )
             continue
 
         reason = (
