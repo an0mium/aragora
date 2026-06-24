@@ -13,12 +13,12 @@ How Real RLM Works:
 3. The LLM can recursively call itself on context subsets
 4. The LLM dynamically decides decomposition strategy (grep, map-reduce, peek, etc.)
 
-When the official RLM library is installed (`pip install aragora[rlm]`), this module
+When the official RLM library is installed (`pip install rlm`), this module
 uses the real REPL-based approach. Otherwise, it falls back to hierarchical
 summarization which preserves semantics but isn't true RLM.
 
 Install RLM support:
-    pip install aragora[rlm]
+    pip install rlm
 """
 
 from __future__ import annotations
@@ -206,7 +206,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         else:
             logger.info(
                 "RLM factory not available. Using hierarchical summarization fallback. "
-                "Install with: pip install aragora[rlm]"
+                "Install with: pip install rlm"
             )
 
         # Widen stats type to support mixed int/float/dict values from RLM extension

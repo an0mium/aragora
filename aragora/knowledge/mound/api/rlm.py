@@ -11,7 +11,7 @@ When the official `rlm` package is installed, TRUE RLM uses a REPL-based
 approach where the model writes code to examine context. This is preferred
 over compression-based methods.
 
-Install TRUE RLM: pip install aragora[rlm]
+Install TRUE RLM: pip install rlm
 
 NOTE: This is a mixin class designed to be composed with KnowledgeMound.
 Attribute accesses like self._ensure_initialized, self.workspace_id, self.query_semantic, etc.
@@ -212,7 +212,7 @@ class RLMOperationsMixin:
         - Model writes code like: `facts = get_facts(km, "topic", min_confidence=0.8)`
         - No information loss from truncation or compression
 
-        This is the PREFERRED method when `pip install aragora[rlm]` is installed.
+        This is the PREFERRED method when `pip install rlm` is installed.
 
         Falls back to compression-based query if TRUE RLM not available.
 
@@ -227,8 +227,7 @@ class RLMOperationsMixin:
         """
         if not HAS_RLM:
             logger.warning(
-                "[rlm] RLM not available for knowledge query. "
-                "Install with: pip install aragora[rlm]"
+                "[rlm] RLM not available for knowledge query. Install with: pip install rlm"
             )
             return None
 
@@ -242,7 +241,7 @@ class RLMOperationsMixin:
             logger.warning(
                 "[rlm] TRUE RLM preferred but not available. "
                 "Will use compression fallback. "
-                "Install with: pip install aragora[rlm] for better results."
+                "Install with: pip install rlm for better results."
             )
 
         # Fetch relevant knowledge items via QueryOperationsMixin
@@ -368,9 +367,7 @@ class RLMOperationsMixin:
             REPL environment, or None if TRUE RLM not available
         """
         if not HAS_RLM or not HAS_OFFICIAL_RLM:
-            logger.warning(
-                "[rlm] TRUE RLM REPL not available. Install with: pip install aragora[rlm]"
-            )
+            logger.warning("[rlm] TRUE RLM REPL not available. Install with: pip install rlm")
             return None
 
         # Cast self to Protocol to access methods provided by composed KnowledgeMound class
