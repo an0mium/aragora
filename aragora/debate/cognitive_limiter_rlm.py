@@ -44,7 +44,7 @@ RLMBackendConfig: Any
 
 try:
     from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
-    from aragora.rlm.bridge import DebateContextAdapter, RLMBackendConfig
+    from aragora.rlm.bridge import DebateContextAdapter, RLMBackendConfig  # type: ignore[no-redef]
 
     HAS_RLM_FACTORY = True
 except ImportError:
@@ -181,7 +181,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         # Real RLM integration - use factory for consistent initialization
         self._rlm_model = rlm_model
-        self._aragora_rlm: Any | None = None
+        self._aragora_rlm: Any = None
         self._debate_adapter: Any | None = None
 
         if HAS_RLM_FACTORY and get_rlm is not None:

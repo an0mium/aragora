@@ -127,7 +127,7 @@ class RLMOperationsMixin:
         # Build text content from knowledge items
         content_parts = []
         for item in items:
-            source = getattr(item, "source", None) or getattr(item, "source_type", None)
+            source: Any = getattr(item, "source", None) or getattr(item, "source_type", None)
             source_str = (
                 source.value if hasattr(source, "value") else str(source) if source else "unknown"
             )
@@ -258,7 +258,7 @@ class RLMOperationsMixin:
         # Build text content from knowledge items
         content_parts = []
         for item in items:
-            source = getattr(item, "source", None) or getattr(item, "source_type", None)
+            source: Any = getattr(item, "source", None) or getattr(item, "source_type", None)
             source_str = (
                 source.value if hasattr(source, "value") else str(source) if source else "unknown"
             )
