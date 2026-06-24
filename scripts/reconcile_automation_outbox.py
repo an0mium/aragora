@@ -396,6 +396,8 @@ def _merged_pr_commit_preservation_proof(
     if not _is_pr_publication_request(payload):
         return None
     expected_base = _requested_base_from_payload(payload) or base
+    if _normalize_base_ref(expected_base) != _normalize_base_ref(base):
+        return None
     records = _lane_records_from_payload(payload, branch)
     if not records:
         return None
@@ -476,6 +478,8 @@ def _merged_pr_commit_preservation_proof(
         if not isinstance(upstream, Mapping):
             return None
         if not _upstream_base_matches(upstream, expected_base):
+            return None
+        if not _desired_head_landed_on_base(root, base, record_branch, desired_head):
             return None
         if common_upstream is None:
             common_upstream = upstream
