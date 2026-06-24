@@ -135,8 +135,6 @@ def test_blocker_label_security_phrasing_starting_with_no_blocks(body):
         "Blockers: no findings",
         "Blockers: no blockers",
         "Blocking findings: no blocking findings",
-        "Blockers: no concerns",
-        "Blockers: no problems",
         "Blockers: no changes needed",
     ],
 )
@@ -185,9 +183,7 @@ def test_approving_model_review_with_no_concerns_not_blocking():
 @pytest.mark.parametrize(
     "value",
     [
-        "no major concerns",
         "no significant issues",
-        "no serious problems",
         "no remaining blockers",
         "no other findings",
         "no minor issues",
@@ -212,6 +208,27 @@ def test_blocker_label_real_finding_with_no_prefix_still_blocks(value):
     # Standalone "blocking" token dropped: a real finding phrased "no blocking … but X"
     # (or "no authentication …") must still block — no merge-gate bypass.
     assert has_blocking_or_negative_verdict(f"Blockers: {value}") is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "no concerns",
+        "no major concerns",
+        "no problems",
+        "no serious problems",
+    ],
+)
+def test_blocker_label_vague_no_finding_fails_closed_without_explicit_disposition(value):
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is False
+    body = f"Verdict: CHANGES-REQUESTED\nBlockers: {value}"
+    assert has_blocking_model_dissent(body, severity_gated=True) is True
+
+
+@pytest.mark.parametrize("value", ["no concerns", "no major concerns", "no problems"])
+def test_vague_no_finding_label_can_pair_with_followup_only_disposition(value):
+    body = f"Verdict: CHANGES-REQUESTED\nBlockers: {value}\nFollow-up-only: yes"
+    assert has_blocking_model_dissent(body, severity_gated=True) is False
 
 
 # --- Reconciliation with #8555 (main makes [P2] block the DEFAULT gate) vs the
@@ -291,6 +308,24 @@ def test_severity_gated_standard_metadata_with_low_severity_finding_is_advisory(
             "committed 2026-06-24T13:56:06Z.",
             "PR: #8590.",
             "Model family: claude",
+            "Verdict: CHANGES-REQUESTED",
+            "- [P2] Add a follow-up regression test.",
+            "dogfood: yes",
+        ]
+    )
+
+    assert has_blocking_model_dissent(body, severity_gated=True) is False
+
+
+@pytest.mark.parametrize("family", ["yi", "glm", "minimax", "hermes"])
+def test_severity_gated_known_family_metadata_with_low_severity_finding_is_advisory(family):
+    body = "\n".join(
+        [
+            f"## {family.title()} independent model review",
+            f"Reviewer: {family} (reviewer)",
+            "Head: a6ffdd9 (a6ffdd9aa4cb6a2838c8647a2f436d5b9135e5a6)",
+            "PR: #8590.",
+            f"Model family: {family}",
             "Verdict: CHANGES-REQUESTED",
             "- [P2] Add a follow-up regression test.",
             "dogfood: yes",

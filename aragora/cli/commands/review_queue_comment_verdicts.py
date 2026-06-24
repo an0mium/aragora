@@ -79,9 +79,9 @@ _NON_BLOCKING_PREFIXES = (
     "[]",
 )
 
-# A populated Blocker-label value that is a no-finding declaration: "no issues",
-# "no blockers", "no concerns", optionally hedged with a closed set of adjectives
-# ("no MAJOR concerns", "no SIGNIFICANT issues", "no REMAINING blockers"). The
+# A populated Blocker-label value that is an explicit no-finding declaration:
+# "no issues", "no blockers", optionally hedged with a closed set of adjectives
+# ("no SIGNIFICANT issues", "no REMAINING blockers"). The
 # adjective allowlist is bounded so the match stays fail-CLOSED for real findings:
 # "no authentication", "no validation", "no SQLi" do NOT match (their head word is
 # a real subject, not a no-finding noun, and is not an allowlisted hedge), so they
@@ -102,7 +102,18 @@ _NO_FINDING_NO_PHRASE = re.compile(
     r"no\s+"
     rf"(?:{_NO_FINDING_HEDGE}\s+){{0,2}}"
     r"(?:blocking\s+)?"
-    r"(?:issues?|findings?|blockers?|concerns?|problems?|changes?)(?!\w)",
+    r"(?:issues?|findings?|blockers?|changes?)(?!\w)",
+    re.I,
+)
+
+# Vague absence-of-concern labels are non-substantive prose, but they are not
+# explicit enough to relax a negative verdict by themselves. They can only be
+# advisory when paired with a separate anchored declaration such as
+# ``Follow-up-only: yes`` or ``Blockers: none``.
+_VAGUE_NO_FINDING_NO_PHRASE = re.compile(
+    r"no\s+"
+    rf"(?:{_NO_FINDING_HEDGE}\s+){{0,2}}"
+    r"(?:concerns?|problems?)(?!\w)",
     re.I,
 )
 
@@ -149,6 +160,11 @@ def _starts_with_phrase(
     return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
 
 
+def _starts_with_vague_no_finding(value: str) -> bool:
+    match = _VAGUE_NO_FINDING_NO_PHRASE.match(value)
+    return bool(match and _NO_FINDING_TAIL.fullmatch(value[match.end() :]))
+
+
 # The DEFAULT (flag-OFF) blocking scanner treats `[P0]`/`[P1]`/`[P2]` marker lines as
 # blocking findings — #8555 added `[P2]` to the default merge gate. ``has_blocking_or_
 # negative_verdict`` (the flag-OFF path) uses these so flag-OFF stays byte-identical to
@@ -190,6 +206,14 @@ _REVIEWER_FAMILY_PREFIXES = (
     "kimi",
     "llama",
     "codex",
+    "yi",
+    "glm",
+    "zhipu",
+    "z ai",
+    "minimax",
+    "hermes",
+    "nous",
+    "nous hermes",
 )
 _SUBSTANTIVE_METADATA_DISSENT = re.compile(
     r"\b(?:auth|authorization|bypass|broken|unsafe|critical|do not|dont|don't|"
@@ -313,6 +337,17 @@ def _is_no_blocker_label(stripped: str) -> bool:
     )
 
 
+def _is_vague_no_blocker_label(stripped: str) -> bool:
+    label_value = _line_label_and_value(stripped)
+    if label_value is None:
+        return False
+    normalized_label, normalized_value = label_value
+    if normalized_label not in _BLOCKER_LABELS:
+        return False
+    match = _VAGUE_NO_FINDING_NO_PHRASE.match(normalized_value)
+    return bool(match and _NO_FINDING_TAIL.fullmatch(normalized_value[match.end() :]))
+
+
 def _is_followup_only_declaration(stripped: str) -> bool:
     """Whether one line is an anchored, non-negated follow-up-only declaration."""
     line = _strip_decoration(stripped).replace("**", "").replace("__", "")
@@ -415,7 +450,11 @@ def _has_unstructured_dissent_content(body: str) -> bool:
             continue
         if _priority_finding_priority(stripped) is not None:
             continue
-        if _is_no_blocker_label(stripped) or _is_followup_only_declaration(stripped):
+        if (
+            _is_no_blocker_label(stripped)
+            or _is_vague_no_blocker_label(stripped)
+            or _is_followup_only_declaration(stripped)
+        ):
             continue
         if _is_review_metadata_line(stripped):
             continue
@@ -448,9 +487,13 @@ def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
         if not is_list_item and (follow.startswith("#") or re.match(r"^[^:]+?:\s+\S", follow)):
             return False
         candidate = _normalize_value(_strip_decoration(follow))
-    return bool(candidate) and not _starts_with_phrase(
-        candidate, _NON_BLOCKING_PREFIXES, match_no_finding=True
-    )
+    if not candidate:
+        return False
+    if _starts_with_phrase(candidate, _NON_BLOCKING_PREFIXES, match_no_finding=True):
+        return False
+    if _starts_with_vague_no_finding(candidate):
+        return False
+    return True
 
 
 def has_blocking_or_negative_verdict(body: str) -> bool:
@@ -489,8 +532,10 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
             if not is_list_item and (follow.startswith("#") or re.match(r"^[^:]+?:\s+\S", follow)):
                 continue
             candidate = _normalize_value(_strip_decoration(follow))
-        if candidate and not _starts_with_phrase(
-            candidate, _NON_BLOCKING_PREFIXES, match_no_finding=True
+        if (
+            candidate
+            and not _starts_with_phrase(candidate, _NON_BLOCKING_PREFIXES, match_no_finding=True)
+            and not _starts_with_vague_no_finding(candidate)
         ):
             return True
     return False

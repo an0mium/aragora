@@ -87,7 +87,11 @@ _BLOCKER_LABEL_GENUINE_NO_FINDING = (
     "Blockers: no issues",
     "Blockers: no blockers",
     "Blocking findings: no blocking findings",
+)
+_BLOCKER_LABEL_VAGUE_NO_FINDING = (
     "Blockers: no concerns",
+    "Blockers: no major concerns",
+    "Blockers: no problems",
 )
 
 
@@ -185,6 +189,13 @@ def test_blocker_label_genuine_no_finding_stays_advisory(body):
     # The legit no-finding case still works: "none"/"no issues"/"no blockers"/
     # "no blocking findings"/"no concerns" are non-blocking.
     assert has_blocking_finding_or_label(body) is False
+
+
+@pytest.mark.parametrize("body", _BLOCKER_LABEL_VAGUE_NO_FINDING)
+def test_blocker_label_vague_no_finding_fails_closed_with_negative_verdict(body):
+    assert has_blocking_finding_or_label(body) is False
+    full_body = f"Verdict: CHANGES-REQUESTED\n{body}"
+    assert _evidence(full_body).dissenting is True
 
 
 def test_p1_none_head_still_no_finding_after_fix():
