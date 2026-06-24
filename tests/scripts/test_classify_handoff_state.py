@@ -483,6 +483,7 @@ def test_human_detection_ignores_operator_steering_path() -> None:
         )
         is False
     )
+    assert mod._looks_human({"body": "non-human automated advisory"}) is False  # noqa: SLF001
     assert mod._looks_human({"from": "operator"}) is True  # noqa: SLF001
 
 
@@ -530,6 +531,15 @@ def test_narrow_rest_open_pr_query_preserves_owner_separator(tmp_path: Path) -> 
     assert seen == [
         "repos/synaptent/aragora/pulls?state=open&head=synaptent:codex%2Fexample&per_page=5"
     ]
+
+
+def test_selected_outbox_file_cannot_escape_outbox_dir(tmp_path: Path) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    outbox.mkdir(parents=True)
+    outside = tmp_path / ".aragora" / "outside.json"
+    outside.write_text("{}", encoding="utf-8")
+
+    assert mod._selected_outbox_files(outbox, "../outside.json") == []  # noqa: SLF001
 
 
 def test_update_pr_idempotency_key_is_pr_publication_request() -> None:

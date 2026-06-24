@@ -1702,22 +1702,21 @@ def main(argv: list[str] | None = None) -> int:
                 payload=payload,
             )
             if representation is not None:
-                if args.apply:
-                    verified, verify_error = _reverify_exact_open_pr_representation_for_apply(
-                        root=root,
-                        state_root=state_root,
-                        repo_name=args.repo_name,
-                        path=path,
-                        payload=payload,
-                        representation=representation,
-                        branch=branch,
-                        desired_head=_desired_head_from_payload(payload),
-                    )
-                    if verified is None:
-                        blocked_reason = verify_error or "exact-open-pr apply reverify failed"
-                        representation = None
-                    else:
-                        representation = verified
+                verified, verify_error = _reverify_exact_open_pr_representation_for_apply(
+                    root=root,
+                    state_root=state_root,
+                    repo_name=args.repo_name,
+                    path=path,
+                    payload=payload,
+                    representation=representation,
+                    branch=branch,
+                    desired_head=_desired_head_from_payload(payload),
+                )
+                if verified is None:
+                    blocked_reason = verify_error or "exact-open-pr apply reverify failed"
+                    representation = None
+                else:
+                    representation = verified
             if representation is not None:
                 counts["satisfied_by_exact_open_pr_representation"] += 1
                 actions.append(

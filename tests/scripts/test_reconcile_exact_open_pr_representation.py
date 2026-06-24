@@ -83,6 +83,15 @@ def test_exact_open_pr_representation_dry_run_reports_archive_without_writes(
 
     monkeypatch.setattr(reconcile, "classify_handoffs", fake_classify_handoffs)
 
+    def fake_reverify(**kwargs: Any) -> tuple[dict[str, Any] | None, str | None]:
+        representation = dict(kwargs["representation"])
+        representation["apply_reverified"] = True
+        return representation, None
+
+    monkeypatch.setattr(
+        reconcile, "_reverify_exact_open_pr_representation_for_apply", fake_reverify
+    )
+
     rc = reconcile.main(
         [
             "--repo",

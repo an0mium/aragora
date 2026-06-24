@@ -7,6 +7,7 @@ import dataclasses
 import ast
 import json
 import os
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -1006,7 +1007,7 @@ def _looks_human(mapping: Mapping[str, Any]) -> bool:
         "priority",
     )
     text = " ".join(str(mapping.get(field) or "") for field in fields).lower()
-    return "human" in text or "operator" in text
+    return re.search(r"(?<![\w-])(human|operator)(?![\w-])", text) is not None
 
 
 def latest_read_receipt_for_message(message_path: Path) -> dict[str, Any] | None:
@@ -1049,13 +1050,18 @@ def _steering_message_resolved(receipt: Mapping[str, Any] | None) -> bool:
 
 
 def _selected_outbox_files(outbox_dir: Path, outbox_file: str | Path | None) -> list[Path]:
+    outbox_root = outbox_dir.resolve()
     if outbox_file is None:
         if not outbox_dir.exists():
             return []
         return sorted(p for p in outbox_dir.iterdir() if p.is_file() and p.suffix == ".json")
     value = Path(outbox_file).expanduser()
-    path = value if value.is_absolute() else outbox_dir / value
-    return [path.resolve()]
+    path = (value if value.is_absolute() else outbox_dir / value).resolve()
+    try:
+        path.relative_to(outbox_root)
+    except ValueError:
+        return []
+    return [path]
 
 
 def _load_lane_records(path: Path) -> list[dict[str, Any]]:
