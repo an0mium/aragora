@@ -190,7 +190,7 @@ def test_unclosed_trailing_thinking_trace_does_not_pollute_evidence_body() -> No
     assert "qwen" in result["counted_reviewer_ids"]
 
 
-def test_unclosed_trailing_thinking_trace_with_priority_marker_does_not_decount() -> None:
+def test_unclosed_trailing_thinking_trace_with_priority_marker_preserves_negative_verdict() -> None:
     from aragora.cli.commands.review_queue import _lint_evidence_comment
 
     raw = (
@@ -208,9 +208,9 @@ def test_unclosed_trailing_thinking_trace_with_priority_marker_does_not_decount(
         reviewer_text=raw,
     )
 
-    assert "private reasoning" not in body
-    assert "CHANGES-REQUESTED" not in body
-    assert "[P1]" not in body
+    assert "private reasoning" in body
+    assert "CHANGES-REQUESTED" in body
+    assert "[P1]" in body
     result = _lint_evidence_comment(
         pr="7740",
         head_sha=HEAD,
@@ -219,8 +219,8 @@ def test_unclosed_trailing_thinking_trace_with_priority_marker_does_not_decount(
         author="an0mium",
         source="test",
     )
-    assert result["would_count"] is True, result["problems"]
-    assert "qwen" in result["counted_reviewer_ids"]
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
 
 
 def test_closed_post_verdict_thinking_trace_does_not_decount_support() -> None:
@@ -349,8 +349,8 @@ def test_closed_thinking_real_internal_reasoning_finding_is_preserved() -> None:
     assert "blocking_or_negative_verdict" in result["problems"]
 
 
-def test_unclosed_trailing_thinking_after_nonblocking_finding_does_not_flip_pass() -> None:
-    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+def test_unclosed_trailing_thinking_private_disclaimer_preserves_negative_verdict() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
 
     raw = (
         "Verdict: PASS\n"
@@ -359,10 +359,52 @@ def test_unclosed_trailing_thinking_after_nonblocking_finding_does_not_flip_pass
         "Verdict: CHANGES-REQUESTED\n"
         "This was abandoned private reasoning, not a reviewer finding."
     )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
 
-    out = normalize_reviewer_output(raw)
+    assert "CHANGES-REQUESTED" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
 
-    assert out == "Verdict: PASS\n- [P3] minor style issue, non-blocking."
+
+def test_indented_code_verdict_is_not_promoted_by_normalizer_strip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    monkeypatch.delenv("ARAGORA_REVIEWER_NORMALIZER_MODEL", raising=False)
+    raw = "    Verdict: PASS\n    No findings."
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "    Verdict: PASS" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
 
 
 def test_unclosed_trailing_thinking_bare_negative_verdict_is_preserved() -> None:

@@ -5941,6 +5941,38 @@ class TestCommandDispatch:
         assert "blocking_or_negative_verdict" in payload["problems"]
         assert "no_counted_model_reviewer" in payload["problems"]
 
+    def test_evidence_lint_rejects_indented_verdict_example_as_support(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "    Verdict: PASS\n"
+                    "    No findings.\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert payload["reviewer_signals"] == []
+        assert payload["dogfood_evidence"] == []
+        assert "untrusted_or_non_supportive_verdict" in payload["problems"]
+        assert "no_counted_model_reviewer" in payload["problems"]
+
     def test_evidence_lint_rejects_p1_finding_without_negative_verdict(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="evidence-lint",

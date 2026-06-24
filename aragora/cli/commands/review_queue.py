@@ -3666,6 +3666,84 @@ def _counted_model_reviewer_ids(
     return sorted(reviewer_ids)
 
 
+_SUPPORTIVE_VERDICT_PREFIXES = (
+    "accept",
+    "accepted",
+    "approve",
+    "approved",
+    "clean",
+    "green",
+    "looks good",
+    "lgtm",
+    "no blocking findings",
+    "no blockers",
+    "no changes requested",
+    "no findings",
+    "pass",
+    "passed",
+    "ready",
+    "support",
+    "supported",
+    "supportive",
+)
+
+
+def _extract_verdict_label_value(raw_line: str) -> str | None:
+    line = raw_line.strip()
+    if not line:
+        return None
+    line = line.replace("**", "").replace("__", "").strip("*_ ")
+    line = re.sub(r"^(?:[#>\-*+]+\s+|\d+[.)]\s+)+", "", line)
+    match = re.match(
+        r"^(?:verdict|decision|recommendation)\s*(?::|—|–|-)\s*(?P<value>.*)$",
+        line,
+        re.I,
+    )
+    if not match:
+        return None
+    return match.group("value")
+
+
+def _normalize_verdict_label_value(value: str) -> str:
+    value = value.replace("**", "").replace("__", "")
+    value = re.sub(r"[-_]+", " ", value)
+    return re.sub(r"\s+", " ", value.strip().strip("*_").strip().lower())
+
+
+def _has_any_verdict_label_line(body: str) -> bool:
+    return any(
+        _extract_verdict_label_value(raw_line) is not None
+        for raw_line in str(body or "").splitlines()
+    )
+
+
+def _has_trusted_supportive_verdict_label(body: str) -> bool:
+    in_fence = False
+    for raw_line in str(body or "").splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if raw_line != raw_line.lstrip() or stripped.startswith(">"):
+            continue
+        value = _extract_verdict_label_value(raw_line)
+        if value is None:
+            continue
+        normalized = _normalize_verdict_label_value(value)
+        if any(
+            re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
+            for prefix in _SUPPORTIVE_VERDICT_PREFIXES
+        ):
+            return True
+    return False
+
+
+def _has_untrusted_or_non_supportive_verdict_label(body: str) -> bool:
+    return _has_any_verdict_label_line(body) and not _has_trusted_supportive_verdict_label(body)
+
+
 def _lint_evidence_comment(
     *,
     pr: str,
@@ -3679,12 +3757,20 @@ def _lint_evidence_comment(
     grounded, grounding_method = _proposed_evidence_head_grounding(body, head_sha)
     pr_grounded, pr_grounding_method = _proposed_evidence_pr_grounding(body, pr)
     negative_verdict = _has_blocking_or_negative_verdict(body)
+    untrusted_or_non_supportive_verdict = (
+        not negative_verdict and _has_untrusted_or_non_supportive_verdict_label(body)
+    )
     comment = {
         "author": {"login": author},
         "body": body,
         "createdAt": "",
     }
-    if grounded and pr_grounded and not negative_verdict:
+    if (
+        grounded
+        and pr_grounded
+        and not negative_verdict
+        and not untrusted_or_non_supportive_verdict
+    ):
         dogfood_evidence = _dogfood_evidence_from_comments([comment])
         reviewer_signals = _model_review_signals_from_comments([comment])
     else:
@@ -3706,6 +3792,8 @@ def _lint_evidence_comment(
         problems.append("github_actions_author_not_counted")
     if negative_verdict:
         problems.append("blocking_or_negative_verdict")
+    if untrusted_or_non_supportive_verdict:
+        problems.append("untrusted_or_non_supportive_verdict")
     if inferred_reviewer == "unknown_model_reviewer":
         problems.append("missing_known_model_reviewer_heading")
     for problem in identity.identity_problems:
@@ -4172,6 +4260,8 @@ def _dogfood_evidence_from_comments(
         body = str(comment.get("body", "") or "")
         if _has_blocking_or_negative_verdict(body):
             continue
+        if _has_untrusted_or_non_supportive_verdict_label(body):
+            continue
         lower = body.lower()
         if not any(
             token in lower for token in ("dogfood", "adversarial", "cross-author", "recheck")
@@ -4326,6 +4416,8 @@ def _model_review_signals_from_comments(
             continue
         body = str(comment.get("body", "") or "")
         if _has_blocking_or_negative_verdict(body):
+            continue
+        if _has_untrusted_or_non_supportive_verdict_label(body):
             continue
         lower = body.lower()
         if not any(

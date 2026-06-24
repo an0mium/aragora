@@ -698,7 +698,7 @@ def _neutralize_reviewer_text(text: str) -> str:
     through verbatim — the reviewer's findings are never altered.
     """
     out: list[str] = []
-    for line in text.strip().splitlines():
+    for line in text.strip("\r\n").splitlines():
         stripped = line.strip()
         lower = stripped.lower()
         # Canonicalize the way the parser does (strip leading quote/list markers
@@ -831,7 +831,10 @@ def _negative_open_tail_is_private_nonfinding(text: str) -> bool:
         line = _THINKING_OPEN_RE.sub("", raw_line, count=1).strip()
         if not line:
             continue
-        if _trusted_line_verdict(line):
+        verdict = _trusted_line_verdict(line)
+        if verdict == "changes_requested":
+            return False
+        if verdict:
             verdict_seen = True
             continue
         if _private_reasoning_nonfinding_context(line):
@@ -971,7 +974,7 @@ def _strip_thinking_traces(text: str) -> str:
                 seen_blocking_finding = True
             kept_suffix.append(line)
         cleaned = f"{prefix}{''.join(kept_suffix)}"
-    return re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return re.sub(r"\n{3,}", "\n\n", cleaned).strip("\r\n")
 
 
 def _first_verdict_offset(text: str) -> int:
