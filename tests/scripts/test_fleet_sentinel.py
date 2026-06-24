@@ -145,6 +145,31 @@ def test_publisher_status_default_is_live_cache_path() -> None:
     assert default.parts[-3:] == (".aragora", "automation-github-status", "latest.json")
 
 
+def test_repo_root_rebases_repo_state_defaults(tmp_path: Path, monkeypatch: Any) -> None:
+    """``--repo-root`` must carry the repo-local ``.aragora`` defaults with it."""
+    state = tmp_path / ".aragora"
+    _touch(
+        state / "automation-github-status" / "latest.json",
+        content=json.dumps(_healthy_publisher_payload()),
+    )
+    _touch(state / "overnight" / "boss_metrics.jsonl", age_hours=1)
+    _touch(state / "automation-outbox" / "one.json", age_hours=1)
+    monkeypatch.setattr(sentinel, "_load_handoff_state", lambda args: None)
+    args = sentinel.build_parser().parse_args(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--checks",
+            "publisher_status,boss_metrics_heartbeat,outbox_depth",
+        ]
+    )
+
+    checks = sentinel.run_checks(args, NOW)
+
+    assert [check["status"] for check in checks] == ["ok", "ok", "ok"]
+    assert checks[2]["depth"] == 1
+
+
 # ---------------------------------------------------------------------------
 # boss_metrics_heartbeat
 # ---------------------------------------------------------------------------

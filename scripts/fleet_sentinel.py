@@ -43,6 +43,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
+DEFAULT_REPO_ROOT = SCRIPTS_DIR.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from handoff_state import classify_handoffs  # noqa: E402
@@ -72,6 +73,35 @@ ACTIONABLE_HANDOFF_STATES = {
     "blocked_by_live_queue_cap",
     "unknown",
 }
+
+
+def _repo_state_defaults(repo_root: Path) -> dict[str, Path]:
+    state_root = repo_root / ".aragora"
+    return {
+        "publisher_status": state_root / "automation-github-status" / "latest.json",
+        "boss_metrics": state_root / "overnight" / "boss_metrics.jsonl",
+        "outbox_dir": state_root / "automation-outbox",
+        "lanes_glob": state_root / "run-*" / "lanes",
+        "publisher_log": state_root / "overnight" / "codex-automation-publisher.log",
+        "trail_chain": state_root / "trail" / "intent-chain.jsonl",
+        "ledger": state_root / "fleet-sentinel" / "ledger.jsonl",
+    }
+
+
+def _apply_repo_root_defaults(args: argparse.Namespace) -> argparse.Namespace:
+    """Rebase repo-local default paths after ``--repo-root`` is parsed.
+
+    The sentinel is often executed from an implementation worktree while checking
+    the shared root checkout.  Argparse defaults are computed before
+    ``--repo-root`` is known, so dependent ``.aragora`` paths must be adjusted
+    here unless the caller supplied an explicit non-default override.
+    """
+    old_defaults = _repo_state_defaults(DEFAULT_REPO_ROOT)
+    new_defaults = _repo_state_defaults(Path(args.repo_root))
+    for field, old_default in old_defaults.items():
+        if Path(str(getattr(args, field))) == old_default:
+            setattr(args, field, str(new_defaults[field]))
+    return args
 
 
 def parse_iso(value: str) -> datetime:
@@ -1201,6 +1231,7 @@ def append_ledger(ledger: Path, report: dict[str, Any]) -> None:
 
 
 def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
+    args = _apply_repo_root_defaults(args)
     selected = [c.strip() for c in args.checks.split(",") if c.strip()]
     unknown_names = set(selected) - set(ALL_CHECKS)
     if unknown_names:
@@ -1314,7 +1345,8 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = DEFAULT_REPO_ROOT
+    repo_defaults = _repo_state_defaults(repo_root)
     parser.add_argument("--repo-root", default=str(repo_root))
     parser.add_argument(
         "--publisher-status",
@@ -1323,12 +1355,12 @@ def build_parser() -> argparse.ArgumentParser:
         # .aragora/automation-publisher-status.json, has been an orphan since
         # its writer moved (~2026-05-24) — watching it would alarm forever on
         # stale data or, worse, stay green on a frozen healthy snapshot.
-        default=str(repo_root / ".aragora" / "automation-github-status" / "latest.json"),
+        default=str(repo_defaults["publisher_status"]),
     )
     parser.add_argument("--publisher-max-age-hours", type=float, default=24.0)
     parser.add_argument(
         "--boss-metrics",
-        default=str(repo_root / ".aragora" / "overnight" / "boss_metrics.jsonl"),
+        default=str(repo_defaults["boss_metrics"]),
     )
     parser.add_argument("--metrics-max-age-hours", type=float, default=48.0)
     parser.add_argument(
@@ -1340,7 +1372,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="synaptent/aragora",
         help="GitHub repository used by the handoff-state classifier.",
     )
-    parser.add_argument("--outbox-dir", default=str(repo_root / ".aragora" / "automation-outbox"))
+    parser.add_argument("--outbox-dir", default=str(repo_defaults["outbox_dir"]))
     parser.add_argument("--outbox-max", type=int, default=50)
     parser.add_argument("--outbox-max-age-days", type=float, default=7.0)
     parser.add_argument(
@@ -1354,14 +1386,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--lanes-glob",
         # Lane-ledger convention: .aragora/run-*/lanes/<lane>.json
-        default=str(repo_root / ".aragora" / "run-*" / "lanes"),
+        default=str(repo_defaults["lanes_glob"]),
         help="glob for lane-ledger directories (entries are <lane>.json inside)",
     )
     parser.add_argument("--lane-max-age-hours", type=float, default=3.0)
     parser.add_argument("--orphan-branch-age-hours", type=float, default=24.0)
     parser.add_argument(
         "--publisher-log",
-        default=str(repo_root / ".aragora" / "overnight" / "codex-automation-publisher.log"),
+        default=str(repo_defaults["publisher_log"]),
     )
     parser.add_argument("--publisher-log-tail-lines", type=int, default=2000)
     parser.add_argument(
@@ -1381,7 +1413,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trail-witness-repo", default="synaptent/aragora")
     parser.add_argument(
         "--trail-chain",
-        default=str(repo_root / ".aragora" / "trail" / "intent-chain.jsonl"),
+        default=str(repo_defaults["trail_chain"]),
         help="anchored intent chain (TET Component 2; lane TA's intent_chain module)",
     )
     parser.add_argument(
@@ -1397,7 +1429,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trail-window-hours", type=float, default=24.0)
     parser.add_argument(
         "--ledger",
-        default=str(repo_root / ".aragora" / "fleet-sentinel" / "ledger.jsonl"),
+        default=str(repo_defaults["ledger"]),
     )
     parser.add_argument("--checks", default=",".join(ALL_CHECKS))
     parser.add_argument("--json", action="store_true", help="emit the JSON report to stdout")
