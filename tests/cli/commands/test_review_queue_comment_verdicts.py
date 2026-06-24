@@ -20,6 +20,10 @@ from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label,
     highest_blocking_severity,
     has_blocking_or_negative_verdict,
+    _is_markdown_indented_code_line as verdicts_is_markdown_indented_code_line,
+)
+from aragora.cli.commands.review_queue import (
+    _is_markdown_indented_code_line as review_queue_is_markdown_indented_code_line,
 )
 
 
@@ -145,6 +149,36 @@ def test_terse_no_security_phrase_still_blocks(body):
 )
 def test_prose_blocking_phrases_inside_examples_do_not_block(body):
     assert not has_blocking_or_negative_verdict(body)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "```\nDo not merge until auth is fixed.\n```",
+        "> Do not merge until auth is fixed.",
+        "    Do not merge until auth is fixed.",
+        "```\nVerdict: CHANGES-REQUESTED\n```",
+        "```\n[P1] hidden blocker survives fenced formatting.\n```",
+    ],
+)
+def test_untrusted_formatting_cannot_hide_secondary_dissent(body):
+    assert has_blocking_or_negative_verdict(f"Verdict: PASS\n{body}")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Verdict: PASS",
+        "  Verdict: PASS",
+        "    Verdict: PASS",
+        "\tVerdict: PASS",
+        "    ",
+    ],
+)
+def test_indented_code_helper_matches_review_queue(line):
+    assert verdicts_is_markdown_indented_code_line(
+        line
+    ) == review_queue_is_markdown_indented_code_line(line)
 
 
 def test_free_form_needs_revision_before_merge_blocks():

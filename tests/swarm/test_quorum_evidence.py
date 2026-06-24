@@ -255,6 +255,38 @@ def test_closed_post_verdict_thinking_priority_marker_disclaimer_fails_closed() 
     assert "blocking_or_negative_verdict" in result["problems"]
 
 
+def test_closed_thinking_priority_marker_not_reviewer_finding_fails_closed() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "Verdict: PASS\n"
+        "No findings.\n"
+        "<thinking>\n"
+        "[P1] This was only private reasoning, not the review.\n"
+        "</thinking>"
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "private reasoning" in body
+    assert "[P1]" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
+
+
 def test_closed_thinking_private_reasoning_finding_is_preserved() -> None:
     from aragora.cli.commands.review_queue import _lint_evidence_comment
 

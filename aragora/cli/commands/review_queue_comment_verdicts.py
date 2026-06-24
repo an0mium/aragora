@@ -235,8 +235,11 @@ def _normalize_value(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
 
 
+_INDENTED_CODE_RE = re.compile(r"^(?: {4,}|\t)\S")
+
+
 def _is_markdown_indented_code_line(line: str) -> bool:
-    return line.startswith("    ") or line.startswith("\t")
+    return bool(_INDENTED_CODE_RE.match(line.rstrip("\r\n")))
 
 
 def _priority_finding_severity(stripped: str) -> str | None:
@@ -285,6 +288,32 @@ def _has_blocking_dissent_phrase(text: str) -> bool:
         if _blocking_dissent_phrase_match_is_benign(value, match):
             continue
         return True
+    return False
+
+
+def _untrusted_dissent_phrase_is_benign_example(
+    raw_line: str, stripped: str, *, in_fence: bool
+) -> bool:
+    """Whether an untrusted prose blocker is only a quoted/code example.
+
+    The scanner still fails closed for concrete merge/security dissent in
+    blockquotes, indented code, or fences. The exemption is intentionally narrow:
+    existing fixture/example prose stays non-blocking, while real secondary review
+    lines such as ``> Do not merge until auth is fixed`` still block.
+    """
+
+    normalized = _normalize_value(stripped)
+    if in_fence:
+        return bool(
+            re.search(
+                r"\b(?:fixture|example|sample|literal|assert|expected|mock|stub)\b",
+                normalized,
+            )
+            or re.search(r"[`'\"]", stripped)
+            or re.search(r"\b(?:assert|return|raise|print|const|let|var|def|class)\b", stripped)
+        )
+    if stripped.startswith(">") or _is_markdown_indented_code_line(raw_line):
+        return bool(re.search(r"\b(?:fixture|example|sample|literal)\b", normalized))
     return False
 
 
@@ -375,10 +404,11 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
                 in_fence = False
                 fence_marker = ""
             continue
-        untrusted_example = (
-            in_fence or stripped.startswith(">") or _is_markdown_indented_code_line(raw_line)
-        )
-        if not untrusted_example and _has_blocking_dissent_phrase(stripped):
+        if _has_blocking_dissent_phrase(
+            stripped
+        ) and not _untrusted_dissent_phrase_is_benign_example(
+            raw_line, stripped, in_fence=in_fence
+        ):
             return True
         if _default_blocking_marker_finding(stripped):
             return True
