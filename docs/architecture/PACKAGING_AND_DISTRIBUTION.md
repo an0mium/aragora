@@ -75,17 +75,15 @@ essentials (click, typer, httpx, python-dateutil) and `pydantic-settings`.
 `#8554` folded `aiohttp` (`>=3.14.1,<4.0`) and `websockets` (`>=13.0,<15.1`) into
 the base `[project.dependencies]` floor, so the four audited deps (aiohttp +
 websockets + pyyaml + pydantic) now satisfy the VAL-P3-003 expectation that they
-appear in the declared dependencies. What remains is the rest of the empirically
-bootable `LEGACY_CONTROL_PLANE_BASE_DEPS` set that is still absent from the base
-floor:
-
-- bcrypt, cryptography, jinja2, numpy, boto3, PyJWT, python-multipart, mcp,
-  fastapi, and uvicorn are in the bootable set but not declared in base
-  `[project.dependencies]`, so a base install can still miss them.
+appear in the declared dependencies. A wider gap remains: the declared base floor
+is still narrower than the empirically bootable `LEGACY_CONTROL_PLANE_BASE_DEPS`
+set in `scripts/ci_install_project.sh` (the authoritative boot list), so a base
+install can still miss runtime deps that only the extras or that script provide.
 
 Recommendation for the pyproject-owning P3 follow-ups (`p3-verification-suite` /
-`p3-deploy-finalize`): fold that remaining set into the base floor or a dedicated
-`[server]` extra, so a documented install is bootable without pulling `[all]`.
+`p3-deploy-finalize`): reconcile the declared base floor against
+`LEGACY_CONTROL_PLANE_BASE_DEPS` (or a dedicated `[server]` extra) so a documented
+install is bootable without pulling `[all]`.
 
 > This design doc does not edit `pyproject.toml`; that file is owned by other
 > P3 features and is path-frozen by several open PRs.
@@ -126,10 +124,9 @@ surface (`ask`, `serve`, `quickstart`, `gauntlet`, `receipt`, ...).
 
 ## 8. Security floors (already on main)
 
-- `pydantic-settings>=2.14.2` closes **GHSA-4xgf-cpjx-pc3j**, the sole open CVE
-  in a directly-declared dependency (cryptography and starlette, floored below,
-  were already remediated, so they are not open); the vulnerable code path has 0
-  in-tree usages. Declared in base + `[test]`.
+- `pydantic-settings>=2.14.2` closes **GHSA-4xgf-cpjx-pc3j** (the sole open CVE in
+  a directly-declared dependency; the vulnerable code path has 0 in-tree usages).
+  Declared in base + `[test]`.
 - `cryptography>=48.0.1` and `starlette>=1.3.1` are floored via
   `[tool.uv].constraint-dependencies`. Already remediated — do not re-fix.
 
