@@ -1238,6 +1238,56 @@ def safe_inspect_payload(*, exists: bool) -> str:
     )
 
 
+def test_absent_worktree_merged_pr_commit_list_paginates_commits(tmp_path: Path) -> None:
+    desired_head = "317b94232d3ba41c3a1e546a94010dfdf069f85f"
+    lane, ledger, _worktree = _stale_worktree_lane(
+        tmp_path,
+        branch="codex/large-merged-pr",
+        desired_head=desired_head,
+    )
+    calls: list[list[str]] = []
+
+    def runner(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        if "safe_worktree_cleanup.py" in " ".join(cmd):
+            return completed(cmd, stdout=safe_inspect_payload(exists=False), returncode=1)
+        if cmd[:3] == ["git", "ls-remote", "origin"]:
+            return completed(cmd, stdout="")
+        if cmd == ["git", "remote", "get-url", "origin"]:
+            return completed(cmd, stdout="https://github.com/synaptent/aragora.git\n")
+        if cmd[:2] == ["gh", "api"] and f"commits/{desired_head}/pulls" in cmd[-1]:
+            return completed(
+                cmd,
+                stdout=json.dumps(
+                    [{"number": 7825, "merged_at": LIVENESS_NOW, "base": {"ref": "main"}}]
+                ),
+            )
+        if cmd[:2] == ["gh", "api"] and "pulls/7825/commits" in cmd[-1]:
+            if "&page=1" in cmd[-1]:
+                return completed(
+                    cmd,
+                    stdout=json.dumps([{"sha": f"{i:040x}"} for i in range(100)]),
+                )
+            if "&page=2" in cmd[-1]:
+                return completed(cmd, stdout=json.dumps([{"sha": desired_head}]))
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    proof = ilo.build_worktree_reference_preservation_proof(
+        lane,
+        ledger_entry=ledger,
+        repo_root=tmp_path,
+        state_root=tmp_path / ".aragora",
+        runner=runner,
+    )
+
+    assert proof["available"] is True
+    assert proof["upstream_preservation"]["method"] == "merged_pr_commit_list"
+    assert proof["upstream_preservation"]["base_ref"] == "main"
+    commit_page_calls = [cmd for cmd in calls if "pulls/7825/commits" in cmd[-1]]
+    assert any("&page=1" in cmd[-1] for cmd in commit_page_calls)
+    assert any("&page=2" in cmd[-1] for cmd in commit_page_calls)
+
+
 class TestOwnerLeaseLiveness:
     def test_live_owner_no_advisory(self) -> None:
         lane = {

@@ -829,16 +829,24 @@ def test_reconcile_archives_issue_only_pr_handoff_when_merged_pr_proves_head_pre
                 "method": "merged_pr_commit_list",
                 "pr_number": 8583,
                 "repo": "synaptent/aragora",
+                "base_ref": "main",
             },
         },
     )
-    monkeypatch.setattr(
-        mod,
-        "run_git",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError("git ref checks should not run once merged PR proof is available")
-        ),
-    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
     monkeypatch.setattr(
         mod,
         "open_pr_heads",
@@ -1294,7 +1302,7 @@ def test_unique_non_codex_branch_is_protected_by_open_pr(
     assert payload["actions"][0]["reason"] == "branch has open PR #8501"
 
 
-def test_unique_branch_archives_when_desired_head_preserved_by_merged_pr_commit_list(
+def test_unique_branch_archives_when_desired_head_is_patch_equivalent_to_main(
     tmp_path: Path,
     monkeypatch: Any,
     capsys: Any,
@@ -1326,7 +1334,7 @@ def test_unique_branch_archives_when_desired_head_preserved_by_merged_pr_commit_
             return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
         if args[0] == "cherry":
             return subprocess.CompletedProcess(
-                args=args, returncode=0, stdout=f"+ {desired_head}\n"
+                args=args, returncode=0, stdout=f"- {desired_head}\n"
             )
         raise AssertionError(f"unexpected git call: {args}")
 
@@ -1355,6 +1363,7 @@ def test_unique_branch_archives_when_desired_head_preserved_by_merged_pr_commit_
                 "method": "merged_pr_commit_list",
                 "pr_number": 8583,
                 "repo": "synaptent/aragora",
+                "base_ref": "main",
             },
         },
     )
@@ -1362,13 +1371,11 @@ def test_unique_branch_archives_when_desired_head_preserved_by_merged_pr_commit_
     assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
 
     payload = json.loads(capsys.readouterr().out)
-    assert payload["counts"]["satisfied_by_merged_pr_commit_proof"] == 1
+    assert payload["counts"]["satisfied_by_landed_on_main"] == 1
     assert payload["counts"]["still_protecting_active_work"] == 0
     assert payload["actions"][0]["decision"] == "archive"
-    assert "merged PR commit list (PR #8583)" in payload["actions"][0]["reason"]
     assert (
-        payload["actions"][0]["preservation_proof"]["upstream_preservation"]["method"]
-        == "merged_pr_commit_list"
+        payload["actions"][0]["reason"] == "branch work landed on main (merge or patch-equivalent)"
     )
 
 
@@ -1436,7 +1443,115 @@ def test_unique_branch_keeps_when_preservation_proof_is_remote_branch_only(
     assert "actively protecting" in payload["actions"][0]["reason"]
 
 
-def test_unique_branch_archives_when_remote_branch_also_has_merged_pr_proof(
+def test_merged_pr_preservation_proof_rejects_non_base_pr(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/feature-base-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    payload = {
+        "requested_action": {"type": "open_pr", "branch": branch, "base": "main"},
+        "local_evidence": {
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree": str(tmp_path / "missing-worktree"),
+        },
+    }
+
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree_paths": [str(tmp_path / "missing-worktree")],
+            "upstream_preservation": {
+                "proven": True,
+                "method": "merged_pr_commit_list",
+                "pr_number": 8583,
+                "repo": "synaptent/aragora",
+                "base_ref": "codex/feature-integration",
+            },
+        },
+    )
+
+    proof = mod._merged_pr_commit_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path,
+        payload=payload,
+        branch=branch,
+        repo_name="synaptent/aragora",
+        base="origin/main",
+    )
+
+    assert proof is None
+
+
+def test_merged_pr_preservation_proof_checks_all_local_evidence_worktrees(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    branch = "codex/multi-worktree-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    worktrees = [tmp_path / "missing-worktree-a", tmp_path / "missing-worktree-b"]
+    payload = {
+        "requested_action": {"type": "open_pr", "branch": branch, "base": "main"},
+        "local_evidence": [
+            {"branch": branch, "desired_head_sha": desired_head, "worktree": str(worktrees[0])},
+            {"branch": branch, "desired_head_sha": desired_head, "worktree": str(worktrees[1])},
+        ],
+    }
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    seen_worktrees: list[str] = []
+
+    def fake_preservation_proof(record: dict[str, Any], **_kwargs: Any) -> dict[str, Any]:
+        worktree = str(record.get("worktree") or "")
+        seen_worktrees.append(worktree)
+        return {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree_paths": [worktree],
+            "upstream_preservation": {
+                "proven": True,
+                "method": "merged_pr_commit_list",
+                "pr_number": 8583,
+                "repo": "synaptent/aragora",
+                "base_ref": "main",
+            },
+        }
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "build_worktree_reference_preservation_proof", fake_preservation_proof)
+
+    proof = mod._merged_pr_commit_preservation_proof(
+        root=tmp_path,
+        state_root=tmp_path,
+        payload=payload,
+        branch=branch,
+        repo_name="synaptent/aragora",
+        base="origin/main",
+    )
+
+    assert sorted(seen_worktrees) == sorted(str(path) for path in worktrees)
+    assert proof is not None
+    assert len(proof["worktree_proofs"]) == 2
+
+
+def test_unique_branch_keeps_when_merged_pr_proof_is_not_on_current_base(
     tmp_path: Path,
     monkeypatch: Any,
     capsys: Any,
@@ -1513,13 +1628,10 @@ def test_unique_branch_archives_when_remote_branch_also_has_merged_pr_proof(
     assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
 
     payload = json.loads(capsys.readouterr().out)
-    assert payload["counts"]["satisfied_by_merged_pr_commit_proof"] == 1
-    assert payload["counts"]["still_protecting_active_work"] == 0
-    assert payload["actions"][0]["decision"] == "archive"
-    assert "merged PR commit list (PR #8583)" in payload["actions"][0]["reason"]
-    proof = payload["actions"][0]["preservation_proof"]
-    assert proof["upstream_preservation"]["source"] == "gh_api_paginated"
-    assert proof["upstream_preservation_fallback"]["from"]["method"] == "remote_branch_exact_head"
+    assert payload["counts"]["satisfied_by_merged_pr_commit_proof"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "actively protecting" in payload["actions"][0]["reason"]
 
 
 def test_unique_branch_keeps_when_preservation_proof_is_unavailable(

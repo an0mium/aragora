@@ -116,19 +116,32 @@ def _resolve_path(repo_root: Path, value: Path | None, default: Path) -> Path:
     return (repo_root / expanded).resolve()
 
 
-def _branch_has_landed_on_main(root: Path, base: str, branch: str) -> bool:
-    """Return True if the branch's HEAD or a patch-equivalent commit is on main."""
-    proc = run_git(["rev-parse", "--verify", branch], root, timeout=15)
+def _normalize_base_ref(value: str) -> str:
+    text = str(value or "").strip()
+    for prefix in ("refs/remotes/origin/", "refs/heads/", "origin/"):
+        if text.startswith(prefix):
+            return text.removeprefix(prefix)
+    return text
+
+
+def _ref_has_landed_on_main(root: Path, base: str, ref: str) -> bool:
+    """Return True if ref or a patch-equivalent commit is on the selected base."""
+    proc = run_git(["rev-parse", "--verify", ref], root, timeout=15)
     if proc.returncode != 0:
         return False
-    proc = run_git(["merge-base", "--is-ancestor", branch, base], root, timeout=15)
+    proc = run_git(["merge-base", "--is-ancestor", ref, base], root, timeout=15)
     if proc.returncode == 0:
         return True
-    proc = run_git(["cherry", base, branch], root, timeout=120)
+    proc = run_git(["cherry", base, ref], root, timeout=120)
     if proc.returncode != 0:
         return False
     statuses = [line.split(" ", 1)[0] for line in proc.stdout.splitlines() if line.strip()]
     return bool(statuses) and all(status == "-" for status in statuses)
+
+
+def _branch_has_landed_on_main(root: Path, base: str, branch: str) -> bool:
+    """Return True if the branch's HEAD or a patch-equivalent commit is on main."""
+    return _ref_has_landed_on_main(root, base, branch)
 
 
 def _terminal_receipt_keys(receipt_dir: Path) -> set[str]:
@@ -246,41 +259,114 @@ def _desired_head_from_payload(payload: dict[str, Any]) -> str:
     return ""
 
 
-def _lane_record_from_payload(payload: Mapping[str, Any], branch: str) -> dict[str, Any]:
-    """Build the minimal lane-like record needed for preservation proof helpers."""
-    record: dict[str, Any] = {"branch": branch}
+def _copy_local_work_markers(record: dict[str, Any], source: Mapping[str, Any]) -> None:
+    for key in (
+        "uncommitted_changes",
+        "has_uncommitted_changes",
+        "uncommitted",
+        "unpushed_commits",
+        "local_changes",
+        "local_work",
+        "dirty",
+    ):
+        if source.get(key):
+            record[key] = source.get(key)
+
+
+def _lane_records_from_payload(payload: Mapping[str, Any], branch: str) -> list[dict[str, Any]]:
+    """Build lane-like records for every local evidence reference.
+
+    Older handoffs may contain multiple local_evidence records. Treating only
+    the last worktree as authoritative can hide still-active local work, so the
+    merged-PR proof path must prove every referenced worktree/head independently.
+    """
 
     desired_head = _desired_head_from_payload(dict(payload))
+    common: dict[str, Any] = {"branch": branch}
     if desired_head:
-        record["desired_head_sha"] = desired_head
-        record["head_sha"] = desired_head
+        common["desired_head_sha"] = desired_head
+        common["head_sha"] = desired_head
 
     lane = payload.get("lane")
     if isinstance(lane, Mapping):
         lane_id = str(lane.get("lane_id") or lane.get("lane") or "").strip()
         if lane_id:
-            record["lane_id"] = lane_id
+            common["lane_id"] = lane_id
 
+    records: list[dict[str, Any]] = []
     for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        record = dict(common)
+        local_branch = str(local_evidence.get("branch") or "").strip()
+        if local_branch:
+            record["branch"] = local_branch
+        local_head = str(
+            local_evidence.get("desired_head_sha")
+            or local_evidence.get("head_sha")
+            or local_evidence.get("head")
+            or local_evidence.get("commit")
+            or ""
+        ).strip()
+        if local_head:
+            record["desired_head_sha"] = local_head
+            record["head_sha"] = local_head
         worktree = str(local_evidence.get("worktree") or "").strip()
         if worktree:
             record["worktree"] = worktree
-        for key in (
-            "uncommitted_changes",
-            "has_uncommitted_changes",
-            "uncommitted",
-            "unpushed_commits",
-            "local_changes",
-            "local_work",
-            "dirty",
-        ):
-            if local_evidence.get(key):
-                record[key] = local_evidence.get(key)
+        _copy_local_work_markers(record, local_evidence)
+        records.append(record)
 
     worktree = str(payload.get("worktree") or "").strip()
-    if worktree and "worktree" not in record:
+    if worktree and not any(record.get("worktree") == worktree for record in records):
+        record = dict(common)
         record["worktree"] = worktree
-    return record
+        _copy_local_work_markers(record, payload)
+        records.append(record)
+
+    if not records:
+        records.append(dict(common))
+    return records
+
+
+def _lane_record_from_payload(payload: Mapping[str, Any], branch: str) -> dict[str, Any]:
+    """Build the first minimal lane-like record needed by legacy callers."""
+    return _lane_records_from_payload(payload, branch)[0]
+
+
+def _requested_base_from_payload(payload: Mapping[str, Any]) -> str:
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is not None:
+        for key in ("base", "base_ref", "base_ref_name", "target_base"):
+            base = str(requested_action.get(key) or "").strip()
+            if base:
+                return base
+    for key in ("base", "base_ref", "base_ref_name", "target_base"):
+        base = str(payload.get(key) or "").strip()
+        if base:
+            return base
+    return ""
+
+
+def _upstream_base_matches(upstream: Mapping[str, Any], expected_base: str) -> bool:
+    expected = _normalize_base_ref(expected_base)
+    for key in ("base_ref", "base_ref_name", "baseRefName", "base"):
+        actual = upstream.get(key)
+        if isinstance(actual, Mapping):
+            actual = actual.get("ref")
+        actual_ref = _normalize_base_ref(str(actual or "").strip())
+        if actual_ref:
+            return actual_ref == expected
+    return False
+
+
+def _desired_head_landed_on_base(root: Path, base: str, branch: str, desired_head: str) -> bool:
+    branch_head = _git_ref_head(root, branch) if branch else ""
+    if (
+        branch_head
+        and _heads_match(desired_head, branch_head)
+        and _ref_has_landed_on_main(root, base, branch)
+    ):
+        return True
+    return bool(desired_head) and _ref_has_landed_on_main(root, base, desired_head)
 
 
 def _merged_pr_commit_preservation_proof(
@@ -290,61 +376,124 @@ def _merged_pr_commit_preservation_proof(
     payload: dict[str, Any],
     branch: str,
     repo_name: str,
+    base: str,
 ) -> Mapping[str, Any] | None:
     """Return proof that an outbox head is already preserved by a merged PR.
 
     This intentionally accepts only the merged-PR commit-list proof. A remote
     branch at the exact desired head still represents unpublished PR-intent work,
-    so it must keep protecting the outbox handoff.
+    so it must keep protecting the outbox handoff. The merged PR must also target
+    the reconciler base, and the desired head must be present or patch-equivalent
+    on that base now; historical PR membership alone is not enough after reverts.
     """
 
     if not _is_pr_publication_request(payload):
         return None
-    record = _lane_record_from_payload(payload, branch)
-    if not record.get("worktree") or not record.get("desired_head_sha"):
+    expected_base = _requested_base_from_payload(payload) or base
+    records = _lane_records_from_payload(payload, branch)
+    if not records:
         return None
-    try:
-        proof = build_worktree_reference_preservation_proof(
-            record,
-            repo_root=root,
-            state_root=state_root,
-        )
-    except Exception:
-        return None
-    if not isinstance(proof, Mapping):
-        return None
-    if proof.get("available") is not True:
-        if proof.get("reason") != "upstream_preservation_unproven":
+
+    proofs: list[Mapping[str, Any]] = []
+    desired_heads: set[str] = set()
+    worktree_paths: list[str] = []
+    common_upstream: Mapping[str, Any] | None = None
+
+    for record in records:
+        desired_head = str(record.get("desired_head_sha") or "").strip()
+        if not desired_head:
             return None
-        if not _preservation_proof_has_absent_worktree(proof):
+        record_branch = str(record.get("branch") or branch).strip()
+        desired_heads.add(desired_head)
+
+        if not record.get("worktree"):
+            if not _desired_head_landed_on_base(root, base, record_branch, desired_head):
+                return None
+            proof = {
+                "available": True,
+                "branch": record_branch,
+                "desired_head_sha": desired_head,
+                "upstream_preservation": {
+                    "proven": True,
+                    "method": "current_base_contains_desired_head",
+                    "base": base,
+                },
+            }
+            proofs.append(proof)
+            continue
+
+        worktree_paths.append(str(record.get("worktree") or ""))
+        try:
+            proof = build_worktree_reference_preservation_proof(
+                record,
+                repo_root=root,
+                state_root=state_root,
+            )
+        except Exception:
             return None
-        desired_head = str(proof.get("desired_head_sha") or "").strip()
-        merged_pr = _merged_pr_commit_list_preservation(root, repo_name, desired_head)
-        if merged_pr.get("proven") is not True:
+        if not isinstance(proof, Mapping):
             return None
-        enriched = dict(proof)
-        enriched["available"] = True
-        enriched["upstream_preservation"] = merged_pr
-        enriched["upstream_preservation_fallback"] = "direct_paginated_merged_pr_lookup"
-        return enriched
-    upstream = proof.get("upstream_preservation")
-    if not isinstance(upstream, Mapping):
-        return None
-    if upstream.get("method") != "merged_pr_commit_list" or upstream.get("proven") is not True:
-        if not _preservation_proof_has_absent_worktree(proof):
+
+        upstream = proof.get("upstream_preservation")
+        if proof.get("available") is not True:
+            if proof.get("reason") != "upstream_preservation_unproven":
+                return None
+            if not _preservation_proof_has_absent_worktree(proof):
+                return None
+            upstream = _merged_pr_commit_list_preservation(root, repo_name, desired_head)
+            if upstream.get("proven") is not True:
+                return None
+            proof = {
+                **dict(proof),
+                "available": True,
+                "upstream_preservation": upstream,
+                "upstream_preservation_fallback": "direct_paginated_merged_pr_lookup",
+            }
+        elif not isinstance(upstream, Mapping) or not (
+            upstream.get("method") == "merged_pr_commit_list" and upstream.get("proven") is True
+        ):
+            if not _preservation_proof_has_absent_worktree(proof):
+                return None
+            upstream = _merged_pr_commit_list_preservation(root, repo_name, desired_head)
+            if upstream.get("proven") is not True:
+                return None
+            proof = {
+                **dict(proof),
+                "upstream_preservation": upstream,
+                "upstream_preservation_fallback": {
+                    "from": dict(proof.get("upstream_preservation") or {}),
+                    "method": "direct_paginated_merged_pr_lookup",
+                },
+            }
+        if not isinstance(upstream, Mapping):
             return None
-        desired_head = str(proof.get("desired_head_sha") or "").strip()
-        merged_pr = _merged_pr_commit_list_preservation(root, repo_name, desired_head)
-        if merged_pr.get("proven") is not True:
+        if not _upstream_base_matches(upstream, expected_base):
             return None
-        enriched = dict(proof)
-        enriched["upstream_preservation"] = merged_pr
-        enriched["upstream_preservation_fallback"] = {
-            "from": dict(upstream),
-            "method": "direct_paginated_merged_pr_lookup",
+        if not _desired_head_landed_on_base(root, base, record_branch, desired_head):
+            return None
+        if common_upstream is None:
+            common_upstream = upstream
+        proofs.append(proof)
+
+    if common_upstream is None:
+        common_upstream = {
+            "proven": True,
+            "method": "current_base_contains_desired_head",
+            "base": base,
         }
-        return enriched
-    return proof
+    if len(proofs) == 1:
+        single = dict(proofs[0])
+        single["upstream_preservation"] = dict(common_upstream)
+        return single
+    return {
+        "available": True,
+        "branch": branch,
+        "desired_head_sha": sorted(desired_heads)[0] if len(desired_heads) == 1 else None,
+        "desired_head_shas": sorted(desired_heads),
+        "worktree_paths": worktree_paths,
+        "worktree_proofs": proofs,
+        "upstream_preservation": dict(common_upstream),
+    }
 
 
 def _preservation_proof_has_absent_worktree(proof: Mapping[str, Any]) -> bool:
@@ -385,6 +534,19 @@ def _gh_api_paginated_items(root: Path, endpoint: str) -> list[Mapping[str, Any]
     return items
 
 
+def _pull_base_ref(pull: Mapping[str, Any]) -> str:
+    base = pull.get("base")
+    if isinstance(base, Mapping):
+        ref = str(base.get("ref") or "").strip()
+        if ref:
+            return ref
+    for key in ("baseRefName", "base_ref_name", "base_ref"):
+        ref = str(pull.get(key) or "").strip()
+        if ref:
+            return ref
+    return ""
+
+
 def _merged_pr_commit_list_preservation(
     root: Path,
     repo_name: str,
@@ -422,6 +584,7 @@ def _merged_pr_commit_list_preservation(
                 "pr_number": number,
                 "repo": repo_name,
                 "source": "gh_api_paginated",
+                "base_ref": _pull_base_ref(pull) or None,
             }
     return {
         "proven": False,
@@ -1308,6 +1471,7 @@ def main(argv: list[str] | None = None) -> int:
                     payload=payload,
                     branch=branch,
                     repo_name=args.repo_name,
+                    base=args.base,
                 )
                 if merged_pr_proof is not None:
                     upstream = merged_pr_proof.get("upstream_preservation") or {}
@@ -1599,6 +1763,7 @@ def main(argv: list[str] | None = None) -> int:
             payload=payload,
             branch=branch,
             repo_name=args.repo_name,
+            base=args.base,
         )
         if merged_pr_proof is not None:
             upstream = merged_pr_proof.get("upstream_preservation") or {}

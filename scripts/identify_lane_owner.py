@@ -68,7 +68,7 @@ import time
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 # ---------------------------------------------------------------------------
 # Paths (overridable for tests)
@@ -1566,6 +1566,45 @@ def _gh_api_json(
     return _json_payload(proc.stdout)
 
 
+def _gh_api_paginated_json_list(
+    api_path: str,
+    *,
+    repo_root: Path,
+    runner: CommandRunner,
+    per_page: int = 100,
+    max_pages: int = 20,
+) -> list[Any] | None:
+    """Fetch a small GitHub REST list endpoint without silently truncating it."""
+
+    values: list[Any] = []
+    separator = "&" if "?" in api_path else "?"
+    for page in range(1, max_pages + 1):
+        payload = _gh_api_json(
+            f"{api_path}{separator}per_page={per_page}&page={page}",
+            repo_root=repo_root,
+            runner=runner,
+        )
+        if not isinstance(payload, list):
+            return None
+        values.extend(payload)
+        if len(payload) < per_page:
+            return values
+    return None
+
+
+def _pull_base_ref(pull: Mapping[str, Any]) -> str:
+    base = pull.get("base")
+    if isinstance(base, Mapping):
+        ref = str(base.get("ref") or "").strip()
+        if ref:
+            return ref
+    for key in ("baseRefName", "base_ref_name", "base_ref"):
+        ref = str(pull.get(key) or "").strip()
+        if ref:
+            return ref
+    return ""
+
+
 def _merged_pr_commit_list_proof(
     desired_head: str,
     *,
@@ -1596,19 +1635,21 @@ def _merged_pr_commit_list_proof(
         number = pull.get("number")
         if not isinstance(number, int):
             continue
-        commits = _gh_api_json(
-            f"repos/{repo_slug}/pulls/{number}/commits?per_page=100",
+        commits = _gh_api_paginated_json_list(
+            f"repos/{repo_slug}/pulls/{number}/commits",
             repo_root=repo_root,
             runner=runner,
         )
         if not isinstance(commits, list):
             continue
         if any(isinstance(item, dict) and item.get("sha") == desired_head for item in commits):
+            base_ref = _pull_base_ref(pull)
             return {
                 "proven": True,
                 "method": "merged_pr_commit_list",
                 "pr_number": number,
                 "repo": repo_slug,
+                "base_ref": base_ref or None,
             }
     return {
         "proven": False,
