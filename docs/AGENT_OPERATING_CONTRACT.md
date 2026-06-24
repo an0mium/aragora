@@ -26,7 +26,8 @@
 ### Always-allowed (autonomous)
 - Code refactors with same/improved tests
 - Test additions and consolidations
-- Doc reconciliation
+- Doc reconciliation that does not change governance, approval, merge, evidence,
+  settlement, or release authority
 - Dep floor **alignment** (raising `ci_install_project.sh` floors to match `pyproject.toml`)
 - Dep floor **patch-level** bumps (`X.Y.Z` → `X.Y.Z+n`)
 - Removing deprecation shims past their stated removal version
@@ -41,12 +42,16 @@
   - Secret/auth setup
   - Pre-commit/pre-push hooks
   - Release workflows (tag/release.yml, publish.yml)
+  - Merge-quorum, model-evidence, human-settlement, or branch-protection helper
+    behavior
 - **Major-version dep bumps** (`X.0` → `X+1.0`)
 - **Public API/SDK surface changes** — removing CLI commands, REST endpoints, SDK methods
 - **Schema migrations** that drop columns or rename tables
 - **Branch deletion** with unmerged commits
 - `git push --force` to any branch
-- Touching `CLAUDE.md`, `AGENTS.md`, `scripts/nomic_loop.py`, `.env`, `secrets/`
+- Touching governance or merge-authority docs: `docs/AGENT_OPERATING_CONTRACT.md`,
+  `docs/REVIEW_AUTHORITY_PRINCIPLES.md`, `CLAUDE.md`, or `AGENTS.md`
+- Touching `scripts/nomic_loop.py`, `.env`, `secrets/`
 - Anything taking >1 CI cycle to validate
 
 ### "Break X" rule (revised from v1)
@@ -78,9 +83,196 @@ Concretely:
 - Each PR scope ≤800 LOC delta (excluding generated files)
 - Each PR includes `Co-authored-by: <agent-name>[bot]` trailer (e.g. `factory-droid[bot]`, `claude[bot]`, `codex[bot]`)
 
+### §Conductor — autonomous PR-advancing loops (evidence-last, anti-molasses)
+
+This section is the **single source of truth** for any recursive/long-running loop that
+advances PRs through the merge-quorum gate (Codex conductors, `elves-aragora` batches,
+boss-loop ticks). Recursive prompts MUST **reference this section by name** instead of
+re-embedding its rules: carry forward only the current exact-head **target + one next
+action**, never a copy of these invariants. Copying invariants per-cycle burns tokens and
+drifts (a self-replicating prompt mutates); a pointer does not. Use the thin template below.
+
+**Precedence and scope.** This subsection narrows how already-selected PRs advance through
+review, evidence, and merge-quorum. It does **not** weaken the rest of this operating
+contract: Approval-required items, Auto-halt triggers, the canonical chain, and Tier 3/4
+human-settlement requirements remain hard stops. If any of those floors fire, pause the loop
+even when the current PR otherwise looks like Tier 0-2 work. The human-facing worker
+assignment / integration cadence in [`docs/guides/CONDUCTOR_WORKFLOW.md`](guides/CONDUCTOR_WORKFLOW.md)
+is separate: that guide governs selecting and coordinating worker lanes; this section governs
+advancing a chosen PR through model evidence and merge-quorum. This section also does **not**
+grant merge authority by itself: merge remains governed by the relevant helper verdict,
+branch protection, and any run-level "never merge by default" rule.
+Edits to this operating contract, `docs/REVIEW_AUTHORITY_PRINCIPLES.md`, or code that changes
+merge/evidence/settlement authority are merge-authority self-modification: classify them as
+Tier 4 and stop for exact-head human risk settlement before any merge/protection mutation,
+even when the file diff is Markdown-only. Edits to §Conductor itself (or any merge-authority
+governance) are Tier 4 — they require human risk settlement, not Tier 0-2 auto-merge — by the
+same rule above.
+
+**Autonomy rail — the anti-molasses rule.** Run continuously through bounded units **without
+asking the operator**, as long as every unit stays on Tier 0-2 rails as defined by
+[`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md) and makes *external*
+progress (a posted-and-counted evidence comment, a repair commit that clears a finding, a real
+archive, or a merge only when a separate merge-on-green preference / helper authorization
+already permits it). Touch the operator **only** at (a) a genuine Tier 3/4 risk decision, or
+(b) a circuit-breaker halt. Do **not** insert a human checkpoint between safe, progressing units
+— that is the molasses failure mode. "One bounded unit, then stop and ask" is WRONG unless the
+next unit is Tier 3/4 or the breaker tripped. This rail does not override an existing
+batch/lane gate-attempt cap: after the allowed revise-and-retry budget is exhausted, park or
+halt that lane and move only to a different unblocked Tier 0-2 unit.
+
+**EVIDENCE-LAST (settlement-stability).** A head is *settlement-stable* iff every checkable
+signal below holds: (1) the latest adversarial **dry-run** review was clean for the **current**
+head (no CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` from every family that will be counted for
+this Tier); (2) no commit has landed since — `headRefOid` still equals the head that was
+reviewed; (3) every branch-protection required check **other than** the exact quorum /
+human-settlement context being satisfied by this evidence/settlement step is green, with no
+non-quorum required check pending, failing, or cancelled; AND (4) the PR is mergeable — not
+behind base and free of conflicts — with the PR non-draft and GitHub reporting `mergeable` as
+`MERGEABLE` and `mergeStateStatus` as `CLEAN` or `BLOCKED`. Required-check gating comes from
+`gh pr checks --required` / merge-packet's required-check surface, not the raw
+`statusCheckRollup`: non-required rollup failures remain advisory, but any failing non-quorum
+required check makes the head not settlement-stable. Do not add a "base unchanged" condition
+that depends on a `baseRefOid` / base-OID freeze the helper does not record (the `BEHIND` /
+`DIRTY` exclusion below already rejects a head that drifted behind or conflicts with its base).
+"Clean" is a
+semantic/body-marker requirement, not only the helper's `verdict`, `would_count`, or
+`has_supportive_quorum` fields: a `Verdict: PASS` body that still contains a concrete
+`[P0]`, `[P1]`, or `[P2]` finding is not clean and must become a repair packet, not countable
+support. `BLOCKED` is allowed only when the blocker is the quorum / exact-head human-settlement
+context this step is designed to satisfy; `BLOCKED` from any other required check failure is
+not settlement-stable. `DIRTY`, `BEHIND`, `DRAFT`, `UNKNOWN`, `UNSTABLE`, and missing/unknown
+mergeability or `mergeStateStatus` are not settlement-stable. The
+counted-family set comes from
+[`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md), especially the
+Tier-eligibility table; do not invent a smaller family set inside a recursive prompt.
+**Never collect countable (`--apply`) evidence on a head that is not settlement-stable.**
+Loop: dry-run → if findings, repair → dry-run → … → clean → freeze exact head → collect ONCE
+→ settle. Settlement head movement is almost entirely review-driven and thus predictable: if
+the dry-run has findings, the head WILL move next, so do not spend on countable evidence yet.
+
+**Operational dry-run re-check.** The prepared-evidence artifact records the exact `head_sha`.
+There is no separate "freeze proof" artifact and no `baseRefOid` / base-OID field in the
+helper schema, so do not claim one exists or gate countable evidence on a recorded base OID;
+re-verify the checkable settlement-stable signals against the live PR instead. The target
+enforced interface is a JSON artifact from:
+
+```bash
+python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
+  --reviewers <families...> --json > /tmp/ev_<N>_dry.json
+```
+
+Before any `--apply`, verify the artifact records the live `head_sha`, `dissenting_families` is
+empty, `has_supportive_quorum` is true, and each counted `items[].body` both lints for the
+current PR/head and contains no concrete CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` finding.
+Then re-check `gh pr checks --required <N>` (or the merge-packet required-check surface) and
+`gh pr view <N> --json headRefOid,mergeable,mergeStateStatus,isDraft`: `headRefOid` must still
+equal the artifact `head_sha`, `isDraft` must be false, every non-quorum required check must
+be green, and `mergeable` / `mergeStateStatus` must still be in the settlement-stable set
+above (a `BEHIND` or `DIRTY` state means the head has drifted relative to its base and is not
+settlement-stable). Only then
+run the paired apply from the same artifact:
+
+```bash
+python3 scripts/collect_quorum_evidence.py --repo synaptent/aragora --pr <N> \
+  --prepared-json /tmp/ev_<N>_dry.json --apply --json
+```
+
+If a helper version does not yet record or enforce any of the live re-checks above, treat that
+helper as prepare/report-only for countable evidence unless the missing live checks (head
+unchanged, mergeable, non-draft) are performed against the live PR and reported immediately
+before posting. The conductor may not claim the weaker `--apply` implementation enforced the
+full rule; either perform and report the missing checks before posting the exact prepared
+bodies, or wait for the enforcement tooling to land.
+
+**Target state (enforcement is converging).** §Conductor is *normative*: it states the policy
+loops must follow, ahead of full machine-enforcement. This contract PR disables automated
+legacy direct apply (`auto_evidence_cycle.py --apply`) unless an explicit override is present;
+it does not claim to finish the prepared-apply stability gate. Today some prepared-apply
+clauses are enforced by discipline + review, not yet by tooling — e.g. the apply path
+(`apply_prepared_evidence`) currently re-verifies head + tier but not the live `mergeable` /
+`mergeStateStatus` / draft / required-check state. Evidence-lint treats concrete `[P0]`,
+`[P1]`, and `[P2]` findings as blocking while preserving explicit non-finding heads such as
+`[P2] None:`. A helper `would_count=true` result is still insufficient by itself: the
+conductor must scan the exact prepared comment body for CHANGES-REQUESTED / `[P0]` / `[P1]` /
+`[P2]` markers immediately before posting and treat any hit as dissent. Closing the remaining
+prepared-apply live-state gaps is the job of the `collect_quorum_evidence`
+settlement-stability gate follow-up; until then, prepared evidence posting is manual
+exact-head operator work, not unattended conductor automation.
+
+Migration note: re-scanning older `Verdict: PASS` evidence can de-count comments that include
+concrete `[P2]` findings. That is intentional; repair the underlying P2 or collect fresh
+exact-head evidence after the finding is resolved. Explicit non-finding heads such as
+`[P2] None:` remain countable.
+
+**Automation compatibility.** Existing collectors such as `scripts/auto_evidence_cycle.py`
+remain evidence-posting tools, not authority to skip the dry-run/freeze rule. An automated
+collector may post countable evidence only when it persists the dry-run artifact and replays
+that exact artifact through a live-head/base/merge-state prepared-json apply. Collectors that
+do not implement that sequence are prepare/report-only for countable evidence and must not be
+used by conductor loops for countable posting. In particular, legacy direct apply via
+`ARAGORA_AUTO_EVIDENCE=1` and `scripts/auto_evidence_cycle.py --apply` is disabled unless a
+separate `ARAGORA_ALLOW_LEGACY_AUTO_EVIDENCE_APPLY=1` override is present. That override is an
+explicit operator exception/reporting event, not settlement-stable conductor automation, and
+must stay unset for conductor-compliant merge-arbiter launches until the path is converted to
+prepared-artifact replay.
+
+**NO-TREADMILL.** Batch all known findings into ONE repair per head; never
+repair-then-recollect on the same head. Any CHANGES-REQUESTED / `[P0]` / `[P1]` / `[P2]` ends the
+evidence lane and becomes a repair — never post partial or dissenting evidence.
+
+**CIRCUIT-BREAKER + dead-letter ban.** If a loop produces no *external* progress for 3
+consecutive cycles, HALT it and emit ONE operator escalation — do not spin. Never re-message
+a stale/dead lane (stale heartbeat or `possible_unpushed_work`); mailing dead letters is
+forbidden. A loop whose only output is "wrote one steering request" is **not** making
+progress.
+
+**ONE-CLAUDE (scarce-reviewer serialization).** Do not run a claude-family evidence lane
+while a human-driven settlement/review is using the claude account; prefer openai/grok or
+yield. The binding constraint is the reviewer account, not work supply.
+
+**FIX-ENV-ONCE.** If commit/push needs `--no-verify` because the repo `.venv` lacks
+`pre_commit`, fix it once (install the hook runtime) and stop bypassing hooks. Do not
+normalize `--no-verify`.
+
+**Shared root is read-only.** If the shared checkout is dirty or detached, report it and use a
+disposable worktree for edits; never mutate shared-root dirt. A clean root that is merely
+behind `origin/main` should be fast-forwarded as the conductor/integrator surface per
+[`docs/guides/CONDUCTOR_WORKFLOW.md`](guides/CONDUCTOR_WORKFLOW.md); it still must not become
+a worker implementation lane.
+
+**Reporting honesty.** A merge performed under an explicit operator override (e.g. a
+Dependabot/Tier-3 merge the operator authorized at an exact head) is reported as "merged
+under explicit operator override", never as "the helper said it was safe".
+
+#### Thin recursive-prompt template (carry this shape forward, not the rules)
+
+```text
+Start from live repo truth in <repo>. Do not trust prior transcript state.
+Operating contract: re-read docs/AGENT_OPERATING_CONTRACT.md §Conductor this cycle.
+
+Target: PR #NNNN @ <exact-head>.   Last: <one line>.   Next: <one bounded action>.
+
+Run on Tier 0-2 rails per §Conductor; continue through progressing units autonomously.
+Approval-required items, Auto-halt triggers, and Tier 3/4 settlement remain hard stops.
+Use docs/REVIEW_AUTHORITY_PRINCIPLES.md for counted-family / Tier eligibility.
+Sequence for evidence: `collect_quorum_evidence.py` dry-run clean for the current head ->
+capture artifact head -> re-check head unchanged + mergeable + non-draft against the live PR ->
+`--prepared-json ... --apply` once only if those checks still match the live PR ->
+settle/merge only through the helper gates and any separate merge authority.
+Stop only at a Tier 3/4 risk decision or a circuit-breaker halt, emit the exact operator
+authorization text needed, then emit the next prompt in THIS thin form.
+```
+
 ---
 
 ## Adversarial Cross-Review (ACR) auto-merge tier
+
+**Precedence note.** The Review Authority **Tier 0-4** vocabulary used by §Conductor and
+[`docs/REVIEW_AUTHORITY_PRINCIPLES.md`](REVIEW_AUTHORITY_PRINCIPLES.md) is distinct from the
+ACR **T1-T4** class table below. ACR describes when low-risk PRs may auto-merge after
+heterogeneous approval; it never overrides Approval-required items, Auto-halt triggers,
+§Conductor evidence-last requirements, or Tier 3/4 human-settlement requirements.
 
 > **Why this section exists.** The original operating contract treated every merge as operator-gated. This was correct when one agent was running and the queue was 1–2 PRs deep. With multiple heterogeneous CLI agents (Claude Code, Codex CLI, Factory Droid) producing PRs in parallel, the operator becomes the bottleneck — the failure mode the project's own thesis names as **rubber-stamp drift** (see `docs/THESIS.md` premise 6, "When does the human actually need to weigh in?"). ACR formalizes the thesis's triage layer in the contract: heterogeneous-agent adversarial cross-review counts as a first-class merge signal for low-risk classes, escalating only the cases the thesis itself flags as requiring human settlement.
 

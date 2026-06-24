@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import glob as glob_module
+import hashlib
 import json
 import plistlib
 import re
@@ -49,6 +50,7 @@ ALL_CHECKS = (
     "gh_auth",
     "checkout_invariant",
     "outbox_depth",
+    "outbox_drain_progress",
     "disk_free",
     "lane_liveness",
     "github_api_health",
@@ -205,8 +207,12 @@ def check_outbox(
     """Outbox depth and oldest-item age (archive/ excluded)."""
     name = "outbox_depth"
     if not outbox_dir.is_dir():
-        return _result(name, "ok", f"no outbox dir at {outbox_dir}")
+        result = _result(name, "ok", f"no outbox dir at {outbox_dir}")
+        result["depth"] = 0
+        result["fingerprint"] = _outbox_fingerprint([])
+        return result
     items = sorted(p for p in outbox_dir.glob("*.json") if p.is_file())
+    fingerprint = _outbox_fingerprint(items)
     problems: list[str] = []
     if len(items) > max_items:
         problems.append(f"{len(items)} items queued (max {max_items})")
@@ -215,11 +221,138 @@ def check_outbox(
         oldest_days = _age_hours(oldest, now) / 24.0
         if oldest_days > max_age_days:
             problems.append(
-                f"oldest item {oldest.name} is {oldest_days:.1f}d old (max {max_age_days}d)"
+                f"{len(items)} item(s) queued; oldest item {oldest.name} is "
+                f"{oldest_days:.1f}d old (max {max_age_days}d)"
             )
     if problems:
-        return _result(name, "breach", "; ".join(problems))
-    return _result(name, "ok", f"{len(items)} item(s) queued")
+        result = _result(name, "breach", "; ".join(problems))
+        result["depth"] = len(items)
+        result["fingerprint"] = fingerprint
+        return result
+    result = _result(name, "ok", f"{len(items)} item(s) queued")
+    result["depth"] = len(items)
+    result["fingerprint"] = fingerprint
+    return result
+
+
+def _outbox_fingerprint(items: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for item in sorted(items, key=lambda p: p.name):
+        digest.update(item.name.encode("utf-8", "surrogateescape"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _extract_outbox_depth(check: dict[str, Any]) -> int | None:
+    depth = check.get("depth")
+    if isinstance(depth, int) and depth >= 0:
+        return depth
+    if isinstance(depth, float) and depth.is_integer() and depth >= 0:
+        return int(depth)
+    match = re.search(r"(\d+)\s+item", str(check.get("detail") or ""))
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def _extract_outbox_fingerprint(check: dict[str, Any]) -> str | None:
+    fingerprint = check.get("fingerprint")
+    if isinstance(fingerprint, str) and fingerprint:
+        return fingerprint
+    return None
+
+
+def _extract_outbox_sample(checks: Any) -> tuple[int | None, str | None]:
+    for check in checks or []:
+        if isinstance(check, dict) and check.get("check") == "outbox_depth":
+            return _extract_outbox_depth(check), _extract_outbox_fingerprint(check)
+    return None, None
+
+
+def check_outbox_drain_progress(
+    ledger: Path,
+    outbox_dir: Path,
+    *,
+    stall_cycles: int,
+    min_floor: int,
+) -> CheckResult:
+    """Circuit-breaker: flag an outbox that stays congested without draining.
+
+    A drain/conductor loop that keeps running but never reduces the outbox is
+    making no net depth progress — the molasses failure mode in
+    ``docs/AGENT_OPERATING_CONTRACT.md`` §Conductor (observed June 2026: an outbox
+    stuck at its ceiling for ~9 days while the loop only re-messaged stale lanes).
+    When the live outbox is at/above ``min_floor`` and the last ``stall_cycles``
+    ledger entries show no net decrease from the first observed depth and the
+    live depth has not decreased from the previous cycle, breach so the loop
+    halts and escalates to the operator instead of mailing more dead letters.
+    """
+    name = "outbox_drain_progress"
+    if stall_cycles < 1:
+        return _result(name, "unknown", f"invalid stall cycle count {stall_cycles}; must be >= 1")
+    current_items = (
+        sorted(p for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else []
+    )
+    current = len(current_items)
+    current_fingerprint = _outbox_fingerprint(current_items)
+    if current < min_floor:
+        return _result(name, "ok", f"outbox depth {current} below floor {min_floor}")
+    if not ledger.exists():
+        return _result(name, "ok", f"no ledger history at {ledger}; cannot assess drain")
+    samples: list[tuple[int | None, str | None]] = []
+    for line in _read_tail_lines(ledger, stall_cycles + 4):
+        try:
+            entry = json.loads(line)
+        except (ValueError, TypeError):
+            samples.append((None, None))
+            continue
+        if not isinstance(entry, dict):
+            samples.append((None, None))
+            continue
+        samples.append(_extract_outbox_sample(entry.get("checks")))
+    if len(samples) < stall_cycles:
+        usable = sum(1 for depth, _fingerprint in samples if depth is not None)
+        return _result(
+            name, "ok", f"only {usable} prior cycle(s); need {stall_cycles} to assess drain"
+        )
+    recent_samples = samples[-stall_cycles:]
+    if any(depth is None for depth, _fingerprint in recent_samples):
+        usable = sum(1 for depth, _fingerprint in recent_samples if depth is not None)
+        return _result(
+            name,
+            "unknown",
+            f"only {usable} usable outbox_depth sample(s) in the last {stall_cycles} ledger cycle(s); cannot assess drain",
+        )
+    window = [depth for depth, _fingerprint in recent_samples if depth is not None]
+    series = [*window, current]
+    congested = all(depth >= min_floor for depth in series)
+    not_draining = current >= window[-1] and current >= window[0]
+    fingerprints = [fingerprint for _depth, fingerprint in recent_samples] + [current_fingerprint]
+    if congested and not_draining and any(not fingerprint for fingerprint in fingerprints):
+        return _result(
+            name,
+            "unknown",
+            "outbox depth did not improve, but recent ledger samples lack item fingerprints; cannot distinguish backlog stall from saturated throughput",
+        )
+    fingerprint_changed = len(set(fingerprints)) > 1
+    if congested and not_draining and fingerprint_changed:
+        return _result(
+            name,
+            "ok",
+            f"outbox depth stayed high but item fingerprint changed (recent depths {window}, now {current}); drain loop has throughput",
+        )
+    if congested and not_draining:
+        return _result(
+            name,
+            "breach",
+            f"outbox not draining: net depth {window[0]}->{current} stayed at/above {min_floor} "
+            f"across {stall_cycles} prior cycles plus live depth and item fingerprint did not change — "
+            "the drain loop is making no net backlog progress; HALT it and escalate to the operator, "
+            "do not keep re-messaging stale lanes (§Conductor dead-letter ban)",
+        )
+    return _result(
+        name, "ok", f"outbox draining or fluctuating (recent depths {window}, now {current})"
+    )
 
 
 def check_disk_free(
@@ -1027,6 +1160,15 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         now=now,
                     )
                 )
+            elif name == "outbox_drain_progress":
+                results.append(
+                    check_outbox_drain_progress(
+                        Path(args.ledger),
+                        Path(args.outbox_dir),
+                        stall_cycles=args.outbox_drain_stall_cycles,
+                        min_floor=args.outbox_max,
+                    )
+                )
             elif name == "disk_free":
                 results.append(
                     check_disk_free(Path(args.repo_root), min_free_gib=args.min_free_gib)
@@ -1112,6 +1254,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--outbox-dir", default=str(repo_root / ".aragora" / "automation-outbox"))
     parser.add_argument("--outbox-max", type=int, default=50)
     parser.add_argument("--outbox-max-age-days", type=float, default=7.0)
+    parser.add_argument(
+        "--outbox-drain-stall-cycles",
+        type=int,
+        default=3,
+        help="breach if the outbox stays at/above --outbox-max without draining for this "
+        "many consecutive sentinel cycles (circuit-breaker; §Conductor)",
+    )
     parser.add_argument("--min-free-gib", type=float, default=25.0)
     parser.add_argument(
         "--lanes-glob",
