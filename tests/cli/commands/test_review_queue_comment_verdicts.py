@@ -108,6 +108,19 @@ def test_parenthetical_priority_backlog_reference_is_not_blocking():
     assert not has_blocking_or_negative_verdict("Verdict: PASS (tracked as [P2] in backlog)")
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: PASS ([P1] issue: auth bypass)",
+        "Verdict: PASS (see issue [P1] auth bypass)",
+        "Verdict: PASS (ticket [P1] SQLi)",
+        "Verdict: PASS (tracked as [P2] in backlog: auth bypass)",
+    ],
+)
+def test_parenthetical_priority_with_concrete_finding_blocks(body):
+    assert has_blocking_or_negative_verdict(body)
+
+
 # --- Blocker-label path: bare "no" finding bypass (openai #8574 P1) --------
 #
 # `_NON_BLOCKING_PREFIXES` used to include a bare "no", so a populated Blocker

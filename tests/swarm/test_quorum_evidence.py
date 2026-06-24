@@ -1110,6 +1110,21 @@ def test_closed_thinking_same_line_priority_finding_is_preserved() -> None:
     assert "Verdict: PASS\nNo findings." in out
 
 
+def test_closed_thinking_parenthetical_priority_finding_is_preserved() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "<thinking>Verdict: PASS (see issue [P1] auth bypass)</thinking>\n"
+        "Verdict: PASS\n"
+        "No findings."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert "see issue [P1] auth bypass" in out
+    assert "Verdict: PASS\nNo findings." in out
+
+
 def test_literal_thinking_tags_inside_findings_are_preserved() -> None:
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 

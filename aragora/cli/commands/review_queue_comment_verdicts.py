@@ -160,9 +160,17 @@ _DEFAULT_BLOCKING_MARKER_ANYWHERE = re.compile(
     r"(?:\s|$|[:.;—–-])",
     re.I,
 )
-_BENIGN_PRIORITY_REFERENCE_WORDS_RE = re.compile(
-    r"\b(?:backlog|classified|classification|filed|follow(?:\s|-)?up|"
-    r"issue|label|logged|noted|reference|severity|ticket|tracked)\b",
+_BENIGN_PARENTHETICAL_PRIORITY_REFERENCE_RE = re.compile(
+    r"^(?:"
+    r"(?:tracked|logged|filed|classified|noted)\s+(?:as|under)\s+"
+    r"(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?"
+    r"(?:\s+(?:in|on|for)\s+(?:the\s+)?(?:backlog|follow(?:\s|-)?up|queue))?"
+    r"|"
+    r"(?:backlog|follow(?:\s|-)?up|queue)\s+"
+    r"(?:tracked|logged|filed|classified|noted)\s+(?:as|under)\s+"
+    r"(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?"
+    r")"
+    r"[\s.,;:!—–-]*$",
     re.I,
 )
 
@@ -224,8 +232,9 @@ def _inside_benign_parenthetical_priority_reference(text: str, marker_start: int
     Evidence bodies sometimes say things like ``Verdict: PASS (tracked as [P2] in
     backlog)``. The marker is metadata about another queue item, not a concrete
     finding. Keep this exemption deliberately narrow: the marker must be inside a
-    same-line parenthetical and that parenthetical must contain reference/ledger
-    wording. A parenthetical such as ``([P1] auth bypass)`` still blocks.
+    same-line parenthetical and that parenthetical must be a whole metadata
+    phrase. A parenthetical such as ``([P1] issue: auth bypass)`` or
+    ``(see issue [P1] auth bypass)`` still blocks.
     """
 
     line_start = text.rfind("\n", 0, marker_start) + 1
@@ -239,7 +248,9 @@ def _inside_benign_parenthetical_priority_reference(text: str, marker_start: int
     if open_idx == -1 or close_idx == -1:
         return False
     parenthetical = line[open_idx + 1 : close_idx]
-    return bool(_BENIGN_PRIORITY_REFERENCE_WORDS_RE.search(_normalize_value(parenthetical)))
+    return bool(
+        _BENIGN_PARENTHETICAL_PRIORITY_REFERENCE_RE.fullmatch(_normalize_value(parenthetical))
+    )
 
 
 def _has_default_blocking_marker_anywhere(text: str) -> bool:
