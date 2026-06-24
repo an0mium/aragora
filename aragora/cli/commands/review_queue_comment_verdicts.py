@@ -409,7 +409,7 @@ def _is_safe_review_metadata_value(label: str, normalized_value: str) -> bool:
     if not value:
         return False
     if label in {"head", "head sha", "current head"}:
-        return bool(re.match(r"^[0-9a-f]{7,40}\b", value, re.I))
+        return _is_safe_head_metadata_value(normalized_value)
     if label == "pr":
         return bool(re.fullmatch(r"#?\d+", value))
     if label == "model family":
@@ -425,6 +425,20 @@ def _is_safe_review_metadata_value(label: str, normalized_value: str) -> bool:
             return True
         return bool(re.fullmatch(r"[a-z0-9 .()]+", value) and len(value.split()) <= 4)
     return False
+
+
+def _is_safe_head_metadata_value(normalized_value: str) -> bool:
+    value = normalized_value.strip(" .;:!?—–-")
+    if re.fullmatch(r"[0-9a-f]{7,40}", value, re.I):
+        return True
+    return bool(
+        re.fullmatch(
+            r"[0-9a-f]{7,40}\s+\([0-9a-f]{40}\)"
+            r"(?:,\s*committed\s+[0-9t:z+\s]+)?",
+            value,
+            re.I,
+        )
+    )
 
 
 def _starts_with_known_reviewer_family(value: str) -> bool:

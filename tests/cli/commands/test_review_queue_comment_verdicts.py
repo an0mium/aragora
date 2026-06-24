@@ -317,6 +317,33 @@ def test_severity_gated_standard_metadata_with_low_severity_finding_is_advisory(
     assert has_blocking_model_dissent(body, severity_gated=True) is False
 
 
+@pytest.mark.parametrize(
+    "head_line",
+    [
+        "Head: a6ffdd9",
+        "Head SHA: a6ffdd9aa4cb6a2838c8647a2f436d5b9135e5a6",
+        "Current head: a6ffdd9aa4cb6a2838c8647a2f436d5b9135e5a6",
+        "Head: a6ffdd9 (a6ffdd9aa4cb6a2838c8647a2f436d5b9135e5a6)",
+        "Head: a6ffdd9 (a6ffdd9aa4cb6a2838c8647a2f436d5b9135e5a6), committed 2026-06-24T13:56:06Z.",
+    ],
+)
+def test_severity_gated_safe_head_metadata_with_low_severity_finding_is_advisory(head_line):
+    body = "\n".join(
+        [
+            "## Claude independent model review",
+            "Reviewer: claude (anthropic) - independent adversarial model review",
+            head_line,
+            "PR: #8590.",
+            "Model family: claude",
+            "Verdict: CHANGES-REQUESTED",
+            "- [P2] Add a follow-up regression test.",
+            "dogfood: yes",
+        ]
+    )
+
+    assert has_blocking_model_dissent(body, severity_gated=True) is False
+
+
 @pytest.mark.parametrize("family", ["yi", "glm", "minimax", "hermes"])
 def test_severity_gated_known_family_metadata_with_low_severity_finding_is_advisory(family):
     body = "\n".join(
@@ -343,6 +370,12 @@ def test_severity_gated_known_family_metadata_with_low_severity_finding_is_advis
         "Verdict: CHANGES-REQUESTED\nReviewer: claude noted problems\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\nReviewer: openai found issues\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\nReviewer: grok has concerns\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\nHead: deadbeef auth bypass remains\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
+        "Head: a6ffdd9 (deadbeef) do not merge\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
+        "Current head: a6ffdd9aa4cb6a2838c8647a2f436d5b9135e5a6 do not merge\n"
+        "Follow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\nBlockers: none\nPR: merging this will break production.",
         "Verdict: CHANGES-REQUESTED\n[P3] nit\nHead-of-line blocking is the real "
         "defect; do not ship.",
