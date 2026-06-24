@@ -431,29 +431,29 @@ def _outbox_fingerprint(items: list[Path]) -> str:
     return digest.hexdigest()
 
 
-def _extract_outbox_depth(check: dict[str, Any]) -> int | None:
+def _extract_outbox_depth(check: dict[str, Any]) -> tuple[int | None, str]:
     actionable_depth = check.get("actionable_depth")
     if isinstance(actionable_depth, int) and actionable_depth >= 0:
-        return actionable_depth
+        return actionable_depth, "actionable"
     if (
         isinstance(actionable_depth, float)
         and actionable_depth.is_integer()
         and actionable_depth >= 0
     ):
-        return int(actionable_depth)
+        return int(actionable_depth), "actionable"
     depth = check.get("depth")
     if isinstance(depth, int) and depth >= 0:
-        return depth
+        return depth, "raw"
     if isinstance(depth, float) and depth.is_integer() and depth >= 0:
-        return int(depth)
+        return int(depth), "raw"
     detail = str(check.get("detail") or "")
     match = re.search(r"(\d+)\s+actionable", detail)
     if match:
-        return int(match.group(1))
+        return int(match.group(1)), "actionable"
     match = re.search(r"(\d+)\s+item", detail)
     if match:
-        return int(match.group(1))
-    return None
+        return int(match.group(1)), "raw"
+    return None, "unknown"
 
 
 def _extract_outbox_fingerprint(check: dict[str, Any]) -> str | None:
@@ -463,11 +463,12 @@ def _extract_outbox_fingerprint(check: dict[str, Any]) -> str | None:
     return None
 
 
-def _extract_outbox_sample(checks: Any) -> tuple[int | None, str | None]:
+def _extract_outbox_sample(checks: Any) -> tuple[int | None, str | None, str]:
     for check in checks or []:
         if isinstance(check, dict) and check.get("check") == "outbox_depth":
-            return _extract_outbox_depth(check), _extract_outbox_fingerprint(check)
-    return None, None
+            depth, source = _extract_outbox_depth(check)
+            return depth, _extract_outbox_fingerprint(check), source
+    return None, None, "unknown"
 
 
 def check_outbox_drain_progress(
@@ -500,35 +501,41 @@ def check_outbox_drain_progress(
         return _result(name, "ok", f"outbox depth {current} below floor {min_floor}")
     if not ledger.exists():
         return _result(name, "ok", f"no ledger history at {ledger}; cannot assess drain")
-    samples: list[tuple[int | None, str | None]] = []
+    samples: list[tuple[int | None, str | None, str]] = []
     for line in _read_tail_lines(ledger, stall_cycles + 4):
         try:
             entry = json.loads(line)
         except (ValueError, TypeError):
-            samples.append((None, None))
+            samples.append((None, None, "unknown"))
             continue
         if not isinstance(entry, dict):
-            samples.append((None, None))
+            samples.append((None, None, "unknown"))
             continue
         samples.append(_extract_outbox_sample(entry.get("checks")))
     if len(samples) < stall_cycles:
-        usable = sum(1 for depth, _fingerprint in samples if depth is not None)
+        usable = sum(1 for depth, _fingerprint, _source in samples if depth is not None)
         return _result(
             name, "ok", f"only {usable} prior cycle(s); need {stall_cycles} to assess drain"
         )
     recent_samples = samples[-stall_cycles:]
-    if any(depth is None for depth, _fingerprint in recent_samples):
-        usable = sum(1 for depth, _fingerprint in recent_samples if depth is not None)
+    if any(depth is None for depth, _fingerprint, _source in recent_samples):
+        usable = sum(1 for depth, _fingerprint, _source in recent_samples if depth is not None)
         return _result(
             name,
             "unknown",
             f"only {usable} usable outbox_depth sample(s) in the last {stall_cycles} ledger cycle(s); cannot assess drain",
         )
-    window = [depth for depth, _fingerprint in recent_samples if depth is not None]
-    series = [*window, current]
+    window = [depth for depth, _fingerprint, _source in recent_samples if depth is not None]
+    sources = [source for _depth, _fingerprint, source in recent_samples]
+    current_depth = (
+        window[-1] if sources and all(source == "actionable" for source in sources) else current
+    )
+    series = [*window, current_depth]
     congested = all(depth >= min_floor for depth in series)
-    not_draining = current >= window[-1] and current >= window[0]
-    fingerprints = [fingerprint for _depth, fingerprint in recent_samples] + [current_fingerprint]
+    not_draining = current_depth >= window[-1] and current_depth >= window[0]
+    fingerprints = [fingerprint for _depth, fingerprint, _source in recent_samples] + [
+        current_fingerprint
+    ]
     if congested and not_draining and any(not fingerprint for fingerprint in fingerprints):
         return _result(
             name,
@@ -540,19 +547,19 @@ def check_outbox_drain_progress(
         return _result(
             name,
             "ok",
-            f"outbox depth stayed high but item fingerprint changed (recent depths {window}, now {current}); drain loop has throughput",
+            f"outbox depth stayed high but item fingerprint changed (recent depths {window}, now {current_depth}); drain loop has throughput",
         )
     if congested and not_draining:
         return _result(
             name,
             "breach",
-            f"outbox not draining: net depth {window[0]}->{current} stayed at/above {min_floor} "
+            f"outbox not draining: net depth {window[0]}->{current_depth} stayed at/above {min_floor} "
             f"across {stall_cycles} prior cycles plus live depth and item fingerprint did not change — "
             "the drain loop is making no net backlog progress; HALT it and escalate to the operator, "
             "do not keep re-messaging stale lanes (§Conductor dead-letter ban)",
         )
     return _result(
-        name, "ok", f"outbox draining or fluctuating (recent depths {window}, now {current})"
+        name, "ok", f"outbox draining or fluctuating (recent depths {window}, now {current_depth})"
     )
 
 

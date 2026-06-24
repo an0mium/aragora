@@ -983,6 +983,8 @@ def _human_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
 
 
 def _owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
+    if owner.available is False:
+        return True
     if steering.blocking_message_count > 0:
         return True
     status = str(owner.status or "").strip().lower()

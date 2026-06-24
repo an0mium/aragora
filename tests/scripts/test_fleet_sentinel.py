@@ -631,12 +631,9 @@ def test_apply_repo_root_defaults_tolerates_partial_namespace(tmp_path: Path) ->
 
 
 def test_extract_outbox_depth_prefers_actionable_detail() -> None:
-    assert (
-        sentinel._extract_outbox_depth(  # noqa: SLF001 - regression coverage for parser helper
-            {"detail": "26 item(s) queued; 0 actionable"}
-        )
-        == 0
-    )
+    assert sentinel._extract_outbox_depth(  # noqa: SLF001 - regression coverage for parser helper
+        {"detail": "26 item(s) queued; 0 actionable"}
+    ) == (0, "actionable")
 
 
 def test_outbox_missing_dir_is_ok(tmp_path: Path) -> None:
@@ -2400,6 +2397,50 @@ def test_outbox_drain_progress_prefers_actionable_depth_samples(tmp_path: Path) 
     r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
 
     assert r["status"] == "ok"
+
+
+def test_outbox_drain_progress_does_not_compare_actionable_samples_to_live_raw(
+    tmp_path: Path,
+) -> None:
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    fingerprint = _outbox_fingerprint(outbox)
+    ledger = _ledger_with_checks(
+        tmp_path / "ledger.jsonl",
+        [
+            [
+                {
+                    "check": "outbox_depth",
+                    "status": "ok",
+                    "depth": 55,
+                    "actionable_depth": 5,
+                    "fingerprint": fingerprint,
+                }
+            ],
+            [
+                {
+                    "check": "outbox_depth",
+                    "status": "ok",
+                    "depth": 55,
+                    "actionable_depth": 5,
+                    "fingerprint": fingerprint,
+                }
+            ],
+            [
+                {
+                    "check": "outbox_depth",
+                    "status": "ok",
+                    "depth": 55,
+                    "actionable_depth": 5,
+                    "fingerprint": fingerprint,
+                }
+            ],
+        ],
+    )
+
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+
+    assert r["status"] == "ok"
+    assert "now 5" in r["detail"]
 
 
 def test_outbox_drain_progress_saturated_throughput_is_ok(tmp_path: Path) -> None:

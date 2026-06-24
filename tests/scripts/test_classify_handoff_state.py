@@ -249,6 +249,35 @@ def test_exact_open_pr_representation_is_safe_without_owner_blockers(tmp_path: P
     assert item["safe_to_mutate"] is True
 
 
+def test_exact_open_pr_representation_blocks_when_owner_probe_unavailable(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": True,
+                    "html_url": "https://github.com/synaptent/aragora/pull/8570",
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                }
+            ]
+        }
+    )
+
+    class UnavailableOwnerProbe:
+        def probe(self, branch: str) -> mod.OwnerEvidence:
+            return mod.OwnerEvidence(available=False, error="owner probe failed")
+
+    item = _classify_one(tmp_path, github=github, owner=UnavailableOwnerProbe())
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["safe_to_mutate"] is False
+
+
 def test_issue_only_receipt_limbo_stays_publication_requested(tmp_path: Path) -> None:
     key = "open-pr-codex-example-aaaaaaaa"
     _write_status_cache(tmp_path)
