@@ -1,18 +1,18 @@
-# Finding-Severity Dissent Gate (Tier 4 Pre-Approval)
+# Finding-Severity Dissent Gate
 
-**Status:** design doc / pre-approval artifact for a Tier 4 merge-authority
+**Status:** activation spec and rollback contract for a Tier 4 merge-authority
 self-modification. This file and
-`tests/governance/test_finding_severity_gate.py` are the pre-approval artifact
-required by
-`docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance`
-(a change to *what blocks a merge at a given Tier* is a Tier 4 self-modification by
-the same rule that governs which family counts at which Tier).
+`tests/governance/test_finding_severity_gate.py` remain the audit artifact required
+by `docs/REVIEW_AUTHORITY_PRINCIPLES.md::Family-additive change governance` (a
+change to *what blocks a merge at a given Tier* is a Tier 4 self-modification by the
+same rule that governs which family counts at which Tier).
 
 **Enforcement is active by default after activation, with explicit opt-out.** With the
 flag explicitly OFF the gate behaves
 byte-identically to today (proven by the flag-OFF characterization tests). The
-behavior is revertible WITHOUT a code change — unset the environment flag. The flag
-is the in-tree audit point for the operator's approval.
+behavior is revertible WITHOUT a code change by setting
+`ARAGORA_ENABLE_SEVERITY_GATED_DISSENT=0` (or `false`, `no`, `off`). Unset/empty
+means active. The flag is the in-tree audit point for the operator's approval.
 
 ## Problem Statement
 

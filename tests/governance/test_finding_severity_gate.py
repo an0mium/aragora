@@ -340,7 +340,7 @@ class TestFlagOnSeverityGated:
         assert item.supportive is True
 
     def test_integration_p2_only_does_not_block_clean_packet(self, monkeypatch):
-        monkeypatch.setenv(_FLAG, "1")
+        monkeypatch.delenv(_FLAG, raising=False)
         pr = _grounded_pr([*_supporting_comments(), _comment(_P2_ONLY_CHANGES_REQUESTED)])
         quorum = _build_model_review_quorum(
             pr=pr,
