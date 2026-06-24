@@ -263,12 +263,12 @@
     },
     "signatures": {
       "type": "array",
-      "description": "Reserved for detached signatures (Ed25519, issue #8225). Empty in v0.1; signatures cover the SHA-256 of the JCS bytes of the payload with this array removed.",
+      "description": "Detached signatures (Ed25519 #8225; ML-DSA-65/FIPS 204 post-quantum #8602). Hybrid receipts carry one entry per algorithm; signatures cover the SHA-256 of the JCS bytes of the payload with this array removed.",
       "items": {
         "type": "object",
         "required": ["alg", "key_id", "signature"],
         "properties": {
-          "alg": { "type": "string", "enum": ["Ed25519"] },
+          "alg": { "type": "string", "enum": ["Ed25519", "ML-DSA-65"] },
           "key_id": { "type": "string", "minLength": 1 },
           "signature": { "type": "string", "minLength": 1 },
           "signed_at": { "type": "string" }
