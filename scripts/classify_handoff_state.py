@@ -57,6 +57,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Timeout for the read-only owner/liveness helper per branch (default: 20).",
     )
     parser.add_argument(
+        "--queue-cache-max-age-seconds",
+        type=int,
+        default=1800,
+        help=(
+            "Maximum age for using cached open-PR cap pressure decisions (default: 1800s = 30min)."
+        ),
+    )
+    parser.add_argument(
         "--with-liveness-helper",
         action="store_true",
         help=(
@@ -83,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
         no_github=args.no_github,
         owner_timeout_seconds=args.owner_timeout_seconds,
         with_liveness_helper=args.with_liveness_helper,
+        queue_cache_max_age_seconds=args.queue_cache_max_age_seconds,
     )
     output = compact_summary(payload) if args.summary_only else payload
     if args.json:

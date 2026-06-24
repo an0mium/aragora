@@ -28,6 +28,7 @@ DEFAULT_STATUS_CACHE = Path(".aragora/automation-github-status/latest.json")
 DEFAULT_LANE_REGISTRY = Path(".aragora/agent-bridge/lanes.json")
 DEFAULT_STEERING_ROOT = Path(".aragora/operator-steering")
 DEFAULT_HEARTBEATS = Path(".aragora/agent-bridge/heartbeats.json")
+DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS = 1800
 
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 TERMINAL_STEERING_OUTCOMES = {"completed", "stale", "superseded"}
@@ -108,9 +109,14 @@ class QueueCapEvidence:
     degraded: bool | None = None
     degraded_reason: str | None = None
     open_pr_cap_reached: bool | None = None
+    raw_open_pr_cap_reached: bool | None = None
     open_codex_pr_count: int | None = None
     max_open_prs: int | None = None
     generated_at: str | None = None
+    cache_age_seconds: float | None = None
+    cache_stale: bool | None = None
+    cache_stale_threshold_seconds: int | None = None
+    decision_source: str | None = None
 
 
 @dataclass
@@ -363,6 +369,7 @@ def classify_handoffs(
     no_github: bool = False,
     owner_timeout_seconds: int = 20,
     with_liveness_helper: bool = False,
+    queue_cache_max_age_seconds: int = DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS,
     github_client: Any | None = None,
     owner_probe: Any | None = None,
 ) -> dict[str, Any]:
@@ -373,7 +380,10 @@ def classify_handoffs(
     receipt_dir = _state_path(state_root, DEFAULT_RECEIPT_DIR)
     status_cache_path = _state_path(state_root, DEFAULT_STATUS_CACHE)
 
-    queue_cap = load_queue_cap_evidence(status_cache_path)
+    queue_cap = load_queue_cap_evidence(
+        status_cache_path,
+        max_age_seconds=queue_cache_max_age_seconds,
+    )
     receipts = load_terminal_receipts(receipt_dir)
     outbox_files = _selected_outbox_files(outbox_dir, outbox_file)
     gh = github_client or NarrowGitHubClient(
@@ -671,7 +681,12 @@ def load_terminal_receipts(receipt_dir: Path) -> dict[str, dict[str, Any]]:
     return receipts
 
 
-def load_queue_cap_evidence(path: Path) -> QueueCapEvidence:
+def load_queue_cap_evidence(
+    path: Path,
+    *,
+    max_age_seconds: int = DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS,
+    now: datetime | None = None,
+) -> QueueCapEvidence:
     payload = _load_json(path)
     if isinstance(payload, list):
         payload = next((item for item in reversed(payload) if isinstance(item, dict)), None)
@@ -684,14 +699,38 @@ def load_queue_cap_evidence(path: Path) -> QueueCapEvidence:
     pressure = (
         github_queue.get("pressure") if isinstance(github_queue.get("pressure"), Mapping) else {}
     )
+    generated_at = str(payload.get("generated_at") or "") or None
+    generated_dt = _parse_datetime(generated_at)
+    cache_age_seconds = None
+    cache_stale = None
+    decision_source = "fresh_cache"
+    if generated_dt is None:
+        cache_stale = True
+        decision_source = "cache_missing_or_invalid_generated_at"
+    else:
+        current = now or datetime.now(UTC)
+        cache_age_seconds = max(0.0, (current - generated_dt).total_seconds())
+        cache_stale = cache_age_seconds > max_age_seconds
+        if cache_stale:
+            decision_source = "expired_cache"
+    raw_cap = _bool_or_none(pressure.get("open_pr_cap_reached"))
+    effective_cap = None if cache_stale else raw_cap
+    degraded = _bool_or_none(github_queue.get("degraded"))
+    if not cache_stale and degraded:
+        decision_source = "fresh_degraded_cache_rest_fallback"
     return QueueCapEvidence(
         available=True,
-        degraded=_bool_or_none(github_queue.get("degraded")),
+        degraded=degraded,
         degraded_reason=str(github_queue.get("degraded_reason") or "") or None,
-        open_pr_cap_reached=_bool_or_none(pressure.get("open_pr_cap_reached")),
+        open_pr_cap_reached=effective_cap,
+        raw_open_pr_cap_reached=raw_cap,
         open_codex_pr_count=_int_or_none(github_queue.get("open_codex_pr_count")),
         max_open_prs=_int_or_none(limits.get("max_open_prs")),
-        generated_at=str(payload.get("generated_at") or "") or None,
+        generated_at=generated_at,
+        cache_age_seconds=cache_age_seconds,
+        cache_stale=cache_stale,
+        cache_stale_threshold_seconds=max_age_seconds,
+        decision_source=decision_source,
     )
 
 
@@ -1126,3 +1165,20 @@ def compact_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
         "github": payload.get("github", {}),
         "queue_cap": payload.get("queue_cap", {}),
     }
+
+
+def _parse_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)

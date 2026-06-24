@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -93,13 +94,15 @@ def _write_status_cache(
     *,
     open_pr_cap_reached: bool = False,
     degraded: bool = False,
+    generated_at: str | None = None,
 ) -> None:
     status = state_root / ".aragora" / "automation-github-status"
     status.mkdir(parents=True, exist_ok=True)
+    timestamp = generated_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     (status / "latest.json").write_text(
         json.dumps(
             {
-                "generated_at": "2026-06-24T00:00:00Z",
+                "generated_at": timestamp,
                 "github_queue": {
                     "degraded": degraded,
                     "degraded_reason": "heavy_open_pr_query_failed:HTTP 504" if degraded else None,
@@ -247,6 +250,8 @@ def test_unique_branch_without_pr_is_cap_blocked_when_cache_says_cap_reached(
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
     assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is True
+    assert item["evidence"]["queue_cap"]["raw_open_pr_cap_reached"] is True
+    assert item["evidence"]["queue_cap"]["cache_stale"] is False
 
 
 def test_unique_branch_without_pr_is_publication_requested_when_cap_clear(
@@ -258,6 +263,34 @@ def test_unique_branch_without_pr_is_publication_requested_when_cap_clear(
     item = _classify_one(tmp_path)
 
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+
+
+def test_stale_queue_cap_cache_does_not_block_publication(tmp_path: Path) -> None:
+    stale = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+    _write_status_cache(tmp_path, open_pr_cap_reached=True, generated_at=stale)
+    _write_outbox(tmp_path, branch="codex/example")
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["queue_cap"]["raw_open_pr_cap_reached"] is True
+    assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is None
+    assert item["evidence"]["queue_cap"]["cache_stale"] is True
+    assert item["evidence"]["queue_cap"]["decision_source"] == "expired_cache"
+
+
+def test_fresh_degraded_queue_cap_cache_blocks_with_rest_fallback_evidence(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=True, degraded=True)
+    _write_outbox(tmp_path, branch="codex/example")
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
+    assert item["evidence"]["queue_cap"]["degraded"] is True
+    assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is True
+    assert item["evidence"]["queue_cap"]["decision_source"] == "fresh_degraded_cache_rest_fallback"
 
 
 def test_stale_owner_remote_exact_head_is_represented_by_remote_branch(
