@@ -9,6 +9,10 @@
 # systemd service. Installers must call this at launch time (via a wrapper),
 # never bake an absolute interpreter path into the generated unit.
 
+# Align long-running local governance loops with the required merge-quorum gate.
+# Operators can still opt out explicitly by exporting the flag as 0/false/off.
+export ARAGORA_ENABLE_SEVERITY_GATED_DISSENT="${ARAGORA_ENABLE_SEVERITY_GATED_DISSENT:-1}"
+
 # Determine the repository root. Honors ARAGORA_REPO_ROOT, otherwise derives it
 # from this file's location (scripts/.. == repo root) regardless of the caller.
 aragora_repo_root() {

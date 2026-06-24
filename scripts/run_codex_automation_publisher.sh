@@ -5,6 +5,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK_DIR="${TMPDIR:-/tmp}/com.aragora.codex-automation-publisher.lock"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export CODEX_HOME="${CODEX_HOME:-${HOME}/.codex}"
+# Align publisher value-drain / settlement probes with the required merge-quorum
+# gate while preserving an explicit operator opt-out.
+export ARAGORA_ENABLE_SEVERITY_GATED_DISSENT="${ARAGORA_ENABLE_SEVERITY_GATED_DISSENT:-1}"
 PYTHON_BIN="${ARAGORA_AUTOMATION_PYTHON:-python3}"
 HANDOFF_LIMIT="${ARAGORA_AUTOMATION_HANDOFF_LIMIT:-2}"
 MAX_OPEN_ISSUES="${ARAGORA_AUTOMATION_MAX_OPEN_ISSUES:-16}"

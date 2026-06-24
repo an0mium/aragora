@@ -108,8 +108,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
           IS_DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft || 'false' }}
           # Activate the merged severity-gated dissent policy for the required gate:
-          # [P2]/[P3]-only findings are advisory, while P0/P1 and changes-requested
-          # findings remain blocking.
+          # [P2]/[P3]-only or finding-free CHANGES-REQUESTED reviews are advisory,
+          # while P0/P1 findings and populated Blocker labels remain blocking.
           ARAGORA_ENABLE_SEVERITY_GATED_DISSENT: "1"
         shell: bash
         run: |
