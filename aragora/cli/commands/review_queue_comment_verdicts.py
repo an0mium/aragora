@@ -60,6 +60,16 @@ _NEGATIVE_VERDICT_PREFIXES = (
     "needs repair",
 )
 
+_BLOCKING_DISSENT_PHRASE_RE = re.compile(
+    r"\b(?:do\s+not|don't|must\s+not|cannot|can't|should\s+not)\s+"
+    r"(?:merge|ship|land)\b"
+    r"|"
+    r"\b(?:unsafe|not\s+safe)\s+to\s+(?:merge|ship|land)\b"
+    r"|"
+    r"\b(?:security\s+hole|auth(?:entication)?\s+bypass|sql\s*injection)\b",
+    re.I,
+)
+
 # Prefixes a populated Blocker-label value may start with that mean "no blocker".
 # NOTE: a bare ``"no"`` is intentionally absent. ``"no"`` alone matched real
 # security findings such as "no authentication on admin endpoint" / "no validation"
@@ -239,6 +249,10 @@ def _default_blocking_marker_finding(stripped: str) -> bool:
     return head not in _NO_FINDING_HEADS
 
 
+def _has_blocking_dissent_phrase(text: str) -> bool:
+    return bool(_BLOCKING_DISSENT_PHRASE_RE.search(_normalize_value(text)))
+
+
 def _inside_benign_parenthetical_priority_reference(text: str, marker_start: int) -> bool:
     """Return True for parenthetical severity references, not findings.
 
@@ -312,6 +326,8 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
     for idx, stripped in enumerate(lines):
         if not stripped:
             continue
+        if _has_blocking_dissent_phrase(stripped):
+            return True
         if _default_blocking_marker_finding(stripped):
             return True
         if _DEFAULT_BLOCKING_MARKER.match(_strip_decoration(stripped)):

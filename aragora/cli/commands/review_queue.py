@@ -3691,15 +3691,12 @@ _SUPPORTIVE_VERDICT_PREFIXES = (
     "supportive",
 )
 
-_CONDITIONAL_SUPPORTIVE_VERDICT_RE = re.compile(
-    r"^(?:"
-    r"accept(?:ed)?|approve(?:d)?|clean|green|looks good|lgtm|"
-    r"pass(?:ed)?|ready|support(?:ed|ive)?"
-    r")\s+"
-    r"(?:"
-    r"pending\b|with\s+(?:reservations?|caveats?)\b|if\b|once\b|"
+_SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE = re.compile(
+    r"^[\s,.;:—–-]*(?:"
+    r"but\b|except\b|pending\b|if\b|once\b|"
+    r"with\s+(?:notes?|reservations?|caveats?)\b|"
     r"after\s+(?:fix(?:es|ing)?|repair(?:s|ing)?|changes?|addressing|resolving)\b|"
-    r"but\b|except\b|needs?\b|requires?\b|subject\s+to\b"
+    r"needs?\b|requires?\b|subject\s+to\b"
     r")",
     re.I,
 )
@@ -3763,12 +3760,12 @@ def _trusted_verdict_label_values(body: str) -> list[str]:
 def _normalized_verdict_label_is_supportive(normalized: str) -> bool:
     if re.match(r"pass(?:ed)?\s+on\b", normalized):
         return False
-    if _CONDITIONAL_SUPPORTIVE_VERDICT_RE.match(normalized):
-        return False
-    return any(
-        re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
-        for prefix in _SUPPORTIVE_VERDICT_PREFIXES
-    )
+    for prefix in _SUPPORTIVE_VERDICT_PREFIXES:
+        match = re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
+        if not match:
+            continue
+        return not bool(_SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE.match(normalized[match.end() :]))
+    return False
 
 
 def _has_trusted_supportive_verdict_label(body: str) -> bool:

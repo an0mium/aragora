@@ -573,6 +573,31 @@ def test_unclosed_trailing_thinking_cannot_hide_blocking_finding() -> None:
     assert "blocking_or_negative_verdict" in result["problems"]
 
 
+def test_unclosed_trailing_thinking_cannot_hide_prose_dissent() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = "Verdict: PASS\nNo findings.\n<thinking>\nTerrible security hole must not merge."
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "Terrible security hole must not merge" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
+
+
 def test_unclosed_thinking_disclaimer_line_cannot_hide_separate_blocker() -> None:
     from aragora.cli.commands.review_queue import _lint_evidence_comment
 

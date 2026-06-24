@@ -6181,8 +6181,19 @@ class TestCommandDispatch:
         assert payload["would_count"] is False
         assert "untrusted_or_non_supportive_verdict" in payload["problems"]
 
-    @pytest.mark.parametrize("verdict", ["ready pending fixes", "support with reservations"])
-    def test_evidence_lint_rejects_qualified_supportive_verdict_labels(self, verdict: str) -> None:
+    @pytest.mark.parametrize(
+        ("verdict", "expected_problem"),
+        [
+            ("ready pending fixes", "untrusted_or_non_supportive_verdict"),
+            ("support with reservations", "untrusted_or_non_supportive_verdict"),
+            ("no findings but auth bypass remains", "blocking_or_negative_verdict"),
+            ("no changes requested except failing tests", "untrusted_or_non_supportive_verdict"),
+            ("PASS with notes", "untrusted_or_non_supportive_verdict"),
+        ],
+    )
+    def test_evidence_lint_rejects_qualified_supportive_verdict_labels(
+        self, verdict: str, expected_problem: str
+    ) -> None:
         ns = argparse.Namespace(
             review_queue_command="evidence-lint",
             pr="7445",
@@ -6208,7 +6219,7 @@ class TestCommandDispatch:
         payload = json.loads(out.getvalue())
         assert rc == 1
         assert payload["would_count"] is False
-        assert "untrusted_or_non_supportive_verdict" in payload["problems"]
+        assert expected_problem in payload["problems"]
 
     def test_evidence_lint_rejects_pass_on_wording_as_supportive_verdict(self) -> None:
         ns = argparse.Namespace(
