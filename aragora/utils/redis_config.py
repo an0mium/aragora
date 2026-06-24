@@ -36,6 +36,39 @@ _redis_pool: Any | None = None
 _redis_available: bool | None = None
 
 
+def _int_env(name: str, default: int) -> int:
+    """Read an integer environment variable, falling back to ``default``.
+
+    A malformed value must not crash this foundation-layer module (it is on the
+    lazy-init path consumed by ``aragora.utils.redis_cache``); log and degrade to
+    the default instead of raising ``ValueError``.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning("%s=%r is not a valid integer; using default %d", name, raw, default)
+        return default
+
+
+def _float_env(name: str, default: float) -> float:
+    """Read a float environment variable, falling back to ``default``.
+
+    Mirrors :func:`_int_env`: a malformed value degrades to the default with a
+    warning rather than raising ``ValueError`` on the Redis lazy-init path.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning("%s=%r is not a valid number; using default %s", name, raw, default)
+        return default
+
+
 def get_redis_url() -> str | None:
     """Get the Redis URL from environment.
 
@@ -48,8 +81,9 @@ def get_redis_url() -> str | None:
 def get_redis_pool() -> Any | None:
     """Get shared Redis connection pool (lazy initialization).
 
-    Thread-safe lazy initialization of the Redis connection pool.
-    Returns None if Redis is not configured or unavailable.
+    Lazy initialization of the Redis connection pool, cached after the first
+    successful call. First-use initialization is not synchronized across
+    threads. Returns None if Redis is not configured or unavailable.
 
     The pool is configured with:
     - Max connections from ARAGORA_REDIS_MAX_CONNECTIONS (default 50)
@@ -78,7 +112,7 @@ def get_redis_pool() -> Any | None:
     try:
         import redis
 
-        max_connections = int(os.getenv("ARAGORA_REDIS_MAX_CONNECTIONS", "50"))
+        max_connections = _int_env("ARAGORA_REDIS_MAX_CONNECTIONS", 50)
 
         # Validate max_connections bounds
         if max_connections < 1:
@@ -94,7 +128,7 @@ def get_redis_pool() -> Any | None:
             )
             max_connections = 10000
 
-        socket_timeout = float(os.getenv("ARAGORA_REDIS_SOCKET_TIMEOUT", "5.0"))
+        socket_timeout = _float_env("ARAGORA_REDIS_SOCKET_TIMEOUT", 5.0)
 
         _redis_pool = redis.ConnectionPool.from_url(
             url,
@@ -209,7 +243,7 @@ async def get_async_redis_client() -> Any | None:
     try:
         import redis.asyncio as aioredis
 
-        socket_timeout = float(os.getenv("ARAGORA_REDIS_SOCKET_TIMEOUT", "5.0"))
+        socket_timeout = _float_env("ARAGORA_REDIS_SOCKET_TIMEOUT", 5.0)
 
         client = aioredis.from_url(
             url,

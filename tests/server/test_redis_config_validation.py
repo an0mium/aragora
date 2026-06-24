@@ -109,6 +109,13 @@ class TestMaxConnectionsValidation:
             max_connections = _reset_and_get_pool({"ARAGORA_REDIS_MAX_CONNECTIONS": "15000"})
         assert max_connections == 10000
 
+    def test_malformed_max_connections_falls_back_to_default(self, caplog):
+        """A non-integer max_connections degrades to the default instead of raising."""
+        with caplog.at_level(logging.WARNING, logger="aragora.utils.redis_config"):
+            max_connections = _reset_and_get_pool({"ARAGORA_REDIS_MAX_CONNECTIONS": "not-a-number"})
+        assert max_connections == 50
+        assert any("not a valid integer" in record.message for record in caplog.records)
+
 
 class TestMaxConnectionsWarningLogs:
     """Test that warning logs are emitted when values are clamped."""
