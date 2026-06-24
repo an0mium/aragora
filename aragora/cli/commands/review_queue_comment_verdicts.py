@@ -69,6 +69,20 @@ _BLOCKING_DISSENT_PHRASE_RE = re.compile(
     r"\b(?:security\s+hole|auth(?:entication)?\s+bypass|sql\s*injection)\b",
     re.I,
 )
+_BENIGN_BLOCKING_PHRASE_TAIL_RE = re.compile(
+    r"^[\s.,;:!?)\]—–-]*"
+    r"(?:found|identified|detected|present|observed|noted|remaining|remains|exists)?"
+    r"(?:[\s.,;:!?)\]—–-]+(?:in|by|during|across|for|on)\s+"
+    r"(?:tests?|coverage|regressions?|fixtures?|guardrails?|cases?|"
+    r"exact\s+head|this\s+diff|the\s+diff|diff|code|review))?"
+    r"[\s.,;:!?)\]—–-]*$",
+    re.I,
+)
+_BENIGN_REVIEWED_PHRASE_TAIL_RE = re.compile(
+    r"^[\s.,;:!?)\]—–-]*"
+    r"(?:tests?|coverage|regressions?|fixtures?|guardrails?|cases?)\b",
+    re.I,
+)
 
 # Prefixes a populated Blocker-label value may start with that mean "no blocker".
 # NOTE: a bare ``"no"`` is intentionally absent. ``"no"`` alone matched real
@@ -249,8 +263,23 @@ def _default_blocking_marker_finding(stripped: str) -> bool:
     return head not in _NO_FINDING_HEADS
 
 
+def _blocking_dissent_phrase_match_is_benign(value: str, match: re.Match[str]) -> bool:
+    prefix = value[: match.start()].strip()
+    suffix = value[match.end() :].strip()
+    if re.search(r"(?:^|[.;:!?]\s*)no(?:\s+(?:known|remaining|actual))?$", prefix):
+        return bool(_BENIGN_BLOCKING_PHRASE_TAIL_RE.match(suffix))
+    if re.search(r"(?:^|[.;:!?]\s*)reviewed(?:\s+the)?$", prefix):
+        return bool(_BENIGN_REVIEWED_PHRASE_TAIL_RE.match(suffix))
+    return False
+
+
 def _has_blocking_dissent_phrase(text: str) -> bool:
-    return bool(_BLOCKING_DISSENT_PHRASE_RE.search(_normalize_value(text)))
+    value = _normalize_value(text)
+    for match in _BLOCKING_DISSENT_PHRASE_RE.finditer(value):
+        if _blocking_dissent_phrase_match_is_benign(value, match):
+            continue
+        return True
+    return False
 
 
 def _inside_benign_parenthetical_priority_reference(text: str, marker_start: int) -> bool:

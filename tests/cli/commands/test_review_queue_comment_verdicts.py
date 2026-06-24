@@ -112,6 +112,22 @@ def test_prose_only_merge_blocking_dissent_still_blocks(body):
     assert has_blocking_or_negative_verdict(body)
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "No sql injection found.",
+        "Reviewed auth bypass tests.",
+    ],
+)
+def test_benign_security_phrase_no_finding_prose_does_not_block(body):
+    assert not has_blocking_or_negative_verdict(body)
+
+
+def test_benign_security_phrase_does_not_mask_later_merge_blocker():
+    body = "No sql injection found. Do not merge until the auth bypass is fixed."
+    assert has_blocking_or_negative_verdict(body)
+
+
 def test_same_line_pass_with_priority_finding_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: PASS; [P1] real blocker")
 

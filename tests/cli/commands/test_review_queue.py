@@ -6182,6 +6182,44 @@ class TestCommandDispatch:
         assert "untrusted_or_non_supportive_verdict" in payload["problems"]
 
     @pytest.mark.parametrize(
+        "secondary_line",
+        [
+            "> Recommendation: needs revision before merge",
+            "    Recommendation: needs revision before merge",
+        ],
+    )
+    def test_evidence_lint_rejects_quoted_or_indented_secondary_dissent_label(
+        self, secondary_line: str
+    ) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Verdict: PASS\n"
+                    f"{secondary_line}\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert "untrusted_or_non_supportive_verdict" in payload["problems"]
+
+    @pytest.mark.parametrize(
         ("verdict", "expected_problem"),
         [
             ("ready pending fixes", "untrusted_or_non_supportive_verdict"),

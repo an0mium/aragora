@@ -223,7 +223,7 @@ def test_unclosed_trailing_thinking_trace_with_priority_marker_preserves_negativ
     assert "blocking_or_negative_verdict" in result["problems"]
 
 
-def test_closed_post_verdict_thinking_trace_does_not_decount_support() -> None:
+def test_closed_post_verdict_thinking_priority_marker_disclaimer_fails_closed() -> None:
     from aragora.cli.commands.review_queue import _lint_evidence_comment
 
     raw = (
@@ -241,8 +241,8 @@ def test_closed_post_verdict_thinking_trace_does_not_decount_support() -> None:
         reviewer_text=raw,
     )
 
-    assert "private reasoning" not in body
-    assert "[P1]" not in body
+    assert "private reasoning" in body
+    assert "[P1]" in body
     result = _lint_evidence_comment(
         pr="7740",
         head_sha=HEAD,
@@ -251,8 +251,8 @@ def test_closed_post_verdict_thinking_trace_does_not_decount_support() -> None:
         author="an0mium",
         source="test",
     )
-    assert result["would_count"] is True, result["problems"]
-    assert "qwen" in result["counted_reviewer_ids"]
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
 
 
 def test_closed_thinking_private_reasoning_finding_is_preserved() -> None:

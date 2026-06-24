@@ -784,8 +784,7 @@ def _offset_in_spans(offset: int, spans: list[tuple[int, int]]) -> bool:
 
 
 _PRIVATE_REASONING_NONFINDING_RE = re.compile(
-    r"^(?:\[(?:P0|P1|P2)\]\s*)?"
-    r"(?:this\s+was\s+)?(?:only\s+)?(?:private|internal|abandoned)\s+"
+    r"^(?:this\s+was\s+)?(?:only\s+)?(?:private|internal|abandoned)\s+"
     r"(?:(?:private|internal)\s+)?(?:reasoning|preamble)\b"
     r"(?:\s*(?:[,.;:—–-]|\band\b|\bis\b|\bwas\b))*\s*"
     r"(?:not\s+(?:a\s+)?reviewer\s+finding|not\s+the\s+review)\.?\s*$",

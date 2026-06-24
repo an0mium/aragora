@@ -3757,6 +3757,25 @@ def _trusted_verdict_label_values(body: str) -> list[str]:
     return values
 
 
+def _untrusted_verdict_label_values(body: str) -> list[str]:
+    values: list[str] = []
+    in_fence = False
+    for raw_line in str(body or "").splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if not (_is_markdown_indented_code_line(raw_line) or stripped.startswith(">")):
+            continue
+        value = _extract_verdict_label_value(raw_line)
+        if value is None:
+            continue
+        values.append(value)
+    return values
+
+
 def _normalized_verdict_label_is_supportive(normalized: str) -> bool:
     if re.match(r"pass(?:ed)?\s+on\b", normalized):
         return False
@@ -3778,6 +3797,12 @@ def _has_trusted_supportive_verdict_label(body: str) -> bool:
 
 def _has_untrusted_or_non_supportive_verdict_label(body: str) -> bool:
     trusted_values = _trusted_verdict_label_values(body)
+    untrusted_values = _untrusted_verdict_label_values(body)
+    if any(
+        not _normalized_verdict_label_is_supportive(_normalize_verdict_label_value(value))
+        for value in untrusted_values
+    ):
+        return True
     if trusted_values:
         return any(
             not _normalized_verdict_label_is_supportive(_normalize_verdict_label_value(value))
