@@ -126,6 +126,22 @@ def _read_rows(path: Path) -> list[dict[str, Any]]:
     return [row for row in payload if isinstance(row, dict)]
 
 
+def _read_rows_checked(path: Path) -> tuple[list[dict[str, Any]], str | None]:
+    if not path.exists():
+        return [], None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [], f"read_failed:{type(exc).__name__}:{exc}"
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return [], f"invalid_json:{exc.msg}"
+    if not isinstance(payload, list):
+        return [], "invalid_shape:not_list"
+    return [row for row in payload if isinstance(row, dict)], None
+
+
 def _parse_timestamp(value: Any) -> float | None:
     text = str(value or "").strip()
     if not text:
@@ -461,6 +477,7 @@ def _annotate_terminal_safety(
     findings: list[dict[str, Any]],
     *,
     heartbeats: list[dict[str, Any]],
+    heartbeat_load_error: str | None = None,
     steering_inbox_root: Path,
     now_ts: float,
     heartbeat_fresh_seconds: int,
@@ -492,6 +509,10 @@ def _annotate_terminal_safety(
         if fresh_heartbeats:
             blockers.append("fresh_heartbeat")
             details["fresh_heartbeat_timestamps"] = fresh_heartbeats
+
+        if heartbeat_load_error:
+            blockers.append("heartbeat_state_untrusted")
+            details["heartbeat_read_error"] = heartbeat_load_error
 
         pending_messages = _pending_mailbox_messages(
             owner_session,
@@ -584,12 +605,18 @@ def _operator_apply_command(
     registry_path: Path,
     receipt_dir: Path,
     expected_merge_commit: str,
+    heartbeat_path: Path,
+    steering_inbox_root: Path,
+    heartbeat_fresh_seconds: int,
 ) -> str:
     commit_arg = expected_merge_commit or "<merge-commit-sha>"
     return (
         "python3 scripts/resolve_lane_conflicts.py --merged-pr-lane-audit "
         f"--pr {pr} --expected-merge-commit {commit_arg} --operator-authorized "
-        f"--registry-path {registry_path} --receipt-dir {receipt_dir} --apply --json"
+        f"--registry-path {registry_path} --receipt-dir {receipt_dir} "
+        f"--heartbeat-path {_quote_shell_arg(heartbeat_path)} "
+        f"--steering-inbox-root {_quote_shell_arg(steering_inbox_root)} "
+        f"--heartbeat-fresh-seconds {heartbeat_fresh_seconds} --apply --json"
     )
 
 
@@ -604,6 +631,9 @@ def _base_merged_pr_audit_result(
     github_state: dict[str, Any],
     findings: list[dict[str, Any]],
     blocked_reason: str | None,
+    heartbeat_path: Path,
+    steering_inbox_root: Path,
+    heartbeat_fresh_seconds: int,
 ) -> dict[str, Any]:
     merge_commit = str(github_state.get("mergeCommit") or "")
     expected = str(expected_merge_commit or "")
@@ -642,6 +672,9 @@ def _base_merged_pr_audit_result(
             registry_path=registry_path,
             receipt_dir=receipt_dir,
             expected_merge_commit=merge_commit or expected,
+            heartbeat_path=heartbeat_path,
+            steering_inbox_root=steering_inbox_root,
+            heartbeat_fresh_seconds=heartbeat_fresh_seconds,
         ),
         "requires_operator_authorization": True,
         "operator_authorized": operator_authorized,
@@ -709,12 +742,13 @@ def audit_merged_pr_lanes(
     github_state = _fetch_pr_state(pr=pr, gh_bin=gh_bin)
     with _registry_write_lock(registry_path):
         rows = _read_rows(registry_path)
-        heartbeats = _read_rows(heartbeat_path)
+        heartbeats, heartbeat_load_error = _read_rows_checked(heartbeat_path)
         findings: list[dict[str, Any]] = []
         if github_state.get("available") is True and github_state.get("state") == "MERGED":
             findings = _annotate_terminal_safety(
                 _active_pr_lane_findings(rows, pr=pr),
                 heartbeats=heartbeats,
+                heartbeat_load_error=heartbeat_load_error,
                 steering_inbox_root=steering_inbox_root,
                 now_ts=now_ts,
                 heartbeat_fresh_seconds=heartbeat_fresh_seconds,
@@ -736,6 +770,9 @@ def audit_merged_pr_lanes(
             github_state=github_state,
             findings=findings,
             blocked_reason=blocked_reason,
+            heartbeat_path=heartbeat_path,
+            steering_inbox_root=steering_inbox_root,
+            heartbeat_fresh_seconds=heartbeat_fresh_seconds,
         )
         if not result["apply_eligible"]:
             return result

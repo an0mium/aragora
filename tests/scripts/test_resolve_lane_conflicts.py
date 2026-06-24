@@ -631,6 +631,78 @@ def test_merged_pr_audit_apply_rejects_fresh_heartbeat(tmp_path: Path) -> None:
     assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
 
 
+def test_merged_pr_audit_apply_rejects_untrusted_heartbeat_state(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    heartbeats = tmp_path / "heartbeats.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+    heartbeats.write_text("{not-json", encoding="utf-8")
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_merge_commit="merge",
+        heartbeat_path=heartbeats,
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["heartbeat_state_untrusted"]
+    assert result["findings"][0]["terminal_safety_details"]["heartbeat_read_error"].startswith(
+        "invalid_json:"
+    )
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_merged_pr_audit_apply_command_preserves_safety_overrides(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    heartbeats = tmp_path / "heartbeats.json"
+    steering_root = tmp_path / "operator-steering"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-merged",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+    _write_json(heartbeats, [])
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_merged_pr_gh(tmp_path)),
+        heartbeat_path=heartbeats,
+        steering_inbox_root=steering_root,
+        heartbeat_fresh_seconds=123,
+    )
+
+    command = result["operator_apply_command"]
+    assert "--heartbeat-path" in command
+    assert str(heartbeats) in command
+    assert "--steering-inbox-root" in command
+    assert str(steering_root) in command
+    assert "--heartbeat-fresh-seconds 123" in command
+
+
 def test_merged_pr_audit_apply_rejects_unread_mailbox(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     steering_root = tmp_path / "operator-steering"
