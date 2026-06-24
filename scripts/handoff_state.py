@@ -186,7 +186,7 @@ class NarrowGitHubClient:
             self._pr_cache[branch] = result
             return result
         owner = self.github_repo.split("/", 1)[0]
-        head = quote(f"{owner}:{branch}", safe="")
+        head = f"{owner}:{quote(branch, safe='')}"
         endpoint = f"repos/{self.github_repo}/pulls?state=open&head={head}&per_page=5"
         payload, error = self._api(endpoint)
         if error is not None:
