@@ -1551,7 +1551,7 @@ def test_merged_pr_preservation_proof_checks_all_local_evidence_worktrees(
     assert len(proof["worktree_proofs"]) == 2
 
 
-def test_unique_branch_keeps_when_merged_pr_proof_is_not_on_current_base(
+def test_unique_branch_archives_when_merged_pr_proof_is_squash_merged(
     tmp_path: Path,
     monkeypatch: Any,
     capsys: Any,
@@ -1589,7 +1589,13 @@ def test_unique_branch_keeps_when_merged_pr_proof_is_not_on_current_base(
 
     def fake_gh_items(_root: Path, endpoint: str) -> list[dict[str, Any]]:
         if endpoint == f"repos/synaptent/aragora/commits/{desired_head}/pulls":
-            return [{"number": 8583, "merged_at": "2026-06-24T00:00:00Z"}]
+            return [
+                {
+                    "number": 8583,
+                    "merged_at": "2026-06-24T00:00:00Z",
+                    "base": {"ref": "main"},
+                }
+            ]
         if endpoint == "repos/synaptent/aragora/pulls/8583/commits?per_page=100":
             return [
                 {"sha": "1111111111111111111111111111111111111111"},
@@ -1628,10 +1634,10 @@ def test_unique_branch_keeps_when_merged_pr_proof_is_not_on_current_base(
     assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
 
     payload = json.loads(capsys.readouterr().out)
-    assert payload["counts"]["satisfied_by_merged_pr_commit_proof"] == 0
-    assert payload["counts"]["still_protecting_active_work"] == 1
-    assert payload["actions"][0]["decision"] == "keep"
-    assert "actively protecting" in payload["actions"][0]["reason"]
+    assert payload["counts"]["satisfied_by_merged_pr_commit_proof"] == 1
+    assert payload["counts"]["still_protecting_active_work"] == 0
+    assert payload["actions"][0]["decision"] == "archive"
+    assert "merged PR commit list (PR #8583)" in payload["actions"][0]["reason"]
 
 
 def test_unique_branch_keeps_when_preservation_proof_is_unavailable(

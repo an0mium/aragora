@@ -469,8 +469,6 @@ def _merged_pr_commit_preservation_proof(
             return None
         if not _upstream_base_matches(upstream, expected_base):
             return None
-        if not _desired_head_landed_on_base(root, base, record_branch, desired_head):
-            return None
         if common_upstream is None:
             common_upstream = upstream
         proofs.append(proof)
