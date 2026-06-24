@@ -621,6 +621,62 @@ def test_thinking_trace_blocker_label_uses_review_queue_nonfinding_rules() -> No
     assert result["would_count"] is True, result["problems"]
 
 
+def test_thinking_trace_multiline_blocker_label_cannot_be_stripped() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "Verdict: PASS\n"
+        "No findings.\n"
+        "<thinking>\n"
+        "Blockers:\n"
+        "- auth bypass in settlement routing\n"
+        "</thinking>"
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "auth bypass in settlement routing" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
+
+
+def test_thinking_trace_multiline_blocker_nonfinding_is_stripped() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = "Verdict: PASS\nNo findings.\n<thinking>\nBlockers:\nNone found\n</thinking>"
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "None found" not in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+
+
 def test_pass_block_with_blocking_finding_is_not_overridden_by_later_pass() -> None:
     from aragora.cli.commands.review_queue import _lint_evidence_comment
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
@@ -662,6 +718,41 @@ def test_blocker_label_is_not_overridden_by_later_pass_verdict() -> None:
     raw = (
         "Verdict: PASS\n"
         "Blockers: auth bypass in settlement routing\n\n"
+        "Example output:\n"
+        "Verdict: PASS\n"
+        "No findings."
+    )
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == raw
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
+
+
+def test_multiline_blocker_label_is_not_overridden_by_later_pass_verdict() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = (
+        "Verdict: PASS\n"
+        "Blockers:\n"
+        "- auth bypass in settlement routing\n\n"
         "Example output:\n"
         "Verdict: PASS\n"
         "No findings."

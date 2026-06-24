@@ -803,14 +803,25 @@ def _line_is_untrusted_example(line: str) -> bool:
     return stripped.startswith(">") or _is_markdown_indented_code_line(line)
 
 
-def _line_has_concrete_blocking_finding(line: str) -> bool:
-    return has_default_blocking_finding_or_label(
-        line
-    ) and not _private_reasoning_nonfinding_context(line)
+def _trusted_parser_text(lines: Iterable[str], *, drop_private_nonfindings: bool = False) -> str:
+    trusted: list[str] = []
+    in_fence = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence or _line_is_untrusted_example(line):
+            continue
+        if drop_private_nonfindings and _private_reasoning_nonfinding_context(line):
+            continue
+        trusted.append(line)
+    return "".join(trusted).strip()
 
 
 def _text_has_concrete_blocking_signal(text: str) -> bool:
-    return any(_line_has_concrete_blocking_finding(line) for line in text.splitlines())
+    trusted = _trusted_parser_text(text.splitlines(keepends=True), drop_private_nonfindings=True)
+    return has_default_blocking_finding_or_label(trusted)
 
 
 def _closed_thinking_block_is_safe_to_strip(block: str) -> bool:
@@ -835,17 +846,8 @@ def _closed_thinking_block_from_lines(lines: list[str], start_idx: int) -> str:
 
 
 def _trusted_blocking_priority_between(lines: list[str], start_idx: int, end_idx: int) -> bool:
-    in_fence = False
-    for line in lines[start_idx:end_idx]:
-        stripped = line.strip()
-        if stripped.startswith(("```", "~~~")):
-            in_fence = not in_fence
-            continue
-        if in_fence or _line_is_untrusted_example(line):
-            continue
-        if has_blocking_or_negative_verdict(line):
-            return True
-    return False
+    trusted = _trusted_parser_text(f"{line}\n" for line in lines[start_idx:end_idx])
+    return has_blocking_or_negative_verdict(trusted)
 
 
 def _trusted_verdict_probe(line: str) -> str:
@@ -877,7 +879,7 @@ def _trusted_line_verdict(line: str) -> str:
 
 
 def _line_has_blocking_priority_finding(line: str) -> bool:
-    return _line_has_concrete_blocking_finding(line)
+    return _text_has_concrete_blocking_signal(line)
 
 
 def _strip_thinking_traces(text: str) -> str:
@@ -902,8 +904,8 @@ def _strip_thinking_traces(text: str) -> str:
             if not current_verdict:
                 current_verdict = _trusted_line_verdict(line)
             has_blocking_priority = _line_has_blocking_priority_finding(line)
-            later_has_blocking_priority = any(
-                _line_has_concrete_blocking_finding(rest) for rest in suffix_lines[idx + 1 :]
+            later_has_blocking_priority = _text_has_concrete_blocking_signal(
+                "".join(suffix_lines[idx + 1 :])
             )
             later_has_verdict = any(_trusted_line_verdict(rest) for rest in suffix_lines[idx + 1 :])
             open_thinking_tail = (
