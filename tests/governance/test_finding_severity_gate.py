@@ -198,11 +198,11 @@ def test_p1_none_head_still_no_finding_after_fix():
 
 
 class TestFlagOnBlockerLabelSecurityBypass:
-    """Flag ON: a security-phrased populated Blocker label promotes a BLOCKING
+    """Default/flag ON: a security-phrased populated Blocker label promotes a BLOCKING
     dissent (not advisory). Regression for openai #8574 [P1]."""
 
     def test_no_auth_blocker_label_still_blocks_dissent(self, monkeypatch):
-        monkeypatch.setenv(_FLAG, "1")
+        monkeypatch.delenv(_FLAG, raising=False)
         advisory: list[dict] = []
         dissent = _dissenting_views_from_comments(
             [_comment(_BLOCKER_LABEL_NO_AUTH_CHANGES_REQUESTED)],
@@ -216,7 +216,7 @@ class TestFlagOnBlockerLabelSecurityBypass:
 
     @pytest.mark.parametrize("value", _BLOCKER_LABEL_NO_FINDING_SECURITY_PHRASINGS)
     def test_security_phrasings_are_blocking_dissent(self, monkeypatch, value):
-        monkeypatch.setenv(_FLAG, "1")
+        monkeypatch.delenv(_FLAG, raising=False)
         body = (
             "## Claude independent model review\n"
             f"Current head: {_HEAD}\n"
@@ -268,17 +268,18 @@ class TestFlagOffStrict:
             has_pending=False,
             has_failures=False,
         )
-        # The [P2]-only dissent blocks (flag OFF): unresolved_dissent is set and no
-        # advisory downgrade occurs. (``status`` may report a different incomplete
-        # cause first when this synthetic packet's quorum is itself unsatisfied; the
-        # gate-governing signal is ``unresolved_dissent``.)
+        # The [P2]-only dissent blocks under explicit strict opt-out:
+        # unresolved_dissent is set and no advisory downgrade occurs. (``status`` may
+        # report a different incomplete cause first when this synthetic packet's
+        # quorum is itself unsatisfied; the gate-governing signal is
+        # ``unresolved_dissent``.)
         assert quorum["unresolved_dissent"] is True
         assert "unresolved model dissent is present" in quorum["reasons"]
         assert quorum["advisory_views"] == []
 
 
 # --------------------------------------------------------------------------- #
-# Flag ON — severity-gated
+# Default / flag ON — severity-gated
 # --------------------------------------------------------------------------- #
 
 

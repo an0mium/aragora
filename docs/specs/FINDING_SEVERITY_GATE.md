@@ -8,7 +8,8 @@ required by
 (a change to *what blocks a merge at a given Tier* is a Tier 4 self-modification by
 the same rule that governs which family counts at which Tier).
 
-**Enforcement is opt-in and default-OFF.** With the flag OFF the gate behaves
+**Enforcement is active by default after activation, with explicit opt-out.** With the
+flag explicitly OFF the gate behaves
 byte-identically to today (proven by the flag-OFF characterization tests). The
 behavior is revertible WITHOUT a code change — unset the environment flag. The flag
 is the in-tree audit point for the operator's approval.
@@ -89,7 +90,7 @@ of a low-severity dissent is removed.
 
 ## Implementation
 
-Four changes; flag OFF ⇒ identical behavior:
+Four changes; explicit flag OFF ⇒ legacy strict behavior:
 
 1. **Flag** `ARAGORA_ENABLE_SEVERITY_GATED_DISSENT` + helper
    `severity_gated_dissent_enabled(env=None)` in

@@ -435,16 +435,16 @@ class EvidenceItem:
         if self.verdict != "changes_requested":
             return False
         if not self.severity_gated:
-            # Default (flag OFF): any changes_requested is a blocking dissent —
-            # byte-identical to historical behavior.
+            # Explicit strict opt-out: any changes_requested is a blocking dissent,
+            # byte-identical to legacy behavior.
             return True
-        # Flag ON: a changes_requested is dissenting (blocks / trips prepare-only)
-        # ONLY when backed by a real [P0]/[P1] finding OR a populated Blocker label
-        # (``has_blocking_finding_or_label`` — the SAME helper the review-queue gate
-        # half consults, so the two halves stay in lockstep and Blocker labels always
-        # block per the invariant). A [P2]/[P3]-only or finding-free changes_requested
-        # is advisory — non-blocking, and (because ``supportive`` is unchanged) still
-        # non-counting.
+        # Default active policy: a changes_requested is dissenting (blocks / trips
+        # prepare-only) ONLY when backed by a real [P0]/[P1] finding OR a populated
+        # Blocker label (``has_blocking_finding_or_label`` — the SAME helper the
+        # review-queue gate half consults, so the two halves stay in lockstep and
+        # Blocker labels always block per the invariant). A [P2]/[P3]-only or
+        # finding-free changes_requested is advisory — non-blocking, and (because
+        # ``supportive`` is unchanged) still non-counting.
         return has_blocking_finding_or_label(self.body)
 
 

@@ -3412,13 +3412,15 @@ def _tier_requirement(tier: int) -> dict[str, Any]:
     # design (claude #8507 P1; full rationale in docs/specs/TIERED_MERGE_GATE_QUORUM_POLICY.md):
     #   * This live merge gate is evaluated fresh on every CI run against the PR's
     #     current evidence, so there is no prepare→apply staleness window to reconcile.
-    #     It reads the live flag directly. The activated default is ON, and the
-    #     operator's explicit opt-out flag is the revocation control (set it falsey
-    #     to restore strict behavior everywhere).
+    #     It reads the live tiered-merge flag directly. That flag remains default
+    #     OFF, and enabling it is itself the operator's deliberate, Tier-4-gated
+    #     audit point — the global flag is the revocation control (flip OFF to
+    #     revoke the one-western-frontier Tier 1-2 relaxation everywhere).
     #   * The auto-settle apply path stores a prepared artifact with a real time gap
     #     between prepare and apply, so it additionally reconciles via min(prepared,
     #     live) to stop a flag flip from retroactively relaxing a stale artifact.
-    # Only the apply path needs the extra reconciliation because only it has stored,
+    # Both paths are strict unless the tiered-merge flag is explicitly enabled; only
+    # the apply path needs the extra reconciliation because only it has stored,
     # deferrable state.
     rule = tier_quorum_rule(tier, tiered_gate=tiered_merge_gate_enabled())
     return {
