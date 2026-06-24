@@ -704,13 +704,50 @@ def _offset_in_spans(offset: int, spans: list[tuple[int, int]]) -> bool:
 
 
 _PRIVATE_REASONING_NONFINDING_RE = re.compile(
-    r"(private|internal|abandoned)\s+reasoning|not\s+(?:a\s+)?reviewer\s+finding|not\s+the\s+review",
+    r"^(?:\[(?:P0|P1|P2)\]\s*)?"
+    r"(?:this\s+was\s+)?(?:only\s+)?(?:private|internal|abandoned)\s+"
+    r"(?:reasoning|preamble)\b.*"
+    r"(?:not\s+(?:a\s+)?reviewer\s+finding|not\s+the\s+review)\.?\s*$",
     re.IGNORECASE,
+)
+
+_BLOCKING_LABEL_NONFINDING_VALUES = frozenset(
+    {
+        "-",
+        "*",
+        "[]",
+        "[ ]",
+        "—",
+        "–",
+        "0",
+        "false",
+        "n/a",
+        "na",
+        "nil",
+        "no blocker",
+        "no blockers",
+        "no blocking",
+        "no blocking findings",
+        "no concern",
+        "no concerns",
+        "no finding",
+        "no findings",
+        "no issue",
+        "no issues",
+        "none",
+        "none found",
+        "none identified",
+        "none noted",
+        "not applicable",
+        "zero",
+    }
 )
 
 
 def _private_reasoning_nonfinding_context(text: str) -> bool:
-    return bool(_PRIVATE_REASONING_NONFINDING_RE.search(text))
+    line = re.sub(r"^(?:[#>\-*+\s]+|\d+[.)]\s+)+", "", str(text or "").strip())
+    line = line.replace("**", "").replace("__", "").strip()
+    return bool(_PRIVATE_REASONING_NONFINDING_RE.match(line))
 
 
 def _line_is_untrusted_example(line: str) -> bool:
@@ -724,8 +761,31 @@ def _line_has_concrete_blocking_finding(line: str) -> bool:
     )
 
 
+def _normalized_blocking_label_value(text: str) -> str:
+    text = text.replace("**", "").replace("__", "")
+    text = re.sub(r"^(?:[-*+]\s+|\d+[.)]\s+)", "", text.strip())
+    text = re.sub(r"[-_]+", " ", text)
+    return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower()).strip(" .;—–-")
+
+
+def _line_has_blocking_label_finding(line: str) -> bool:
+    stripped = re.sub(r"^(?:[#>\-*+\s]+|\d+[.)]\s+)+", "", line.strip())
+    stripped = stripped.replace("**", "").replace("__", "")
+    match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", stripped)
+    if not match:
+        return False
+    label = re.sub(r"\s+", " ", match.group("label").strip().lower()).strip("*_ ")
+    if label not in {"blocking finding", "blocking findings", "blocker", "blockers"}:
+        return False
+    value = _normalized_blocking_label_value(match.group("value"))
+    return bool(value and value not in _BLOCKING_LABEL_NONFINDING_VALUES)
+
+
 def _text_has_concrete_blocking_signal(text: str) -> bool:
-    return any(_line_has_concrete_blocking_finding(line) for line in text.splitlines())
+    return any(
+        _line_has_concrete_blocking_finding(line) or _line_has_blocking_label_finding(line)
+        for line in text.splitlines()
+    )
 
 
 def _closed_thinking_block_is_safe_to_strip(block: str) -> bool:
@@ -758,7 +818,7 @@ def _trusted_blocking_priority_between(lines: list[str], start_idx: int, end_idx
             continue
         if in_fence or _line_is_untrusted_example(line):
             continue
-        if _line_has_concrete_blocking_finding(line):
+        if _line_has_concrete_blocking_finding(line) or _line_has_blocking_label_finding(line):
             return True
     return False
 
