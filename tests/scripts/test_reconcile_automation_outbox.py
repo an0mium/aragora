@@ -842,8 +842,19 @@ def test_reconcile_archives_issue_only_pr_handoff_when_merged_pr_proves_head_pre
     ) -> subprocess.CompletedProcess[str]:
         if args == ["rev-parse", "--verify", branch]:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args == ["rev-parse", "--verify", desired_head]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
         if args[:2] == ["merge-base", "--is-ancestor"]:
-            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0 if args[2] == desired_head else 1,
+                stdout="",
+                stderr="",
+            )
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout=f"+ {desired_head}\n"
+            )
         raise AssertionError(f"unexpected git call: {args}")
 
     monkeypatch.setattr(mod, "run_git", fake_run_git)
@@ -1407,8 +1418,15 @@ def test_unique_branch_keeps_when_preservation_proof_is_remote_branch_only(
     ) -> subprocess.CompletedProcess[str]:
         if args == ["rev-parse", "--verify", branch]:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args == ["rev-parse", "--verify", desired_head]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
         if args[:2] == ["merge-base", "--is-ancestor"]:
-            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0 if args[2] == desired_head else 1,
+                stdout="",
+                stderr="",
+            )
         if args[0] == "cherry":
             return subprocess.CompletedProcess(
                 args=args, returncode=0, stdout=f"+ {desired_head}\n"
@@ -1511,8 +1529,19 @@ def test_merged_pr_preservation_proof_checks_all_local_evidence_worktrees(
     ) -> subprocess.CompletedProcess[str]:
         if args == ["rev-parse", "--verify", branch]:
             return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args == ["rev-parse", "--verify", desired_head]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
         if args[:2] == ["merge-base", "--is-ancestor"]:
-            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0 if args[2] == desired_head else 1,
+                stdout="",
+                stderr="",
+            )
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout=f"+ {desired_head}\n"
+            )
         raise AssertionError(f"unexpected git call: {args}")
 
     seen_worktrees: list[str] = []
@@ -1638,6 +1667,63 @@ def test_unique_branch_archives_when_merged_pr_proof_is_squash_merged(
     assert payload["counts"]["still_protecting_active_work"] == 0
     assert payload["actions"][0]["decision"] == "archive"
     assert "merged PR commit list (PR #8583)" in payload["actions"][0]["reason"]
+
+
+def test_unique_branch_keeps_head_only_handoff_with_top_level_local_work_marker(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-head-only-dirty-abc123"
+    branch = "codex/head-only-dirty"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    )
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload["dirty"] = True
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args == ["rev-parse", "--verify", branch]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout=f"+ {desired_head}\n"
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("dirty head-only handoff must fail before worktree proof")
+        ),
+    )
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["satisfied_by_merged_pr_commit_proof"] == 0
+    assert result["counts"]["still_protecting_active_work"] == 1
+    assert result["actions"][0]["decision"] == "keep"
 
 
 def test_unique_branch_keeps_when_preservation_proof_is_unavailable(

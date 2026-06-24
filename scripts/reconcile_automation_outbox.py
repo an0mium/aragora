@@ -59,6 +59,15 @@ DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
 DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
 TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
+LOCAL_WORK_MARKER_KEYS = (
+    "uncommitted_changes",
+    "has_uncommitted_changes",
+    "uncommitted",
+    "unpushed_commits",
+    "local_changes",
+    "local_work",
+    "dirty",
+)
 
 
 def _mute_stdout_after_broken_pipe() -> None:
@@ -260,17 +269,13 @@ def _desired_head_from_payload(payload: dict[str, Any]) -> str:
 
 
 def _copy_local_work_markers(record: dict[str, Any], source: Mapping[str, Any]) -> None:
-    for key in (
-        "uncommitted_changes",
-        "has_uncommitted_changes",
-        "uncommitted",
-        "unpushed_commits",
-        "local_changes",
-        "local_work",
-        "dirty",
-    ):
+    for key in LOCAL_WORK_MARKER_KEYS:
         if source.get(key):
             record[key] = source.get(key)
+
+
+def _has_local_work_marker(record: Mapping[str, Any]) -> bool:
+    return any(bool(record.get(key)) for key in LOCAL_WORK_MARKER_KEYS)
 
 
 def _lane_records_from_payload(payload: Mapping[str, Any], branch: str) -> list[dict[str, Any]]:
@@ -286,6 +291,7 @@ def _lane_records_from_payload(payload: Mapping[str, Any], branch: str) -> list[
     if desired_head:
         common["desired_head_sha"] = desired_head
         common["head_sha"] = desired_head
+    _copy_local_work_markers(common, payload)
 
     lane = payload.get("lane")
     if isinstance(lane, Mapping):
@@ -407,6 +413,8 @@ def _merged_pr_commit_preservation_proof(
         desired_heads.add(desired_head)
 
         if not record.get("worktree"):
+            if _has_local_work_marker(record):
+                return None
             if not _desired_head_landed_on_base(root, base, record_branch, desired_head):
                 return None
             proof = {
