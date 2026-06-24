@@ -170,6 +170,45 @@ def test_repo_root_rebases_repo_state_defaults(tmp_path: Path, monkeypatch: Any)
     assert checks[2]["depth"] == 1
 
 
+def test_stale_terminal_owner_defaults_use_automation_state_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    state_root = tmp_path / "shared-state"
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+
+    args = sentinel.build_parser().parse_args([])
+
+    root = state_root / ".aragora"
+    assert Path(args.agent_bridge_lanes) == root / "agent-bridge" / "lanes.json"
+    assert Path(args.agent_heartbeats) == root / "agent-bridge" / "heartbeats.json"
+    assert Path(args.operator_steering_root) == root / "operator-steering"
+    assert (
+        Path(args.stale_terminal_owner_receipt_dir)
+        == root / "agent-bridge" / "conflict-resolution-receipts"
+    )
+
+
+def test_stale_terminal_owner_defaults_use_canonical_repo_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    canonical_root = tmp_path / "canonical-repo"
+    monkeypatch.delenv("ARAGORA_AUTOMATION_STATE_ROOT", raising=False)
+    monkeypatch.setattr(sentinel, "_canonical_repo_root", lambda path: canonical_root)
+
+    args = sentinel.build_parser().parse_args([])
+
+    root = canonical_root / ".aragora"
+    assert Path(args.agent_bridge_lanes) == root / "agent-bridge" / "lanes.json"
+    assert Path(args.agent_heartbeats) == root / "agent-bridge" / "heartbeats.json"
+    assert Path(args.operator_steering_root) == root / "operator-steering"
+    assert (
+        Path(args.stale_terminal_owner_receipt_dir)
+        == root / "agent-bridge" / "conflict-resolution-receipts"
+    )
+
+
 # ---------------------------------------------------------------------------
 # boss_metrics_heartbeat
 # ---------------------------------------------------------------------------
@@ -929,6 +968,512 @@ def test_breach_replay_jun10_silent_lane_death(tmp_path: Path) -> None:
     result = _liveness(lanes, heads=heads, ahead=ahead, dates=dates)
     assert result["status"] == "breach"
     assert result["detail"].count("lane c0") == 3
+
+
+# ---------------------------------------------------------------------------
+# stale_terminal_owner (#8562: stale owners blocking terminal PRs)
+# ---------------------------------------------------------------------------
+
+
+def _write_json(path: Path, payload: Any) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def _stale_owner_result(
+    tmp_path: Path,
+    rows: list[dict[str, Any]],
+    *,
+    pr_state: dict[str, Any],
+    findings: list[dict[str, Any]] | None = None,
+    min_age_hours: float = 24.0,
+) -> Any:
+    registry = _write_json(tmp_path / "lanes.json", rows)
+    audit_calls: list[int] = []
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        assert repo_slug == "synaptent/aragora"
+        assert gh_bin == "gh"
+        return {"available": True, "number": pr, **pr_state}
+
+    def audit_terminal(**kwargs: Any) -> dict[str, Any]:
+        audit_calls.append(kwargs["pr"])
+        return {
+            "github_state": {"available": True, "state": "MERGED"},
+            "findings": findings if findings is not None else [],
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=min_age_hours,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=audit_terminal,
+    )
+    return result, audit_calls
+
+
+def _active_owner_row(**overrides: Any) -> dict[str, Any]:
+    row = {
+        "lane_id": "Q900-stale-terminal",
+        "owner_session": "codex-owner",
+        "status": "active",
+        "pr_number": 9001,
+        "branch": "codex/stale-terminal-demo",
+        "updated_at": "2026-06-08T12:00:00Z",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_stale_terminal_owner_missing_registry_is_ok_skipped(tmp_path: Path) -> None:
+    result = sentinel.check_stale_terminal_owner(
+        tmp_path / "missing-lanes.json",
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("no PR state fetch")
+        ),
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "ok"
+    assert "agent-bridge state absent" in result["detail"]
+
+
+def test_stale_terminal_owner_invalid_registry_stays_unknown(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    registry.write_text("{not json", encoding="utf-8")
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("no PR state fetch")
+        ),
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "unknown"
+    assert "lane registry unreadable" in result["detail"]
+
+
+def test_stale_terminal_owner_reports_safe_merged_pr_with_guarded_commands(
+    tmp_path: Path,
+) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={
+            "state": "MERGED",
+            "merge_commit": "abc123",
+            "url": "https://github.test/pr/9001",
+        },
+        findings=[
+            {
+                "lane_id": "Q900-stale-terminal",
+                "owner_session": "codex-owner",
+                "terminal_safety_blockers": [],
+                "terminal_safety_details": {},
+            }
+        ],
+    )
+
+    assert result["status"] == "breach"
+    assert audit_calls == [9001]
+    assert result["candidates"][0] == {
+        "lane_id": "Q900-stale-terminal",
+        "pr_number": 9001,
+        "branch": "codex/stale-terminal-demo",
+        "owner_session": "codex-owner",
+        "age_hours": 48.0,
+        "terminal_state": "MERGED",
+        "terminal_url": "https://github.test/pr/9001",
+        "merge_commit": "abc123",
+        "terminal_safety_blockers": [],
+        "terminal_safety_details": {},
+        "reconciler_dry_run_command": result["candidates"][0]["reconciler_dry_run_command"],
+        "reconciler_apply_command": result["candidates"][0]["reconciler_apply_command"],
+    }
+    assert (
+        "resolve_lane_conflicts.py --merged-pr-lane-audit"
+        in result["candidates"][0]["reconciler_dry_run_command"]
+    )
+    assert "--expected-merge-commit abc123" in result["candidates"][0]["reconciler_apply_command"]
+    assert "--operator-authorized" in result["candidates"][0]["reconciler_apply_command"]
+    assert "--apply --json" in result["candidates"][0]["reconciler_apply_command"]
+
+
+def test_stale_terminal_owner_passes_repo_scoped_state_to_terminal_auditor(
+    tmp_path: Path,
+) -> None:
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+    seen_state: dict[str, Any] = {}
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        assert repo_slug == "synaptent/aragora"
+        assert gh_bin == "gh"
+        return {
+            "available": True,
+            "number": pr,
+            "state": "MERGED",
+            "merge_commit": "repo-scoped-merge",
+            "url": "https://github.test/pr/9001",
+        }
+
+    def audit_terminal(**kwargs: Any) -> dict[str, Any]:
+        seen_state.update(kwargs["github_state"])
+        return {
+            "github_state": kwargs["github_state"],
+            "findings": [
+                {
+                    "lane_id": "Q900-stale-terminal",
+                    "owner_session": "codex-owner",
+                    "terminal_safety_blockers": [],
+                    "terminal_safety_details": {},
+                }
+            ],
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=audit_terminal,
+    )
+
+    assert seen_state["merge_commit"] == "repo-scoped-merge"
+    assert result["status"] == "breach"
+    assert (
+        "--expected-merge-commit repo-scoped-merge"
+        in result["candidates"][0]["reconciler_apply_command"]
+    )
+
+
+def test_stale_terminal_owner_suppresses_fresh_heartbeat_rows(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={"state": "MERGED", "merge_commit": "abc123"},
+        findings=[
+            {
+                "lane_id": "Q900-stale-terminal",
+                "owner_session": "codex-owner",
+                "terminal_safety_blockers": ["fresh_heartbeat"],
+                "terminal_safety_details": {"fresh_heartbeat_timestamps": ["2026-06-10T11:59:00Z"]},
+            }
+        ],
+    )
+
+    assert audit_calls == [9001]
+    assert result["status"] == "ok"
+    assert result["candidates"] == []
+    assert result["live_suppressed"][0]["terminal_safety_blockers"] == ["fresh_heartbeat"]
+
+
+def test_stale_terminal_owner_reports_api_unknown_as_unknown(tmp_path: Path) -> None:
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        return {"available": False, "number": pr, "state": "UNKNOWN", "error": "HTTP 502"}
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "unknown"
+    assert "HTTP 502" in result["detail"]
+
+
+def test_stale_terminal_owner_reports_unsafe_mailbox_and_local_work_blockers(
+    tmp_path: Path,
+) -> None:
+    result, _ = _stale_owner_result(
+        tmp_path,
+        [
+            _active_owner_row(lane_id="Q-mailbox", owner_session="owner-mailbox"),
+            _active_owner_row(lane_id="Q-local-work", owner_session="owner-local-work"),
+        ],
+        pr_state={"state": "MERGED", "merge_commit": "abc123"},
+        findings=[
+            {
+                "lane_id": "Q-mailbox",
+                "owner_session": "owner-mailbox",
+                "terminal_safety_blockers": ["unread_mailbox"],
+                "terminal_safety_details": {"pending_mailbox_messages": ["message.json"]},
+            },
+            {
+                "lane_id": "Q-local-work",
+                "owner_session": "owner-local-work",
+                "terminal_safety_blockers": ["local_work_claim"],
+                "terminal_safety_details": {"local_work_claims": ["/tmp/work"]},
+            },
+        ],
+    )
+
+    assert result["status"] == "breach"
+    blockers = {
+        candidate["lane_id"]: candidate["terminal_safety_blockers"]
+        for candidate in result["candidates"]
+    }
+    assert blockers == {
+        "Q-mailbox": ["unread_mailbox"],
+        "Q-local-work": ["local_work_claim"],
+    }
+    assert all(not candidate["reconciler_apply_command"] for candidate in result["candidates"])
+
+
+def test_stale_terminal_owner_reports_closed_pr_without_apply_command(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={"state": "CLOSED", "merge_commit": "", "url": "https://github.test/pr/9001"},
+    )
+
+    assert audit_calls == []
+    assert result["status"] == "breach"
+    assert result["candidates"][0]["terminal_state"] == "CLOSED"
+    assert result["candidates"][0]["terminal_safety_blockers"] == ["closed_pr_manual_review"]
+    assert result["candidates"][0]["reconciler_dry_run_command"]
+    assert result["candidates"][0]["reconciler_apply_command"] == ""
+
+
+def test_default_pr_state_fetcher_times_out_fail_closed(monkeypatch: Any) -> None:
+    def run_timeout(*args: Any, **kwargs: Any) -> Any:
+        raise subprocess.TimeoutExpired(cmd=kwargs.get("args", ["gh"]), timeout=0.01)
+
+    monkeypatch.setattr(sentinel.subprocess, "run", run_timeout)
+
+    result = sentinel._default_pr_state_fetcher(
+        9001,
+        repo_slug="synaptent/aragora",
+        gh_bin="gh",
+        timeout_seconds=0.01,
+    )
+
+    assert result["available"] is False
+    assert result["state"] == "UNKNOWN"
+    assert "TimeoutExpired" in result["error"]
+
+
+def test_stale_terminal_owner_unknown_timestamp_precedes_stale_rows(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [
+            _active_owner_row(lane_id="Q-stale", owner_session="owner-stale"),
+            _active_owner_row(
+                lane_id="Q-no-time",
+                owner_session="owner-no-time",
+                updated_at="",
+            ),
+        ],
+        pr_state={"state": "CLOSED", "merge_commit": "", "url": "https://github.test/pr/9001"},
+    )
+
+    assert audit_calls == []
+    assert result["status"] == "unknown"
+    assert "no comparable timestamp" in result["detail"]
+    assert result["candidates"][0]["lane_id"] == "Q-stale"
+
+
+def test_stale_terminal_owner_missing_audit_finding_blocks_apply(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={
+            "state": "MERGED",
+            "merge_commit": "abc123",
+            "url": "https://github.test/pr/9001",
+        },
+        findings=[],
+    )
+
+    assert audit_calls == [9001]
+    assert result["status"] == "breach"
+    assert result["candidates"][0]["terminal_safety_blockers"] == ["missing_reconciler_finding"]
+    assert result["candidates"][0]["reconciler_apply_command"] == ""
+
+
+def test_stale_terminal_owner_uses_resolver_active_statuses(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    class FakeResolver:
+        ACTIVE_STATUSES = {"leased"}
+
+    monkeypatch.setattr(sentinel, "_load_resolver_module", lambda: FakeResolver())
+    registry = _write_json(
+        tmp_path / "lanes.json",
+        [_active_owner_row(status="leased")],
+    )
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        return {
+            "available": True,
+            "number": pr,
+            "state": "CLOSED",
+            "merge_commit": "",
+            "url": "https://github.test/pr/9001",
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "breach"
+    assert result["candidates"][0]["terminal_safety_blockers"] == ["closed_pr_manual_review"]
+
+
+def test_default_terminal_owner_auditor_uses_no_lock_read_only_path(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    class FakeResolver:
+        ACTIVE_STATUSES = {"active"}
+
+        def _utc_now_iso(self) -> str:
+            return "2026-06-10T12:00:00Z"
+
+        def _parse_timestamp(self, value: str) -> float:
+            return NOW.timestamp()
+
+        def _fetch_pr_state(self, *, pr: int, gh_bin: str) -> dict[str, Any]:
+            raise AssertionError("sentinel must reuse its repo-scoped PR state")
+
+        def _read_rows_checked(self, path: Path) -> tuple[list[dict[str, Any]], str | None]:
+            if path.name == "lanes.json":
+                return [_active_owner_row()], None
+            return [], None
+
+        def _active_pr_lane_findings(
+            self,
+            rows: list[dict[str, Any]],
+            *,
+            pr: int,
+        ) -> list[dict[str, Any]]:
+            return [
+                {
+                    "lane_id": "Q900-stale-terminal",
+                    "owner_session": "codex-owner",
+                }
+            ]
+
+        def _annotate_terminal_safety(
+            self,
+            findings: list[dict[str, Any]],
+            **kwargs: Any,
+        ) -> list[dict[str, Any]]:
+            return [
+                {
+                    **finding,
+                    "terminal_safety_blockers": [],
+                    "terminal_safety_details": {},
+                    "apply_safe": True,
+                }
+                for finding in findings
+            ]
+
+        def _merged_pr_audit_blocked_reason(self, **kwargs: Any) -> str:
+            return ""
+
+        def _base_merged_pr_audit_result(self, **kwargs: Any) -> dict[str, Any]:
+            return {
+                "github_state": kwargs["github_state"],
+                "findings": kwargs["findings"],
+                "blocked_reason": kwargs["blocked_reason"],
+                "apply_eligible": False,
+            }
+
+        def audit_merged_pr_lanes(self, **kwargs: Any) -> dict[str, Any]:
+            raise AssertionError("sentinel must not enter resolver write-lock audit")
+
+    monkeypatch.setattr(sentinel, "_load_resolver_module", lambda: FakeResolver())
+
+    result = sentinel._default_terminal_owner_auditor(
+        pr=9001,
+        github_state={"available": True, "state": "MERGED", "merge_commit": "abc123"},
+        registry_path=tmp_path / "lanes.json",
+        receipt_dir=tmp_path / "receipts",
+        gh_bin="gh",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        heartbeat_fresh_seconds=900,
+    )
+
+    assert result["github_state"]["state"] == "MERGED"
+    assert result["github_state"]["mergeCommit"] == "abc123"
+    assert result["findings"][0]["terminal_safety_blockers"] == []
+
+
+def test_stale_terminal_owner_default_auditor_uses_real_resolver_module(
+    tmp_path: Path,
+) -> None:
+    sentinel._RESOLVER_MODULE = None
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        assert pr == 9001
+        assert repo_slug == "synaptent/aragora"
+        assert gh_bin == "gh"
+        return {
+            "available": True,
+            "number": pr,
+            "state": "MERGED",
+            "merge_commit": "real-resolver-merge",
+            "url": "https://github.test/pr/9001",
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+    )
+
+    assert result["status"] == "breach"
+    candidate = result["candidates"][0]
+    assert candidate["lane_id"] == "Q900-stale-terminal"
+    assert candidate["terminal_safety_blockers"] == []
+    assert "--expected-merge-commit real-resolver-merge" in candidate["reconciler_apply_command"]
 
 
 # ---------------------------------------------------------------------------
