@@ -116,11 +116,39 @@ def test_prose_only_merge_blocking_dissent_still_blocks(body):
     "body",
     [
         "No sql injection found.",
+        "I reviewed sql injection tests.",
         "Reviewed auth bypass tests.",
     ],
 )
 def test_benign_security_phrase_no_finding_prose_does_not_block(body):
     assert not has_blocking_or_negative_verdict(body)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "No authentication bypass",
+        "No security hole",
+    ],
+)
+def test_terse_no_security_phrase_still_blocks(body):
+    assert has_blocking_or_negative_verdict(body)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "```python\nassert 'do not merge' in fixture_text\n```",
+        "> do not merge until the fixture says so",
+        "    do not merge until the fixture says so",
+    ],
+)
+def test_prose_blocking_phrases_inside_examples_do_not_block(body):
+    assert not has_blocking_or_negative_verdict(body)
+
+
+def test_free_form_needs_revision_before_merge_blocks():
+    assert has_blocking_or_negative_verdict("Needs revision before merge.")
 
 
 def test_benign_security_phrase_does_not_mask_later_merge_blocker():

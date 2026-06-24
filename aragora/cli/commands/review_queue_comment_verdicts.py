@@ -66,12 +66,14 @@ _BLOCKING_DISSENT_PHRASE_RE = re.compile(
     r"|"
     r"\b(?:unsafe|not\s+safe)\s+to\s+(?:merge|ship|land)\b"
     r"|"
+    r"\bneeds\s+revision\s+before\s+(?:merge|ship|land)\b"
+    r"|"
     r"\b(?:security\s+hole|auth(?:entication)?\s+bypass|sql\s*injection)\b",
     re.I,
 )
 _BENIGN_BLOCKING_PHRASE_TAIL_RE = re.compile(
     r"^[\s.,;:!?)\]—–-]*"
-    r"(?:found|identified|detected|present|observed|noted|remaining|remains|exists)?"
+    r"(?:found|identified|detected|present|observed|noted)"
     r"(?:[\s.,;:!?)\]—–-]+(?:in|by|during|across|for|on)\s+"
     r"(?:tests?|coverage|regressions?|fixtures?|guardrails?|cases?|"
     r"exact\s+head|this\s+diff|the\s+diff|diff|code|review))?"
@@ -233,6 +235,10 @@ def _normalize_value(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
 
 
+def _is_markdown_indented_code_line(line: str) -> bool:
+    return line.startswith("    ") or line.startswith("\t")
+
+
 def _priority_finding_severity(stripped: str) -> str | None:
     """Return ``"P0"``/``"P1"`` if ``stripped`` is a *real* `[P0]`/`[P1]` finding
     line (head-before-colon NOT in :data:`_NO_FINDING_HEADS`), else ``None``.
@@ -268,7 +274,7 @@ def _blocking_dissent_phrase_match_is_benign(value: str, match: re.Match[str]) -
     suffix = value[match.end() :].strip()
     if re.search(r"(?:^|[.;:!?]\s*)no(?:\s+(?:known|remaining|actual))?$", prefix):
         return bool(_BENIGN_BLOCKING_PHRASE_TAIL_RE.match(suffix))
-    if re.search(r"(?:^|[.;:!?]\s*)reviewed(?:\s+the)?$", prefix):
+    if re.search(r"(?:^|[.;:!?]\s*)(?:i\s+)?reviewed(?:\s+the)?$", prefix):
         return bool(_BENIGN_REVIEWED_PHRASE_TAIL_RE.match(suffix))
     return False
 
@@ -351,11 +357,28 @@ def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
 
 def has_blocking_or_negative_verdict(body: str) -> bool:
     """Return True for explicit evidence comments that report blockers."""
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
-    for idx, stripped in enumerate(lines):
+    raw_lines = str(body or "").splitlines()
+    lines = [raw_line.strip() for raw_line in raw_lines]
+    in_fence = False
+    fence_marker = ""
+    for idx, raw_line in enumerate(raw_lines):
+        stripped = raw_line.strip()
         if not stripped:
             continue
-        if _has_blocking_dissent_phrase(stripped):
+        fence = re.match(r"^(```|~~~)", stripped)
+        if fence:
+            marker = fence.group(1)
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        untrusted_example = (
+            in_fence or stripped.startswith(">") or _is_markdown_indented_code_line(raw_line)
+        )
+        if not untrusted_example and _has_blocking_dissent_phrase(stripped):
             return True
         if _default_blocking_marker_finding(stripped):
             return True
