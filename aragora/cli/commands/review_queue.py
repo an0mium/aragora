@@ -3267,10 +3267,10 @@ def _build_model_review_quorum(
     for advisory in advisory_views:
         family = str(advisory.get("agent", "") or "unknown")
         severity = advisory.get("highest_severity")
-        # ``highest_severity`` is None both for a [P2]/[P3]-only CR and for a
-        # finding-free CR, so don't assert "[P2]/[P3] only" — report the accurate
-        # invariant (no blocking [P0]/[P1] finding) in the audit packet.
-        sev_note = severity if severity else "no blocking [P0]/[P1] finding"
+        # ``highest_severity`` is None for explicit no-blocker/follow-up-only
+        # advisory CRs. Bare or contradictory finding-free CRs stay blocking and
+        # never enter ``advisory_views``.
+        sev_note = severity if severity else "explicit non-blocking declaration"
         reasons.append(
             f"advisory finding from {family}: {sev_note} — not blocking (severity-gated dissent)"
         )

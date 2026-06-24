@@ -190,6 +190,24 @@ _SIMPLE_VERDICT_VALUES = (
     "not ready",
     "needs repair",
 )
+_SIMPLE_DOGFOOD_VALUES = frozenset(
+    {
+        "yes",
+        "y",
+        "true",
+        "pass",
+        "passed",
+        "ok",
+        "okay",
+        "done",
+        "no",
+        "n",
+        "false",
+        "none",
+        "n/a",
+        "not applicable",
+    }
+)
 
 
 def _strip_decoration(text: str) -> str:
@@ -272,12 +290,14 @@ def _is_followup_only_declaration(stripped: str) -> bool:
         return False
     if re.search(r"\b(?:not|never|do not|dont|don't)\s+non blocking follow ups?\b", normalized):
         return False
-    return bool(
-        re.match(
-            r"^(?:follow up only|follow ups only|non blocking follow ups?|advisory follow ups?)\b",
-            normalized,
-        )
+    match = re.match(
+        r"^(?:follow up only|follow ups only|non blocking follow ups?|advisory follow ups?)\b",
+        normalized,
     )
+    if not match:
+        return False
+    tail = normalized[match.end() :].strip(" .;:!?)]—–-")
+    return tail in {"", "yes", "true", "only", "none", "n/a", "not applicable"}
 
 
 def _explicit_no_blockers_or_followup_only(body: str) -> bool:
@@ -303,6 +323,8 @@ def _is_review_metadata_line(stripped: str) -> bool:
     if "independent model review" in normalized_line:
         return True
     label_value = _line_label_and_value(stripped)
+    if label_value is not None and label_value[0] == "dogfood":
+        return label_value[1].strip(" .;:!?)]—–-") in _SIMPLE_DOGFOOD_VALUES
     if label_value is not None and label_value[0] in _REVIEW_METADATA_LABELS:
         return True
     if label_value is not None and label_value[0] in {"verdict", "decision", "recommendation"}:
@@ -476,10 +498,11 @@ def has_blocking_model_dissent(body: str, *, severity_gated: bool) -> bool:
         return True
     if has_blocking_finding_or_label(body):
         return True
+    has_unstructured_dissent = _has_unstructured_dissent_content(body)
     priority = highest_finding_priority(body)
-    if priority in {"P2", "P3"} and not _has_unstructured_dissent_content(body):
+    if priority in {"P2", "P3"} and not has_unstructured_dissent:
         return False
-    if _explicit_no_blockers_or_followup_only(body):
+    if _explicit_no_blockers_or_followup_only(body) and not has_unstructured_dissent:
         return False
     # Fail closed: bare/finding-free CHANGES-REQUESTED or missing severity metadata
     # stays blocking.

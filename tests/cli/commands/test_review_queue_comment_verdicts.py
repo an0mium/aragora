@@ -235,7 +235,7 @@ def test_severity_gated_bare_changes_requested_still_blocks():
 
 
 def test_severity_gated_explicit_no_blockers_can_be_advisory():
-    body = "Verdict: CHANGES-REQUESTED\nBlockers: none\nFollow-up-only polish."
+    body = "Verdict: CHANGES-REQUESTED\nBlockers: none\nFollow-up-only: yes"
     assert has_blocking_model_dissent(body, severity_gated=True) is False
 
 
@@ -252,7 +252,7 @@ def test_severity_gated_negated_followup_only_still_blocks(body):
 
 
 def test_severity_gated_anchored_followup_only_can_be_advisory():
-    body = "Verdict: CHANGES-REQUESTED\nFollow-up-only: add docs polish."
+    body = "Verdict: CHANGES-REQUESTED\nFollow-up-only: yes"
     assert has_blocking_model_dissent(body, severity_gated=True) is False
 
 
@@ -265,6 +265,19 @@ def test_severity_gated_anchored_followup_only_can_be_advisory():
     ],
 )
 def test_severity_gated_p2_p3_plus_unstructured_prose_still_blocks(body):
+    assert has_blocking_model_dissent(body, severity_gated=True) is True
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: CHANGES-REQUESTED\nBlockers: none\nAuth bypass remains untriaged.",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\nBlockers: none\nAuth bypass remains.",
+        "Verdict: CHANGES-REQUESTED\nBlockers: none\nDogfood: failed on the admin path.",
+        "Verdict: CHANGES-REQUESTED\nFollow-up-only: SQLi on admin path remains exploitable.",
+    ],
+)
+def test_severity_gated_declarations_with_substantive_dissent_still_block(body):
     assert has_blocking_model_dissent(body, severity_gated=True) is True
 
 

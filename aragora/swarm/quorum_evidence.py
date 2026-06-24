@@ -438,6 +438,8 @@ class EvidenceItem:
     def dissenting(self) -> bool:
         if self.verdict != "changes_requested":
             return False
+        if not self.severity_gated:
+            return True
         return has_blocking_model_dissent(self.body, severity_gated=self.severity_gated)
 
 

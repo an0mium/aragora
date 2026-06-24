@@ -1268,6 +1268,20 @@ def test_evidence_item_dissenting_uses_captured_outcome_policy(
     assert strict_item.dissenting is True
 
 
+def test_evidence_item_strict_changes_requested_is_unconditionally_dissenting() -> None:
+    item = EvidenceItem(
+        "grok",
+        "Reviewer found a blocking issue in structured output.",
+        False,
+        [],
+        [],
+        "changes_requested",
+        severity_gated=False,
+    )
+
+    assert item.dissenting is True
+
+
 def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> None:
     # Tiered gate: a lone NON-western-frontier supportive (qwen) does NOT satisfy
     # Tier 1, so apply still prepares-only (no cheap-model-alone settlement).
