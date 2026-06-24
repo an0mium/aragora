@@ -266,13 +266,52 @@ def _safe_steering_inbox(owner_session: str, *, steering_inbox_root: Path) -> Pa
     return inbox
 
 
-def _pending_mailbox_messages(owner_session: str, *, steering_inbox_root: Path) -> list[str]:
+def _message_key(path: Path) -> tuple[str, str]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    return (path.name, str(data.get("message_sha256") or ""))
+
+
+def _read_receipt_keys(inbox: Path) -> set[tuple[str, str]]:
+    receipt_dir = inbox / "_read_receipts"
+    if not receipt_dir.is_dir():
+        return set()
+    keys: set[tuple[str, str]] = set()
+    for receipt_path in receipt_dir.glob("*.json"):
+        if not receipt_path.is_file():
+            continue
+        try:
+            data = json.loads(receipt_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        message_filename = str(data.get("message_filename") or "")
+        if message_filename:
+            keys.add((message_filename, str(data.get("message_sha256") or "")))
+    return keys
+
+
+def _pending_mailbox_messages(
+    owner_session: str, *, steering_inbox_root: Path
+) -> tuple[list[str], str | None]:
     inbox = _safe_steering_inbox(owner_session, steering_inbox_root=steering_inbox_root)
     if inbox is None:
-        return ["unsafe_owner_session"]
+        return [], "invalid_owner_session"
     if not inbox.is_dir():
-        return []
-    return sorted(path.name for path in inbox.glob("*.json") if path.is_file())
+        return [], None
+    read_keys = _read_receipt_keys(inbox)
+    pending: list[str] = []
+    for path in sorted(
+        (path for path in inbox.glob("*.json") if path.is_file()), key=lambda p: p.name
+    ):
+        if _message_key(path) not in read_keys:
+            pending.append(path.name)
+    return pending, None
 
 
 def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -528,11 +567,13 @@ def _annotate_terminal_safety(
             blockers.append("heartbeat_state_untrusted")
             details["heartbeat_read_error"] = heartbeat_load_error
 
-        pending_messages = _pending_mailbox_messages(
+        pending_messages, mailbox_blocker = _pending_mailbox_messages(
             owner_session,
             steering_inbox_root=steering_inbox_root,
         )
-        if pending_messages:
+        if mailbox_blocker:
+            blockers.append(mailbox_blocker)
+        elif pending_messages:
             blockers.append("unread_mailbox")
             details["pending_mailbox_messages"] = pending_messages
 
@@ -652,16 +693,27 @@ def _base_merged_pr_audit_result(
     merge_commit = str(github_state.get("mergeCommit") or "")
     expected = str(expected_merge_commit or "")
     unsafe_findings = [finding for finding in findings if finding.get("terminal_safety_blockers")]
+    safe_findings = [finding for finding in findings if not finding.get("terminal_safety_blockers")]
     apply_eligible = (
         apply
         and operator_authorized
         and bool(expected)
-        and bool(findings)
-        and not unsafe_findings
+        and bool(safe_findings)
         and github_state.get("available") is True
         and github_state.get("state") == "MERGED"
         and merge_commit == expected
     )
+    operator_apply_command = ""
+    if heartbeat_fresh_seconds >= 0:
+        operator_apply_command = _operator_apply_command(
+            pr=pr,
+            registry_path=registry_path,
+            receipt_dir=receipt_dir,
+            expected_merge_commit=merge_commit or expected,
+            heartbeat_path=heartbeat_path,
+            steering_inbox_root=steering_inbox_root,
+            heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+        )
     return {
         "mode": "merged_pr_lane_audit",
         "registry_path": str(registry_path),
@@ -681,15 +733,7 @@ def _base_merged_pr_audit_result(
             pr=pr,
             github_state=github_state,
         ),
-        "operator_apply_command": _operator_apply_command(
-            pr=pr,
-            registry_path=registry_path,
-            receipt_dir=receipt_dir,
-            expected_merge_commit=merge_commit or expected,
-            heartbeat_path=heartbeat_path,
-            steering_inbox_root=steering_inbox_root,
-            heartbeat_fresh_seconds=heartbeat_fresh_seconds,
-        ),
+        "operator_apply_command": operator_apply_command,
         "requires_operator_authorization": True,
         "operator_authorized": operator_authorized,
         "expected_merge_commit": expected,
@@ -723,7 +767,9 @@ def _merged_pr_audit_blocked_reason(
         return "expected_merge_commit_required"
     if str(github_state.get("mergeCommit") or "") != expected:
         return "merge_commit_mismatch"
-    if any(finding.get("terminal_safety_blockers") for finding in findings):
+    unsafe_findings = [finding for finding in findings if finding.get("terminal_safety_blockers")]
+    safe_findings = [finding for finding in findings if not finding.get("terminal_safety_blockers")]
+    if unsafe_findings and not safe_findings:
         return "unsafe_terminal_owner_gates"
     return None
 
@@ -759,14 +805,26 @@ def audit_merged_pr_lanes(
         heartbeats, heartbeat_load_error = _read_rows_checked(heartbeat_path)
         findings: list[dict[str, Any]] = []
         if github_state.get("available") is True and github_state.get("state") == "MERGED":
-            findings = _annotate_terminal_safety(
-                _active_pr_lane_findings(rows, pr=pr),
-                heartbeats=heartbeats,
-                heartbeat_load_error=heartbeat_load_error,
-                steering_inbox_root=steering_inbox_root,
-                now_ts=now_ts,
-                heartbeat_fresh_seconds=heartbeat_fresh_seconds,
-            )
+            raw_findings = _active_pr_lane_findings(rows, pr=pr)
+            if heartbeat_fresh_seconds < 0:
+                findings = []
+                for finding in raw_findings:
+                    finding = dict(finding)
+                    finding["terminal_safety_blockers"] = ["invalid_heartbeat_fresh_seconds"]
+                    finding["terminal_safety_details"] = {
+                        "heartbeat_fresh_seconds": heartbeat_fresh_seconds
+                    }
+                    finding["apply_safe"] = False
+                    findings.append(finding)
+            else:
+                findings = _annotate_terminal_safety(
+                    raw_findings,
+                    heartbeats=heartbeats,
+                    heartbeat_load_error=heartbeat_load_error,
+                    steering_inbox_root=steering_inbox_root,
+                    now_ts=now_ts,
+                    heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+                )
         blocked_reason = _merged_pr_audit_blocked_reason(
             apply=apply,
             operator_authorized=operator_authorized,
@@ -789,11 +847,16 @@ def audit_merged_pr_lanes(
             heartbeat_fresh_seconds=heartbeat_fresh_seconds,
         )
         if not result["apply_eligible"]:
+            if heartbeat_fresh_seconds < 0 and findings:
+                result["blocked_reason"] = "invalid_heartbeat_fresh_seconds"
             return result
 
+        safe_findings = [
+            finding for finding in findings if not finding.get("terminal_safety_blockers")
+        ]
         target_keys = {
             (str(finding.get("lane_id") or ""), str(finding.get("owner_session") or ""))
-            for finding in findings
+            for finding in safe_findings
         }
         findings_by_key = {
             (str(finding.get("lane_id") or ""), str(finding.get("owner_session") or "")): finding
