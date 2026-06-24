@@ -12,18 +12,20 @@ invalidate otherwise good evidence.
 ## Phase 1 Rule
 
 Behind `ARAGORA_ENABLE_SEVERITY_GATED_DISSENT=1`, exact-head model-review
-dissent blocks merge quorum only when the comment carries:
+dissent blocks merge quorum when the comment carries:
 
 - a real `[P0]` or `[P1]` finding, or
-- an explicit non-empty `Blockers:` / `Blocking findings:` field.
+- an explicit non-empty `Blockers:` / `Blocking findings:` field, or
+- a finding-free / unstructured negative verdict that does not explicitly
+  declare no blockers or follow-up-only work.
 
 `[P2]` and `[P3]` findings remain visible review findings, but they are advisory
 for merge-quorum blocking. They do not count as supportive evidence and must not
 satisfy model quorum.
 
-Finding-free or unstructured `Verdict: CHANGES-REQUESTED` remains blocking under
-the flag. Missing severity metadata must fail closed unless the comment
-explicitly declares there are no blockers / follow-up-only work.
+Missing severity metadata fails closed for the same reason: the gate may only
+downgrade a negative verdict when the reviewer makes the no-blocker /
+follow-up-only disposition explicit.
 
 With the flag disabled, the legacy rule remains in force: a negative verdict
 blocks.

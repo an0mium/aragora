@@ -11,9 +11,11 @@ They pin BOTH regimes of the opt-in ``ARAGORA_ENABLE_SEVERITY_GATED_DISSENT`` fl
 * **Flag OFF (default / strict)** — byte-identical to today: a
   ``Verdict: CHANGES-REQUESTED`` comment blocks regardless of finding severity, even
   one that lists only ``[P2]``; ``[P0]``/``[P1]`` blocks; a clean PASS counts.
-* **Flag ON** — a CHANGES-REQUESTED comment with only ``[P2]``/``[P3]`` (or no
-  finding) is *advisory*: non-blocking AND non-counting; a real ``[P1]`` finding or a
-  populated Blocker label STILL blocks; a clean PASS still counts.
+* **Flag ON** — a CHANGES-REQUESTED comment with only ``[P2]``/``[P3]`` is
+  *advisory*: non-blocking AND non-counting; a finding-free or unstructured
+  negative verdict still blocks unless it explicitly declares no blockers /
+  follow-up-only work; a real ``[P1]`` finding or a populated Blocker label
+  STILL blocks; a clean PASS still counts.
 
 The two gate halves — ``review_queue._dissenting_views_from_comments`` and
 ``quorum_evidence.EvidenceItem.dissenting`` — are asserted to AGREE for the same body
@@ -289,22 +291,22 @@ class TestFlagOnSeverityGated:
         assert len(advisory) == 1
         assert advisory[0]["position"] == "advisory_changes_requested"
         assert advisory[0]["blocking"] is False
-        assert advisory[0]["highest_severity"] is None
+        assert advisory[0]["highest_severity"] == "P2"
         # quorum_evidence half agrees: [P2]-only changes_requested is NOT dissenting
         # and (supportive unchanged) NOT supportive -> non-blocking AND non-counting.
         item = _evidence(_P2_ONLY_CHANGES_REQUESTED)
         assert item.dissenting is False
         assert item.supportive is False
 
-    def test_no_finding_changes_requested_is_advisory(self, monkeypatch):
+    def test_no_finding_changes_requested_still_blocks(self, monkeypatch):
         monkeypatch.setenv(_FLAG, "1")
         advisory: list[dict] = []
         dissent = _dissenting_views_from_comments(
             [_comment(_NO_FINDING_CHANGES_REQUESTED)], head_sha=_HEAD, advisory_views=advisory
         )
-        assert dissent == []
-        assert len(advisory) == 1
-        assert _evidence(_NO_FINDING_CHANGES_REQUESTED).dissenting is False
+        assert len(dissent) == 1
+        assert advisory == []
+        assert _evidence(_NO_FINDING_CHANGES_REQUESTED).dissenting is True
 
     def test_p1_finding_still_blocks(self, monkeypatch):
         monkeypatch.setenv(_FLAG, "1")
@@ -377,7 +379,7 @@ class TestFlagOnSeverityGated:
     "body, off_blocks, on_blocks",
     [
         (_P2_ONLY_CHANGES_REQUESTED, True, False),
-        (_NO_FINDING_CHANGES_REQUESTED, True, False),
+        (_NO_FINDING_CHANGES_REQUESTED, True, True),
         (_P1_CHANGES_REQUESTED, True, True),
         (_BLOCKER_LABEL_CHANGES_REQUESTED, True, True),
     ],

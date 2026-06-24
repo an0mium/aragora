@@ -194,7 +194,8 @@ _REVIEWER_FAMILY_PREFIXES = (
 _SUBSTANTIVE_METADATA_DISSENT = re.compile(
     r"\b(?:auth|authorization|bypass|broken|unsafe|critical|do not|dont|don't|"
     r"merge|ship|exploit|sqli|xss|regression|fail|failed|failing|error|bug|"
-    r"defect|production|untriaged|blocking)\b",
+    r"defect|production|untriaged|blocking|issue|issues|problem|problems|"
+    r"concern|concerns)\b",
     re.I,
 )
 _SIMPLE_VERDICT_VALUES = (

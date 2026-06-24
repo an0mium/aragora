@@ -305,6 +305,9 @@ def test_severity_gated_standard_metadata_with_low_severity_finding_is_advisory(
     [
         "Verdict: CHANGES-REQUESTED\nReviewer: auth bypass on admin endpoint\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\n[P3] nit\nReviewer: this is actually critical, do not merge.",
+        "Verdict: CHANGES-REQUESTED\nReviewer: claude noted problems\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\nReviewer: openai found issues\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\nReviewer: grok has concerns\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED\nBlockers: none\nPR: merging this will break production.",
         "Verdict: CHANGES-REQUESTED\n[P3] nit\nHead-of-line blocking is the real "
         "defect; do not ship.",
