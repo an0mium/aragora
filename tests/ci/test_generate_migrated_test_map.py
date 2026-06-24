@@ -7,7 +7,16 @@ three P1 tests-migration commits (PRs #8387, #8404, #8415) -- i.e. the
 
 The derivation needs git history; on a shallow clone (no migration commits)
 the history-dependent tests skip rather than fail spuriously.  The
-``_top_level_source_exists`` invariant tests are git-independent and always run.
+git-independent invariant tests (no dead entries; every destination exists)
+always run regardless of clone depth.
+
+CI guard rationale: no CI workflow runs this drift-guard test or the
+generator's ``--check`` (they are a developer/local full-history guard), and
+the in-CI selector ``scripts/nomic_ci_test_selector.py`` reads only the static
+``_MIGRATED_TEST_MAP`` (no git history), so the soft-skip cannot weaken CI.  The
+always-on git-independent invariants are the standing guard; the history-derived
+completeness check is enforced wherever full history exists (local dev,
+``fetch-depth: 0``).
 """
 
 from __future__ import annotations
@@ -122,3 +131,66 @@ def test_format_map_renders_literal_block():
         '    "tests/test_exceptions.py": "tests/agents/test_exceptions.py",\n'
         "}"
     )
+
+
+def test_print_flag_removed():
+    """The parsed-but-unused ``--print`` flag is gone (argparse rejects it)."""
+    with pytest.raises(SystemExit):
+        gen.main(["--print"])
+
+
+class TestFindCommitTieBreak:
+    """``_find_commit`` is PR-scoped and prefers the original (oldest) commit.
+
+    All cases stub ``gen._git`` so they are git-independent (run even on a
+    shallow clone).
+    """
+
+    def test_prefers_oldest_when_subject_duplicated(self, monkeypatch):
+        """A later duplicate of the same subject must not win over the original."""
+        # ``git log`` is newest-first; both lines carry "relocate batch" + "(#8387)".
+        log_out = (
+            "newsha111 refactor(tests): re-land relocate batch 1 (#8387) (#9001)\n"
+            "oldsha000 refactor(tests): relocate batch 1 (#8387)\n"
+        )
+        monkeypatch.setattr(gen, "_git", lambda *args: log_out)
+        assert gen._find_commit("8387") == "oldsha000"
+
+    def test_falls_back_when_no_subject_match(self, monkeypatch):
+        """With no matching subject, the immutable fallback SHA is used."""
+        monkeypatch.setattr(gen, "_git", lambda *args: "")
+        monkeypatch.setattr(gen, "_commit_exists", lambda sha: True)
+        assert gen._find_commit("8387") == gen._FALLBACK_COMMITS["8387"]
+
+
+class TestRootTestRenamesDetection:
+    """``_root_test_renames`` detects R renames AND add+delete relocations."""
+
+    def test_detects_git_rename(self, monkeypatch):
+        diff = "R100\ttests/test_foo.py\ttests/foo/test_foo.py\n"
+        monkeypatch.setattr(gen, "_git", lambda *args: diff)
+        assert gen._root_test_renames("c") == [("tests/test_foo.py", "tests/foo/test_foo.py")]
+
+    def test_detects_add_delete_relocation(self, monkeypatch):
+        """A delete+add pair for the same basename is treated as a relocation."""
+        diff = "M\tsome/other/file.py\nD\ttests/test_foo.py\nA\ttests/foo/test_foo.py\n"
+        monkeypatch.setattr(gen, "_git", lambda *args: diff)
+        assert gen._root_test_renames("c") == [("tests/test_foo.py", "tests/foo/test_foo.py")]
+
+    def test_unpaired_root_delete_is_ignored(self, monkeypatch):
+        """A deleted root test with no matching add yields no relocation."""
+        diff = "D\ttests/test_foo.py\nA\ttests/foo/test_bar.py\n"
+        monkeypatch.setattr(gen, "_git", lambda *args: diff)
+        assert gen._root_test_renames("c") == []
+
+    def test_ambiguous_add_delete_is_skipped(self, monkeypatch):
+        """Two adds with the same basename cannot be disambiguated -> skipped."""
+        diff = "D\ttests/test_foo.py\nA\ttests/foo/test_foo.py\nA\ttests/bar/test_foo.py\n"
+        monkeypatch.setattr(gen, "_git", lambda *args: diff)
+        assert gen._root_test_renames("c") == []
+
+    def test_add_delete_destination_outside_tests_is_skipped(self, monkeypatch):
+        """A same-basename add OUTSIDE tests/ is not a test relocation -> skipped."""
+        diff = "D\ttests/test_foo.py\nA\tdocs/test_foo.py\n"
+        monkeypatch.setattr(gen, "_git", lambda *args: diff)
+        assert gen._root_test_renames("c") == []

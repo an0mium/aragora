@@ -17,14 +17,27 @@ This script regenerates that map directly from the three P1 tests-migration
 commits (PRs #8387, #8404, #8415) so the "auto-generated" label is enforced
 rather than aspirational:
 
-* default / ``--print``  -- print the freshly-derived map as a Python literal.
-* ``--check``           -- exit non-zero (offenders named) when the committed
-                           ``_MIGRATED_TEST_MAP`` diverges from the derived map.
+* default      -- print the freshly-derived map as a Python literal.
+* ``--check``  -- exit non-zero (offenders named) when the committed
+                  ``_MIGRATED_TEST_MAP`` diverges from the derived map.
 
-When the migration commits are unavailable (e.g. a shallow CI clone), the
-derivation cannot run; the script emits a warning and exits 0 (soft skip) so a
-shallow checkout never spuriously fails.  Full-history environments (local dev,
-``fetch-depth: 0`` CI, the pytest drift guard) still enforce.
+When the migration commits are unavailable (e.g. a shallow ``fetch-depth: 1``
+clone), the completeness derivation cannot run; the script emits a warning and
+exits 0 (soft skip) so a shallow checkout never spuriously fails.  Full-history
+environments (local dev, ``fetch-depth: 0`` CI, the pytest drift guard) still
+enforce the derived-vs-committed completeness check.
+
+CI guard rationale (why the soft-skip is acceptable):
+    No CI workflow invokes this generator's ``--check`` or the drift-guard test
+    ``tests/ci/test_generate_migrated_test_map.py``; they are a developer/local
+    full-history guard.  The selector that DOES run in CI
+    (``scripts/nomic_ci_test_selector.py``: ``infer_test_paths``) reads only the
+    static ``_MIGRATED_TEST_MAP`` and needs no git history, so a shallow CI
+    checkout never depends on this derivation.  The git-independent invariants
+    in the drift-guard test (no dead entries; every destination exists) always
+    run and are the standing guard; the history-dependent completeness check is
+    enforced wherever full history exists.  Wiring a dedicated full-history CI
+    step would require a ``.github/workflows/`` change (out of scope here).
 """
 
 from __future__ import annotations
@@ -78,15 +91,35 @@ def _commit_exists(sha: str) -> bool:
 
 
 def _find_commit(pr: str) -> str | None:
-    """Locate the batch-relocation commit for a migration PR, or None."""
+    """Locate the original batch-relocation commit for a migration PR, or None.
+
+    The ``git log`` search is scoped to the specific PR -- the subject must
+    contain BOTH ``relocate batch`` and the literal ``(#<pr>)`` token -- so
+    another batch's commit can never be mis-attributed.  Among matches the
+    OLDEST is kept (``git log`` is newest-first, so the last line wins): the
+    original migration always predates any later duplicate of the same subject
+    (a revert, re-land, or cross-branch cherry-pick reachable via ``--all``), so
+    a newer same-subject commit cannot override the batch it belongs to.
+    """
     try:
-        out = _git("log", "--all", "--format=%H %s", "--grep=relocate batch")
+        out = _git(
+            "log",
+            "--all",
+            "--fixed-strings",
+            "--all-match",
+            "--grep=relocate batch",
+            f"--grep=(#{pr})",
+            "--format=%H %s",
+        )
     except subprocess.CalledProcessError:
         out = ""
+    found: str | None = None
     for line in out.splitlines():
         sha, _, subject = line.partition(" ")
         if "relocate batch" in subject and f"(#{pr})" in subject:
-            return sha
+            found = sha  # keep overwriting -> oldest match (log is newest-first)
+    if found is not None:
+        return found
     fallback = _FALLBACK_COMMITS.get(pr)
     if fallback and _commit_exists(fallback):
         return fallback
@@ -94,15 +127,48 @@ def _find_commit(pr: str) -> str | None:
 
 
 def _root_test_renames(commit: str) -> list[tuple[str, str]]:
-    """Return ``(old_root_test, new_path)`` renames introduced by ``commit``."""
+    """Return ``(old_root_test, new_path)`` relocations introduced by ``commit``.
+
+    Detects two relocation shapes:
+
+    * git-recognized renames (``R`` status from ``--name-status -M -C``); and
+    * add+delete relocations -- a root ``tests/test_<x>.py`` deleted while an
+      identically named ``tests/<subdir>/test_<x>.py`` is added in the same
+      commit.  This captures a relocation whose content drifted past git's
+      rename-similarity threshold (so it shows as ``D`` + ``A`` rather than
+      ``R``).  An add+delete pair is only honored when the deleted root test
+      maps to exactly one added file of the same basename under ``tests/`` (a
+      same-basename add outside ``tests/`` -- e.g. ``docs/test_<x>.py`` -- is
+      not a test relocation; ambiguous matches are skipped rather than
+      guessed).
+    """
     out = _git("show", "--name-status", "-M", "-C", commit)
     pairs: list[tuple[str, str]] = []
+    deleted_roots: list[str] = []
+    added_by_basename: dict[str, list[str]] = {}
     for line in out.splitlines():
-        if not line.startswith("R"):
+        if not line:
             continue
         cols = line.split("\t")
-        if len(cols) == 3 and _ROOT_TEST_RE.match(cols[1]):
+        status = cols[0]
+        if status.startswith("R") and len(cols) == 3 and _ROOT_TEST_RE.match(cols[1]):
             pairs.append((cols[1], cols[2]))
+        elif status.startswith("D") and len(cols) == 2 and _ROOT_TEST_RE.match(cols[1]):
+            deleted_roots.append(cols[1])
+        elif status.startswith("A") and len(cols) == 2:
+            added_by_basename.setdefault(Path(cols[1]).name, []).append(cols[1])
+    renamed_olds = {old for old, _ in pairs}
+    for old in deleted_roots:
+        if old in renamed_olds:
+            continue
+        basename = old[len("tests/") :]  # "test_<x>.py"
+        candidates = [
+            path
+            for path in added_by_basename.get(basename, [])
+            if path != old and path.startswith("tests/")
+        ]
+        if len(candidates) == 1:
+            pairs.append((old, candidates[0]))
     return pairs
 
 
@@ -165,17 +231,11 @@ def diff_maps(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Derive/verify the migrated-test map")
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
+    parser.add_argument(
         "--check",
         action="store_true",
-        help="Fail if the committed map diverges from the derived map.",
-    )
-    group.add_argument(
-        "--print",
-        dest="do_print",
-        action="store_true",
-        help="Print the freshly-derived map (default action).",
+        help="Fail if the committed map diverges from the derived map "
+        "(default: print the freshly-derived map).",
     )
     args = parser.parse_args(argv)
 
