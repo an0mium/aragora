@@ -266,36 +266,6 @@ def _safe_steering_inbox(owner_session: str, *, steering_inbox_root: Path) -> Pa
     return inbox
 
 
-def _message_key(path: Path) -> tuple[str, str]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        data = {}
-    if not isinstance(data, dict):
-        data = {}
-    return (path.name, str(data.get("message_sha256") or ""))
-
-
-def _read_receipt_keys(inbox: Path) -> set[tuple[str, str]]:
-    receipt_dir = inbox / "_read_receipts"
-    if not receipt_dir.is_dir():
-        return set()
-    keys: set[tuple[str, str]] = set()
-    for receipt_path in receipt_dir.glob("*.json"):
-        if not receipt_path.is_file():
-            continue
-        try:
-            data = json.loads(receipt_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if not isinstance(data, dict):
-            continue
-        message_filename = str(data.get("message_filename") or "")
-        if message_filename:
-            keys.add((message_filename, str(data.get("message_sha256") or "")))
-    return keys
-
-
 def _pending_mailbox_messages(
     owner_session: str, *, steering_inbox_root: Path
 ) -> tuple[list[str], str | None]:
@@ -304,14 +274,9 @@ def _pending_mailbox_messages(
         return [], "invalid_owner_session"
     if not inbox.is_dir():
         return [], None
-    read_keys = _read_receipt_keys(inbox)
-    pending: list[str] = []
-    for path in sorted(
-        (path for path in inbox.glob("*.json") if path.is_file()), key=lambda p: p.name
-    ):
-        if _message_key(path) not in read_keys:
-            pending.append(path.name)
-    return pending, None
+    # Read receipts are proof-of-read/outcome only; they are not an ack/move protocol.
+    # A top-level message file remains pending until a future explicit ack path moves it.
+    return sorted(path.name for path in inbox.glob("*.json") if path.is_file()), None
 
 
 def _atomic_write(path: Path, rows: list[dict[str, Any]]) -> None:

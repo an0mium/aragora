@@ -763,7 +763,9 @@ def test_merged_pr_audit_apply_rejects_unread_mailbox(tmp_path: Path) -> None:
     assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
 
 
-def test_merged_pr_audit_apply_allows_read_mailbox_message(tmp_path: Path) -> None:
+def test_merged_pr_audit_apply_rejects_read_but_unacked_mailbox_message(
+    tmp_path: Path,
+) -> None:
     registry = tmp_path / "lanes.json"
     steering_root = tmp_path / "operator-steering"
     inbox = steering_root / "codex-owner"
@@ -794,10 +796,13 @@ def test_merged_pr_audit_apply_allows_read_mailbox_message(tmp_path: Path) -> No
         steering_inbox_root=steering_root,
     )
 
-    assert result["resolved_count"] == 1
-    assert result["blocked_reason"] is None
-    assert result["findings"][0]["terminal_safety_blockers"] == []
-    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "superseded"
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "unsafe_terminal_owner_gates"
+    assert result["findings"][0]["terminal_safety_blockers"] == ["unread_mailbox"]
+    assert result["findings"][0]["terminal_safety_details"]["pending_mailbox_messages"] == [
+        "message.json"
+    ]
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
 
 
 def test_merged_pr_audit_apply_labels_invalid_owner_session_separately(tmp_path: Path) -> None:
