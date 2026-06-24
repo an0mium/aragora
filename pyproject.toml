@@ -125,14 +125,15 @@ Issues = "https://github.com/synaptent/aragora/issues"
 # floored to non-vulnerable releases for the pip-audit security gate
 # (scripts/run_pip_audit_gate.py):
 #
-#   * cryptography >=48.0.1 — fixes GHSA-537c-gmf6-5ccf. Pulled in via
-#     pyjwt[crypto] / secretstorage and used at runtime for AES-256-GCM
-#     encryption (aragora/security/encryption.py). The floor is 48.0.1; the
-#     resolver actually lands on 49.0.0 (a 46 -> 49 jump across three majors).
-#     cryptography's hazmat AES-GCM surface is stable across this range and the
-#     46->49 deprecations are in unused legacy x509/serialization helpers;
-#     verified by exercising encrypt/decrypt + AAD on 49.0.0. pyjwt and
-#     secretstorage floor cryptography far below 48, so nothing caps the bump.
+#   * cryptography >=49 — fixes GHSA-537c-gmf6-5ccf AND provides the FIPS 204
+#     ML-DSA module (`cryptography.hazmat.primitives.asymmetric.mldsa`, available
+#     from the 49 line built against OpenSSL 3.5+/AWS-LC/BoringSSL) used for
+#     post-quantum hybrid ODR receipt signing (aragora/gauntlet/odr_signing.py,
+#     #8602). Also used at runtime for AES-256-GCM encryption
+#     (aragora/security/encryption.py). The 46 -> 49 jump (three majors) is
+#     verified stable: hazmat AES-GCM/Ed25519 surfaces are unchanged and the
+#     deprecations are in unused legacy x509/serialization helpers. pyjwt and
+#     secretstorage floor cryptography far below 49, so nothing caps the bump.
 #   * starlette >=1.3.1 — fixes CVE-2026-54283, CVE-2026-54282, CVE-2026-48818,
 #     CVE-2026-48817. Pulled in via fastapi (gateway/all extras). fastapi
 #     0.136.3 requires only ``starlette>=0.46.0`` (no upper bound) and already
@@ -142,7 +143,7 @@ Issues = "https://github.com/synaptent/aragora/issues"
 # -----------------------------------------------------------------------------
 [tool.uv]
 constraint-dependencies = [
-    "cryptography>=48.0.1",
+    "cryptography>=49",
     "starlette>=1.3.1",
 ]
 

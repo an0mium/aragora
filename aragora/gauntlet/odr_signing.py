@@ -91,6 +91,68 @@ def compute_key_id(public_key: Ed25519PublicKey) -> str:
     return "ed25519-" + hashlib.sha256(raw).hexdigest()[:16]
 
 
+# --- Post-quantum (ML-DSA / FIPS 204) hybrid signing (#8602) -----------------
+#
+# Decision receipts are harvest-now-decrypt-later critical: their signatures
+# must verify for years, so an Ed25519-only signature is born quantum-vulnerable.
+# We add a *hybrid* path that attaches BOTH an Ed25519 and an ML-DSA detached
+# signature over the same content digest. Existing verifiers keep working on the
+# Ed25519 entry; the ML-DSA entry provides quantum-resistant assurance. ML-DSA-65
+# is FIPS 204 NIST security level 3 (the recommended general-purpose set).
+ODR_PQC_SIGNATURE_ALG = "ML-DSA-65"
+
+
+def _load_mldsa():  # noqa: ANN202 - lazy import keeps the error actionable
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric import mldsa
+    except ImportError as exc:  # pragma: no cover - environment-dependent
+        raise OdrSigningError(
+            "post-quantum ODR signing requires `cryptography` >= 49 built against "
+            "OpenSSL 3.5+/AWS-LC/BoringSSL (the `mldsa` module); upgrade `cryptography` "
+            "to enable ML-DSA hybrid signatures"
+        ) from exc
+    return mldsa, InvalidSignature
+
+
+def pqc_available() -> bool:
+    """Whether the runtime ``cryptography`` build exposes ML-DSA (FIPS 204).
+
+    Mirrors the graceful-degradation pattern used elsewhere: callers can hybrid-
+    sign when this is True and fall back to Ed25519-only when it is False.
+    """
+    try:
+        from cryptography.hazmat.primitives.asymmetric import mldsa  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def compute_mldsa_key_id(public_key: Any) -> str:
+    """``ml-dsa-65-`` + first 16 hex of SHA-256(raw ML-DSA public key).
+
+    Parallels :func:`compute_key_id` for Ed25519 so an ML-DSA signature entry's
+    ``key_id`` is reproducible from the published public key.
+    """
+    raw = public_key.public_bytes_raw()
+    return "ml-dsa-65-" + hashlib.sha256(raw).hexdigest()[:16]
+
+
+def generate_mldsa_signing_key() -> Any:
+    """Generate a fresh ML-DSA-65 private key (key-rotation / bootstrap tooling)."""
+    mldsa, _ = _load_mldsa()
+    return mldsa.MLDSA65PrivateKey.generate()
+
+
+def load_mldsa_key_from_seed(seed: bytes) -> Any:
+    """Load an ML-DSA-65 private key from its 32-byte seed (held in Secrets Manager)."""
+    if len(seed) != 32:
+        raise OdrSigningError(f"ML-DSA-65 seed must be exactly 32 bytes, got {len(seed)}")
+    mldsa, _ = _load_mldsa()
+    return mldsa.MLDSA65PrivateKey.from_seed_bytes(seed)
+
+
 def load_private_key_from_pem(pem: str | bytes) -> Ed25519PrivateKey:
     """Load an Ed25519 private key from PEM (for tests/offline tooling).
 
@@ -248,48 +310,142 @@ def sign_odr_receipt(
         re-derives and checks.
     """
     signed = copy.deepcopy(odr)
+    signatures = _existing_signatures(signed, replace=replace)
+    signatures.append(
+        {
+            "alg": ODR_SIGNATURE_ALG,
+            "key_id": compute_key_id(private_key.public_key()),
+            "signature": _b64(private_key.sign(_odr_signing_message(signed))),
+        }
+    )
+    signed["signatures"] = signatures
+    return signed
 
-    existing = signed.get("signatures")
-    signatures: list[Any] = []
-    if not replace and isinstance(existing, list):
-        invalid_index = next(
-            (
-                index
-                for index, entry in enumerate(existing)
-                if not _is_signature_entry_compatible(entry)
-            ),
-            None,
-        )
-        if invalid_index is not None:
-            raise OdrSigningError(
-                f"existing signatures[{invalid_index}] is not a valid ODR signature entry; "
-                "use replace=True to drop existing signatures before signing"
-            )
-        signatures = existing
 
-    # The digest excludes the signatures array (detached) — compute it against
-    # the payload as the verifier will, regardless of what's already attached.
+def sign_odr_receipt_mldsa(
+    odr: dict[str, Any],
+    private_key: Any,
+    *,
+    replace: bool = False,
+) -> dict[str, Any]:
+    """Attach a post-quantum **ML-DSA-65** (FIPS 204) detached signature.
+
+    Identical envelope to :func:`sign_odr_receipt` (same content digest, same
+    ``{"alg", "key_id", "signature"}`` shape) — just a quantum-resistant
+    algorithm. Appends by default so it can sit alongside an Ed25519 entry.
+    """
+    signed = copy.deepcopy(odr)
+    signatures = _existing_signatures(signed, replace=replace)
+    signatures.append(
+        {
+            "alg": ODR_PQC_SIGNATURE_ALG,
+            "key_id": compute_mldsa_key_id(private_key.public_key()),
+            "signature": _b64(private_key.sign(_odr_signing_message(signed))),
+        }
+    )
+    signed["signatures"] = signatures
+    return signed
+
+
+def sign_odr_hybrid(
+    odr: dict[str, Any],
+    *,
+    ed25519_key: Ed25519PrivateKey,
+    mldsa_key: Any,
+    replace: bool = False,
+) -> dict[str, Any]:
+    """Attach BOTH a classical Ed25519 and a post-quantum ML-DSA detached signature.
+
+    Both signatures cover the same content digest, so the receipt stays verifiable
+    by existing Ed25519 tooling **and** gains quantum-resistant assurance — the
+    harvest-now-decrypt-later defense for long-lived audit receipts (#8602).
+    """
+    signed = sign_odr_receipt(odr, ed25519_key, replace=replace)
+    return sign_odr_receipt_mldsa(signed, mldsa_key, replace=False)
+
+
+def verify_odr_signature_ed25519(odr: dict[str, Any], *, public_key: Ed25519PublicKey) -> bool:
+    """In-package Ed25519 verify (round-trip / offline tooling). Returns True if any
+    Ed25519 entry whose key_id matches ``public_key`` verifies over the content digest."""
+    _, _, _, InvalidSignature = _load_ed25519()
+    return _verify_entries(
+        odr,
+        alg=ODR_SIGNATURE_ALG,
+        key_id=compute_key_id(public_key),
+        verify=public_key.verify,
+        invalid_signature=InvalidSignature,
+    )
+
+
+def verify_odr_signature_mldsa(odr: dict[str, Any], *, public_key: Any) -> bool:
+    """In-package ML-DSA-65 verify. Returns True if any ML-DSA entry whose key_id
+    matches ``public_key`` verifies over the content digest."""
+    _, InvalidSignature = _load_mldsa()
+    return _verify_entries(
+        odr,
+        alg=ODR_PQC_SIGNATURE_ALG,
+        key_id=compute_mldsa_key_id(public_key),
+        verify=public_key.verify,
+        invalid_signature=InvalidSignature,
+    )
+
+
+def _b64(data: bytes) -> str:
+    return base64.b64encode(data).decode("ascii")
+
+
+def _odr_signing_message(odr: dict[str, Any]) -> bytes:
+    """The bytes a detached ODR signature covers: ``bytes.fromhex(content_digest)``.
+
+    The digest excludes the ``signatures`` array, so it is identical before and
+    after any signatures are attached — every algorithm signs the same message.
+    """
     try:
-        digest_hex = odr_content_digest(signed)
-        message = bytes.fromhex(digest_hex)
+        return bytes.fromhex(odr_content_digest(odr))
     except (TypeError, ValueError) as exc:
         raise OdrSigningError("could not compute ODR content digest for signing") from exc
 
-    signature_bytes = private_key.sign(message)
-    entry = {
-        "alg": ODR_SIGNATURE_ALG,
-        "key_id": compute_key_id(private_key.public_key()),
-        "signature": base64.b64encode(signature_bytes).decode("ascii"),
-    }
-    signatures.append(entry)
-    signed["signatures"] = signatures
-    return signed
+
+def _existing_signatures(signed: dict[str, Any], *, replace: bool) -> list[Any]:
+    existing = signed.get("signatures")
+    if replace or not isinstance(existing, list):
+        return []
+    invalid_index = next(
+        (i for i, entry in enumerate(existing) if not _is_signature_entry_compatible(entry)),
+        None,
+    )
+    if invalid_index is not None:
+        raise OdrSigningError(
+            f"existing signatures[{invalid_index}] is not a valid ODR signature entry; "
+            "use replace=True to drop existing signatures before signing"
+        )
+    return existing
+
+
+def _verify_entries(
+    odr: dict[str, Any],
+    *,
+    alg: str,
+    key_id: str,
+    verify: Any,
+    invalid_signature: type[Exception],
+) -> bool:
+    message = _odr_signing_message(odr)
+    for entry in odr.get("signatures") or []:
+        if not isinstance(entry, dict) or entry.get("alg") != alg or entry.get("key_id") != key_id:
+            continue
+        try:
+            verify(base64.b64decode(entry["signature"]), message)
+            return True
+        except (invalid_signature, ValueError, TypeError, KeyError):
+            continue
+    return False
 
 
 def _is_signature_entry_compatible(entry: Any) -> bool:
     if not isinstance(entry, dict):
         return False
-    if entry.get("alg") != ODR_SIGNATURE_ALG:
+    if entry.get("alg") not in (ODR_SIGNATURE_ALG, ODR_PQC_SIGNATURE_ALG):
         return False
     for field in ("key_id", "signature"):
         if not isinstance(entry.get(field), str) or not entry[field]:
@@ -299,12 +455,21 @@ def _is_signature_entry_compatible(entry: Any) -> bool:
 
 
 __all__ = [
+    "ODR_PQC_SIGNATURE_ALG",
     "ODR_SIGNATURE_ALG",
     "OdrSigningError",
     "compute_key_id",
+    "compute_mldsa_key_id",
+    "generate_mldsa_signing_key",
     "generate_signing_key",
+    "load_mldsa_key_from_seed",
     "load_private_key_from_pem",
     "load_signing_key_from_secrets",
+    "pqc_available",
     "public_key_pem",
+    "sign_odr_hybrid",
     "sign_odr_receipt",
+    "sign_odr_receipt_mldsa",
+    "verify_odr_signature_ed25519",
+    "verify_odr_signature_mldsa",
 ]
