@@ -109,6 +109,60 @@ def load_private_key_from_pem(pem: str | bytes) -> Ed25519PrivateKey:
     return key
 
 
+def _load_pem_secret_from_aws(secret_id: str) -> str:
+    """Fetch a standalone PEM secret from AWS Secrets Manager.
+
+    This intentionally does not call ``get_secret(secret_id)`` because that API
+    looks up a key inside Aragora's configured JSON secret bundle and may fall
+    back to environment variables in non-strict local mode. ODR signing keys are
+    standalone custody material: the environment may name the SecretId, but it
+    must never carry the raw private key.
+    """
+    try:
+        from aragora.config import secrets as secret_config
+    except ImportError as exc:  # pragma: no cover - environment-dependent
+        raise OdrSigningError("aragora.config.secrets is unavailable") from exc
+
+    config = secret_config.SecretsConfig.from_env()
+    if not config.use_aws:
+        raise OdrSigningError(
+            "AWS Secrets Manager is not enabled for ODR signing; set "
+            "ARAGORA_USE_SECRETS_MANAGER=true and provision the PEM private key "
+            f"in secret '{secret_id}'"
+        )
+
+    manager = secret_config.SecretManager(config)
+    regions = config.aws_regions or [config.aws_region]
+    last_error: Exception | None = None
+    for region in regions:
+        client = manager._get_aws_client(region)  # noqa: SLF001 - reuse repo AWS client setup.
+        if client is None:
+            continue
+        try:
+            response = client.get_secret_value(SecretId=secret_id)
+        except (secret_config.ClientError, secret_config.BotoCoreError) as exc:
+            last_error = exc
+            continue
+        except (OSError, RuntimeError, ValueError, KeyError) as exc:
+            last_error = exc
+            continue
+
+        secret_string = response.get("SecretString")
+        if isinstance(secret_string, str) and secret_string.strip():
+            return secret_string
+
+        secret_binary = response.get("SecretBinary")
+        if isinstance(secret_binary, bytes) and secret_binary:
+            return base64.b64decode(secret_binary).decode("utf-8")
+
+        raise OdrSigningError(f"ODR signing key secret '{secret_id}' is empty")
+
+    detail = f": {last_error}" if last_error else ""
+    raise OdrSigningError(
+        f"ODR signing key secret '{secret_id}' could not be read from AWS Secrets Manager{detail}"
+    )
+
+
 def load_signing_key_from_secrets(
     secret_name: str | None = None,
 ) -> Ed25519PrivateKey:
@@ -119,16 +173,7 @@ def load_signing_key_from_secrets(
     var only *names* which secret to read.
     """
     name = secret_name or os.environ.get(SIGNING_KEY_SECRET_ENV) or DEFAULT_SIGNING_KEY_SECRET
-    try:
-        from aragora.config.secrets import get_secret
-    except ImportError as exc:  # pragma: no cover - environment-dependent
-        raise OdrSigningError("aragora.config.secrets is unavailable") from exc
-    pem = get_secret(name)
-    if not pem:
-        raise OdrSigningError(
-            f"ODR signing key secret '{name}' is empty or unset; "
-            "provision the PEM private key in Secrets Manager"
-        )
+    pem = _load_pem_secret_from_aws(name)
     return load_private_key_from_pem(pem)
 
 

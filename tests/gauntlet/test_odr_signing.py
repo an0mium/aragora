@@ -22,11 +22,13 @@ import pytest
 
 from aragora.gauntlet.odr_export import odr_content_digest
 from aragora.gauntlet.odr_signing import (
+    DEFAULT_SIGNING_KEY_SECRET,
     ODR_SIGNATURE_ALG,
     OdrSigningError,
     compute_key_id,
     generate_signing_key,
     load_private_key_from_pem,
+    load_signing_key_from_secrets,
     public_key_pem,
     sign_odr_receipt,
 )
@@ -193,6 +195,85 @@ def test_public_key_pem_is_publishable_spki() -> None:
     assert "BEGIN PUBLIC KEY" in pem
     loaded = serialization.load_pem_public_key(pem.encode())
     assert isinstance(loaded, Ed25519PublicKey)
+
+
+def test_load_signing_key_from_standalone_aws_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aragora.config.secrets import SecretManager, SecretsConfig
+
+    key = generate_signing_key()
+    pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode()
+
+    class DummyClient:
+        def get_secret_value(self, *, SecretId: str) -> dict[str, str]:
+            assert SecretId == DEFAULT_SIGNING_KEY_SECRET
+            return {"SecretString": pem}
+
+    monkeypatch.setattr(
+        SecretsConfig,
+        "from_env",
+        classmethod(
+            lambda cls: cls(
+                use_aws=True,
+                aws_region="us-east-1",
+                aws_regions=["us-east-1"],
+            )
+        ),
+    )
+    monkeypatch.setattr(SecretManager, "_get_aws_client", lambda self, region: DummyClient())
+
+    loaded = load_signing_key_from_secrets()
+    assert compute_key_id(loaded.public_key()) == compute_key_id(key.public_key())
+
+
+def test_load_signing_key_rejects_raw_env_pem_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aragora.config.secrets import SecretManager, SecretsConfig
+
+    key = generate_signing_key()
+    pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode()
+
+    class MissingClient:
+        def get_secret_value(self, *, SecretId: str) -> dict[str, str]:
+            raise RuntimeError(f"{SecretId} missing")
+
+    monkeypatch.setattr(
+        SecretsConfig,
+        "from_env",
+        classmethod(
+            lambda cls: cls(
+                use_aws=True,
+                aws_region="us-east-1",
+                aws_regions=["us-east-1"],
+            )
+        ),
+    )
+    monkeypatch.setattr(SecretManager, "_get_aws_client", lambda self, region: MissingClient())
+    monkeypatch.setenv(DEFAULT_SIGNING_KEY_SECRET, pem)
+
+    with pytest.raises(OdrSigningError, match="could not be read from AWS Secrets Manager"):
+        load_signing_key_from_secrets()
+
+
+def test_load_signing_key_requires_aws_secret_manager(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from aragora.config.secrets import SecretsConfig
+
+    monkeypatch.setattr(
+        SecretsConfig,
+        "from_env",
+        classmethod(lambda cls: cls(use_aws=False)),
+    )
+
+    with pytest.raises(OdrSigningError, match="AWS Secrets Manager is not enabled"):
+        load_signing_key_from_secrets()
 
 
 # ----------------------------------------------------------------------------
