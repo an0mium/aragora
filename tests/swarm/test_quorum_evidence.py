@@ -105,6 +105,37 @@ def test_composed_comment_counts_in_real_parser(family: str) -> None:
     assert family in result["counted_reviewer_ids"]
 
 
+def test_linter_rejects_background_task_chatter() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    body = compose_evidence_comment(
+        family="gemini",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=(
+            "I am waiting for the background tests task to finish. "
+            "You will be notified shortly.\n"
+            "I am waiting for the tests to run with the sandbox bypassed. "
+            "You will see the output once it finishes."
+        ),
+        harness="Antigravity CLI harness",
+    )
+
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+
+    assert result["would_count"] is False
+    assert "missing_reviewer_verdict" in result["problems"]
+    assert "non_review_background_task_chatter" in result["problems"]
+
+
 # --- reviewer-output normalization (low-cost-model format reliability) ------
 
 
@@ -1072,6 +1103,33 @@ def test_collect_records_raising_reviewer_as_failure() -> None:
     assert "reviewer boom" in outcome.failures[0].error
 
 
+def test_collect_rejects_lint_counted_unknown_verdict() -> None:
+    fakes, _ = _fakes(tier=4)
+
+    def background_task_runner(family: str, prompt: str) -> ReviewerResult:
+        return ReviewerResult(
+            family,
+            "I am waiting for the background tests task to finish. "
+            "You will be notified shortly.\n"
+            "I am waiting for the tests to run with the sandbox bypassed. "
+            "You will see the output once it finishes.",
+            True,
+            harness="Antigravity CLI harness",
+        )
+
+    fakes["reviewer_runner"] = background_task_runner
+    outcome = collect_evidence(
+        repo="o/r", pr=1, families=["gemini"], author="me", apply=False, **fakes
+    )
+
+    assert outcome.items[0].verdict == "unknown"
+    assert outcome.items[0].would_count is False
+    assert "missing_reviewer_verdict" in outcome.items[0].problems
+    assert "non_review_background_task_chatter" in outcome.items[0].problems
+    assert outcome.counting_families == []
+    assert outcome.supportive_families == []
+
+
 def test_collect_low_tier_apply_triggers_same_pr_quorum_reconciler_after_posts() -> None:
     fakes, posted = _fakes(tier=1)
     calls: list[tuple[str, int, int]] = []
@@ -1690,6 +1748,33 @@ def test_evidence_item_from_dict_canonicalizes_alias_family() -> None:
         {"family": "Codex", "body": "Verdict: PASS\nbody", "would_count": True}
     )
     assert item.family == "openai"
+
+
+def test_evidence_item_from_dict_rejects_unknown_verdict() -> None:
+    from aragora.swarm.quorum_evidence import _evidence_item_from_dict
+
+    item = _evidence_item_from_dict(
+        {
+            "family": "gemini",
+            "body": (
+                "## Gemini independent model review\n\n"
+                f"Head: {HEAD[:7]} ({HEAD}).\n"
+                "PR: #7740.\n"
+                "Model family: gemini\n\n"
+                "I am waiting for the background tests task to finish. "
+                "You will be notified shortly.\n\n"
+                "dogfood: yes\n"
+            ),
+            "would_count": True,
+            "counted_reviewer_ids": ["gemini"],
+            "problems": [],
+            "verdict": "unknown",
+        }
+    )
+
+    assert item.would_count is False
+    assert "missing_reviewer_verdict" in item.problems
+    assert "non_review_background_task_chatter" in item.problems
 
 
 # --- OpenRouter failure-only fallback ---------------------------------------

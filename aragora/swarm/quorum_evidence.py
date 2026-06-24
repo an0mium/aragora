@@ -572,12 +572,17 @@ def _evidence_item_from_dict(raw: Any) -> EvidenceItem:
         raise ValueError("prepared evidence item missing family")
     if not body.strip():
         raise ValueError(f"prepared evidence item for {family} has empty body")
+    would_count, problems = _gate_evidence_count_by_review_format(
+        text=body,
+        would_count=bool(raw.get("would_count")),
+        problems=_string_list(raw.get("problems")),
+    )
     return EvidenceItem(
         family=family,
         body=body,
-        would_count=bool(raw.get("would_count")),
+        would_count=would_count,
         counted_reviewer_ids=_string_list(raw.get("counted_reviewer_ids")),
-        problems=_string_list(raw.get("problems")),
+        problems=problems,
         verdict=str(raw.get("verdict") or "unknown"),
         # Restore the prepare-time regime; default fail-CLOSED (strict — every
         # changes_requested blocks) when an older/forged artifact omits it, so a
@@ -737,6 +742,45 @@ def _reviewer_verdict(text: str) -> str:
                 return "changes_requested"
             return "unknown"
     return "unknown"
+
+
+MISSING_REVIEWER_VERDICT_PROBLEM = "missing_reviewer_verdict"
+NON_REVIEW_BACKGROUND_TASK_PROBLEM = "non_review_background_task_chatter"
+
+_NON_REVIEW_BACKGROUND_TASK_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"\bi am waiting for the background .* task to finish\b",
+        r"\bi am waiting for the tests to run\b",
+        r"\byou will be notified shortly\b",
+        r"\byou will see the output once it finishes\b",
+    )
+)
+
+
+def _review_format_problems(text: str) -> list[str]:
+    problems: list[str] = []
+    if _reviewer_verdict(text) == "unknown":
+        problems.append(MISSING_REVIEWER_VERDICT_PROBLEM)
+    if any(pattern.search(text) for pattern in _NON_REVIEW_BACKGROUND_TASK_PATTERNS):
+        problems.append(NON_REVIEW_BACKGROUND_TASK_PROBLEM)
+    return problems
+
+
+def _gate_evidence_count_by_review_format(
+    *,
+    text: str,
+    would_count: bool,
+    problems: Sequence[str] | None = None,
+) -> tuple[bool, list[str]]:
+    merged_problems = list(problems or [])
+    format_problems = _review_format_problems(text)
+    for problem in format_problems:
+        if problem not in merged_problems:
+            merged_problems.append(problem)
+    if format_problems:
+        return False, merged_problems
+    return bool(would_count), merged_problems
 
 
 # ---------------------------------------------------------------------------
@@ -1850,14 +1894,20 @@ def collect_evidence(
             harness=result.harness,
         )
         lint = linter(pr, head_sha, head_committed_at, author, body, env or {})
+        verdict = _reviewer_verdict(result.text)
+        would_count, problems = _gate_evidence_count_by_review_format(
+            text=result.text,
+            would_count=bool(lint.get("would_count")),
+            problems=list(lint.get("problems") or []),
+        )
         outcome.items.append(
             EvidenceItem(
                 family=family,
                 body=body,
-                would_count=bool(lint.get("would_count")),
-                verdict=_reviewer_verdict(result.text),
+                would_count=would_count,
+                verdict=verdict,
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
-                problems=list(lint.get("problems") or []),
+                problems=problems,
             )
         )
 
@@ -2087,6 +2137,12 @@ def apply_prepared_evidence(
             problems.append(
                 f"fresh lint counted reviewer ids do not include prepared family: {item.family}"
             )
+        verdict = _reviewer_verdict(item.body)
+        would_count, problems = _gate_evidence_count_by_review_format(
+            text=item.body,
+            would_count=would_count,
+            problems=problems,
+        )
         relinted_items.append(
             EvidenceItem(
                 family=item.family,
@@ -2094,7 +2150,7 @@ def apply_prepared_evidence(
                 would_count=would_count,
                 counted_reviewer_ids=counted_reviewer_ids,
                 problems=problems,
-                verdict=_reviewer_verdict(item.body),
+                verdict=verdict,
                 # Preserve the regime already reconciled by _clone_prepared_items
                 # (effective = prepared AND live). Re-running the linter must NOT
                 # let EvidenceItem.default_factory re-read the live env and undo

@@ -143,6 +143,8 @@ CANONICAL_MODEL_FAMILIES: tuple[str, ...] = (
 from aragora.swarm.quorum_evidence import (  # noqa: E402
     WESTERN_FAMILIES as WESTERN_FAMILIES,
     WESTERN_FRONTIER_FAMILIES as WESTERN_FRONTIER_FAMILIES,
+    _gate_evidence_count_by_review_format as _gate_evidence_count_by_review_format,
+    _reviewer_verdict as _reviewer_verdict,
     severity_gated_dissent_enabled as severity_gated_dissent_enabled,
     tier_quorum_rule as tier_quorum_rule,
     tiered_merge_gate_enabled as tiered_merge_gate_enabled,
@@ -3728,6 +3730,13 @@ def _lint_evidence_comment(
         )
     ):
         problems.append("missing_dogfood_or_review_trigger")
+    would_count, problems = _gate_evidence_count_by_review_format(
+        text=body,
+        would_count=bool(counted_reviewer_ids),
+        problems=problems,
+    )
+    if not would_count:
+        counted_reviewer_ids = []
     if not counted_reviewer_ids:
         problems.append("no_counted_model_family")
         problems.append("no_counted_model_reviewer")
@@ -3746,6 +3755,7 @@ def _lint_evidence_comment(
         "model_id": identity.model_id,
         "identity_source": identity.identity_source,
         "identity_problems": list(identity.identity_problems),
+        "reviewer_verdict": _reviewer_verdict(body),
         "current_head_grounded": grounded,
         "current_head_grounding_method": grounding_method,
         "current_pr_grounded": pr_grounded,
@@ -3754,7 +3764,7 @@ def _lint_evidence_comment(
         "reviewer_signals": reviewer_signals,
         "counted_reviewer_ids": counted_reviewer_ids,
         "counted_model_families": counted_reviewer_ids,
-        "would_count": bool(counted_reviewer_ids),
+        "would_count": would_count,
         "problems": problems,
     }
 
