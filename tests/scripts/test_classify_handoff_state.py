@@ -491,6 +491,28 @@ def test_narrow_rest_skips_absent_open_pr_branch_when_fresh_cache_says_absent(
     assert open_prs == []
 
 
+def test_narrow_rest_open_pr_query_preserves_owner_separator(tmp_path: Path) -> None:
+    client = mod.NarrowGitHubClient(
+        repo_root=tmp_path,
+        github_repo="synaptent/aragora",
+    )
+    seen: list[str] = []
+
+    def capture_api(endpoint: str) -> tuple[Any | None, str | None]:
+        seen.append(endpoint)
+        return [], None
+
+    client._api = capture_api  # type: ignore[method-assign]
+
+    open_prs, error = client.open_prs_for_branch("codex/example")
+
+    assert error is None
+    assert open_prs == []
+    assert seen == [
+        "repos/synaptent/aragora/pulls?state=open&head=synaptent:codex%2Fexample&per_page=5"
+    ]
+
+
 def test_open_pr_head_cache_is_trusted_only_when_complete(tmp_path: Path) -> None:
     _write_status_cache(tmp_path, open_pr_heads=["codex/example"])
     status_path = tmp_path / ".aragora" / "automation-github-status" / "latest.json"
