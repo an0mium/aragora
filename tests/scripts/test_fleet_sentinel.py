@@ -688,6 +688,209 @@ def test_breach_replay_jun10_silent_lane_death(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# stale_terminal_owner (#8562: stale owners blocking terminal PRs)
+# ---------------------------------------------------------------------------
+
+
+def _write_json(path: Path, payload: Any) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def _stale_owner_result(
+    tmp_path: Path,
+    rows: list[dict[str, Any]],
+    *,
+    pr_state: dict[str, Any],
+    findings: list[dict[str, Any]] | None = None,
+    min_age_hours: float = 24.0,
+) -> Any:
+    registry = _write_json(tmp_path / "lanes.json", rows)
+    audit_calls: list[int] = []
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        assert repo_slug == "synaptent/aragora"
+        assert gh_bin == "gh"
+        return {"available": True, "number": pr, **pr_state}
+
+    def audit_terminal(**kwargs: Any) -> dict[str, Any]:
+        audit_calls.append(kwargs["pr"])
+        return {
+            "github_state": {"available": True, "state": "MERGED"},
+            "findings": findings if findings is not None else [],
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=min_age_hours,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=audit_terminal,
+    )
+    return result, audit_calls
+
+
+def _active_owner_row(**overrides: Any) -> dict[str, Any]:
+    row = {
+        "lane_id": "Q900-stale-terminal",
+        "owner_session": "codex-owner",
+        "status": "active",
+        "pr_number": 9001,
+        "branch": "codex/stale-terminal-demo",
+        "updated_at": "2026-06-08T12:00:00Z",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_stale_terminal_owner_reports_safe_merged_pr_with_guarded_commands(
+    tmp_path: Path,
+) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={
+            "state": "MERGED",
+            "merge_commit": "abc123",
+            "url": "https://github.test/pr/9001",
+        },
+        findings=[
+            {
+                "lane_id": "Q900-stale-terminal",
+                "owner_session": "codex-owner",
+                "terminal_safety_blockers": [],
+                "terminal_safety_details": {},
+            }
+        ],
+    )
+
+    assert result["status"] == "breach"
+    assert audit_calls == [9001]
+    assert result["candidates"][0] == {
+        "lane_id": "Q900-stale-terminal",
+        "pr_number": 9001,
+        "branch": "codex/stale-terminal-demo",
+        "owner_session": "codex-owner",
+        "age_hours": 48.0,
+        "terminal_state": "MERGED",
+        "terminal_url": "https://github.test/pr/9001",
+        "merge_commit": "abc123",
+        "terminal_safety_blockers": [],
+        "terminal_safety_details": {},
+        "reconciler_dry_run_command": result["candidates"][0]["reconciler_dry_run_command"],
+        "reconciler_apply_command": result["candidates"][0]["reconciler_apply_command"],
+    }
+    assert (
+        "resolve_lane_conflicts.py --merged-pr-lane-audit"
+        in result["candidates"][0]["reconciler_dry_run_command"]
+    )
+    assert "--expected-merge-commit abc123" in result["candidates"][0]["reconciler_apply_command"]
+    assert "--operator-authorized" in result["candidates"][0]["reconciler_apply_command"]
+    assert "--apply --json" in result["candidates"][0]["reconciler_apply_command"]
+
+
+def test_stale_terminal_owner_suppresses_fresh_heartbeat_rows(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={"state": "MERGED", "merge_commit": "abc123"},
+        findings=[
+            {
+                "lane_id": "Q900-stale-terminal",
+                "owner_session": "codex-owner",
+                "terminal_safety_blockers": ["fresh_heartbeat"],
+                "terminal_safety_details": {"fresh_heartbeat_timestamps": ["2026-06-10T11:59:00Z"]},
+            }
+        ],
+    )
+
+    assert audit_calls == [9001]
+    assert result["status"] == "ok"
+    assert result["candidates"] == []
+    assert result["live_suppressed"][0]["terminal_safety_blockers"] == ["fresh_heartbeat"]
+
+
+def test_stale_terminal_owner_reports_api_unknown_as_unknown(tmp_path: Path) -> None:
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        return {"available": False, "number": pr, "state": "UNKNOWN", "error": "HTTP 502"}
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "unknown"
+    assert "HTTP 502" in result["detail"]
+
+
+def test_stale_terminal_owner_reports_unsafe_mailbox_and_local_work_blockers(
+    tmp_path: Path,
+) -> None:
+    result, _ = _stale_owner_result(
+        tmp_path,
+        [
+            _active_owner_row(lane_id="Q-mailbox", owner_session="owner-mailbox"),
+            _active_owner_row(lane_id="Q-local-work", owner_session="owner-local-work"),
+        ],
+        pr_state={"state": "MERGED", "merge_commit": "abc123"},
+        findings=[
+            {
+                "lane_id": "Q-mailbox",
+                "owner_session": "owner-mailbox",
+                "terminal_safety_blockers": ["unread_mailbox"],
+                "terminal_safety_details": {"pending_mailbox_messages": ["message.json"]},
+            },
+            {
+                "lane_id": "Q-local-work",
+                "owner_session": "owner-local-work",
+                "terminal_safety_blockers": ["local_work_claim"],
+                "terminal_safety_details": {"local_work_claims": ["/tmp/work"]},
+            },
+        ],
+    )
+
+    assert result["status"] == "breach"
+    blockers = {
+        candidate["lane_id"]: candidate["terminal_safety_blockers"]
+        for candidate in result["candidates"]
+    }
+    assert blockers == {
+        "Q-mailbox": ["unread_mailbox"],
+        "Q-local-work": ["local_work_claim"],
+    }
+    assert all(not candidate["reconciler_apply_command"] for candidate in result["candidates"])
+
+
+def test_stale_terminal_owner_reports_closed_pr_without_apply_command(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={"state": "CLOSED", "merge_commit": "", "url": "https://github.test/pr/9001"},
+    )
+
+    assert audit_calls == []
+    assert result["status"] == "breach"
+    assert result["candidates"][0]["terminal_state"] == "CLOSED"
+    assert result["candidates"][0]["terminal_safety_blockers"] == ["closed_pr_manual_review"]
+    assert result["candidates"][0]["reconciler_dry_run_command"]
+    assert result["candidates"][0]["reconciler_apply_command"] == ""
+
+
+# ---------------------------------------------------------------------------
 # github_api_health  (failure class B: GraphQL 502/504 streaks of 2026-06-10/11
 # stalled the publisher; the cached github_health flipped auth_ok:false so the
 # sentinel breached without distinguishing transient from persistent)

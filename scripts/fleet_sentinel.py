@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import glob as glob_module
 import hashlib
+import importlib.util
 import json
 import plistlib
 import re
@@ -53,6 +54,7 @@ ALL_CHECKS = (
     "outbox_drain_progress",
     "disk_free",
     "lane_liveness",
+    "stale_terminal_owner",
     "github_api_health",
     "trail_reconcile",
 )
@@ -61,6 +63,25 @@ ALL_CHECKS = (
 # ledger-less orphan-branch sweep (failure class A, 2026-06-10/11: coordinator
 # lanes died at setup leaving empty elves/run-* branches nobody noticed).
 ORPHAN_BRANCH_PATTERNS = ("elves/*", "aragora/boss*")
+ACTIVE_LANE_STATUSES = {
+    "active",
+    "running",
+    "pending",
+    "queued",
+    "claimed",
+    "waiting_for_steering",
+    "acknowledged",
+    "working",
+    "blocked",
+}
+LANE_TIMESTAMP_KEYS = (
+    "updated_at",
+    "last_heartbeat_at",
+    "last_seen_at",
+    "claimed_at",
+    "created_at",
+)
+LIVE_OWNER_BLOCKERS = frozenset({"fresh_heartbeat", "live_process"})
 
 
 def parse_iso(value: str) -> datetime:
@@ -77,6 +98,15 @@ def _result(check: str, status: str, detail: str) -> CheckResult:
 
 def _age_hours(path: Path, now: datetime) -> float:
     return (now.timestamp() - path.stat().st_mtime) / 3600.0
+
+
+def _coerce_int(value: Any) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -526,6 +556,351 @@ def check_lane_liveness(
         f"{in_progress} in_progress lane(s) live; "
         f"{pattern_branches} lane-pattern branch(es) on origin, no orphans",
     )
+
+
+# ---------------------------------------------------------------------------
+# stale_terminal_owner (#8562 — stale lane owners blocking terminal PRs)
+# ---------------------------------------------------------------------------
+
+
+def _read_json_list(path: Path) -> tuple[list[dict[str, Any]], str | None]:
+    try:
+        payload = json.loads(path.read_text())
+    except FileNotFoundError:
+        return [], None
+    except (OSError, json.JSONDecodeError) as exc:
+        return [], f"{exc.__class__.__name__}: {exc}"
+    if not isinstance(payload, list):
+        return [], "invalid_shape:not_list"
+    return [row for row in payload if isinstance(row, dict)], None
+
+
+def _latest_lane_timestamp(row: dict[str, Any]) -> datetime | None:
+    parsed: list[datetime] = []
+    for key in LANE_TIMESTAMP_KEYS:
+        raw = str(row.get(key) or "").strip()
+        if not raw:
+            continue
+        try:
+            parsed.append(parse_iso(raw))
+        except ValueError:
+            continue
+    return max(parsed) if parsed else None
+
+
+def _merge_commit_oid(payload: dict[str, Any]) -> str:
+    value = payload.get("mergeCommit") or payload.get("merge_commit")
+    if isinstance(value, dict):
+        return str(value.get("oid") or value.get("sha") or "")
+    return str(value or "")
+
+
+def _default_pr_state_fetcher(
+    pr: int,
+    *,
+    repo_slug: str,
+    gh_bin: str,
+) -> dict[str, Any]:
+    cmd = [
+        gh_bin,
+        "pr",
+        "view",
+        str(pr),
+        "--repo",
+        repo_slug,
+        "--json",
+        "number,state,closed,closedAt,mergedAt,mergeCommit,headRefName,headRefOid,url",
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603
+    if proc.returncode != 0:
+        return {
+            "available": False,
+            "number": pr,
+            "state": "UNKNOWN",
+            "error": proc.stderr.strip() or proc.stdout.strip(),
+            "command": cmd,
+        }
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        return {
+            "available": False,
+            "number": pr,
+            "state": "UNKNOWN",
+            "error": f"invalid gh json: {exc}",
+            "command": cmd,
+        }
+    return {
+        "available": True,
+        "number": _coerce_int(payload.get("number")) or pr,
+        "state": str(payload.get("state") or "").upper(),
+        "closed_at": payload.get("closedAt"),
+        "merged_at": payload.get("mergedAt"),
+        "merge_commit": _merge_commit_oid(payload),
+        "head_sha": str(payload.get("headRefOid") or ""),
+        "branch": str(payload.get("headRefName") or ""),
+        "url": str(payload.get("url") or ""),
+    }
+
+
+def _load_resolver_module() -> Any:
+    script_path = Path(__file__).with_name("resolve_lane_conflicts.py")
+    spec = importlib.util.spec_from_file_location(
+        "resolve_lane_conflicts_for_sentinel", script_path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load resolver module at {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _default_terminal_owner_auditor(
+    *,
+    pr: int,
+    registry_path: Path,
+    receipt_dir: Path,
+    gh_bin: str,
+    heartbeat_path: Path,
+    steering_inbox_root: Path,
+    heartbeat_fresh_seconds: int,
+) -> dict[str, Any]:
+    resolver = _load_resolver_module()
+    return resolver.audit_merged_pr_lanes(
+        registry_path=registry_path,
+        receipt_dir=receipt_dir,
+        pr=pr,
+        gh_bin=gh_bin,
+        apply=False,
+        operator_authorized=False,
+        heartbeat_path=heartbeat_path,
+        steering_inbox_root=steering_inbox_root,
+        heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+    )
+
+
+def _reconciler_dry_run_command(
+    *,
+    pr: int,
+    registry_path: Path,
+    receipt_dir: Path,
+    heartbeat_path: Path,
+    steering_inbox_root: Path,
+    heartbeat_fresh_seconds: int,
+) -> str:
+    return (
+        "python3 scripts/resolve_lane_conflicts.py --merged-pr-lane-audit "
+        f"--pr {pr} "
+        f"--registry-path {shlex.quote(str(registry_path))} "
+        f"--receipt-dir {shlex.quote(str(receipt_dir))} "
+        f"--heartbeat-path {shlex.quote(str(heartbeat_path))} "
+        f"--steering-inbox-root {shlex.quote(str(steering_inbox_root))} "
+        f"--heartbeat-fresh-seconds {heartbeat_fresh_seconds} --json"
+    )
+
+
+def _reconciler_apply_command(
+    *,
+    pr: int,
+    merge_commit: str,
+    registry_path: Path,
+    receipt_dir: Path,
+    heartbeat_path: Path,
+    steering_inbox_root: Path,
+    heartbeat_fresh_seconds: int,
+) -> str:
+    return (
+        "python3 scripts/resolve_lane_conflicts.py --merged-pr-lane-audit "
+        f"--pr {pr} --expected-merge-commit {shlex.quote(merge_commit)} "
+        "--operator-authorized "
+        f"--registry-path {shlex.quote(str(registry_path))} "
+        f"--receipt-dir {shlex.quote(str(receipt_dir))} "
+        f"--heartbeat-path {shlex.quote(str(heartbeat_path))} "
+        f"--steering-inbox-root {shlex.quote(str(steering_inbox_root))} "
+        f"--heartbeat-fresh-seconds {heartbeat_fresh_seconds} --apply --json"
+    )
+
+
+def check_stale_terminal_owner(
+    registry_path: Path,
+    *,
+    receipt_dir: Path,
+    heartbeat_path: Path,
+    steering_inbox_root: Path,
+    min_age_hours: float,
+    now: datetime,
+    repo_slug: str,
+    gh_bin: str = "gh",
+    heartbeat_fresh_seconds: int = 15 * 60,
+    pr_state_fetcher: Callable[..., dict[str, Any]] | None = None,
+    terminal_owner_auditor: Callable[..., dict[str, Any]] | None = None,
+) -> CheckResult:
+    """Report stale owner rows that still block merged/closed PRs.
+
+    This check is intentionally read-only.  It detects and routes; the only
+    mutation path it prints is the guarded ``resolve_lane_conflicts.py`` apply
+    command, and only for merged PRs where an exact merge commit is available.
+    """
+    name = "stale_terminal_owner"
+    rows, load_error = _read_json_list(registry_path)
+    if load_error:
+        return _result(name, "unknown", f"lane registry unreadable: {load_error}")
+
+    stale_rows: list[dict[str, Any]] = []
+    unknown_age_rows: list[dict[str, Any]] = []
+    for row in rows:
+        if str(row.get("status") or "") not in ACTIVE_LANE_STATUSES:
+            continue
+        pr = _coerce_int(row.get("pr_number"))
+        if pr is None:
+            continue
+        latest = _latest_lane_timestamp(row)
+        if latest is None:
+            unknown_age_rows.append(row)
+            continue
+        age_hours = (now - latest).total_seconds() / 3600.0
+        if age_hours >= min_age_hours:
+            stale = dict(row)
+            stale["_stale_age_hours"] = age_hours
+            stale_rows.append(stale)
+
+    if not stale_rows and unknown_age_rows:
+        sample = ", ".join(
+            str(row.get("lane_id") or row.get("owner_session") or row.get("pr_number"))
+            for row in unknown_age_rows[:5]
+        )
+        return _result(
+            name,
+            "unknown",
+            f"{len(unknown_age_rows)} active PR owner row(s) have no comparable timestamp: {sample}",
+        )
+    if not stale_rows:
+        return _result(name, "ok", "no stale active PR owner rows over threshold")
+
+    fetch_state = pr_state_fetcher or _default_pr_state_fetcher
+    audit_terminal = terminal_owner_auditor or _default_terminal_owner_auditor
+    by_pr: dict[int, list[dict[str, Any]]] = {}
+    for row in stale_rows:
+        pr = _coerce_int(row.get("pr_number"))
+        if pr is not None:
+            by_pr.setdefault(pr, []).append(row)
+
+    candidates: list[dict[str, Any]] = []
+    live_suppressed: list[dict[str, Any]] = []
+    unknowns: list[str] = []
+    for pr, pr_rows in sorted(by_pr.items()):
+        state = fetch_state(pr, repo_slug=repo_slug, gh_bin=gh_bin)
+        if state.get("available") is not True:
+            unknowns.append(f"PR #{pr}: {state.get('error') or 'state unavailable'}")
+            continue
+        terminal_state = str(state.get("state") or "").upper()
+        if terminal_state not in {"MERGED", "CLOSED"}:
+            continue
+
+        audit: dict[str, Any] = {}
+        findings_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+        if terminal_state == "MERGED":
+            audit = audit_terminal(
+                pr=pr,
+                registry_path=registry_path,
+                receipt_dir=receipt_dir,
+                gh_bin=gh_bin,
+                heartbeat_path=heartbeat_path,
+                steering_inbox_root=steering_inbox_root,
+                heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+            )
+            if audit.get("github_state", {}).get("available") is not True:
+                unknowns.append(
+                    f"PR #{pr}: reconciler audit unavailable: "
+                    f"{audit.get('github_state', {}).get('error') or audit.get('blocked_reason')}"
+                )
+                continue
+            findings_by_key = {
+                (
+                    str(finding.get("lane_id") or ""),
+                    str(finding.get("owner_session") or ""),
+                ): finding
+                for finding in audit.get("findings", [])
+                if isinstance(finding, dict)
+            }
+
+        for row in pr_rows:
+            key = (str(row.get("lane_id") or ""), str(row.get("owner_session") or ""))
+            finding = findings_by_key.get(key, {})
+            blockers = list(finding.get("terminal_safety_blockers") or [])
+            details = dict(finding.get("terminal_safety_details") or {})
+            if terminal_state == "CLOSED":
+                blockers = ["closed_pr_manual_review"]
+                details = {
+                    "reason": "closed-unmerged PRs are terminal but have no merge-commit guard"
+                }
+            candidate = {
+                "lane_id": row.get("lane_id"),
+                "pr_number": pr,
+                "branch": row.get("branch") or state.get("branch"),
+                "owner_session": row.get("owner_session"),
+                "age_hours": round(float(row["_stale_age_hours"]), 2),
+                "terminal_state": terminal_state,
+                "terminal_url": state.get("url"),
+                "merge_commit": state.get("merge_commit") or "",
+                "terminal_safety_blockers": blockers,
+                "terminal_safety_details": details,
+                "reconciler_dry_run_command": _reconciler_dry_run_command(
+                    pr=pr,
+                    registry_path=registry_path,
+                    receipt_dir=receipt_dir,
+                    heartbeat_path=heartbeat_path,
+                    steering_inbox_root=steering_inbox_root,
+                    heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+                ),
+                "reconciler_apply_command": "",
+            }
+            merge_commit = str(state.get("merge_commit") or "")
+            if terminal_state == "MERGED" and not blockers and merge_commit:
+                candidate["reconciler_apply_command"] = _reconciler_apply_command(
+                    pr=pr,
+                    merge_commit=merge_commit,
+                    registry_path=registry_path,
+                    receipt_dir=receipt_dir,
+                    heartbeat_path=heartbeat_path,
+                    steering_inbox_root=steering_inbox_root,
+                    heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+                )
+            if LIVE_OWNER_BLOCKERS.intersection(blockers):
+                live_suppressed.append(candidate)
+            else:
+                candidates.append(candidate)
+
+    if unknowns:
+        return {
+            **_result(name, "unknown", "terminal PR state unknown: " + "; ".join(unknowns)),
+            "candidates": candidates,
+            "live_suppressed": live_suppressed,
+        }
+    if candidates:
+        detail = "; ".join(
+            f"lane {item.get('lane_id')} PR #{item['pr_number']} "
+            f"{item['terminal_state']} owner={item.get('owner_session')} "
+            f"age={item['age_hours']:.1f}h"
+            for item in candidates[:5]
+        )
+        return {
+            **_result(name, "breach", detail),
+            "candidates": candidates,
+            "live_suppressed": live_suppressed,
+        }
+    if live_suppressed:
+        return {
+            **_result(
+                name,
+                "ok",
+                f"{len(live_suppressed)} terminal PR owner row(s) have live-owner signal; "
+                "no stale terminal owner rows",
+            ),
+            "candidates": [],
+            "live_suppressed": live_suppressed,
+        }
+    return _result(name, "ok", "no stale terminal owner rows for merged/closed PRs")
 
 
 # ---------------------------------------------------------------------------
@@ -1186,6 +1561,20 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         commit_dater=_default_commit_dater(repo),
                     )
                 )
+            elif name == "stale_terminal_owner":
+                results.append(
+                    check_stale_terminal_owner(
+                        Path(args.agent_bridge_lanes),
+                        receipt_dir=Path(args.stale_terminal_owner_receipt_dir),
+                        heartbeat_path=Path(args.agent_heartbeats),
+                        steering_inbox_root=Path(args.operator_steering_root),
+                        min_age_hours=args.stale_terminal_owner_age_hours,
+                        now=now,
+                        repo_slug=args.github_repo,
+                        gh_bin=args.gh_bin,
+                        heartbeat_fresh_seconds=args.stale_terminal_owner_heartbeat_fresh_seconds,
+                    )
+                )
             elif name == "github_api_health":
                 results.append(
                     check_github_api_health(
@@ -1270,6 +1659,40 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--lane-max-age-hours", type=float, default=3.0)
     parser.add_argument("--orphan-branch-age-hours", type=float, default=24.0)
+    parser.add_argument(
+        "--agent-bridge-lanes",
+        default=str(repo_root / ".aragora" / "agent-bridge" / "lanes.json"),
+        help="lane owner registry used by stale_terminal_owner",
+    )
+    parser.add_argument(
+        "--agent-heartbeats",
+        default=str(repo_root / ".aragora" / "agent-bridge" / "heartbeats.json"),
+        help="heartbeat registry used by stale_terminal_owner safety checks",
+    )
+    parser.add_argument(
+        "--operator-steering-root",
+        default=str(repo_root / ".aragora" / "operator-steering"),
+        help="operator-steering inbox root used by stale_terminal_owner safety checks",
+    )
+    parser.add_argument(
+        "--stale-terminal-owner-age-hours",
+        type=float,
+        default=24.0,
+        help="minimum owner-row age before stale_terminal_owner evaluates terminal PR state",
+    )
+    parser.add_argument(
+        "--stale-terminal-owner-receipt-dir",
+        default=str(repo_root / ".aragora" / "agent-bridge" / "conflict-resolution-receipts"),
+        help="receipt directory to print in guarded resolve_lane_conflicts commands",
+    )
+    parser.add_argument(
+        "--stale-terminal-owner-heartbeat-fresh-seconds",
+        type=int,
+        default=15 * 60,
+        help="fresh-heartbeat TTL passed through to resolve_lane_conflicts",
+    )
+    parser.add_argument("--github-repo", default="synaptent/aragora")
+    parser.add_argument("--gh-bin", default="gh")
     parser.add_argument(
         "--publisher-log",
         default=str(repo_root / ".aragora" / "overnight" / "codex-automation-publisher.log"),
