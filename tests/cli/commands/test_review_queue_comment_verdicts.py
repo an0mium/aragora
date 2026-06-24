@@ -194,6 +194,22 @@ def test_same_line_pass_with_priority_finding_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: PASS; [P1] real blocker")
 
 
+def test_severity_gate_finding_or_label_catches_same_line_p1_finding():
+    assert has_blocking_finding_or_label("Verdict: PASS; [P1] auth bypass")
+    assert highest_blocking_severity("Verdict: PASS; [P1] auth bypass") == "P1"
+
+
+def test_severity_gate_finding_or_label_keeps_same_line_p2_advisory():
+    assert not has_blocking_finding_or_label("Verdict: PASS; [P2] follow-up docs")
+    assert highest_blocking_severity("Verdict: PASS; [P2] follow-up docs") is None
+
+
+def test_reasoning_tags_do_not_hide_same_line_priority_finding():
+    body = "<thinking>Verdict: PASS; [P1] auth bypass</thinking>\nVerdict: PASS\nNo findings."
+    assert has_blocking_or_negative_verdict(body)
+    assert has_blocking_finding_or_label(body)
+
+
 @pytest.mark.parametrize(
     "body",
     [

@@ -1188,7 +1188,8 @@ def test_pre_verdict_inline_thinking_block_is_stripped() -> None:
 
 
 def test_closed_thinking_same_line_priority_finding_is_preserved() -> None:
-    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+    from aragora.swarm.quorum_evidence import compose_evidence_comment, normalize_reviewer_output
 
     raw = "<thinking>Verdict: PASS; [P1] real blocker</thinking>\nVerdict: PASS\nNo findings."
 
@@ -1196,6 +1197,61 @@ def test_closed_thinking_same_line_priority_finding_is_preserved() -> None:
 
     assert "[P1] real blocker" in out
     assert "Verdict: PASS\nNo findings." in out
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
+
+
+@pytest.mark.parametrize(
+    "thinking_body",
+    [
+        "> [P1] real blocker",
+        "    [P1] real blocker",
+        "```\n[P1] real blocker\n```",
+    ],
+)
+def test_closed_thinking_formatted_priority_finding_is_preserved_and_blocks(
+    thinking_body: str,
+) -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+    from aragora.swarm.quorum_evidence import compose_evidence_comment, normalize_reviewer_output
+
+    raw = f"Verdict: PASS\nNo findings.\n<thinking>\n{thinking_body}\n</thinking>"
+
+    out = normalize_reviewer_output(raw)
+
+    assert "[P1] real blocker" in out
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
 
 
 def test_closed_thinking_parenthetical_priority_finding_is_preserved() -> None:

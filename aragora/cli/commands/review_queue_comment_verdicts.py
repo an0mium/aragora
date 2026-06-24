@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import re
 
+_REASONING_TAG_NAMES = "think|thinking|reasoning|thought|scratchpad|analysis"
+_REASONING_TAG_RE = re.compile(rf"</?\s*(?:{_REASONING_TAG_NAMES})\s*>", re.I)
+
 # Explicit "no Pn finding" heads. A `[P0]`/`[P1]`/`[P2]` line is blocking UNLESS the text
 # before its first colon is EXACTLY one of these — models emit `"[P1] None:"`,
 # `"[P1] N/A"`, `"[P1] no issues: ..."` to declare the absence of a finding. Matched
@@ -223,6 +226,11 @@ _PRIORITY_MARKER_STRIP = re.compile(
     rf"{_PRIORITY_MARKER_WRAPPER}\s*",
     re.I,
 )
+_PRIORITY_MARKER_ANYWHERE = re.compile(
+    rf"(?:^|[\s;:,.()[\]{{}}—–`'\"\-])(?P<marker>{_PRIORITY_MARKER_TOKEN})"
+    r"(?:\s|$|[:.;—–`'\"\-])",
+    re.I,
+)
 
 
 def _strip_decoration(text: str) -> str:
@@ -233,6 +241,10 @@ def _normalize_value(text: str) -> str:
     text = text.replace("**", "").replace("__", "")
     text = re.sub(r"[-_]+", " ", text)
     return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
+
+
+def _split_reasoning_tags_for_scan(text: str) -> str:
+    return _REASONING_TAG_RE.sub("\n", str(text or ""))
 
 
 _INDENTED_CODE_RE = re.compile(r"^(?: {4,}|\t)\S")
@@ -260,6 +272,19 @@ def _priority_finding_severity(stripped: str) -> str | None:
         # explicit "[Pn] None:/N/A/no issues" non-finding
         return None
     return marker.group("sev").upper()
+
+
+def _priority_finding_severity_anywhere(text: str) -> str | None:
+    best: str | None = None
+    for match in _PRIORITY_MARKER_ANYWHERE.finditer(text):
+        if _inside_benign_parenthetical_priority_reference(text, match.start("marker")):
+            continue
+        severity = _priority_finding_severity(text[match.start("marker") :])
+        if severity == "P0":
+            return "P0"
+        if severity == "P1":
+            best = "P1"
+    return best
 
 
 def _default_blocking_marker_finding(stripped: str) -> bool:
@@ -386,7 +411,7 @@ def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
 
 def has_blocking_or_negative_verdict(body: str) -> bool:
     """Return True for explicit evidence comments that report blockers."""
-    raw_lines = str(body or "").splitlines()
+    raw_lines = _split_reasoning_tags_for_scan(str(body or "")).splitlines()
     lines = [raw_line.strip() for raw_line in raw_lines]
     in_fence = False
     fence_marker = ""
@@ -453,10 +478,15 @@ def has_default_blocking_finding_or_label(body: str) -> bool:
     same no-finding head and Blocker-label parsing as
     :func:`has_blocking_or_negative_verdict`.
     """
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    lines = [
+        raw_line.strip()
+        for raw_line in _split_reasoning_tags_for_scan(str(body or "")).splitlines()
+    ]
     for idx, stripped in enumerate(lines):
         if not stripped:
             continue
+        if _has_default_blocking_marker_anywhere(stripped):
+            return True
         priority_marker_line = _strip_decoration(stripped)
         if _DEFAULT_BLOCKING_MARKER.match(priority_marker_line):
             rest = _DEFAULT_BLOCKING_MARKER_STRIP.sub("", priority_marker_line)
@@ -478,11 +508,11 @@ def highest_blocking_severity(body: str) -> str | None:
     ``"P1"`` when both are present.
     """
     best: str | None = None
-    for raw_line in str(body or "").splitlines():
+    for raw_line in _split_reasoning_tags_for_scan(str(body or "")).splitlines():
         stripped = raw_line.strip()
         if not stripped:
             continue
-        severity = _priority_finding_severity(stripped)
+        severity = _priority_finding_severity_anywhere(stripped)
         if severity == "P0":
             return "P0"
         if severity == "P1":
@@ -500,11 +530,14 @@ def has_blocking_finding_or_label(body: str) -> bool:
     ``CHANGES-REQUESTED`` comment promotes a *blocking* dissent only when it is
     backed by a real `[P0]`/`[P1]` finding or a populated Blocker label.
     """
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    lines = [
+        raw_line.strip()
+        for raw_line in _split_reasoning_tags_for_scan(str(body or "")).splitlines()
+    ]
     for idx, stripped in enumerate(lines):
         if not stripped:
             continue
-        if _priority_finding_severity(stripped) is not None:
+        if _priority_finding_severity_anywhere(stripped) is not None:
             return True
         if _populated_blocker_label(stripped, lines[idx + 1 :]):
             return True

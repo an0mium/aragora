@@ -819,11 +819,28 @@ def _trusted_parser_text(lines: Iterable[str], *, drop_private_nonfindings: bool
     return "".join(trusted).strip()
 
 
+def _blocking_signal_parser_text(
+    lines: Iterable[str], *, drop_private_nonfindings: bool = False
+) -> str:
+    preserved: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            continue
+        if drop_private_nonfindings and _private_reasoning_nonfinding_context(line):
+            continue
+        preserved.append(line)
+    text = "".join(preserved)
+    text = re.sub(rf"</?\s*(?:{_THINKING_TAG_NAMES})\s*>", "\n", text, flags=re.I)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
 def _text_has_concrete_blocking_signal(text: str) -> bool:
-    trusted = _trusted_parser_text(text.splitlines(keepends=True), drop_private_nonfindings=True)
-    trusted = re.sub(rf"</?\s*(?:{_THINKING_TAG_NAMES})\s*>", "", trusted, flags=re.I)
-    return has_default_blocking_finding_or_label(trusted) or has_blocking_or_negative_verdict(
-        trusted
+    blocking_text = _blocking_signal_parser_text(
+        text.splitlines(keepends=True), drop_private_nonfindings=True
+    )
+    return has_default_blocking_finding_or_label(blocking_text) or has_blocking_or_negative_verdict(
+        blocking_text
     )
 
 
@@ -865,11 +882,15 @@ def _closed_thinking_block_is_safe_to_strip(block: str) -> bool:
     return not _text_has_concrete_blocking_signal(block)
 
 
+def _strip_thinking_tags(text: str) -> str:
+    return re.sub(rf"</?\s*(?:{_THINKING_TAG_NAMES})\s*>", "\n", text, flags=re.I)
+
+
 def _strip_closed_thinking_blocks(text: str) -> str:
     return _THINKING_BLOCK_RE.sub(
         lambda match: ""
         if _closed_thinking_block_is_safe_to_strip(match.group(0))
-        else match.group(0),
+        else _strip_thinking_tags(match.group(0)),
         text,
     )
 
@@ -1059,15 +1080,23 @@ def _reanchor_at_verdict(text: str) -> str:
             idx = min(earlier_priority_indices)
         earlier_blocking_indices: list[int] = []
         in_prior_fence = False
+        prior_fence_start: int | None = None
         for line_idx, line in enumerate(lines[:idx]):
             stripped = line.strip()
             if stripped.startswith(("```", "~~~")):
-                in_prior_fence = not in_prior_fence
-                continue
-            if in_prior_fence:
+                if not in_prior_fence:
+                    in_prior_fence = True
+                    prior_fence_start = line_idx
+                else:
+                    in_prior_fence = False
+                    prior_fence_start = None
                 continue
             if _text_has_concrete_blocking_signal(line):
-                earlier_blocking_indices.append(line_idx)
+                earlier_blocking_indices.append(
+                    prior_fence_start
+                    if in_prior_fence and prior_fence_start is not None
+                    else line_idx
+                )
         if earlier_blocking_indices:
             idx = min(earlier_blocking_indices)
         return "\n".join(lines[idx:]).strip()
