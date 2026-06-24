@@ -271,6 +271,29 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
     return False
 
 
+def has_default_blocking_finding_or_label(body: str) -> bool:
+    """Return True for a real default-gate `[P0]`/`[P1]`/`[P2]` finding or Blocker label.
+
+    This deliberately excludes bare negative ``Verdict:`` lines while reusing the
+    same no-finding head and Blocker-label parsing as
+    :func:`has_blocking_or_negative_verdict`.
+    """
+    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    for idx, stripped in enumerate(lines):
+        if not stripped:
+            continue
+        priority_marker_line = _strip_decoration(stripped)
+        if _DEFAULT_BLOCKING_MARKER.match(priority_marker_line):
+            rest = _DEFAULT_BLOCKING_MARKER_STRIP.sub("", priority_marker_line)
+            head = _normalize_value(rest).split(":", 1)[0].strip(" .;—–-")
+            if head not in _NO_FINDING_HEADS:
+                return True
+            continue
+        if _populated_blocker_label(stripped, lines[idx + 1 :]):
+            return True
+    return False
+
+
 def highest_blocking_severity(body: str) -> str | None:
     """Return ``"P0"``/``"P1"`` if ``body`` carries a real (non-:data:`_NO_FINDING_HEADS`)
     `[P0]`/`[P1]` finding line, else ``None``.
