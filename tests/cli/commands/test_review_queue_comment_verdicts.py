@@ -251,6 +251,43 @@ def test_severity_gated_bare_changes_requested_still_blocks():
     assert has_blocking_model_dissent(body, severity_gated=True) is True
 
 
+@pytest.mark.parametrize(
+    "verdict_line",
+    [
+        "Verdict: CHANGES-REQUESTED (P2 only)",
+        "Verdict: CHANGES-REQUESTED - P2 follow-ups only",
+        "Decision: CHANGES-REQUESTED - P2/P3 follow-ups only",
+        "Recommendation: CHANGES-REQUESTED - P3 advisory follow-ups only",
+    ],
+)
+def test_severity_gated_qualified_low_severity_verdict_is_metadata(verdict_line):
+    body = "\n".join(
+        [
+            verdict_line,
+            "[P2] Add a regression test for the advisory path.",
+            "No P0/P1 findings.",
+            "LGTM otherwise.",
+            "Focused adversarial dogfood passed.",
+        ]
+    )
+    assert has_blocking_model_dissent(body, severity_gated=True) is False
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: CHANGES-REQUESTED (auth broken)\n[P2] Add docs.",
+        "Verdict: CHANGES-REQUESTED - P2 follow-ups only\n[P2] Add docs.\n"
+        "LGTM otherwise, but auth remains broken.",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\nNo P0/P1 findings, but auth remains broken.",
+        "Verdict: CHANGES-REQUESTED\n[P2] Add docs.\n"
+        "Focused adversarial dogfood passed, but null leak remains.",
+    ],
+)
+def test_severity_gated_qualified_verdict_or_benign_prose_with_real_tail_blocks(body):
+    assert has_blocking_model_dissent(body, severity_gated=True) is True
+
+
 def test_severity_gated_explicit_no_blockers_can_be_advisory():
     body = "Verdict: CHANGES-REQUESTED\nBlockers: none\nFollow-up-only: yes"
     assert has_blocking_model_dissent(body, severity_gated=True) is False
@@ -353,7 +390,7 @@ def test_severity_gated_safe_head_metadata_with_low_severity_finding_is_advisory
     assert has_blocking_model_dissent(body, severity_gated=True) is False
 
 
-@pytest.mark.parametrize("family", ["yi", "glm", "minimax", "hermes"])
+@pytest.mark.parametrize("family", ["yi", "glm", "minimax", "hermes", "sonar", "perplexity"])
 def test_severity_gated_known_family_metadata_with_low_severity_finding_is_advisory(family):
     body = "\n".join(
         [

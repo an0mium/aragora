@@ -214,6 +214,8 @@ _REVIEWER_FAMILY_PREFIXES = (
     "hermes",
     "nous",
     "nous hermes",
+    "sonar",
+    "perplexity",
 )
 _SUBSTANTIVE_METADATA_DISSENT = re.compile(
     r"\b(?:auth|authorization|bypass|broken|unsafe|critical|do not|dont|don't|"
@@ -268,6 +270,18 @@ _SIMPLE_DOGFOOD_VALUES = frozenset(
         "none",
         "n/a",
         "not applicable",
+    }
+)
+_LOW_SEVERITY_VERDICT_QUALIFIER = re.compile(
+    r"p[23](?:\s*(?:/|,|and|or)\s*p[23])?"
+    r"(?:\s+(?:only|follow ups? only|advisory follow ups? only|non blocking follow ups? only))",
+    re.I,
+)
+_BENIGN_LOW_SEVERITY_REVIEW_PROSE = frozenset(
+    {
+        "focused adversarial dogfood passed",
+        "lgtm otherwise",
+        "no p0/p1 findings",
     }
 )
 
@@ -453,9 +467,18 @@ def _is_simple_verdict_value(normalized_value: str) -> bool:
     for phrase in _SIMPLE_VERDICT_VALUES:
         if value == phrase:
             return True
+        if phrase in _NEGATIVE_SIMPLE_VERDICT_VALUES and value.startswith(f"{phrase} "):
+            qualifier = value[len(phrase) :].strip(" .;:!?()[]—–-")
+            if _LOW_SEVERITY_VERDICT_QUALIFIER.fullmatch(qualifier):
+                return True
         if value.startswith(f"{phrase} from "):
             return phrase not in _NEGATIVE_SIMPLE_VERDICT_VALUES
     return False
+
+
+def _is_benign_low_severity_review_prose(stripped: str) -> bool:
+    value = _normalize_value(_strip_decoration(stripped)).strip(" .;:!?()[]—–-")
+    return value in _BENIGN_LOW_SEVERITY_REVIEW_PROSE
 
 
 def _has_unstructured_dissent_content(body: str) -> bool:
@@ -470,6 +493,8 @@ def _has_unstructured_dissent_content(body: str) -> bool:
             or _is_vague_no_blocker_label(stripped)
             or _is_followup_only_declaration(stripped)
         ):
+            continue
+        if _is_benign_low_severity_review_prose(stripped):
             continue
         if _is_review_metadata_line(stripped):
             continue
