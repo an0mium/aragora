@@ -255,6 +255,37 @@ def test_closed_post_verdict_thinking_trace_does_not_decount_support() -> None:
     assert "qwen" in result["counted_reviewer_ids"]
 
 
+def test_closed_thinking_private_reasoning_finding_is_preserved() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = (
+        "Verdict: PASS\n"
+        "No findings.\n"
+        "<thinking>\n"
+        "[P1] private reasoning parser drops blockers, not a reviewer finding.\n"
+        "</thinking>"
+    )
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "private reasoning parser drops blockers" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "blocking_or_negative_verdict" in result["problems"]
+
+
 def test_closed_post_verdict_thinking_trace_cannot_hide_blocking_finding() -> None:
     from aragora.cli.commands.review_queue import _lint_evidence_comment
 

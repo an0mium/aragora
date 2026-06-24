@@ -104,6 +104,18 @@ def test_same_line_pass_with_priority_finding_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: PASS; [P1] real blocker")
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: PASS; `[P1] auth bypass`",
+        'Verdict: PASS; "[P1] auth bypass"',
+        "Verdict: PASS; '[P2] settlement proof missing'",
+    ],
+)
+def test_same_line_pass_with_wrapped_priority_finding_still_blocks(body):
+    assert has_blocking_or_negative_verdict(body)
+
+
 def test_parenthetical_priority_backlog_reference_is_not_blocking():
     assert not has_blocking_or_negative_verdict("Verdict: PASS (tracked as [P2] in backlog)")
 

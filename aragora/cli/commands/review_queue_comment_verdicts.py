@@ -153,11 +153,16 @@ def _starts_with_phrase(
 # blocking findings — #8555 added `[P2]` to the default merge gate. ``has_blocking_or_
 # negative_verdict`` (the flag-OFF path) uses these so flag-OFF stays byte-identical to
 # main.
-_DEFAULT_BLOCKING_MARKER = re.compile(r"^(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I)
-_DEFAULT_BLOCKING_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?\s*", re.I)
+_PRIORITY_MARKER_WRAPPER = r"(?:[`'\"])?"
+_DEFAULT_BLOCKING_MARKER_TOKEN = (
+    rf"{_PRIORITY_MARKER_WRAPPER}(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?"
+    rf"{_PRIORITY_MARKER_WRAPPER}"
+)
+_DEFAULT_BLOCKING_MARKER = re.compile(rf"^{_DEFAULT_BLOCKING_MARKER_TOKEN}(?:\s|$|[:.;—–-])", re.I)
+_DEFAULT_BLOCKING_MARKER_STRIP = re.compile(rf"^{_DEFAULT_BLOCKING_MARKER_TOKEN}\s*", re.I)
 _DEFAULT_BLOCKING_MARKER_ANYWHERE = re.compile(
-    r"(?:^|[\s;:,.()[\]{}—–-])(?P<marker>(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?)"
-    r"(?:\s|$|[:.;—–-])",
+    rf"(?:^|[\s;:,.()[\]{{}}—–`'\"\-])(?P<marker>{_DEFAULT_BLOCKING_MARKER_TOKEN})"
+    r"(?:\s|$|[:.;—–`'\"\-])",
     re.I,
 )
 _BENIGN_PARENTHETICAL_PRIORITY_REFERENCE_RE = re.compile(
@@ -182,8 +187,16 @@ _BENIGN_PARENTHETICAL_PRIORITY_REFERENCE_RE = re.compile(
 # ARAGORA_ENABLE_SEVERITY_GATED_DISSENT=1 a `[P2]`-only dissent is NOT a blocking
 # severity, so it becomes advisory (that is the whole point of the flag). `[P2]` blocks
 # by default and is advisory under the flag — these two marker sets encode exactly that.
-_PRIORITY_MARKER = re.compile(r"^(?:\*\*)?\[(?P<sev>p0|p1)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I)
-_PRIORITY_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?\s*", re.I)
+_PRIORITY_MARKER_TOKEN = (
+    rf"{_PRIORITY_MARKER_WRAPPER}(?:\*\*)?\[(?P<sev>p0|p1)\](?:\*\*)?"
+    rf"{_PRIORITY_MARKER_WRAPPER}"
+)
+_PRIORITY_MARKER = re.compile(rf"^{_PRIORITY_MARKER_TOKEN}(?:\s|$|[:.;—–-])", re.I)
+_PRIORITY_MARKER_STRIP = re.compile(
+    rf"^{_PRIORITY_MARKER_WRAPPER}(?:\*\*)?\[(?:p0|p1)\](?:\*\*)?"
+    rf"{_PRIORITY_MARKER_WRAPPER}\s*",
+    re.I,
+)
 
 
 def _strip_decoration(text: str) -> str:
