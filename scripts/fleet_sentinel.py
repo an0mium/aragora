@@ -566,7 +566,7 @@ def _read_json_list(path: Path) -> tuple[list[dict[str, Any]], str | None]:
     try:
         payload = json.loads(path.read_text())
     except FileNotFoundError:
-        return [], None
+        return [], "missing"
     except (OSError, json.JSONDecodeError) as exc:
         return [], f"{exc.__class__.__name__}: {exc}"
     if not isinstance(payload, list):

@@ -767,6 +767,25 @@ def _active_owner_row(**overrides: Any) -> dict[str, Any]:
     return row
 
 
+def test_stale_terminal_owner_missing_registry_is_unknown(tmp_path: Path) -> None:
+    result = sentinel.check_stale_terminal_owner(
+        tmp_path / "missing-lanes.json",
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("no PR state fetch")
+        ),
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "unknown"
+    assert "lane registry unreadable: missing" in result["detail"]
+
+
 def test_stale_terminal_owner_reports_safe_merged_pr_with_guarded_commands(
     tmp_path: Path,
 ) -> None:
