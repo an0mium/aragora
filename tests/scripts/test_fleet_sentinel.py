@@ -302,6 +302,160 @@ def test_outbox_oldest_item_too_old_breaches(tmp_path: Path) -> None:
     assert "1 item(s) queued" in result["detail"]
 
 
+def test_outbox_depth_uses_classifier_actionable_depth_when_available(tmp_path: Path) -> None:
+    outbox = tmp_path / "outbox"
+    represented = _touch(outbox / "represented.json", age_hours=9 * 24)
+    gated = _touch(outbox / "gated.json", age_hours=10 * 24)
+    classifier = {
+        "counts": {
+            "represented_by_exact_remote_branch": 1,
+            "blocked_by_owner": 1,
+        },
+        "items": [
+            {
+                "outbox_file": represented.name,
+                "state": "represented_by_exact_remote_branch",
+            },
+            {
+                "outbox_file": gated.name,
+                "state": "blocked_by_owner",
+            },
+        ],
+    }
+
+    result = sentinel.check_outbox(
+        outbox,
+        max_items=1,
+        max_age_days=7,
+        now=NOW,
+        handoff_state=classifier,
+    )
+
+    assert result["status"] == "ok"
+    assert result["depth"] == 2
+    assert result["actionable_depth"] == 0
+    assert result["handoff_state_counts"] == {
+        "blocked_by_owner": 1,
+        "represented_by_exact_remote_branch": 1,
+    }
+    assert "0 actionable" in result["detail"]
+
+
+def test_outbox_depth_breaches_on_old_actionable_classifier_item(tmp_path: Path) -> None:
+    outbox = tmp_path / "outbox"
+    _touch(outbox / "actionable.json", age_hours=8 * 24)
+    classifier = {
+        "counts": {"publication_requested": 1},
+        "items": [{"outbox_file": "actionable.json", "state": "publication_requested"}],
+    }
+
+    result = sentinel.check_outbox(
+        outbox,
+        max_items=50,
+        max_age_days=7,
+        now=NOW,
+        handoff_state=classifier,
+    )
+
+    assert result["status"] == "breach"
+    assert result["depth"] == 1
+    assert result["actionable_depth"] == 1
+    assert "oldest actionable item actionable.json" in result["detail"]
+
+
+def test_run_checks_loads_handoff_classifier_for_outbox_depth(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    represented = _touch(outbox / "represented.json", age_hours=9 * 24)
+
+    def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
+        assert kwargs["repo_root"] == tmp_path
+        assert kwargs["state_root"] == tmp_path
+        return {
+            "github": {"mode": "ready", "error": None},
+            "counts": {"represented_by_exact_remote_branch": 1},
+            "items": [
+                {
+                    "outbox_file": represented.name,
+                    "state": "represented_by_exact_remote_branch",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(sentinel, "classify_handoffs", fake_classify_handoffs)
+    args = sentinel.build_parser().parse_args(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--outbox-dir",
+            str(outbox),
+            "--checks",
+            "outbox_depth",
+            "--outbox-max",
+            "0",
+            "--outbox-max-age-days",
+            "7",
+        ]
+    )
+
+    checks = sentinel.run_checks(args, NOW)
+
+    assert checks == [
+        {
+            "check": "outbox_depth",
+            "status": "ok",
+            "detail": "1 item(s) queued; 0 actionable",
+            "depth": 1,
+            "actionable_depth": 0,
+            "fingerprint": checks[0]["fingerprint"],
+            "handoff_state_counts": {"represented_by_exact_remote_branch": 1},
+        }
+    ]
+
+
+def test_run_checks_falls_back_to_raw_outbox_depth_when_classifier_degraded(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    outbox = tmp_path / ".aragora" / "automation-outbox"
+    _touch(outbox / "represented.json", age_hours=9 * 24)
+
+    def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
+        return {
+            "github": {"mode": "degraded", "error": "gh api exited 1"},
+            "counts": {"represented_by_exact_remote_branch": 1},
+            "items": [
+                {
+                    "outbox_file": "represented.json",
+                    "state": "represented_by_exact_remote_branch",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(sentinel, "classify_handoffs", fake_classify_handoffs)
+    args = sentinel.build_parser().parse_args(
+        [
+            "--repo-root",
+            str(tmp_path),
+            "--outbox-dir",
+            str(outbox),
+            "--checks",
+            "outbox_depth",
+            "--outbox-max",
+            "0",
+            "--outbox-max-age-days",
+            "7",
+        ]
+    )
+
+    checks = sentinel.run_checks(args, NOW)
+
+    assert checks[0]["status"] == "breach"
+    assert checks[0]["depth"] == 1
+    assert checks[0]["actionable_depth"] == 1
+    assert "handoff_state_counts" not in checks[0]
+
+
 def test_outbox_missing_dir_is_ok(tmp_path: Path) -> None:
     result = sentinel.check_outbox(tmp_path / "absent", max_items=50, max_age_days=7, now=NOW)
     assert result["status"] == "ok"

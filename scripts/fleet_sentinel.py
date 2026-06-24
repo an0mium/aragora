@@ -36,10 +36,16 @@ import shlex
 import shutil
 import subprocess
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Callable
+
+SCRIPTS_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPTS_DIR))
+
+from handoff_state import classify_handoffs  # noqa: E402
 
 CheckResult = dict[str, Any]
 
@@ -61,6 +67,11 @@ ALL_CHECKS = (
 # ledger-less orphan-branch sweep (failure class A, 2026-06-10/11: coordinator
 # lanes died at setup leaving empty elves/run-* branches nobody noticed).
 ORPHAN_BRANCH_PATTERNS = ("elves/*", "aragora/boss*")
+ACTIONABLE_HANDOFF_STATES = {
+    "publication_requested",
+    "blocked_by_live_queue_cap",
+    "unknown",
+}
 
 
 def parse_iso(value: str) -> datetime:
@@ -202,37 +213,109 @@ def check_checkout_invariant(repo: Path, *, branch_reader: Callable[[Path], str]
 
 
 def check_outbox(
-    outbox_dir: Path, *, max_items: int, max_age_days: float, now: datetime
+    outbox_dir: Path,
+    *,
+    max_items: int,
+    max_age_days: float,
+    now: datetime,
+    handoff_state: Mapping[str, Any] | None = None,
 ) -> CheckResult:
-    """Outbox depth and oldest-item age (archive/ excluded)."""
+    """Outbox depth and oldest actionable-item age (archive/ excluded)."""
     name = "outbox_depth"
     if not outbox_dir.is_dir():
         result = _result(name, "ok", f"no outbox dir at {outbox_dir}")
         result["depth"] = 0
+        result["actionable_depth"] = 0
         result["fingerprint"] = _outbox_fingerprint([])
         return result
     items = sorted(p for p in outbox_dir.glob("*.json") if p.is_file())
     fingerprint = _outbox_fingerprint(items)
+    actionable_items = _actionable_outbox_items(items, handoff_state)
+    actionable_depth = len(actionable_items)
+    handoff_counts = _handoff_state_counts(handoff_state)
     problems: list[str] = []
-    if len(items) > max_items:
-        problems.append(f"{len(items)} items queued (max {max_items})")
-    if items:
-        oldest = min(items, key=lambda p: p.stat().st_mtime)
+    if actionable_depth > max_items:
+        problems.append(
+            f"{actionable_depth} actionable item(s) queued "
+            f"(raw depth {len(items)}, max {max_items})"
+        )
+    if actionable_items:
+        oldest = min(actionable_items, key=lambda p: p.stat().st_mtime)
         oldest_days = _age_hours(oldest, now) / 24.0
         if oldest_days > max_age_days:
             problems.append(
-                f"{len(items)} item(s) queued; oldest item {oldest.name} is "
-                f"{oldest_days:.1f}d old (max {max_age_days}d)"
+                f"{len(items)} item(s) queued; {actionable_depth} actionable item(s); "
+                f"oldest actionable item {oldest.name} is {oldest_days:.1f}d old "
+                f"(max {max_age_days}d)"
             )
     if problems:
         result = _result(name, "breach", "; ".join(problems))
         result["depth"] = len(items)
+        result["actionable_depth"] = actionable_depth
         result["fingerprint"] = fingerprint
+        if handoff_counts:
+            result["handoff_state_counts"] = handoff_counts
         return result
-    result = _result(name, "ok", f"{len(items)} item(s) queued")
+    result = _result(
+        name,
+        "ok",
+        f"{len(items)} item(s) queued; {actionable_depth} actionable",
+    )
     result["depth"] = len(items)
+    result["actionable_depth"] = actionable_depth
     result["fingerprint"] = fingerprint
+    if handoff_counts:
+        result["handoff_state_counts"] = handoff_counts
     return result
+
+
+def _handoff_state_counts(handoff_state: Mapping[str, Any] | None) -> dict[str, int]:
+    counts = handoff_state.get("counts") if isinstance(handoff_state, Mapping) else None
+    if not isinstance(counts, Mapping):
+        return {}
+    normalized: dict[str, int] = {}
+    for key, value in counts.items():
+        try:
+            normalized[str(key)] = int(value)
+        except (TypeError, ValueError):
+            continue
+    return dict(sorted(normalized.items()))
+
+
+def _actionable_outbox_items(
+    items: Sequence[Path],
+    handoff_state: Mapping[str, Any] | None,
+) -> list[Path]:
+    if not handoff_state:
+        return list(items)
+    raw_items = handoff_state.get("items")
+    if not isinstance(raw_items, Sequence) or isinstance(raw_items, (str, bytes, bytearray)):
+        return list(items)
+    actionable_names = {
+        str(item.get("outbox_file") or "").strip()
+        for item in raw_items
+        if isinstance(item, Mapping)
+        and str(item.get("state") or "").strip() in ACTIONABLE_HANDOFF_STATES
+    }
+    if not actionable_names:
+        return []
+    by_name = {item.name: item for item in items}
+    return [by_name[name] for name in sorted(actionable_names) if name in by_name]
+
+
+def _load_handoff_state(args: argparse.Namespace) -> Mapping[str, Any] | None:
+    try:
+        payload = classify_handoffs(
+            repo_root=Path(args.repo_root),
+            state_root=Path(args.repo_root),
+            github_repo=getattr(args, "github_repo", None),
+        )
+    except Exception:
+        return None
+    github = payload.get("github") if isinstance(payload, Mapping) else None
+    if not isinstance(github, Mapping) or github.get("mode") != "ready":
+        return None
+    return payload if isinstance(payload, Mapping) else None
 
 
 def _outbox_fingerprint(items: list[Path]) -> str:
@@ -1158,6 +1241,7 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         max_items=args.outbox_max,
                         max_age_days=args.outbox_max_age_days,
                         now=now,
+                        handoff_state=_load_handoff_state(args),
                     )
                 )
             elif name == "outbox_drain_progress":
@@ -1251,6 +1335,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--launch-agents-dir", default=str(Path.home() / "Library" / "LaunchAgents")
     )
     parser.add_argument("--gh-auth-cmd", default="gh auth status")
+    parser.add_argument(
+        "--github-repo",
+        default="synaptent/aragora",
+        help="GitHub repository used by the handoff-state classifier.",
+    )
     parser.add_argument("--outbox-dir", default=str(repo_root / ".aragora" / "automation-outbox"))
     parser.add_argument("--outbox-max", type=int, default=50)
     parser.add_argument("--outbox-max-age-days", type=float, default=7.0)
