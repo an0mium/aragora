@@ -786,7 +786,7 @@ def _offset_in_spans(offset: int, spans: list[tuple[int, int]]) -> bool:
 _PRIVATE_REASONING_NONFINDING_RE = re.compile(
     r"^(?:\[(?:P0|P1|P2)\]\s*)?"
     r"(?:this\s+was\s+)?(?:only\s+)?(?:private|internal|abandoned)\s+"
-    r"(?:reasoning|preamble)\b.*"
+    r"(?:(?:private|internal)\s+)?(?:reasoning|preamble)\b.*"
     r"(?:not\s+(?:a\s+)?reviewer\s+finding|not\s+the\s+review)\.?\s*$",
     re.IGNORECASE,
 )
@@ -822,6 +822,34 @@ def _trusted_parser_text(lines: Iterable[str], *, drop_private_nonfindings: bool
 def _text_has_concrete_blocking_signal(text: str) -> bool:
     trusted = _trusted_parser_text(text.splitlines(keepends=True), drop_private_nonfindings=True)
     return has_default_blocking_finding_or_label(trusted)
+
+
+def _negative_open_tail_is_private_nonfinding(text: str) -> bool:
+    verdict_seen = False
+    nonfinding_seen = False
+    for raw_line in _trusted_parser_text(text.splitlines(keepends=True)).splitlines():
+        line = _THINKING_OPEN_RE.sub("", raw_line, count=1).strip()
+        if not line:
+            continue
+        if _trusted_line_verdict(line):
+            verdict_seen = True
+            continue
+        if _private_reasoning_nonfinding_context(line):
+            nonfinding_seen = True
+            continue
+        return False
+    return verdict_seen and nonfinding_seen
+
+
+def _open_tail_has_blocking_or_negative_signal(text: str) -> bool:
+    if not text:
+        return False
+    if _text_has_concrete_blocking_signal(text):
+        return True
+    trusted = _trusted_parser_text(text.splitlines(keepends=True))
+    return has_blocking_or_negative_verdict(
+        trusted
+    ) and not _negative_open_tail_is_private_nonfinding(trusted)
 
 
 def _closed_thinking_block_is_safe_to_strip(block: str) -> bool:
@@ -923,7 +951,7 @@ def _strip_thinking_traces(text: str) -> str:
             open_tail_has_concrete_blocking = bool(
                 open_thinking_tail
                 and not closed_thinking_block
-                and _text_has_concrete_blocking_signal(open_thinking_tail)
+                and _open_tail_has_blocking_or_negative_signal(open_thinking_tail)
             )
             if (
                 _THINKING_OPEN_RE.match(line)
