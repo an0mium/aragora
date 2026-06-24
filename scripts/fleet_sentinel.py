@@ -75,12 +75,37 @@ LIVE_OWNER_BLOCKERS = frozenset({"fresh_heartbeat", "live_process"})
 _RESOLVER_MODULE: Any | None = None
 
 
+def _canonical_repo_root(path: Path) -> Path:
+    common_dir_proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if common_dir_proc.returncode == 0:
+        common_dir = common_dir_proc.stdout.strip()
+        if common_dir.endswith("/.git"):
+            return Path(common_dir).resolve().parent
+
+    root_proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if root_proc.returncode == 0 and root_proc.stdout.strip():
+        return Path(root_proc.stdout.strip()).resolve()
+    return path.resolve()
+
+
 def _automation_state_root(repo_root: Path) -> Path:
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
     if configured:
         root = Path(configured).expanduser()
         return root if root.name == ".aragora" else root / ".aragora"
-    return repo_root / ".aragora"
+    return _canonical_repo_root(repo_root) / ".aragora"
 
 
 def parse_iso(value: str) -> datetime:

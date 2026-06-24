@@ -164,6 +164,26 @@ def test_stale_terminal_owner_defaults_use_automation_state_root(
     )
 
 
+def test_stale_terminal_owner_defaults_use_canonical_repo_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    canonical_root = tmp_path / "canonical-repo"
+    monkeypatch.delenv("ARAGORA_AUTOMATION_STATE_ROOT", raising=False)
+    monkeypatch.setattr(sentinel, "_canonical_repo_root", lambda path: canonical_root)
+
+    args = sentinel.build_parser().parse_args([])
+
+    root = canonical_root / ".aragora"
+    assert Path(args.agent_bridge_lanes) == root / "agent-bridge" / "lanes.json"
+    assert Path(args.agent_heartbeats) == root / "agent-bridge" / "heartbeats.json"
+    assert Path(args.operator_steering_root) == root / "operator-steering"
+    assert (
+        Path(args.stale_terminal_owner_receipt_dir)
+        == root / "agent-bridge" / "conflict-resolution-receipts"
+    )
+
+
 # ---------------------------------------------------------------------------
 # boss_metrics_heartbeat
 # ---------------------------------------------------------------------------
