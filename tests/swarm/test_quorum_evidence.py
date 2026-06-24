@@ -997,9 +997,13 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
 
     result = qe._run_claude_cli("review prompt")
 
-    assert seen["args"] == (
-        ["claude", "-p", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}'],
-    )
+    argv = seen["args"][0]
+    assert argv[:2] == ["claude", "-p"]
+    assert "--strict-mcp-config" in argv
+    assert "--mcp-config" in argv
+    mcp_config = Path(argv[argv.index("--mcp-config") + 1])
+    assert mcp_config.name.endswith(".json")
+    assert str(mcp_config) != '{"mcpServers":{}}'
     assert seen["timeout"] == 7.0
     assert result == ReviewerResult(
         "claude",
@@ -1009,12 +1013,34 @@ def test_run_claude_cli_uses_env_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
 
+def test_run_claude_cli_uses_file_backed_mcp_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_run(args, **_kwargs):
+        config_arg = args[args.index("--mcp-config") + 1]
+        config_path = Path(config_arg)
+        seen["config_arg"] = config_arg
+        seen["exists_during_run"] = config_path.exists()
+        seen["config_payload"] = json.loads(config_path.read_text(encoding="utf-8"))
+        return subprocess.CompletedProcess(args, 0, stdout="Verdict: PASS\n", stderr="")
+
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+
+    result = qe._run_claude_cli("review prompt")
+
+    config_path = Path(str(seen["config_arg"]))
+    assert seen["exists_during_run"] is True
+    assert seen["config_payload"] == {"mcpServers": {}}
+    assert not config_path.exists()
+    assert result == ReviewerResult("claude", "Verdict: PASS", True)
+
+
 def test_claude_reviewer_command_disables_mcp() -> None:
-    cmd = qe._claude_reviewer_command()
+    cmd = qe._claude_reviewer_command(Path("/tmp/empty-mcp.json"))
 
     assert cmd[:2] == ["claude", "-p"]
     assert "--mcp-config" in cmd
-    assert cmd[cmd.index("--mcp-config") + 1] == '{"mcpServers":{}}'
+    assert cmd[cmd.index("--mcp-config") + 1] == "/tmp/empty-mcp.json"
     assert "--strict-mcp-config" in cmd
 
 
@@ -3520,3 +3546,167 @@ def test_tier_quorum_rule_matrix():
             assert tier_quorum_rule(tier, tiered_gate=gate) == TierQuorumRule(
                 2, False, western_only_counted=True
             )
+
+
+# --- severity_gated prepare/apply round-trip (claude/grok #8574 P2) ---
+def test_evidence_item_severity_gated_roundtrips() -> None:
+    # The severity-gate regime an artifact was prepared under must survive
+    # serialization, exactly like tiered_gate, so apply can't silently re-decide.
+    for regime in (True, False):
+        outcome = CollectOutcome(
+            repo="o/r",
+            pr=1,
+            head_sha=HEAD,
+            head_committed_at=COMMITTED,
+            tier=4,
+            action="prepare",
+            action_reason="x",
+            items=[
+                EvidenceItem(
+                    "claude",
+                    _prepared_body("claude"),
+                    True,
+                    ["claude"],
+                    [],
+                    "pass",
+                    severity_gated=regime,
+                )
+            ],
+        )
+        assert outcome.to_dict()["items"][0]["severity_gated"] is regime
+        rehydrated = qe.collect_outcome_from_dict(outcome.to_dict())
+        assert rehydrated.items[0].severity_gated is regime
+
+
+def test_evidence_item_missing_severity_gated_fails_closed() -> None:
+    # Legacy/forged artifacts that omit severity_gated default to the STRICT regime
+    # (False) so a missing field can never relax dissent.
+    item = qe._evidence_item_from_dict(
+        {
+            "family": "claude",
+            "body": _prepared_body("claude"),
+            "would_count": True,
+            "verdict": "pass",
+        }
+    )
+    assert item.severity_gated is False
+
+
+def test_clone_prepared_items_reconciles_severity_gated_min() -> None:
+    # min(prepared, live): the relaxed regime survives only when BOTH agree.
+    relaxed = EvidenceItem(
+        "claude", "- [P2] nit", True, ["claude"], [], "changes_requested", severity_gated=True
+    )
+    strict = EvidenceItem(
+        "claude", "- [P2] nit", True, ["claude"], [], "changes_requested", severity_gated=False
+    )
+    assert qe._clone_prepared_items([relaxed], live_severity_gated=True)[0].severity_gated is True
+    assert qe._clone_prepared_items([relaxed], live_severity_gated=False)[0].severity_gated is False
+    assert qe._clone_prepared_items([strict], live_severity_gated=True)[0].severity_gated is False
+    assert qe._clone_prepared_items([relaxed])[0].severity_gated is True  # None preserves prepared
+
+
+def test_severity_gated_regime_controls_p2_dissent_after_roundtrip() -> None:
+    # A [P2]-only changes_requested is advisory under the relaxed regime and blocking
+    # under strict — and the regime that decides it survives serialization.
+    body = "Verdict: CHANGES-REQUESTED\n\n- [P2] minor style nit"
+    assert (
+        EvidenceItem(
+            "grok", body, False, ["grok"], [], "changes_requested", severity_gated=True
+        ).dissenting
+        is False
+    )
+    assert (
+        EvidenceItem(
+            "grok", body, False, ["grok"], [], "changes_requested", severity_gated=False
+        ).dissenting
+        is True
+    )
+    rt = qe._evidence_item_from_dict(
+        {
+            "family": "grok",
+            "body": body,
+            "would_count": False,
+            "verdict": "changes_requested",
+            "severity_gated": True,
+        }
+    )
+    assert rt.severity_gated is True and rt.dissenting is False
+
+
+def test_apply_relint_preserves_reconciled_severity_gated(tmp_path, monkeypatch) -> None:
+    # End-to-end apply: a STRICT-prepared (severity_gated=False) [P2]-only
+    # changes_requested item must stay strict (dissenting) even when the live flag is
+    # ON. The relint loop must not let EvidenceItem.default_factory re-read the live
+    # env and undo min(prepared, live) (claude/grok #8574 P1).
+    body = "Verdict: CHANGES-REQUESTED\n\n- [P2] minor style nit"
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=4,
+        action="prepare",
+        action_reason="prepared",
+        items=[
+            EvidenceItem(
+                "grok", body, True, ["grok"], [], "changes_requested", severity_gated=False
+            )
+        ],
+    )
+    path = tmp_path / "strict_p2.json"
+    path.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")  # live ON would relax it
+    applied = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=path,
+        author="me",
+        apply=True,
+        families=["grok"],
+        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda r, p: 4,
+        linter=lambda *a, **k: {
+            "would_count": True,
+            "counted_reviewer_ids": ["grok"],
+            "problems": [],
+        },
+        poster=lambda r, p, b: None,
+    )
+    assert applied.items[0].severity_gated is False  # reconciled strict survives relint
+    assert applied.items[0].dissenting is True
+    assert "grok" in applied.dissenting_families
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        (True, True),
+        (False, False),
+        ("true", True),
+        ("1", True),
+        ("on", True),
+        ("false", False),
+        ("0", False),
+        ("", False),
+        (None, False),
+        (1, True),
+        (0, False),
+    ],
+)
+def test_coerce_relaxed_flag(raw, expected) -> None:
+    # bool("false") would be True; the coercion fails closed for stringly flags.
+    assert qe._coerce_relaxed_flag(raw) is expected
+
+
+def test_severity_gated_string_false_stays_strict_through_restore() -> None:
+    item = qe._evidence_item_from_dict(
+        {
+            "family": "claude",
+            "body": _prepared_body("claude"),
+            "would_count": True,
+            "verdict": "pass",
+            "severity_gated": "false",
+        }
+    )
+    assert item.severity_gated is False

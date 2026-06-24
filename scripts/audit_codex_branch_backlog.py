@@ -218,21 +218,45 @@ def worktree_map(root: Path) -> dict[str, list[Path]]:
 
     by_branch: dict[str, list[Path]] = defaultdict(list)
     current_path: Path | None = None
+    current_head: str | None = None
     current_branch: str | None = None
 
     def flush() -> None:
-        if current_path is not None and current_branch:
+        if current_path is None:
+            return
+        if current_branch:
             by_branch[current_branch].append(current_path)
+        elif current_head and COMMIT_PREFIX_RE.fullmatch(current_head):
+            for prefix_len in range(7, len(current_head) + 1):
+                by_branch[current_head[:prefix_len]].append(current_path)
 
     for line in proc.stdout.splitlines():
         if line.startswith("worktree "):
             flush()
             current_path = Path(line.removeprefix("worktree ").strip()).resolve()
+            current_head = None
             current_branch = None
+        elif line.startswith("HEAD "):
+            current_head = line.removeprefix("HEAD ").strip()
         elif line.startswith("branch "):
             current_branch = line.removeprefix("branch refs/heads/").strip()
     flush()
     return by_branch
+
+
+def _worktree_paths_for_branch(
+    worktrees: Mapping[str, list[Path]], branch: str, head_sha: str
+) -> list[Path]:
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    normalized_head = head_sha.strip().lower()
+    for key in (branch, normalized_head):
+        for path in worktrees.get(key, []):
+            if path in seen:
+                continue
+            seen.add(path)
+            paths.append(path)
+    return paths
 
 
 def dirty_worktree(path: Path) -> bool:
@@ -1184,7 +1208,7 @@ def audit(
     for row in rows:
         branch = row["name"]
         committed_at = parse_dt(row["committed_at"])
-        paths = worktrees.get(branch, [])
+        paths = _worktree_paths_for_branch(worktrees, branch, row["head_sha"])
         dirty_paths = [str(path) for path in paths if dirty_worktree(path)]
         active_paths = [str(path) for path in paths if active_worktree(path)]
         open_pr = prs.get(branch) if prs is not None else None

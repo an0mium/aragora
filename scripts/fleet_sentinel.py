@@ -49,6 +49,7 @@ ALL_CHECKS = (
     "gh_auth",
     "checkout_invariant",
     "outbox_depth",
+    "outbox_drain_progress",
     "disk_free",
     "lane_liveness",
     "github_api_health",
@@ -215,11 +216,76 @@ def check_outbox(
         oldest_days = _age_hours(oldest, now) / 24.0
         if oldest_days > max_age_days:
             problems.append(
-                f"oldest item {oldest.name} is {oldest_days:.1f}d old (max {max_age_days}d)"
+                f"{len(items)} item(s) queued; oldest item {oldest.name} is "
+                f"{oldest_days:.1f}d old (max {max_age_days}d)"
             )
     if problems:
         return _result(name, "breach", "; ".join(problems))
     return _result(name, "ok", f"{len(items)} item(s) queued")
+
+
+def check_outbox_drain_progress(
+    ledger: Path,
+    outbox_dir: Path,
+    *,
+    stall_cycles: int,
+    min_floor: int,
+) -> CheckResult:
+    """Circuit-breaker: flag an outbox that stays congested without draining.
+
+    A drain/conductor loop that keeps running but never reduces the outbox is
+    making no *external* progress — the molasses failure mode in
+    ``docs/AGENT_OPERATING_CONTRACT.md`` §Conductor (observed June 2026: an outbox
+    stuck at its ceiling for ~9 days while the loop only re-messaged stale lanes).
+
+    Best-effort stall heuristic: breaches when the outbox has stayed at/above the
+    alert floor (``min_floor``) across the ``stall_cycles`` window AND is not
+    currently improving (current depth ≥ the most-recent prior reading). It is a
+    coarse no-progress signal for a non-gating diagnostic, not a precise drain
+    detector — a brief sawtooth can evade it; that is acceptable for a
+    circuit-breaker hint. On breach the loop should halt and escalate to the
+    operator instead of mailing more dead letters.
+    """
+    name = "outbox_drain_progress"
+    if stall_cycles < 1:
+        return _result(name, "unknown", f"stall_cycles must be >= 1, got {stall_cycles}")
+    current = sum(1 for p in outbox_dir.glob("*.json") if p.is_file()) if outbox_dir.is_dir() else 0
+    if current < min_floor:
+        return _result(name, "ok", f"outbox depth {current} below floor {min_floor}")
+    if not ledger.exists():
+        return _result(name, "ok", f"no ledger history at {ledger}; cannot assess drain")
+    history: list[int] = []
+    for line in _read_tail_lines(ledger, stall_cycles + 4):
+        try:
+            entry = json.loads(line)
+        except (ValueError, TypeError):
+            continue
+        for check in entry.get("checks") or []:
+            if isinstance(check, dict) and check.get("check") == "outbox_depth":
+                match = re.search(r"(\d+)\s+item", str(check.get("detail") or ""))
+                if match:
+                    history.append(int(match.group(1)))
+                break
+    if len(history) < stall_cycles:
+        return _result(
+            name, "ok", f"only {len(history)} prior cycle(s); need {stall_cycles} to assess drain"
+        )
+    window = history[-stall_cycles:]
+    congested = all(depth >= min_floor for depth in window)
+    sequence = [*window, current]
+    not_draining = all(later >= earlier for earlier, later in zip(sequence, sequence[1:]))
+    if congested and not_draining:
+        return _result(
+            name,
+            "breach",
+            f"outbox not draining: depth stayed at/above {min_floor} across {stall_cycles} cycles "
+            f"(recent depths {window}, now {current}) without any decrease — the drain loop is "
+            "making no external progress; HALT it and escalate to the operator, do not keep "
+            "re-messaging stale lanes (§Conductor dead-letter ban)",
+        )
+    return _result(
+        name, "ok", f"outbox draining or fluctuating (recent depths {window}, now {current})"
+    )
 
 
 def check_disk_free(
@@ -1027,6 +1093,15 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         now=now,
                     )
                 )
+            elif name == "outbox_drain_progress":
+                results.append(
+                    check_outbox_drain_progress(
+                        Path(args.ledger),
+                        Path(args.outbox_dir),
+                        stall_cycles=args.outbox_drain_stall_cycles,
+                        min_floor=args.outbox_max,
+                    )
+                )
             elif name == "disk_free":
                 results.append(
                     check_disk_free(Path(args.repo_root), min_free_gib=args.min_free_gib)
@@ -1112,6 +1187,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--outbox-dir", default=str(repo_root / ".aragora" / "automation-outbox"))
     parser.add_argument("--outbox-max", type=int, default=50)
     parser.add_argument("--outbox-max-age-days", type=float, default=7.0)
+    parser.add_argument(
+        "--outbox-drain-stall-cycles",
+        type=int,
+        default=3,
+        help="breach if the outbox stays at/above --outbox-max without draining for this "
+        "many consecutive sentinel cycles (circuit-breaker; §Conductor)",
+    )
     parser.add_argument("--min-free-gib", type=float, default=25.0)
     parser.add_argument(
         "--lanes-glob",

@@ -144,6 +144,55 @@ def test_branch_divergence_map_honors_custom_prefix(tmp_path: Path, monkeypatch:
     ) == {"automation/example": (4, 1)}
 
 
+def test_worktree_map_indexes_detached_heads_by_commit_prefix(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    detached = tmp_path / "detached"
+    attached = tmp_path / "attached"
+    head = "abcdef1234567890abcdef1234567890abcdef12"
+
+    def fake_run_git(
+        args: list[str], cwd: Path, *, timeout: int = 60
+    ) -> subprocess.CompletedProcess[str]:
+        assert args == ["worktree", "list", "--porcelain"]
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=(
+                f"worktree {detached}\n"
+                f"HEAD {head}\n"
+                "detached\n"
+                "\n"
+                f"worktree {attached}\n"
+                "HEAD 1111111111111111111111111111111111111111\n"
+                "branch refs/heads/codex/attached\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+
+    mapping = mod.worktree_map(tmp_path)
+
+    assert mapping["abcdef1"] == [detached.resolve()]
+    assert mapping["abcdef1234"] == [detached.resolve()]
+    assert mapping[head] == [detached.resolve()]
+    assert mapping["codex/attached"] == [attached.resolve()]
+
+
+def test_worktree_paths_for_branch_matches_head_sha_case_insensitively(
+    tmp_path: Path,
+) -> None:
+    worktree = tmp_path / "detached-worktree"
+    worktree.mkdir()
+
+    paths = mod._worktree_paths_for_branch(
+        {"abc1234": [worktree]}, "codex/detached-active", "ABC1234"
+    )
+
+    assert paths == [worktree]
+
+
 def test_summary_only_payload_omits_records_without_mutating_source() -> None:
     payload = {
         "branch_count": 2,
@@ -912,6 +961,57 @@ def test_active_worktree_preserves_live_session_blocker(tmp_path: Path, monkeypa
     monkeypatch.setattr(mod.autopilot, "_has_active_session", lambda _path: True)
 
     assert mod.active_worktree(worktree) is True
+
+
+def test_audit_protects_detached_active_worktree_at_branch_head(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    worktree = tmp_path / "detached-worktree"
+    worktree.mkdir()
+    row = _branch_row(
+        "codex/detached-active",
+        ahead_count="0",
+        behind_count="2",
+        head_sha="abc1234",
+    )
+    monkeypatch.setattr(mod, "local_branches", lambda _root, _prefix, _base: [row])
+    monkeypatch.setattr(mod, "remote_branch_names", lambda _root, _prefix: set())
+    monkeypatch.setattr(
+        mod,
+        "merged_branch_names",
+        lambda _root, _base, _prefix: {"codex/detached-active"},
+    )
+    monkeypatch.setattr(mod, "worktree_map", lambda _root: {"abc1234": [worktree]})
+    monkeypatch.setattr(mod, "active_worktree", lambda path: path == worktree)
+    monkeypatch.setattr(
+        mod,
+        "check_github_cli_health",
+        lambda _root, **_kwargs: GitHubCLIHealth(
+            ready=False,
+            auth_ok=False,
+            api_ok=False,
+            mode="connectivity_failed",
+            error="offline",
+            repo=str(tmp_path),
+        ),
+    )
+
+    payload = mod.audit(
+        root=tmp_path,
+        base="origin/main",
+        repo="synaptent/aragora",
+        prefix="codex/",
+        recent_hours=72,
+        max_branches=None,
+        include_patch_equivalence=False,
+        publisher_backlog_limit=1,
+    )
+
+    record = payload["records"][0]
+    assert record["worktree_paths"] == [str(worktree)]
+    assert record["active_worktree_paths"] == [str(worktree)]
+    assert record["category"] == "protected_active_worktree"
+    assert payload["summary"]["safe_cleanup_candidates"] == 0
 
 
 def test_audit_skips_patch_equivalence_for_dirty_worktrees(
