@@ -6058,6 +6058,63 @@ class TestCommandDispatch:
         assert payload["would_count"] is True
         assert payload["counted_reviewer_ids"] == ["openai"]
 
+    def test_evidence_lint_accepts_parenthetical_priority_backlog_reference(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Verdict: PASS (tracked as [P2] in backlog)\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 0
+        assert payload["would_count"] is True
+        assert payload["counted_reviewer_ids"] == ["openai"]
+
+    def test_evidence_lint_rejects_later_noncanonical_dissent_verdict(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Verdict: PASS\n"
+                    "Recommendation: needs revision before merge\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert "untrusted_or_non_supportive_verdict" in payload["problems"]
+
     def test_evidence_lint_rejects_pass_on_wording_as_supportive_verdict(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="evidence-lint",

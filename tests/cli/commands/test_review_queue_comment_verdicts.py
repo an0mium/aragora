@@ -100,6 +100,14 @@ def test_negative_verdict_line_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: CHANGES-REQUESTED")
 
 
+def test_same_line_pass_with_priority_finding_still_blocks():
+    assert has_blocking_or_negative_verdict("Verdict: PASS; [P1] real blocker")
+
+
+def test_parenthetical_priority_backlog_reference_is_not_blocking():
+    assert not has_blocking_or_negative_verdict("Verdict: PASS (tracked as [P2] in backlog)")
+
+
 # --- Blocker-label path: bare "no" finding bypass (openai #8574 P1) --------
 #
 # `_NON_BLOCKING_PREFIXES` used to include a bare "no", so a populated Blocker

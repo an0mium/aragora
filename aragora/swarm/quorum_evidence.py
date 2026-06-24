@@ -821,7 +821,10 @@ def _trusted_parser_text(lines: Iterable[str], *, drop_private_nonfindings: bool
 
 def _text_has_concrete_blocking_signal(text: str) -> bool:
     trusted = _trusted_parser_text(text.splitlines(keepends=True), drop_private_nonfindings=True)
-    return has_default_blocking_finding_or_label(trusted)
+    trusted = re.sub(rf"</?\s*(?:{_THINKING_TAG_NAMES})\s*>", "", trusted, flags=re.I)
+    return has_default_blocking_finding_or_label(trusted) or has_blocking_or_negative_verdict(
+        trusted
+    )
 
 
 def _negative_open_tail_is_private_nonfinding(text: str) -> bool:
@@ -1054,6 +1057,19 @@ def _reanchor_at_verdict(text: str) -> str:
         ]
         if earlier_priority_indices:
             idx = min(earlier_priority_indices)
+        earlier_blocking_indices: list[int] = []
+        in_prior_fence = False
+        for line_idx, line in enumerate(lines[:idx]):
+            stripped = line.strip()
+            if stripped.startswith(("```", "~~~")):
+                in_prior_fence = not in_prior_fence
+                continue
+            if in_prior_fence:
+                continue
+            if _text_has_concrete_blocking_signal(line):
+                earlier_blocking_indices.append(line_idx)
+        if earlier_blocking_indices:
+            idx = min(earlier_blocking_indices)
         return "\n".join(lines[idx:]).strip()
     return text.strip()
 

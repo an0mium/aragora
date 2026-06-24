@@ -3675,10 +3675,14 @@ _SUPPORTIVE_VERDICT_PREFIXES = (
     "green",
     "looks good",
     "lgtm",
+    "no blocking issues",
     "no blocking findings",
     "no blockers",
+    "no changes needed",
     "no changes requested",
+    "no concerns",
     "no findings",
+    "no issues",
     "pass",
     "passed",
     "ready",
@@ -3724,7 +3728,8 @@ def _has_any_verdict_label_line(body: str) -> bool:
     )
 
 
-def _has_trusted_supportive_verdict_label(body: str) -> bool:
+def _trusted_verdict_label_values(body: str) -> list[str]:
+    values: list[str] = []
     in_fence = False
     for raw_line in str(body or "").splitlines():
         stripped = raw_line.strip()
@@ -3738,19 +3743,35 @@ def _has_trusted_supportive_verdict_label(body: str) -> bool:
         value = _extract_verdict_label_value(raw_line)
         if value is None:
             continue
+        values.append(value)
+    return values
+
+
+def _normalized_verdict_label_is_supportive(normalized: str) -> bool:
+    if re.match(r"pass(?:ed)?\s+on\b", normalized):
+        return False
+    return any(
+        re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
+        for prefix in _SUPPORTIVE_VERDICT_PREFIXES
+    )
+
+
+def _has_trusted_supportive_verdict_label(body: str) -> bool:
+    for value in _trusted_verdict_label_values(body):
         normalized = _normalize_verdict_label_value(value)
-        if re.match(r"pass(?:ed)?\s+on\b", normalized):
-            continue
-        if any(
-            re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
-            for prefix in _SUPPORTIVE_VERDICT_PREFIXES
-        ):
+        if _normalized_verdict_label_is_supportive(normalized):
             return True
     return False
 
 
 def _has_untrusted_or_non_supportive_verdict_label(body: str) -> bool:
-    return _has_any_verdict_label_line(body) and not _has_trusted_supportive_verdict_label(body)
+    trusted_values = _trusted_verdict_label_values(body)
+    if trusted_values:
+        return any(
+            not _normalized_verdict_label_is_supportive(_normalize_verdict_label_value(value))
+            for value in trusted_values
+        )
+    return _has_any_verdict_label_line(body)
 
 
 def _lint_evidence_comment(

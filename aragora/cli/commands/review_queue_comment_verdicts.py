@@ -160,6 +160,11 @@ _DEFAULT_BLOCKING_MARKER_ANYWHERE = re.compile(
     r"(?:\s|$|[:.;—–-])",
     re.I,
 )
+_BENIGN_PRIORITY_REFERENCE_WORDS_RE = re.compile(
+    r"\b(?:backlog|classified|classification|filed|follow(?:\s|-)?up|"
+    r"issue|label|logged|noted|reference|severity|ticket|tracked)\b",
+    re.I,
+)
 
 # The SEVERITY-GATE marker is deliberately `[P0]`/`[P1]` ONLY. ``_PRIORITY_MARKER``
 # detects a marker line (sev captured); ``_PRIORITY_MARKER_STRIP`` removes the prefix to
@@ -213,8 +218,34 @@ def _default_blocking_marker_finding(stripped: str) -> bool:
     return head not in _NO_FINDING_HEADS
 
 
+def _inside_benign_parenthetical_priority_reference(text: str, marker_start: int) -> bool:
+    """Return True for parenthetical severity references, not findings.
+
+    Evidence bodies sometimes say things like ``Verdict: PASS (tracked as [P2] in
+    backlog)``. The marker is metadata about another queue item, not a concrete
+    finding. Keep this exemption deliberately narrow: the marker must be inside a
+    same-line parenthetical and that parenthetical must contain reference/ledger
+    wording. A parenthetical such as ``([P1] auth bypass)`` still blocks.
+    """
+
+    line_start = text.rfind("\n", 0, marker_start) + 1
+    line_end = text.find("\n", marker_start)
+    if line_end == -1:
+        line_end = len(text)
+    line = text[line_start:line_end]
+    relative_start = marker_start - line_start
+    open_idx = line.rfind("(", 0, relative_start)
+    close_idx = line.find(")", relative_start)
+    if open_idx == -1 or close_idx == -1:
+        return False
+    parenthetical = line[open_idx + 1 : close_idx]
+    return bool(_BENIGN_PRIORITY_REFERENCE_WORDS_RE.search(_normalize_value(parenthetical)))
+
+
 def _has_default_blocking_marker_anywhere(text: str) -> bool:
     for match in _DEFAULT_BLOCKING_MARKER_ANYWHERE.finditer(text):
+        if _inside_benign_parenthetical_priority_reference(text, match.start("marker")):
+            continue
         candidate = text[match.start("marker") :]
         if _default_blocking_marker_finding(candidate):
             return True

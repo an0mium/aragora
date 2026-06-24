@@ -1099,6 +1099,17 @@ def test_pre_verdict_inline_thinking_block_is_stripped() -> None:
     assert out == "Verdict: PASS\nNo findings."
 
 
+def test_closed_thinking_same_line_priority_finding_is_preserved() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = "<thinking>Verdict: PASS; [P1] real blocker</thinking>\nVerdict: PASS\nNo findings."
+
+    out = normalize_reviewer_output(raw)
+
+    assert "[P1] real blocker" in out
+    assert "Verdict: PASS\nNo findings." in out
+
+
 def test_literal_thinking_tags_inside_findings_are_preserved() -> None:
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 
