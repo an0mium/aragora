@@ -137,8 +137,10 @@ def _root_test_renames(commit: str) -> list[tuple[str, str]]:
       commit.  This captures a relocation whose content drifted past git's
       rename-similarity threshold (so it shows as ``D`` + ``A`` rather than
       ``R``).  An add+delete pair is only honored when the deleted root test
-      maps to exactly one added file of the same basename (ambiguous matches
-      are skipped rather than guessed).
+      maps to exactly one added file of the same basename under ``tests/`` (a
+      same-basename add outside ``tests/`` -- e.g. ``docs/test_<x>.py`` -- is
+      not a test relocation; ambiguous matches are skipped rather than
+      guessed).
     """
     out = _git("show", "--name-status", "-M", "-C", commit)
     pairs: list[tuple[str, str]] = []
@@ -160,7 +162,11 @@ def _root_test_renames(commit: str) -> list[tuple[str, str]]:
         if old in renamed_olds:
             continue
         basename = old[len("tests/") :]  # "test_<x>.py"
-        candidates = [path for path in added_by_basename.get(basename, []) if path != old]
+        candidates = [
+            path
+            for path in added_by_basename.get(basename, [])
+            if path != old and path.startswith("tests/")
+        ]
         if len(candidates) == 1:
             pairs.append((old, candidates[0]))
     return pairs

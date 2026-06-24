@@ -188,3 +188,9 @@ class TestRootTestRenamesDetection:
         diff = "D\ttests/test_foo.py\nA\ttests/foo/test_foo.py\nA\ttests/bar/test_foo.py\n"
         monkeypatch.setattr(gen, "_git", lambda *args: diff)
         assert gen._root_test_renames("c") == []
+
+    def test_add_delete_destination_outside_tests_is_skipped(self, monkeypatch):
+        """A same-basename add OUTSIDE tests/ is not a test relocation -> skipped."""
+        diff = "D\ttests/test_foo.py\nA\tdocs/test_foo.py\n"
+        monkeypatch.setattr(gen, "_git", lambda *args: diff)
+        assert gen._root_test_renames("c") == []
