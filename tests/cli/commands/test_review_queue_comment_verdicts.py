@@ -259,3 +259,23 @@ def test_blocker_label_hedged_no_finding_with_real_tail_blocks(value):
 )
 def test_blocker_label_pure_no_finding_with_benign_tail_stays_non_blocking(value):
     assert has_blocking_or_negative_verdict(f"Blockers: {value}") is False
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "none but SQLi on line 40",
+        "n/a - auth bypass remains",
+        "zero, but the open redirect is unfixed",
+        "not applicable however the race condition stands",
+    ],
+)
+def test_blocker_label_legacy_prefix_with_real_tail_blocks(value):
+    # openai #8574 P2: legacy _NON_BLOCKING_PREFIXES (none/n-a/zero) must also be
+    # fail-closed — a substantive contrastive tail still blocks.
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is True
+
+
+@pytest.mark.parametrize("value", ["none", "none found", "n/a", "not applicable", "zero", "[]"])
+def test_blocker_label_legacy_prefix_pure_stays_non_blocking(value):
+    assert has_blocking_or_negative_verdict(f"Blockers: {value}") is False

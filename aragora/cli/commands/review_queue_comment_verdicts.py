@@ -131,15 +131,21 @@ def _starts_with_phrase(
     # blockers" would otherwise be promoted to a blocking dissent — a regression in the
     # default flag-OFF merge-gate path. So the no-finding match is opt-in per caller.
     if match_no_finding:
+        # Fail-CLOSED for EVERY no-finding token (the no-<noun> phrase AND each legacy
+        # ``_NON_BLOCKING_PREFIXES`` entry like "none"/"n/a"/"zero"): the token must be
+        # essentially the WHOLE value. Only benign trailing words ("found"/"identified"/
+        # …) and punctuation may follow. A contrastive continuation leaves substantive
+        # content in the tail ("none but SQLi on L40", "n/a - auth bypass remains", "no
+        # major concerns BUT X"), so it does NOT read as no-finding and the Blocker
+        # label still blocks — closing the prefix-bypass class (claude/grok/openai #8574).
         m = _NO_FINDING_NO_PHRASE.match(value)
-        # Fail-CLOSED: the no-finding phrase must be essentially the WHOLE value.
-        # Only benign trailing words ("found"/"identified"/…) and punctuation may
-        # follow. A contrastive continuation ("no major concerns BUT SQLi on L40")
-        # leaves substantive content in the tail, so it does NOT read as no-finding
-        # and the Blocker label still blocks — closing the hedged-prefix fail-open
-        # (claude/grok #8574 P2).
         if m and _NO_FINDING_TAIL.fullmatch(value[m.end() :]):
             return True
+        for phrase in phrases:
+            pm = re.match(rf"{re.escape(phrase)}(?!\w)", value)
+            if pm and _NO_FINDING_TAIL.fullmatch(value[pm.end() :]):
+                return True
+        return False
     return any(re.match(rf"{re.escape(phrase)}(?!\w)", value) for phrase in phrases)
 
 
