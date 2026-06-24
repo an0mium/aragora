@@ -42,6 +42,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
     run_git,
 )
 from github_cli_health import check_github_cli_health  # noqa: E402
+from handoff_state import HandoffState, classify_handoffs  # noqa: E402
 
 UTC = timezone.utc
 DEFAULT_OUTBOX_DIR = Path(".aragora/automation-outbox")
@@ -58,6 +59,7 @@ DEFAULT_ARCHIVE_DIR = Path(".aragora/automation-outbox-archive")
 DEFAULT_EXISTING_ISSUE_MIN_AGE_DAYS = 3.0
 DEFAULT_EXISTING_ISSUE_ARCHIVE_CAP = 20
 TERMINAL_DISPOSITION_EXISTING_ISSUE = "superseded_by_existing_issue"
+EXACT_OPEN_PR_REPRESENTATION_REASON = "exact_open_pr_representation"
 
 
 def _mute_stdout_after_broken_pipe() -> None:
@@ -627,6 +629,104 @@ def _archive_with_terminal_disposition(
     return destination
 
 
+def _exact_open_pr_representation_candidate(
+    *,
+    root: Path,
+    state_root: Path,
+    repo_name: str,
+    path: Path,
+    payload: Mapping[str, Any],
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Return exact open-PR representation evidence for this handoff.
+
+    This is intentionally scoped to one outbox file and delegates the narrow
+    exact branch/head REST checks to the read-only handoff classifier. It never
+    treats broad queue cache state or owner release state as representation.
+    """
+
+    if not _is_pr_publication_request(payload):
+        return None, None
+
+    branch = _branch_from_payload(dict(payload))
+    desired_head = _desired_head_from_payload(dict(payload))
+    if not branch or not desired_head:
+        return None, None
+
+    try:
+        classification = classify_handoffs(
+            repo_root=root,
+            state_root=state_root,
+            github_repo=repo_name,
+            outbox_file=path.name,
+        )
+    except Exception as exc:
+        return None, f"exact-open-pr representation classifier failed ({exc.__class__.__name__})"
+
+    items = classification.get("items") if isinstance(classification, Mapping) else None
+    if not isinstance(items, Sequence) or isinstance(items, (str, bytes, bytearray)):
+        return None, "exact-open-pr representation classifier returned no item list"
+
+    idem = str(payload.get("idempotency_key") or path.stem).strip()
+    item = next(
+        (
+            candidate
+            for candidate in items
+            if isinstance(candidate, Mapping)
+            and (
+                str(candidate.get("outbox_file") or "") == path.name
+                or str(candidate.get("idempotency_key") or "") == idem
+            )
+        ),
+        None,
+    )
+    if item is None:
+        return None, "exact-open-pr representation classifier did not return target item"
+
+    if str(item.get("state") or "") != HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value:
+        return None, None
+
+    item_branch = str(item.get("branch") or "").strip()
+    item_head = str(item.get("desired_head_sha") or "").strip()
+    if item_branch != branch or not _heads_match(desired_head, item_head):
+        return None, "exact-open-pr representation classifier returned inconsistent target"
+
+    evidence = item.get("evidence") if isinstance(item.get("evidence"), Mapping) else {}
+    github = evidence.get("github") if isinstance(evidence.get("github"), Mapping) else {}
+    exact_pr = (
+        github.get("exact_open_pr") if isinstance(github.get("exact_open_pr"), Mapping) else None
+    )
+    if exact_pr is None:
+        return None, "exact-open-pr representation lacked exact PR evidence"
+
+    pr_head = str(exact_pr.get("head_sha") or "").strip()
+    if not _heads_match(desired_head, pr_head):
+        return None, "exact-open-pr representation PR head mismatched desired head"
+
+    pr_number = _pr_number_from_value(exact_pr.get("number")) or _pr_number_from_value(
+        exact_pr.get("html_url")
+    )
+    if pr_number is None:
+        return None, "exact-open-pr representation lacked PR number"
+
+    pr_url = str(exact_pr.get("html_url") or "").strip()
+    if not pr_url:
+        pr_url = f"https://github.com/{repo_name}/pull/{pr_number}"
+
+    return (
+        {
+            "number": pr_number,
+            "url": pr_url,
+            "head": str(exact_pr.get("head") or branch),
+            "head_sha": pr_head,
+            "draft": exact_pr.get("draft"),
+            "state": exact_pr.get("state"),
+            "classifier_state": item.get("state"),
+            "classifier_reason": item.get("reason"),
+        },
+        None,
+    )
+
+
 def _heads_match(expected: str, actual: str) -> bool:
     expected_value = expected.strip().lower()
     actual_value = actual.strip().lower()
@@ -1034,9 +1134,11 @@ def main(argv: list[str] | None = None) -> int:
 
     counts = {
         "satisfied_by_existing_receipt": 0,
+        "satisfied_by_exact_open_pr_representation": 0,
         "archived_superseded_by_existing_issue": 0,
         "blocked_receipt_pr_head_mismatch": 0,
         "blocked_receipt_issue_only": 0,
+        "blocked_exact_open_pr_representation": 0,
         "satisfied_by_superseded_handoff": 0,
         "satisfied_by_landed_on_main": 0,
         "satisfied_by_open_pr_merged": 0,  # placeholder; we only know open PRs
@@ -1064,8 +1166,56 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         receipt = receipt_payloads_by_key.get(idem)
+        issue_only_keep_reason = (
+            _issue_only_pr_receipt_keep_reason(payload, receipt) if receipt is not None else None
+        )
+        if receipt is None or issue_only_keep_reason is not None:
+            representation, blocked_reason = _exact_open_pr_representation_candidate(
+                root=root,
+                state_root=state_root,
+                repo_name=args.repo_name,
+                path=path,
+                payload=payload,
+            )
+            if representation is not None:
+                counts["satisfied_by_exact_open_pr_representation"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "archive",
+                        "reason": (
+                            "branch is represented by exact-head open PR "
+                            f"#{representation['number']}"
+                        ),
+                        "representation_pr": representation,
+                        "synthetic_receipt": True,
+                    }
+                )
+                if args.apply:
+                    _write_synthetic_receipt(
+                        receipt_dir=receipt_dir,
+                        outbox_payload=payload,
+                        reason=EXACT_OPEN_PR_REPRESENTATION_REASON,
+                        pr_number=int(representation["number"]),
+                        apply=True,
+                    )
+                    shutil.move(str(path), str(archive_dir / path.name))
+                continue
+            if blocked_reason is not None:
+                counts["blocked_exact_open_pr_representation"] += 1
+                counts["still_protecting_active_work"] += 1
+                actions.append(
+                    {
+                        "path": str(path),
+                        "branch": branch,
+                        "decision": "keep",
+                        "reason": blocked_reason,
+                        "synthetic_receipt": False,
+                    }
+                )
+                continue
         if receipt is not None:
-            issue_only_keep_reason = _issue_only_pr_receipt_keep_reason(payload, receipt)
             if issue_only_keep_reason is not None:
                 terminal_info, gate_detail = _existing_issue_terminal_candidate(
                     path=path,
