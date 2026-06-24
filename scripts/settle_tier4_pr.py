@@ -447,25 +447,64 @@ def _required_checks_are_green(required_checks: list[dict[str, Any]] | None) -> 
     return True
 
 
-def _status_signal_items(pr_view: dict[str, Any]) -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = []
-    for key in ("statusCheckRollup", "commitStatuses"):
-        value = pr_view.get(key)
-        if not isinstance(value, list):
+def _status_signal_timestamp(item: dict[str, Any]) -> str:
+    return str(
+        item.get("completedAt")
+        or item.get("completed_at")
+        or item.get("startedAt")
+        or item.get("started_at")
+        or item.get("createdAt")
+        or item.get("created_at")
+        or item.get("updatedAt")
+        or item.get("updated_at")
+        or ""
+    )
+
+
+def _latest_rollup_status_for_context(
+    pr_view: dict[str, Any], *, context: str
+) -> dict[str, Any] | None:
+    value = pr_view.get("statusCheckRollup")
+    if not isinstance(value, list):
+        return None
+    latest: tuple[str, int, dict[str, Any]] | None = None
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
             continue
-        items.extend(item for item in value if isinstance(item, dict))
-    return items
+        name = str(item.get("context") or item.get("name") or "").strip()
+        if name != context:
+            continue
+        candidate = (_status_signal_timestamp(item), index, item)
+        if latest is None or (candidate[0], candidate[1]) >= (latest[0], latest[1]):
+            latest = candidate
+    return None if latest is None else latest[2]
+
+
+def _status_signal_is_success(item: dict[str, Any]) -> bool:
+    conclusion = item.get("conclusion")
+    if conclusion is not None and str(conclusion).strip():
+        return _state_is_success(conclusion)
+    state = item.get("state")
+    if state is not None and str(state).strip():
+        return _state_is_success(state)
+    return _state_is_success(item.get("status"))
 
 
 def _human_settlement_status_is_success(pr_view: dict[str, Any]) -> bool:
-    for item in _status_signal_items(pr_view):
-        if not isinstance(item, dict):
-            continue
-        context = str(item.get("context") or item.get("name") or "")
-        if context != HUMAN_SETTLEMENT_CONTEXT:
-            continue
-        state = item.get("state") or item.get("conclusion")
-        return _state_is_success(state)
+    rollup_status = _latest_rollup_status_for_context(
+        pr_view,
+        context=HUMAN_SETTLEMENT_CONTEXT,
+    )
+    if rollup_status is not None:
+        return _status_signal_is_success(rollup_status)
+
+    commit_statuses = pr_view.get("commitStatuses")
+    if isinstance(commit_statuses, list):
+        latest_status = rest_fallback._latest_direct_statuses_by_context(
+            [item for item in commit_statuses if isinstance(item, dict)]
+        ).get(HUMAN_SETTLEMENT_CONTEXT)
+        if latest_status is not None:
+            return rest_fallback._direct_status_is_success(latest_status)
     return False
 
 
@@ -559,9 +598,7 @@ def _packet_entry_requires_human_preapproval(
         return False
     if not any(_reason_indicates_human_preapproval(item) for item in reasons):
         return False
-    if _entry_is_tier4(entry):
-        return True
-    return any("tier 4" in _normalize_packet_signal(item) for item in reasons)
+    return _entry_is_tier4(entry)
 
 
 def _status_requires_human_preapproval(value: Any) -> bool:
@@ -595,6 +632,9 @@ def _reason_negates_requirement(reason: str, token: str) -> bool:
         rf"\b{escaped}\s+not\s+needed\b",
         rf"\bdoes\s+not\s+require\s+{escaped}\b",
         rf"\bdo\s+not\s+require\s+{escaped}\b",
+        rf"\b{escaped}\s+(?:has\s+)?(?:already\s+)?(?:been\s+)?recorded\b",
+        rf"\b{escaped}\s+(?:is\s+)?(?:already\s+)?satisfied\b",
+        rf"\b{escaped}\s+(?:is\s+)?(?:already\s+)?waived\b",
     )
     return any(re.search(pattern, reason) for pattern in patterns)
 
@@ -2362,11 +2402,12 @@ def _rerun_failed_quorum(*, head: str, repo: str, cwd: Path) -> dict[str, Any]:
             "attempted": True,
             "run_id": target,
             "commands": [command],
-            "non_blocking": True,
+            "non_blocking": False,
+            "blocks_settle_apply_success": True,
             "error": str(exc),
             "reason": (
                 f"{MERGE_QUORUM_CONTEXT} rerun failed after settlement signal; "
-                "rerun it manually if the check remains stale"
+                "rerun it manually before treating the settlement pipeline as green"
             ),
         }
     return {"rerun": True, "run_id": target, "commands": [command]}
@@ -2860,9 +2901,31 @@ def main(argv: Sequence[str] | None = None) -> int:
                         ),
                         details=details,
                     ) from exc
-            extra_out["quorum_rerun"] = _rerun_failed_quorum(
-                head=args.head, repo=args.repo, cwd=args.cwd
-            )
+            quorum_rerun = _rerun_failed_quorum(head=args.head, repo=args.repo, cwd=args.cwd)
+            extra_out["quorum_rerun"] = quorum_rerun
+            if quorum_rerun.get("blocks_settle_apply_success"):
+                raise Tier4ApplyError(
+                    f"{MERGE_QUORUM_CONTEXT} rerun failed after Tier 4 settlement mutations",
+                    phase="quorum_rerun",
+                    mutation_occurred=(
+                        receipt_recorded_now
+                        or settlement_status_repaired_now
+                        or not comment_already_present
+                    ),
+                    completed_commands=len(applied_commands) + int(receipt_recorded_now),
+                    recovery_action=(
+                        f"rerun {MERGE_QUORUM_CONTEXT} for the same exact head and "
+                        "do not treat --settle-apply as complete until required checks "
+                        "and merge-packet are green"
+                    ),
+                    details={
+                        "receipt_recorded_before_apply": human_preapproval_recorded_before_apply,
+                        "receipt_recorded_now": receipt_recorded_now,
+                        "settlement_status_repaired_now": settlement_status_repaired_now,
+                        "settlement_comment_already_present": comment_already_present,
+                        "quorum_rerun": quorum_rerun,
+                    },
+                )
             try:
                 settlement_recognition = _settle_apply_recognition_report(
                     pr=args.pr,

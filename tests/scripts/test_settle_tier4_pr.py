@@ -1258,6 +1258,67 @@ def test_packet_human_preapproval_recorded_requires_literal_boolean_true(
     assert settler._packet_requires_unrecorded_human_preapproval(packet, pr=7423) is True
 
 
+def test_human_settlement_status_uses_latest_rollup_row() -> None:
+    pr_view = _pr_view(
+        "57c740022e3c432718462efa12ca79f1df4f674d",
+        comments=[],
+        human_settlement_state=None,
+        extra_status_rollup=[
+            {
+                "context": "aragora/human-settlement",
+                "state": "SUCCESS",
+                "completedAt": "2026-05-22T00:05:00Z",
+            },
+            {
+                "context": "aragora/human-settlement",
+                "state": "FAILURE",
+                "completedAt": "2026-05-22T00:10:00Z",
+            },
+        ],
+    )
+
+    assert settler._human_settlement_status_is_success(pr_view) is False
+
+
+def test_human_settlement_status_uses_latest_commit_status() -> None:
+    pr_view = {
+        "statusCheckRollup": [],
+        "commitStatuses": [
+            {
+                "context": "aragora/human-settlement",
+                "state": "SUCCESS",
+                "updated_at": "2026-05-22T00:05:00Z",
+            },
+            {
+                "context": "aragora/human-settlement",
+                "state": "FAILURE",
+                "updated_at": "2026-05-22T00:10:00Z",
+            },
+        ],
+    }
+
+    assert settler._human_settlement_status_is_success(pr_view) is False
+
+
+def test_tier3_reason_mentions_tier4_without_requiring_preapproval() -> None:
+    packet = _tier4_packet(
+        requires_human_preapproval=False,
+        human_preapproval_recorded=False,
+    )
+    packet["not_ready"] = []
+    packet["human_risk_settlement_required"] = []
+    packet["entries"][0].pop("requires_human_preapproval")
+    packet["entries"][0]["tier"] = 3
+    packet["entries"][0]["tier_name"] = "tier_3_semantic_risk"
+    packet["entries"][0]["status"] = "repair_or_wait"
+    packet["entries"][0]["requires_human_risk_settlement"] = False
+    packet["entries"][0]["reasons"] = [
+        "repair convoy copied Tier 4 human preapproval required from another packet",
+    ]
+
+    assert settler._packet_requires_unrecorded_human_preapproval(packet, pr=7423) is False
+
+
 @pytest.mark.parametrize(
     "reason",
     [
@@ -1265,6 +1326,10 @@ def test_packet_human_preapproval_recorded_requires_literal_boolean_true(
         "operator settlement is not required",
         "human preapproval not required",
         "does not require human preapproval",
+        "human preapproval already recorded",
+        "human settlement satisfied",
+        "operator settlement waived",
+        "Tier-4 human preapproval has already been recorded",
     ],
 )
 def test_negated_preapproval_reasons_do_not_require_tier4_receipt(reason: str) -> None:
@@ -3870,7 +3935,8 @@ def test_rerun_failed_quorum_reports_rerun_failure_without_raising(
 
     assert result["rerun"] is False
     assert result["attempted"] is True
-    assert result["non_blocking"] is True
+    assert result["non_blocking"] is False
+    assert result["blocks_settle_apply_success"] is True
     assert result["run_id"] == "27474838200"
     assert result["commands"] == [["gh", "run", "rerun", "27474838200", "--failed"]]
     assert "rerun failed after settlement signal" in result["reason"]
@@ -4825,7 +4891,7 @@ def test_settle_apply_repairs_missing_status_without_duplicate_receipt_or_commen
     assert payload["settlement_already_present"] is False
 
 
-def test_settle_apply_succeeds_when_quorum_rerun_fails_after_signals(
+def test_settle_apply_fails_when_quorum_rerun_fails_after_signals(
     monkeypatch: Any, tmp_path: Path, capsys: Any
 ) -> None:
     head = "57c740022e3c432718462efa12ca79f1df4f674d"
@@ -4895,15 +4961,18 @@ def test_settle_apply_succeeds_when_quorum_rerun_fails_after_signals(
         ]
     )
 
-    assert rc == 0
+    assert rc == 2
     assert recorded == {"pr": 7423, "head": head, "post_github_status": True}
     assert text_commands and text_commands[0][:3] == ["gh", "pr", "comment"]
     payload = settler.json.loads(capsys.readouterr().out)
-    assert payload["human_preapproval_recorded"] is True
-    assert payload["quorum_rerun"]["rerun"] is False
-    assert payload["quorum_rerun"]["attempted"] is True
-    assert payload["quorum_rerun"]["non_blocking"] is True
-    assert payload["quorum_rerun"]["run_id"] == "99"
+    assert payload["ok"] is False
+    assert payload["phase"] == "quorum_rerun"
+    assert payload["mutation_occurred"] is True
+    assert payload["details"]["quorum_rerun"]["rerun"] is False
+    assert payload["details"]["quorum_rerun"]["attempted"] is True
+    assert payload["details"]["quorum_rerun"]["non_blocking"] is False
+    assert payload["details"]["quorum_rerun"]["blocks_settle_apply_success"] is True
+    assert payload["details"]["quorum_rerun"]["run_id"] == "99"
 
 
 def test_settle_apply_skips_signal_when_status_and_comment_already_success(
