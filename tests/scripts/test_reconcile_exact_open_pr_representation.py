@@ -78,6 +78,7 @@ def test_exact_open_pr_representation_dry_run_reports_archive_without_writes(
     def fake_classify_handoffs(**kwargs: Any) -> dict[str, Any]:
         assert kwargs["outbox_file"] == outbox_file.name
         assert kwargs["github_repo"] == "synaptent/aragora"
+        assert kwargs["with_liveness_helper"] is True
         return _classifier_payload(outbox_file.name)
 
     monkeypatch.setattr(reconcile, "classify_handoffs", fake_classify_handoffs)
@@ -231,6 +232,49 @@ def test_exact_open_pr_representation_apply_reverifies_before_mutating(
     assert calls[0]["branch"] == "codex/example"
     assert calls[0]["desired_head"] == HEAD
     assert not outbox_file.exists()
+
+
+def test_requested_action_python_repr_is_pr_publication_request() -> None:
+    payload = {
+        "requested_action": "{'type': 'open_or_update_pr', 'branch': 'codex/example'}",
+    }
+
+    assert reconcile._is_pr_publication_request(payload)
+
+
+def test_exact_open_pr_apply_reverify_uses_github_cli_env(tmp_path: Path, monkeypatch: Any) -> None:
+    seen: dict[str, Any] = {}
+
+    monkeypatch.setattr(reconcile, "github_cli_env", lambda env: {"GH_TOKEN": "app-token"})
+
+    def fake_run(**kwargs: Any) -> Any:
+        seen["env"] = kwargs.get("env")
+        payload = {
+            "state": "open",
+            "html_url": "https://github.com/synaptent/aragora/pull/8589",
+            "draft": False,
+            "head": {"ref": "codex/example", "sha": HEAD},
+        }
+        return reconcile.subprocess.CompletedProcess(
+            args=kwargs.get("args") or [],
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        )
+
+    monkeypatch.setattr(reconcile.subprocess, "run", lambda *args, **kwargs: fake_run(**kwargs))
+
+    verified, error = reconcile._verify_exact_open_pr_representation(
+        root=tmp_path,
+        repo_name="synaptent/aragora",
+        representation={"number": 8589},
+        branch="codex/example",
+        desired_head=HEAD,
+    )
+
+    assert error is None
+    assert verified is not None
+    assert seen["env"] == {"GH_TOKEN": "app-token"}
 
 
 def test_exact_open_pr_representation_apply_blocks_when_reverify_fails(

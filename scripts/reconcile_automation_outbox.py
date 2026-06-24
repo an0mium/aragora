@@ -23,6 +23,7 @@ a JSON report.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import shutil
@@ -40,7 +41,7 @@ from audit_codex_branch_backlog import (  # noqa: E402
     open_pr_heads,
     run_git,
 )
-from github_cli_health import check_github_cli_health  # noqa: E402
+from github_cli_health import check_github_cli_health, github_cli_env  # noqa: E402
 from handoff_state import HandoffState, classify_handoffs  # noqa: E402
 from identify_lane_owner import build_worktree_reference_preservation_proof  # noqa: E402
 
@@ -186,7 +187,10 @@ def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
-        parsed = None
+        try:
+            parsed = ast.literal_eval(text)
+        except (SyntaxError, ValueError):
+            parsed = None
     if isinstance(parsed, Mapping):
         return parsed
 
@@ -697,6 +701,7 @@ def _target_pr_state(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=20,
+            env=github_cli_env(os.environ),
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -1046,6 +1051,7 @@ def _exact_open_pr_representation_candidate(
             state_root=state_root,
             github_repo=repo_name,
             outbox_file=path.name,
+            with_liveness_helper=True,
         )
     except Exception as exc:
         return None, f"exact-open-pr representation classifier failed ({exc.__class__.__name__})"
@@ -1139,6 +1145,7 @@ def _verify_exact_open_pr_representation(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=20,
+            env=github_cli_env(os.environ),
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return None, f"exact-open-pr apply reverify failed ({exc.__class__.__name__})"

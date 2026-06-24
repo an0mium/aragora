@@ -73,7 +73,6 @@ ALL_CHECKS = (
 ORPHAN_BRANCH_PATTERNS = ("elves/*", "aragora/boss*")
 ACTIONABLE_HANDOFF_STATES = {
     "publication_requested",
-    "blocked_by_live_queue_cap",
     "unknown",
 }
 LANE_TIMESTAMP_KEYS = (
@@ -428,6 +427,15 @@ def _outbox_fingerprint(items: list[Path]) -> str:
 
 
 def _extract_outbox_depth(check: dict[str, Any]) -> int | None:
+    actionable_depth = check.get("actionable_depth")
+    if isinstance(actionable_depth, int) and actionable_depth >= 0:
+        return actionable_depth
+    if (
+        isinstance(actionable_depth, float)
+        and actionable_depth.is_integer()
+        and actionable_depth >= 0
+    ):
+        return int(actionable_depth)
     depth = check.get("depth")
     if isinstance(depth, int) and depth >= 0:
         return depth

@@ -471,7 +471,7 @@ def test_operator_steering_without_human_keyword_is_human_gate(tmp_path: Path) -
     assert item["evidence"]["steering"]["human_message_count"] == 1
 
 
-def test_narrow_rest_skips_absent_open_pr_branch_when_fresh_cache_says_absent(
+def test_narrow_rest_queries_when_open_pr_cache_lacks_branch(
     tmp_path: Path,
 ) -> None:
     client = mod.NarrowGitHubClient(
@@ -479,16 +479,21 @@ def test_narrow_rest_skips_absent_open_pr_branch_when_fresh_cache_says_absent(
         github_repo="synaptent/aragora",
         known_open_pr_heads=set(),
     )
+    seen: list[str] = []
 
-    def unexpected_api(endpoint: str) -> tuple[Any | None, str | None]:
-        raise AssertionError(f"unexpected REST call: {endpoint}")
+    def capture_api(endpoint: str) -> tuple[Any | None, str | None]:
+        seen.append(endpoint)
+        return [], None
 
-    client._api = unexpected_api  # type: ignore[method-assign]
+    client._api = capture_api  # type: ignore[method-assign]
 
-    open_prs, error = client.open_prs_for_branch("codex/example")
+    open_prs, error = client.open_prs_for_branch("elves/run-example")
 
     assert error is None
     assert open_prs == []
+    assert seen == [
+        "repos/synaptent/aragora/pulls?state=open&head=synaptent:elves%2Frun-example&per_page=5"
+    ]
 
 
 def test_narrow_rest_open_pr_query_preserves_owner_separator(tmp_path: Path) -> None:
@@ -528,6 +533,14 @@ def test_open_pr_head_cache_is_trusted_only_when_complete(tmp_path: Path) -> Non
 
 def test_update_pr_idempotency_key_is_pr_publication_request() -> None:
     assert mod.is_pr_publication_request({"idempotency_key": "update-pr-codex-example-abc123"})
+
+
+def test_requested_action_python_repr_is_pr_publication_request() -> None:
+    payload = {
+        "requested_action": "{'type': 'open_or_update_pr', 'branch': 'codex/example'}",
+    }
+
+    assert mod.is_pr_publication_request(payload)
 
 
 def test_graphql_degraded_cache_still_uses_rest_open_pr_fallback(tmp_path: Path) -> None:

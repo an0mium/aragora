@@ -422,6 +422,7 @@ def test_outbox_depth_treats_preserved_and_gated_states_as_non_actionable(
         "blocked_by_owner",
         "blocked_by_human",
         "blocked_by_possible_unpushed_work",
+        "blocked_by_live_queue_cap",
         "preserved_not_actionable",
     ]
     classifier_items: list[dict[str, str]] = []
@@ -2339,6 +2340,47 @@ def test_outbox_drain_progress_uses_structured_depth(tmp_path: Path) -> None:
     )
     r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
     assert r["status"] == "breach"
+
+
+def test_outbox_drain_progress_prefers_actionable_depth_samples(tmp_path: Path) -> None:
+    outbox = _outbox_with(tmp_path / "outbox", 55)
+    fingerprint = _outbox_fingerprint(outbox)
+    ledger = _ledger_with_checks(
+        tmp_path / "ledger.jsonl",
+        [
+            [
+                {
+                    "check": "outbox_depth",
+                    "status": "ok",
+                    "depth": 55,
+                    "actionable_depth": 1,
+                    "fingerprint": fingerprint,
+                }
+            ],
+            [
+                {
+                    "check": "outbox_depth",
+                    "status": "ok",
+                    "depth": 55,
+                    "actionable_depth": 0,
+                    "fingerprint": fingerprint,
+                }
+            ],
+            [
+                {
+                    "check": "outbox_depth",
+                    "status": "ok",
+                    "depth": 55,
+                    "actionable_depth": 0,
+                    "fingerprint": fingerprint,
+                }
+            ],
+        ],
+    )
+
+    r = sentinel.check_outbox_drain_progress(ledger, outbox, stall_cycles=3, min_floor=50)
+
+    assert r["status"] == "ok"
 
 
 def test_outbox_drain_progress_saturated_throughput_is_ok(tmp_path: Path) -> None:

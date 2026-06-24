@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import dataclasses
+import ast
 import json
 import os
 import subprocess
@@ -16,6 +17,21 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
+
+try:  # Works both as ``python scripts/handoff_state.py`` and as ``scripts.handoff_state``.
+    from scripts.github_cli_health import github_cli_env
+except Exception:  # pragma: no cover - script-path fallback
+    try:
+        from github_cli_health import github_cli_env  # type: ignore[no-redef]
+    except Exception:  # pragma: no cover - partially bootstrapped fallback
+
+        def github_cli_env(
+            base_env: Mapping[str, str] | None = None,
+            *,
+            prefer_app: bool = True,
+        ) -> dict[str, str]:
+            return dict(os.environ if base_env is None else base_env)
+
 
 UTC = timezone.utc
 SCHEMA_VERSION = "aragora-handoff-state/1.0"
@@ -180,10 +196,6 @@ class NarrowGitHubClient:
             return None, "github disabled"
         if branch in self._pr_cache:
             return self._pr_cache[branch]
-        if self.known_open_pr_heads is not None and branch not in self.known_open_pr_heads:
-            result = ([], None)
-            self._pr_cache[branch] = result
-            return result
         owner = self.github_repo.split("/", 1)[0]
         head = f"{owner}:{quote(branch, safe='')}"
         endpoint = f"repos/{self.github_repo}/pulls?state=open&head={head}&per_page=5"
@@ -224,6 +236,7 @@ class NarrowGitHubClient:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 timeout=self.timeout_seconds,
+                env=github_cli_env(os.environ),
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             return None, f"gh api failed ({exc.__class__.__name__})"
@@ -1112,7 +1125,10 @@ def _mapping_from_action(value: Any) -> Mapping[str, Any] | None:
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
-        parsed = None
+        try:
+            parsed = ast.literal_eval(text)
+        except (SyntaxError, ValueError):
+            parsed = None
     if isinstance(parsed, Mapping):
         return parsed
     return None
