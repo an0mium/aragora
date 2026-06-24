@@ -63,17 +63,6 @@ ALL_CHECKS = (
 # ledger-less orphan-branch sweep (failure class A, 2026-06-10/11: coordinator
 # lanes died at setup leaving empty elves/run-* branches nobody noticed).
 ORPHAN_BRANCH_PATTERNS = ("elves/*", "aragora/boss*")
-ACTIVE_LANE_STATUSES = {
-    "active",
-    "running",
-    "pending",
-    "queued",
-    "claimed",
-    "waiting_for_steering",
-    "acknowledged",
-    "working",
-    "blocked",
-}
 LANE_TIMESTAMP_KEYS = (
     "updated_at",
     "last_heartbeat_at",
@@ -82,6 +71,7 @@ LANE_TIMESTAMP_KEYS = (
     "created_at",
 )
 LIVE_OWNER_BLOCKERS = frozenset({"fresh_heartbeat", "live_process"})
+_RESOLVER_MODULE: Any | None = None
 
 
 def parse_iso(value: str) -> datetime:
@@ -600,6 +590,7 @@ def _default_pr_state_fetcher(
     *,
     repo_slug: str,
     gh_bin: str,
+    timeout_seconds: float = 30.0,
 ) -> dict[str, Any]:
     cmd = [
         gh_bin,
@@ -611,7 +602,22 @@ def _default_pr_state_fetcher(
         "--json",
         "number,state,closed,closedAt,mergedAt,mergeCommit,headRefName,headRefOid,url",
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603
+    try:
+        proc = subprocess.run(  # noqa: S603
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {
+            "available": False,
+            "number": pr,
+            "state": "UNKNOWN",
+            "error": f"{exc.__class__.__name__}: {exc}",
+            "command": cmd,
+        }
     if proc.returncode != 0:
         return {
             "available": False,
@@ -644,6 +650,9 @@ def _default_pr_state_fetcher(
 
 
 def _load_resolver_module() -> Any:
+    global _RESOLVER_MODULE
+    if _RESOLVER_MODULE is not None:
+        return _RESOLVER_MODULE
     script_path = Path(__file__).with_name("resolve_lane_conflicts.py")
     spec = importlib.util.spec_from_file_location(
         "resolve_lane_conflicts_for_sentinel", script_path
@@ -652,7 +661,12 @@ def _load_resolver_module() -> Any:
         raise RuntimeError(f"could not load resolver module at {script_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    _RESOLVER_MODULE = module
     return module
+
+
+def _active_lane_statuses() -> set[str]:
+    return set(getattr(_load_resolver_module(), "ACTIVE_STATUSES"))
 
 
 def _default_terminal_owner_auditor(
@@ -666,13 +680,54 @@ def _default_terminal_owner_auditor(
     heartbeat_fresh_seconds: int,
 ) -> dict[str, Any]:
     resolver = _load_resolver_module()
-    return resolver.audit_merged_pr_lanes(
+    resolved_at = resolver._utc_now_iso()
+    now_ts = resolver._parse_timestamp(resolved_at)
+    github_state = resolver._fetch_pr_state(pr=pr, gh_bin=gh_bin)
+    rows, row_load_error = resolver._read_rows_checked(registry_path)
+    heartbeats, heartbeat_load_error = resolver._read_rows_checked(heartbeat_path)
+    findings: list[dict[str, Any]] = []
+    blocked_reason = ""
+    if row_load_error:
+        blocked_reason = f"lane_registry_unreadable:{row_load_error}"
+    elif github_state.get("available") is True and github_state.get("state") == "MERGED":
+        raw_findings = resolver._active_pr_lane_findings(rows, pr=pr)
+        if heartbeat_fresh_seconds < 0:
+            findings = []
+            for finding in raw_findings:
+                finding = dict(finding)
+                finding["terminal_safety_blockers"] = ["invalid_heartbeat_fresh_seconds"]
+                finding["terminal_safety_details"] = {
+                    "heartbeat_fresh_seconds": heartbeat_fresh_seconds
+                }
+                finding["apply_safe"] = False
+                findings.append(finding)
+        else:
+            findings = resolver._annotate_terminal_safety(
+                raw_findings,
+                heartbeats=heartbeats,
+                heartbeat_load_error=heartbeat_load_error,
+                steering_inbox_root=steering_inbox_root,
+                now_ts=now_ts,
+                heartbeat_fresh_seconds=heartbeat_fresh_seconds,
+            )
+    if not blocked_reason:
+        blocked_reason = resolver._merged_pr_audit_blocked_reason(
+            apply=False,
+            operator_authorized=False,
+            expected_merge_commit=None,
+            github_state=github_state,
+            findings=findings,
+        )
+    return resolver._base_merged_pr_audit_result(
         registry_path=registry_path,
         receipt_dir=receipt_dir,
         pr=pr,
-        gh_bin=gh_bin,
         apply=False,
         operator_authorized=False,
+        expected_merge_commit=None,
+        github_state=github_state,
+        findings=findings,
+        blocked_reason=blocked_reason,
         heartbeat_path=heartbeat_path,
         steering_inbox_root=steering_inbox_root,
         heartbeat_fresh_seconds=heartbeat_fresh_seconds,
@@ -732,24 +787,27 @@ def check_stale_terminal_owner(
     repo_slug: str,
     gh_bin: str = "gh",
     heartbeat_fresh_seconds: int = 15 * 60,
+    gh_timeout_seconds: float = 30.0,
     pr_state_fetcher: Callable[..., dict[str, Any]] | None = None,
     terminal_owner_auditor: Callable[..., dict[str, Any]] | None = None,
 ) -> CheckResult:
     """Report stale owner rows that still block merged/closed PRs.
 
-    This check is intentionally read-only.  It detects and routes; the only
-    mutation path it prints is the guarded ``resolve_lane_conflicts.py`` apply
-    command, and only for merged PRs where an exact merge commit is available.
+    This check is intentionally read-only and avoids resolver write locks.  It
+    detects and routes; the only mutation path it prints is the guarded
+    ``resolve_lane_conflicts.py`` apply command, and only for merged PRs where an
+    exact merge commit is available.
     """
     name = "stale_terminal_owner"
     rows, load_error = _read_json_list(registry_path)
     if load_error:
         return _result(name, "unknown", f"lane registry unreadable: {load_error}")
 
+    active_lane_statuses = _active_lane_statuses()
     stale_rows: list[dict[str, Any]] = []
     unknown_age_rows: list[dict[str, Any]] = []
     for row in rows:
-        if str(row.get("status") or "") not in ACTIVE_LANE_STATUSES:
+        if str(row.get("status") or "") not in active_lane_statuses:
             continue
         pr = _coerce_int(row.get("pr_number"))
         if pr is None:
@@ -764,20 +822,32 @@ def check_stale_terminal_owner(
             stale["_stale_age_hours"] = age_hours
             stale_rows.append(stale)
 
-    if not stale_rows and unknown_age_rows:
+    unknown_age_detail = ""
+    if unknown_age_rows:
         sample = ", ".join(
             str(row.get("lane_id") or row.get("owner_session") or row.get("pr_number"))
             for row in unknown_age_rows[:5]
         )
-        return _result(
-            name,
-            "unknown",
-            f"{len(unknown_age_rows)} active PR owner row(s) have no comparable timestamp: {sample}",
+        unknown_age_detail = (
+            f"{len(unknown_age_rows)} active PR owner row(s) have no comparable timestamp: {sample}"
         )
     if not stale_rows:
+        if unknown_age_detail:
+            return _result(name, "unknown", unknown_age_detail)
         return _result(name, "ok", "no stale active PR owner rows over threshold")
 
-    fetch_state = pr_state_fetcher or _default_pr_state_fetcher
+    if pr_state_fetcher is None:
+
+        def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+            return _default_pr_state_fetcher(
+                pr,
+                repo_slug=repo_slug,
+                gh_bin=gh_bin,
+                timeout_seconds=gh_timeout_seconds,
+            )
+
+    else:
+        fetch_state = pr_state_fetcher
     audit_terminal = terminal_owner_auditor or _default_terminal_owner_auditor
     by_pr: dict[int, list[dict[str, Any]]] = {}
     for row in stale_rows:
@@ -787,7 +857,7 @@ def check_stale_terminal_owner(
 
     candidates: list[dict[str, Any]] = []
     live_suppressed: list[dict[str, Any]] = []
-    unknowns: list[str] = []
+    unknowns: list[str] = [unknown_age_detail] if unknown_age_detail else []
     for pr, pr_rows in sorted(by_pr.items()):
         state = fetch_state(pr, repo_slug=repo_slug, gh_bin=gh_bin)
         if state.get("available") is not True:
@@ -826,9 +896,16 @@ def check_stale_terminal_owner(
 
         for row in pr_rows:
             key = (str(row.get("lane_id") or ""), str(row.get("owner_session") or ""))
-            finding = findings_by_key.get(key, {})
-            blockers = list(finding.get("terminal_safety_blockers") or [])
-            details = dict(finding.get("terminal_safety_details") or {})
+            finding = findings_by_key.get(key)
+            if terminal_state == "MERGED" and finding is None:
+                blockers = ["missing_reconciler_finding"]
+                details = {
+                    "reason": "read-only resolver audit did not return a matching active owner row"
+                }
+            else:
+                finding = finding or {}
+                blockers = list(finding.get("terminal_safety_blockers") or [])
+                details = dict(finding.get("terminal_safety_details") or {})
             if terminal_state == "CLOSED":
                 blockers = ["closed_pr_manual_review"]
                 details = {
@@ -1573,6 +1650,7 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         repo_slug=args.github_repo,
                         gh_bin=args.gh_bin,
                         heartbeat_fresh_seconds=args.stale_terminal_owner_heartbeat_fresh_seconds,
+                        gh_timeout_seconds=args.stale_terminal_owner_gh_timeout_seconds,
                     )
                 )
             elif name == "github_api_health":
@@ -1690,6 +1768,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=15 * 60,
         help="fresh-heartbeat TTL passed through to resolve_lane_conflicts",
+    )
+    parser.add_argument(
+        "--stale-terminal-owner-gh-timeout-seconds",
+        type=float,
+        default=30.0,
+        help="timeout for stale_terminal_owner GitHub CLI PR-state probes",
     )
     parser.add_argument("--github-repo", default="synaptent/aragora")
     parser.add_argument("--gh-bin", default="gh")

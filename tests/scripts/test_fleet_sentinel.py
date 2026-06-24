@@ -890,6 +890,179 @@ def test_stale_terminal_owner_reports_closed_pr_without_apply_command(tmp_path: 
     assert result["candidates"][0]["reconciler_apply_command"] == ""
 
 
+def test_default_pr_state_fetcher_times_out_fail_closed(monkeypatch: Any) -> None:
+    def run_timeout(*args: Any, **kwargs: Any) -> Any:
+        raise subprocess.TimeoutExpired(cmd=kwargs.get("args", ["gh"]), timeout=0.01)
+
+    monkeypatch.setattr(sentinel.subprocess, "run", run_timeout)
+
+    result = sentinel._default_pr_state_fetcher(
+        9001,
+        repo_slug="synaptent/aragora",
+        gh_bin="gh",
+        timeout_seconds=0.01,
+    )
+
+    assert result["available"] is False
+    assert result["state"] == "UNKNOWN"
+    assert "TimeoutExpired" in result["error"]
+
+
+def test_stale_terminal_owner_unknown_timestamp_precedes_stale_rows(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [
+            _active_owner_row(lane_id="Q-stale", owner_session="owner-stale"),
+            _active_owner_row(
+                lane_id="Q-no-time",
+                owner_session="owner-no-time",
+                updated_at="",
+            ),
+        ],
+        pr_state={"state": "CLOSED", "merge_commit": "", "url": "https://github.test/pr/9001"},
+    )
+
+    assert audit_calls == []
+    assert result["status"] == "unknown"
+    assert "no comparable timestamp" in result["detail"]
+    assert result["candidates"][0]["lane_id"] == "Q-stale"
+
+
+def test_stale_terminal_owner_missing_audit_finding_blocks_apply(tmp_path: Path) -> None:
+    result, audit_calls = _stale_owner_result(
+        tmp_path,
+        [_active_owner_row()],
+        pr_state={
+            "state": "MERGED",
+            "merge_commit": "abc123",
+            "url": "https://github.test/pr/9001",
+        },
+        findings=[],
+    )
+
+    assert audit_calls == [9001]
+    assert result["status"] == "breach"
+    assert result["candidates"][0]["terminal_safety_blockers"] == ["missing_reconciler_finding"]
+    assert result["candidates"][0]["reconciler_apply_command"] == ""
+
+
+def test_stale_terminal_owner_uses_resolver_active_statuses(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    class FakeResolver:
+        ACTIVE_STATUSES = {"leased"}
+
+    monkeypatch.setattr(sentinel, "_load_resolver_module", lambda: FakeResolver())
+    registry = _write_json(
+        tmp_path / "lanes.json",
+        [_active_owner_row(status="leased")],
+    )
+
+    def fetch_state(pr: int, *, repo_slug: str, gh_bin: str) -> dict[str, Any]:
+        return {
+            "available": True,
+            "number": pr,
+            "state": "CLOSED",
+            "merge_commit": "",
+            "url": "https://github.test/pr/9001",
+        }
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="synaptent/aragora",
+        pr_state_fetcher=fetch_state,
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "breach"
+    assert result["candidates"][0]["terminal_safety_blockers"] == ["closed_pr_manual_review"]
+
+
+def test_default_terminal_owner_auditor_uses_no_lock_read_only_path(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    class FakeResolver:
+        ACTIVE_STATUSES = {"active"}
+
+        def _utc_now_iso(self) -> str:
+            return "2026-06-10T12:00:00Z"
+
+        def _parse_timestamp(self, value: str) -> float:
+            return NOW.timestamp()
+
+        def _fetch_pr_state(self, *, pr: int, gh_bin: str) -> dict[str, Any]:
+            return {"available": True, "state": "MERGED", "mergeCommit": "abc123"}
+
+        def _read_rows_checked(self, path: Path) -> tuple[list[dict[str, Any]], str | None]:
+            if path.name == "lanes.json":
+                return [_active_owner_row()], None
+            return [], None
+
+        def _active_pr_lane_findings(
+            self,
+            rows: list[dict[str, Any]],
+            *,
+            pr: int,
+        ) -> list[dict[str, Any]]:
+            return [
+                {
+                    "lane_id": "Q900-stale-terminal",
+                    "owner_session": "codex-owner",
+                }
+            ]
+
+        def _annotate_terminal_safety(
+            self,
+            findings: list[dict[str, Any]],
+            **kwargs: Any,
+        ) -> list[dict[str, Any]]:
+            return [
+                {
+                    **finding,
+                    "terminal_safety_blockers": [],
+                    "terminal_safety_details": {},
+                    "apply_safe": True,
+                }
+                for finding in findings
+            ]
+
+        def _merged_pr_audit_blocked_reason(self, **kwargs: Any) -> str:
+            return ""
+
+        def _base_merged_pr_audit_result(self, **kwargs: Any) -> dict[str, Any]:
+            return {
+                "github_state": kwargs["github_state"],
+                "findings": kwargs["findings"],
+                "blocked_reason": kwargs["blocked_reason"],
+                "apply_eligible": False,
+            }
+
+        def audit_merged_pr_lanes(self, **kwargs: Any) -> dict[str, Any]:
+            raise AssertionError("sentinel must not enter resolver write-lock audit")
+
+    monkeypatch.setattr(sentinel, "_load_resolver_module", lambda: FakeResolver())
+
+    result = sentinel._default_terminal_owner_auditor(
+        pr=9001,
+        registry_path=tmp_path / "lanes.json",
+        receipt_dir=tmp_path / "receipts",
+        gh_bin="gh",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        heartbeat_fresh_seconds=900,
+    )
+
+    assert result["github_state"]["state"] == "MERGED"
+    assert result["findings"][0]["terminal_safety_blockers"] == []
+
+
 # ---------------------------------------------------------------------------
 # github_api_health  (failure class B: GraphQL 502/504 streaks of 2026-06-10/11
 # stalled the publisher; the cached github_health flipped auth_ok:false so the
