@@ -30,6 +30,7 @@ DEFAULT_STEERING_ROOT = Path(".aragora/operator-steering")
 DEFAULT_HEARTBEATS = Path(".aragora/agent-bridge/heartbeats.json")
 
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
+TERMINAL_STEERING_OUTCOMES = {"completed", "stale", "superseded"}
 PR_PUBLICATION_ACTIONS = {
     "open_pr",
     "open_pull_request",
@@ -96,7 +97,9 @@ class SteeringEvidence:
     pending_message_count: int = 0
     blocking_message_count: int = 0
     human_message_count: int = 0
+    resolved_message_count: int = 0
     latest_message: dict[str, Any] | None = None
+    latest_read_receipt: dict[str, Any] | None = None
 
 
 @dataclass
@@ -745,6 +748,8 @@ def steering_evidence_for_branch(
             pass
         else:
             continue
+        receipt = latest_read_receipt_for_message(path)
+        resolved = _steering_message_resolved(receipt)
         matches.append(
             {
                 "path": str(path),
@@ -754,16 +759,33 @@ def steering_evidence_for_branch(
                 "subject": payload.get("subject"),
                 "sent_at_utc": payload.get("sent_at_utc"),
                 "from": payload.get("from"),
+                "latest_read_receipt": receipt,
+                "resolved_by_read_receipt": resolved,
             }
         )
-    blocking = [m for m in matches if m.get("priority") == "blocking"]
-    human = [m for m in matches if _looks_human(m)]
-    latest = sorted(matches, key=lambda m: str(m.get("sent_at_utc") or ""))[-1] if matches else None
+    unresolved = [m for m in matches if not m.get("resolved_by_read_receipt")]
+    blocking = [m for m in unresolved if m.get("priority") == "blocking"]
+    human = [m for m in unresolved if _looks_human(m)]
+    latest = (
+        sorted(unresolved or matches, key=lambda m: str(m.get("sent_at_utc") or ""))[-1]
+        if matches
+        else None
+    )
+    receipts = [
+        receipt
+        for receipt in (m.get("latest_read_receipt") for m in matches)
+        if isinstance(receipt, dict)
+    ]
+    latest_receipt = (
+        sorted(receipts, key=lambda r: str(r.get("read_at_utc") or ""))[-1] if receipts else None
+    )
     return SteeringEvidence(
         pending_message_count=len(matches),
         blocking_message_count=len(blocking),
         human_message_count=len(human),
+        resolved_message_count=len(matches) - len(unresolved),
         latest_message=latest,
+        latest_read_receipt=latest_receipt,
     )
 
 
@@ -909,6 +931,45 @@ def _owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
 def _looks_human(mapping: Mapping[str, Any]) -> bool:
     text = json.dumps(mapping, sort_keys=True).lower()
     return "human" in text or "operator" in text and "human" in text
+
+
+def latest_read_receipt_for_message(message_path: Path) -> dict[str, Any] | None:
+    receipt_dir = message_path.parent / "_read_receipts"
+    if not receipt_dir.is_dir():
+        return None
+    receipts: list[dict[str, Any]] = []
+    data = _load_json(message_path)
+    if not isinstance(data, dict):
+        data = {}
+    message_sha = str(data.get("message_sha256") or "")
+    for receipt_path in sorted(receipt_dir.glob("*.json")):
+        payload = _load_json(receipt_path)
+        if not isinstance(payload, dict):
+            continue
+        if str(payload.get("message_filename") or "") != message_path.name:
+            continue
+        receipt_sha = str(payload.get("message_sha256") or "")
+        if message_sha and receipt_sha and receipt_sha != message_sha:
+            continue
+        receipts.append(
+            {
+                "path": str(receipt_path),
+                "read_at_utc": payload.get("read_at_utc"),
+                "read_by_session": payload.get("read_by_session"),
+                "outcome": payload.get("outcome"),
+                "outcome_note": payload.get("outcome_note"),
+            }
+        )
+    if not receipts:
+        return None
+    return sorted(receipts, key=lambda r: str(r.get("read_at_utc") or ""))[-1]
+
+
+def _steering_message_resolved(receipt: Mapping[str, Any] | None) -> bool:
+    if not receipt:
+        return False
+    outcome = str(receipt.get("outcome") or "").strip().lower()
+    return outcome in TERMINAL_STEERING_OUTCOMES
 
 
 def _selected_outbox_files(outbox_dir: Path, outbox_file: str | Path | None) -> list[Path]:

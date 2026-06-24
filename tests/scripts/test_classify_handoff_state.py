@@ -113,6 +113,55 @@ def _write_status_cache(
     )
 
 
+def _write_steering_message(
+    state_root: Path,
+    *,
+    owner_session: str = "engineering-autopilot-Q1",
+    branch: str = "codex/example",
+    filename: str = "2026-06-24T00-00-00-000Z-fixture.json",
+    priority: str = "blocking",
+) -> Path:
+    inbox = state_root / ".aragora" / "operator-steering" / owner_session
+    inbox.mkdir(parents=True, exist_ok=True)
+    path = inbox / filename
+    payload = {
+        "schema_version": "aragora-operator-steering/1.0",
+        "to_session": owner_session,
+        "from": "operator",
+        "sent_at_utc": "2026-06-24T00:00:00.000Z",
+        "lane_id_hint": "Q1",
+        "priority": priority,
+        "subject": f"Block {branch}",
+        "body": f"Please resolve {branch} before non-owner movement.",
+        "message_sha256": "fixture-sha",
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def _write_steering_receipt(
+    message_path: Path,
+    *,
+    outcome: str,
+    read_at_utc: str = "2026-06-24T00:05:00.000Z",
+) -> Path:
+    receipt_dir = message_path.parent / "_read_receipts"
+    receipt_dir.mkdir(parents=True, exist_ok=True)
+    path = receipt_dir / f"{read_at_utc.replace(':', '-')}-fixture.json"
+    receipt = {
+        "schema_version": "aragora-operator-steering-read-receipt/1.0",
+        "owner_session": message_path.parent.name,
+        "read_by_session": "reader",
+        "read_at_utc": read_at_utc,
+        "message_filename": message_path.name,
+        "message_sha256": "fixture-sha",
+        "outcome": outcome,
+        "outcome_note": f"fixture {outcome}",
+    }
+    path.write_text(json.dumps(receipt), encoding="utf-8")
+    return path
+
+
 def _classify_one(
     tmp_path: Path,
     *,
@@ -278,6 +327,37 @@ def test_human_owner_blocks_handoff(tmp_path: Path) -> None:
     item = _classify_one(tmp_path, owner=owner)
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_HUMAN.value
+
+
+def test_terminal_steering_receipt_consumes_blocking_effect(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    message_path = _write_steering_message(tmp_path, branch="codex/example")
+    _write_steering_receipt(message_path, outcome="completed")
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["steering"]["pending_message_count"] == 1
+    assert item["evidence"]["steering"]["resolved_message_count"] == 1
+    assert item["evidence"]["steering"]["blocking_message_count"] == 0
+    assert item["evidence"]["steering"]["latest_read_receipt"]["outcome"] == "completed"
+    assert item["evidence"]["steering"]["latest_message"]["resolved_by_read_receipt"] is True
+
+
+def test_nonterminal_steering_receipt_still_blocks(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    message_path = _write_steering_message(tmp_path, branch="codex/example")
+    _write_steering_receipt(message_path, outcome="blocked")
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["steering"]["pending_message_count"] == 1
+    assert item["evidence"]["steering"]["resolved_message_count"] == 0
+    assert item["evidence"]["steering"]["blocking_message_count"] == 1
+    assert item["evidence"]["steering"]["latest_read_receipt"]["outcome"] == "blocked"
 
 
 def test_graphql_degraded_cache_still_uses_rest_open_pr_fallback(tmp_path: Path) -> None:
