@@ -109,6 +109,13 @@ def load_private_key_from_pem(pem: str | bytes) -> Ed25519PrivateKey:
     return key
 
 
+def _secret_id_label(secret_id: str) -> str:
+    """Return a log-safe secret identifier label."""
+    if "-----BEGIN" in secret_id or "\n" in secret_id or len(secret_id) > 160:
+        return "<redacted-secret-id>"
+    return secret_id
+
+
 def _load_pem_secret_from_aws(secret_id: str) -> str:
     """Fetch a standalone PEM secret from AWS Secrets Manager.
 
@@ -124,11 +131,12 @@ def _load_pem_secret_from_aws(secret_id: str) -> str:
         raise OdrSigningError("aragora.config.secrets is unavailable") from exc
 
     config = secret_config.SecretsConfig.from_env()
+    secret_label = _secret_id_label(secret_id)
     if not config.use_aws:
         raise OdrSigningError(
             "AWS Secrets Manager is not enabled for ODR signing; set "
             "ARAGORA_USE_SECRETS_MANAGER=true and provision the PEM private key "
-            f"in secret '{secret_id}'"
+            f"in secret '{secret_label}'"
         )
 
     manager = secret_config.SecretManager(config)
@@ -153,13 +161,18 @@ def _load_pem_secret_from_aws(secret_id: str) -> str:
 
         secret_binary = response.get("SecretBinary")
         if isinstance(secret_binary, bytes) and secret_binary:
-            return base64.b64decode(secret_binary).decode("utf-8")
+            try:
+                return secret_binary.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise OdrSigningError(
+                    f"ODR signing key secret '{secret_label}' binary value is not UTF-8 PEM"
+                ) from exc
 
-        raise OdrSigningError(f"ODR signing key secret '{secret_id}' is empty")
+        raise OdrSigningError(f"ODR signing key secret '{secret_label}' is empty")
 
-    detail = f": {last_error}" if last_error else ""
+    detail = f" (last error: {type(last_error).__name__})" if last_error else ""
     raise OdrSigningError(
-        f"ODR signing key secret '{secret_id}' could not be read from AWS Secrets Manager{detail}"
+        f"ODR signing key secret '{secret_label}' could not be read from AWS Secrets Manager{detail}"
     )
 
 
@@ -228,8 +241,11 @@ def sign_odr_receipt(
 
     # The digest excludes the signatures array (detached) — compute it against
     # the payload as the verifier will, regardless of what's already attached.
-    digest_hex = odr_content_digest(signed)
-    message = bytes.fromhex(digest_hex)
+    try:
+        digest_hex = odr_content_digest(signed)
+        message = bytes.fromhex(digest_hex)
+    except (TypeError, ValueError) as exc:
+        raise OdrSigningError("could not compute ODR content digest for signing") from exc
 
     signature_bytes = private_key.sign(message)
     entry = {

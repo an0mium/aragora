@@ -24,6 +24,7 @@ from aragora.gauntlet.odr_export import odr_content_digest
 from aragora.gauntlet.odr_signing import (
     DEFAULT_SIGNING_KEY_SECRET,
     ODR_SIGNATURE_ALG,
+    SIGNING_KEY_SECRET_ENV,
     OdrSigningError,
     compute_key_id,
     generate_signing_key,
@@ -229,6 +230,38 @@ def test_load_signing_key_from_standalone_aws_secret(monkeypatch: pytest.MonkeyP
     assert compute_key_id(loaded.public_key()) == compute_key_id(key.public_key())
 
 
+def test_load_signing_key_from_binary_aws_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aragora.config.secrets import SecretManager, SecretsConfig
+
+    key = generate_signing_key()
+    pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+    class DummyClient:
+        def get_secret_value(self, *, SecretId: str) -> dict[str, bytes]:
+            assert SecretId == DEFAULT_SIGNING_KEY_SECRET
+            return {"SecretBinary": pem}
+
+    monkeypatch.setattr(
+        SecretsConfig,
+        "from_env",
+        classmethod(
+            lambda cls: cls(
+                use_aws=True,
+                aws_region="us-east-1",
+                aws_regions=["us-east-1"],
+            )
+        ),
+    )
+    monkeypatch.setattr(SecretManager, "_get_aws_client", lambda self, region: DummyClient())
+
+    loaded = load_signing_key_from_secrets()
+    assert compute_key_id(loaded.public_key()) == compute_key_id(key.public_key())
+
+
 def test_load_signing_key_rejects_raw_env_pem_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     from aragora.config.secrets import SecretManager, SecretsConfig
 
@@ -255,10 +288,12 @@ def test_load_signing_key_rejects_raw_env_pem_fallback(monkeypatch: pytest.Monke
         ),
     )
     monkeypatch.setattr(SecretManager, "_get_aws_client", lambda self, region: MissingClient())
-    monkeypatch.setenv(DEFAULT_SIGNING_KEY_SECRET, pem)
+    monkeypatch.setenv(SIGNING_KEY_SECRET_ENV, pem)
 
-    with pytest.raises(OdrSigningError, match="could not be read from AWS Secrets Manager"):
+    with pytest.raises(OdrSigningError, match="could not be read from AWS Secrets Manager") as exc:
         load_signing_key_from_secrets()
+
+    assert "BEGIN PRIVATE KEY" not in str(exc.value)
 
 
 def test_load_signing_key_requires_aws_secret_manager(
@@ -274,6 +309,15 @@ def test_load_signing_key_requires_aws_secret_manager(
 
     with pytest.raises(OdrSigningError, match="AWS Secrets Manager is not enabled"):
         load_signing_key_from_secrets()
+
+
+def test_sign_odr_receipt_wraps_digest_errors() -> None:
+    key = generate_signing_key()
+    malformed = _valid_odr()
+    malformed["claim"] = {"verdict": "PASS", "statement": {"not", "json"}}
+
+    with pytest.raises(OdrSigningError, match="could not compute ODR content digest"):
+        sign_odr_receipt(malformed, key)
 
 
 # ----------------------------------------------------------------------------
