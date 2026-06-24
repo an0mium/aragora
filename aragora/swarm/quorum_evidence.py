@@ -881,6 +881,27 @@ def _trusted_blocking_priority_between(lines: list[str], start_idx: int, end_idx
     return has_blocking_or_negative_verdict(trusted)
 
 
+_TRUSTED_PRIORITY_MARKER_RE = re.compile(
+    r"^(?:\*\*)?\[(?:p0|p1|p2|p3)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I
+)
+
+
+def _trusted_priority_marker_indices(lines: list[str]) -> list[int]:
+    indices: list[int] = []
+    in_fence = False
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence or _line_is_untrusted_example(line):
+            continue
+        probe = re.sub(r"^(?:[#>\-*+\s]+|\d+[.)]\s+)+", "", stripped)
+        if _TRUSTED_PRIORITY_MARKER_RE.match(probe):
+            indices.append(idx)
+    return indices
+
+
 def _trusted_verdict_probe(line: str) -> str:
     stripped = line.strip()
     if (
@@ -895,10 +916,13 @@ def _trusted_verdict_probe(line: str) -> str:
 
 
 def _verdict_from_probe(probe: str) -> str:
-    if not probe.startswith("verdict:"):
+    match = re.match(r"^(?:verdict|decision|recommendation)\s*:\s*(?P<value>.*)$", probe)
+    if not match:
         return ""
-    verdict = probe.split(":", 1)[1].strip().lstrip("*`# \t")
+    verdict = match.group("value").strip().lstrip("*`# \t")
     if verdict.startswith("pass"):
+        if re.match(r"pass(?:ed)?\s+on\b", verdict):
+            return ""
         return "pass"
     if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
         return "changes_requested"
@@ -1019,11 +1043,17 @@ def _reanchor_at_verdict(text: str) -> str:
             verdict_indices.append((idx, verdict))
     if verdict_indices:
         idx = verdict_indices[-1][0]
+        priority_indices = _trusted_priority_marker_indices(lines)
         for pos, (candidate_idx, verdict) in enumerate(verdict_indices):
             next_idx = verdict_indices[pos + 1][0] if pos + 1 < len(verdict_indices) else len(lines)
             if _trusted_blocking_priority_between(lines, candidate_idx, next_idx):
                 idx = candidate_idx
                 break
+        earlier_priority_indices = [
+            priority_idx for priority_idx in priority_indices if priority_idx < idx
+        ]
+        if earlier_priority_indices:
+            idx = min(earlier_priority_indices)
         return "\n".join(lines[idx:]).strip()
     return text.strip()
 

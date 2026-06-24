@@ -407,6 +407,80 @@ def test_indented_code_verdict_is_not_promoted_by_normalizer_strip(
     assert result["would_count"] is False
 
 
+def test_lightly_indented_verdict_is_still_trusted() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = "  Verdict: PASS\n  No findings."
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    assert "Verdict: PASS" in body
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+
+
+def test_decision_label_reanchors_and_counts_like_verdict() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = "Introductory preamble.\nDecision: PASS\nNo findings."
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == "Decision: PASS\nNo findings."
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is True, result["problems"]
+
+
+def test_pass_on_wording_is_not_promoted_to_supportive_verdict() -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+
+    raw = "Verdict: pass on security controls.\nNo findings."
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+
+
 def test_unclosed_trailing_thinking_bare_negative_verdict_is_preserved() -> None:
     from aragora.cli.commands.review_queue import _lint_evidence_comment
 
@@ -998,6 +1072,16 @@ def test_list_marker_verdict_reanchors_and_counts() -> None:
         source="test",
     )
     assert result["would_count"] is True, result["problems"]
+
+
+def test_pre_verdict_advisory_finding_is_preserved() -> None:
+    from aragora.swarm.quorum_evidence import normalize_reviewer_output
+
+    raw = "- [P3] advisory finding should stay visible.\nVerdict: PASS\nNo findings."
+
+    out = normalize_reviewer_output(raw)
+
+    assert out == raw
 
 
 def test_pre_verdict_inline_thinking_block_is_stripped() -> None:

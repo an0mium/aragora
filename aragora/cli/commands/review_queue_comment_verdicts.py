@@ -155,6 +155,11 @@ def _starts_with_phrase(
 # main.
 _DEFAULT_BLOCKING_MARKER = re.compile(r"^(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I)
 _DEFAULT_BLOCKING_MARKER_STRIP = re.compile(r"^(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?\s*", re.I)
+_DEFAULT_BLOCKING_MARKER_ANYWHERE = re.compile(
+    r"(?:^|[\s;:,.()[\]{}—–-])(?P<marker>(?:\*\*)?\[(?:p0|p1|p2)\](?:\*\*)?)"
+    r"(?:\s|$|[:.;—–-])",
+    re.I,
+)
 
 # The SEVERITY-GATE marker is deliberately `[P0]`/`[P1]` ONLY. ``_PRIORITY_MARKER``
 # detects a marker line (sev captured); ``_PRIORITY_MARKER_STRIP`` removes the prefix to
@@ -198,6 +203,24 @@ def _priority_finding_severity(stripped: str) -> str | None:
     return marker.group("sev").upper()
 
 
+def _default_blocking_marker_finding(stripped: str) -> bool:
+    priority_marker_line = _strip_decoration(stripped)
+    marker = _DEFAULT_BLOCKING_MARKER.match(priority_marker_line)
+    if not marker:
+        return False
+    rest = _DEFAULT_BLOCKING_MARKER_STRIP.sub("", priority_marker_line)
+    head = _normalize_value(rest).split(":", 1)[0].strip(" .;—–-")
+    return head not in _NO_FINDING_HEADS
+
+
+def _has_default_blocking_marker_anywhere(text: str) -> bool:
+    for match in _DEFAULT_BLOCKING_MARKER_ANYWHERE.finditer(text):
+        candidate = text[match.start("marker") :]
+        if _default_blocking_marker_finding(candidate):
+            return True
+    return False
+
+
 def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
     """Whether ``stripped`` is a populated ``Blocking finding(s):/Blocker(s):`` label.
 
@@ -234,12 +257,9 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
     for idx, stripped in enumerate(lines):
         if not stripped:
             continue
-        priority_marker_line = _strip_decoration(stripped)
-        if _DEFAULT_BLOCKING_MARKER.match(priority_marker_line):
-            rest = _DEFAULT_BLOCKING_MARKER_STRIP.sub("", priority_marker_line)
-            head = _normalize_value(rest).split(":", 1)[0].strip(" .;—–-")
-            if head not in _NO_FINDING_HEADS:
-                return True
+        if _default_blocking_marker_finding(stripped):
+            return True
+        if _DEFAULT_BLOCKING_MARKER.match(_strip_decoration(stripped)):
             # explicit "[Pn] None:/N/A/no issues" non-finding -> keep scanning
             continue
         line = _strip_decoration(stripped).replace("**", "").replace("__", "")
@@ -250,6 +270,8 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
         normalized_label = normalized_label.strip("*_ ")
         normalized_value = _normalize_value(match.group("value"))
         if normalized_label in {"verdict", "decision", "recommendation"}:
+            if _has_default_blocking_marker_anywhere(match.group("value")):
+                return True
             if _starts_with_phrase(normalized_value, _NEGATIVE_VERDICT_PREFIXES):
                 return True
             continue

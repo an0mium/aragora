@@ -3688,6 +3688,13 @@ _SUPPORTIVE_VERDICT_PREFIXES = (
 )
 
 
+_INDENTED_CODE_RE = re.compile(r"^(?: {4,}|\t)\S")
+
+
+def _is_markdown_indented_code_line(line: str) -> bool:
+    return bool(_INDENTED_CODE_RE.match(line.rstrip("\r\n")))
+
+
 def _extract_verdict_label_value(raw_line: str) -> str | None:
     line = raw_line.strip()
     if not line:
@@ -3726,12 +3733,14 @@ def _has_trusted_supportive_verdict_label(body: str) -> bool:
             continue
         if in_fence:
             continue
-        if raw_line != raw_line.lstrip() or stripped.startswith(">"):
+        if _is_markdown_indented_code_line(raw_line) or stripped.startswith(">"):
             continue
         value = _extract_verdict_label_value(raw_line)
         if value is None:
             continue
         normalized = _normalize_verdict_label_value(value)
+        if re.match(r"pass(?:ed)?\s+on\b", normalized):
+            continue
         if any(
             re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
             for prefix in _SUPPORTIVE_VERDICT_PREFIXES
