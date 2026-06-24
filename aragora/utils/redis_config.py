@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from typing import Any
 
 from aragora.exceptions import REDIS_CONNECTION_ERRORS
@@ -34,6 +35,9 @@ logger = logging.getLogger(__name__)
 # Module-level connection pool (lazy initialized)
 _redis_pool: Any | None = None
 _redis_available: bool | None = None
+# Serializes first-use pool initialization so concurrent callers cannot create
+# multiple pools or race on the cached globals.
+_redis_lock = threading.Lock()
 
 
 def _int_env(name: str, default: int) -> int:
@@ -81,9 +85,11 @@ def get_redis_url() -> str | None:
 def get_redis_pool() -> Any | None:
     """Get shared Redis connection pool (lazy initialization).
 
-    Lazy initialization of the Redis connection pool, cached after the first
-    successful call. First-use initialization is not synchronized across
-    threads. Returns None if Redis is not configured or unavailable.
+    Thread-safe lazy initialization: first-use creation is guarded by a
+    module-level lock (double-checked) so concurrent callers share a single
+    pool rather than racing to build several. The pool is cached after the
+    first successful call. Returns None if Redis is not configured or
+    unavailable.
 
     The pool is configured with:
     - Max connections from ARAGORA_REDIS_MAX_CONNECTIONS (default 50)
@@ -96,67 +102,78 @@ def get_redis_pool() -> Any | None:
     """
     global _redis_pool, _redis_available
 
-    # Return cached pool if already initialized
+    # Fast path: return the cached pool / known-unavailable result without
+    # taking the lock.
     if _redis_pool is not None:
         return _redis_pool
-
-    # Return None if we already know Redis is unavailable
     if _redis_available is False:
         return None
 
-    url = get_redis_url()
-    if not url:
-        _redis_available = False
-        return None
+    with _redis_lock:
+        # Re-check under the lock: another thread may have finished init while
+        # we were blocked.
+        if _redis_pool is not None:
+            return _redis_pool
+        if _redis_available is False:
+            return None
 
-    try:
-        import redis
+        url = get_redis_url()
+        if not url:
+            _redis_available = False
+            return None
 
-        max_connections = _int_env("ARAGORA_REDIS_MAX_CONNECTIONS", 50)
+        try:
+            import redis
 
-        # Validate max_connections bounds
-        if max_connections < 1:
-            logger.warning(
-                "ARAGORA_REDIS_MAX_CONNECTIONS=%d is below minimum, clamping to 1",
-                max_connections,
+            max_connections = _int_env("ARAGORA_REDIS_MAX_CONNECTIONS", 50)
+
+            # Validate max_connections bounds
+            if max_connections < 1:
+                logger.warning(
+                    "ARAGORA_REDIS_MAX_CONNECTIONS=%d is below minimum, clamping to 1",
+                    max_connections,
+                )
+                max_connections = 1
+            elif max_connections > 10000:
+                logger.warning(
+                    "ARAGORA_REDIS_MAX_CONNECTIONS=%d exceeds maximum, capping at 10000",
+                    max_connections,
+                )
+                max_connections = 10000
+
+            socket_timeout = _float_env("ARAGORA_REDIS_SOCKET_TIMEOUT", 5.0)
+
+            pool = redis.ConnectionPool.from_url(
+                url,
+                max_connections=max_connections,
+                socket_timeout=socket_timeout,
+                socket_connect_timeout=socket_timeout,
+                retry_on_timeout=True,
+                decode_responses=True,  # Return strings instead of bytes
             )
-            max_connections = 1
-        elif max_connections > 10000:
-            logger.warning(
-                "ARAGORA_REDIS_MAX_CONNECTIONS=%d exceeds maximum, capping at 10000",
-                max_connections,
-            )
-            max_connections = 10000
 
-        socket_timeout = _float_env("ARAGORA_REDIS_SOCKET_TIMEOUT", 5.0)
+            # Test connection with ping before publishing the pool, so a failed
+            # connection never leaves a half-initialized pool cached.
+            test_client = redis.Redis(connection_pool=pool)
+            test_client.ping()
 
-        _redis_pool = redis.ConnectionPool.from_url(
-            url,
-            max_connections=max_connections,
-            socket_timeout=socket_timeout,
-            socket_connect_timeout=socket_timeout,
-            retry_on_timeout=True,
-            decode_responses=True,  # Return strings instead of bytes
-        )
+            _redis_pool = pool
+            _redis_available = True
+            # Mask password in URL for logging
+            safe_url = url.split("@")[-1] if "@" in url else url
+            logger.info("Redis connected: %s", safe_url)
+            return _redis_pool
 
-        # Test connection with ping
-        test_client = redis.Redis(connection_pool=_redis_pool)
-        test_client.ping()
-
-        _redis_available = True
-        # Mask password in URL for logging
-        safe_url = url.split("@")[-1] if "@" in url else url
-        logger.info("Redis connected: %s", safe_url)
-        return _redis_pool
-
-    except ImportError:
-        logger.debug("redis package not installed, Redis caching disabled")
-        _redis_available = False
-        return None
-    except REDIS_CONNECTION_ERRORS as e:
-        logger.warning("Redis connection failed: %s", e)
-        _redis_available = False
-        return None
+        except ImportError:
+            logger.debug("redis package not installed, Redis caching disabled")
+            _redis_pool = None
+            _redis_available = False
+            return None
+        except REDIS_CONNECTION_ERRORS as e:
+            logger.warning("Redis connection failed: %s", e)
+            _redis_pool = None
+            _redis_available = False
+            return None
 
 
 def is_redis_available() -> bool:
