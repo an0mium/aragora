@@ -52,8 +52,9 @@ each module's import name, using `rg -l '^\s*(import|from)\s+<mod>\b' aragora/`
 of an `import` / `from` statement counts genuine import sites and excludes
 incidental mentions in comments or strings, so a broad `rg -l <mod> aragora/`
 reports materially higher (e.g. ~144 for aiohttp, ~15 for websockets). The counts
-below are a point-in-time anchored-import trace at the audit head,
-cross-referenced against the empirically bootable runtime list in
+below are a point-in-time anchored-import trace (re-running the command above
+reproduces them; they drift as the tree changes), cross-referenced against the
+empirically bootable runtime list in
 `scripts/ci_install_project.sh` (`LEGACY_CONTROL_PLANE_BASE_DEPS`, the floor both
 Dockerfiles boot from).
 
@@ -61,7 +62,7 @@ Dockerfiles boot from).
 |---|---:|---|---|---|
 | `pydantic` | 33 | config, core, server, cli | yes (`>=2.13.4,<3.0`) | floor ✓ |
 | `PyYAML` (`yaml`) | 49 | config, hooks, templates | yes (`>=6.0.3,<7.0`) | floor ✓ |
-| `aiohttp` | 102 | server handlers, agents, connectors | **no** (only `[blockchain]`,`[all]`) | floor GAP ⚠ |
+| `aiohttp` | 98 | server handlers, agents, connectors | **no** (only `[blockchain]`,`[all]`) | floor GAP ⚠ |
 | `websockets` | 7 | `aragora/server/stream/*` | **no** (undeclared anywhere) | floor GAP ⚠ |
 | `pydantic-settings` | 1 | config | yes (`>=2.14.2,<3.0`) | floor ✓ + CVE floor |
 | `click` / `typer` / `httpx` / `python-dateutil` | n/a | cli entry surface | yes | CLI floor ✓ |
