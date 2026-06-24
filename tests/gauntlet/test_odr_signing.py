@@ -272,9 +272,9 @@ def test_load_signing_key_rejects_raw_env_pem_fallback(monkeypatch: pytest.Monke
         encryption_algorithm=serialization.NoEncryption(),
     ).decode()
 
-    class MissingClient:
+    class UnexpectedClient:
         def get_secret_value(self, *, SecretId: str) -> dict[str, str]:
-            raise RuntimeError(f"{SecretId} missing")
+            raise AssertionError("raw PEM must be rejected before any AWS request")
 
     monkeypatch.setattr(
         SecretsConfig,
@@ -287,10 +287,10 @@ def test_load_signing_key_rejects_raw_env_pem_fallback(monkeypatch: pytest.Monke
             )
         ),
     )
-    monkeypatch.setattr(SecretManager, "_get_aws_client", lambda self, region: MissingClient())
+    monkeypatch.setattr(SecretManager, "_get_aws_client", lambda self, region: UnexpectedClient())
     monkeypatch.setenv(SIGNING_KEY_SECRET_ENV, pem)
 
-    with pytest.raises(OdrSigningError, match="could not be read from AWS Secrets Manager") as exc:
+    with pytest.raises(OdrSigningError, match="appears to contain raw key material") as exc:
         load_signing_key_from_secrets()
 
     assert "BEGIN PRIVATE KEY" not in str(exc.value)
@@ -348,7 +348,7 @@ def _load_real_verifier():
 def test_round_trip_against_shipped_verifier() -> None:
     verify = _load_real_verifier()
     if verify is None:
-        pytest.skip("aragora_verify not importable in this environment")
+        raise AssertionError("aragora_verify must be importable for the ODR signing contract test")
 
     key = generate_signing_key()
     signed = sign_odr_receipt(_valid_odr(), key)

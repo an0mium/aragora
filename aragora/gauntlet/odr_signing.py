@@ -116,6 +116,10 @@ def _secret_id_label(secret_id: str) -> str:
     return secret_id
 
 
+def _secret_id_contains_key_material(secret_id: str) -> bool:
+    return "-----BEGIN" in secret_id or "PRIVATE KEY" in secret_id or "\n" in secret_id
+
+
 def _load_pem_secret_from_aws(secret_id: str) -> str:
     """Fetch a standalone PEM secret from AWS Secrets Manager.
 
@@ -125,13 +129,19 @@ def _load_pem_secret_from_aws(secret_id: str) -> str:
     standalone custody material: the environment may name the SecretId, but it
     must never carry the raw private key.
     """
+    secret_label = _secret_id_label(secret_id)
+    if _secret_id_contains_key_material(secret_id):
+        raise OdrSigningError(
+            "ODR signing key secret identifier appears to contain raw key material; "
+            "set ARAGORA_ODR_SIGNING_KEY_SECRET to an AWS Secrets Manager SecretId"
+        )
+
     try:
         from aragora.config import secrets as secret_config
     except ImportError as exc:  # pragma: no cover - environment-dependent
         raise OdrSigningError("aragora.config.secrets is unavailable") from exc
 
     config = secret_config.SecretsConfig.from_env()
-    secret_label = _secret_id_label(secret_id)
     if not config.use_aws:
         raise OdrSigningError(
             "AWS Secrets Manager is not enabled for ODR signing; set "
