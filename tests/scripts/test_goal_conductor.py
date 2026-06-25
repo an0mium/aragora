@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -163,7 +164,7 @@ lanes:
     assert mission.lanes[0].lane_id == "impl"
 
 
-def test_main_validate_json_suppresses_flush_time_broken_pipe_without_closing_wrappers(
+def test_main_validate_json_suppresses_flush_time_broken_pipe_and_closes_wrapper(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import goal_conductor as mod
@@ -202,13 +203,13 @@ lanes:
 
     assert mod.main(["validate", "--mission", str(mission_path), "--json"]) == 0
     assert stream.writes
-    assert stream.closed is False
+    assert stream.closed is True
     assert mod.sys.stdout is not stream
     if mod.sys.stdout is not sys.__stdout__:
         mod.sys.stdout.close()
 
 
-def test_emit_output_suppresses_write_time_broken_pipe_without_closing_wrappers(
+def test_emit_output_suppresses_write_time_broken_pipe_and_closes_wrapper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import goal_conductor as mod
@@ -231,13 +232,13 @@ def test_emit_output_suppresses_write_time_broken_pipe_without_closing_wrappers(
 
     mod._emit_output("payload")
 
-    assert stream.closed is False
+    assert stream.closed is True
     assert mod.sys.stdout is not stream
     if mod.sys.stdout is not sys.__stdout__:
         mod.sys.stdout.close()
 
 
-def test_mute_stdout_closes_default_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mute_stdout_keeps_default_stdout_open(monkeypatch: pytest.MonkeyPatch) -> None:
     import goal_conductor as mod
 
     class DefaultStdout:
@@ -253,7 +254,7 @@ def test_mute_stdout_closes_default_stdout(monkeypatch: pytest.MonkeyPatch) -> N
 
     mod._mute_stdout_after_broken_pipe()
 
-    assert stream.closed is True
+    assert stream.closed is False
     assert mod.sys.stdout is not stream
     if mod.sys.stdout is not sys.__stdout__:
         mod.sys.stdout.close()
@@ -283,7 +284,7 @@ def test_mute_stdout_falls_back_to_null_stream_when_devnull_unavailable(
     mod._mute_stdout_after_broken_pipe()
     mod._emit_output("payload")
 
-    assert stream.closed is False
+    assert stream.closed is True
     assert isinstance(mod.sys.stdout, mod._NullStdout)
 
 
@@ -312,6 +313,68 @@ def test_emit_output_accepts_stream_without_flush(monkeypatch: pytest.MonkeyPatc
     mod._emit_output("payload")
 
     assert stream.writes == ["payload", "\n"]
+
+
+def test_emit_output_suppresses_closed_stream_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import goal_conductor as mod
+
+    class ClosedStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def write(self, text: str) -> int:
+            raise ValueError("I/O operation on closed file")
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = ClosedStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    mod._emit_output("payload")
+
+    assert stream.closed is True
+    assert mod.sys.stdout is not stream
+    if mod.sys.stdout is not sys.__stdout__:
+        mod.sys.stdout.close()
+
+
+def test_validate_json_real_pipe_close_exits_zero(tmp_path: Path) -> None:
+    mission_path = tmp_path / "mission.yaml"
+    mission_path.write_text(
+        """
+name: pipe-smoke
+objective: Verify real early-close pipe behavior.
+lanes:
+  - id: panel
+    mode: panel
+    goal: Review sampled output.
+    prompt: Review only.
+""",
+        encoding="utf-8",
+    )
+
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            str(SCRIPTS_DIR / "goal_conductor.py"),
+            "validate",
+            "--mission",
+            str(mission_path),
+            "--json",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    assert proc.stdout is not None
+    proc.stdout.close()
+    _, stderr = proc.communicate(timeout=10)
+
+    assert proc.returncode == 0
+    assert "BrokenPipeError" not in stderr
 
 
 def test_run_once_blocks_mutating_lane_at_queue_cap_but_allows_panel(tmp_path: Path) -> None:

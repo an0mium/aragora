@@ -14,6 +14,7 @@ The conductor is intentionally conservative. It is read-only by default; pass
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import os
 import re
@@ -61,17 +62,27 @@ class _NullStdout:
 
 def _mute_stdout_after_broken_pipe() -> None:
     current = sys.stdout
-    if current is sys.__stdout__:
+    if current is not None and current is not sys.__stdout__:
         close = getattr(current, "close", None)
         if callable(close):
             try:
                 close()
-            except OSError:
+            except (OSError, ValueError):
                 pass
     try:
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
     except OSError:
         sys.stdout = _NullStdout()
+
+
+def _is_suppressible_stdout_error(exc: BaseException) -> bool:
+    if isinstance(exc, BrokenPipeError):
+        return True
+    if isinstance(exc, ValueError):
+        return "closed" in str(exc).lower()
+    if isinstance(exc, OSError):
+        return exc.errno in {errno.EBADF, errno.EPIPE}
+    return False
 
 
 def _emit_output(output: str) -> None:
@@ -87,7 +98,9 @@ def _emit_output(output: str) -> None:
         flush = getattr(stream, "flush", None)
         if callable(flush):
             flush()
-    except BrokenPipeError:
+    except (BrokenPipeError, OSError, ValueError) as exc:
+        if not _is_suppressible_stdout_error(exc):
+            raise
         _mute_stdout_after_broken_pipe()
 
 
