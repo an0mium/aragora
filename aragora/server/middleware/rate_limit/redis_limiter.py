@@ -18,6 +18,7 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -478,7 +479,7 @@ class RedisRateLimiter:
             # Use Redis hash to store per-instance metrics
             instance_key = f"{self._metrics_key}{self.instance_id}"
             with self._lock:
-                metrics_data = {
+                metrics_data: Mapping[str | bytes, bytes | float | int | str] = {
                     "requests_allowed": str(self._requests_allowed),
                     "requests_rejected": str(self._requests_rejected),
                     "redis_failures": str(self._redis_failures),
