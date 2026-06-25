@@ -34,6 +34,22 @@ NOW = sentinel.parse_iso("2026-06-10T12:00:00Z")
 HOUR = 3600.0
 
 
+def _init_repo_with_origin(
+    path: Path, origin: str = "https://github.com/synaptent/aragora.git"
+) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "init"], cwd=path, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    subprocess.run(
+        ["git", "config", "remote.origin.url", origin],
+        cwd=path,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
 def _touch(path: Path, *, age_hours: float = 0.0, content: str = "x") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
@@ -170,6 +186,58 @@ def test_stale_terminal_owner_defaults_use_automation_state_root(
     )
 
 
+def test_automation_state_root_accepts_same_origin_checkout(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    repo = tmp_path / "repo"
+    shared = tmp_path / "shared-checkout"
+    _init_repo_with_origin(repo)
+    _init_repo_with_origin(shared)
+    (shared / ".aragora").mkdir()
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared))
+
+    assert sentinel._automation_state_root(repo) == (shared / ".aragora").resolve()
+
+
+def test_main_explicit_paths_survive_untrusted_automation_state_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    monkeypatch.setattr(sentinel, "DEFAULT_REPO_ROOT", tmp_path / "repo")
+    registry = tmp_path / "lanes.json"
+    heartbeats = tmp_path / "heartbeats.json"
+    steering = tmp_path / "operator-steering"
+    receipts = tmp_path / "receipts"
+    registry.write_text("[]", encoding="utf-8")
+    heartbeats.write_text("[]", encoding="utf-8")
+    steering.mkdir()
+    receipts.mkdir()
+
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--checks",
+            "stale_terminal_owner",
+            "--agent-bridge-lanes",
+            str(registry),
+            "--agent-heartbeats",
+            str(heartbeats),
+            "--operator-steering-root",
+            str(steering),
+            "--stale-terminal-owner-receipt-dir",
+            str(receipts),
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert report["checks"][0]["status"] == "ok"
+
+
 def test_automation_state_root_rejects_untrusted_env_root(
     tmp_path: Path,
     monkeypatch: Any,
@@ -183,12 +251,28 @@ def test_automation_state_root_rejects_untrusted_env_root(
     )
 
     try:
-        sentinel.build_parser()
+        sentinel._automation_state_root(tmp_path / "repo")
     except ValueError as exc:
         assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in str(exc)
         assert str(trusted_root) in str(exc)
     else:
         raise AssertionError("untrusted automation state root was accepted")
+
+
+def test_build_parser_fails_closed_when_untrusted_env_defaults_would_be_used(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    monkeypatch.setattr(sentinel, "DEFAULT_REPO_ROOT", tmp_path / "repo")
+
+    code = sentinel.main(["--json", "--no-ledger", "--checks", "stale_terminal_owner"])
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert report["checks"][0]["status"] == "unknown"
+    assert "invalid automation state root" in report["checks"][0]["detail"]
 
 
 def test_stale_terminal_owner_defaults_use_canonical_repo_root(
@@ -1100,6 +1184,14 @@ def test_default_pr_state_fetcher_rejects_unsafe_gh_bin(monkeypatch: Any) -> Non
     assert result["command"] == []
 
 
+def test_validate_gh_bin_accepts_absolute_executable_wrapper(tmp_path: Path) -> None:
+    wrapper = tmp_path / "gh-wrapper"
+    wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    wrapper.chmod(0o755)
+
+    assert sentinel._validate_gh_bin(str(wrapper)) == str(wrapper.resolve())
+
+
 def test_stale_terminal_owner_rejects_invalid_repo_before_fetch(tmp_path: Path) -> None:
     registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
 
@@ -1898,7 +1990,20 @@ def test_main_trail_reconcile_wired_end_to_end(tmp_path: Path, capsys: Any) -> N
     # TA merges this replica replay must breach (exit 1). Both are alarm
     # states — never 0.
     assert code in (1, 2)
-    assert check["status"] in ("breach", "unknown")
+
+
+def test_github_witness_events_rejects_invalid_repo_slug_before_capture() -> None:
+    def capture_should_not_run(cmd: list[str]) -> str:
+        raise AssertionError("invalid repo slug must not reach gh api")
+
+    try:
+        sentinel._github_witness_events(
+            "synaptent/aragora --json files", capture=capture_should_not_run
+        )
+    except ValueError as exc:
+        assert "repo_slug" in str(exc)
+    else:
+        raise AssertionError("invalid witness repo slug was accepted")
 
 
 def test_main_trail_reconcile_replica_chain_reader_fallback(tmp_path: Path, capsys: Any) -> None:

@@ -27,6 +27,22 @@ resolver = _load_module("resolve_lane_conflicts.py")
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "resolve_lane_conflicts.py"
 
 
+def _init_repo_with_origin(
+    path: Path, origin: str = "https://github.com/synaptent/aragora.git"
+) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "init"], cwd=path, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    subprocess.run(
+        ["git", "config", "remote.origin.url", origin],
+        cwd=path,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
 def _write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -171,6 +187,20 @@ def test_cli_rejects_untrusted_automation_state_root(
         raise AssertionError("untrusted automation state root was accepted")
 
 
+def test_automation_state_root_accepts_same_origin_checkout(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    repo = tmp_path / "repo"
+    shared = tmp_path / "shared-checkout"
+    _init_repo_with_origin(repo)
+    _init_repo_with_origin(shared)
+    (shared / ".aragora").mkdir()
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared))
+
+    assert resolver._automation_state_root(repo) == (shared / ".aragora").resolve()
+
+
 def test_fetch_pr_state_rejects_unsafe_gh_bin(monkeypatch: Any) -> None:
     def run_should_not_execute(*args: Any, **kwargs: Any) -> Any:
         raise AssertionError("unsafe gh_bin must not reach subprocess")
@@ -182,6 +212,14 @@ def test_fetch_pr_state_rejects_unsafe_gh_bin(monkeypatch: Any) -> None:
     assert result["available"] is False
     assert "gh_bin" in result["error"]
     assert result["command"] == []
+
+
+def test_validate_gh_bin_accepts_absolute_executable_wrapper(tmp_path: Path) -> None:
+    wrapper = tmp_path / "gh-wrapper"
+    wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    wrapper.chmod(0o755)
+
+    assert resolver._validate_gh_bin(str(wrapper)) == str(wrapper.resolve())
 
 
 def test_apply_marks_conflict_superseded_and_writes_receipt(tmp_path: Path) -> None:
