@@ -8,9 +8,10 @@ Verifies that all 33 handlers:
 """
 
 import inspect
+from typing import Optional
+from unittest.mock import MagicMock, patch
 
 import pytest
-from typing import Optional
 
 from aragora.server.handler_registry import (
     HANDLER_REGISTRY,
@@ -177,17 +178,21 @@ class TestHandlerRouting:
             "position_ledger": None,
         }
         result = {}
-        for _, handler_class in HANDLER_REGISTRY:
-            if handler_class is None:
-                continue
-            resolved = _resolve_handler(handler_class)
-            if resolved is None:
-                continue
-            handler = _instantiate_handler(resolved, ctx)
-            if handler is None:
-                continue
-            if hasattr(handler, "can_handle") and callable(handler.can_handle):
-                result[resolved.__name__] = handler
+        with patch(
+            "aragora.storage.audit_trail_store.get_audit_trail_store",
+            return_value=MagicMock(),
+        ):
+            for _, handler_class in HANDLER_REGISTRY:
+                if handler_class is None:
+                    continue
+                resolved = _resolve_handler(handler_class)
+                if resolved is None:
+                    continue
+                handler = _instantiate_handler(resolved, ctx)
+                if handler is None:
+                    continue
+                if hasattr(handler, "can_handle") and callable(handler.can_handle):
+                    result[resolved.__name__] = handler
         return result
 
     def test_handlers_have_can_handle(self, handlers):

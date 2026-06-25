@@ -455,6 +455,8 @@ class TestGlobalProviderReference:
         # Second stream sets provider2
         stream2 = MemoryStream(db_path=temp_db, embedding_provider=provider2)
         assert streams_module._embedding_provider_ref is provider2
+        _get_cached_embedding.cache_clear()
+        assert _get_cached_embedding("provider check") == tuple([0.2] * 256)
 
     def test_none_provider_no_overwrite(self, temp_db, mock_embedding_provider):
         """None provider should not overwrite existing reference."""

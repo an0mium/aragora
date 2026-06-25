@@ -243,7 +243,7 @@ def test_register_routes_adds_swarm_status_endpoints() -> None:
 
     swarm_status.register_routes(app)
 
-    route_paths = {route.path for route in app.routes}
+    route_paths = {route.path for route in app.routes if hasattr(route, "path")}
     assert "/api/v1/swarm/status" in route_paths
     assert "/api/v1/swarm/preflight" in route_paths
     assert "/api/v1/swarm/preflight/receipts" in route_paths

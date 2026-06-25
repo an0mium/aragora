@@ -198,6 +198,9 @@ class TestRedisPoolStateSafety:
 
         assert redis_mod._redis_pool is None
         assert redis_mod._redis_available is False
+        assert redis_mod.get_redis_pool() is None
+        assert redis_mod.get_redis_client() is None
+        assert redis_mod.is_redis_available() is False
         redis_mod.reset_redis_state()
 
     def test_concurrent_get_redis_pool_publishes_one_pool(self):

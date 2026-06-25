@@ -32,7 +32,8 @@ async def test_debate_with_int_agents():
 
     assert isinstance(result, DebateResult)
     assert result.task == "Should we adopt microservices?"
-    assert result.status == "completed"
+    assert result.status == "consensus_reached"
+    assert result.consensus_reached is True
     assert len(result.participants) == 3
 
 
@@ -267,10 +268,11 @@ def test_receipt_rejects_unknown_type():
 def test_golden_imports_from_package():
     """Golden API functions are accessible from the aragora package.
 
-    Note: ``aragora.debate`` may resolve to the ``aragora.debate`` subpackage
-    module if it was imported before the lazy ``_EXPORT_MAP`` lookup fires.
-    We verify the *other* five names that have no subpackage collision, plus
-    verify ``debate`` is directly importable from ``aragora.golden``.
+    Note: names that also have subpackages (``aragora.debate``,
+    ``aragora.review``, and ``aragora.workflow``) may resolve to those
+    subpackages when they were imported before the lazy ``_EXPORT_MAP`` lookup
+    fires. We verify the non-colliding package exports plus direct imports from
+    ``aragora.golden`` for the colliding names.
     """
     import aragora
     from aragora.golden import debate as golden_debate
@@ -283,10 +285,11 @@ def test_golden_imports_from_package():
     # These names don't collide with subpackage names
     assert aragora.remember is golden_remember
     assert aragora.recall is golden_recall
-    assert aragora.review is golden_review
-    assert aragora.workflow is golden_workflow
     assert aragora.receipt is golden_receipt
 
-    # debate() is directly usable from aragora.golden even if
-    # aragora.debate resolves to the subpackage in some import orders
+    # Colliding Golden API functions are directly usable from aragora.golden
+    # even if the matching aragora.<name> attribute resolves to a subpackage in
+    # some import orders.
     assert callable(golden_debate)
+    assert callable(golden_review)
+    assert callable(golden_workflow)

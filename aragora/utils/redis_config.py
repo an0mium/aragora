@@ -222,6 +222,8 @@ def close_redis_pool() -> None:
     """
     global _redis_pool, _redis_available
 
+    # Take the same lock get_redis_pool() uses for init so a concurrent
+    # first-use init cannot republish a pool while shutdown is tearing it down.
     with _redis_lock:
         if _redis_pool is not None:
             try:
