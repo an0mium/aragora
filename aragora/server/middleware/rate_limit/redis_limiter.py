@@ -18,7 +18,6 @@ import logging
 import os
 import threading
 import time
-from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -93,7 +92,7 @@ def get_redis_client() -> redis.Redis | None:
 
     # Try centralized redis_config first (preferred)
     try:
-        from aragora.utils.redis_config import get_redis_client as get_shared_client
+        from aragora.server.redis_config import get_redis_client as get_shared_client
 
         shared_client = get_shared_client()
         if shared_client is not None:
@@ -479,7 +478,7 @@ class RedisRateLimiter:
             # Use Redis hash to store per-instance metrics
             instance_key = f"{self._metrics_key}{self.instance_id}"
             with self._lock:
-                metrics_data: Mapping[str | bytes, bytes | float | int | str] = {
+                metrics_data = {
                     "requests_allowed": str(self._requests_allowed),
                     "requests_rejected": str(self._requests_rejected),
                     "redis_failures": str(self._redis_failures),
