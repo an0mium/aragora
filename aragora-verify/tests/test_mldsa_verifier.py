@@ -151,6 +151,70 @@ def test_hybrid_receipt_wrong_mldsa_key_fails_even_when_ed25519_key_is_valid() -
     assert "ML-DSA-65" in signature.detail
 
 
+def test_hybrid_receipt_mldsa_key_id_mismatch_fails() -> None:
+    ed_private, ed_public = make_keypair()
+    mldsa_private = signing.generate_mldsa_signing_key()
+    signed = signing.sign_odr_hybrid(
+        valid_odr(),
+        ed25519_key=ed_private,
+        mldsa_key=mldsa_private,
+    )
+    signed["signatures"][1]["key_id"] = "ml-dsa-65-not-the-key"
+
+    result = verify(
+        signed,
+        public_key=ed_public,
+        mldsa_public_key=mldsa_private.public_key(),
+    )
+
+    assert result.ok is False
+    assert _signature_check(result).status == FAIL
+    assert "key_id mismatch" in _signature_check(result).detail
+
+
+def test_hybrid_receipt_ed25519_key_id_mismatch_fails() -> None:
+    ed_private, ed_public = make_keypair()
+    mldsa_private = signing.generate_mldsa_signing_key()
+    signed = signing.sign_odr_hybrid(
+        valid_odr(),
+        ed25519_key=ed_private,
+        mldsa_key=mldsa_private,
+    )
+    signed["signatures"][0]["key_id"] = "ed25519-not-the-key"
+
+    result = verify(
+        signed,
+        public_key=ed_public,
+        mldsa_public_key=mldsa_private.public_key(),
+    )
+
+    assert result.ok is False
+    assert _signature_check(result).status == FAIL
+    assert "key_id mismatch" in _signature_check(result).detail
+
+
+def test_hybrid_receipt_malformed_mldsa_signature_fails_cleanly() -> None:
+    ed_private, ed_public = make_keypair()
+    mldsa_private = signing.generate_mldsa_signing_key()
+    signed = signing.sign_odr_hybrid(
+        valid_odr(),
+        ed25519_key=ed_private,
+        mldsa_key=mldsa_private,
+    )
+    signed["signatures"][1]["signature"] = base64.b64encode(b"not-an-mldsa-signature").decode(
+        "ascii"
+    )
+
+    result = verify(
+        signed,
+        public_key=ed_public,
+        mldsa_public_key=mldsa_private.public_key(),
+    )
+
+    assert result.ok is False
+    assert _signature_check(result).status == FAIL
+
+
 def test_hybrid_receipt_without_mldsa_key_skips_mldsa_entry_but_ed25519_passes() -> None:
     ed_private, ed_public = make_keypair()
     mldsa_private = signing.generate_mldsa_signing_key()

@@ -382,6 +382,13 @@ def _check_signatures(  # noqa: PLR0912, PLR0915
                 continue
             try:
                 public_key.verify(raw_sig, message)
+                if key_id != provided_key_id:
+                    failed_matching.append(f"sig[{i}] Ed25519 key_id mismatch")
+                    notes.append(
+                        f"sig[{i}] Ed25519 (key_id={key_id or '?'}): "
+                        f"verified bytes but key_id mismatch (expected {provided_key_id})"
+                    )
+                    continue
                 verified_any = True
                 verified_supplied_alg["Ed25519"] = True
                 notes.append(f"sig[{i}] Ed25519 (key_id={key_id or '?'}): verified")
@@ -410,10 +417,17 @@ def _check_signatures(  # noqa: PLR0912, PLR0915
                 continue
             try:
                 mldsa_public_key.verify(raw_sig, message)
+                if key_id != provided_mldsa_key_id:
+                    failed_matching.append(f"sig[{i}] ML-DSA-65 key_id mismatch")
+                    notes.append(
+                        f"sig[{i}] ML-DSA-65 (key_id={key_id or '?'}): "
+                        f"verified bytes but key_id mismatch (expected {provided_mldsa_key_id})"
+                    )
+                    continue
                 verified_any = True
                 verified_supplied_alg["ML-DSA-65"] = True
                 notes.append(f"sig[{i}] ML-DSA-65 (key_id={key_id or '?'}): verified")
-            except MLDSAInvalidSignature:  # type: ignore[misc]
+            except (MLDSAInvalidSignature, ValueError, TypeError):  # type: ignore[misc]
                 notes.append(f"sig[{i}] ML-DSA-65 (key_id={key_id or '?'}): INVALID")
                 if key_id == provided_mldsa_key_id:
                     failed_matching.append(f"sig[{i}] ML-DSA-65")
