@@ -412,6 +412,13 @@ def _truthy(value: Any) -> bool:
     return bool(value)
 
 
+def _coerce_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _merge_packet_pr_number(entry: dict[str, Any]) -> int | None:
     for key in ("pr_number", "number", "pr"):
         value = entry.get(key)
@@ -437,8 +444,8 @@ def _merge_packet_satisfied(entry: dict[str, Any]) -> bool:
     verdict = str(entry.get("verdict") or "").strip().lower()
     return (
         status == "satisfied"
-        or verdict == "admin_squash_allowed"
-        or _truthy(entry.get("admin_squash_allowed"))
+        and verdict == "admin_squash_allowed"
+        and _truthy(entry.get("admin_squash_allowed"))
     )
 
 
@@ -464,6 +471,36 @@ def _merge_packet_entries(packet: Any) -> list[dict[str, Any]]:
     if isinstance(packet, list):
         return [entry for entry in packet if isinstance(entry, dict)]
     return []
+
+
+def _merge_packet_admin_squash_order(packet: Any) -> list[int]:
+    if not isinstance(packet, dict):
+        return []
+    order = packet.get("admin_squash_order")
+    if not isinstance(order, list):
+        return []
+    ordered: list[int] = []
+    for item in order:
+        try:
+            ordered.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    return ordered
+
+
+def _merge_packet_not_ready(packet: Any) -> set[int]:
+    if not isinstance(packet, dict):
+        return set()
+    not_ready = packet.get("not_ready")
+    if not isinstance(not_ready, list):
+        return set()
+    blocked: set[int] = set()
+    for item in not_ready:
+        try:
+            blocked.add(int(item))
+        except (TypeError, ValueError):
+            continue
+    return blocked
 
 
 class GoalConductor:
@@ -598,12 +635,28 @@ class GoalConductor:
         This is only a fast local filter over merge-packet JSON. Execute mode
         still calls ``scripts/settle_one_pr.py`` immediately before merging.
         """
+        merge_packet = snapshot.get("merge_packets")
+        admin_order = _merge_packet_admin_squash_order(merge_packet)
+        not_ready = _merge_packet_not_ready(merge_packet)
+        if not admin_order:
+            return []
         candidates: list[dict[str, Any]] = []
-        for entry in _merge_packet_entries(snapshot.get("merge_packets")):
+        entries_by_pr: dict[int, dict[str, Any]] = {}
+        for entry in _merge_packet_entries(merge_packet):
             pr_number = _merge_packet_pr_number(entry)
             head_sha = _merge_packet_head(entry)
-            tier = int(entry.get("tier") or 0)
             if pr_number is None or not head_sha:
+                continue
+            entries_by_pr[pr_number] = entry
+        for pr_number in admin_order:
+            if pr_number in not_ready:
+                continue
+            entry = entries_by_pr.get(pr_number)
+            if entry is None:
+                continue
+            head_sha = _merge_packet_head(entry)
+            tier = int(entry.get("tier") or 0)
+            if not head_sha:
                 continue
             if tier > self.mission.merge_on_green_max_tier:
                 continue
@@ -868,19 +921,38 @@ class GoalConductor:
                 commands=commands,
             )
         blockers = settle_payload.get("blockers") if isinstance(settle_payload, dict) else None
+        settle_status = (
+            str(settle_payload.get("status") or "").strip()
+            if isinstance(settle_payload, dict)
+            else ""
+        )
+        selected_pr = (
+            _coerce_int(settle_payload.get("selected_pr"))
+            if isinstance(settle_payload, dict)
+            else None
+        )
         settle_head = (
             str(settle_payload.get("head_sha") or head_sha)
             if isinstance(settle_payload, dict)
             else head_sha
         )
-        if blockers or settle_head != head_sha:
+        if blockers or settle_status != "packet_authorized_dry_run" or settle_head != head_sha:
             reason = f"settle_one_pr.py blockers={blockers or []}"
+            if not blockers and settle_status != "packet_authorized_dry_run":
+                reason = f"settle_one_pr.py status={settle_status or '<missing>'}"
             if settle_head != head_sha:
                 reason = f"head drift: packet {head_sha} settle_one {settle_head}"
             return LaneDecision(
                 lane_id=f"merge-pr-{pr_number}",
                 action="blocked",
                 reason=reason,
+                commands=commands,
+            )
+        if selected_pr is not None and selected_pr != pr_number:
+            return LaneDecision(
+                lane_id=f"merge-pr-{pr_number}",
+                action="blocked",
+                reason=f"settle_one_pr.py selected_pr={selected_pr}",
                 commands=commands,
             )
         merge_cmd = [
@@ -962,7 +1034,7 @@ class GoalConductor:
             ]
         else:
             merge_decision = self._maybe_apply_one_exact_gated_merge(snapshot)
-            if merge_decision is not None and merge_decision.action in {"merged", "blocked"}:
+            if merge_decision is not None and merge_decision.action == "merged":
                 decisions = [merge_decision]
             else:
                 decisions = self.plan_lanes(snapshot, run_dir)

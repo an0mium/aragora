@@ -695,23 +695,31 @@ def test_opt_in_exact_gated_merge_runs_settle_then_normal_protected_squash(
     head = "abc123def456"
     open_prs = [{"number": 77, "title": "ready", "isDraft": False}]
     merge_packet = {
+        "admin_squash_order": [77],
+        "not_ready": [],
         "entries": [
             {
                 "pr_number": 77,
                 "head_sha": head,
                 "tier": 2,
                 "status": "satisfied",
+                "verdict": "admin_squash_allowed",
                 "admin_squash_allowed": True,
                 "unresolved_dissent": False,
                 "requires_human_risk_settlement": False,
             }
-        ]
+        ],
     }
     runner = FakeRunner(
         mod,
         open_prs=open_prs,
         merge_packet=merge_packet,
-        settle_payload={"blockers": [], "head_sha": head},
+        settle_payload={
+            "status": "packet_authorized_dry_run",
+            "blockers": [],
+            "head_sha": head,
+            "selected_pr": 77,
+        },
     )
     conductor = mod.GoalConductor(
         mission=mod.Mission.from_dict(payload),
@@ -736,15 +744,18 @@ def test_opt_in_exact_gated_merge_blocks_on_settle_one_blockers(tmp_path: Path) 
     head = "abc123def456"
     open_prs = [{"number": 78, "title": "ready", "isDraft": False}]
     merge_packet = {
+        "admin_squash_order": [78],
+        "not_ready": [],
         "entries": [
             {
                 "pr_number": 78,
                 "head_sha": head,
                 "tier": 1,
                 "status": "satisfied",
+                "verdict": "admin_squash_allowed",
                 "admin_squash_allowed": True,
             }
-        ]
+        ],
     }
     runner = FakeRunner(
         mod,
@@ -761,8 +772,108 @@ def test_opt_in_exact_gated_merge_blocks_on_settle_one_blockers(tmp_path: Path) 
 
     result = conductor.run_once()
 
-    assert [decision.action for decision in result.decisions] == ["blocked"]
+    assert [decision.action for decision in result.decisions] == ["blocked", "execute", "execute"]
     assert "active owner" in result.decisions[0].reason
+    assert not any(command[:3] == ["gh", "pr", "merge"] for command in runner.executed)
+
+
+def test_opt_in_exact_gated_merge_requires_admin_squash_order(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["merge_policy"] = "exact_gated_tier_0_2"
+    head = "abc123def456"
+    open_prs = [{"number": 79, "title": "ready", "isDraft": False}]
+    merge_packet = {
+        "not_ready": [],
+        "entries": [
+            {
+                "pr_number": 79,
+                "head_sha": head,
+                "tier": 2,
+                "status": "satisfied",
+                "verdict": "admin_squash_allowed",
+                "admin_squash_allowed": True,
+                "unresolved_dissent": False,
+                "requires_human_risk_settlement": False,
+            }
+        ],
+    }
+    runner = FakeRunner(
+        mod,
+        open_prs=open_prs,
+        merge_packet=merge_packet,
+        settle_payload={
+            "status": "packet_authorized_dry_run",
+            "blockers": [],
+            "head_sha": head,
+            "selected_pr": 79,
+        },
+    )
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert [decision.action for decision in result.decisions] == ["execute", "execute"]
+    assert not any(
+        command[:3] == ["python3", "scripts/settle_one_pr.py", "--pr"]
+        for command in runner.executed
+    )
+    assert not any(command[:3] == ["gh", "pr", "merge"] for command in runner.executed)
+
+
+def test_opt_in_exact_gated_merge_requires_settle_authorized_status(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["merge_policy"] = "exact_gated_tier_0_2"
+    head = "abc123def456"
+    open_prs = [{"number": 80, "title": "ready", "isDraft": False}]
+    merge_packet = {
+        "admin_squash_order": [80],
+        "not_ready": [],
+        "entries": [
+            {
+                "pr_number": 80,
+                "head_sha": head,
+                "tier": 2,
+                "status": "satisfied",
+                "verdict": "admin_squash_allowed",
+                "admin_squash_allowed": True,
+                "unresolved_dissent": False,
+                "requires_human_risk_settlement": False,
+            }
+        ],
+    }
+    runner = FakeRunner(
+        mod,
+        open_prs=open_prs,
+        merge_packet=merge_packet,
+        settle_payload={
+            "status": "needs_packet_rerun",
+            "blockers": [],
+            "head_sha": head,
+            "selected_pr": 80,
+        },
+    )
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "blocked"
+    assert result.decisions[0].reason == "settle_one_pr.py status=needs_packet_rerun"
     assert not any(command[:3] == ["gh", "pr", "merge"] for command in runner.executed)
 
 
