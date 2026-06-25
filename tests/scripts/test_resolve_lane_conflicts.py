@@ -220,6 +220,41 @@ def test_cli_explicit_paths_survive_untrusted_automation_state_root(
     assert payload["candidate_count"] == 0
 
 
+def test_merged_pr_audit_blocks_untrusted_default_safety_paths(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    monkeypatch.setattr(
+        resolver,
+        "_trusted_automation_state_roots",
+        lambda repo_root=resolver.DEFAULT_REPO_ROOT: {(tmp_path / "repo" / ".aragora").resolve()},
+    )
+    registry = tmp_path / "lanes.json"
+    receipts = tmp_path / "receipts"
+    registry.write_text("[]", encoding="utf-8")
+    receipts.mkdir()
+
+    rc = resolver.main(
+        [
+            "--merged-pr-lane-audit",
+            "--pr",
+            "7435",
+            "--registry-path",
+            str(registry),
+            "--receipt-dir",
+            str(receipts),
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["blocked_reason"] == "invalid_automation_state_root"
+    assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in payload["error"]
+
+
 def test_automation_state_root_accepts_same_origin_checkout(
     tmp_path: Path,
     monkeypatch: Any,

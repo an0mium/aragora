@@ -1923,23 +1923,30 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                 )
             elif name == "stale_terminal_owner":
                 default_paths = getattr(args, "_automation_state_root_default_paths", {})
-                using_fallback_defaults = bool(
-                    getattr(args, "_automation_state_root_error", "")
-                    and str(Path(args.agent_bridge_lanes))
-                    == default_paths.get("agent_bridge_lanes")
-                    and str(Path(args.agent_heartbeats)) == default_paths.get("agent_heartbeats")
-                    and str(Path(args.operator_steering_root))
-                    == default_paths.get("operator_steering_root")
-                    and str(Path(args.stale_terminal_owner_receipt_dir))
-                    == default_paths.get("stale_terminal_owner_receipt_dir")
+                fallback_path_values = {
+                    "agent_bridge_lanes": str(Path(args.agent_bridge_lanes)),
+                    "agent_heartbeats": str(Path(args.agent_heartbeats)),
+                    "operator_steering_root": str(Path(args.operator_steering_root)),
+                    "stale_terminal_owner_receipt_dir": str(
+                        Path(args.stale_terminal_owner_receipt_dir)
+                    ),
+                }
+                unsafe_fallback_paths = [
+                    name
+                    for name, value in fallback_path_values.items()
+                    if value == default_paths.get(name)
+                ]
+                using_unsafe_fallback_defaults = bool(
+                    getattr(args, "_automation_state_root_error", "") and unsafe_fallback_paths
                 )
-                if using_fallback_defaults:
+                if using_unsafe_fallback_defaults:
                     results.append(
                         _result(
                             "stale_terminal_owner",
                             "unknown",
                             "invalid automation state root: "
-                            f"{args._automation_state_root_error}; provide explicit state paths",
+                            f"{args._automation_state_root_error}; provide explicit state paths "
+                            f"for: {', '.join(unsafe_fallback_paths)}",
                         )
                     )
                 else:

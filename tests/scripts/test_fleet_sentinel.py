@@ -281,6 +281,37 @@ def test_main_explicit_paths_survive_untrusted_automation_state_root(
     assert report["checks"][0]["status"] == "ok"
 
 
+def test_main_rejects_partial_explicit_paths_with_untrusted_automation_state_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    registry = tmp_path / "lanes.json"
+    registry.write_text("[]", encoding="utf-8")
+
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--checks",
+            "stale_terminal_owner",
+            "--agent-bridge-lanes",
+            str(registry),
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 2
+    check = report["checks"][0]
+    assert check["status"] == "unknown"
+    assert "invalid automation state root" in check["detail"]
+    assert "agent_heartbeats" in check["detail"]
+    assert "operator_steering_root" in check["detail"]
+    assert "stale_terminal_owner_receipt_dir" in check["detail"]
+    assert "agent_bridge_lanes" not in check["detail"]
+
+
 def test_automation_state_root_rejects_untrusted_env_root(
     tmp_path: Path,
     monkeypatch: Any,

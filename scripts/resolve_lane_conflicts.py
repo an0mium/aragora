@@ -931,8 +931,26 @@ def audit_merged_pr_lanes(
     """
 
     resolved_at = resolved_at or _utc_now_iso()
-    heartbeat_path = heartbeat_path or _default_heartbeat_path()
-    steering_inbox_root = steering_inbox_root or _default_steering_inbox_root()
+    try:
+        heartbeat_path = heartbeat_path or _default_heartbeat_path()
+        steering_inbox_root = steering_inbox_root or _default_steering_inbox_root()
+    except ValueError as exc:
+        return {
+            "mode": "merged_pr_lane_audit",
+            "apply": bool(apply),
+            "apply_eligible": False,
+            "blocked_reason": "invalid_automation_state_root",
+            "error": str(exc),
+            "finding_count": 0,
+            "findings": [],
+            "github_state": {"available": False, "error": str(exc)},
+            "heartbeat_load_error": None,
+            "owner_release_commands": [],
+            "owner_steering_commands": [],
+            "owner_steering_text": "",
+            "receipt_paths": [],
+            "resolved_count": 0,
+        }
     now_ts = _parse_timestamp(resolved_at) or dt.datetime.now(dt.UTC).timestamp()
     github_state = _fetch_pr_state(pr=pr, gh_bin=gh_bin)
     with _registry_write_lock(registry_path):
