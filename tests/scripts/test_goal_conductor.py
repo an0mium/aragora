@@ -164,7 +164,7 @@ lanes:
     assert mission.lanes[0].lane_id == "impl"
 
 
-def test_main_validate_json_suppresses_flush_time_broken_pipe_and_closes_wrapper(
+def test_main_validate_json_suppresses_flush_time_broken_pipe_without_closing_wrapper(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import goal_conductor as mod
@@ -203,13 +203,11 @@ lanes:
 
     assert mod.main(["validate", "--mission", str(mission_path), "--json"]) == 0
     assert stream.writes
-    assert stream.closed is True
-    assert mod.sys.stdout is not stream
-    if mod.sys.stdout is not sys.__stdout__:
-        mod.sys.stdout.close()
+    assert stream.closed is False
+    assert mod.sys.stdout is stream
 
 
-def test_emit_output_suppresses_write_time_broken_pipe_and_closes_wrapper(
+def test_emit_output_suppresses_write_time_broken_pipe_without_closing_wrapper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import goal_conductor as mod
@@ -232,60 +230,59 @@ def test_emit_output_suppresses_write_time_broken_pipe_and_closes_wrapper(
 
     mod._emit_output("payload")
 
-    assert stream.closed is True
-    assert mod.sys.stdout is not stream
-    if mod.sys.stdout is not sys.__stdout__:
-        mod.sys.stdout.close()
-
-
-def test_mute_stdout_keeps_default_stdout_open(monkeypatch: pytest.MonkeyPatch) -> None:
-    import goal_conductor as mod
-
-    class DefaultStdout:
-        def __init__(self) -> None:
-            self.closed = False
-
-        def close(self) -> None:
-            self.closed = True
-
-    stream = DefaultStdout()
-    monkeypatch.setattr(mod.sys, "stdout", stream)
-    monkeypatch.setattr(mod.sys, "__stdout__", stream)
-
-    mod._mute_stdout_after_broken_pipe()
-
     assert stream.closed is False
-    assert mod.sys.stdout is not stream
-    if mod.sys.stdout is not sys.__stdout__:
-        mod.sys.stdout.close()
+    assert mod.sys.stdout is stream
 
 
-def test_mute_stdout_falls_back_to_null_stream_when_devnull_unavailable(
+def test_mute_stdout_redirects_fd_without_replacing_stream(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import builtins
-
     import goal_conductor as mod
 
-    class ClosableStdout:
+    class FileStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def fileno(self) -> int:
+            return 123
+
+        def close(self) -> None:
+            self.closed = True
+
+    dup2_calls: list[tuple[int, int]] = []
+    close_calls: list[int] = []
+
+    stream = FileStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+    monkeypatch.setattr(mod.os, "open", lambda *_args: 456)
+    monkeypatch.setattr(mod.os, "dup2", lambda src, dst: dup2_calls.append((src, dst)))
+    monkeypatch.setattr(mod.os, "close", lambda fd: close_calls.append(fd))
+
+    assert mod._mute_stdout_after_broken_pipe() is True
+
+    assert dup2_calls == [(456, 123)]
+    assert close_calls == [456]
+    assert stream.closed is False
+    assert mod.sys.stdout is stream
+
+
+def test_mute_stdout_leaves_unfiled_stream_intact(monkeypatch: pytest.MonkeyPatch) -> None:
+    import goal_conductor as mod
+
+    class UnfiledStdout:
         def __init__(self) -> None:
             self.closed = False
 
         def close(self) -> None:
             self.closed = True
 
-    def fail_open(*args: object, **kwargs: object) -> object:
-        raise OSError("no devnull")
-
-    stream = ClosableStdout()
+    stream = UnfiledStdout()
     monkeypatch.setattr(mod.sys, "stdout", stream)
-    monkeypatch.setattr(builtins, "open", fail_open)
 
-    mod._mute_stdout_after_broken_pipe()
-    mod._emit_output("payload")
+    assert mod._mute_stdout_after_broken_pipe() is False
 
-    assert stream.closed is True
-    assert isinstance(mod.sys.stdout, mod._NullStdout)
+    assert stream.closed is False
+    assert mod.sys.stdout is stream
 
 
 def test_emit_output_ignores_missing_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -315,7 +312,7 @@ def test_emit_output_accepts_stream_without_flush(monkeypatch: pytest.MonkeyPatc
     assert stream.writes == ["payload", "\n"]
 
 
-def test_emit_output_suppresses_closed_stream_value_error(
+def test_emit_output_propagates_closed_stream_value_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import goal_conductor as mod
@@ -333,12 +330,32 @@ def test_emit_output_suppresses_closed_stream_value_error(
     stream = ClosedStdout()
     monkeypatch.setattr(mod.sys, "stdout", stream)
 
-    mod._emit_output("payload")
+    with pytest.raises(ValueError, match="closed file"):
+        mod._emit_output("payload")
 
-    assert stream.closed is True
-    assert mod.sys.stdout is not stream
-    if mod.sys.stdout is not sys.__stdout__:
-        mod.sys.stdout.close()
+    assert stream.closed is False
+    assert mod.sys.stdout is stream
+
+
+def test_emit_output_propagates_bad_file_descriptor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import errno
+
+    import goal_conductor as mod
+
+    class BadFdStdout:
+        def write(self, text: str) -> int:
+            raise OSError(errno.EBADF, "bad file descriptor")
+
+    stream = BadFdStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    with pytest.raises(OSError) as exc_info:
+        mod._emit_output("payload")
+
+    assert exc_info.value.errno == errno.EBADF
+    assert mod.sys.stdout is stream
 
 
 def test_validate_json_real_pipe_close_exits_zero(tmp_path: Path) -> None:

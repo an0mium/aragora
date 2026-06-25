@@ -14,7 +14,6 @@ The conductor is intentionally conservative. It is read-only by default; pass
 from __future__ import annotations
 
 import argparse
-import errno
 import json
 import os
 import re
@@ -47,42 +46,23 @@ def _slug(value: str) -> str:
     return slug[:80] or "goal"
 
 
-class _NullStdout:
-    """Write-only sink used when stdout has broken and devnull is unavailable."""
+def _mute_stdout_after_broken_pipe() -> bool:
+    """Redirect stdout's fd after a real broken pipe without mutating wrappers."""
 
-    def write(self, text: str) -> int:
-        return len(text)
-
-    def flush(self) -> None:
-        return None
-
-    def close(self) -> None:
-        return None
-
-
-def _mute_stdout_after_broken_pipe() -> None:
     current = sys.stdout
-    if current is not None and current is not sys.__stdout__:
-        close = getattr(current, "close", None)
-        if callable(close):
-            try:
-                close()
-            except (OSError, ValueError):
-                pass
+    fileno = getattr(current, "fileno", None)
+    if not callable(fileno):
+        return False
     try:
-        sys.stdout = open(os.devnull, "w", encoding="utf-8")
-    except OSError:
-        sys.stdout = _NullStdout()
-
-
-def _is_suppressible_stdout_error(exc: BaseException) -> bool:
-    if isinstance(exc, BrokenPipeError):
-        return True
-    if isinstance(exc, ValueError):
-        return "closed" in str(exc).lower()
-    if isinstance(exc, OSError):
-        return exc.errno in {errno.EBADF, errno.EPIPE}
-    return False
+        stdout_fd = fileno()
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull_fd, stdout_fd)
+        finally:
+            os.close(devnull_fd)
+    except (AttributeError, OSError, ValueError):
+        return False
+    return True
 
 
 def _emit_output(output: str) -> None:
@@ -98,9 +78,7 @@ def _emit_output(output: str) -> None:
         flush = getattr(stream, "flush", None)
         if callable(flush):
             flush()
-    except (BrokenPipeError, OSError, ValueError) as exc:
-        if not _is_suppressible_stdout_error(exc):
-            raise
+    except BrokenPipeError:
         _mute_stdout_after_broken_pipe()
 
 
