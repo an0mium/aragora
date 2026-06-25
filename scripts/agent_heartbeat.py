@@ -233,6 +233,11 @@ def record_heartbeat(
                 str(existing.get("lane_id") or "") == lane_id
                 and str(existing.get("owner_session") or "") == owner_session
             ):
+                if existing.get("terminal") is True:
+                    out.append(existing)
+                    row = existing
+                    replaced = True
+                    continue
                 out.append(row)
                 replaced = True
             else:

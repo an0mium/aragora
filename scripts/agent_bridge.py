@@ -2633,12 +2633,13 @@ def _heartbeat_summary(
     now_dt: datetime,
     freshness_seconds: int,
 ) -> dict[str, Any]:
+    terminal = row.get("terminal") is True
     seen = _parse_heartbeat_timestamp(row.get("last_seen_at"))
     age_seconds: int | None = None
     fresh = False
     if seen is not None:
         age_seconds = max(0, int((now_dt - seen).total_seconds()))
-        fresh = age_seconds <= freshness_seconds
+        fresh = not terminal and age_seconds <= freshness_seconds
     return {
         "lane_id": row.get("lane_id"),
         "owner_session": row.get("owner_session"),
@@ -2651,6 +2652,10 @@ def _heartbeat_summary(
         "last_seen_at": row.get("last_seen_at"),
         "age_seconds": age_seconds,
         "fresh": fresh,
+        "terminal": terminal,
+        "terminal_outcome": row.get("terminal_outcome"),
+        "terminal_reason": row.get("terminal_reason"),
+        "terminal_finalized_at": row.get("terminal_finalized_at"),
     }
 
 

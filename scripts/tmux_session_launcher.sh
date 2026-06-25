@@ -31,6 +31,41 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TMUX_SESSION="aragora"
 LOG_DIR="${HOME}/.aragora/tmux-sessions"
 mkdir -p "${LOG_DIR}"
+chmod 700 "${LOG_DIR}" 2>/dev/null || true
+
+shell_quote() {
+    python3 -c 'import shlex, sys; print(shlex.quote(sys.argv[1]))' "$1"
+}
+
+write_shell_command_file() {
+    local runner_file="$1"
+    local launch_cmd="$2"
+    local owner_session="$3"
+
+    if ! python3 -c '
+import os
+import sys
+from pathlib import Path
+
+runner_file, launch_cmd = sys.argv[1:3]
+if "\n" in launch_cmd or "\r" in launch_cmd:
+    raise SystemExit("refusing to generate launch wrapper for multi-line command")
+body = "\n".join(
+    [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        launch_cmd,
+        "",
+    ]
+)
+path = Path(runner_file)
+path.write_text(body, encoding="utf-8")
+os.chmod(path, 0o700)
+' "${runner_file}" "${launch_cmd}"; then
+        echo "Failed to generate launch wrapper for ${owner_session}" >&2
+        return 1
+    fi
+}
 
 send_prompt_to_target() {
     local target="$1"
@@ -145,38 +180,48 @@ default_init_wait_seconds() {
 
 build_heartbeat_launch_wrapper() {
     local runner_file="$1"
-    local launch_cmd="$2"
+    local launch_file="$2"
     local lane_id="$3"
     local owner_session="$4"
 
-    python3 -c '
+    if ! python3 -c '
 import os
 import shlex
 import sys
 from pathlib import Path
 
-runner_file, repo_root, workdir, launch_cmd, lane_id, owner_session = sys.argv[1:7]
-if "\n" in launch_cmd or "\r" in launch_cmd:
-    raise SystemExit("refusing to generate heartbeat wrapper for multi-line launch command")
-heartbeat_log = str(Path(runner_file).with_suffix(".heartbeat.log"))
+runner_file, repo_root, workdir, launch_file, lane_id, owner_session = sys.argv[1:7]
+if not owner_session.replace("_", "").replace("-", "").replace(".", "").isalnum():
+    raise SystemExit("refusing to generate heartbeat wrapper for invalid owner session")
+runner_path = Path(runner_file)
+if ".heartbeat-launch." in runner_path.name:
+    heartbeat_log = str(runner_path.with_name(runner_path.name.split(".heartbeat-launch.", 1)[0] + ".heartbeat.log"))
+elif runner_path.name.endswith(".heartbeat-launch.sh"):
+    heartbeat_log = str(runner_path.with_name(runner_path.name[: -len(".heartbeat-launch.sh")] + ".heartbeat.log"))
+else:
+    heartbeat_log = str(runner_path.with_suffix(".heartbeat.log"))
 body = "\n".join(
     [
         "#!/usr/bin/env bash",
-        "set -euo pipefail",
         f"REPO_ROOT={shlex.quote(repo_root)}",
         f"WORKDIR={shlex.quote(workdir)}",
         f"LANE_ID={shlex.quote(lane_id)}",
         f"OWNER_SESSION={shlex.quote(owner_session)}",
         f"HEARTBEAT_LOG={shlex.quote(heartbeat_log)}",
+        f"LAUNCH_FILE={shlex.quote(launch_file)}",
         "_heartbeat_interval=\"${ARAGORA_TMUX_HEARTBEAT_INTERVAL_SECONDS:-60}\"",
-        "if ! [[ \"${_heartbeat_interval}\" =~ ^[0-9]+$ ]] || (( _heartbeat_interval < 1 )); then",
+        "if ! [[ \"${_heartbeat_interval}\" =~ ^[1-9][0-9]*$ ]]; then",
         "    _heartbeat_interval=\"60\"",
         "fi",
         "_heartbeat_loop_pid=\"\"",
+        "_launch_pid=\"\"",
         "_finalizer_signal=\"\"",
         "_finalized=\"0\"",
         "",
         "_record_heartbeat() {",
+        "    if [[ \"${_finalized}\" == \"1\" ]]; then",
+        "        return 0",
+        "    fi",
         "    local branch",
         "    branch=\"$(git -C \"${WORKDIR}\" rev-parse --abbrev-ref HEAD 2>/dev/null || true)\"",
         "    if ! python3 \"${REPO_ROOT}/scripts/agent_heartbeat.py\" \\",
@@ -208,6 +253,10 @@ body = "\n".join(
         "        pkill -TERM -P \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
         "        kill \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
         "        wait \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
+        "    fi",
+        "    if [[ -n \"${_launch_pid}\" ]]; then",
+        "        kill \"${_launch_pid}\" 2>/dev/null || true",
+        "        wait \"${_launch_pid}\" 2>/dev/null || true",
         "    fi",
         "    local outcome reason branch",
         "    branch=\"$(git -C \"${WORKDIR}\" rev-parse --abbrev-ref HEAD 2>/dev/null || true)\"",
@@ -245,14 +294,22 @@ body = "\n".join(
         "_record_heartbeat",
         "_heartbeat_loop &",
         "_heartbeat_loop_pid=\"$!\"",
-        launch_cmd,
+        "bash \"${LAUNCH_FILE}\" &",
+        "_launch_pid=\"$!\"",
+        "wait \"${_launch_pid}\"",
+        "rc=\"$?\"",
+        "_launch_pid=\"\"",
+        "exit \"${rc}\"",
         "",
     ]
 )
-path = Path(runner_file)
+path = runner_path
 path.write_text(body, encoding="utf-8")
 os.chmod(path, 0o700)
-' "${runner_file}" "${REPO_ROOT}" "${WORKDIR}" "${launch_cmd}" "${lane_id}" "${owner_session}"
+' "${runner_file}" "${REPO_ROOT}" "${WORKDIR}" "${launch_file}" "${lane_id}" "${owner_session}"; then
+        echo "Failed to generate heartbeat wrapper for ${owner_session}" >&2
+        return 1
+    fi
 }
 
 # --- argument parsing ---
@@ -450,7 +507,7 @@ if [[ "${AGENT}" == "codex" ]]; then
             CODEX_EXEC_PROMPT_FILE="$(cd "$(dirname "${CODEX_EXEC_PROMPT_FILE}")" && pwd)/$(basename "${CODEX_EXEC_PROMPT_FILE}")"
             PROMPT_FILE="${CODEX_EXEC_PROMPT_FILE}"
             CODEX_EXEC_LAUNCH_FILE="${LOG_DIR}/${NAME}.launch.sh"
-            python3 -c '
+            if ! python3 -c '
 import os
 import shlex
 import sys
@@ -476,22 +533,25 @@ body = "\n".join(
 path = Path(launch_file)
 path.write_text(body, encoding="utf-8")
 os.chmod(path, 0o700)
-' "${CODEX_EXEC_LAUNCH_FILE}" "${WORKDIR}" "${CODEX_EXEC_PROMPT_FILE}" "${CODEX_SESSION_ARGS[@]}"
-            LAUNCH_CMD="bash '${CODEX_EXEC_LAUNCH_FILE}'"
+' "${CODEX_EXEC_LAUNCH_FILE}" "${WORKDIR}" "${CODEX_EXEC_PROMPT_FILE}" "${CODEX_SESSION_ARGS[@]}"; then
+                echo "Failed to generate Codex exec launch script for ${NAME}" >&2
+                exit 1
+            fi
+            LAUNCH_CMD="bash $(shell_quote "${CODEX_EXEC_LAUNCH_FILE}")"
             # `codex exec` consumes the prompt directly; do not also paste it
             # into an interactive pane.
             PROMPT=""
         else
-            LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
+            LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
         fi
     else
-        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
+        LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && ./scripts/codex_session.sh ${CODEX_SESSION_ARGS_TEXT}"
     fi
 elif [[ "${AGENT}" == "claude" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
-        LAUNCH_CMD="cd '${WORKDIR}' && ARAGORA_ADMIN_APPROVED=1 ./scripts/claude-wt"
+        LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && ARAGORA_ADMIN_APPROVED=1 ./scripts/claude-wt"
     else
-        LAUNCH_CMD="cd '${WORKDIR}' && ./scripts/claude-wt"
+        LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && ./scripts/claude-wt"
     fi
 elif [[ "${AGENT}" == "droid" || "${AGENT}" == "factory" ]]; then
     DROID_AUTO_LEVEL="${ARAGORA_DROID_AUTO_LEVEL:-high}"
@@ -510,7 +570,7 @@ elif [[ "${AGENT}" == "droid" || "${AGENT}" == "factory" ]]; then
         fi
         DROID_EXEC_PROMPT_FILE="$(cd "$(dirname "${DROID_EXEC_PROMPT_FILE}")" && pwd)/$(basename "${DROID_EXEC_PROMPT_FILE}")"
         PROMPT_FILE="${DROID_EXEC_PROMPT_FILE}"
-        LAUNCH_CMD="cd '${WORKDIR}' && droid exec --auto '${DROID_AUTO_LEVEL}' --cwd '${WORKDIR}' -f '${DROID_EXEC_PROMPT_FILE}'"
+        LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && droid exec --auto $(shell_quote "${DROID_AUTO_LEVEL}") --cwd $(shell_quote "${WORKDIR}") -f $(shell_quote "${DROID_EXEC_PROMPT_FILE}")"
         # `droid exec -f` consumes the prompt directly; do not also paste it
         # into an interactive pane.
         PROMPT=""
@@ -519,7 +579,7 @@ elif [[ "${AGENT}" == "droid" || "${AGENT}" == "factory" ]]; then
             echo "Refusing to launch ${AGENT} without a prompt: interactive Droid starts Auto Off. Use --prompt/--prompt-file so this launcher can run droid exec --auto ${DROID_AUTO_LEVEL}, or set ARAGORA_ALLOW_DROID_AUTO_OFF=1 for an explicit manual override." >&2
             exit 1
         fi
-        LAUNCH_CMD="cd '${WORKDIR}' && droid --cwd '${WORKDIR}'"
+        LAUNCH_CMD="cd $(shell_quote "${WORKDIR}") && droid --cwd $(shell_quote "${WORKDIR}")"
     fi
 else
     echo "Unknown agent: ${AGENT}. Use 'codex', 'claude', 'droid', or 'factory'." >&2
@@ -527,9 +587,12 @@ else
 fi
 
 HEARTBEAT_LANE_ID="${TASK_ID:-${NAME}}"
-HEARTBEAT_LAUNCH_FILE="${LOG_DIR}/${NAME}.heartbeat-launch.sh"
-build_heartbeat_launch_wrapper "${HEARTBEAT_LAUNCH_FILE}" "${LAUNCH_CMD}" "${HEARTBEAT_LANE_ID}" "${NAME}"
-LAUNCH_CMD="bash '${HEARTBEAT_LAUNCH_FILE}'"
+AGENT_LAUNCH_FILE="$(mktemp "${LOG_DIR}/${NAME}.launch.XXXXXX.sh")"
+write_shell_command_file "${AGENT_LAUNCH_FILE}" "${LAUNCH_CMD}" "${NAME}"
+HEARTBEAT_LAUNCH_FILE="$(mktemp "${LOG_DIR}/${NAME}.heartbeat-launch.XXXXXX.sh")"
+ORIGINAL_LAUNCH_CMD="${LAUNCH_CMD}"
+build_heartbeat_launch_wrapper "${HEARTBEAT_LAUNCH_FILE}" "${AGENT_LAUNCH_FILE}" "${HEARTBEAT_LANE_ID}" "${NAME}"
+LAUNCH_CMD="bash $(shell_quote "${HEARTBEAT_LAUNCH_FILE}")"
 
 # Create new tmux window with logging
 WINDOW_TARGET="$(tmux new-window -P -F '#{window_id}' -t "${TMUX_SESSION}" -n "${NAME}")"
@@ -598,7 +661,7 @@ try:
     registry_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 except Exception as exc:
     print("warning: failed to register launcher session: " + str(exc), file=sys.stderr)
-' "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${WORKDIR}" "${PROMPT_FILE}" "${META_FILE}" "${HAS_PROMPT}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}"
+' "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${WORKDIR}" "${PROMPT_FILE}" "${META_FILE}" "${HAS_PROMPT}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${ORIGINAL_LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}"
 
 echo "Launched '${NAME}' (${AGENT}) in tmux session '${TMUX_SESSION}'"
 echo "  Cwd: ${WORKDIR}"
