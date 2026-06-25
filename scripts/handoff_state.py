@@ -356,6 +356,8 @@ class LaneRegistryOwnerProbe:
         row = _best_lane_record(candidates)
         status = str(row.get("status") or "").strip().lower()
         blocking_state = str(row.get("owner_blocking_state") or "").strip() or None
+        if blocking_state is None and status in ACTIVE_LANE_STATUSES:
+            blocking_state = "live_owner"
         evidence = owner_evidence_from_payload(row)
         evidence.status = status or evidence.status
         evidence.owner_blocking_state = evidence.owner_blocking_state or blocking_state
@@ -453,7 +455,7 @@ def classify_handoffs(
     owner_probe: Any | None = None,
 ) -> dict[str, Any]:
     repo_root = repo_root.expanduser().resolve()
-    state_root = _as_aragora_root(state_root or repo_root)
+    state_root = resolve_state_root(repo_root=repo_root, state_root=state_root)
     github_repo = github_repo or _github_repo_from_origin(repo_root)
     outbox_dir = _state_path(state_root, DEFAULT_OUTBOX_DIR)
     receipt_dir = _state_path(state_root, DEFAULT_RECEIPT_DIR)
@@ -955,13 +957,15 @@ def steering_evidence_for_branch(
         branch_conflict = _steering_mentions_other_branch(payload, branch)
         if branch_conflict:
             continue
+        branch_match = bool(branch and _steering_branch_matches(payload, branch))
+        lane_match = bool(lane_id and _lane_hint_matches(lane_hint, lane_id))
         if owner_session and to_session == owner_session:
-            if lane_hint and lane_id and not _lane_hint_matches(lane_hint, lane_id):
+            if not (branch_match or lane_match):
                 continue
             pass
-        elif lane_id and _lane_hint_matches(lane_hint, lane_id):
+        elif lane_match:
             pass
-        elif branch and _steering_branch_matches(payload, branch):
+        elif branch_match:
             pass
         else:
             continue
@@ -1167,13 +1171,11 @@ def target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
 def heads_match(expected: str, actual: str) -> bool:
     expected_value = str(expected or "").strip().lower()
     actual_value = str(actual or "").strip().lower()
-    if len(expected_value) < 7 or len(actual_value) < 7:
+    if len(expected_value) != 40 or len(actual_value) != 40:
         return False
     expected_full = _full_sha_or_none(expected_value)
     actual_full = _full_sha_or_none(actual_value)
-    if expected_full is not None or actual_full is not None:
-        return expected_full is not None and expected_full == actual_full
-    return expected_value == actual_value
+    return expected_full is not None and expected_full == actual_full
 
 
 def _full_sha_or_none(value: str) -> str | None:
@@ -1498,11 +1500,45 @@ def _state_path(state_root: Path, default_relative: Path) -> Path:
     return state_root / default_relative
 
 
+def resolve_state_root(*, repo_root: Path, state_root: Path | None = None) -> Path:
+    if state_root is not None:
+        return _as_aragora_root(state_root)
+    env_root = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
+    if env_root:
+        return _as_aragora_root(Path(env_root))
+    common_root = _git_common_worktree_root(repo_root)
+    if common_root is not None and (common_root / ".aragora").exists():
+        return common_root / ".aragora"
+    return _as_aragora_root(repo_root)
+
+
 def _as_aragora_root(path: Path) -> Path:
     expanded = path.expanduser().resolve()
     if expanded.name == ".aragora":
         return expanded
     return expanded / ".aragora"
+
+
+def _git_common_worktree_root(repo_root: Path) -> Path | None:
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=repo_root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    common = Path(proc.stdout.strip())
+    if not common.is_absolute():
+        common = (repo_root / common).resolve()
+    if common.name == ".git":
+        return common.parent
+    return None
 
 
 def _github_repo_from_origin(repo_root: Path) -> str | None:

@@ -660,7 +660,7 @@ def test_lane_registry_terminal_owner_does_not_block_by_default(
     assert item["evidence"]["owner"]["owner_blocking_state"] is None
 
 
-def test_lane_registry_active_without_liveness_proof_does_not_block_default_classifier(
+def test_lane_registry_active_without_liveness_proof_blocks_default_classifier(
     tmp_path: Path,
 ) -> None:
     _write_status_cache(tmp_path)
@@ -690,8 +690,40 @@ def test_lane_registry_active_without_liveness_proof_does_not_block_default_clas
     )
     item = payload["items"][0]
 
-    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
-    assert item["evidence"]["owner"]["owner_blocking_state"] is None
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["owner"]["owner_blocking_state"] == "live_owner"
+
+
+def test_lane_registry_blocked_status_blocks_default_classifier(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    lanes_path.parent.mkdir(parents=True, exist_ok=True)
+    lanes_path.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1",
+                    "owner_session": "engineering-autopilot-Q1",
+                    "branch": "codex/example",
+                    "status": "blocked",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=FakeGitHub(),
+    )
+    item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["owner"]["owner_blocking_state"] == "live_owner"
 
 
 def test_lane_registry_terminal_owner_with_available_advisory_does_not_block(
@@ -909,6 +941,43 @@ def test_steering_to_session_requires_branch_or_lane_correlation(tmp_path: Path)
     assert item["evidence"]["steering"]["pending_message_count"] == 0
 
 
+def test_steering_session_wide_message_without_branch_or_lane_does_not_match(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    inbox = tmp_path / ".aragora" / "operator-steering" / "engineering-autopilot-Q1"
+    inbox.mkdir(parents=True, exist_ok=True)
+    (inbox / "2026-06-24T00-00-00-000Z-generic.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "aragora-operator-steering/1.0",
+                "to_session": "engineering-autopilot-Q1",
+                "priority": "blocking",
+                "subject": "Please wait",
+                "body": "Pause until the operator reviews this lane.",
+                "message_sha256": "fixture-sha",
+            }
+        ),
+        encoding="utf-8",
+    )
+    owner = FakeOwnerProbe(
+        {
+            "codex/example": {
+                "lane_id": "Q1",
+                "owner_session": "engineering-autopilot-Q1",
+                "status": "released",
+                "stale_claim_advisory": {"available": True},
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, owner=owner)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["steering"]["pending_message_count"] == 0
+
+
 def test_human_detection_ignores_operator_steering_path() -> None:
     assert (
         mod._looks_human(  # noqa: SLF001 - regression coverage for classifier helper
@@ -958,7 +1027,7 @@ def test_heads_match_requires_exact_full_sha_when_either_side_is_full() -> None:
     full_sha = "abcdef1234567890abcdef1234567890abcdef12"
 
     assert mod.heads_match(full_sha, full_sha) is True
-    assert mod.heads_match("abcdef1", "abcdef1") is True
+    assert mod.heads_match("abcdef1", "abcdef1") is False
     assert mod.heads_match("abcdef1", full_sha) is False
     assert mod.heads_match(full_sha, "abcdef1") is False
 
@@ -1096,6 +1165,52 @@ def test_missing_origin_disables_github_instead_of_defaulting_repo(tmp_path: Pat
     assert payload["github"]["mode"] == "disabled"
     assert payload["items"][0]["evidence"]["github"]["mode"] == "disabled"
     assert payload["items"][0]["state"] == mod.HandoffState.UNKNOWN.value
+
+
+def test_default_state_root_uses_automation_state_root_env(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    state_repo = tmp_path / "shared"
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_status_cache(state_repo)
+    _write_outbox(state_repo, branch="codex/example")
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_repo / ".aragora"))
+
+    payload = mod.classify_handoffs(
+        repo_root=repo,
+        github_repo="synaptent/aragora",
+        github_client=FakeGitHub(),
+    )
+
+    assert payload["outbox_count"] == 1
+    assert payload["state_root"] == str(state_repo / ".aragora")
+
+
+def test_text_summary_only_omits_items(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+
+    code = cli.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--state-root",
+            str(tmp_path),
+            "--outbox-file",
+            "open-pr-codex-example-aaaaaaaa.json",
+            "--summary-only",
+        ]
+    )
+    output = capsys.readouterr().out
+
+    assert code == 0
+    assert "counts:" in output
+    assert "items:" not in output
 
 
 def test_cli_fail_on_unsafe_state_returns_nonzero_for_disabled_github(
