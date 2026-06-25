@@ -679,8 +679,8 @@ class TestGetWebhook:
             response_body = get_response_body(result)
             status = result.status_code
 
-            assert status == 403
-            assert "access denied" in response_body.lower()
+            assert status == 404
+            assert "not found" in response_body.lower()
 
 
 # ============================================================================
@@ -717,7 +717,7 @@ class TestDeleteWebhook:
             result = webhook_handler._handle_delete_webhook(sample_webhook.id, mock_http_handler)
             status = result.status_code
 
-            assert status == 403
+            assert status == 404
 
 
 # ============================================================================
@@ -797,7 +797,7 @@ class TestUpdateWebhook:
             )
             status = result.status_code
 
-            assert status == 403
+            assert status == 404
 
 
 # ============================================================================
@@ -853,7 +853,7 @@ class TestTestWebhook:
             result = webhook_handler._handle_test_webhook(sample_webhook.id, mock_http_handler)
             status = result.status_code
 
-            assert status == 403
+            assert status == 404
 
 
 # ============================================================================

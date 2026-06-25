@@ -427,7 +427,9 @@ class TestHandlerRouting:
         """Test unified server registers all handlers."""
         from aragora.server.unified_server import UnifiedHandler
 
-        # Check handler class variables exist
+        UnifiedHandler._init_handlers()
+
+        # Check handler class variables exist after lazy initialization
         assert hasattr(UnifiedHandler, "_consensus_handler")
         assert hasattr(UnifiedHandler, "_belief_handler")
 
@@ -699,17 +701,17 @@ class TestSystemHandler:
         }
         return SystemHandler(ctx)
 
-    def test_can_handle_health(self, handler):
-        """Test can_handle for health endpoint."""
-        assert handler.can_handle("/api/v1/health") is True
+    def test_does_not_handle_dedicated_health(self, handler):
+        """Health endpoints are owned by HealthHandler."""
+        assert handler.can_handle("/api/v1/health") is False
 
-    def test_can_handle_nomic_state(self, handler):
-        """Test can_handle for nomic state endpoint."""
-        assert handler.can_handle("/api/v1/nomic/state") is True
+    def test_does_not_handle_dedicated_nomic_state(self, handler):
+        """Nomic endpoints are owned by NomicHandler."""
+        assert handler.can_handle("/api/v1/nomic/state") is False
 
-    def test_can_handle_modes(self, handler):
-        """Test can_handle for modes endpoint."""
-        assert handler.can_handle("/api/v1/modes") is True
+    def test_does_not_handle_dedicated_modes(self, handler):
+        """Mode endpoints are owned by NomicHandler."""
+        assert handler.can_handle("/api/v1/modes") is False
 
     def test_can_handle_history(self, handler):
         """Test can_handle for history endpoints."""

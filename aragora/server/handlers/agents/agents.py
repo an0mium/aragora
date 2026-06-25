@@ -33,6 +33,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from collections.abc import Awaitable
 
 from aragora.events.handler_events import emit_handler_event, QUERIED
 from typing import TYPE_CHECKING, Any
@@ -223,10 +224,15 @@ class AgentsHandler(  # type: ignore[misc]
             return True
         return any(path.startswith(p) for p in self._PUBLIC_PREFIXES)
 
-    async def handle(
+    def handle(
         self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
-    ) -> HandlerResult | None:
-        """Route agent requests with RBAC."""
+    ) -> HandlerResult | Awaitable[HandlerResult | None] | None:
+        """Route agent requests.
+
+        Public read-only agent endpoints stay synchronous for legacy direct
+        handler callers; protected paths return an awaitable auth path for the
+        router to await when needed.
+        """
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _agent_limiter.is_allowed(client_ip):
@@ -236,17 +242,28 @@ class AgentsHandler(  # type: ignore[misc]
         normalized_path = strip_version_prefix(path)
         is_public = self._is_public_path(normalized_path)
 
-        # RBAC: Skip auth for public read-only endpoints, require for mutations
-        if not is_public:
-            try:
-                auth_context = await self.get_auth_context(handler, require_auth=True)
-                self.check_permission(auth_context, AGENT_PERMISSION)
-            except UnauthorizedError:
-                return error_response("Authentication required to access agent data", 401)
-            except ForbiddenError as e:
-                logger.warning("Agent access denied: %s", e)
-                return error_response("Permission denied", 403)
+        if is_public:
+            return self._handle_agent_request(path, query_params)
+        return self._handle_authenticated_agent_request(path, query_params, handler)
 
+    async def _handle_authenticated_agent_request(
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
+    ) -> HandlerResult | None:
+        """Authenticate protected agent paths before dispatching."""
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, AGENT_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required to access agent data", 401)
+        except ForbiddenError as e:
+            logger.warning("Agent access denied: %s", e)
+            return error_response("Permission denied", 403)
+        return self._handle_agent_request(path, query_params)
+
+    def _handle_agent_request(
+        self, path: str, query_params: dict[str, Any]
+    ) -> HandlerResult | None:
+        """Dispatch an already-authorized or public agent request."""
         path = strip_version_prefix(path)
         if path.startswith("/api/agents/") and not path.startswith(
             (

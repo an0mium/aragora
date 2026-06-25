@@ -222,7 +222,17 @@ class BeliefHandler(BaseHandler):
         roles_header = ""
         if hasattr(handler, "headers"):
             roles_header = handler.headers.get("X-User-Roles", "")
-        roles = set(roles_header.split(",")) if roles_header else {"member"}
+        if isinstance(roles_header, str) and roles_header:
+            roles = {role.strip() for role in roles_header.split(",") if role.strip()}
+        else:
+            user_roles = getattr(user, "roles", None)
+            if isinstance(user_roles, str):
+                roles = {user_roles}
+            elif isinstance(user_roles, (list, tuple, set, frozenset)):
+                roles = {str(role) for role in user_roles if str(role)}
+            else:
+                role = getattr(user, "role", None)
+                roles = {str(role)} if role else {"member"}
 
         context = AuthorizationContext(
             user_id=str(user_id),
@@ -242,11 +252,17 @@ class BeliefHandler(BaseHandler):
     def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route belief network requests to appropriate methods."""
         normalized = strip_version_prefix(path)
+        if not self.can_handle(normalized):
+            return None
+
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _belief_limiter.is_allowed(client_ip):
             logger.warning("Rate limit exceeded for belief endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        if self._is_belief_network_route(normalized) and not BELIEF_NETWORK_AVAILABLE:
+            return error_response("Belief network not available", 503)
 
         # Require authentication for belief network endpoints
         try:
@@ -327,6 +343,18 @@ class BeliefHandler(BaseHandler):
             return self._get_crux_analysis(nomic_dir, debate_id, limit)
 
         return None
+
+    @staticmethod
+    def _is_belief_network_route(normalized_path: str) -> bool:
+        """Return True for routes backed by the optional belief-network package."""
+        return (
+            normalized_path.startswith("/api/belief-network/")
+            or (
+                normalized_path.startswith("/api/debate/")
+                and normalized_path.endswith("/graph-stats")
+            )
+            or (normalized_path.startswith("/api/debates/") and normalized_path.endswith("/cruxes"))
+        )
 
     def _extract_debate_id(self, path: str, segment_index: int) -> str | None:
         """Extract and validate debate ID from path."""
