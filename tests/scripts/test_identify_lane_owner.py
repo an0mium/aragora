@@ -2184,6 +2184,34 @@ class TestLivenessCLI:
         assert data["owner_liveness"]["assessed"] == "live"
         assert data["stale_claim_advisory"] is None
 
+    def test_live_lease_without_heartbeat_does_not_report_unverified_owner(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--json",
+                "--runs-glob",
+                runs_glob,
+                "--now",
+                LIVENESS_NOW,
+                "--stale-hours",
+                "8",
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["owner_liveness"]["assessed"] == "live"
+        assert data["owner_blocking_state"] == "live_owner"
+        assert data["liveness_state"] == "missing_heartbeat"
+        assert data["cleanup_state"] == "preserve_live_owner"
+        assert data["owner_state_reason"] == (
+            "active lane has current owner lease evidence; no matched harness heartbeat row"
+        )
+
     def test_no_liveness_output_is_byte_identical_to_legacy_schema(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:

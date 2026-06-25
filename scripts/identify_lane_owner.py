@@ -2013,6 +2013,37 @@ def _print_liveness_summary(payload: dict[str, Any]) -> None:
     )
 
 
+def _align_owner_state_with_liveness(payload: dict[str, Any]) -> None:
+    """Keep legacy owner fields truthful after adding advisory liveness.
+
+    ``build_owner_info`` predates the richer liveness assessment and can only
+    classify direct process/heartbeat evidence. The later ``owner_liveness``
+    pass also considers current lease timestamps and lane-ledger state. When
+    that pass proves a live owner, keep the conservative preserve decision but
+    avoid JSON that says both "live owner" and "no heartbeat evidence".
+    """
+
+    liveness = payload.get("owner_liveness") or {}
+    if (
+        payload.get("owner_state") != "owned"
+        or payload.get("owner_blocking_state") != OWNER_BLOCKING_LIVE
+        or liveness.get("assessed") != "live"
+    ):
+        return
+
+    liveness_state = str(payload.get("liveness_state") or "")
+    if liveness_state == "missing_heartbeat":
+        payload["cleanup_state"] = "preserve_live_owner"
+        payload["owner_state_reason"] = (
+            "active lane has current owner lease evidence; no matched harness heartbeat row"
+        )
+    elif liveness_state == "stale_heartbeat":
+        payload["cleanup_state"] = "preserve_live_owner"
+        payload["owner_state_reason"] = (
+            "active lane has current owner lease evidence; matched harness heartbeat is stale"
+        )
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -2239,6 +2270,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = dataclasses.asdict(info)
         if liveness_payload is not None:
             payload.update(liveness_payload)
+            _align_owner_state_with_liveness(payload)
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         _print_human(info)
