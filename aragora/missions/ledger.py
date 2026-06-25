@@ -339,8 +339,8 @@ def select_for(
 ) -> str | None:
     """Stigmergic pickup: atomic-claim the first available feature for ``worker_id``.
 
-    "Available" = pending/in_progress, preconditions met, not done (in state OR the
-    ledger), not parked (active constraint), and not claimed by another worker.
+    "Available" = pending, preconditions met, not done (in state OR the ledger),
+    not parked (active constraint), and not claimed by another worker.
     Returns the claimed feature id, or None if nothing is available to *this* worker.
 
     This is how non-overlapping fronts emerge with no central dispatcher: every

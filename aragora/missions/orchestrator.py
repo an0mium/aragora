@@ -84,9 +84,10 @@ class MissionOrchestrator:
         done, False if drained.
 
         Public single-tick entry point: it acquires the exclusive
-        :func:`mission_owner_lock` for this one tick, so even a hand-rolled
-        ``while orch.tick(...)`` loop is fenced against a concurrent driver — not
-        only :meth:`run`. Inside :meth:`run` the loop calls :meth:`_tick` directly,
+        :func:`mission_owner_lock` for this one tick, including dispatch and
+        triage. A hand-rolled ``while orch.tick(...)`` loop is therefore safe for
+        each tick, but only :meth:`run` holds the fence continuously across the
+        whole session. Inside :meth:`run` the loop calls :meth:`_tick` directly,
         holding the fence once for the whole run.
         """
         with mission_owner_lock(self.state_path, exclusive=True):

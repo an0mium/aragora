@@ -189,10 +189,10 @@ def reconcile_from_ledger(state_path: str | Path, ledger_path: str | Path) -> in
     there is no path to inject gate-bypassing work. Returns the number of features
     whose status or notes changed.
 
-    Holds the single-writer :func:`mission_owner_lock`, so it cannot run while an
-    orchestrator is driving the same mission. It is still the caller's contract to
-    invoke this only *after* the swarm's workers have stopped (workers touch the
-    ledger, not ``MissionState``, so the fence does not cover them).
+    Holds the exclusive side of :func:`mission_owner_lock`, so it cannot run while
+    an orchestrator or live swarm worker is driving the same mission. Workers touch
+    the ledger, not ``MissionState``, but they still hold the shared side of the
+    owner fence for the duration of ``run_worker``.
     """
     with mission_owner_lock(state_path):
         return _reconcile_locked(state_path, ledger_path)
