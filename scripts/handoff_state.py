@@ -357,9 +357,17 @@ class LaneRegistryOwnerProbe:
         blocking_state = str(row.get("owner_blocking_state") or "").strip() or None
         if blocking_state is None and status in ACTIVE_LANE_STATUSES:
             blocking_state = "live_owner"
-        elif blocking_state is None and status in TERMINAL_LANE_STATUSES:
-            blocking_state = "stale_terminal_owner"
-        elif blocking_state is None and row.get("owner_session"):
+        elif (
+            blocking_state is None
+            and status in TERMINAL_LANE_STATUSES
+            and not _stale_claim_available(row)
+        ):
+            blocking_state = "unknown_owner"
+        elif (
+            blocking_state is None
+            and row.get("owner_session")
+            and status not in TERMINAL_LANE_STATUSES
+        ):
             blocking_state = "unknown_owner"
         evidence = owner_evidence_from_payload(row)
         evidence.status = status or evidence.status
@@ -395,8 +403,27 @@ def owner_evidence_from_payload(payload: Mapping[str, Any]) -> OwnerEvidence:
 
 
 def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
-    text = json.dumps(payload, sort_keys=True).lower()
-    return "possible_unpushed_work" if "possible_unpushed_work" in text else None
+    if _first_text(payload, "advisory_withheld") == "possible_unpushed_work":
+        return "possible_unpushed_work"
+    for key in (
+        "owner_blocking_state_reason",
+        "withheld_reason",
+        "cleanup_state",
+        "decision",
+    ):
+        value = str(payload.get(key) or "").strip().lower()
+        if value == "possible_unpushed_work" or "possible unpushed work" in value:
+            return "possible_unpushed_work"
+    for key in ("stale_claim_advisory", "owner_liveness", "cleanup_safety"):
+        value = payload.get(key)
+        if isinstance(value, Mapping) and _possible_unpushed_marker(value):
+            return "possible_unpushed_work"
+    return None
+
+
+def _stale_claim_available(payload: Mapping[str, Any]) -> bool:
+    advisory = payload.get("stale_claim_advisory")
+    return isinstance(advisory, Mapping) and advisory.get("available") is True
 
 
 def _owner_payload_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -588,7 +615,40 @@ def classify_handoff_item(
             safe_to_mutate=mutation_safe,
         )
 
+    if _terminal_receipt_satisfied(receipt_evidence):
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.PRESERVED_NOT_ACTIONABLE,
+            reason="terminal receipt already records PR representation",
+            evidence=evidence,
+        )
+
     if _remote_ref_matches(github.remote_ref, desired_head) and not _possible_unpushed(owner):
+        if _human_blocked(owner, steering):
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.BLOCKED_BY_HUMAN,
+                reason="desired head is preserved by exact remote branch but human gate remains",
+                evidence=evidence,
+                next_mutation_candidate="human_gate",
+            )
+        if _live_owner_blocked(owner, steering):
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.BLOCKED_BY_OWNER,
+                reason="desired head is preserved by exact remote branch but owner gate remains",
+                evidence=evidence,
+                next_mutation_candidate="owner_followup",
+            )
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
@@ -636,14 +696,14 @@ def classify_handoff_item(
             next_mutation_candidate="owner_followup",
         )
 
-    if _terminal_receipt_satisfied(receipt_evidence):
+    if github.mode == "degraded" and is_pr_publication_request(payload):
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
             branch=branch,
             desired_head_sha=desired_head or None,
-            state=HandoffState.PRESERVED_NOT_ACTIONABLE,
-            reason="terminal receipt already records a non-issue-only handoff result",
+            state=HandoffState.UNKNOWN,
+            reason="GitHub evidence is degraded; cannot prove absence of exact open PR/ref",
             evidence=evidence,
         )
 
@@ -883,8 +943,8 @@ def steering_evidence_for_branch(
                 "to_session": to_session or None,
                 "lane_id_hint": lane_hint or None,
                 "priority": str(payload.get("priority") or "").lower() or None,
-                "subject": payload.get("subject"),
-                "body": payload.get("body"),
+                "subject_present": bool(str(payload.get("subject") or "").strip()),
+                "body_present": bool(str(payload.get("body") or "").strip()),
                 "sent_at_utc": payload.get("sent_at_utc"),
                 "from": payload.get("from"),
                 "latest_read_receipt": receipt,
@@ -1067,12 +1127,22 @@ def _owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
     return False
 
 
+def _live_owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
+    if owner.available is False:
+        return True
+    if steering.blocking_message_count > 0:
+        return True
+    status = str(owner.status or "").strip().lower()
+    if status in ACTIVE_LANE_STATUSES:
+        return True
+    blocking = str(owner.owner_blocking_state or "").strip().lower()
+    return blocking in {"live_owner", "unknown_owner"}
+
+
 def _terminal_receipt_satisfied(receipt: ReceiptEvidence) -> bool:
     if receipt.status not in TERMINAL_RECEIPT_STATUSES or receipt.issue_only_pr_receipt:
         return False
-    if receipt.has_pr_reference or receipt.target_pr is not None:
-        return True
-    return receipt.status in {"completed", "skipped"}
+    return receipt.has_pr_reference or receipt.target_pr is not None
 
 
 def _looks_human(mapping: Mapping[str, Any]) -> bool:

@@ -321,6 +321,57 @@ def test_terminal_pr_receipt_short_circuits_duplicate_publication(tmp_path: Path
     assert "terminal receipt" in item["reason"]
 
 
+def test_terminal_pr_receipt_wins_over_owner_noise(tmp_path: Path) -> None:
+    key = "open-pr-codex-example-aaaaaaaa"
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, key=key, branch="codex/example")
+    _write_receipt(
+        tmp_path,
+        key,
+        {
+            "status": "published",
+            "reason": "created_pr",
+            "target_pr": 8570,
+        },
+    )
+    owner = FakeOwnerProbe(
+        {
+            "codex/example": {
+                "lane_id": "Q1",
+                "owner_session": "engineering-autopilot-Q1",
+                "status": "active",
+                "owner_blocking_state": "live_owner",
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, owner=owner)
+
+    assert item["state"] == mod.HandoffState.PRESERVED_NOT_ACTIONABLE.value
+    assert item["next_mutation_candidate"] == "none"
+
+
+def test_terminal_completed_receipt_without_pr_does_not_suppress_publication(
+    tmp_path: Path,
+) -> None:
+    key = "open-pr-codex-example-aaaaaaaa"
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, key=key, branch="codex/example")
+    _write_receipt(
+        tmp_path,
+        key,
+        {
+            "status": "completed",
+            "reason": "completed_without_pr",
+        },
+    )
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["next_mutation_candidate"] == "publish_or_represent_pr"
+
+
 def test_unique_branch_without_pr_is_cap_blocked_when_cache_says_cap_reached(
     tmp_path: Path,
 ) -> None:
@@ -399,6 +450,30 @@ def test_stale_owner_remote_exact_head_is_represented_by_remote_branch(
 
     assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH.value
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
+
+
+def test_remote_exact_head_does_not_hide_live_owner_gate(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(
+        refs={"codex/example": {"ref": "refs/heads/codex/example", "object": {"sha": HEAD}}}
+    )
+    owner = FakeOwnerProbe(
+        {
+            "codex/example": {
+                "lane_id": "Q1",
+                "owner_session": "engineering-autopilot-Q1",
+                "status": "active",
+                "owner_blocking_state": "live_owner",
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github, owner=owner)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert "remote branch" in item["reason"]
+    assert item["next_mutation_candidate"] == "owner_followup"
 
 
 def test_possible_unpushed_work_blocks_non_owner_movement(tmp_path: Path) -> None:
@@ -489,7 +564,78 @@ def test_lane_registry_terminal_owner_blocks_without_focused_liveness_proof(
     item = payload["items"][0]
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
-    assert item["evidence"]["owner"]["owner_blocking_state"] == "stale_terminal_owner"
+    assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
+
+
+def test_lane_registry_terminal_owner_with_available_advisory_does_not_block(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    lanes_path.parent.mkdir(parents=True, exist_ok=True)
+    lanes_path.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1",
+                    "owner_session": "engineering-autopilot-Q1",
+                    "branch": "codex/example",
+                    "status": "released",
+                    "stale_claim_advisory": {"available": True},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=FakeGitHub(),
+    )
+    item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["owner"]["owner_blocking_state"] is None
+
+
+def test_lane_registry_possible_unpushed_marker_ignores_unrelated_text(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    lanes_path.parent.mkdir(parents=True, exist_ok=True)
+    lanes_path.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1",
+                    "owner_session": "engineering-autopilot-Q1",
+                    "branch": "codex/example",
+                    "status": "released",
+                    "note": "documentation mentions possible_unpushed_work",
+                    "stale_claim_advisory": {"available": True},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=FakeGitHub(),
+    )
+    item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["owner"]["advisory_withheld"] is None
 
 
 def test_owner_payload_evidence_redacts_local_session_metadata(tmp_path: Path) -> None:
@@ -563,6 +709,10 @@ def test_terminal_steering_receipt_consumes_blocking_effect(tmp_path: Path) -> N
     assert item["evidence"]["steering"]["blocking_message_count"] == 0
     assert item["evidence"]["steering"]["latest_read_receipt"]["outcome"] == "completed"
     assert item["evidence"]["steering"]["latest_message"]["resolved_by_read_receipt"] is True
+    assert "subject" not in item["evidence"]["steering"]["latest_message"]
+    assert "body" not in item["evidence"]["steering"]["latest_message"]
+    assert item["evidence"]["steering"]["latest_message"]["subject_present"] is True
+    assert item["evidence"]["steering"]["latest_message"]["body_present"] is True
 
 
 def test_nonterminal_steering_receipt_still_blocks(tmp_path: Path) -> None:
@@ -750,6 +900,18 @@ def test_remote_ref_treats_structured_not_found_as_absent(tmp_path: Path) -> Non
 
     assert ref is None
     assert error is None
+
+
+def test_github_degraded_pr_lookup_fails_closed_for_publication(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(errors={"pr:codex/example": "gh api failed (TimeoutExpired)"})
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert "GitHub evidence is degraded" in item["reason"]
+    assert item["next_mutation_candidate"] == "none"
 
 
 def test_missing_origin_disables_github_instead_of_defaulting_repo(tmp_path: Path) -> None:
