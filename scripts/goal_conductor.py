@@ -38,6 +38,14 @@ MUTATING_LANE_MODES = IMPLEMENTATION_MODES
 _MUTED_STDOUTS: list[Any] = []
 
 
+class _NullStdout:
+    def write(self, text: str) -> int:
+        return len(text)
+
+    def flush(self) -> None:
+        return None
+
+
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -48,12 +56,17 @@ def _slug(value: str) -> str:
 
 
 def _mute_stdout_after_broken_pipe() -> None:
+    previous_stdout = sys.stdout
+    _MUTED_STDOUTS.append(previous_stdout)
+    original_stdout = getattr(sys, "__stdout__", None)
+    if original_stdout is not None and previous_stdout is not original_stdout:
+        sys.stdout = original_stdout
+        return
     try:
         replacement = open(os.devnull, "w", encoding="utf-8")
     except OSError:
+        sys.stdout = _NullStdout()
         return
-    # Keep the previous stream alive so broken-pipe cleanup cannot close fd 1.
-    _MUTED_STDOUTS.append(sys.stdout)
     sys.stdout = replacement
 
 

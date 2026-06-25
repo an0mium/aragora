@@ -204,7 +204,8 @@ lanes:
     assert stream.writes
     assert stream.closed is False
     assert mod.sys.stdout is not stream
-    mod.sys.stdout.close()
+    if mod.sys.stdout is not sys.__stdout__:
+        mod.sys.stdout.close()
 
 
 def test_emit_output_suppresses_write_time_broken_pipe(
@@ -232,7 +233,28 @@ def test_emit_output_suppresses_write_time_broken_pipe(
 
     assert stream.closed is False
     assert mod.sys.stdout is not stream
-    mod.sys.stdout.close()
+    if mod.sys.stdout is not sys.__stdout__:
+        mod.sys.stdout.close()
+
+
+def test_mute_stdout_falls_back_to_null_stream_when_devnull_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import builtins
+
+    import goal_conductor as mod
+
+    def fail_open(*args: object, **kwargs: object) -> object:
+        raise OSError("no devnull")
+
+    monkeypatch.setattr(mod.sys, "stdout", sys.__stdout__)
+    monkeypatch.setattr(builtins, "open", fail_open)
+
+    mod._mute_stdout_after_broken_pipe()
+    mod._emit_output("payload")
+
+    assert mod.sys.stdout is not sys.__stdout__
+    assert isinstance(mod.sys.stdout, mod._NullStdout)
 
 
 def test_emit_output_ignores_missing_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
