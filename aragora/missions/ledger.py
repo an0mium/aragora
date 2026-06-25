@@ -28,13 +28,18 @@ import tempfile
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from types import ModuleType
 
 from .state import MissionState, Status
 
+# POSIX-only; the package imports fine without it (locking raises a clear error).
+fcntl: ModuleType | None
 try:
-    import fcntl  # POSIX-only; the package imports fine without it (locking just errors).
+    import fcntl as _fcntl
+
+    fcntl = _fcntl
 except ImportError:  # pragma: no cover - non-POSIX
-    fcntl = None  # type: ignore[assignment]
+    fcntl = None
 
 logger = logging.getLogger(__name__)
 
