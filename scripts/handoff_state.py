@@ -157,6 +157,7 @@ class SteeringEvidence:
 @dataclass
 class QueueCapEvidence:
     available: bool = False
+    github_queue_available: bool | None = None
     degraded: bool | None = None
     degraded_reason: str | None = None
     open_pr_cap_reached: bool | None = None
@@ -955,12 +956,16 @@ def load_queue_cap_evidence(
         if cache_stale:
             decision_source = "expired_cache"
     raw_cap = _bool_or_none(pressure.get("open_pr_cap_reached"))
-    effective_cap = None if cache_stale else raw_cap
+    queue_available = _bool_or_none(github_queue.get("available"))
     degraded = _bool_or_none(github_queue.get("degraded"))
-    if not cache_stale and degraded:
+    if not cache_stale and queue_available is False:
+        decision_source = "github_queue_unavailable"
+    elif not cache_stale and degraded:
         decision_source = "fresh_degraded_cache_rest_fallback"
+    effective_cap = None if cache_stale or queue_available is False else raw_cap
     return QueueCapEvidence(
         available=True,
+        github_queue_available=queue_available,
         degraded=degraded,
         degraded_reason=str(github_queue.get("degraded_reason") or "") or None,
         open_pr_cap_reached=effective_cap,

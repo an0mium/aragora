@@ -103,6 +103,7 @@ def _write_status_cache(
     *,
     open_pr_cap_reached: bool = False,
     degraded: bool = False,
+    available: bool | None = True,
     generated_at: str | None = None,
     open_pr_heads: list[str] | None = None,
 ) -> None:
@@ -114,6 +115,7 @@ def _write_status_cache(
             {
                 "generated_at": timestamp,
                 "github_queue": {
+                    "available": available,
                     "degraded": degraded,
                     "degraded_reason": "heavy_open_pr_query_failed:HTTP 504" if degraded else None,
                     "open_pr_heads": open_pr_heads if open_pr_heads is not None else [],
@@ -589,6 +591,19 @@ def test_stale_queue_cap_cache_does_not_block_publication(tmp_path: Path) -> Non
     assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is None
     assert item["evidence"]["queue_cap"]["cache_stale"] is True
     assert item["evidence"]["queue_cap"]["decision_source"] == "expired_cache"
+
+
+def test_unavailable_queue_cap_cache_does_not_block_publication(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=True, available=False)
+    _write_outbox(tmp_path, branch="codex/example")
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["queue_cap"]["github_queue_available"] is False
+    assert item["evidence"]["queue_cap"]["raw_open_pr_cap_reached"] is True
+    assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is None
+    assert item["evidence"]["queue_cap"]["decision_source"] == "github_queue_unavailable"
 
 
 def test_fresh_degraded_queue_cap_cache_blocks_with_rest_fallback_evidence(
