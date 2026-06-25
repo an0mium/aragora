@@ -6,7 +6,8 @@
     "phase-b-seal",
     "phase-c-knowledge",
     "phase-d-runtime",
-    "phase-e-moat"
+    "phase-e-moat",
+    "phase-f-swarm"
   ],
   "features": [
     {
@@ -132,6 +133,32 @@
       "description": "Position as 'autonomous engineering where every change is debate-gated and receipted' (Factory-with-provenance). Dogfood: Aragora governs Aragora's own development = the demo.",
       "preconditions": ["feature:e1-decision-receipts"],
       "fulfills": ["VAL-NMO-041"]
+    },
+    {
+      "id": "f1-stigmergic-ledger",
+      "milestone": "phase-f-swarm",
+      "skill": "worker",
+      "status": "completed",
+      "description": "Shared 'pheromone' environment for a dispatcher-free worker swarm. DONE: aragora/missions/ledger.py (file-locked atomic claims/leases + evaporation + constraint/park memory + select_for). 10 tests + scripts/mission_swarm_demo.py (PASS: 3 worker processes self-partitioned 9 units, zero collisions, no dispatcher). Encodes the research synthesis: stigmergy/ACO (claims), response-threshold division of labor (select_for), Reflexion-as-data (constraints are environment state, NOT self-edited prompts).",
+      "fulfills": ["VAL-NMO-050"]
+    },
+    {
+      "id": "f2-pheromone-wired-to-gate",
+      "milestone": "phase-f-swarm",
+      "skill": "worker",
+      "status": "pending",
+      "description": "Wire workers to write parks/learned-constraints to the ledger on any blocker (Reflexion-as-data), and have BossLoopDispatch/select_for read them so the swarm escapes treadmills without prompt-rot. The merge-quorum gate stays the hard selector (propose=swarm, accept=gate -- the FunSearch/AlphaEvolve pattern).",
+      "preconditions": ["feature:f1-stigmergic-ledger", "feature:a5-wire-boss-loop-dispatch"],
+      "fulfills": ["VAL-NMO-051"]
+    },
+    {
+      "id": "f3-swarm-vs-orchestrator-experiment",
+      "milestone": "phase-f-swarm",
+      "skill": "worker",
+      "status": "pending",
+      "description": "Bounded, measured experiment: N cheap workers picking units via the ledger (lease + novelty pressure) + merge-quorum gate as selector, vs the single orchestrator, on the same backlog. Measure throughput-per-token + contention-resistance. Hypothesis: swarm wins on exploration breadth + contention-resistance; gate remains non-negotiable for correctness; the ledger design (not the prompts) is what makes or breaks it.",
+      "preconditions": ["feature:f2-pheromone-wired-to-gate", "feature:a6-mission-cli"],
+      "fulfills": ["VAL-NMO-052"]
     }
   ]
 }
