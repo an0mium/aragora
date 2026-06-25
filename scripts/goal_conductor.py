@@ -14,6 +14,8 @@ The conductor is intentionally conservative. It is read-only by default; pass
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import re
@@ -35,15 +37,6 @@ PANEL_MODE = "panel"
 IMPLEMENTATION_MODES = {"implementation", "implement", "write"}
 REVIEW_MODES = {"review", "watch", "validator", PANEL_MODE}
 MUTATING_LANE_MODES = IMPLEMENTATION_MODES
-_MUTED_STDOUTS: list[Any] = []
-
-
-class _NullStdout:
-    def write(self, text: str) -> int:
-        return len(text)
-
-    def flush(self) -> None:
-        return None
 
 
 def _utc_now() -> str:
@@ -56,18 +49,14 @@ def _slug(value: str) -> str:
 
 
 def _mute_stdout_after_broken_pipe() -> None:
-    previous_stdout = sys.stdout
-    _MUTED_STDOUTS.append(previous_stdout)
-    original_stdout = getattr(sys, "__stdout__", None)
-    if original_stdout is not None and previous_stdout is not original_stdout:
-        sys.stdout = original_stdout
-        return
+    close = getattr(sys.stdout, "close", None)
+    if callable(close):
+        with contextlib.suppress(Exception):
+            close()
     try:
-        replacement = open(os.devnull, "w", encoding="utf-8")
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
     except OSError:
-        sys.stdout = _NullStdout()
-        return
-    sys.stdout = replacement
+        sys.stdout = io.StringIO()
 
 
 def _emit_output(output: str) -> None:
