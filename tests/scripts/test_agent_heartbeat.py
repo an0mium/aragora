@@ -247,6 +247,89 @@ def test_heartbeat_relaunch_replaces_terminal_row_for_new_wrapper_pid(tmp_path: 
     assert payload[0]["last_seen_at"] == "2026-06-23T10:11:00Z"
 
 
+def test_heartbeat_relaunch_replaces_terminal_row_for_new_wrapper_id_even_same_pid(
+    tmp_path: Path,
+) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        thread_id="wrapper-run-1",
+        pid=34567,
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        last_seen_at="2026-06-23T10:09:00Z",
+    )
+    heartbeat.record_finalizer_receipt(
+        heartbeat_path=heartbeat_path,
+        receipt_path=receipt_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        thread_id="wrapper-run-1",
+        pid=34567,
+        outcome="completed",
+        reason="published draft PR",
+        finalized_at="2026-06-23T10:10:00Z",
+    )
+
+    row = heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        thread_id="wrapper-run-2",
+        pid=34567,
+        branch="codex/relaunched",
+        last_seen_at="2026-06-23T10:11:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert payload == [row]
+    assert "terminal" not in payload[0]
+    assert "terminal_outcome" not in payload[0]
+    assert payload[0]["thread_id"] == "wrapper-run-2"
+    assert payload[0]["pid"] == 34567
+    assert payload[0]["branch"] == "codex/relaunched"
+
+
+def test_pidless_heartbeat_preserves_terminal_row(tmp_path: Path) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        pid=34567,
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        last_seen_at="2026-06-23T10:09:00Z",
+    )
+    heartbeat.record_finalizer_receipt(
+        heartbeat_path=heartbeat_path,
+        receipt_path=receipt_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        outcome="completed",
+        reason="published draft PR",
+        finalized_at="2026-06-23T10:10:00Z",
+    )
+
+    row = heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        pid=None,
+        branch="codex/pidless-resurrection",
+        last_seen_at="2026-06-23T10:11:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert payload == [row]
+    assert payload[0]["terminal"] is True
+    assert payload[0]["terminal_outcome"] == "completed"
+    assert payload[0]["pid"] == 34567
+    assert payload[0]["branch"] == "codex/lane-heartbeat-finalizer-20260623"
+
+
 def test_finalizer_receipt_rejects_unknown_outcome(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="outcome must be one of"):
         heartbeat.record_finalizer_receipt(

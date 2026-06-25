@@ -175,6 +175,40 @@ def _terminal_heartbeat_fields(receipt: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _is_terminal_heartbeat(row: dict[str, Any]) -> bool:
+    return bool(
+        row.get("terminal") is True
+        or row.get("terminal_outcome")
+        or row.get("terminal_finalized_at")
+    )
+
+
+def _should_preserve_terminal_heartbeat(
+    existing: dict[str, Any],
+    incoming: dict[str, Any],
+) -> bool:
+    """Keep terminal owner proof unless the renewal carries a new run identity."""
+
+    if not _is_terminal_heartbeat(existing):
+        return False
+
+    existing_thread = str(existing.get("thread_id") or "").strip()
+    incoming_thread = str(incoming.get("thread_id") or "").strip()
+    if incoming_thread:
+        return bool(existing_thread and existing_thread == incoming_thread)
+
+    existing_pid = existing.get("pid")
+    incoming_pid = incoming.get("pid")
+    if existing_pid is not None and incoming_pid is not None and existing_pid != incoming_pid:
+        return False
+
+    # PID-only same-PID or pidless terminal renewals are ambiguous: the late
+    # renewal might be an in-flight heartbeat, a pidless caller, or PID reuse.
+    # Preserve the receipt-backed terminal state unless a new wrapper run id or
+    # clearly different PID proves a relaunch.
+    return True
+
+
 def _mark_matching_heartbeat_terminal(heartbeat_path: Path, *, receipt: dict[str, Any]) -> None:
     rows = _read_rows(heartbeat_path)
     if not rows:
@@ -235,15 +269,7 @@ def record_heartbeat(
                 str(existing.get("lane_id") or "") == lane_id
                 and str(existing.get("owner_session") or "") == owner_session
             ):
-                terminal = existing.get("terminal") is True or existing.get("terminal_outcome")
-                existing_pid = existing.get("pid")
-                incoming_pid = row.get("pid")
-                same_wrapper = (
-                    existing_pid is not None
-                    and incoming_pid is not None
-                    and existing_pid == incoming_pid
-                )
-                if terminal and same_wrapper:
+                if _should_preserve_terminal_heartbeat(existing, row):
                     out.append(existing)
                     row = existing
                 else:

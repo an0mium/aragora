@@ -189,6 +189,7 @@ import os
 import re
 import shlex
 import sys
+import uuid
 from pathlib import Path
 
 runner_file, repo_root, workdir, launch_file, lane_id, owner_session = sys.argv[1:7]
@@ -200,12 +201,8 @@ if (
 ):
     raise SystemExit("refusing to generate heartbeat wrapper for invalid owner session")
 runner_path = Path(runner_file)
-if ".heartbeat-launch." in runner_path.name:
-    heartbeat_log = str(runner_path.with_name(runner_path.name.split(".heartbeat-launch.", 1)[0] + ".heartbeat.log"))
-elif runner_path.name.endswith(".heartbeat-launch.sh"):
-    heartbeat_log = str(runner_path.with_name(runner_path.name[: -len(".heartbeat-launch.sh")] + ".heartbeat.log"))
-else:
-    heartbeat_log = str(runner_path.with_suffix(".heartbeat.log"))
+heartbeat_log = str(runner_path.with_name(f"{owner_session}.heartbeat.log"))
+wrapper_run_id = f"{owner_session}-{uuid.uuid4().hex}"
 body = "\n".join(
     [
         "#!/usr/bin/env bash",
@@ -213,6 +210,7 @@ body = "\n".join(
         f"WORKDIR={shlex.quote(workdir)}",
         f"LANE_ID={shlex.quote(lane_id)}",
         f"OWNER_SESSION={shlex.quote(owner_session)}",
+        f"WRAPPER_RUN_ID={shlex.quote(wrapper_run_id)}",
         f"HEARTBEAT_LOG={shlex.quote(heartbeat_log)}",
         f"LAUNCH_FILE={shlex.quote(launch_file)}",
         "_heartbeat_interval=\"${ARAGORA_TMUX_HEARTBEAT_INTERVAL_SECONDS:-60}\"",
@@ -234,6 +232,7 @@ body = "\n".join(
         "        --repo-root \"${REPO_ROOT}\" \\",
         "        --lane-id \"${LANE_ID}\" \\",
         "        --owner-session \"${OWNER_SESSION}\" \\",
+        "        --thread-id \"${WRAPPER_RUN_ID}\" \\",
         "        --pid \"$$\" \\",
         "        --cwd \"${WORKDIR}\" \\",
         "        --worktree \"${WORKDIR}\" \\",
@@ -281,6 +280,7 @@ body = "\n".join(
         "        --finalize \\",
         "        --lane-id \"${LANE_ID}\" \\",
         "        --owner-session \"${OWNER_SESSION}\" \\",
+        "        --thread-id \"${WRAPPER_RUN_ID}\" \\",
         "        --pid \"$$\" \\",
         "        --cwd \"${WORKDIR}\" \\",
         "        --worktree \"${WORKDIR}\" \\",
@@ -598,9 +598,9 @@ else
 fi
 
 HEARTBEAT_LANE_ID="${TASK_ID:-${NAME}}"
-AGENT_LAUNCH_FILE="$(mktemp "${LOG_DIR}/${NAME}.launch.XXXXXX.sh")"
+AGENT_LAUNCH_FILE="$(mktemp "${LOG_DIR}/${NAME}.launch.XXXXXX")"
 write_shell_command_file "${AGENT_LAUNCH_FILE}" "${LAUNCH_CMD}" "${NAME}"
-HEARTBEAT_LAUNCH_FILE="$(mktemp "${LOG_DIR}/${NAME}.heartbeat-launch.XXXXXX.sh")"
+HEARTBEAT_LAUNCH_FILE="$(mktemp "${LOG_DIR}/${NAME}.heartbeat-launch.XXXXXX")"
 ORIGINAL_LAUNCH_CMD="${LAUNCH_CMD}"
 build_heartbeat_launch_wrapper "${HEARTBEAT_LAUNCH_FILE}" "${AGENT_LAUNCH_FILE}" "${HEARTBEAT_LANE_ID}" "${NAME}"
 LAUNCH_CMD="bash $(shell_quote "${HEARTBEAT_LAUNCH_FILE}")"

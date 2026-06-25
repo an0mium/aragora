@@ -84,7 +84,7 @@ def _heartbeat_launcher_from_calls(calls: list[list[str]], *, name: str) -> Path
         assert argv[0] == "bash"
         path = Path(argv[1])
         assert path.name.startswith(f"{name}.heartbeat-launch.")
-        assert path.name.endswith(".sh")
+        assert not path.name.endswith(".sh")
         return path
     raise AssertionError(f"no heartbeat launcher sent for {name}")
 
@@ -190,6 +190,8 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     heartbeat_body = heartbeat_launcher.read_text(encoding="utf-8")
     assert "scripts/agent_heartbeat.py" in heartbeat_body
     assert "--finalize" in heartbeat_body
+    assert "WRAPPER_RUN_ID=" in heartbeat_body
+    assert '--thread-id "${WRAPPER_RUN_ID}"' in heartbeat_body
     assert "ARAGORA_TMUX_HEARTBEAT_INTERVAL_SECONDS" in heartbeat_body
     assert '_heartbeat_interval="60"' in heartbeat_body
     assert "^[1-9][0-9]*$" in heartbeat_body
@@ -460,6 +462,39 @@ pwd > "${FAKE_LAUNCH_PWD}"
 
     assert result.returncode == 0
     assert Path(wrapper_env["FAKE_LAUNCH_PWD"]).read_text(encoding="utf-8").strip() == str(workdir)
+
+
+def test_tmux_session_launcher_heartbeat_log_uses_full_safe_session_name(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+    name = "foo.heartbeat-launch.bar"
+
+    subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            name,
+            "--agent",
+            "codex",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    calls = _load_tmux_calls(env)
+    heartbeat_launcher = _heartbeat_launcher_from_calls(calls, name=name)
+    heartbeat_body = heartbeat_launcher.read_text(encoding="utf-8")
+
+    heartbeat_log = _assignment_path(heartbeat_body, "HEARTBEAT_LOG")
+    assert heartbeat_log.name == f"{name}.heartbeat.log"
 
 
 def test_tmux_session_launcher_autonomous_codex_prompt_uses_exec(
