@@ -300,6 +300,27 @@ def test_issue_only_receipt_limbo_stays_publication_requested(tmp_path: Path) ->
     assert "issue-only receipt" in item["reason"]
 
 
+def test_terminal_pr_receipt_short_circuits_duplicate_publication(tmp_path: Path) -> None:
+    key = "open-pr-codex-example-aaaaaaaa"
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(tmp_path, key=key, branch="codex/example")
+    _write_receipt(
+        tmp_path,
+        key,
+        {
+            "status": "published",
+            "reason": "created_pr",
+            "created_pr_url": "https://github.com/synaptent/aragora/pull/8570",
+        },
+    )
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.PRESERVED_NOT_ACTIONABLE.value
+    assert item["next_mutation_candidate"] == "none"
+    assert "terminal receipt" in item["reason"]
+
+
 def test_unique_branch_without_pr_is_cap_blocked_when_cache_says_cap_reached(
     tmp_path: Path,
 ) -> None:
@@ -437,6 +458,77 @@ def test_lane_registry_possible_unpushed_marker_blocks_default_classifier(
     assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
 
 
+def test_lane_registry_terminal_owner_blocks_without_focused_liveness_proof(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    lanes_path.parent.mkdir(parents=True, exist_ok=True)
+    lanes_path.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1",
+                    "owner_session": "engineering-autopilot-Q1",
+                    "branch": "codex/example",
+                    "status": "released",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=FakeGitHub(),
+    )
+    item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["owner"]["owner_blocking_state"] == "stale_terminal_owner"
+
+
+def test_owner_payload_evidence_redacts_local_session_metadata(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    lanes_path.parent.mkdir(parents=True, exist_ok=True)
+    lanes_path.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1",
+                    "owner_session": "engineering-autopilot-Q1",
+                    "branch": "codex/example",
+                    "status": "active",
+                    "worktree": "/private/tmp/sensitive-worktree",
+                    "cwd": "/private/tmp/sensitive-worktree",
+                    "pid": 12345,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=FakeGitHub(),
+    )
+    owner_payload = payload["items"][0]["evidence"]["owner"]["payload"]
+
+    assert owner_payload["lane_id"] == "Q1"
+    assert "worktree" not in owner_payload
+    assert "cwd" not in owner_payload
+    assert "pid" not in owner_payload
+
+
 def test_human_owner_blocks_handoff(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(tmp_path, branch="codex/example")
@@ -499,6 +591,21 @@ def test_operator_steering_without_human_keyword_is_owner_block(tmp_path: Path) 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["evidence"]["steering"]["blocking_message_count"] == 1
     assert item["evidence"]["steering"]["human_message_count"] == 0
+
+
+def test_steering_branch_match_does_not_use_substring(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    _write_steering_message(
+        tmp_path,
+        branch="codex/example-long",
+        owner_session="engineering-autopilot-Q1",
+    )
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["steering"]["pending_message_count"] == 0
 
 
 def test_human_detection_ignores_operator_steering_path() -> None:
@@ -575,7 +682,7 @@ def test_narrow_rest_queries_when_open_pr_cache_lacks_branch(
     assert error is None
     assert open_prs == []
     assert seen == [
-        "repos/synaptent/aragora/pulls?state=open&head=synaptent:elves%2Frun-example&per_page=5"
+        "repos/synaptent/aragora/pulls?state=open&head=synaptent:elves%2Frun-example&per_page=100&page=1"
     ]
 
 
@@ -597,8 +704,85 @@ def test_narrow_rest_open_pr_query_preserves_owner_separator(tmp_path: Path) -> 
     assert error is None
     assert open_prs == []
     assert seen == [
-        "repos/synaptent/aragora/pulls?state=open&head=synaptent:codex%2Fexample&per_page=5"
+        "repos/synaptent/aragora/pulls?state=open&head=synaptent:codex%2Fexample&per_page=100&page=1"
     ]
+
+
+def test_narrow_rest_open_pr_query_paginates_exact_branch_results(tmp_path: Path) -> None:
+    client = mod.NarrowGitHubClient(
+        repo_root=tmp_path,
+        github_repo="synaptent/aragora",
+    )
+    page_one = [{"number": index} for index in range(100)]
+    page_two = [{"number": 200}]
+    seen: list[str] = []
+
+    def capture_api(endpoint: str) -> tuple[Any | None, str | None]:
+        seen.append(endpoint)
+        if endpoint.endswith("page=1"):
+            return page_one, None
+        return page_two, None
+
+    client._api = capture_api  # type: ignore[method-assign]
+
+    open_prs, error = client.open_prs_for_branch("codex/example")
+
+    assert error is None
+    assert open_prs == [*page_one, *page_two]
+    assert seen == [
+        "repos/synaptent/aragora/pulls?state=open&head=synaptent:codex%2Fexample&per_page=100&page=1",
+        "repos/synaptent/aragora/pulls?state=open&head=synaptent:codex%2Fexample&per_page=100&page=2",
+    ]
+
+
+def test_remote_ref_treats_structured_not_found_as_absent(tmp_path: Path) -> None:
+    client = mod.NarrowGitHubClient(
+        repo_root=tmp_path,
+        github_repo="synaptent/aragora",
+    )
+
+    def capture_api(endpoint: str) -> tuple[Any | None, str | None]:
+        return None, "github_not_found: gh api exited 1: HTTP 404: Not Found"
+
+    client._api = capture_api  # type: ignore[method-assign]
+
+    ref, error = client.remote_ref("codex/example")
+
+    assert ref is None
+    assert error is None
+
+
+def test_missing_origin_disables_github_instead_of_defaulting_repo(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+    )
+
+    assert payload["github_repo"] is None
+    assert payload["github"]["mode"] == "disabled"
+    assert payload["items"][0]["evidence"]["github"]["mode"] == "disabled"
+
+
+def test_owner_probe_failure_fails_closed(tmp_path: Path) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "identify_lane_owner.py").write_text(
+        "import sys\nprint('database locked', file=sys.stderr)\nsys.exit(2)\n",
+        encoding="utf-8",
+    )
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    owner = mod.OwnerProbe(repo_root=tmp_path, state_root=tmp_path, timeout_seconds=2)
+
+    item = _classify_one(tmp_path, owner=owner)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["owner"]["available"] is False
+    assert item["evidence"]["owner"]["matched"] is False
 
 
 def test_selected_outbox_file_cannot_escape_outbox_dir(tmp_path: Path) -> None:

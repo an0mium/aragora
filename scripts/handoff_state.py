@@ -48,6 +48,8 @@ DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS = 1800
 
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 TERMINAL_STEERING_OUTCOMES = {"completed", "stale", "superseded"}
+ACTIVE_LANE_STATUSES = {"active", "blocked", "blocked_on_publication", "claimed"}
+TERMINAL_LANE_STATUSES = {"completed", "released", "superseded"}
 PR_PUBLICATION_ACTIONS = {
     "open_pr",
     "open_pull_request",
@@ -197,14 +199,27 @@ class NarrowGitHubClient:
             return self._pr_cache[branch]
         owner = self.github_repo.split("/", 1)[0]
         head = f"{owner}:{quote(branch, safe='')}"
-        endpoint = f"repos/{self.github_repo}/pulls?state=open&head={head}&per_page=5"
-        payload, error = self._api(endpoint)
-        if error is not None:
-            result = (None, error)
-        elif not isinstance(payload, list):
-            result = (None, "open PR REST response was not a list")
+        per_page = 100
+        items: list[dict[str, Any]] = []
+        result: tuple[list[dict[str, Any]] | None, str | None]
+        for page in range(1, 6):
+            endpoint = (
+                f"repos/{self.github_repo}/pulls?state=open&head={head}"
+                f"&per_page={per_page}&page={page}"
+            )
+            payload, error = self._api(endpoint)
+            if error is not None:
+                result = (None, error)
+                break
+            if not isinstance(payload, list):
+                result = (None, "open PR REST response was not a list")
+                break
+            items.extend(item for item in payload if isinstance(item, dict))
+            if len(payload) < per_page:
+                result = (items, None)
+                break
         else:
-            result = ([item for item in payload if isinstance(item, dict)], None)
+            result = (items, None)
         self._pr_cache[branch] = result
         return result
 
@@ -215,7 +230,7 @@ class NarrowGitHubClient:
             return self._ref_cache[branch]
         endpoint = f"repos/{self.github_repo}/git/ref/heads/{quote(branch, safe='/')}"
         payload, error = self._api(endpoint)
-        if error is not None and "404" in error:
+        if error is not None and _github_not_found_error(error):
             result = (None, None)
         elif error is not None:
             result = (None, error)
@@ -241,7 +256,9 @@ class NarrowGitHubClient:
             return None, f"gh api failed ({exc.__class__.__name__})"
         if proc.returncode != 0:
             detail = (proc.stderr or "").strip().splitlines()
-            return None, f"gh api exited {proc.returncode}: {detail[0] if detail else ''}"
+            message = detail[0] if detail else ""
+            prefix = "github_not_found: " if _gh_stderr_is_not_found(message) else ""
+            return None, f"{prefix}gh api exited {proc.returncode}: {message}"
         try:
             return json.loads(proc.stdout), None
         except json.JSONDecodeError:
@@ -298,8 +315,8 @@ class OwnerProbe:
             text = message[0] if message else f"identify_lane_owner exited {proc.returncode}"
             matched = "no lane matched" not in text.lower()
             result = OwnerEvidence(
-                available=True,
-                matched=matched,
+                available=not matched,
+                matched=False,
                 error=text,
             )
             self._cache[branch] = result
@@ -337,14 +354,18 @@ class LaneRegistryOwnerProbe:
             return OwnerEvidence(available=True, matched=False, error="no lane matched")
         row = _best_lane_record(candidates)
         status = str(row.get("status") or "").strip().lower()
-        blocking_state = None
-        if status in {"active", "blocked", "blocked_on_publication", "claimed"}:
+        blocking_state = str(row.get("owner_blocking_state") or "").strip() or None
+        if blocking_state is None and status in ACTIVE_LANE_STATUSES:
             blocking_state = "live_owner"
+        elif blocking_state is None and status in TERMINAL_LANE_STATUSES:
+            blocking_state = "stale_terminal_owner"
+        elif blocking_state is None and row.get("owner_session"):
+            blocking_state = "unknown_owner"
         evidence = owner_evidence_from_payload(row)
         evidence.status = status or evidence.status
         evidence.owner_blocking_state = evidence.owner_blocking_state or blocking_state
         evidence.owner_blocking_state_reason = evidence.owner_blocking_state_reason or (
-            "lane registry status is active/blocking" if blocking_state else None
+            _lane_registry_blocking_reason(status, blocking_state) if blocking_state else None
         )
         evidence.advisory_withheld = evidence.advisory_withheld or _possible_unpushed_marker(row)
         return evidence
@@ -369,13 +390,43 @@ def owner_evidence_from_payload(payload: Mapping[str, Any]) -> OwnerEvidence:
         owner_blocking_state_reason=_first_text(payload, "owner_blocking_state_reason"),
         advisory_withheld=_first_text(payload, "advisory_withheld"),
         stale_claim_available=available,
-        payload=dict(payload),
+        payload=_owner_payload_summary(payload),
     )
 
 
 def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
     text = json.dumps(payload, sort_keys=True).lower()
     return "possible_unpushed_work" if "possible_unpushed_work" in text else None
+
+
+def _owner_payload_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep classifier evidence useful without exposing local session internals."""
+
+    summary: dict[str, Any] = {}
+    for key in (
+        "lane_id",
+        "branch",
+        "status",
+        "owner_state",
+        "owner_blocking_state",
+        "owner_blocking_state_reason",
+        "advisory_withheld",
+        "updated_at",
+        "last_heartbeat_at",
+    ):
+        value = payload.get(key)
+        if value not in (None, ""):
+            summary[key] = value
+    advisory = payload.get("stale_claim_advisory")
+    if isinstance(advisory, Mapping):
+        compact = {
+            key: advisory.get(key)
+            for key in ("available", "protocol", "reason")
+            if advisory.get(key) not in (None, "")
+        }
+        if compact:
+            summary["stale_claim_advisory"] = compact
+    return summary
 
 
 def classify_handoffs(
@@ -394,7 +445,7 @@ def classify_handoffs(
 ) -> dict[str, Any]:
     repo_root = repo_root.expanduser().resolve()
     state_root = _as_aragora_root(state_root or repo_root)
-    github_repo = github_repo or _github_repo_from_origin(repo_root) or "synaptent/aragora"
+    github_repo = github_repo or _github_repo_from_origin(repo_root)
     outbox_dir = _state_path(state_root, DEFAULT_OUTBOX_DIR)
     receipt_dir = _state_path(state_root, DEFAULT_RECEIPT_DIR)
     status_cache_path = _state_path(state_root, DEFAULT_STATUS_CACHE)
@@ -407,8 +458,8 @@ def classify_handoffs(
     outbox_files = _selected_outbox_files(outbox_dir, outbox_file)
     gh = github_client or NarrowGitHubClient(
         repo_root=repo_root,
-        github_repo=github_repo,
-        disabled=no_github,
+        github_repo=github_repo or "",
+        disabled=no_github or github_repo is None,
         timeout_seconds=github_timeout_seconds,
     )
     if owner_probe is not None:
@@ -454,7 +505,9 @@ def classify_handoffs(
         items.append(item)
 
     counts = Counter(item.state.value for item in items)
-    github_mode = "disabled" if no_github else ("degraded" if github_errors else "ready")
+    github_mode = (
+        "disabled" if getattr(gh, "disabled", False) else ("degraded" if github_errors else "ready")
+    )
     payload = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -581,6 +634,17 @@ def classify_handoff_item(
             reason="handoff has an owner/lane blocker and no exact representation proof",
             evidence=evidence,
             next_mutation_candidate="owner_followup",
+        )
+
+    if _terminal_receipt_satisfied(receipt_evidence):
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.PRESERVED_NOT_ACTIONABLE,
+            reason="terminal receipt already records a non-issue-only handoff result",
+            evidence=evidence,
         )
 
     if receipt_evidence.issue_only_pr_receipt:
@@ -1003,6 +1067,14 @@ def _owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
     return False
 
 
+def _terminal_receipt_satisfied(receipt: ReceiptEvidence) -> bool:
+    if receipt.status not in TERMINAL_RECEIPT_STATUSES or receipt.issue_only_pr_receipt:
+        return False
+    if receipt.has_pr_reference or receipt.target_pr is not None:
+        return True
+    return receipt.status in {"completed", "skipped"}
+
+
 def _looks_human(mapping: Mapping[str, Any]) -> bool:
     # Do not inspect the filesystem path: all steering messages live under
     # ".aragora/operator-steering", which would make every matched message look
@@ -1040,19 +1112,24 @@ def _lane_hint_matches(lane_hint: str, lane_id: str) -> bool:
 
 
 def _steering_branch_matches(payload: Mapping[str, Any], branch: str) -> bool:
-    text_keys = (
+    exact_keys = (
         "branch",
         "head_branch",
         "target_branch",
         "source_branch",
         "base_branch",
+    )
+    text_keys = (
         "subject",
         "body",
         "summary",
         "requested_next_action",
     )
+    for key in exact_keys:
+        if str(payload.get(key) or "").strip() == branch:
+            return True
     for key in text_keys:
-        if branch in str(payload.get(key) or ""):
+        if _text_contains_exact_branch(str(payload.get(key) or ""), branch):
             return True
     for key in ("branches", "branch_names"):
         value = payload.get(key)
@@ -1063,10 +1140,23 @@ def _steering_branch_matches(payload: Mapping[str, Any], branch: str) -> bool:
         value = payload.get(key)
         if not isinstance(value, Mapping):
             continue
+        for nested_key in exact_keys:
+            if str(value.get(nested_key) or "").strip() == branch:
+                return True
         for nested_key in text_keys:
-            if branch in str(value.get(nested_key) or ""):
+            if _text_contains_exact_branch(str(value.get(nested_key) or ""), branch):
                 return True
     return False
+
+
+def _text_contains_exact_branch(text: str, branch: str) -> bool:
+    candidate = str(branch or "").strip()
+    if not candidate:
+        return False
+    if text.strip() == candidate:
+        return True
+    boundary = r"A-Za-z0-9._/-"
+    return re.search(rf"(?<![{boundary}]){re.escape(candidate)}(?![{boundary}])", text) is not None
 
 
 def latest_read_receipt_for_message(message_path: Path) -> dict[str, Any] | None:
@@ -1134,13 +1224,33 @@ def _load_lane_records(path: Path) -> list[dict[str, Any]]:
     return []
 
 
+def _lane_registry_blocking_reason(status: str, blocking_state: str | None) -> str | None:
+    if blocking_state == "live_owner":
+        return "lane registry status is active/blocking"
+    if blocking_state == "stale_terminal_owner":
+        return "lane registry status is terminal but needs focused liveness proof"
+    if blocking_state == "unknown_owner":
+        return "lane registry matched an owner without enough liveness proof"
+    return f"lane registry owner_blocking_state={blocking_state}" if blocking_state else None
+
+
 def _best_lane_record(records: list[dict[str, Any]]) -> dict[str, Any]:
-    active_statuses = {"active", "blocked", "blocked_on_publication", "claimed"}
     active = [
-        row for row in records if str(row.get("status") or "").strip().lower() in active_statuses
+        row
+        for row in records
+        if str(row.get("status") or "").strip().lower() in ACTIVE_LANE_STATUSES
     ]
     candidates = active or records
     return sorted(candidates, key=lambda row: str(row.get("updated_at") or ""), reverse=True)[0]
+
+
+def _gh_stderr_is_not_found(message: str) -> bool:
+    text = str(message or "").strip().lower()
+    return "http 404" in text or "not found" in text or "status code 404" in text
+
+
+def _github_not_found_error(error: str) -> bool:
+    return str(error or "").startswith("github_not_found:")
 
 
 def _load_json(path: Path) -> Any | None:
