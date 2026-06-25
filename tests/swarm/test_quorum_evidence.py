@@ -1168,7 +1168,7 @@ def test_collect_overall_timeout_path_preserves_infra_retry(tmp_path, monkeypatc
     assert attempts_file.read_text(encoding="utf-8").count("grok\n") == 2
 
 
-def test_collect_overall_timeout_falls_back_without_process_context(monkeypatch) -> None:
+def test_collect_overall_timeout_fails_closed_without_process_context(monkeypatch) -> None:
     fakes, _ = _fakes(tier=0)
     called: list[str] = []
     monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: [])
@@ -1188,11 +1188,47 @@ def test_collect_overall_timeout_falls_back_without_process_context(monkeypatch)
         **fakes,
     )
 
-    assert called == ["claude", "grok"]
-    assert outcome.orchestration_timed_out is False
-    assert outcome.timed_out_families == []
-    assert [item.family for item in outcome.items] == ["claude", "grok"]
-    assert outcome.failures == []
+    assert called == []
+    assert outcome.orchestration_timed_out is True
+    assert outcome.timed_out_families == ["claude", "grok"]
+    assert outcome.items == []
+    assert [failure.family for failure in outcome.failures] == ["claude", "grok"]
+    assert all("process isolation unavailable" in failure.error for failure in outcome.failures)
+
+
+def test_collect_overall_timeout_prefers_spawn_for_pickleable_runner(monkeypatch) -> None:
+    seen: list[str] = []
+
+    def fake_get_context(method: str):
+        seen.append(method)
+        return SimpleNamespace(method=method)
+
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["spawn", "fork"])
+    monkeypatch.setattr(qe.multiprocessing, "get_context", fake_get_context)
+
+    ctx = qe._reviewer_process_context(qe.default_reviewer_runner)
+
+    assert ctx == SimpleNamespace(method="spawn")
+    assert seen == ["spawn"]
+
+
+def test_collect_overall_timeout_queue_setup_failure_fails_closed(monkeypatch) -> None:
+    class BadContext:
+        def Queue(self):  # noqa: N802 - mirrors multiprocessing API
+            raise OSError("queue denied")
+
+    monkeypatch.setattr(qe, "_reviewer_process_context", lambda runner: BadContext())
+
+    reviews, timed_out = qe._run_reviewers_with_process_timeout(
+        families=["claude", "grok"],
+        prompt="p",
+        reviewer_runner=lambda family, prompt: ReviewerResult(family, "", True),
+        overall_timeout=5.0,
+    )
+
+    assert timed_out == ["claude", "grok"]
+    assert set(reviews) == {"claude", "grok"}
+    assert all("process isolation unavailable" in result.error for result in reviews.values())
 
 
 def test_collect_overall_timeout_process_path_runs_queued_reviewers(tmp_path, monkeypatch) -> None:

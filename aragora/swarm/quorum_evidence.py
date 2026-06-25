@@ -34,6 +34,7 @@ import logging
 import math
 import multiprocessing
 import os
+import pickle
 import queue
 import re
 import secrets
@@ -376,20 +377,39 @@ def _reviewer_process_context(
 ) -> Any | None:
     """Return the safest killable process context for reviewer orchestration.
 
-    Production collection uses the top-level ``default_reviewer_runner``, which is
-    spawn-pickleable and should avoid forking a potentially threaded parent. Tests
-    and custom callers often pass local closures; those need ``fork`` when
-    available. If neither safe path exists, callers should fall back to the
-    ordinary per-reviewer timeout path instead of failing every family without
-    attempting review.
+    Prefer ``spawn`` for any runner that can cross the spawn pickling boundary,
+    avoiding fork-from-threaded-parent hazards in production. Tests and custom
+    callers often pass local closures; those need ``fork`` when available. If no
+    killable context can enforce the requested overall timeout, callers must fail
+    closed rather than silently falling back to an unbounded thread wait.
     """
     start_methods = multiprocessing.get_all_start_methods()
-    runner_name = getattr(reviewer_runner, "__name__", "")
-    if runner_name == "default_reviewer_runner" and "spawn" in start_methods:
-        return multiprocessing.get_context("spawn")
+    if "spawn" in start_methods:
+        try:
+            pickle.dumps(reviewer_runner)
+        except (AttributeError, TypeError, pickle.PicklingError):
+            pass
+        else:
+            return multiprocessing.get_context("spawn")
     if "fork" in start_methods:
         return multiprocessing.get_context("fork")
     return None
+
+
+def _process_isolation_unavailable(
+    families: Sequence[str], reason: str
+) -> tuple[dict[str, ReviewerResult], list[str]]:
+    message = f"overall-timeout process isolation unavailable; {reason}; no reviewers were run"
+    return {family: ReviewerResult(family, "", False, message) for family in families}, list(
+        families
+    )
+
+
+def _safe_process_context_get_queue(ctx: Any, families: Sequence[str]) -> Any:
+    try:
+        return ctx.Queue()
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise RuntimeError(f"could not create reviewer result queue: {exc}") from exc
 
 
 def _run_reviewers_threaded(
@@ -427,10 +447,13 @@ def _run_reviewers_with_process_timeout(
     """Run reviewers in killable child processes for hard overall deadlines."""
     ctx = _reviewer_process_context(reviewer_runner)
     if ctx is None:
-        return _run_reviewers_threaded(
-            families=families, prompt=prompt, reviewer_runner=reviewer_runner
-        ), []
-    result_queue = ctx.Queue()
+        return _process_isolation_unavailable(
+            families, "no spawn-pickleable runner and no fork-capable runtime"
+        )
+    try:
+        result_queue = _safe_process_context_get_queue(ctx, families)
+    except RuntimeError as exc:
+        return _process_isolation_unavailable(families, str(exc))
     processes: dict[str, Any] = {}
     queued = list(families)
     max_workers = min(len(queued), _MAX_REVIEWER_WORKERS)
@@ -439,11 +462,17 @@ def _run_reviewers_with_process_timeout(
     def launch_ready() -> None:
         while queued and len(processes) < max_workers:
             family = queued.pop(0)
-            process = ctx.Process(
-                target=_reviewer_process_entry,
-                args=(result_queue, reviewer_runner, family, prompt),
-            )
-            process.start()
+            try:
+                process = ctx.Process(
+                    target=_reviewer_process_entry,
+                    args=(result_queue, reviewer_runner, family, prompt),
+                )
+                process.start()
+            except (OSError, RuntimeError, ValueError) as exc:
+                reviews[family] = ReviewerResult(
+                    family, "", False, f"could not start reviewer process: {exc}"
+                )
+                continue
             processes[family] = process
 
     def record_result(result: ReviewerResult) -> None:
