@@ -3709,6 +3709,7 @@ def _has_trusted_unlabeled_soft_dissent(body: str) -> bool:
     """Detect prose-only caveats in trusted reviewer text."""
 
     in_fence = False
+    trusted_lines: list[str] = []
     for raw_line in _split_reasoning_tags_for_phrase_scan(str(body or "")).splitlines():
         stripped = raw_line.strip()
         if stripped.startswith(("```", "~~~")):
@@ -3723,9 +3724,8 @@ def _has_trusted_unlabeled_soft_dissent(body: str) -> bool:
         ):
             continue
         line = re.sub(r"^(?:[#\-*+]+\s+|\d+[.)]\s+)+", "", stripped)
-        if _has_unlabeled_soft_dissent_phrase(line):
-            return True
-    return False
+        trusted_lines.append(line)
+    return _has_unlabeled_soft_dissent_phrase("\n".join(trusted_lines))
 
 
 def _has_unlabeled_soft_dissent_after_supportive_verdict(body: str) -> bool:
@@ -3803,9 +3803,9 @@ def _has_trusted_supportive_verdict_label(body: str) -> bool:
 def _has_untrusted_or_non_supportive_verdict_label(body: str) -> bool:
     trusted_values = _trusted_verdict_label_values(body)
     untrusted_values = _untrusted_verdict_label_values(body)
-    if _has_trusted_unlabeled_soft_dissent(body) and (
-        _has_trusted_supportive_verdict_label(body) or _has_evidence_review_trigger(body)
-    ):
+    if _has_unlabeled_soft_dissent_after_supportive_verdict(body):
+        return True
+    if _has_evidence_review_trigger(body) and _has_trusted_unlabeled_soft_dissent(body):
         return True
     if any(
         not _normalized_verdict_label_is_supportive(_normalize_verdict_label_value(value))

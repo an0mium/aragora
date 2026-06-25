@@ -387,22 +387,52 @@ def _reasoning_tag_phrase_scan_variants(text: str) -> list[str]:
     return [split_scan, phrase_scan]
 
 
+def _phrase_scan_candidate_lines(text: str) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for scan_text in _reasoning_tag_phrase_scan_variants(text):
+        lines = [line.strip() for line in scan_text.splitlines()]
+        non_empty = [(idx, line) for idx, line in enumerate(lines) if line]
+        for pos, (_, line) in enumerate(non_empty):
+            for candidate in (line, _joined_phrase_candidate(non_empty, pos, max_parts=2)):
+                if candidate and candidate not in seen:
+                    seen.add(candidate)
+                    candidates.append(candidate)
+    return candidates
+
+
+def _joined_phrase_candidate(
+    non_empty_lines: list[tuple[int, str]], start_pos: int, *, max_parts: int
+) -> str:
+    _, first = non_empty_lines[start_pos]
+    if re.search(r"[.!?]\s*$", first):
+        return ""
+    parts = [first]
+    prev_idx = non_empty_lines[start_pos][0]
+    for idx, line in non_empty_lines[start_pos + 1 : start_pos + max_parts]:
+        if idx != prev_idx + 1:
+            break
+        if first.startswith(("```", "~~~")) or line.startswith(("```", "~~~")):
+            break
+        parts.append(line)
+        prev_idx = idx
+    if len(parts) < 2:
+        return ""
+    return " ".join(parts)
+
+
 def has_unlabeled_soft_dissent_phrase(text: str) -> bool:
     """Return True for unlabeled PASS/support caveats that should fail closed."""
 
-    for scan_text in _reasoning_tag_phrase_scan_variants(str(text or "")):
-        for raw_line in scan_text.splitlines():
-            stripped = raw_line.strip()
-            if not stripped:
-                continue
-            line = re.sub(r"^(?:[#\-*+]+\s+|\d+[.)]\s+)+", "", stripped)
-            normalized = _normalize_value(line)
-            if _UNLABELED_SOFT_DISSENT_RE.match(normalized):
+    for candidate in _phrase_scan_candidate_lines(str(text or "")):
+        line = re.sub(r"^(?:[#\-*+]+\s+|\d+[.)]\s+)+", "", candidate.strip())
+        normalized = _normalize_value(line)
+        if _UNLABELED_SOFT_DISSENT_RE.match(normalized):
+            return True
+        for prefix in SUPPORTIVE_VERDICT_PREFIXES:
+            match = re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
+            if match and _supportive_caveat_tail_is_blocking(normalized[match.end() :]):
                 return True
-            for prefix in SUPPORTIVE_VERDICT_PREFIXES:
-                match = re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
-                if match and _supportive_caveat_tail_is_blocking(normalized[match.end() :]):
-                    return True
     return False
 
 
@@ -486,6 +516,27 @@ def _blocking_dissent_phrase_match_is_benign(value: str, match: re.Match[str]) -
     return False
 
 
+def _blocking_dissent_phrase_match_is_meta_review(prefix: str, suffix: str) -> bool:
+    normalized_prefix = _normalize_value(prefix)
+    normalized_suffix = _normalize_value(suffix)
+    if re.search(
+        r"(?:^|\b)(?:for example|e g|example|sample|fixture|literal|quoted|quote|"
+        r"comments?\s+(?:saying|that\s+say|containing)|strings?\s+(?:saying|containing))\b",
+        normalized_prefix,
+    ):
+        return True
+    if re.search(
+        r"\b(?:parser|scanner|helper|regex|function|test|code)\b",
+        normalized_prefix,
+    ) and re.search(
+        r"\b(?:dissent|fragment|fragments|phrase|phrases|comment|comments|"
+        r"string|strings|text|incorrectly|example|examples)\b",
+        normalized_suffix,
+    ):
+        return True
+    return False
+
+
 def _marker_inside_explicit_no_finding_phrase(
     text: str, marker_start: int, marker_end: int
 ) -> bool:
@@ -518,9 +569,13 @@ def _marker_inside_explicit_no_finding_phrase(
     return bool(_NO_FINDING_TAIL.fullmatch(tail_match.group("tail")))
 
 
-def _has_blocking_dissent_phrase(text: str) -> bool:
+def _has_blocking_dissent_phrase(text: str, *, allow_meta_review: bool = True) -> bool:
     value = _normalize_value(text)
     for match in _BLOCKING_DISSENT_PHRASE_RE.finditer(value):
+        if allow_meta_review and _blocking_dissent_phrase_match_is_meta_review(
+            value[: match.start()].strip(), value[match.end() :].strip()
+        ):
+            continue
         if _blocking_dissent_phrase_match_is_benign(value, match):
             continue
         return True
@@ -530,7 +585,8 @@ def _has_blocking_dissent_phrase(text: str) -> bool:
 def _has_blocking_dissent_phrase_for_scan(text: str) -> bool:
     in_fence = False
     fence_marker = ""
-    for raw_line in _split_reasoning_tags_for_phrase_scan(text).splitlines():
+    raw_lines = _split_reasoning_tags_for_phrase_scan(text).splitlines()
+    for idx, raw_line in enumerate(raw_lines):
         stripped = raw_line.strip()
         if not stripped:
             continue
@@ -544,10 +600,26 @@ def _has_blocking_dissent_phrase_for_scan(text: str) -> bool:
                 in_fence = False
                 fence_marker = ""
             continue
+        candidates = [stripped]
+        next_line = raw_lines[idx + 1].strip() if idx + 1 < len(raw_lines) else ""
+        if next_line and not next_line.startswith(("```", "~~~")):
+            candidates.append(f"{stripped} {next_line}")
+        if _has_blocking_dissent_phrase_for_candidates(candidates, raw_line, in_fence=in_fence):
+            return True
+    return False
+
+
+def _has_blocking_dissent_phrase_for_candidates(
+    candidates: list[str], raw_line: str, *, in_fence: bool
+) -> bool:
+    allow_meta_review = not (
+        in_fence or raw_line.strip().startswith(">") or _is_markdown_indented_code_line(raw_line)
+    )
+    for candidate in candidates:
         if _has_blocking_dissent_phrase(
-            stripped
+            candidate, allow_meta_review=allow_meta_review
         ) and not _untrusted_dissent_phrase_is_benign_example(
-            raw_line, stripped, in_fence=in_fence
+            raw_line, candidate, in_fence=in_fence
         ):
             return True
     return False

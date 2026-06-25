@@ -260,6 +260,25 @@ def test_reasoning_tags_do_not_fragment_blocking_phrase():
     assert has_blocking_or_negative_verdict("Verdict: PASS\nDo <thinking>not</thinking> merge.")
 
 
+def test_newline_split_blocking_phrase_still_blocks():
+    assert has_blocking_or_negative_verdict("Verdict: PASS\nDo not\nmerge.")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "The parser should not merge dissent fragments incorrectly.",
+        "For example, comments saying do not merge should be rejected.",
+    ],
+)
+def test_meta_review_merge_phrase_does_not_block(body):
+    assert not has_blocking_or_negative_verdict(body)
+
+
+def test_real_merge_blocker_with_subject_still_blocks():
+    assert has_blocking_or_negative_verdict("This PR should not merge until auth is fixed.")
+
+
 @pytest.mark.parametrize(
     "body",
     [
@@ -276,6 +295,10 @@ def test_reasoning_tags_do_not_hide_unlabeled_soft_dissent_phrase(body):
 
 def test_reasoning_tags_do_not_fragment_unlabeled_soft_dissent_phrase():
     assert has_unlabeled_soft_dissent_phrase("Looks <thinking>good</thinking> but needs repair.")
+
+
+def test_newline_split_unlabeled_soft_dissent_phrase_blocks():
+    assert has_unlabeled_soft_dissent_phrase("Pass\nwith notes.")
 
 
 @pytest.mark.parametrize(
