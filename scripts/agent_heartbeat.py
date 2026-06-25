@@ -194,8 +194,8 @@ def _should_preserve_terminal_heartbeat(
 
     existing_thread = str(existing.get("thread_id") or "").strip()
     incoming_thread = str(incoming.get("thread_id") or "").strip()
-    if incoming_thread:
-        return bool(existing_thread and existing_thread == incoming_thread)
+    if existing_thread and incoming_thread:
+        return existing_thread == incoming_thread
 
     existing_pid = existing.get("pid")
     incoming_pid = incoming.get("pid")
@@ -203,8 +203,9 @@ def _should_preserve_terminal_heartbeat(
         return False
 
     # PID-only same-PID or pidless terminal renewals are ambiguous: the late
-    # renewal might be an in-flight heartbeat, a pidless caller, or PID reuse.
-    # Preserve the receipt-backed terminal state unless a new wrapper run id or
+    # renewal might be an in-flight heartbeat, a pidless caller, PID reuse, or
+    # a new wrapper with no old run id to compare against. Preserve the
+    # receipt-backed terminal state unless a comparable wrapper run id or
     # clearly different PID proves a relaunch.
     return True
 
@@ -327,8 +328,8 @@ def record_finalizer_receipt(
     )
 
     with _heartbeat_write_lock(heartbeat_path):
-        _append_jsonl(receipt_path, row)
         _mark_matching_heartbeat_terminal(heartbeat_path, receipt=row)
+        _append_jsonl(receipt_path, row)
     return row
 
 

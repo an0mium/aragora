@@ -432,6 +432,20 @@ if ! tmux has-session -t "${TMUX_SESSION}" 2>/dev/null; then
     echo "Created tmux session: ${TMUX_SESSION}"
 fi
 
+if [[ "${ALLOW_LEASE_OVERLAP}" != "1" ]]; then
+    existing_window_id="$(tmux list-windows -t "${TMUX_SESSION}" -F '#{window_index} #{window_name}' 2>/dev/null \
+        | awk -v name="${NAME}" '$2 == name { print $1; exit }')"
+    if [[ -n "${existing_window_id}" ]]; then
+        cat >&2 <<EOF
+Refusing duplicate tmux session name '${NAME}'.
+
+A live tmux window already uses this owner/session name. Use a unique --name, kill the
+old window intentionally, or pass --allow-overlap for an explicit manual override.
+EOF
+        exit 2
+    fi
+fi
+
 # If a prompt file is specified, load it before building the launch command.
 # Droid/Factory prompted launches use `droid exec -f ...` because interactive
 # Droid starts in Auto Off mode and cannot be made autonomous via CLI flags.

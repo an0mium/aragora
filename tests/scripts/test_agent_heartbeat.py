@@ -330,6 +330,84 @@ def test_pidless_heartbeat_preserves_terminal_row(tmp_path: Path) -> None:
     assert payload[0]["branch"] == "codex/lane-heartbeat-finalizer-20260623"
 
 
+def test_terminal_row_without_identity_rejects_ambiguous_thread_renewal(
+    tmp_path: Path,
+) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    heartbeat_path.write_text(
+        json.dumps(
+            [
+                {
+                    "schema_version": "aragora-agent-heartbeat/1.0",
+                    "lane_id": "Q612-heartbeat-finalizer",
+                    "owner_session": "codex-Q612",
+                    "terminal_finalized_at": "2026-06-23T10:10:00Z",
+                    "last_seen_at": "2026-06-23T10:09:00Z",
+                    "branch": "codex/lane-heartbeat-finalizer-20260623",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    row = heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        thread_id="wrapper-run-2",
+        pid=None,
+        branch="codex/ambiguous-renewal",
+        last_seen_at="2026-06-23T10:11:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert payload == [row]
+    assert payload[0]["terminal_finalized_at"] == "2026-06-23T10:10:00Z"
+    assert payload[0]["branch"] == "codex/lane-heartbeat-finalizer-20260623"
+    assert "thread_id" not in payload[0]
+
+
+def test_finalizer_marks_heartbeat_terminal_before_receipt_append_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        thread_id="wrapper-run-1",
+        pid=34567,
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        last_seen_at="2026-06-23T10:09:00Z",
+    )
+
+    def fail_append(*args: Any, **kwargs: Any) -> None:
+        raise PermissionError("receipt path denied")
+
+    monkeypatch.setattr(heartbeat, "_append_jsonl", fail_append)
+
+    with pytest.raises(PermissionError, match="receipt path denied"):
+        heartbeat.record_finalizer_receipt(
+            heartbeat_path=heartbeat_path,
+            receipt_path=receipt_path,
+            lane_id="Q612-heartbeat-finalizer",
+            owner_session="codex-Q612",
+            thread_id="wrapper-run-1",
+            pid=34567,
+            outcome="failed",
+            reason="tmux launcher command exited with status 7",
+            finalized_at="2026-06-23T10:10:00Z",
+        )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert payload[0]["terminal"] is True
+    assert payload[0]["terminal_outcome"] == "failed"
+    assert payload[0]["terminal_finalized_at"] == "2026-06-23T10:10:00Z"
+    assert payload[0]["last_seen_at"] == "2026-06-23T10:09:00Z"
+
+
 def test_finalizer_receipt_rejects_unknown_outcome(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="outcome must be one of"):
         heartbeat.record_finalizer_receipt(

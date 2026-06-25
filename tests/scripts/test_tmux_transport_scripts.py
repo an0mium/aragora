@@ -11,7 +11,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _write_fake_tmux(tmp_path: Path, *, window_name: str = "testpane") -> Path:
+def _write_fake_tmux(tmp_path: Path, *, window_name: str = "_control") -> Path:
     fake_tmux = tmp_path / "tmux"
     fake_tmux.write_text(
         f"""#!/usr/bin/env python3
@@ -113,7 +113,7 @@ exit {exit_code}
 
 
 def test_tmux_send_prompt_uses_load_buffer_for_multiline_prompt(tmp_path: Path) -> None:
-    _write_fake_tmux(tmp_path)
+    _write_fake_tmux(tmp_path, window_name="testpane")
     env = _fake_tmux_env(tmp_path)
     prompt_file = tmp_path / "prompt.md"
     prompt_file.write_text("line one\nline two\n", encoding="utf-8")
@@ -406,6 +406,31 @@ def test_tmux_session_launcher_rejects_unsafe_session_names(tmp_path: Path) -> N
 
         assert result.returncode == 2
         assert "Invalid session name" in result.stderr
+
+
+def test_tmux_session_launcher_rejects_duplicate_session_name(tmp_path: Path) -> None:
+    _write_fake_tmux(tmp_path, window_name="dupe-session")
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "dupe-session",
+            "--agent",
+            "codex",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "Refusing duplicate tmux session name 'dupe-session'" in result.stderr
 
 
 def test_tmux_session_launcher_launch_wrapper_quotes_workdir(tmp_path: Path) -> None:
