@@ -20,7 +20,9 @@ from aragora.missions.swarm import run_worker
 def _mission(tmp_path, n=4):
     p = tmp_path / "state.json"
     MissionState(
-        mission_id="t", goal="g", milestones=["m1"],
+        mission_id="t",
+        goal="g",
+        milestones=["m1"],
         features=[Feature(id=f"f{i}", description="", milestone="m1") for i in range(1, n + 1)],
     ).save(p)
     return p, tmp_path / "ledger.json"

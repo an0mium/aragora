@@ -52,7 +52,10 @@ def main() -> int:
         mission_id="swarm-demo",
         goal="prove dispatcher-free self-partition",
         milestones=["m1"],
-        features=[Feature(id=f"f{i}", description=f"unit {i}", milestone="m1") for i in range(1, N_UNITS + 1)],
+        features=[
+            Feature(id=f"f{i}", description=f"unit {i}", milestone="m1")
+            for i in range(1, N_UNITS + 1)
+        ],
     ).save(state_path)
 
     print(f"{N_UNITS} units, {N_WORKERS} independent worker processes, no dispatcher.\n")
@@ -64,14 +67,26 @@ def main() -> int:
         logs.append((wid, log))
         procs.append(
             subprocess.Popen(  # noqa: S603
-                [sys.executable, __file__, "--worker", wid,
-                 "--state", str(state_path), "--ledger", str(ledger_path), "--log", str(log)]
+                [
+                    sys.executable,
+                    __file__,
+                    "--worker",
+                    wid,
+                    "--state",
+                    str(state_path),
+                    "--ledger",
+                    str(ledger_path),
+                    "--log",
+                    str(log),
+                ]
             )
         )
     for p in procs:
         p.wait()
 
-    partition = {wid: (log.read_text(encoding="utf-8").split() if log.exists() else []) for wid, log in logs}
+    partition = {
+        wid: (log.read_text(encoding="utf-8").split() if log.exists() else []) for wid, log in logs
+    }
     all_done = [u for units in partition.values() for u in units]
 
     print("self-organized partition (who did what, decided by NO one):")
@@ -87,8 +102,14 @@ def main() -> int:
         and len(all_done) == len(set(all_done))  # ...each exactly once (no collision)
         and all(units for units in partition.values())  # ...and every worker contributed
     )
-    print("\n" + ("✅ PASS — 3 workers self-partitioned 9 units, zero collisions, no dispatcher"
-                  if ok else "❌ FAIL — collision or lost work"))
+    print(
+        "\n"
+        + (
+            "✅ PASS — 3 workers self-partitioned 9 units, zero collisions, no dispatcher"
+            if ok
+            else "❌ FAIL — collision or lost work"
+        )
+    )
     return 0 if ok else 1
 
 

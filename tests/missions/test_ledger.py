@@ -74,7 +74,9 @@ def test_attempts_and_prune(tmp_path):
 
 def _mission(n=4):
     return MissionState(
-        mission_id="t", goal="g", milestones=["m1"],
+        mission_id="t",
+        goal="g",
+        milestones=["m1"],
         features=[Feature(id=f"f{i}", description="", milestone="m1") for i in range(1, n + 1)],
     )
 
@@ -102,7 +104,9 @@ def test_select_skips_parked_feature(tmp_path):
 
 def test_select_respects_preconditions(tmp_path):
     state = MissionState(
-        mission_id="t", goal="g", milestones=["m1"],
+        mission_id="t",
+        goal="g",
+        milestones=["m1"],
         features=[
             Feature(id="a", description="", milestone="m1", preconditions=["feature:b"]),
             Feature(id="b", description="", milestone="m1"),

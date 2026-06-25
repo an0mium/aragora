@@ -85,7 +85,9 @@ class Ledger:
 
     # ---- atomic claim (the load-bearing op) ---------------------------------
 
-    def claim(self, unit: str, worker_id: str, ttl: float = DEFAULT_LEASE_TTL, *, now: float | None = None) -> bool:
+    def claim(
+        self, unit: str, worker_id: str, ttl: float = DEFAULT_LEASE_TTL, *, now: float | None = None
+    ) -> bool:
         """Claim ``unit`` for ``worker_id``. Returns False if actively held by another.
 
         Atomic across processes. An expired lease is reclaimable; re-claiming your
@@ -117,7 +119,9 @@ class Ledger:
 
     # ---- constraints / parks (the pheromone) --------------------------------
 
-    def record_constraint(self, key: str, reason: str, ttl: float = 0.0, *, now: float | None = None) -> None:
+    def record_constraint(
+        self, key: str, reason: str, ttl: float = 0.0, *, now: float | None = None
+    ) -> None:
         now = time.time() if now is None else now
         with self._locked():
             data = self._load()
@@ -208,7 +212,9 @@ class Ledger:
             "attempts": data.attempts,
             "done": sorted(data.done),
         }
-        fd, tmp = tempfile.mkstemp(dir=str(self.path.parent), prefix=f".{self.path.name}.", suffix=".tmp")
+        fd, tmp = tempfile.mkstemp(
+            dir=str(self.path.parent), prefix=f".{self.path.name}.", suffix=".tmp"
+        )
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 json.dump(payload, fh, indent=2)
