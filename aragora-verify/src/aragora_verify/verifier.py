@@ -127,10 +127,16 @@ def _load_mldsa():  # noqa: ANN202 - lazy import keeps import errors actionable
 def pqc_available() -> bool:
     """Whether this runtime exposes ML-DSA through ``cryptography``."""
     try:
+        from cryptography.exceptions import UnsupportedAlgorithm
         from cryptography.hazmat.primitives.asymmetric import mldsa  # noqa: F401
 
+        key = mldsa.MLDSA65PrivateKey.generate()
+        message = b"aragora-verify-ml-dsa-probe"
+        key.public_key().verify(key.sign(message), message)
         return True
     except ImportError:
+        return False
+    except (UnsupportedAlgorithm, ValueError, TypeError):
         return False
 
 
@@ -314,7 +320,7 @@ def _check_signatures(  # noqa: PLR0912, PLR0915
 ) -> Check:
     signatures = doc.get("signatures")
     signatures = signatures if isinstance(signatures, list) else []
-    if all(
+    if mldsa_public_key is None and all(
         not isinstance(sig, dict) or str(sig.get("alg") or "Ed25519") == "Ed25519"
         for sig in signatures
     ):
@@ -349,6 +355,7 @@ def _check_signatures(  # noqa: PLR0912, PLR0915
     )
     verified_any = False
     failed_matching: list[str] = []
+    present_alg = {"Ed25519": False, "ML-DSA-65": False}
     seen_supplied_alg = {"Ed25519": False, "ML-DSA-65": False}
     verified_supplied_alg = {"Ed25519": False, "ML-DSA-65": False}
     skipped_any = False
@@ -359,6 +366,7 @@ def _check_signatures(  # noqa: PLR0912, PLR0915
         alg = str(sig.get("alg") or "")
         key_id = str(sig.get("key_id") or "")
         if alg == "Ed25519":
+            present_alg["Ed25519"] = True
             if public_key is None:
                 skipped_any = True
                 notes.append(
@@ -383,6 +391,7 @@ def _check_signatures(  # noqa: PLR0912, PLR0915
                     failed_matching.append(f"sig[{i}] Ed25519")
             continue
         if alg == "ML-DSA-65":
+            present_alg["ML-DSA-65"] = True
             if mldsa_public_key is None:
                 skipped_any = True
                 notes.append(
@@ -419,6 +428,22 @@ def _check_signatures(  # noqa: PLR0912, PLR0915
             FAIL,
             f"signature from the supplied key did not verify ({', '.join(failed_matching)}) — "
             f"{detail}",
+        )
+    missing_present = [
+        alg
+        for alg, supplied in (
+            ("Ed25519", public_key is not None),
+            ("ML-DSA-65", mldsa_public_key is not None),
+        )
+        if supplied and not present_alg.get(alg, False)
+    ]
+    if missing_present:
+        return Check(
+            "signature",
+            FAIL,
+            "no "
+            + "/".join(missing_present)
+            + f" signature present for supplied verifier key(s) — {detail}",
         )
     missing_verified = [
         alg

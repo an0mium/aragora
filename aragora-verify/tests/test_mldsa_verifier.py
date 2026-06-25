@@ -18,14 +18,18 @@ for _path in (_REPO_ROOT / "aragora-verify" / "src", _REPO_ROOT):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-from aragora.gauntlet import odr_signing as signing
 from aragora_verify.cli import main
-from aragora_verify.verifier import FAIL, PASS, load_mldsa_public_key, verify
+from aragora_verify.verifier import FAIL, PASS, load_mldsa_public_key, pqc_available, verify
 
 from _fixtures import make_keypair, sign_odr, valid_odr
 
+signing = pytest.importorskip(
+    "aragora.gauntlet.odr_signing",
+    reason="hybrid producer package is unavailable in standalone verifier installs",
+)
+
 pytestmark = pytest.mark.skipif(
-    not signing.pqc_available(),
+    not pqc_available(),
     reason="cryptography build lacks ML-DSA (needs cryptography>=49 / OpenSSL 3.5+)",
 )
 
@@ -174,6 +178,19 @@ def test_ed25519_only_receipt_still_verifies_with_ed25519_key() -> None:
 
     assert result.ok is True
     assert _signature_check(result).status == PASS
+
+
+def test_ed25519_only_receipt_fails_when_mldsa_key_was_required() -> None:
+    private_key, public_key = make_keypair()
+    signed = sign_odr(valid_odr(), private_key)
+    mldsa_public = signing.generate_mldsa_signing_key().public_key()
+
+    result = verify(signed, public_key=public_key, mldsa_public_key=mldsa_public)
+
+    assert result.ok is False
+    signature = _signature_check(result)
+    assert signature.status == FAIL
+    assert "no ML-DSA-65 signature present" in signature.detail
 
 
 def test_cli_accepts_mldsa_pubkey_for_hybrid_receipt(tmp_path: Path) -> None:

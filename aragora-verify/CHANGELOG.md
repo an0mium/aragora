@@ -20,4 +20,4 @@ versioning.
   linkage/anchoring.
 - Absent markers and `"undisclosed"` model families surfaced as non-failing
   weakening signals.
-- Dependencies: Python standard library plus `cryptography`; `jsonschema` optional.
+- Dependencies: Python standard library plus `cryptography>=49`; `jsonschema` optional.
