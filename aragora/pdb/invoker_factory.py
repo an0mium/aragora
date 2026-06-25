@@ -474,6 +474,7 @@ def _build_openrouter_agent(
             name=name,
             model=model,
             role="proposer",
+            enable_fallback=False,
         )
     finally:
         if previous is None:

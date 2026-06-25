@@ -444,6 +444,17 @@ def _joined_phrase_candidate(
     return " ".join(parts)
 
 
+def _line_starts_with_verdict_label(line: str) -> bool:
+    stripped = _strip_decoration(line).replace("**", "").replace("__", "")
+    return bool(
+        re.match(
+            r"^(?:verdict|decision|recommendation)\s*(?::|—|–|-)\s*\S",
+            stripped,
+            re.I,
+        )
+    )
+
+
 def has_unlabeled_soft_dissent_phrase(text: str) -> bool:
     """Return True for unlabeled PASS/support caveats that should fail closed."""
 
@@ -631,7 +642,7 @@ def _has_blocking_dissent_phrase_for_scan(text: str) -> bool:
             continue
         candidates = [stripped]
         joined = _joined_phrase_candidate(non_empty, non_empty_pos_by_idx[idx], max_parts=4)
-        if joined:
+        if joined and not _line_starts_with_verdict_label(stripped):
             candidates.append(joined)
         if _has_blocking_dissent_phrase_for_candidates(candidates, raw_line, in_fence=in_fence):
             return True

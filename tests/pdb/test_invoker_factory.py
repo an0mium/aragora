@@ -7,6 +7,7 @@ injection.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -510,6 +511,54 @@ class TestHeterodoxKeyWiring:
         assert KIMI_MODEL_DEFAULT in models
         assert QWEN_MODEL_DEFAULT in models
         assert {key for _, key in calls} == {"or-key"}
+
+    def test_openrouter_backed_slots_disable_agent_fallback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[dict[str, Any]] = []
+
+        class FakeOpenRouterAgent:
+            def __init__(self, **kwargs: Any) -> None:
+                calls.append(kwargs)
+                self.model = kwargs["model"]
+                self.last_tokens_in = 0
+                self.last_tokens_out = 0
+
+        monkeypatch.setattr(
+            "aragora.agents.api_agents.openrouter.OpenRouterAgent",
+            FakeOpenRouterAgent,
+        )
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+        invoker = build_default_invoker(
+            config=_config(),
+            env={
+                "ANTHROPIC_API_KEY": "sk-ant",
+                "OPENAI_API_KEY": "sk-oa",
+                "OPENROUTER_API_KEY": "or-key",
+            },
+            anthropic_agent_factory=_fake_claude,
+            openai_agent_factory=_fake_gpt,
+            gemini_agent_factory=_fake_agent,
+            grok_agent_factory=_fake_agent,
+            mistral_agent_factory=_fake_agent,
+        )
+
+        assert invoker._agents[FAMILY_DEEPSEEK] is not None
+        assert invoker._agents[FAMILY_KIMI] is not None
+        assert invoker._agents[FAMILY_QWEN] is not None
+        assert {call["name"] for call in calls} == {
+            "pdb-deepseek",
+            "pdb-kimi",
+            "pdb-qwen",
+        }
+        assert {call["model"] for call in calls} == {
+            DEEPSEEK_MODEL_DEFAULT,
+            KIMI_MODEL_DEFAULT,
+            QWEN_MODEL_DEFAULT,
+        }
+        assert {call["enable_fallback"] for call in calls} == {False}
+        assert "OPENROUTER_API_KEY" not in os.environ
 
     def test_mistral_api_key_wires_mistral_agent(self) -> None:
         invoker = build_default_invoker(

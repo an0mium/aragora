@@ -1237,6 +1237,52 @@ class TestModelReviewQuorum:
         assert quorum["counted_reviewer_ids"] == ["grok", "openai"]
         assert "unresolved model dissent is present" in quorum["reasons"]
 
+    @pytest.mark.parametrize(
+        "soft_dissent",
+        [
+            "Verdict: PASS with fixes",
+            "Verdict: ready pending fixes",
+            "Verdict: PASS\nPASS with notes.",
+        ],
+    )
+    def test_soft_dissent_comment_surfaces_as_unresolved_dissent(self, soft_dissent: str) -> None:
+        head = "cd87c5a1b2db34f04167906553502db3ede9525e"
+        pr = _make_pr(files=["aragora/cli/commands/swarm.py"])
+        pr["headRefOid"] = head
+        pr["comments"] = [
+            _codex_openai_review_comment(
+                body=f"Current head: {head}\nVerdict: approve.\nFocused adversarial dogfood passed."
+            ),
+            {
+                "author": {"login": "an0mium"},
+                "body": f"## Grok independent model review\nCurrent head: {head}\nVerdict: approve.",
+            },
+            {
+                "author": {"login": "an0mium"},
+                "body": (
+                    "## Claude independent model review\n"
+                    f"Current head: {head}\n"
+                    f"{soft_dissent}\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                ),
+            },
+        ]
+
+        quorum = _build_model_review_quorum(
+            pr=pr,
+            files=["aragora/cli/commands/swarm.py"],
+            protocol={"status": "metadata_heuristic"},
+            machine_recommendation="approve_candidate",
+            has_pending=False,
+            has_failures=False,
+        )
+
+        assert quorum["unresolved_dissent"] is True
+        assert quorum["status"] == "unresolved_dissent"
+        assert quorum["admin_squash_allowed"] is False
+        assert quorum["counted_model_families"] == ["grok", "openai"]
+        assert quorum["dissenting_views"][0]["model_family"] == "claude"
+
     def test_github_actions_bot_changes_requested_comment_blocks_quorum(self) -> None:
         head = "cd87c5a1b2db34f04167906553502db3ede9525e"
         pr = _make_pr(files=["aragora/cli/commands/swarm.py"])

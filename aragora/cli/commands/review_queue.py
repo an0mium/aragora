@@ -3820,6 +3820,18 @@ def _has_untrusted_or_non_supportive_verdict_label(body: str) -> bool:
     return _has_any_verdict_label_line(body)
 
 
+def _has_soft_dissent_verdict_signal(body: str) -> bool:
+    """Return True for conditional/supportive-looking verdicts that are not support."""
+
+    if _has_unlabeled_soft_dissent_after_supportive_verdict(body):
+        return True
+    if _has_evidence_review_trigger(body) and _has_trusted_unlabeled_soft_dissent(body):
+        return True
+    return any(
+        _has_unlabeled_soft_dissent_phrase(value) for value in _trusted_verdict_label_values(body)
+    )
+
+
 def _lint_evidence_comment(
     *,
     pr: str,
@@ -4413,11 +4425,15 @@ def _dissenting_views_from_comments(
         # Flag OFF: a bare negative Verdict line still blocks (historical behavior).
         # Flag ON: only a real [P0]/[P1] finding or a populated Blocker label blocks;
         # a [P2]/[P3]-only or finding-free CHANGES-REQUESTED becomes advisory.
+        # Conditional soft-dissent verdicts ("PASS with fixes", "ready pending")
+        # are not countable support; expose them as dissent instead of silently
+        # dropping the exact-head reviewer signal.
+        soft_dissent = _has_soft_dissent_verdict_signal(body)
         blocks = (
             _has_blocking_finding_or_label(body)
             if severity_gated
             else _has_blocking_or_negative_verdict(body)
-        )
+        ) or soft_dissent
         if not blocks:
             if severity_gated and advisory_views is not None:
                 advisory = _build_advisory_view(comment, body)
