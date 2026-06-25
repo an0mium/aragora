@@ -178,6 +178,30 @@ def _normalize_value(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
 
 
+_FENCE_LINE = re.compile(r"^\s*(?:```|~~~)")
+
+
+def _semantic_review_lines(body: str) -> list[str]:
+    """Lines that should participate in verdict/finding classification.
+
+    Reviewers often quote the gate syntax itself while reviewing parser changes,
+    e.g. fenced examples of ``Verdict: CHANGES-REQUESTED`` or blockquoted
+    ``[P2]`` snippets. Those are not the reviewer's live verdict/finding lines
+    and must not become blocking dissent. Normal bullet/list findings are kept.
+    """
+    lines: list[str] = []
+    in_fence = False
+    for raw_line in str(body or "").splitlines():
+        stripped = raw_line.strip()
+        if _FENCE_LINE.match(stripped):
+            in_fence = not in_fence
+            continue
+        if in_fence or stripped.startswith(">"):
+            continue
+        lines.append(stripped)
+    return lines
+
+
 def _priority_finding_severity(stripped: str) -> str | None:
     """Return ``"P0"``/``"P1"`` if ``stripped`` is a *real* `[P0]`/`[P1]` finding
     line (head-before-colon NOT in :data:`_NO_FINDING_HEADS`), else ``None``.
@@ -230,7 +254,7 @@ def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
 
 def has_blocking_or_negative_verdict(body: str) -> bool:
     """Return True for explicit evidence comments that report blockers."""
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    lines = _semantic_review_lines(body)
     for idx, stripped in enumerate(lines):
         if not stripped:
             continue
@@ -280,8 +304,7 @@ def highest_blocking_severity(body: str) -> str | None:
     ``"P1"`` when both are present.
     """
     best: str | None = None
-    for raw_line in str(body or "").splitlines():
-        stripped = raw_line.strip()
+    for stripped in _semantic_review_lines(body):
         if not stripped:
             continue
         severity = _priority_finding_severity(stripped)
@@ -302,7 +325,7 @@ def has_blocking_finding_or_label(body: str) -> bool:
     ``CHANGES-REQUESTED`` comment promotes a *blocking* dissent only when it is
     backed by a real `[P0]`/`[P1]` finding or a populated Blocker label.
     """
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    lines = _semantic_review_lines(body)
     for idx, stripped in enumerate(lines):
         if not stripped:
             continue
