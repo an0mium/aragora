@@ -516,11 +516,33 @@ def test_fetch_live_claims_treats_empty_liveness_as_live(monkeypatch: Any) -> No
     assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {1: "owner-a"}
 
 
-def test_fetch_live_claims_reclaims_explicit_stale_owner(monkeypatch: Any) -> None:
-    payload = {"owner_session": "owner-a", "owner_liveness": {"assessed": "stale"}}
+def test_fetch_live_claims_blocks_explicit_stale_owner(monkeypatch: Any) -> None:
+    payload = {
+        "owner_session": "owner-a",
+        "owner_liveness": {"assessed": "stale"},
+        "owner_blocking_state": "stale_owner",
+    }
+    monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: _proc(json.dumps(payload)))
+
+    assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {1: "owner-a"}
+
+
+def test_fetch_live_claims_reclaims_stale_terminal_owner(monkeypatch: Any) -> None:
+    payload = {
+        "owner_session": "owner-a",
+        "owner_liveness": {"assessed": "terminal"},
+        "owner_blocking_state": "stale_terminal_owner",
+    }
     monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: _proc(json.dumps(payload)))
 
     assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {}
+
+
+def test_fetch_live_claims_legacy_stale_owner_fails_closed(monkeypatch: Any) -> None:
+    payload = {"owner_session": "owner-a", "owner_liveness": {"assessed": "stale"}}
+    monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: _proc(json.dumps(payload)))
+
+    assert cli.fetch_live_claims("synaptent/aragora", [_cand(1)]) == {1: "owner-a"}
 
 
 def test_fetch_live_claims_allows_explicit_absent_owner(monkeypatch: Any) -> None:

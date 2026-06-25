@@ -43,9 +43,9 @@ bootstraps and from any agent):
 - A mutating active claim is also rejected when a different blocking owner
   already claims the same ``pr_number``, ``branch``, or ``worktree``. Blocking
   rows include live/active statuses, conflict rows, and unknown statuses.
-  Terminal rows such as ``released``, ``completed``, and ``superseded`` do not
-  block. Different lane IDs cannot silently duplicate work on the same PR or
-  branch. Read-only observers can opt into report-only claim creation with
+  Terminal rows such as ``released``, ``completed``, ``expired``, and
+  ``superseded`` do not block. Different lane IDs cannot silently duplicate work
+  on the same PR or branch. Read-only observers can opt into report-only claim creation with
   ``--allow-resource-conflicts``.
 - Never deletes rows. Never writes a lane row with a missing
   ``lane_id`` or empty ``owner_session``.
@@ -108,6 +108,7 @@ ALLOWED_STATUSES = (
     "blocked",
     "released",
     "completed",
+    "expired",
     "superseded",
     "conflict",
 )
@@ -154,7 +155,7 @@ ACTIVE_STATUSES = {
     "working",
     "blocked",
 }
-TERMINAL_NON_BLOCKING_STATUSES = {"released", "completed", "superseded"}
+TERMINAL_NON_BLOCKING_STATUSES = {"released", "completed", "expired", "superseded"}
 
 DEFAULT_ACTIVE_NEXT_ACTION = "unspecified active lane action"
 DEFAULT_STEERING_OUTCOME = "unknown"

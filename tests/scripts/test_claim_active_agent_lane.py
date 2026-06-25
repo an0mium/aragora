@@ -297,6 +297,30 @@ def test_released_lane_identity_does_not_block_new_owner(tmp_registry: Path) -> 
     assert len(payload) == 2
 
 
+def test_expired_lane_identity_does_not_block_new_owner_after_sweep(
+    tmp_registry: Path,
+) -> None:
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="lane-a",
+        owner_session="codex-A",
+        status="expired",
+        pr_number=7245,
+        branch="codex/pr7245",
+    )
+    claim_module.claim_lane(
+        registry_path=tmp_registry,
+        lane_id="lane-b",
+        owner_session="codex-B",
+        pr_number=7245,
+        branch="codex/pr7245",
+    )
+
+    payload = {row["lane_id"]: row for row in json.loads(tmp_registry.read_text())}
+    assert payload["lane-a"]["status"] == "expired"
+    assert payload["lane-b"]["status"] == "active"
+
+
 def test_superseded_lane_identity_does_not_block_new_owner_after_reconciliation(
     tmp_registry: Path,
 ) -> None:
