@@ -122,6 +122,8 @@ def test_prose_only_merge_blocking_dissent_still_blocks(body):
         "No sql injection found.",
         "I reviewed sql injection tests.",
         "Reviewed auth bypass tests.",
+        "No authentication bypass",
+        "No security hole",
     ],
 )
 def test_benign_security_phrase_no_finding_prose_does_not_block(body):
@@ -131,11 +133,11 @@ def test_benign_security_phrase_no_finding_prose_does_not_block(body):
 @pytest.mark.parametrize(
     "body",
     [
-        "No authentication bypass",
-        "No security hole",
+        "Residual auth bypass risk remains",
+        "Security hole remains in admin routing",
     ],
 )
-def test_terse_no_security_phrase_still_blocks(body):
+def test_substantive_security_phrase_still_blocks(body):
     assert has_blocking_or_negative_verdict(body)
 
 
@@ -159,6 +161,10 @@ def test_prose_blocking_phrases_inside_examples_do_not_block(body):
         "    Do not merge until auth is fixed.",
         "```\nVerdict: CHANGES-REQUESTED\n```",
         "```\n[P1] hidden blocker survives fenced formatting.\n```",
+        "> example: do not merge until auth is fixed.",
+        "> sample: auth bypass remains",
+        "    example: do not merge until auth is fixed.",
+        "    sample: auth bypass remains",
     ],
 )
 def test_untrusted_formatting_cannot_hide_secondary_dissent(body):
@@ -192,6 +198,30 @@ def test_benign_security_phrase_does_not_mask_later_merge_blocker():
 
 def test_same_line_pass_with_priority_finding_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: PASS; [P1] real blocker")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: PASS; no [P1] findings",
+        "Verdict: PASS; no [P2] findings.",
+        "No [P1] findings.",
+        "No remaining [P2] blockers found.",
+    ],
+)
+def test_inline_priority_marker_no_finding_prose_stays_non_blocking(body):
+    assert not has_blocking_or_negative_verdict(body)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Verdict: PASS; no [P1] auth bypass",
+        "No [P2] auth bypass remains.",
+    ],
+)
+def test_inline_priority_marker_with_concrete_finding_still_blocks(body):
+    assert has_blocking_or_negative_verdict(body)
 
 
 def test_severity_gate_finding_or_label_catches_same_line_p1_finding():

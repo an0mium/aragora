@@ -6096,6 +6096,44 @@ class TestCommandDispatch:
         assert payload["would_count"] is True
         assert payload["counted_reviewer_ids"] == ["openai"]
 
+    @pytest.mark.parametrize(
+        "verdict_line",
+        [
+            "Verdict: PASS; no [P1] findings.",
+            "Verdict: PASS; no [P2] findings.",
+            "Verdict: PASS\nNo [P1] findings.",
+        ],
+    )
+    def test_evidence_lint_accepts_inline_priority_marker_no_finding_prose(
+        self, verdict_line: str
+    ) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    f"{verdict_line}\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 0
+        assert payload["would_count"] is True
+        assert payload["counted_reviewer_ids"] == ["openai"]
+
     def test_evidence_lint_accepts_parenthetical_priority_backlog_reference(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="evidence-lint",
@@ -6253,6 +6291,10 @@ class TestCommandDispatch:
         [
             "> Do not merge until auth is fixed.",
             "    Do not merge until auth is fixed.",
+            "> example: do not merge until auth is fixed.",
+            "> sample: auth bypass remains.",
+            "    example: do not merge until auth is fixed.",
+            "    sample: auth bypass remains.",
             "```\nDo not merge until auth is fixed.\n```",
             "```\n[P1] hidden blocker survives fenced formatting.\n```",
         ],
@@ -6327,6 +6369,44 @@ class TestCommandDispatch:
         assert rc == 1
         assert payload["would_count"] is False
         assert expected_problem in payload["problems"]
+
+    @pytest.mark.parametrize(
+        "secondary_line",
+        [
+            "Ready pending fixes.",
+            "Support with reservations.",
+        ],
+    )
+    def test_evidence_lint_rejects_unlabeled_soft_dissent_after_supportive_verdict(
+        self, secondary_line: str
+    ) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Verdict: PASS\n"
+                    f"{secondary_line}\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert "untrusted_or_non_supportive_verdict" in payload["problems"]
 
     def test_evidence_lint_rejects_pass_on_wording_as_supportive_verdict(self) -> None:
         ns = argparse.Namespace(

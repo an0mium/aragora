@@ -76,10 +76,11 @@ _BLOCKING_DISSENT_PHRASE_RE = re.compile(
 )
 _BENIGN_BLOCKING_PHRASE_TAIL_RE = re.compile(
     r"^[\s.,;:!?)\]—–-]*"
-    r"(?:found|identified|detected|present|observed|noted)"
+    r"(?:found|identified|detected|present|observed|noted|remaining)?"
     r"(?:[\s.,;:!?)\]—–-]+(?:in|by|during|across|for|on)\s+"
     r"(?:tests?|coverage|regressions?|fixtures?|guardrails?|cases?|"
-    r"exact\s+head|this\s+diff|the\s+diff|diff|code|review))?"
+    r"exact\s+head|this\s+diff|the\s+diff|diff|code|review|"
+    r"endpoint|path|flow|handler|route|parser|implementation))?"
     r"[\s.,;:!?)\]—–-]*$",
     re.I,
 )
@@ -144,6 +145,12 @@ _NO_FINDING_TAIL = re.compile(
     r"(?:found|identified|noted|detected|seen|present|reported|observed|raised|flagged|"
     r"needed|required|necessary|requested|warranted|remaining|here|at all|whatsoever)?"
     r"[\s.,;:!?)\]—–-]*",
+    re.I,
+)
+_NO_FINDING_MARKER_TAIL = re.compile(
+    r"^[\s.,;:!?)\]—–-]*(?:blocking\s+)?"
+    r"(?:issues?|findings?|blockers?|concerns?|problems?|changes?)(?!\w)"
+    r"(?P<tail>.*)$",
     re.I,
 )
 
@@ -279,6 +286,10 @@ def _priority_finding_severity_anywhere(text: str) -> str | None:
     for match in _PRIORITY_MARKER_ANYWHERE.finditer(text):
         if _inside_benign_parenthetical_priority_reference(text, match.start("marker")):
             continue
+        if _marker_inside_explicit_no_finding_phrase(
+            text, match.start("marker"), match.end("marker")
+        ):
+            continue
         severity = _priority_finding_severity(text[match.start("marker") :])
         if severity == "P0":
             return "P0"
@@ -305,6 +316,38 @@ def _blocking_dissent_phrase_match_is_benign(value: str, match: re.Match[str]) -
     if re.search(r"(?:^|[.;:!?]\s*)(?:i\s+)?reviewed(?:\s+the)?$", prefix):
         return bool(_BENIGN_REVIEWED_PHRASE_TAIL_RE.match(suffix))
     return False
+
+
+def _marker_inside_explicit_no_finding_phrase(
+    text: str, marker_start: int, marker_end: int
+) -> bool:
+    """Return True for prose such as ``no [P1] findings``.
+
+    Same-line marker scanning must still catch ``Verdict: PASS; [P1] auth
+    bypass`` and ``no [P1] auth bypass``. This exemption is limited to an
+    explicit ``no`` + optional no-finding hedge before the marker and a
+    no-finding noun immediately after it.
+    """
+
+    line_start = text.rfind("\n", 0, marker_start) + 1
+    line_end = text.find("\n", marker_start)
+    if line_end == -1:
+        line_end = len(text)
+    line = text[line_start:line_end]
+    relative_start = marker_start - line_start
+    relative_end = marker_end - line_start
+    prefix = _normalize_value(line[:relative_start])
+    suffix = _normalize_value(line[relative_end:])
+    if not re.search(
+        rf"(?:^|[.;:!?]\s*)no(?:\s+{_NO_FINDING_HEDGE}){{0,2}}$",
+        prefix,
+        re.I,
+    ):
+        return False
+    tail_match = _NO_FINDING_MARKER_TAIL.match(suffix)
+    if not tail_match:
+        return False
+    return bool(_NO_FINDING_TAIL.fullmatch(tail_match.group("tail")))
 
 
 def _has_blocking_dissent_phrase(text: str) -> bool:
@@ -338,7 +381,11 @@ def _untrusted_dissent_phrase_is_benign_example(
             or re.search(r"\b(?:assert|return|raise|print|const|let|var|def|class)\b", stripped)
         )
     if stripped.startswith(">") or _is_markdown_indented_code_line(raw_line):
-        return bool(re.search(r"\b(?:fixture|example|sample|literal)\b", normalized))
+        if not re.search(r"\b(?:fixture|example|sample|literal)\b", normalized):
+            return False
+        if re.search(r"\b(?:auth(?:entication)?|bypass|security|sql|injection)\b", normalized):
+            return False
+        return True
     return False
 
 
@@ -372,6 +419,10 @@ def _inside_benign_parenthetical_priority_reference(text: str, marker_start: int
 def _has_default_blocking_marker_anywhere(text: str) -> bool:
     for match in _DEFAULT_BLOCKING_MARKER_ANYWHERE.finditer(text):
         if _inside_benign_parenthetical_priority_reference(text, match.start("marker")):
+            continue
+        if _marker_inside_explicit_no_finding_phrase(
+            text, match.start("marker"), match.end("marker")
+        ):
             continue
         candidate = text[match.start("marker") :]
         if _default_blocking_marker_finding(candidate):

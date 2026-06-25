@@ -3738,6 +3738,42 @@ def _has_any_verdict_label_line(body: str) -> bool:
     )
 
 
+_UNLABELED_SOFT_DISSENT_RE = re.compile(
+    r"^(?:"
+    r"ready\s+pending\b|"
+    r"support(?:ive)?\s+(?:pending\b|with\s+(?:notes?|reservations?|caveats?)\b)|"
+    r"pass(?:ed)?\s+(?:pending\b|with\s+(?:notes?|reservations?|caveats?)\b)"
+    r")",
+    re.I,
+)
+
+
+def _has_unlabeled_soft_dissent_after_supportive_verdict(body: str) -> bool:
+    """Detect prose-only caveats after an otherwise supportive verdict label."""
+
+    if not _has_trusted_supportive_verdict_label(body):
+        return False
+    in_fence = False
+    for raw_line in str(body or "").splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if (
+            not stripped
+            or in_fence
+            or _is_markdown_indented_code_line(raw_line)
+            or stripped.startswith(">")
+            or _extract_verdict_label_value(raw_line) is not None
+        ):
+            continue
+        line = re.sub(r"^(?:[#\-*+]+\s+|\d+[.)]\s+)+", "", stripped)
+        normalized = _normalize_verdict_label_value(line)
+        if _UNLABELED_SOFT_DISSENT_RE.match(normalized):
+            return True
+    return False
+
+
 def _trusted_verdict_label_values(body: str) -> list[str]:
     values: list[str] = []
     in_fence = False
@@ -3798,6 +3834,8 @@ def _has_trusted_supportive_verdict_label(body: str) -> bool:
 def _has_untrusted_or_non_supportive_verdict_label(body: str) -> bool:
     trusted_values = _trusted_verdict_label_values(body)
     untrusted_values = _untrusted_verdict_label_values(body)
+    if _has_unlabeled_soft_dissent_after_supportive_verdict(body):
+        return True
     if any(
         not _normalized_verdict_label_is_supportive(_normalize_verdict_label_value(value))
         for value in untrusted_values
