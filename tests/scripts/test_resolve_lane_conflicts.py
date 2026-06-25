@@ -80,13 +80,18 @@ def _merged_pr_gh(tmp_path: Path, *, merge_commit: str = "merge") -> Path:
     )
 
 
-def _closed_pr_gh(tmp_path: Path, *, closed_at: str = "2026-05-23T19:16:23Z") -> Path:
+def _closed_pr_gh(
+    tmp_path: Path,
+    *,
+    closed_at: str = "2026-05-23T19:16:23Z",
+    head_sha: str = "head",
+) -> Path:
     return _fake_gh(
         tmp_path,
         {
             "number": 7435,
             "state": "CLOSED",
-            "headRefOid": "head",
+            "headRefOid": head_sha,
             "closedAt": closed_at,
             "mergedAt": None,
             "mergeCommit": None,
@@ -704,6 +709,7 @@ def test_closed_pr_audit_reports_active_rows_without_mutating(tmp_path: Path) ->
     assert result["apply_eligible"] is False
     assert result["blocked_reason"] is None
     assert "--expected-closed-at 2026-05-23T19:16:23Z" in result["operator_apply_command"]
+    assert "--expected-head-sha head" in result["operator_apply_command"]
     assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
 
 
@@ -737,6 +743,37 @@ def test_closed_pr_audit_apply_requires_expected_closed_at(tmp_path: Path) -> No
     assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
 
 
+def test_closed_pr_audit_apply_requires_expected_head_sha(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-closed",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_closed_pr_gh(tmp_path)),
+        apply=True,
+        operator_authorized=True,
+        expected_closed_at="2026-05-23T19:16:23Z",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "expected_head_sha_required"
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
 def test_closed_pr_audit_apply_rejects_closed_at_mismatch(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     _write_json(
@@ -759,12 +796,45 @@ def test_closed_pr_audit_apply_rejects_closed_at_mismatch(tmp_path: Path) -> Non
         apply=True,
         operator_authorized=True,
         expected_closed_at="2026-05-23T19:17:00Z",
+        expected_head_sha="head",
         heartbeat_path=tmp_path / "heartbeats.json",
         steering_inbox_root=tmp_path / "operator-steering",
     )
 
     assert result["resolved_count"] == 0
     assert result["blocked_reason"] == "closed_at_mismatch"
+    assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
+
+
+def test_closed_pr_audit_apply_rejects_head_sha_mismatch(tmp_path: Path) -> None:
+    registry = tmp_path / "lanes.json"
+    _write_json(
+        registry,
+        [
+            {
+                "lane_id": "codex-closed",
+                "owner_session": "codex-owner",
+                "status": "active",
+                "pr_number": 7435,
+            }
+        ],
+    )
+
+    result = resolver.audit_merged_pr_lanes(
+        registry_path=registry,
+        receipt_dir=tmp_path / "receipts",
+        pr=7435,
+        gh_bin=str(_closed_pr_gh(tmp_path, head_sha="actual-head")),
+        apply=True,
+        operator_authorized=True,
+        expected_closed_at="2026-05-23T19:16:23Z",
+        expected_head_sha="expected-head",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+    )
+
+    assert result["resolved_count"] == 0
+    assert result["blocked_reason"] == "head_sha_mismatch"
     assert json.loads(registry.read_text(encoding="utf-8"))[0]["status"] == "active"
 
 
@@ -793,6 +863,7 @@ def test_closed_pr_audit_apply_supersedes_safe_rows_with_closed_at_guard(
         apply=True,
         operator_authorized=True,
         expected_closed_at="2026-05-23T19:16:23Z",
+        expected_head_sha="head",
         heartbeat_path=tmp_path / "heartbeats.json",
         steering_inbox_root=tmp_path / "operator-steering",
         resolved_at="2026-05-23T19:20:00Z",
