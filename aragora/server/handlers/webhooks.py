@@ -20,9 +20,10 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import importlib
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
@@ -38,14 +39,19 @@ from aragora.server.handlers.utils.url_security import validate_webhook_url
 from aragora.server.validation.query_params import safe_query_int
 
 # RBAC imports - graceful fallback if not available
-try:
-    from aragora.rbac import AuthorizationContext, check_permission
+if TYPE_CHECKING:
+    from aragora.rbac import AuthorizationContext
 
+_rbac_module: Any
+try:
+    _rbac_module = importlib.import_module("aragora.rbac")
     RBAC_AVAILABLE = True
 except ImportError:
+    _rbac_module = None
     RBAC_AVAILABLE = False
-    AuthorizationContext: Any = None
-    check_permission = None
+
+_AuthorizationContext: Any = getattr(_rbac_module, "AuthorizationContext", None)
+check_permission: Any = getattr(_rbac_module, "check_permission", None)
 
 from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
 
@@ -80,7 +86,7 @@ _list_limiter = RateLimiter(requests_per_minute=WEBHOOK_LIST_RPM)
 
 # Backward compatibility alias - the old WebhookStore interface is now provided
 # by WebhookConfigStoreBackend from aragora.storage.webhook_config_store
-WebhookStore = WebhookConfigStoreBackend
+WebhookStore: TypeAlias = WebhookConfigStoreBackend
 
 
 def get_webhook_store() -> WebhookConfigStoreBackend:
@@ -204,7 +210,7 @@ class WebhookHandler(SecureHandler):
 
     def _get_auth_context(self, handler) -> AuthorizationContext | None:
         """Build RBAC authorization context from request."""
-        if not RBAC_AVAILABLE or AuthorizationContext is None:
+        if not RBAC_AVAILABLE or _AuthorizationContext is None:
             return None
 
         user = self.get_current_user(handler)
@@ -212,7 +218,7 @@ class WebhookHandler(SecureHandler):
             return None
 
         # User context has user_id and potentially role info
-        return AuthorizationContext(
+        return _AuthorizationContext(
             user_id=user.user_id,
             roles=set([user.role]) if hasattr(user, "role") and user.role else set(),
             org_id=getattr(user, "org_id", None),
