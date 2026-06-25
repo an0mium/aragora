@@ -397,6 +397,9 @@ def _merged_pr_commit_preservation_proof(
         return None
     expected_base = _requested_base_from_payload(payload) or base
     if _normalize_base_ref(expected_base) != _normalize_base_ref(base):
+        # Archive authority is scoped to the reconciler base. Integration-branch
+        # handoffs must be reconciled with their matching --base instead of
+        # being archived from an origin/main pass.
         return None
     records = _lane_records_from_payload(payload, branch)
     if not records:
@@ -480,6 +483,9 @@ def _merged_pr_commit_preservation_proof(
         if not _upstream_base_matches(upstream, expected_base):
             return None
         if not _desired_head_landed_on_base(root, base, record_branch, desired_head):
+            # A merged PR commit-list proves history membership, not current-base
+            # preservation. Prefer stale-outbox noise over archiving work whose
+            # squash tip was reverted or is not patch-equivalent on this base.
             return None
         if common_upstream is None:
             common_upstream = upstream

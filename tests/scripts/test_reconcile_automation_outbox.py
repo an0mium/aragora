@@ -885,6 +885,90 @@ def test_reconcile_archives_issue_only_pr_handoff_when_merged_pr_proves_head_pre
     )
 
 
+def test_reconcile_keeps_handoff_when_merged_pr_head_is_not_on_current_base(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-reverted-merged-pr-proof-abc123"
+    branch = "codex/reverted-merged-pr-proof"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree": str(tmp_path / "missing-worktree"),
+        },
+    )
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload["requested_action"] = {
+        "type": "open_or_update_pr",
+        "base": "main",
+        "branch": branch,
+        "desired_head_sha": desired_head,
+    }
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+
+    monkeypatch.setattr(
+        mod,
+        "build_worktree_reference_preservation_proof",
+        lambda *_args, **_kwargs: {
+            "available": True,
+            "branch": branch,
+            "desired_head_sha": desired_head,
+            "worktree_paths": [str(tmp_path / "missing-worktree")],
+            "worktree_inspections": [
+                {
+                    "path": str(tmp_path / "missing-worktree"),
+                    "absent_noop": True,
+                    "source": "safe_worktree_cleanup.inspect",
+                    "classification": "absent_noop",
+                }
+            ],
+            "upstream_preservation": {
+                "proven": True,
+                "method": "merged_pr_commit_list",
+                "pr_number": 8583,
+                "repo": "synaptent/aragora",
+                "base_ref": "main",
+            },
+        },
+    )
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:2] == ["rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{desired_head}\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[0] == "cherry":
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout=f"+ {desired_head}\n"
+            )
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["satisfied_by_merged_pr_commit_proof"] == 0
+    assert result["counts"]["still_protecting_active_work"] == 1
+    assert result["actions"][0]["decision"] == "keep"
+    assert "actively protecting" in result["actions"][0]["reason"]
+    assert handoff.exists()
+
+
 def test_reconcile_keeps_target_pr_receipt_when_desired_head_not_published(
     tmp_path: Path,
     monkeypatch: Any,
