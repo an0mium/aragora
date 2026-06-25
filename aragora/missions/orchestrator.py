@@ -28,10 +28,14 @@ class Handoff:
     """What a worker returns. The orchestrator must dispose of every field.
 
     ``success`` advances the feature; ``follow_ups`` extend the queue (handoff
-    triage); ``blocked_reason`` parks it for operator escalation.
+    triage); ``blocked_reason`` records why it failed. ``terminal`` distinguishes a
+    block that **cannot self-heal by retrying** (operator-gated, Tier-3, a
+    contaminated branch needing re-derive) from a transient one — a structured flag
+    instead of sniffing the reason string, so the orchestrator and swarm agree.
     """
 
     success: bool = True
+    terminal: bool = False  # True = do not retry; park/block immediately
     blocked_reason: str | None = None
     follow_ups: list[Feature] = field(default_factory=list)
     discovered: list[str] = field(default_factory=list)  # tracked into notes/library
@@ -46,11 +50,11 @@ Dispatch = Callable[[Feature], Handoff]
 class MissionOrchestrator:
     """Drives a mission to completion, one survivable tick at a time.
 
-    ``max_retries`` bounds the retry loop: a feature that keeps failing is marked
+    ``max_retries`` bounds the retry loop: a feature that keeps failing — whether
+    by *returning* a failure or by *raising* (kill-9 / 402 / poison) — is marked
     BLOCKED after this many attempts instead of being re-picked forever (the same
-    park-after-N protection the swarm path has). A block whose reason names an
-    operator requirement is terminal immediately — no point retrying a fork only a
-    human can resolve.
+    park-after-N protection the swarm path has). A ``Handoff(terminal=True)`` is
+    blocked immediately — no point retrying a fork only a human can resolve.
 
     Single-writer contract: one orchestrator per ``state_path``. ``MissionState`` is
     not file-locked (only the swarm's :class:`~aragora.missions.ledger.Ledger` is);
@@ -74,19 +78,27 @@ class MissionOrchestrator:
         """
         state = MissionState.load(self.state_path)
 
-        reclaimed = state.reclaim_in_progress()
-        if reclaimed:
-            logger.info("reclaimed orphaned features from a prior crash: %s", reclaimed)
+        # Reclaim orphans, honoring the retry cap — a *raising* dispatch (kill-9 /
+        # recurring 402 / poison feature) leaves the feature IN_PROGRESS, and
+        # without a cap here it would be reset to PENDING and re-picked forever.
+        if self._reclaim_with_cap(state):
             state.save(self.state_path)
 
         feature = state.next_pending()
         if feature is None:
             return False
 
-        # Checkpoint BEFORE dispatch — if the worker dies, resume reclaims this.
+        # Count the attempt + checkpoint BEFORE dispatch, so a raise still bumps
+        # the count on disk and the next reclaim can cap it.
+        feature.retry_count += 1
         state.mark_in_progress(feature.id)
         state.save(self.state_path)
-        logger.info("dispatch feature %s (%s)", feature.id, feature.milestone)
+        logger.info(
+            "dispatch feature %s (%s), attempt %d",
+            feature.id,
+            feature.milestone,
+            feature.retry_count,
+        )
 
         handoff = dispatch(feature)
 
@@ -96,6 +108,24 @@ class MissionOrchestrator:
         self._triage(state, feature.id, handoff)
         state.save(self.state_path)
         return True
+
+    def _reclaim_with_cap(self, state: MissionState) -> bool:
+        """Reset orphaned IN_PROGRESS features to PENDING, but BLOCK any that have
+        already exhausted ``max_retries`` (the raising-dispatch bound). Returns
+        True if anything changed."""
+        changed = False
+        for feat in state.features:
+            if feat.status != Status.IN_PROGRESS:
+                continue
+            changed = True
+            if feat.retry_count >= self.max_retries:
+                feat.status = Status.BLOCKED
+                feat.notes = (feat.notes + "\n" if feat.notes else "") + (
+                    f"blocked: exhausted max_retries ({feat.retry_count}) — likely a crashing dispatch"
+                )
+            else:
+                feat.status = Status.PENDING
+        return changed
 
     # ---- handoff triage ------------------------------------------------------
 
@@ -116,15 +146,11 @@ class MissionOrchestrator:
             state.mark_completed(feature_id)
             return
 
-        # Failure: bound the retries so a persistently-failing feature can never
-        # starve the queue (the treadmill the swarm path also guards against).
-        feat.retry_count += 1
+        # Failure (returned). The attempt was already counted in tick(). Park a
+        # terminal block immediately (never loop on operator-gated forks); retry a
+        # transient one until the cap, then block.
         reason = handoff.blocked_reason or f"failed {feat.retry_count}x with no reason"
-        terminal = handoff.blocked_reason is not None and (
-            "operator" in handoff.blocked_reason.lower()
-            or "settlement" in handoff.blocked_reason.lower()
-        )
-        if terminal or feat.retry_count >= self.max_retries:
+        if handoff.terminal or feat.retry_count >= self.max_retries:
             state.mark_blocked(feature_id, reason)
         else:
             feat.status = Status.PENDING  # bounded retry

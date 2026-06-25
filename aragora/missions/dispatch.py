@@ -95,23 +95,36 @@ class BossLoopDispatch:
         # head — park for re-derive instead of merging someone else's work.
         foreign = self.gate.foreign_commits(branch, self.base, self.allowed_prefixes)
         if foreign:
+            # Terminal: a contaminated branch needs a re-derive, not a re-dispatch.
             return Handoff(
                 success=False,
+                terminal=True,
                 blocked_reason=f"contaminated by foreign commits {foreign}; re-derive clean off {self.base} before evidence",
                 discovered=[f"foreign-commit guard tripped on {branch}"],
             )
 
         # Tier-3+ surfaces are an operator fork — classify first and escalate
         # before spending an (expensive) quorum on something that can't auto-settle.
-        tier = self.gate.tier_of(feature)
-        if tier >= self.operator_tier:
+        if self.gate.tier_of(feature) >= self.operator_tier:
             return Handoff(
                 success=False,
-                blocked_reason=f"tier-{tier} surface requires operator settlement (head {head})",
+                terminal=True,
+                blocked_reason=f"tier-{self.gate.tier_of(feature)} surface requires operator settlement (head {head})",
             )
 
         verdict = self.gate.collect_evidence(branch, head)
+
+        # Defense in depth: if evidence reveals a higher tier than the cheap
+        # pre-classification, still escalate — never auto-merge past Tier-3.
+        if verdict.tier >= self.operator_tier:
+            return Handoff(
+                success=False,
+                terminal=True,
+                blocked_reason=f"evidence reclassified to tier-{verdict.tier}: operator settlement required (head {head})",
+            )
+
         if not verdict.satisfied:
+            # Transient: dissent may resolve on re-collection at a later head.
             return Handoff(
                 success=False,
                 blocked_reason=f"quorum not satisfied: {verdict.dissent or 'incomplete'}",
@@ -121,6 +134,7 @@ class BossLoopDispatch:
             logger.info("feature %s merged head-bound at %s", feature.id, head)
             return Handoff(success=True, session_id=head)
 
+        # Transient: head moved under us; a retry re-evaluates the new head.
         return Handoff(
             success=False, blocked_reason=f"head-bound merge of {head} did not land (head moved?)"
         )

@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .ledger import Ledger, select_for
-from .orchestrator import Dispatch
+from .orchestrator import Dispatch, Handoff
 from .state import MissionState, Status
 
 logger = logging.getLogger(__name__)
@@ -63,23 +63,42 @@ def run_worker(
         if unit is None:
             break
         n += 1
-        handoff = dispatch(state.get(unit))
+
+        # Count the attempt BEFORE dispatch so a *raising* dispatch is bounded too,
+        # and always release the lease (a raise must not leak the claim for a TTL).
+        attempts = ledger.bump_attempt(f"feature:{unit}")
+        try:
+            handoff = dispatch(state.get(unit))
+        except (
+            Exception
+        ) as exc:  # dispatch is an external callback — may raise anything  # noqa: BLE001
+            handoff = Handoff(success=False, blocked_reason=f"dispatch raised: {exc!r}")
+        finally:
+            ledger.release(unit, worker_id)
 
         if handoff.success:
             ledger.record_done(unit)
             res.done.append(unit)
-        else:
-            attempts = ledger.bump_attempt(f"feature:{unit}")
-            res.blocked.append(unit)
-            if attempts >= park_threshold:
-                ledger.record_constraint(
-                    f"feature:{unit}",
-                    f"parked after {attempts} blocks: {handoff.blocked_reason}",
+            # Swarm mode treats MissionState as a static backlog, so it cannot
+            # insert follow-ups; surface them rather than silently dropping them.
+            for follow in handoff.follow_ups:
+                logger.warning(
+                    "swarm dropped follow-up %s from %s (insert via orchestrator)", follow.id, unit
                 )
-                res.parked.append(unit)
-                logger.info("worker %s parked %s after %d blocks", worker_id, unit, attempts)
+            for note in handoff.discovered:
+                logger.info("swarm discovered (on %s): %s", unit, note)
+            continue
 
-        ledger.release(unit, worker_id)
+        # Terminal blocks (operator-gated / re-derive) park immediately; transient
+        # ones retry until the shared attempt count hits the threshold.
+        res.blocked.append(unit)
+        if handoff.terminal or attempts >= park_threshold:
+            kind = "terminal" if handoff.terminal else f"{attempts} blocks"
+            ledger.record_constraint(
+                f"feature:{unit}", f"parked ({kind}): {handoff.blocked_reason}"
+            )
+            res.parked.append(unit)
+            logger.info("worker %s parked %s (%s)", worker_id, unit, kind)
 
     return res
 
@@ -87,18 +106,23 @@ def run_worker(
 def reconcile_from_ledger(state_path: str | Path, ledger_path: str | Path) -> int:
     """Fold the swarm's ledger-recorded completions back into ``MissionState``.
 
-    In swarm mode the ledger is the source of truth for "done" (so no locked
-    MissionState is needed across workers); call this once afterward — from a
-    single writer — to make ``MissionState.progress()`` and any status reader
-    consistent with what the swarm actually finished. Returns the number of
-    features newly marked completed.
+    In swarm mode the ledger is the source of truth (so no locked MissionState is
+    needed across workers); call this once afterward — from a single writer — to
+    make ``MissionState`` consistent with what the swarm did: ledger ``done`` →
+    COMPLETED, and active **parks** → BLOCKED (so a parked feature is not later
+    re-dispatched by the orchestrator path, preserving the anti-treadmill
+    guarantee). Returns the number of features whose status changed.
     """
     state = MissionState.load(state_path)
-    done = Ledger(ledger_path).done_units()
+    ledger = Ledger(ledger_path)
+    done = ledger.done_units()
     n = 0
     for feat in state.features:
         if feat.id in done and feat.status != Status.COMPLETED:
             feat.status = Status.COMPLETED
+            n += 1
+        elif feat.status != Status.BLOCKED and ledger.is_excluded(f"feature:{feat.id}"):
+            feat.status = Status.BLOCKED
             n += 1
     if n:
         state.save(state_path)

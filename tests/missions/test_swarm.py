@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from aragora.missions.ledger import Ledger
 from aragora.missions.orchestrator import Handoff
-from aragora.missions.state import Feature, MissionState
+from aragora.missions.state import Feature, MissionState, Status
 from aragora.missions.swarm import reconcile_from_ledger, run_worker
 
 
@@ -99,3 +99,53 @@ def test_reconcile_folds_ledger_done_back_into_state(tmp_path):
     n = reconcile_from_ledger(sp, lp)
     assert n == 3
     assert MissionState.load(sp).progress() == (3, 3)  # ...until reconciled
+
+
+def test_swarm_bounds_a_raising_dispatch_and_releases_lease(tmp_path):
+    """The merge-gate-caught gap: a raising dispatch must be counted + bounded,
+    and the lease must always be released (try/finally), not leaked for a TTL."""
+    sp, lp = _mission(tmp_path, 2)
+    calls: list[str] = []
+
+    def raises_on_f1(feat):
+        calls.append(feat.id)
+        if feat.id == "f1":
+            raise RuntimeError("boom")
+        return Handoff(success=True)
+
+    res = run_worker(sp, lp, "w1", raises_on_f1, park_threshold=2)
+    led = Ledger(lp)
+    assert res.parked == ["f1"]  # bounded after park_threshold raising attempts
+    assert "f2" in res.done  # worker survived the poison unit and continued
+    assert led.is_excluded("feature:f1") is True
+    assert led.active_claims() == {}  # every lease released, even on the raise
+
+
+def test_swarm_terminal_handoff_parks_immediately(tmp_path):
+    sp, lp = _mission(tmp_path, 2)
+
+    def dispatch(feat):
+        if feat.id == "f1":
+            return Handoff(success=False, terminal=True, blocked_reason="operator-gated")
+        return Handoff(success=True)
+
+    res = run_worker(sp, lp, "w1", dispatch, park_threshold=5)
+    assert res.parked == ["f1"]
+    assert res.blocked.count("f1") == 1  # terminal: parked on the first block, not retried
+    assert "f2" in res.done
+
+
+def test_reconcile_folds_parks_to_blocked(tmp_path):
+    sp, lp = _mission(tmp_path, 3)
+
+    def dispatch(feat):
+        if feat.id == "f2":
+            return Handoff(success=False, terminal=True, blocked_reason="op")
+        return Handoff(success=True)
+
+    run_worker(sp, lp, "w1", dispatch)
+    reconcile_from_ledger(sp, lp)
+    final = MissionState.load(sp)
+    assert final.get("f1").status == Status.COMPLETED
+    assert final.get("f2").status == Status.BLOCKED  # parked -> BLOCKED, won't be re-dispatched
+    assert final.get("f3").status == Status.COMPLETED

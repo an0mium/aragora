@@ -169,15 +169,42 @@ def test_orchestrator_caps_retries_instead_of_spinning(tmp_path):
     assert calls == ["f1", "f1", "f1", "f2", "f2", "f2"]  # bounded: 3 each, not 10_000
 
 
-def test_orchestrator_operator_block_is_terminal_immediately(tmp_path):
+def test_orchestrator_terminal_block_is_not_retried(tmp_path):
     p = tmp_path / "state.json"
     _mission(1).save(p)
     calls: list[str] = []
 
     def op_block(feat):
         calls.append(feat.id)
-        return Handoff(success=False, blocked_reason="tier-3 operator settlement required")
+        return Handoff(success=False, terminal=True, blocked_reason="operator settlement required")
 
     MissionOrchestrator(p, max_retries=5).run(op_block)
     assert MissionState.load(p).get("f1").status == Status.BLOCKED
     assert calls == ["f1"]  # terminal fork — not retried 5x pointlessly
+
+
+def test_orchestrator_bounds_a_raising_dispatch(tmp_path):
+    """The merge-gate-caught [P2]: a dispatch that RAISES (the real kill-9/402
+    case) must also be bounded, not re-picked forever via reclaim."""
+    p = tmp_path / "state.json"
+    _mission(2).save(p)
+    raises: list[str] = []
+
+    def always_raises(feat):
+        raises.append(feat.id)
+        raise RuntimeError("worker crashed mid-feature")
+
+    orch = MissionOrchestrator(p, max_retries=2)
+    # Each run() dies on the raise; simulate restarts until the queue settles.
+    for _ in range(20):
+        try:
+            orch.run(always_raises)
+        except RuntimeError:
+            continue
+        break
+
+    final = MissionState.load(p)
+    # f1 reached the cap and is BLOCKED (not spinning); the run terminated.
+    assert final.get("f1").status == Status.BLOCKED
+    assert final.get("f1").retry_count == 2
+    assert raises.count("f1") == 2  # bounded — exactly max_retries crash attempts
