@@ -123,6 +123,9 @@ def reconcile_from_ledger(state_path: str | Path, ledger_path: str | Path) -> in
             n += 1
         elif feat.status != Status.BLOCKED and ledger.is_excluded(f"feature:{feat.id}"):
             feat.status = Status.BLOCKED
+            reason = ledger.constraint_reason(f"feature:{feat.id}")
+            if reason:  # keep the operator context for handoff/debugging
+                feat.notes = (feat.notes + "\n" if feat.notes else "") + f"BLOCKED (park): {reason}"
             n += 1
     if n:
         state.save(state_path)

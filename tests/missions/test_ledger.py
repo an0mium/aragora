@@ -102,6 +102,17 @@ def test_select_skips_parked_feature(tmp_path):
     assert select_for(state, led, "wA", now=100.0) == "f2"  # f1 is skipped, not re-attempted
 
 
+def test_claim_actionable_refuses_done_and_parked(tmp_path):
+    """The atomic check-and-claim: a done or parked unit can't be claimed even if a
+    stale select snapshot thought it was free."""
+    led = _ledger(tmp_path)
+    led.record_done("u1")
+    assert led.claim_actionable("u1", "w1", constraint_key="feature:u1") is False
+    led.record_constraint("feature:u2", "parked")
+    assert led.claim_actionable("u2", "w1", constraint_key="feature:u2") is False
+    assert led.claim_actionable("u3", "w1", constraint_key="feature:u3") is True  # free → claimed
+
+
 def test_concurrent_claims_exactly_one_wins(tmp_path):
     """The load-bearing property under real concurrency: 20 threads race for one
     unit through the file lock; exactly one wins (no double-claim)."""

@@ -105,11 +105,13 @@ class BossLoopDispatch:
 
         # Tier-3+ surfaces are an operator fork — classify first and escalate
         # before spending an (expensive) quorum on something that can't auto-settle.
-        if self.gate.tier_of(feature) >= self.operator_tier:
+        # Bind once: tier_of may be a non-deterministic (LLM/heuristic) classifier.
+        tier = self.gate.tier_of(feature)
+        if tier >= self.operator_tier:
             return Handoff(
                 success=False,
                 terminal=True,
-                blocked_reason=f"tier-{self.gate.tier_of(feature)} surface requires operator settlement (head {head})",
+                blocked_reason=f"tier-{tier} surface requires operator settlement (head {head})",
             )
 
         verdict = self.gate.collect_evidence(branch, head)

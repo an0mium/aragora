@@ -46,7 +46,8 @@ class Feature:
     expected_behavior: list[str] = field(default_factory=list)
     fulfills: list[str] = field(default_factory=list)  # assertion ids (Phase B)
     worker_session_ids: list[str] = field(default_factory=list)
-    retry_count: int = 0  # failed dispatch attempts (bounds the orchestrator retry loop)
+    retry_count: int = 0  # dispatches that RETURNED failure (bounds the retry loop)
+    crash_count: int = 0  # consecutive dispatches that did NOT return (raise/crash)
     notes: str = ""
 
     def __post_init__(self) -> None:
@@ -157,7 +158,12 @@ class MissionState:
         )
 
     def save(self, path: str | Path) -> None:
-        """Atomically persist to ``path`` (tmp-write + os.replace = crash-safe)."""
+        """Atomically persist to ``path``: tmp-write + fsync + ``os.replace``.
+
+        Safe against the stated threat model (process ``kill -9`` / 402 / crash).
+        Power-loss durability would additionally require an fsync of the parent
+        directory after the rename — out of scope here.
+        """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")

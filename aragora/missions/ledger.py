@@ -112,6 +112,34 @@ class Ledger:
             self._save(data)
             return True
 
+    def claim_actionable(
+        self,
+        unit: str,
+        worker_id: str,
+        *,
+        constraint_key: str,
+        ttl: float = DEFAULT_LEASE_TTL,
+        now: float | None = None,
+    ) -> bool:
+        """Atomically claim ``unit`` ONLY if it is still actionable — not done, not
+        parked, and not held by another worker — all checked **under the lock** so a
+        concurrent ``record_done``/``record_constraint`` can't slip a completed or
+        parked unit past the check-then-claim race (the TOCTOU select_for had)."""
+        now = time.time() if now is None else now
+        with self._locked():
+            data = self._load()
+            if unit in data.done:
+                return False
+            c = data.constraints.get(constraint_key)
+            if c and c.is_active(now):
+                return False
+            held = data.leases.get(unit)
+            if held and not held.is_expired(now) and held.worker_id != worker_id:
+                return False
+            data.leases[unit] = Lease(unit=unit, worker_id=worker_id, claimed_at=now, ttl=ttl)
+            self._save(data)
+            return True
+
     def release(self, unit: str, worker_id: str) -> None:
         with self._locked():
             data = self._load()
@@ -142,6 +170,12 @@ class Ledger:
         now = time.time() if now is None else now
         c = self._load().constraints.get(key)
         return bool(c and c.is_active(now))
+
+    def constraint_reason(self, key: str, *, now: float | None = None) -> str | None:
+        """The reason of the active constraint at ``key`` (for handoff/debug), or None."""
+        now = time.time() if now is None else now
+        c = self._load().constraints.get(key)
+        return c.reason if c and c.is_active(now) else None
 
     def invalidate_constraint(self, key: str) -> None:
         """Evaporate a constraint because live state materially changed."""
@@ -257,9 +291,15 @@ def select_for(
     This is how non-overlapping fronts emerge with no central dispatcher: every
     worker scans the same queue and the locked ledger arbitrates who gets what.
     Selection only *selects* — the park/attempt policy lives in the worker loop.
+
+    Note: when the only remaining work is precondition-gated on an in-progress unit
+    held by another worker, this returns None and the caller idles — effective
+    parallelism degrades on long dependency chains (convergence still holds with
+    >=1 live worker).
     """
     now = time.time() if now is None else now
-    claims = ledger.active_claims(now=now)
+    # Precondition gating reads the static backlog + ledger done (a feature
+    # completing mid-scan only opens a gate slightly later — no correctness risk).
     done = {f.id for f in state.features if f.status == Status.COMPLETED} | ledger.done_units()
 
     for feat in state.features:
@@ -268,10 +308,10 @@ def select_for(
         unmet = [p for p in feat.preconditions if p.startswith("feature:") and p[8:] not in done]
         if unmet:
             continue
-        if feat.id in claims and claims[feat.id] != worker_id:
-            continue  # another worker owns it
-        if ledger.is_excluded(f"feature:{feat.id}", now=now):
-            continue  # parked: the pheromone says stay off this treadmill
-        if ledger.claim(feat.id, worker_id, ttl=ttl, now=now):
+        # Atomic claim: not-done / not-parked / not-claimed is re-checked under the
+        # lock, so a concurrent done/park can't race past the selection.
+        if ledger.claim_actionable(
+            feat.id, worker_id, constraint_key=f"feature:{feat.id}", ttl=ttl, now=now
+        ):
             return feat.id
     return None

@@ -94,6 +94,17 @@ def test_tier3_escalates_before_spending_a_quorum():
     assert gate.merge_calls == []  # never auto-settles a Tier-3 surface
 
 
+def test_post_evidence_tier_reclassification_escalates():
+    """Defense in depth: pre-classification says Tier-0 but evidence reveals Tier-3
+    — must escalate, not auto-merge past the operator boundary."""
+    gate = FakeGate(tier=0, verdict=GateVerdict(satisfied=True, tier=3))
+    handoff = BossLoopDispatch(gate)(_feat())
+    assert not handoff.success
+    assert handoff.terminal
+    assert "reclassified to tier-3" in handoff.blocked_reason
+    assert gate.merge_calls == []  # never merged past Tier-3
+
+
 def test_dissent_blocks_without_merge():
     gate = FakeGate(verdict=GateVerdict(satisfied=False, tier=1, dissent=["[P1] real bug"]))
     handoff = BossLoopDispatch(gate)(_feat())

@@ -88,15 +88,18 @@ class MissionOrchestrator:
         if feature is None:
             return False
 
-        # Count the attempt + checkpoint BEFORE dispatch, so a raise still bumps
-        # the count on disk and the next reclaim can cap it.
-        feature.retry_count += 1
+        # Provisionally count a *crash* BEFORE dispatch, so a raise leaves the count
+        # on disk for reclaim to cap. _triage resets it the moment dispatch returns,
+        # so a dispatch that succeeded-but-crashed-before-save is re-dispatched
+        # (idempotent → completes) rather than false-BLOCKed.
+        feature.crash_count += 1
         state.mark_in_progress(feature.id)
         state.save(self.state_path)
         logger.info(
-            "dispatch feature %s (%s), attempt %d",
+            "dispatch feature %s (%s), crash_count=%d retry_count=%d",
             feature.id,
             feature.milestone,
+            feature.crash_count,
             feature.retry_count,
         )
 
@@ -111,17 +114,19 @@ class MissionOrchestrator:
 
     def _reclaim_with_cap(self, state: MissionState) -> bool:
         """Reset orphaned IN_PROGRESS features to PENDING, but BLOCK any that have
-        already exhausted ``max_retries`` (the raising-dispatch bound). Returns
-        True if anything changed."""
+        crashed ``max_retries`` times in a row (the raising-dispatch bound). A
+        non-crash-looping feature is always retried — so a crash *after* a
+        successful dispatch is re-dispatched and confirmed, not false-blocked.
+        Returns True if anything changed."""
         changed = False
         for feat in state.features:
             if feat.status != Status.IN_PROGRESS:
                 continue
             changed = True
-            if feat.retry_count >= self.max_retries:
+            if feat.crash_count >= self.max_retries:
                 feat.status = Status.BLOCKED
                 feat.notes = (feat.notes + "\n" if feat.notes else "") + (
-                    f"blocked: exhausted max_retries ({feat.retry_count}) — likely a crashing dispatch"
+                    f"blocked: crashed {feat.crash_count}x in a row (poison/crash-looping dispatch)"
                 )
             else:
                 feat.status = Status.PENDING
@@ -131,11 +136,14 @@ class MissionOrchestrator:
 
     def _triage(self, state: MissionState, feature_id: str, handoff: Handoff) -> None:
         feat = state.get(feature_id)
+        feat.crash_count = 0  # dispatch returned — it did not crash this round
         if handoff.session_id and handoff.session_id not in feat.worker_session_ids:
             feat.worker_session_ids.append(handoff.session_id)
 
         for note in handoff.discovered:
-            feat.notes = (feat.notes + "\n" if feat.notes else "") + f"discovered: {note}"
+            stamp = f"discovered: {note}"
+            if stamp not in feat.notes:  # dedupe across retries
+                feat.notes = (feat.notes + "\n" if feat.notes else "") + stamp
 
         for follow in handoff.follow_ups:
             if not any(f.id == follow.id for f in state.features):
@@ -146,9 +154,9 @@ class MissionOrchestrator:
             state.mark_completed(feature_id)
             return
 
-        # Failure (returned). The attempt was already counted in tick(). Park a
-        # terminal block immediately (never loop on operator-gated forks); retry a
-        # transient one until the cap, then block.
+        # Returned failure: bound by retry_count. Park a terminal block immediately
+        # (never loop on operator-gated forks); retry a transient one until the cap.
+        feat.retry_count += 1
         reason = handoff.blocked_reason or f"failed {feat.retry_count}x with no reason"
         if handoff.terminal or feat.retry_count >= self.max_retries:
             state.mark_blocked(feature_id, reason)

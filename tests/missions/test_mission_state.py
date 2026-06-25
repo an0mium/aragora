@@ -204,7 +204,46 @@ def test_orchestrator_bounds_a_raising_dispatch(tmp_path):
         break
 
     final = MissionState.load(p)
-    # f1 reached the cap and is BLOCKED (not spinning); the run terminated.
+    # f1 reached the crash cap and is BLOCKED (not spinning); the run terminated.
     assert final.get("f1").status == Status.BLOCKED
-    assert final.get("f1").retry_count == 2
+    assert final.get("f1").crash_count == 2
     assert raises.count("f1") == 2  # bounded — exactly max_retries crash attempts
+
+
+def test_crashed_but_successful_dispatch_is_not_false_blocked(tmp_path):
+    """grok's deep [P2]: a dispatch that SUCCEEDS but whose process dies before the
+    triage save must be re-dispatched (idempotent) and confirmed, not BLOCKed by
+    the crash cap."""
+    p = tmp_path / "state.json"
+    _mission(1).save(p)
+    attempts = {"n": 0}
+
+    def crash_then_succeed(feat):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise RuntimeError("crashed after doing the work, before save")
+        return Handoff(success=True)  # idempotent re-dispatch confirms success
+
+    orch = MissionOrchestrator(p, max_retries=2)
+    for _ in range(10):
+        try:
+            orch.run(crash_then_succeed)
+        except RuntimeError:
+            continue
+        break
+
+    # Crash bumped crash_count to 1; the re-dispatch succeeded → COMPLETED, not BLOCKED.
+    assert MissionState.load(p).get("f1").status == Status.COMPLETED
+
+
+def test_discovered_notes_deduped_across_retries(tmp_path):
+    p = tmp_path / "state.json"
+    _mission(1).save(p)
+
+    def fail_twice_then_pass(feat):
+        done = feat.retry_count >= 2
+        return Handoff(success=done, discovered=["same note"])
+
+    MissionOrchestrator(p, max_retries=5).run(fail_twice_then_pass)
+    notes = MissionState.load(p).get("f1").notes
+    assert notes.count("discovered: same note") == 1  # not re-appended each retry
