@@ -18,6 +18,8 @@ from aragora.documents.parsing import (
     VALID_DOC_ID_PATTERN,
     DocumentStore,
     ParsedDocument,
+    _safe_path,
+    _validate_doc_id,
     generate_doc_id,
     get_supported_formats,
     parse_docx,
@@ -45,4 +47,6 @@ __all__ = [
     "VALID_DOC_ID_PATTERN",
     "PDF_AVAILABLE",
     "DOCX_AVAILABLE",
+    "_safe_path",
+    "_validate_doc_id",
 ]
