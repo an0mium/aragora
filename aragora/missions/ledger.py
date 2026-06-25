@@ -21,7 +21,6 @@ the non-overlap property is real across processes, not aspirational.
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import json
 import logging
 import os
@@ -30,7 +29,12 @@ import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from .state import MissionState
+from .state import MissionState, Status
+
+try:
+    import fcntl  # POSIX-only; the package imports fine without it (locking just errors).
+except ImportError:  # pragma: no cover - non-POSIX
+    fcntl = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +190,10 @@ class Ledger:
 
     @contextlib.contextmanager
     def _locked(self):
+        if fcntl is None:  # pragma: no cover - non-POSIX
+            raise RuntimeError(
+                "Ledger requires POSIX fcntl file locking (not available on this platform)"
+            )
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
         with self.lock_path.open("w") as lf:
             fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
@@ -247,10 +255,10 @@ def select_for(
     """
     now = time.time() if now is None else now
     claims = ledger.active_claims(now=now)
-    done = {f.id for f in state.features if f.status == "completed"} | ledger.done_units()
+    done = {f.id for f in state.features if f.status == Status.COMPLETED} | ledger.done_units()
 
     for feat in state.features:
-        if feat.status not in ("pending", "in_progress") or feat.id in done:
+        if feat.status not in (Status.PENDING, Status.IN_PROGRESS) or feat.id in done:
             continue
         unmet = [p for p in feat.preconditions if p.startswith("feature:") and p[8:] not in done]
         if unmet:

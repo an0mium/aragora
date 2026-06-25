@@ -14,7 +14,7 @@ from __future__ import annotations
 from aragora.missions.ledger import Ledger
 from aragora.missions.orchestrator import Handoff
 from aragora.missions.state import Feature, MissionState
-from aragora.missions.swarm import run_worker
+from aragora.missions.swarm import reconcile_from_ledger, run_worker
 
 
 def _mission(tmp_path, n=4):
@@ -88,3 +88,14 @@ def test_already_done_units_are_skipped(tmp_path):
     run_worker(sp, lp, "w1", dispatch)
     assert "f1" not in seen  # never re-dispatched
     assert sorted(seen) == ["f2", "f3"]
+
+
+def test_reconcile_folds_ledger_done_back_into_state(tmp_path):
+    """Fixes the two-sources-of-truth finding: after a swarm run the ledger holds
+    'done'; reconcile makes MissionState.progress() consistent."""
+    sp, lp = _mission(tmp_path, 3)
+    run_worker(sp, lp, "w1", lambda feat: Handoff(success=True))
+    assert MissionState.load(sp).progress() == (0, 3)  # state untouched by the swarm...
+    n = reconcile_from_ledger(sp, lp)
+    assert n == 3
+    assert MissionState.load(sp).progress() == (3, 3)  # ...until reconciled

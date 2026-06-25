@@ -44,10 +44,24 @@ Dispatch = Callable[[Feature], Handoff]
 
 
 class MissionOrchestrator:
-    """Drives a mission to completion, one survivable tick at a time."""
+    """Drives a mission to completion, one survivable tick at a time.
 
-    def __init__(self, state_path: str | Path) -> None:
+    ``max_retries`` bounds the retry loop: a feature that keeps failing is marked
+    BLOCKED after this many attempts instead of being re-picked forever (the same
+    park-after-N protection the swarm path has). A block whose reason names an
+    operator requirement is terminal immediately — no point retrying a fork only a
+    human can resolve.
+
+    Single-writer contract: one orchestrator per ``state_path``. ``MissionState`` is
+    not file-locked (only the swarm's :class:`~aragora.missions.ledger.Ledger` is);
+    do not run a second orchestrator, or a swarm, against the same state file
+    concurrently. To hand off between the orchestrator and swarm modes, reconcile
+    first via :func:`aragora.missions.swarm.reconcile_from_ledger`.
+    """
+
+    def __init__(self, state_path: str | Path, *, max_retries: int = 3) -> None:
         self.state_path = Path(state_path)
+        self.max_retries = max_retries
 
     # ---- single tick ---------------------------------------------------------
 
@@ -100,11 +114,20 @@ class MissionOrchestrator:
 
         if handoff.success:
             state.mark_completed(feature_id)
-        elif handoff.blocked_reason:
-            state.mark_blocked(feature_id, handoff.blocked_reason)
+            return
+
+        # Failure: bound the retries so a persistently-failing feature can never
+        # starve the queue (the treadmill the swarm path also guards against).
+        feat.retry_count += 1
+        reason = handoff.blocked_reason or f"failed {feat.retry_count}x with no reason"
+        terminal = handoff.blocked_reason is not None and (
+            "operator" in handoff.blocked_reason.lower()
+            or "settlement" in handoff.blocked_reason.lower()
+        )
+        if terminal or feat.retry_count >= self.max_retries:
+            state.mark_blocked(feature_id, reason)
         else:
-            # No success, no explicit block → reset for retry.
-            feat.status = Status.PENDING
+            feat.status = Status.PENDING  # bounded retry
 
     # ---- run loop ------------------------------------------------------------
 

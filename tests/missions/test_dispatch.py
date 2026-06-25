@@ -22,12 +22,14 @@ class FakeGate:
         foreign: list[str] | None = None,
         verdict: GateVerdict | None = None,
         merge_ok: bool = True,
+        tier: int = 0,
     ) -> None:
         self.merged = merged
         self.head = head
         self.foreign = foreign or []
         self.verdict = verdict or GateVerdict(satisfied=True)
         self.merge_ok = merge_ok
+        self.tier = tier
         self.merge_calls: list[tuple[str, str]] = []
         self.evidence_calls = 0
 
@@ -42,6 +44,9 @@ class FakeGate:
 
     def foreign_commits(self, branch, base, allowed_prefixes):
         return list(self.foreign)
+
+    def tier_of(self, feature: Feature) -> int:
+        return self.tier
 
     def collect_evidence(self, branch, head):
         self.evidence_calls += 1
@@ -80,11 +85,12 @@ def test_foreign_commit_guard_blocks_before_evidence():
     assert gate.merge_calls == []
 
 
-def test_tier3_escalates_even_on_clean_quorum():
-    gate = FakeGate(verdict=GateVerdict(satisfied=True, tier=3))
+def test_tier3_escalates_before_spending_a_quorum():
+    gate = FakeGate(tier=3)
     handoff = BossLoopDispatch(gate)(_feat())
     assert not handoff.success
     assert "operator settlement" in handoff.blocked_reason
+    assert gate.evidence_calls == 0  # classified + escalated before collecting evidence
     assert gate.merge_calls == []  # never auto-settles a Tier-3 surface
 
 

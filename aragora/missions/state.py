@@ -46,6 +46,7 @@ class Feature:
     expected_behavior: list[str] = field(default_factory=list)
     fulfills: list[str] = field(default_factory=list)  # assertion ids (Phase B)
     worker_session_ids: list[str] = field(default_factory=list)
+    retry_count: int = 0  # failed dispatch attempts (bounds the orchestrator retry loop)
     notes: str = ""
 
     def __post_init__(self) -> None:

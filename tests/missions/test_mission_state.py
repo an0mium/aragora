@@ -149,3 +149,35 @@ def test_crash_mid_feature_resumes_no_loss(tmp_path):
 
     # f1/f2 done exactly once; f3 retried once after the crash; f4 once. No dupes.
     assert completed_calls == ["f1", "f2", "f3", "f4"]
+
+
+def test_orchestrator_caps_retries_instead_of_spinning(tmp_path):
+    """A success=False handoff with no reason must NOT re-pick the same feature
+    forever (the merge-gate-caught [P1])."""
+    p = tmp_path / "state.json"
+    _mission(2).save(p)
+    calls: list[str] = []
+
+    def always_fail_no_reason(feat):
+        calls.append(feat.id)
+        return Handoff(success=False)  # default blocked_reason=None — the dangerous case
+
+    MissionOrchestrator(p, max_retries=3).run(always_fail_no_reason)
+    final = MissionState.load(p)
+    assert final.get("f1").status == Status.BLOCKED  # parked after the cap, not spinning
+    assert final.get("f1").retry_count == 3
+    assert calls == ["f1", "f1", "f1", "f2", "f2", "f2"]  # bounded: 3 each, not 10_000
+
+
+def test_orchestrator_operator_block_is_terminal_immediately(tmp_path):
+    p = tmp_path / "state.json"
+    _mission(1).save(p)
+    calls: list[str] = []
+
+    def op_block(feat):
+        calls.append(feat.id)
+        return Handoff(success=False, blocked_reason="tier-3 operator settlement required")
+
+    MissionOrchestrator(p, max_retries=5).run(op_block)
+    assert MissionState.load(p).get("f1").status == Status.BLOCKED
+    assert calls == ["f1"]  # terminal fork — not retried 5x pointlessly

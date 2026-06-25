@@ -102,6 +102,32 @@ def test_select_skips_parked_feature(tmp_path):
     assert select_for(state, led, "wA", now=100.0) == "f2"  # f1 is skipped, not re-attempted
 
 
+def test_concurrent_claims_exactly_one_wins(tmp_path):
+    """The load-bearing property under real concurrency: 20 threads race for one
+    unit through the file lock; exactly one wins (no double-claim)."""
+    import threading
+
+    led = _ledger(tmp_path)
+    results: list[bool] = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(20)
+
+    def grab(i: int) -> None:
+        barrier.wait()  # maximize the race
+        won = led.claim("u1", f"w{i}")
+        with lock:
+            results.append(won)
+
+    threads = [threading.Thread(target=grab, args=(i,)) for i in range(20)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert results.count(True) == 1  # exactly one claimer wins the unit
+    assert len(led.active_claims()) == 1
+
+
 def test_select_respects_preconditions(tmp_path):
     state = MissionState(
         mission_id="t",

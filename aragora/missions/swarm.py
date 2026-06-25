@@ -21,7 +21,7 @@ from pathlib import Path
 
 from .ledger import Ledger, select_for
 from .orchestrator import Dispatch
-from .state import MissionState
+from .state import MissionState, Status
 
 logger = logging.getLogger(__name__)
 
@@ -82,3 +82,24 @@ def run_worker(
         ledger.release(unit, worker_id)
 
     return res
+
+
+def reconcile_from_ledger(state_path: str | Path, ledger_path: str | Path) -> int:
+    """Fold the swarm's ledger-recorded completions back into ``MissionState``.
+
+    In swarm mode the ledger is the source of truth for "done" (so no locked
+    MissionState is needed across workers); call this once afterward — from a
+    single writer — to make ``MissionState.progress()`` and any status reader
+    consistent with what the swarm actually finished. Returns the number of
+    features newly marked completed.
+    """
+    state = MissionState.load(state_path)
+    done = Ledger(ledger_path).done_units()
+    n = 0
+    for feat in state.features:
+        if feat.id in done and feat.status != Status.COMPLETED:
+            feat.status = Status.COMPLETED
+            n += 1
+    if n:
+        state.save(state_path)
+    return n

@@ -53,6 +53,8 @@ class FleetGate(Protocol):
         self, branch: str, base: str, allowed_prefixes: tuple[str, ...]
     ) -> list[str]: ...
 
+    def tier_of(self, feature: Feature) -> int: ...  # cheap classification, before evidence
+
     def collect_evidence(self, branch: str, head: str) -> GateVerdict: ...
 
     def merge_head_bound(self, branch: str, head: str) -> bool: ...
@@ -99,15 +101,16 @@ class BossLoopDispatch:
                 discovered=[f"foreign-commit guard tripped on {branch}"],
             )
 
-        verdict = self.gate.collect_evidence(branch, head)
-
-        # Tier-3+ surfaces are an operator fork, even on a clean quorum.
-        if verdict.tier >= self.operator_tier:
+        # Tier-3+ surfaces are an operator fork — classify first and escalate
+        # before spending an (expensive) quorum on something that can't auto-settle.
+        tier = self.gate.tier_of(feature)
+        if tier >= self.operator_tier:
             return Handoff(
                 success=False,
-                blocked_reason=f"tier-{verdict.tier} surface requires operator settlement (head {head})",
+                blocked_reason=f"tier-{tier} surface requires operator settlement (head {head})",
             )
 
+        verdict = self.gate.collect_evidence(branch, head)
         if not verdict.satisfied:
             return Handoff(
                 success=False,
