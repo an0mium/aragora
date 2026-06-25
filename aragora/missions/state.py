@@ -154,7 +154,9 @@ class MissionState:
             if feat.status != Status.PENDING:
                 continue
             unmet = [
-                p for p in feat.preconditions if p.startswith("feature:") and p[8:] not in completed
+                p
+                for p in feat.preconditions
+                if not (p.startswith("feature:") and p[8:] in completed)
             ]
             if unmet:
                 continue

@@ -91,6 +91,8 @@ class MissionOrchestrator:
         holding the fence once for the whole run.
         """
         with mission_owner_lock(self.state_path, exclusive=True):
+            if self.ledger_path is not None:
+                self._reconcile_ledger()
             return self._tick(dispatch)
 
     def _tick(self, dispatch: Dispatch) -> bool:

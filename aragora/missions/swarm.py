@@ -58,7 +58,13 @@ class _LeaseHeartbeat:
     def _beat(self) -> None:
         while not self._stop.wait(self._interval):
             try:
-                self._ledger.claim(self._unit, self._worker_id, ttl=self._ttl)
+                if not self._ledger.claim(self._unit, self._worker_id, ttl=self._ttl):
+                    logger.warning(
+                        "lease heartbeat for %s lost ownership to another worker",
+                        self._unit,
+                    )
+                    self._stop.set()
+                    return
             except Exception:  # noqa: BLE001 - a heartbeat must never crash the worker
                 logger.warning("lease heartbeat for %s failed; will retry next beat", self._unit)
 
@@ -153,24 +159,43 @@ def _run_worker_fenced(
         if handoff.success:
             # Atomic: done + notes + lease-release under ONE lock — no released-but-
             # not-done window for a concurrent claim_actionable to re-grab (the [P1]).
-            ledger.complete(unit, worker_id, discoveries=notes)
-            res.done.append(unit)
+            if ledger.complete(unit, worker_id, discoveries=notes):
+                res.done.append(unit)
+            else:
+                logger.warning(
+                    "worker %s discarded success for %s after losing the lease",
+                    worker_id,
+                    unit,
+                )
             continue
 
-        # Failure: record the discoveries, free the lease so a retry can re-claim,
-        # then park if the shared attempt budget is spent. Terminal blocks
-        # (operator-gated / re-derive) park immediately.
-        for note in notes:
-            ledger.record_discovery(unit, note)
-        ledger.release(unit, worker_id)
-        res.blocked.append(unit)
+        # Failure: record discoveries, optional park, and lease release as one owned
+        # transaction. Terminal blocks (operator-gated / re-derive) park immediately.
+        constraint_key = None
+        constraint_reason = None
+        parked = False
         if handoff.terminal or attempts >= park_threshold:
             kind = "terminal" if handoff.terminal else f"{attempts} blocks"
-            ledger.record_constraint(
-                f"feature:{unit}", f"parked ({kind}): {handoff.blocked_reason}"
+            constraint_key = f"feature:{unit}"
+            constraint_reason = f"parked ({kind}): {handoff.blocked_reason}"
+            parked = True
+        if ledger.fail(
+            unit,
+            worker_id,
+            discoveries=notes,
+            constraint_key=constraint_key,
+            constraint_reason=constraint_reason,
+        ):
+            res.blocked.append(unit)
+            if parked:
+                res.parked.append(unit)
+                logger.info("worker %s parked %s (%s)", worker_id, unit, kind)
+        else:
+            logger.warning(
+                "worker %s discarded failure for %s after losing the lease",
+                worker_id,
+                unit,
             )
-            res.parked.append(unit)
-            logger.info("worker %s parked %s (%s)", worker_id, unit, kind)
 
     return res
 

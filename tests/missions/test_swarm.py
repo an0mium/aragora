@@ -208,6 +208,23 @@ def test_lease_heartbeat_keeps_a_long_dispatch_claim_alive(tmp_path):
     assert led.active_claims() == {}
 
 
+def test_worker_discards_success_after_losing_lease(tmp_path):
+    """If a long-running dispatch loses its lease, its eventual success is stale and
+    must not mark the unit done."""
+    sp, lp = _mission(tmp_path, 1)
+
+    def dispatch(feat):
+        led = Ledger(lp)
+        led.claim(feat.id, "other", now=time.time() + 3600.0)  # steal expired lease
+        return Handoff(success=True, discovered=["stale success"])
+
+    res = run_worker(sp, lp, "w1", dispatch, max_units=1)
+    assert res.done == []
+    led = Ledger(lp)
+    assert led.is_done("f1") is False
+    assert led.discoveries() == {}
+
+
 def test_reconcile_does_not_revert_completed_to_blocked(tmp_path):
     """claude [P3]: a feature already COMPLETED in state must not be downgraded to
     BLOCKED by a stale active park constraint on the same id."""

@@ -168,6 +168,41 @@ def test_precondition_gating():
     assert m.next_pending().id == "a"
 
 
+def test_unknown_precondition_is_not_silently_satisfied():
+    m = MissionState(
+        mission_id="t",
+        goal="g",
+        milestones=["m1"],
+        features=[
+            Feature(id="a", description="", milestone="m1", preconditions=["assertion:ready"]),
+            Feature(id="b", description="", milestone="m1"),
+        ],
+    )
+    assert m.next_pending().id == "b"
+
+
+def test_public_tick_reconciles_ledger_when_configured(tmp_path):
+    """A hand-rolled tick loop with ledger_path should still fold ledger-done work
+    before dispatching, matching run()'s swarm→orchestrator handoff behavior."""
+    from aragora.missions.ledger import Ledger
+
+    p = tmp_path / "state.json"
+    lp = tmp_path / "ledger.json"
+    _mission(2).save(p)
+    Ledger(lp).record_done("f1")
+    seen: list[str] = []
+
+    def dispatch(feat):
+        seen.append(feat.id)
+        return Handoff(success=True)
+
+    assert MissionOrchestrator(p, ledger_path=lp).tick(dispatch) is True
+    assert seen == ["f2"]
+    final = MissionState.load(p)
+    assert final.get("f1").status == Status.COMPLETED
+    assert final.get("f2").status == Status.COMPLETED
+
+
 def test_insert_followup_extends_queue():
     m = _mission(2)
     m.insert_feature(Feature(id="f1.5", description="follow", milestone="m1"), before="f2")

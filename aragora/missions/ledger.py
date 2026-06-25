@@ -145,13 +145,15 @@ class Ledger:
             self._save(data)
             return True
 
-    def release(self, unit: str, worker_id: str) -> None:
+    def release(self, unit: str, worker_id: str) -> bool:
         with self._locked():
             data = self._load()
             held = data.leases.get(unit)
             if held and held.worker_id == worker_id:
                 del data.leases[unit]
                 self._save(data)
+                return True
+            return False
 
     def active_claims(self, *, now: float | None = None) -> dict[str, str]:
         """unit -> worker_id for all non-expired leases (lock-free read)."""
@@ -217,7 +219,7 @@ class Ledger:
             data.done.add(unit)
             self._save(data)
 
-    def complete(self, unit: str, worker_id: str, *, discoveries: list[str] | None = None) -> None:
+    def complete(self, unit: str, worker_id: str, *, discoveries: list[str] | None = None) -> bool:
         """Atomically finish ``unit``: mark done, fold any discovery notes, and drop
         the worker's lease — **all under one lock**.
 
@@ -225,20 +227,65 @@ class Ledger:
         and ``release`` are separate calls, there is an instant where the unit is
         released-but-not-done, and a concurrent ``claim_actionable`` (which checks
         done + constraint + lease) re-grabs the just-finished unit. Doing all three
-        in a single locked transaction closes that window structurally.
+        in a single locked transaction closes that window structurally. The outcome
+        is applied only if ``worker_id`` still owns the lease; a worker whose lease
+        lapsed and was claimed by another process must not mark stale work done.
         """
         with self._locked():
             data = self._load()
+            held = data.leases.get(unit)
+            if not held or held.worker_id != worker_id:
+                return False
             data.done.add(unit)
             if discoveries:
                 notes = data.discoveries.setdefault(unit, [])
                 for note in discoveries:
                     if note not in notes:
                         notes.append(note)
-            held = data.leases.get(unit)
-            if held and held.worker_id == worker_id:
-                del data.leases[unit]
+            del data.leases[unit]
             self._save(data)
+            return True
+
+    def fail(
+        self,
+        unit: str,
+        worker_id: str,
+        *,
+        discoveries: list[str] | None = None,
+        constraint_key: str | None = None,
+        constraint_reason: str | None = None,
+        constraint_ttl: float = 0.0,
+        now: float | None = None,
+    ) -> bool:
+        """Atomically finish a failed attempt owned by ``worker_id``.
+
+        Optional discovery notes, optional park constraint, and lease release happen
+        in one locked transaction. This avoids the failure-path window where a worker
+        releases a repeatedly-blocking unit before recording the park, allowing one
+        extra claimant to slip in. Returns False if the caller no longer owns the
+        lease, in which case no stale outcome is recorded.
+        """
+        now = time.time() if now is None else now
+        with self._locked():
+            data = self._load()
+            held = data.leases.get(unit)
+            if not held or held.worker_id != worker_id:
+                return False
+            if discoveries:
+                notes = data.discoveries.setdefault(unit, [])
+                for note in discoveries:
+                    if note not in notes:
+                        notes.append(note)
+            if constraint_key and constraint_reason:
+                data.constraints[constraint_key] = Constraint(
+                    key=constraint_key,
+                    reason=constraint_reason,
+                    recorded_at=now,
+                    ttl=constraint_ttl,
+                )
+            del data.leases[unit]
+            self._save(data)
+            return True
 
     def is_done(self, unit: str) -> bool:
         return unit in self._load().done
@@ -339,7 +386,7 @@ def select_for(
 ) -> str | None:
     """Stigmergic pickup: atomic-claim the first available feature for ``worker_id``.
 
-    "Available" = pending, preconditions met, not done (in state OR the ledger),
+    "Available" = pending, known preconditions met, not done (in state OR the ledger),
     not parked (active constraint), and not claimed by another worker.
     Returns the claimed feature id, or None if nothing is available to *this* worker.
 
@@ -363,7 +410,7 @@ def select_for(
         # with the swarm via the owner fence), so a worker must never grab it.
         if feat.status != Status.PENDING or feat.id in done:
             continue
-        unmet = [p for p in feat.preconditions if p.startswith("feature:") and p[8:] not in done]
+        unmet = [p for p in feat.preconditions if not (p.startswith("feature:") and p[8:] in done)]
         if unmet:
             continue
         # Atomic claim: not-done / not-parked / not-claimed is re-checked under the

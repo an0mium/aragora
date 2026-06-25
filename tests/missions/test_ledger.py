@@ -80,12 +80,66 @@ def test_complete_records_done_and_releases_atomically(tmp_path):
     single lock — so there is no released-but-not-done window to re-claim."""
     led = _ledger(tmp_path)
     led.claim("u1", "w1", now=100.0)
-    led.complete("u1", "w1", discoveries=["found x"])
+    assert led.complete("u1", "w1", discoveries=["found x"]) is True
     assert led.is_done("u1") is True
     assert led.active_claims(now=100.0) == {}  # lease dropped in the same transaction
     assert led.discoveries() == {"u1": ["found x"]}
     # A concurrent worker cannot claim it afterward — it is done.
     assert led.claim_actionable("u1", "w2", constraint_key="feature:u1") is False
+
+
+def test_complete_refuses_lost_lease(tmp_path):
+    """A worker whose lease expired and was claimed by another worker must not record
+    a stale success outcome after its dispatch returns."""
+    led = _ledger(tmp_path)
+    led.claim("u1", "w1", ttl=1.0, now=100.0)
+    assert led.claim("u1", "w2", now=102.0) is True
+    assert led.complete("u1", "w1", discoveries=["stale success"]) is False
+    assert led.is_done("u1") is False
+    assert led.discoveries() == {}
+    assert led.active_claims(now=102.0) == {"u1": "w2"}
+
+
+def test_fail_records_park_and_release_atomically(tmp_path):
+    """A repeated blocker should become parked in the same locked transaction that
+    releases its lease, so no extra claimant can slip in between release and park."""
+    led = _ledger(tmp_path)
+    led.claim("u1", "w1", now=100.0)
+    assert (
+        led.fail(
+            "u1",
+            "w1",
+            discoveries=["blocked note"],
+            constraint_key="feature:u1",
+            constraint_reason="parked: persistent",
+            now=101.0,
+        )
+        is True
+    )
+    assert led.active_claims(now=101.0) == {}
+    assert led.is_excluded("feature:u1", now=101.0) is True
+    assert led.claim_actionable("u1", "w2", constraint_key="feature:u1", now=101.0) is False
+    assert led.discoveries() == {"u1": ["blocked note"]}
+
+
+def test_fail_refuses_lost_lease(tmp_path):
+    led = _ledger(tmp_path)
+    led.claim("u1", "w1", ttl=1.0, now=100.0)
+    assert led.claim("u1", "w2", now=102.0) is True
+    assert (
+        led.fail(
+            "u1",
+            "w1",
+            discoveries=["stale failure"],
+            constraint_key="feature:u1",
+            constraint_reason="parked stale",
+            now=102.0,
+        )
+        is False
+    )
+    assert led.is_excluded("feature:u1", now=102.0) is False
+    assert led.discoveries() == {}
+    assert led.active_claims(now=102.0) == {"u1": "w2"}
 
 
 def test_constraint_ttl_evaporates(tmp_path):
@@ -213,3 +267,17 @@ def test_select_respects_preconditions(tmp_path):
     )
     led = _ledger(tmp_path)
     assert select_for(state, led, "wA", now=100.0) == "b"  # gated 'a' is not claimable yet
+
+
+def test_select_treats_unknown_preconditions_as_unmet(tmp_path):
+    state = MissionState(
+        mission_id="t",
+        goal="g",
+        milestones=["m1"],
+        features=[
+            Feature(id="a", description="", milestone="m1", preconditions=["assertion:ready"]),
+            Feature(id="b", description="", milestone="m1"),
+        ],
+    )
+    led = _ledger(tmp_path)
+    assert select_for(state, led, "wA", now=100.0) == "b"
