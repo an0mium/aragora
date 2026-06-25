@@ -6447,6 +6447,35 @@ class TestCommandDispatch:
         assert payload["would_count"] is False
         assert "untrusted_or_non_supportive_verdict" in payload["problems"]
 
+    def test_evidence_lint_rejects_no_verdict_model_evidence_with_soft_dissent(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                heading="## OpenAI independent model review",
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Supportive with fixes.\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                ),
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert "untrusted_or_non_supportive_verdict" in payload["problems"]
+
     def test_evidence_lint_rejects_pass_on_wording_as_supportive_verdict(self) -> None:
         ns = argparse.Namespace(
             review_queue_command="evidence-lint",

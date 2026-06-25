@@ -871,6 +871,8 @@ def _open_tail_has_blocking_or_negative_signal(text: str) -> bool:
         return False
     if _text_has_concrete_blocking_signal(text):
         return True
+    if has_unlabeled_soft_dissent_phrase(_strip_thinking_tags(text)):
+        return True
     trusted = _trusted_parser_text(text.splitlines(keepends=True))
     return has_blocking_or_negative_verdict(
         trusted

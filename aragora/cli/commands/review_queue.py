@@ -3705,11 +3705,9 @@ def _has_any_verdict_label_line(body: str) -> bool:
     )
 
 
-def _has_unlabeled_soft_dissent_after_supportive_verdict(body: str) -> bool:
-    """Detect prose-only caveats after an otherwise supportive verdict label."""
+def _has_trusted_unlabeled_soft_dissent(body: str) -> bool:
+    """Detect prose-only caveats in trusted reviewer text."""
 
-    if not _has_trusted_supportive_verdict_label(body):
-        return False
     in_fence = False
     for raw_line in _split_reasoning_tags_for_verdict_scan(str(body or "")).splitlines():
         stripped = raw_line.strip()
@@ -3728,6 +3726,32 @@ def _has_unlabeled_soft_dissent_after_supportive_verdict(body: str) -> bool:
         if _has_unlabeled_soft_dissent_phrase(line):
             return True
     return False
+
+
+def _has_unlabeled_soft_dissent_after_supportive_verdict(body: str) -> bool:
+    """Detect prose-only caveats after an otherwise supportive verdict label."""
+
+    return _has_trusted_supportive_verdict_label(body) and _has_trusted_unlabeled_soft_dissent(body)
+
+
+def _has_evidence_review_trigger(body: str) -> bool:
+    lower = str(body or "").lower()
+    return any(
+        token in lower
+        for token in (
+            "dogfood",
+            "adversarial",
+            "cross-author",
+            "recheck",
+            "codex review",
+            "claude review",
+            "grok independent",
+            "gemini independent",
+            "independent semantic review",
+            "independent model review",
+            "model-family semantic signal",
+        )
+    )
 
 
 def _trusted_verdict_label_values(body: str) -> list[str]:
@@ -3779,7 +3803,9 @@ def _has_trusted_supportive_verdict_label(body: str) -> bool:
 def _has_untrusted_or_non_supportive_verdict_label(body: str) -> bool:
     trusted_values = _trusted_verdict_label_values(body)
     untrusted_values = _untrusted_verdict_label_values(body)
-    if _has_unlabeled_soft_dissent_after_supportive_verdict(body):
+    if _has_trusted_unlabeled_soft_dissent(body) and (
+        _has_trusted_supportive_verdict_label(body) or _has_evidence_review_trigger(body)
+    ):
         return True
     if any(
         not _normalized_verdict_label_is_supportive(_normalize_verdict_label_value(value))

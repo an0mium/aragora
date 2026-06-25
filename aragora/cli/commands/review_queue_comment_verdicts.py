@@ -366,8 +366,13 @@ def has_unlabeled_soft_dissent_phrase(text: str) -> bool:
         if not stripped:
             continue
         line = re.sub(r"^(?:[#\-*+]+\s+|\d+[.)]\s+)+", "", stripped)
-        if _UNLABELED_SOFT_DISSENT_RE.match(_normalize_value(line)):
+        normalized = _normalize_value(line)
+        if _UNLABELED_SOFT_DISSENT_RE.match(normalized):
             return True
+        for prefix in SUPPORTIVE_VERDICT_PREFIXES:
+            match = re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
+            if match and SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE.match(normalized[match.end() :]):
+                return True
     return False
 
 

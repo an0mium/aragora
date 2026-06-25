@@ -252,6 +252,9 @@ def test_reasoning_tags_do_not_hide_same_line_priority_finding():
     [
         "<thinking>Supportive with fixes.</thinking>",
         "<analysis>\nPASS with conditions.\n</analysis>",
+        "LGTM but the fallback can still count conditional evidence.",
+        "Approved but the unclosed reasoning tail is still stripped.",
+        "Looks good but this needs a parser repair first.",
     ],
 )
 def test_reasoning_tags_do_not_hide_unlabeled_soft_dissent_phrase(body):
@@ -260,6 +263,7 @@ def test_reasoning_tags_do_not_hide_unlabeled_soft_dissent_phrase(body):
 
 def test_unlabeled_soft_dissent_phrase_accepts_plain_no_finding_prose():
     assert not has_unlabeled_soft_dissent_phrase("Verdict: PASS\nNo findings.")
+    assert not has_unlabeled_soft_dissent_phrase("No SQL injection or auth bypass found.")
 
 
 @pytest.mark.parametrize(

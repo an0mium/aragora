@@ -1291,6 +1291,43 @@ def test_closed_thinking_soft_dissent_is_preserved_and_blocks(
     assert "untrusted_or_non_supportive_verdict" in result["problems"]
 
 
+@pytest.mark.parametrize(
+    "thinking_tail",
+    [
+        "<thinking>\nSupportive with fixes.",
+        "<analysis>\nLGTM but the evidence body is still conditional.",
+    ],
+)
+def test_unclosed_thinking_soft_dissent_is_preserved_and_blocks(
+    thinking_tail: str,
+) -> None:
+    from aragora.cli.commands.review_queue import _lint_evidence_comment
+    from aragora.swarm.quorum_evidence import compose_evidence_comment, normalize_reviewer_output
+
+    raw = f"Verdict: PASS\nNo findings.\n{thinking_tail}"
+
+    out = normalize_reviewer_output(raw)
+
+    assert "with fixes" in out or "LGTM but" in out
+    body = compose_evidence_comment(
+        family="qwen",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        pr=7740,
+        reviewer_text=raw,
+    )
+    result = _lint_evidence_comment(
+        pr="7740",
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        body=body,
+        author="an0mium",
+        source="test",
+    )
+    assert result["would_count"] is False
+    assert "untrusted_or_non_supportive_verdict" in result["problems"]
+
+
 def test_closed_thinking_parenthetical_priority_finding_is_preserved() -> None:
     from aragora.swarm.quorum_evidence import normalize_reviewer_output
 
