@@ -2042,6 +2042,31 @@ def _align_owner_state_with_liveness(payload: dict[str, Any]) -> None:
         payload["owner_state_reason"] = (
             "active lane has current owner lease evidence; matched harness heartbeat is stale"
         )
+    else:
+        return
+
+    payload["recommended_operator_action"] = (
+        "route work through owner_session; do not cleanup without owner release"
+    )
+
+
+def _info_with_aligned_owner_state(
+    info: LaneOwnerInfo, liveness_payload: dict[str, Any] | None
+) -> tuple[LaneOwnerInfo, dict[str, Any]]:
+    """Return display-ready owner fields after liveness alignment."""
+
+    payload = dataclasses.asdict(info)
+    if liveness_payload is not None:
+        payload.update(liveness_payload)
+        _align_owner_state_with_liveness(payload)
+
+    aligned_info = dataclasses.replace(
+        info,
+        cleanup_state=payload["cleanup_state"],
+        owner_state_reason=payload["owner_state_reason"],
+        recommended_operator_action=payload["recommended_operator_action"],
+    )
+    return aligned_info, payload
 
 
 # ---------------------------------------------------------------------------
@@ -2266,16 +2291,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     local_work_preservation=local_work_preservation,
                 )
 
+    output_info, payload = _info_with_aligned_owner_state(info, liveness_payload)
+
     if args.json:
-        payload = dataclasses.asdict(info)
-        if liveness_payload is not None:
-            payload.update(liveness_payload)
-            _align_owner_state_with_liveness(payload)
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
-        _print_human(info)
+        _print_human(output_info)
         if liveness_payload is not None:
-            _print_liveness_summary(liveness_payload)
+            _print_liveness_summary(payload)
 
     return 0
 

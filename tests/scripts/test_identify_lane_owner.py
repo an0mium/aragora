@@ -2043,7 +2043,9 @@ class TestWorktreeReferencePreservationProof:
 
 
 class TestLivenessCLI:
-    def _cli_args(self, registry: Path, tmp_path: Path) -> list[str]:
+    def _cli_args(
+        self, registry: Path, tmp_path: Path, *, heartbeat_path: Path | None = None
+    ) -> list[str]:
         return [
             "--registry-path",
             str(registry),
@@ -2056,7 +2058,7 @@ class TestLivenessCLI:
             "--steering-inbox-root",
             str(tmp_path / "no_steering"),
             "--heartbeat-path",
-            str(tmp_path / "no_heartbeats.json"),
+            str(heartbeat_path or tmp_path / "no_heartbeats.json"),
         ]
 
     def _stale_fixture(self, tmp_path: Path) -> tuple[Path, str]:
@@ -2086,6 +2088,25 @@ class TestLivenessCLI:
             ],
         )
         return registry, runs_glob
+
+    def _stale_heartbeat_fixture(self, tmp_path: Path) -> tuple[Path, str, Path]:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "lane_id": "Q379-stale-owner",
+                        "owner_session": "codex-q379",
+                        "branch": "codex/q379",
+                        "pr_number": 7825,
+                        "last_seen_at": _hours_ago(1.0),
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+        return registry, runs_glob, heartbeat_path
 
     def test_json_includes_owner_liveness_and_advisory(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -2211,6 +2232,69 @@ class TestLivenessCLI:
         assert data["owner_state_reason"] == (
             "active lane has current owner lease evidence; no matched harness heartbeat row"
         )
+        assert data["recommended_operator_action"] == (
+            "route work through owner_session; do not cleanup without owner release"
+        )
+
+    def test_live_lease_with_stale_heartbeat_reports_preserve_live_owner(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob, heartbeat_path = self._stale_heartbeat_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--json",
+                "--runs-glob",
+                runs_glob,
+                "--now",
+                LIVENESS_NOW,
+                "--stale-hours",
+                "8",
+                *self._cli_args(registry, tmp_path, heartbeat_path=heartbeat_path),
+            ]
+        )
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["owner_liveness"]["assessed"] == "live"
+        assert data["owner_blocking_state"] == "live_owner"
+        assert data["liveness_state"] == "stale_heartbeat"
+        assert data["cleanup_state"] == "preserve_live_owner"
+        assert data["owner_state_reason"] == (
+            "active lane has current owner lease evidence; matched harness heartbeat is stale"
+        )
+        assert data["recommended_operator_action"] == (
+            "route work through owner_session; do not cleanup without owner release"
+        )
+
+    def test_human_output_uses_liveness_aligned_owner_state(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        rc = ilo.main(
+            [
+                "--lane-id",
+                "Q379-stale-owner",
+                "--runs-glob",
+                runs_glob,
+                "--now",
+                LIVENESS_NOW,
+                "--stale-hours",
+                "8",
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "cleanup_state:  preserve_live_owner" in out
+        assert (
+            "owner_reason:   active lane has current owner lease evidence; "
+            "no matched harness heartbeat row"
+        ) in out
+        assert (
+            "recommended_action: route work through owner_session; "
+            "do not cleanup without owner release"
+        ) in out
 
     def test_no_liveness_output_is_byte_identical_to_legacy_schema(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
