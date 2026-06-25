@@ -207,7 +207,7 @@ def test_exact_open_pr_representation_does_not_hide_owner_noise(tmp_path: Path) 
                 {
                     "number": 8570,
                     "state": "open",
-                    "draft": True,
+                    "draft": False,
                     "html_url": "https://github.com/synaptent/aragora/pull/8570",
                     "head": {"ref": "codex/example", "sha": HEAD},
                 }
@@ -242,7 +242,7 @@ def test_exact_open_pr_representation_is_safe_without_owner_blockers(tmp_path: P
                 {
                     "number": 8570,
                     "state": "open",
-                    "draft": True,
+                    "draft": False,
                     "html_url": "https://github.com/synaptent/aragora/pull/8570",
                     "head": {"ref": "codex/example", "sha": HEAD},
                 }
@@ -254,6 +254,29 @@ def test_exact_open_pr_representation_is_safe_without_owner_blockers(tmp_path: P
 
     assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
     assert item["safe_to_mutate"] is True
+
+
+def test_exact_draft_open_pr_representation_is_not_safe_to_mutate(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": True,
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["next_mutation_candidate"] == "none"
+    assert item["safe_to_mutate"] is False
 
 
 def test_open_pr_without_desired_head_fails_closed(tmp_path: Path) -> None:
@@ -474,6 +497,36 @@ def test_conflicting_local_evidence_records_fail_closed(tmp_path: Path) -> None:
     assert "multiple local_evidence records" in item["reason"]
 
 
+def test_conflicting_local_evidence_alias_records_fail_closed(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        local_evidence=[
+            {"branch": "codex/example", "target_head_sha": HEAD, "base_ref_name": "main"},
+            {"branch": "codex/example", "headRefOid": OTHER_HEAD, "baseRefName": "release"},
+        ],
+    )
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "main"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert "multiple local_evidence records" in item["reason"]
+
+
 def test_terminal_receipts_choose_newest_by_timestamp_not_filename(tmp_path: Path) -> None:
     receipts = tmp_path / ".aragora" / "automation-receipts"
     receipts.mkdir(parents=True, exist_ok=True)
@@ -674,7 +727,7 @@ def test_stale_owner_remote_exact_head_is_represented_by_remote_branch(
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
 
 
-def test_remote_exact_head_representation_wins_over_open_pr_cap(
+def test_remote_exact_head_respects_open_pr_cap(
     tmp_path: Path,
 ) -> None:
     _write_status_cache(tmp_path, open_pr_cap_reached=True)
@@ -685,10 +738,9 @@ def test_remote_exact_head_representation_wins_over_open_pr_cap(
 
     item = _classify_one(tmp_path, github=github)
 
-    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH.value
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
-    assert item["next_mutation_candidate"] == "represent_or_publish_remote_branch"
-    assert item["safe_to_mutate"] is True
+    assert item["next_mutation_candidate"] == "queue_drain"
 
 
 def test_remote_exact_head_representation_survives_pr_lookup_degradation(
@@ -705,6 +757,32 @@ def test_remote_exact_head_representation_survives_pr_lookup_degradation(
 
     assert item["state"] == mod.HandoffState.UNKNOWN.value
     assert item["evidence"]["github"]["mode"] == "degraded"
+    assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
+
+
+def test_remote_exact_head_with_mismatched_open_pr_stays_publication_requested(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 9000,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": "codex/example", "sha": OTHER_HEAD},
+                }
+            ]
+        },
+        refs={"codex/example": {"ref": "refs/heads/codex/example", "object": {"sha": HEAD}}},
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["github"]["exact_open_pr"] is None
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
 
 
@@ -1582,6 +1660,21 @@ def test_cli_fail_on_unsafe_state_rejects_partial_github_even_when_items_look_sa
                 "state": "represented_by_exact_open_pr",
                 "next_mutation_candidate": "write_representation_receipt_then_archive",
                 "safe_to_mutate": True,
+            }
+        ],
+    }
+
+    assert cli._has_unsafe_state(payload) is True  # noqa: SLF001
+
+
+def test_cli_fail_on_unsafe_state_rejects_preserved_not_actionable() -> None:
+    payload = {
+        "github": {"mode": "ready"},
+        "items": [
+            {
+                "state": "preserved_not_actionable",
+                "next_mutation_candidate": "none",
+                "safe_to_mutate": False,
             }
         ],
     }

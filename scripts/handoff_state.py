@@ -709,6 +709,16 @@ def classify_handoff_item(
                 evidence=evidence,
                 next_mutation_candidate="owner_followup",
             )
+        if github.exact_open_pr.get("draft") is True:
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.REPRESENTED_BY_EXACT_OPEN_PR,
+                reason=f"branch has exact-head draft open PR #{number}",
+                evidence=evidence,
+            )
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
@@ -766,6 +776,39 @@ def classify_handoff_item(
                 state=HandoffState.UNKNOWN,
                 reason="GitHub PR evidence is unavailable; cannot prove absence of exact open PR",
                 evidence=evidence,
+            )
+        if github.open_prs and is_pr_publication_request(payload):
+            if queue_cap.open_pr_cap_reached:
+                return HandoffClassification(
+                    outbox_file=path.name,
+                    idempotency_key=idem,
+                    branch=branch,
+                    desired_head_sha=desired_head or None,
+                    state=HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP,
+                    reason="remote branch is exact but existing open PR is not exact and open PR cap is reached",
+                    evidence=evidence,
+                    next_mutation_candidate="queue_drain",
+                )
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.PUBLICATION_REQUESTED,
+                reason="remote branch is exact but existing open PR head does not match desired head",
+                evidence=evidence,
+                next_mutation_candidate="publish_or_represent_pr",
+            )
+        if queue_cap.open_pr_cap_reached and is_pr_publication_request(payload):
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP,
+                reason="remote branch is exact but live cache reports open PR cap reached",
+                evidence=evidence,
+                next_mutation_candidate="queue_drain",
             )
         return HandoffClassification(
             outbox_file=path.name,
@@ -1211,40 +1254,8 @@ def local_evidence_conflict_reason(payload: Mapping[str, Any]) -> str | None:
         for record in records
         if str(record.get("branch") or "").strip()
     }
-    heads = {
-        str(
-            record.get("desired_head_sha")
-            or record.get("head_sha")
-            or record.get("head")
-            or record.get("commit")
-            or ""
-        ).strip()
-        for record in records
-        if str(
-            record.get("desired_head_sha")
-            or record.get("head_sha")
-            or record.get("head")
-            or record.get("commit")
-            or ""
-        ).strip()
-    }
-    bases = {
-        str(
-            record.get("base")
-            or record.get("base_ref")
-            or record.get("target_base")
-            or record.get("base_branch")
-            or ""
-        ).strip()
-        for record in records
-        if str(
-            record.get("base")
-            or record.get("base_ref")
-            or record.get("target_base")
-            or record.get("base_branch")
-            or ""
-        ).strip()
-    }
+    heads = {value for record in records if (value := _first_text(record, *HEAD_FIELD_KEYS))}
+    bases = {value for record in records if (value := _first_text(record, *BASE_FIELD_KEYS))}
     if len(branches) > 1 or len(heads) > 1 or len(bases) > 1:
         return "multiple local_evidence records disagree on branch, head, or base"
     return None

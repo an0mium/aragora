@@ -96,7 +96,7 @@ def _has_unsafe_state(payload: dict) -> bool:
     for item in payload.get("items") or []:
         if not isinstance(item, dict):
             return True
-        if item.get("state") == "unknown":
+        if item.get("state") in {"unknown", "preserved_not_actionable"}:
             return True
         if item.get("next_mutation_candidate") != "none" and item.get("safe_to_mutate") is not True:
             return True
