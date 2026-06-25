@@ -1111,6 +1111,69 @@ def test_reconcile_keeps_existing_pr_receipt_when_desired_head_not_published(
     assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
 
 
+def test_reconcile_keeps_existing_pr_receipt_when_requested_base_differs_from_reconciler_base(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    receipt_dir = tmp_path / ".aragora" / "automation-receipts"
+    key = "open-pr-codex-existing-pr-feature-base"
+    branch = "codex/existing-pr-feature-base"
+    desired_head = "abcdef1234567890abcdef1234567890abcdef12"
+    handoff = _write_outbox_handoff(
+        outbox_dir,
+        branch=branch,
+        key=key,
+        local_evidence={
+            "branch": branch,
+            "desired_head_sha": desired_head,
+        },
+    )
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload["requested_action"] = {
+        "type": "open_pr",
+        "branch": branch,
+        "base": "codex/integration",
+        "desired_head_sha": desired_head,
+    }
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+    receipt_dir.mkdir(parents=True)
+    (receipt_dir / f"{key}.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "already_satisfied",
+                "reason": "existing_pr",
+                "existing_pr_url": "https://github.com/synaptent/aragora/pull/7475",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_target_pr_state", lambda *_args: None)
+    monkeypatch.setattr(
+        mod,
+        "run_git",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("base-mismatched existing PR receipt should not inspect git refs")
+        ),
+    )
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+
+    assert mod.main(["--repo", str(tmp_path), "--base", "origin/main", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["counts"]["blocked_receipt_pr_head_mismatch"] == 1
+    assert payload["counts"]["satisfied_by_existing_receipt"] == 0
+    assert payload["counts"]["still_protecting_active_work"] == 1
+    assert payload["actions"][0]["decision"] == "keep"
+    assert "existing_pr receipt targets base codex/integration" in payload["actions"][0]["reason"]
+    assert "not reconciler base origin/main" in payload["actions"][0]["reason"]
+    assert handoff.exists()
+    assert not (tmp_path / ".aragora" / "automation-outbox-archive").exists()
+
+
 def test_reconcile_archives_target_pr_receipt_when_pr_merged_at_desired_head(
     tmp_path: Path,
     monkeypatch: Any,

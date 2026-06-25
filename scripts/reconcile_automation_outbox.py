@@ -1066,6 +1066,13 @@ def _receipt_handoff_keep_reason(
         return None
     receipt_label = f"{reason} receipt"
 
+    requested_base = _requested_base_from_payload(payload) or base
+    if not _handoff_base_matches_reconciler(payload, base):
+        return (
+            f"{receipt_label} targets base {requested_base or 'unknown'}, "
+            f"not reconciler base {base}"
+        )
+
     handled, keep_reason = _merged_target_pr_receipt_resolution(
         root, repo_name, payload, receipt, base, branch
     )
