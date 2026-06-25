@@ -3694,7 +3694,7 @@ _SUPPORTIVE_VERDICT_PREFIXES = (
 _SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE = re.compile(
     r"^[\s,.;:—–-]*(?:"
     r"but\b|except\b|pending\b|if\b|once\b|"
-    r"with\s+(?:notes?|reservations?|caveats?)\b|"
+    r"with\s+(?:notes?|reservations?|caveats?|conditions?|fix(?:es)?)\b|"
     r"after\s+(?:fix(?:es|ing)?|repair(?:s|ing)?|changes?|addressing|resolving)\b|"
     r"needs?\b|requires?\b|subject\s+to\b"
     r")",

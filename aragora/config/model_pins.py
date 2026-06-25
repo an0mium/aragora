@@ -238,6 +238,12 @@ _LEGACY_UPGRADES: Final[dict[str, tuple[str, str]]] = {
     ),
     "google/gemini-2.5-pro": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
     "google/gemini-2.5-flash": (GEMINI_31_PRO_DIRECT, GEMINI_31_PRO_VIA_OPENROUTER),
+    # Qwen reviewer/evaluator routes -> current non-thinking OpenRouter route.
+    "qwen/qwen3-235b-a22b": (QWEN_235B_VIA_OPENROUTER, QWEN_235B_VIA_OPENROUTER),
+    "qwen/qwen3-235b-a22b-thinking-2507": (
+        QWEN_235B_VIA_OPENROUTER,
+        QWEN_235B_VIA_OPENROUTER,
+    ),
 }
 
 

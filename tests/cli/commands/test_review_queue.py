@@ -6338,6 +6338,8 @@ class TestCommandDispatch:
             ("no findings but auth bypass remains", "blocking_or_negative_verdict"),
             ("no changes requested except failing tests", "untrusted_or_non_supportive_verdict"),
             ("PASS with notes", "untrusted_or_non_supportive_verdict"),
+            ("PASS with conditions", "untrusted_or_non_supportive_verdict"),
+            ("PASS with fixes", "untrusted_or_non_supportive_verdict"),
         ],
     )
     def test_evidence_lint_rejects_qualified_supportive_verdict_labels(
@@ -6369,6 +6371,38 @@ class TestCommandDispatch:
         assert rc == 1
         assert payload["would_count"] is False
         assert expected_problem in payload["problems"]
+
+    def test_evidence_lint_supportive_label_matches_quorum_verdict_parser(self) -> None:
+        from aragora.swarm.quorum_evidence import _reviewer_verdict
+
+        body = _codex_openai_body(
+            body=(
+                "PR: #7445\n"
+                "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                "Verdict: approve.\n"
+                "Focused adversarial dogfood: I reviewed the exact-head diff."
+            )
+        )
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=body,
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 0
+        assert payload["would_count"] is True
+        assert payload["counted_reviewer_ids"] == ["openai"]
+        assert _reviewer_verdict(body) == "pass"
 
     @pytest.mark.parametrize(
         "secondary_line",

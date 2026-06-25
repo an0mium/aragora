@@ -12,6 +12,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from aragora.config import model_pins
 
 
@@ -41,6 +43,16 @@ class TestAliasesMatchFrontier:
 
     def test_gemini_3_1_pro_matches_direct(self) -> None:
         assert model_pins.GEMINI_3_1_PRO == model_pins.GEMINI_31_PRO_DIRECT
+
+    @pytest.mark.parametrize(
+        "legacy",
+        [
+            "qwen/qwen3-235b-a22b",
+            "qwen/qwen3-235b-a22b-thinking-2507",
+        ],
+    )
+    def test_qwen_legacy_reviewer_routes_upgrade_to_countable_instruct(self, legacy: str) -> None:
+        assert model_pins.upgrade_legacy_pin(legacy) == model_pins.QWEN_235B_VIA_OPENROUTER
 
 
 class TestAliasesInAll:

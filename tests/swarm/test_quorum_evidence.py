@@ -3928,6 +3928,35 @@ def test_default_openrouter_reviewer_slugs_are_countable():
         assert family in result["counted_reviewer_ids"]
 
 
+@pytest.mark.parametrize(
+    "verdict_line",
+    [
+        "Verdict: approve.",
+        "Verdict: LGTM",
+        "Recommendation: looks good.",
+        "Decision: no changes requested.",
+    ],
+)
+def test_quorum_reviewer_verdict_parser_matches_lint_supportive_labels(
+    verdict_line: str,
+) -> None:
+    assert qe._reviewer_verdict(verdict_line) == "pass"
+
+
+@pytest.mark.parametrize(
+    "verdict_line",
+    [
+        "Verdict: pass with conditions.",
+        "Verdict: approve with fixes.",
+        "Recommendation: ready pending fixes.",
+    ],
+)
+def test_quorum_reviewer_verdict_parser_rejects_qualified_support(
+    verdict_line: str,
+) -> None:
+    assert qe._reviewer_verdict(verdict_line) == "unknown"
+
+
 def _supportive_outcome(tier, *families):
     items = [EvidenceItem(f, f"## {f.title()} review", True, [f], [], "pass") for f in families]
     return CollectOutcome(

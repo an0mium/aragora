@@ -74,6 +74,13 @@ _BLOCKING_DISSENT_PHRASE_RE = re.compile(
     r"\b(?:security\s+hole|auth(?:entication)?\s+bypass|sql\s*injection)\b",
     re.I,
 )
+_SECURITY_DISSENT_PHRASE = r"(?:security\s+hole|auth(?:entication)?\s+bypass|sql\s*injection)"
+_COMPOUND_SECURITY_NO_FINDING_RE = re.compile(
+    rf"^(?:no(?:\s+(?:known|remaining|actual))?)\s+{_SECURITY_DISSENT_PHRASE}"
+    rf"(?:\s*(?:,|/|\band\b|\bor\b)\s*{_SECURITY_DISSENT_PHRASE})*"
+    r"(?P<tail>.*)$",
+    re.I,
+)
 _BENIGN_BLOCKING_PHRASE_TAIL_RE = re.compile(
     r"^[\s.,;:!?)\]—–-]*"
     r"(?:found|identified|detected|present|observed|noted|remaining)?"
@@ -81,6 +88,17 @@ _BENIGN_BLOCKING_PHRASE_TAIL_RE = re.compile(
     r"(?:tests?|coverage|regressions?|fixtures?|guardrails?|cases?|"
     r"exact\s+head|this\s+diff|the\s+diff|diff|code|review|"
     r"endpoint|path|flow|handler|route|parser|implementation))?"
+    r"[\s.,;:!?)\]—–-]*$",
+    re.I,
+)
+_BENIGN_SECURITY_COVERAGE_TAIL_RE = re.compile(
+    r"^[\s.,;:!?)\]—–-]*"
+    r"(?:"
+    r"(?:tests?|coverage|regressions?|fixtures?|guardrails?|cases?)\s+"
+    r"(?:is\s+|are\s+)?"
+    r"(?:adequate|sufficient|complete|green|passing|passed|covered|tested|present|included)"
+    r"|(?:is\s+|are\s+)?(?:covered|tested)"
+    r")"
     r"[\s.,;:!?)\]—–-]*$",
     re.I,
 )
@@ -311,10 +329,15 @@ def _default_blocking_marker_finding(stripped: str) -> bool:
 def _blocking_dissent_phrase_match_is_benign(value: str, match: re.Match[str]) -> bool:
     prefix = value[: match.start()].strip()
     suffix = value[match.end() :].strip()
+    compound_security = _COMPOUND_SECURITY_NO_FINDING_RE.match(value)
+    if compound_security:
+        return bool(_BENIGN_BLOCKING_PHRASE_TAIL_RE.match(compound_security.group("tail")))
     if re.search(r"(?:^|[.;:!?]\s*)no(?:\s+(?:known|remaining|actual))?$", prefix):
         return bool(_BENIGN_BLOCKING_PHRASE_TAIL_RE.match(suffix))
     if re.search(r"(?:^|[.;:!?]\s*)(?:i\s+)?reviewed(?:\s+the)?$", prefix):
         return bool(_BENIGN_REVIEWED_PHRASE_TAIL_RE.match(suffix))
+    if not prefix:
+        return bool(_BENIGN_SECURITY_COVERAGE_TAIL_RE.match(suffix))
     return False
 
 

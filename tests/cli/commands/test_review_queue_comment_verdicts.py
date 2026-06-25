@@ -120,8 +120,11 @@ def test_prose_only_merge_blocking_dissent_still_blocks(body):
     "body",
     [
         "No sql injection found.",
+        "No SQL injection or auth bypass found.",
         "I reviewed sql injection tests.",
         "Reviewed auth bypass tests.",
+        "SQL injection coverage is adequate.",
+        "Authentication bypass tests passed.",
         "No authentication bypass",
         "No security hole",
     ],
@@ -135,6 +138,7 @@ def test_benign_security_phrase_no_finding_prose_does_not_block(body):
     [
         "Residual auth bypass risk remains",
         "Security hole remains in admin routing",
+        "SQL injection coverage is inadequate",
     ],
 )
 def test_substantive_security_phrase_still_blocks(body):
