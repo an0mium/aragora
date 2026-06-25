@@ -59,6 +59,11 @@ ACTIVE_LANE_STATUSES = {
     "waiting_for_steering",
     "working",
 }
+BLOCKING_LANE_STATUSES = {
+    "blocked",
+    "blocked_on_publication",
+    "waiting_for_steering",
+}
 PR_PUBLICATION_ACTIONS = {
     "open_pr",
     "open_pull_request",
@@ -395,7 +400,7 @@ class LaneRegistryOwnerProbe:
         row = _best_lane_record(candidates)
         status = str(row.get("status") or "").strip().lower()
         blocking_state = str(row.get("owner_blocking_state") or "").strip() or None
-        if blocking_state is None and status in ACTIVE_LANE_STATUSES:
+        if blocking_state is None and status in BLOCKING_LANE_STATUSES:
             blocking_state = "unknown_owner"
         evidence = owner_evidence_from_payload(row)
         evidence.status = status or evidence.status
@@ -442,13 +447,6 @@ def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
         value = str(payload.get(key) or "").strip().lower()
         if value == "possible_unpushed_work" or "possible unpushed work" in value:
             return "possible_unpushed_work"
-    for key in ("stale_claim_advisory", "owner_liveness", "cleanup_safety"):
-        value = payload.get(key)
-        if isinstance(value, Mapping) and _possible_unpushed_marker(value):
-            return "possible_unpushed_work"
-    advisory = payload.get("stale_claim_advisory")
-    if isinstance(advisory, Mapping) and advisory.get("available") is True:
-        return None
     for key in (
         "branch_ahead",
         "branch_ahead_of_origin_main",
@@ -466,6 +464,13 @@ def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
             return "possible_unpushed_work"
         if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)) and value:
             return "possible_unpushed_work"
+    for key in ("stale_claim_advisory", "owner_liveness", "cleanup_safety"):
+        value = payload.get(key)
+        if isinstance(value, Mapping) and _possible_unpushed_marker(value):
+            return "possible_unpushed_work"
+    advisory = payload.get("stale_claim_advisory")
+    if isinstance(advisory, Mapping) and advisory.get("available") is True:
+        return None
     return None
 
 
@@ -676,17 +681,6 @@ def classify_handoff_item(
             safe_to_mutate=mutation_safe,
         )
 
-    if github.mode in {"degraded", "disabled"} and is_pr_publication_request(payload):
-        return HandoffClassification(
-            outbox_file=path.name,
-            idempotency_key=idem,
-            branch=branch,
-            desired_head_sha=desired_head or None,
-            state=HandoffState.UNKNOWN,
-            reason="GitHub evidence is unavailable; cannot prove absence of exact open PR/ref",
-            evidence=evidence,
-        )
-
     remote_exact_head = _remote_ref_matches(github.remote_ref, desired_head)
     if remote_exact_head and _possible_unpushed(owner):
         return HandoffClassification(
@@ -723,6 +717,32 @@ def classify_handoff_item(
                 evidence=evidence,
                 next_mutation_candidate="owner_followup",
             )
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH,
+            reason="desired head is preserved by exact remote branch",
+            evidence=evidence,
+            next_mutation_candidate="represent_or_publish_remote_branch",
+            safe_to_mutate=not (
+                _possible_unpushed(owner)
+                or _human_blocked(owner, steering)
+                or _owner_blocked(owner, steering)
+            ),
+        )
+
+    if github.mode in {"degraded", "disabled"} and is_pr_publication_request(payload):
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.UNKNOWN,
+            reason="GitHub evidence is unavailable; cannot prove absence of exact open PR/ref",
+            evidence=evidence,
+        )
 
     if _terminal_receipt_satisfied(receipt_evidence):
         return HandoffClassification(
@@ -769,18 +789,6 @@ def classify_handoff_item(
             reason="handoff has an owner/lane blocker and no exact representation proof",
             evidence=evidence,
             next_mutation_candidate="owner_followup",
-        )
-
-    if remote_exact_head:
-        return HandoffClassification(
-            outbox_file=path.name,
-            idempotency_key=idem,
-            branch=branch,
-            desired_head_sha=desired_head or None,
-            state=HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH,
-            reason="desired head is preserved by exact remote branch",
-            evidence=evidence,
-            next_mutation_candidate="represent_or_publish_remote_branch",
         )
 
     if queue_cap.open_pr_cap_reached and is_pr_publication_request(payload):
@@ -1249,15 +1257,15 @@ def target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
 def heads_match(expected: str, actual: str) -> bool:
     expected_value = str(expected or "").strip().lower()
     actual_value = str(actual or "").strip().lower()
-    expected_sha = _sha_prefix_or_none(expected_value)
-    actual_sha = _sha_prefix_or_none(actual_value)
+    expected_sha = _full_sha_or_none(expected_value)
+    actual_sha = _full_sha_or_none(actual_value)
     if expected_sha is None or actual_sha is None:
         return False
-    return expected_sha.startswith(actual_sha) or actual_sha.startswith(expected_sha)
+    return expected_sha == actual_sha
 
 
-def _sha_prefix_or_none(value: str) -> str | None:
-    return value if re.fullmatch(r"[0-9a-f]{7,40}", value) else None
+def _full_sha_or_none(value: str) -> str | None:
+    return value if re.fullmatch(r"[0-9a-f]{40}", value) else None
 
 
 def _remote_ref_matches(remote_ref: Mapping[str, Any] | None, desired_head: str) -> bool:
