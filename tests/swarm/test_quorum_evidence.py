@@ -1140,6 +1140,32 @@ def test_collect_overall_timeout_terminates_slow_reviewer(tmp_path, monkeypatch)
     assert os.environ.get(qe._REVIEWER_TIMEOUT_ENV) is None
 
 
+def test_collect_overall_timeout_rejects_results_after_deadline(monkeypatch) -> None:
+    fakes, _ = _fakes(tier=0)
+    monkeypatch.delenv(qe._REVIEWER_TIMEOUT_ENV, raising=False)
+
+    def just_late_runner(family: str, prompt: str) -> ReviewerResult:
+        time.sleep(0.08)
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = just_late_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "grok"],
+        author="me",
+        apply=True,
+        overall_timeout=0.05,
+        **fakes,
+    )
+
+    assert outcome.orchestration_timed_out is True
+    assert outcome.timed_out_families == ["claude", "grok"]
+    assert outcome.items == []
+    assert [failure.family for failure in outcome.failures] == ["claude", "grok"]
+    assert outcome.posted == []
+
+
 def test_collect_overall_timeout_path_preserves_infra_retry(tmp_path, monkeypatch) -> None:
     fakes, _ = _fakes(tier=0)
     attempts_file = tmp_path / "attempts.txt"
@@ -2921,6 +2947,25 @@ def test_grok_reviewer_prefers_sandboxed_cli_when_installed(monkeypatch) -> None
     assert seen["argv"][0].endswith(".grok/bin/grok")
 
 
+def test_grok_reviewer_cli_honors_reviewer_timeout_env(monkeypatch) -> None:
+    _force_grok_bin(monkeypatch, True)
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "12.5")
+    seen: dict = {}
+
+    def fake_run(argv, *, capture_output, text, timeout, check):
+        seen["timeout"] = timeout
+        return SimpleNamespace(returncode=0, stdout="Verdict: PASS\nNo findings.", stderr="")
+
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: pytest.fail("should not hit API"))
+
+    res = qe._run_grok_reviewer("review prompt")
+
+    assert res.family == "grok"
+    assert res.ok is True
+    assert seen["timeout"] == 12.5
+
+
 def test_grok_build_bin_override(monkeypatch) -> None:
     monkeypatch.setenv("ARAGORA_GROK_BUILD_BIN", "/custom/grok")
     assert qe._resolve_grok_build_bin() == "/custom/grok"
@@ -2962,6 +3007,27 @@ def test_gemini_reviewer_prefers_resolved_sandboxed_agy(monkeypatch) -> None:
     assert res.family == "gemini"
     # resolved path (not bare "agy") + sandbox.
     assert seen["argv"] == ["/usr/local/bin/agy", "--sandbox", "-p", "review prompt"]
+
+
+def test_gemini_reviewer_cli_honors_reviewer_timeout_env(monkeypatch) -> None:
+    import shutil as _sh
+
+    monkeypatch.setenv(qe._REVIEWER_TIMEOUT_ENV, "9")
+    monkeypatch.setattr(_sh, "which", lambda name: "/usr/local/bin/agy" if name == "agy" else None)
+    seen: dict = {}
+
+    def fake_run(argv, *, capture_output, text, timeout, check):
+        seen["timeout"] = timeout
+        return SimpleNamespace(returncode=0, stdout="Verdict: PASS\nNo findings.", stderr="")
+
+    monkeypatch.setattr(qe.subprocess, "run", fake_run)
+    monkeypatch.setattr(qe, "_run_api_agent", lambda f, p: pytest.fail("should not hit API"))
+
+    res = qe._run_gemini_reviewer("review prompt")
+
+    assert res.family == "gemini"
+    assert res.ok is True
+    assert seen["timeout"] == 9.0
 
 
 def test_gemini_reviewer_falls_back_to_api_without_agy(monkeypatch) -> None:

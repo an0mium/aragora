@@ -492,6 +492,8 @@ def _run_reviewers_with_process_timeout(
     launch_ready()
     deadline = time.monotonic() + overall_timeout
     while processes or queued:
+        if time.monotonic() >= deadline:
+            break
         drain_results()
         for family, process in list(processes.items()):
             if process.exitcode is not None:
@@ -516,33 +518,33 @@ def _run_reviewers_with_process_timeout(
             result = result_queue.get(timeout=min(remaining, 0.1))
         except queue.Empty:
             continue
+        if time.monotonic() >= deadline:
+            break
         record_result(result)
 
-    # A result may have been enqueued just before the deadline. Drain once more
-    # before classifying anything as timed out so finished reviewers are not
-    # reported as missing.
-    drain_results()
-    for family, process in list(processes.items()):
-        if process.exitcode is not None:
-            process.join(timeout=0)
-            reviews.setdefault(
-                family,
-                ReviewerResult(
+    if time.monotonic() < deadline:
+        # A result may have been enqueued just before the deadline. Drain once more
+        # before classifying anything as timed out so finished reviewers are not
+        # reported as missing. After the deadline, ignore late results and fail
+        # closed instead of letting post-timeout quorum sneak through.
+        drain_results()
+        for family, process in list(processes.items()):
+            if process.exitcode is not None:
+                process.join(timeout=0)
+                reviews.setdefault(
                     family,
-                    "",
-                    False,
-                    f"reviewer process exited with code {process.exitcode} without result",
-                ),
-            )
-            processes.pop(family, None)
+                    ReviewerResult(
+                        family,
+                        "",
+                        False,
+                        f"reviewer process exited with code {process.exitcode} without result",
+                    ),
+                )
+                processes.pop(family, None)
 
     timeout_text = _format_seconds(overall_timeout)
     for family, process in list(processes.items()):
         _terminate_reviewer_process(process)
-    # A reviewer can put a result at the deadline boundary, after the last drain
-    # but before termination cleanup observes it. Drain again before assigning
-    # timeout failures so a real completed review is never discarded.
-    drain_results()
 
     timed_out = list(processes) + queued
     for family, process in list(processes.items()):
@@ -1327,7 +1329,7 @@ def _resolve_grok_build_bin() -> str:
 
 
 def _run_argv_cli_reviewer(
-    family: str, argv: list[str], harness: str, timeout: float = _REVIEWER_TIMEOUT
+    family: str, argv: list[str], harness: str, timeout: float | None = None
 ) -> ReviewerResult:
     """Run a headless single-prompt CLI reviewer (prompt passed as an argv value).
 
@@ -1336,6 +1338,9 @@ def _run_argv_cli_reviewer(
     the review body. Same exact-head composition + evidence-lint as every other
     reviewer decides whether the result can count.
     """
+    timeout = (
+        _timeout_seconds(_REVIEWER_TIMEOUT_ENV, _REVIEWER_TIMEOUT) if timeout is None else timeout
+    )
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
     except FileNotFoundError:
