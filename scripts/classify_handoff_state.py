@@ -78,7 +78,29 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="With --json, omit per-item details and emit compact counts only.",
     )
+    parser.add_argument(
+        "--fail-on-unsafe-state",
+        action="store_true",
+        help=(
+            "Exit 2 when classification is unknown, GitHub evidence is unavailable, "
+            "or any item exposes an unsafe mutation candidate."
+        ),
+    )
     return parser
+
+
+def _has_unsafe_state(payload: dict) -> bool:
+    github = payload.get("github") if isinstance(payload.get("github"), dict) else {}
+    if github.get("mode") in {"disabled", "degraded"}:
+        return True
+    for item in payload.get("items") or []:
+        if not isinstance(item, dict):
+            return True
+        if item.get("state") == "unknown":
+            return True
+        if item.get("next_mutation_candidate") != "none" and item.get("safe_to_mutate") is not True:
+            return True
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -96,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
     output = compact_summary(payload) if args.summary_only else payload
     if args.json:
         print(json.dumps(output, indent=2, sort_keys=True))
-        return 0
+        return 2 if args.fail_on_unsafe_state and _has_unsafe_state(payload) else 0
 
     print(f"schema_version: {output['schema_version']}")
     print(f"generated_at: {output['generated_at']}")
@@ -109,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
         print("items:")
         for item in output.get("items", []):
             print(f"  {item.get('outbox_file')}: {item.get('state')} ({item.get('reason')})")
-    return 0
+    return 2 if args.fail_on_unsafe_state and _has_unsafe_state(payload) else 0
 
 
 if __name__ == "__main__":

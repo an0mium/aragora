@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import scripts.handoff_state as mod
+import scripts.classify_handoff_state as cli
 
 
 HEAD = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -300,7 +301,39 @@ def test_issue_only_receipt_limbo_stays_publication_requested(tmp_path: Path) ->
     assert "issue-only receipt" in item["reason"]
 
 
-def test_terminal_pr_receipt_short_circuits_duplicate_publication(tmp_path: Path) -> None:
+def test_terminal_receipts_choose_newest_by_timestamp_not_filename(tmp_path: Path) -> None:
+    receipts = tmp_path / ".aragora" / "automation-receipts"
+    receipts.mkdir(parents=True, exist_ok=True)
+    key = "open-pr-codex-example-aaaaaaaa"
+    (receipts / "zz-old.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "published",
+                "created_pr_url": "https://github.com/synaptent/aragora/pull/1",
+                "generated_at": "2026-06-24T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (receipts / "aa-new.json").write_text(
+        json.dumps(
+            {
+                "idempotency_key": key,
+                "status": "published",
+                "created_pr_url": "https://github.com/synaptent/aragora/pull/2",
+                "generated_at": "2026-06-24T01:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = mod.load_terminal_receipts(receipts)
+
+    assert loaded[key]["created_pr_url"].endswith("/2")
+
+
+def test_terminal_pr_receipt_without_live_proof_does_not_publish(tmp_path: Path) -> None:
     key = "open-pr-codex-example-aaaaaaaa"
     _write_status_cache(tmp_path, open_pr_cap_reached=True)
     _write_outbox(tmp_path, key=key, branch="codex/example")
@@ -316,12 +349,14 @@ def test_terminal_pr_receipt_short_circuits_duplicate_publication(tmp_path: Path
 
     item = _classify_one(tmp_path)
 
-    assert item["state"] == mod.HandoffState.PRESERVED_NOT_ACTIONABLE.value
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
     assert item["next_mutation_candidate"] == "none"
-    assert "terminal receipt" in item["reason"]
+    assert "terminal receipt exists" in item["reason"]
 
 
-def test_terminal_pr_receipt_wins_over_owner_noise(tmp_path: Path) -> None:
+def test_terminal_pr_receipt_with_owner_noise_blocks_without_live_proof(
+    tmp_path: Path,
+) -> None:
     key = "open-pr-codex-example-aaaaaaaa"
     _write_status_cache(tmp_path)
     _write_outbox(tmp_path, key=key, branch="codex/example")
@@ -347,8 +382,8 @@ def test_terminal_pr_receipt_wins_over_owner_noise(tmp_path: Path) -> None:
 
     item = _classify_one(tmp_path, owner=owner)
 
-    assert item["state"] == mod.HandoffState.PRESERVED_NOT_ACTIONABLE.value
-    assert item["next_mutation_candidate"] == "none"
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["next_mutation_candidate"] == "owner_followup"
 
 
 def test_terminal_completed_receipt_without_pr_does_not_suppress_publication(
@@ -533,7 +568,7 @@ def test_lane_registry_possible_unpushed_marker_blocks_default_classifier(
     assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
 
 
-def test_lane_registry_terminal_owner_blocks_without_focused_liveness_proof(
+def test_lane_registry_terminal_owner_does_not_block_by_default(
     tmp_path: Path,
 ) -> None:
     _write_status_cache(tmp_path)
@@ -563,8 +598,8 @@ def test_lane_registry_terminal_owner_blocks_without_focused_liveness_proof(
     )
     item = payload["items"][0]
 
-    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
-    assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["owner"]["owner_blocking_state"] is None
 
 
 def test_lane_registry_terminal_owner_with_available_advisory_does_not_block(
@@ -703,12 +738,12 @@ def test_terminal_steering_receipt_consumes_blocking_effect(tmp_path: Path) -> N
 
     item = _classify_one(tmp_path)
 
-    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["evidence"]["steering"]["pending_message_count"] == 1
-    assert item["evidence"]["steering"]["resolved_message_count"] == 1
-    assert item["evidence"]["steering"]["blocking_message_count"] == 0
+    assert item["evidence"]["steering"]["resolved_message_count"] == 0
+    assert item["evidence"]["steering"]["blocking_message_count"] == 1
     assert item["evidence"]["steering"]["latest_read_receipt"]["outcome"] == "completed"
-    assert item["evidence"]["steering"]["latest_message"]["resolved_by_read_receipt"] is True
+    assert item["evidence"]["steering"]["latest_message"]["resolved_by_read_receipt"] is False
     assert "subject" not in item["evidence"]["steering"]["latest_message"]
     assert "body" not in item["evidence"]["steering"]["latest_message"]
     assert item["evidence"]["steering"]["latest_message"]["subject_present"] is True
@@ -910,7 +945,7 @@ def test_github_degraded_pr_lookup_fails_closed_for_publication(tmp_path: Path) 
     item = _classify_one(tmp_path, github=github)
 
     assert item["state"] == mod.HandoffState.UNKNOWN.value
-    assert "GitHub evidence is degraded" in item["reason"]
+    assert "GitHub evidence is unavailable" in item["reason"]
     assert item["next_mutation_candidate"] == "none"
 
 
@@ -927,6 +962,29 @@ def test_missing_origin_disables_github_instead_of_defaulting_repo(tmp_path: Pat
     assert payload["github_repo"] is None
     assert payload["github"]["mode"] == "disabled"
     assert payload["items"][0]["evidence"]["github"]["mode"] == "disabled"
+    assert payload["items"][0]["state"] == mod.HandoffState.UNKNOWN.value
+
+
+def test_cli_fail_on_unsafe_state_returns_nonzero_for_disabled_github(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+
+    code = cli.main(
+        [
+            "--repo",
+            str(tmp_path),
+            "--state-root",
+            str(tmp_path),
+            "--outbox-file",
+            "open-pr-codex-example-aaaaaaaa.json",
+            "--json",
+            "--fail-on-unsafe-state",
+        ]
+    )
+
+    assert code == 2
 
 
 def test_owner_probe_failure_fails_closed(tmp_path: Path) -> None:

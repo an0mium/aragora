@@ -47,7 +47,6 @@ DEFAULT_HEARTBEATS = Path(".aragora/agent-bridge/heartbeats.json")
 DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS = 1800
 
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
-TERMINAL_STEERING_OUTCOMES = {"completed", "stale", "superseded"}
 ACTIVE_LANE_STATUSES = {"active", "blocked", "blocked_on_publication", "claimed"}
 TERMINAL_LANE_STATUSES = {"completed", "released", "superseded"}
 PR_PUBLICATION_ACTIONS = {
@@ -359,12 +358,6 @@ class LaneRegistryOwnerProbe:
             blocking_state = "live_owner"
         elif (
             blocking_state is None
-            and status in TERMINAL_LANE_STATUSES
-            and not _stale_claim_available(row)
-        ):
-            blocking_state = "unknown_owner"
-        elif (
-            blocking_state is None
             and row.get("owner_session")
             and status not in TERMINAL_LANE_STATUSES
         ):
@@ -419,11 +412,6 @@ def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
         if isinstance(value, Mapping) and _possible_unpushed_marker(value):
             return "possible_unpushed_work"
     return None
-
-
-def _stale_claim_available(payload: Mapping[str, Any]) -> bool:
-    advisory = payload.get("stale_claim_advisory")
-    return isinstance(advisory, Mapping) and advisory.get("available") is True
 
 
 def _owner_payload_summary(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -615,17 +603,6 @@ def classify_handoff_item(
             safe_to_mutate=mutation_safe,
         )
 
-    if _terminal_receipt_satisfied(receipt_evidence):
-        return HandoffClassification(
-            outbox_file=path.name,
-            idempotency_key=idem,
-            branch=branch,
-            desired_head_sha=desired_head or None,
-            state=HandoffState.PRESERVED_NOT_ACTIONABLE,
-            reason="terminal receipt already records PR representation",
-            evidence=evidence,
-        )
-
     if _remote_ref_matches(github.remote_ref, desired_head) and not _possible_unpushed(owner):
         if _human_blocked(owner, steering):
             return HandoffClassification(
@@ -696,14 +673,25 @@ def classify_handoff_item(
             next_mutation_candidate="owner_followup",
         )
 
-    if github.mode == "degraded" and is_pr_publication_request(payload):
+    if _terminal_receipt_satisfied(receipt_evidence):
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
             branch=branch,
             desired_head_sha=desired_head or None,
             state=HandoffState.UNKNOWN,
-            reason="GitHub evidence is degraded; cannot prove absence of exact open PR/ref",
+            reason="terminal receipt exists but live PR/ref representation is not proven",
+            evidence=evidence,
+        )
+
+    if github.mode in {"degraded", "disabled"} and is_pr_publication_request(payload):
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.UNKNOWN,
+            reason="GitHub evidence is unavailable; cannot prove absence of exact open PR/ref",
             evidence=evidence,
         )
 
@@ -813,6 +801,7 @@ def github_evidence_for_branch(
 
 def load_terminal_receipts(receipt_dir: Path) -> dict[str, dict[str, Any]]:
     receipts: dict[str, dict[str, Any]] = {}
+    receipt_order: dict[str, float] = {}
     if not receipt_dir.exists():
         return receipts
     for path in sorted(receipt_dir.glob("*.json")):
@@ -826,7 +815,10 @@ def load_terminal_receipts(receipt_dir: Path) -> dict[str, dict[str, Any]]:
         if key:
             payload = dict(payload)
             payload["__receipt_path"] = str(path)
-            receipts[key] = payload
+            order = _receipt_sort_timestamp(payload, path)
+            if key not in receipts or order >= receipt_order.get(key, 0.0):
+                receipts[key] = payload
+                receipt_order[key] = order
     return receipts
 
 
@@ -883,6 +875,25 @@ def load_queue_cap_evidence(
     )
 
 
+def _receipt_sort_timestamp(receipt: Mapping[str, Any], path: Path) -> float:
+    for key in (
+        "generated_at",
+        "created_at",
+        "updated_at",
+        "published_at",
+        "completed_at",
+        "receipt_at",
+        "read_at_utc",
+    ):
+        parsed = _parse_datetime(str(receipt.get(key) or "") or None)
+        if parsed is not None:
+            return parsed.timestamp()
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
 def receipt_evidence_from_payload(
     receipt: Mapping[str, Any] | None,
     outbox_payload: Mapping[str, Any],
@@ -937,12 +948,14 @@ def steering_evidence_for_branch(
             continue
         receipt = latest_read_receipt_for_message(path)
         resolved = _steering_message_resolved(receipt)
+        human_detected = _looks_human(payload)
         matches.append(
             {
                 "path": str(path),
                 "to_session": to_session or None,
                 "lane_id_hint": lane_hint or None,
                 "priority": str(payload.get("priority") or "").lower() or None,
+                "human_detected": human_detected,
                 "subject_present": bool(str(payload.get("subject") or "").strip()),
                 "body_present": bool(str(payload.get("body") or "").strip()),
                 "sent_at_utc": payload.get("sent_at_utc"),
@@ -953,7 +966,7 @@ def steering_evidence_for_branch(
         )
     unresolved = [m for m in matches if not m.get("resolved_by_read_receipt")]
     blocking = [m for m in unresolved if m.get("priority") == "blocking"]
-    human = [m for m in unresolved if _looks_human(m)]
+    human = [m for m in unresolved if m.get("human_detected")]
     latest = (
         sorted(unresolved or matches, key=lambda m: str(m.get("sent_at_utc") or ""))[-1]
         if matches
@@ -1262,10 +1275,9 @@ def latest_read_receipt_for_message(message_path: Path) -> dict[str, Any] | None
 
 
 def _steering_message_resolved(receipt: Mapping[str, Any] | None) -> bool:
-    if not receipt:
-        return False
-    outcome = str(receipt.get("outcome") or "").strip().lower()
-    return outcome in TERMINAL_STEERING_OUTCOMES
+    # Read receipts are proof-of-read/outcome only. Until the top-level
+    # steering message is explicitly acknowledged or moved, it remains pending.
+    return False
 
 
 def _selected_outbox_files(outbox_dir: Path, outbox_file: str | Path | None) -> list[Path]:
