@@ -871,7 +871,7 @@ def _open_tail_has_blocking_or_negative_signal(text: str) -> bool:
         return False
     if _text_has_concrete_blocking_signal(text):
         return True
-    if has_unlabeled_soft_dissent_phrase(_strip_thinking_tags(text)):
+    if has_unlabeled_soft_dissent_phrase(text):
         return True
     trusted = _trusted_parser_text(text.splitlines(keepends=True))
     return has_blocking_or_negative_verdict(
@@ -885,8 +885,7 @@ def _closed_thinking_block_is_safe_to_strip(block: str) -> bool:
     # [P1]/[P2] finding or unlabeled PASS caveat can be stripped into countable
     # PASS support.
     return not (
-        _text_has_concrete_blocking_signal(block)
-        or has_unlabeled_soft_dissent_phrase(_strip_thinking_tags(block))
+        _text_has_concrete_blocking_signal(block) or has_unlabeled_soft_dissent_phrase(block)
     )
 
 
@@ -894,13 +893,31 @@ def _strip_thinking_tags(text: str) -> str:
     return re.sub(rf"</?\s*(?:{_THINKING_TAG_NAMES})\s*>", "\n", text, flags=re.I)
 
 
+def _space_thinking_tags(text: str) -> str:
+    return re.sub(rf"</?\s*(?:{_THINKING_TAG_NAMES})\s*>", " ", text, flags=re.I)
+
+
 def _strip_closed_thinking_blocks(text: str) -> str:
-    return _THINKING_BLOCK_RE.sub(
-        lambda match: ""
-        if _closed_thinking_block_is_safe_to_strip(match.group(0))
-        else _strip_thinking_tags(match.group(0)),
-        text,
-    )
+    def replace(match: re.Match[str]) -> str:
+        block = match.group(0)
+        if not _closed_thinking_block_is_safe_to_strip(block):
+            return _strip_thinking_tags(block)
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        line_end = text.find("\n", match.end())
+        if line_end == -1:
+            line_end = len(text)
+        line_with_block = (
+            text[line_start : match.start()]
+            + _space_thinking_tags(block)
+            + text[match.end() : line_end]
+        )
+        if _text_has_concrete_blocking_signal(line_with_block) or has_unlabeled_soft_dissent_phrase(
+            line_with_block
+        ):
+            return _space_thinking_tags(block)
+        return ""
+
+    return _THINKING_BLOCK_RE.sub(replace, text)
 
 
 def _closed_thinking_block_from_lines(lines: list[str], start_idx: int) -> str:

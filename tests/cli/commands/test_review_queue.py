@@ -6030,6 +6030,35 @@ class TestCommandDispatch:
         assert payload["would_count"] is False
         assert "blocking_or_negative_verdict" in payload["problems"]
 
+    def test_evidence_lint_rejects_post_verdict_ordinary_priority_finding(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Verdict: PASS\n"
+                    "Note: still see [P1] missing rate limit.\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert "blocking_or_negative_verdict" in payload["problems"]
+
     @pytest.mark.parametrize(
         "verdict_line",
         [
@@ -6286,6 +6315,35 @@ class TestCommandDispatch:
         assert payload["would_count"] is False
         assert "blocking_or_negative_verdict" in payload["problems"]
 
+    def test_evidence_lint_rejects_tag_fragmented_secondary_dissent_after_pass(self) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Verdict: PASS\n"
+                    "Do <thinking>not</thinking> merge.\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 1
+        assert payload["would_count"] is False
+        assert "blocking_or_negative_verdict" in payload["problems"]
+
     @pytest.mark.parametrize(
         "secondary_body",
         [
@@ -6446,6 +6504,44 @@ class TestCommandDispatch:
         assert rc == 1
         assert payload["would_count"] is False
         assert "untrusted_or_non_supportive_verdict" in payload["problems"]
+
+    @pytest.mark.parametrize(
+        "secondary_line",
+        [
+            "LGTM but verify CI.",
+            "Looks good but confirm checks pass.",
+        ],
+    )
+    def test_evidence_lint_accepts_operational_check_caveat_after_supportive_verdict(
+        self, secondary_line: str
+    ) -> None:
+        ns = argparse.Namespace(
+            review_queue_command="evidence-lint",
+            pr="7445",
+            head_sha="cd87c5a1b2db34f04167906553502db3ede9525e",
+            head_committed_at="2026-05-23T19:00:00Z",
+            body=_codex_openai_body(
+                body=(
+                    "PR: #7445\n"
+                    "Current head: cd87c5a1b2db34f04167906553502db3ede9525e\n"
+                    "Verdict: PASS\n"
+                    f"{secondary_line}\n"
+                    "Focused adversarial dogfood: I reviewed the exact-head diff."
+                )
+            ),
+            body_file=None,
+            author="an0mium",
+            json=True,
+        )
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_review_queue(ns)
+
+        payload = json.loads(out.getvalue())
+        assert rc == 0
+        assert payload["would_count"] is True
+        assert payload["counted_reviewer_ids"] == ["openai"]
 
     def test_evidence_lint_rejects_no_verdict_model_evidence_with_soft_dissent(self) -> None:
         ns = argparse.Namespace(

@@ -47,7 +47,7 @@ from aragora.cli.commands.review_queue_comment_verdicts import (
     highest_blocking_severity as _highest_blocking_severity,
     has_unlabeled_soft_dissent_phrase as _has_unlabeled_soft_dissent_phrase,
     normalized_supportive_verdict_is_supportive as _normalized_verdict_label_is_supportive,
-    _split_reasoning_tags_for_scan as _split_reasoning_tags_for_verdict_scan,
+    _split_reasoning_tags_for_phrase_scan as _split_reasoning_tags_for_phrase_scan,
 )
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
@@ -3709,7 +3709,7 @@ def _has_trusted_unlabeled_soft_dissent(body: str) -> bool:
     """Detect prose-only caveats in trusted reviewer text."""
 
     in_fence = False
-    for raw_line in _split_reasoning_tags_for_verdict_scan(str(body or "")).splitlines():
+    for raw_line in _split_reasoning_tags_for_phrase_scan(str(body or "")).splitlines():
         stripped = raw_line.strip()
         if stripped.startswith(("```", "~~~")):
             in_fence = not in_fence

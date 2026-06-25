@@ -109,11 +109,11 @@ _BENIGN_REVIEWED_PHRASE_TAIL_RE = re.compile(
 )
 _BENIGN_SECURITY_RESOLUTION_PREFIX_RE = re.compile(
     r"(?:^|[.;:!?]\s*)"
-    r"(?:"
-    r"(?:this|the|that)\s+)?"
+    r"(?:(?:(?:this|the|that)\s+(?:pr|diff|change|patch|branch|commit)\s+|"
+    r"(?:this|the|that)\s+))?"
     r"(?:"
     r"(?:closes?|fix(?:es|ed)?|addresses?|resolves?|mitigates?|covers?|validates?)"
-    r"(?:\s+(?:the|this|that))?"
+    r"(?:\s+(?:the|this|that|an?))?"
     r"|"
     r"(?:fix|patch|mitigation|coverage|guard(?:rail)?|test(?:s)?)\s+(?:for|against)"
     r")$",
@@ -165,6 +165,16 @@ SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE = re.compile(
     r"after\s+(?:fix(?:es|ing)?|repair(?:s|ing)?|changes?|addressing|resolving)\b|"
     r"needs?\b|requires?\b|subject\s+to\b"
     r")",
+    re.I,
+)
+_BENIGN_OPERATIONAL_CAVEAT_TAIL_RE = re.compile(
+    r"^(?:but|and)?\s*"
+    r"(?:please\s+)?"
+    r"(?:verify|confirm|check|ensure|wait\s+for)\s+"
+    r"(?:the\s+)?"
+    r"(?:ci|checks?|status\s+checks?|required\s+checks?|tests?|test\s+suite|workflow|build)"
+    r"(?:\s+(?:pass(?:es)?|is\s+green|are\s+green|complete|completed|finish(?:es|ed)?|"
+    r"succeed(?:s|ed)?))?$",
     re.I,
 )
 
@@ -346,7 +356,7 @@ def normalized_supportive_verdict_is_supportive(normalized: str) -> bool:
         match = re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
         if not match:
             continue
-        return not bool(SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE.match(normalized[match.end() :]))
+        return not _supportive_caveat_tail_is_blocking(normalized[match.end() :])
     return False
 
 
@@ -358,21 +368,41 @@ def _split_reasoning_tags_for_scan(text: str) -> str:
     return _REASONING_TAG_RE.sub("\n", str(text or ""))
 
 
+def _split_reasoning_tags_for_phrase_scan(text: str) -> str:
+    return _REASONING_TAG_RE.sub(" ", str(text or ""))
+
+
+def _supportive_caveat_tail_is_blocking(tail: str) -> bool:
+    normalized_tail = _normalize_value(tail).strip(" \t.,;:!?)[]—–-")
+    if not SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE.match(normalized_tail):
+        return False
+    return not bool(_BENIGN_OPERATIONAL_CAVEAT_TAIL_RE.fullmatch(normalized_tail))
+
+
+def _reasoning_tag_phrase_scan_variants(text: str) -> list[str]:
+    split_scan = _split_reasoning_tags_for_scan(text)
+    phrase_scan = _split_reasoning_tags_for_phrase_scan(text)
+    if phrase_scan == split_scan:
+        return [split_scan]
+    return [split_scan, phrase_scan]
+
+
 def has_unlabeled_soft_dissent_phrase(text: str) -> bool:
     """Return True for unlabeled PASS/support caveats that should fail closed."""
 
-    for raw_line in _split_reasoning_tags_for_scan(str(text or "")).splitlines():
-        stripped = raw_line.strip()
-        if not stripped:
-            continue
-        line = re.sub(r"^(?:[#\-*+]+\s+|\d+[.)]\s+)+", "", stripped)
-        normalized = _normalize_value(line)
-        if _UNLABELED_SOFT_DISSENT_RE.match(normalized):
-            return True
-        for prefix in SUPPORTIVE_VERDICT_PREFIXES:
-            match = re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
-            if match and SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE.match(normalized[match.end() :]):
+    for scan_text in _reasoning_tag_phrase_scan_variants(str(text or "")):
+        for raw_line in scan_text.splitlines():
+            stripped = raw_line.strip()
+            if not stripped:
+                continue
+            line = re.sub(r"^(?:[#\-*+]+\s+|\d+[.)]\s+)+", "", stripped)
+            normalized = _normalize_value(line)
+            if _UNLABELED_SOFT_DISSENT_RE.match(normalized):
                 return True
+            for prefix in SUPPORTIVE_VERDICT_PREFIXES:
+                match = re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
+                if match and _supportive_caveat_tail_is_blocking(normalized[match.end() :]):
+                    return True
     return False
 
 
@@ -497,6 +527,32 @@ def _has_blocking_dissent_phrase(text: str) -> bool:
     return False
 
 
+def _has_blocking_dissent_phrase_for_scan(text: str) -> bool:
+    in_fence = False
+    fence_marker = ""
+    for raw_line in _split_reasoning_tags_for_phrase_scan(text).splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        fence = re.match(r"^(```|~~~)", stripped)
+        if fence:
+            marker = fence.group(1)
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif marker == fence_marker:
+                in_fence = False
+                fence_marker = ""
+            continue
+        if _has_blocking_dissent_phrase(
+            stripped
+        ) and not _untrusted_dissent_phrase_is_benign_example(
+            raw_line, stripped, in_fence=in_fence
+        ):
+            return True
+    return False
+
+
 def _untrusted_dissent_phrase_is_benign_example(
     raw_line: str, stripped: str, *, in_fence: bool
 ) -> bool:
@@ -600,6 +656,8 @@ def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
 
 def has_blocking_or_negative_verdict(body: str) -> bool:
     """Return True for explicit evidence comments that report blockers."""
+    if _has_blocking_dissent_phrase_for_scan(str(body or "")):
+        return True
     raw_lines = _split_reasoning_tags_for_scan(str(body or "")).splitlines()
     lines = [raw_line.strip() for raw_line in raw_lines]
     in_fence = False
@@ -618,11 +676,7 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
                 in_fence = False
                 fence_marker = ""
             continue
-        if _has_blocking_dissent_phrase(
-            stripped
-        ) and not _untrusted_dissent_phrase_is_benign_example(
-            raw_line, stripped, in_fence=in_fence
-        ):
+        if _has_default_blocking_marker_anywhere(stripped):
             return True
         if _default_blocking_marker_finding(stripped):
             return True

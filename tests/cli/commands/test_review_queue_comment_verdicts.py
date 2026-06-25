@@ -129,6 +129,9 @@ def test_prose_only_merge_blocking_dissent_still_blocks(body):
         "No authentication bypass",
         "No security hole",
         "This closes the auth bypass; no findings.",
+        "This PR fixes an auth bypass.",
+        "fixes an auth bypass.",
+        "fixes auth bypass.",
         "The SQL injection fix is correct.",
     ],
 )
@@ -140,6 +143,7 @@ def test_benign_security_phrase_no_finding_prose_does_not_block(body):
     "body",
     [
         "Residual auth bypass risk remains",
+        "This PR still has an auth bypass.",
         "Security hole remains in admin routing",
         "SQL injection coverage is inadequate",
     ],
@@ -207,6 +211,11 @@ def test_same_line_pass_with_priority_finding_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: PASS; [P1] real blocker")
 
 
+def test_post_verdict_ordinary_priority_marker_finding_blocks():
+    body = "Verdict: PASS\nNote: still see [P1] missing rate limit"
+    assert has_blocking_or_negative_verdict(body)
+
+
 @pytest.mark.parametrize(
     "body",
     [
@@ -247,6 +256,10 @@ def test_reasoning_tags_do_not_hide_same_line_priority_finding():
     assert has_blocking_finding_or_label(body)
 
 
+def test_reasoning_tags_do_not_fragment_blocking_phrase():
+    assert has_blocking_or_negative_verdict("Verdict: PASS\nDo <thinking>not</thinking> merge.")
+
+
 @pytest.mark.parametrize(
     "body",
     [
@@ -258,6 +271,34 @@ def test_reasoning_tags_do_not_hide_same_line_priority_finding():
     ],
 )
 def test_reasoning_tags_do_not_hide_unlabeled_soft_dissent_phrase(body):
+    assert has_unlabeled_soft_dissent_phrase(body)
+
+
+def test_reasoning_tags_do_not_fragment_unlabeled_soft_dissent_phrase():
+    assert has_unlabeled_soft_dissent_phrase("Looks <thinking>good</thinking> but needs repair.")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "LGTM but verify CI.",
+        "Looks good but confirm checks pass.",
+        "Approved but ensure required checks are green.",
+    ],
+)
+def test_operational_check_caveats_are_not_soft_dissent(body):
+    assert not has_unlabeled_soft_dissent_phrase(body)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "LGTM but needs repair.",
+        "Approved but with fixes.",
+        "Looks good but [P1] missing rate limit.",
+    ],
+)
+def test_substantive_caveats_remain_soft_dissent(body):
     assert has_unlabeled_soft_dissent_phrase(body)
 
 
