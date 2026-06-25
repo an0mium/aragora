@@ -108,10 +108,21 @@ queue cap and lane-count gates before launching or sending through
 panel.
 
 Mission files should include the goal objective, stop condition, checkpoints,
-lane ownership, and allowed mutation class. The conductor emits a JSONL
-transcript and markdown handoff under `.aragora/goal-conductor/`; it does not
-merge PRs, bypass Tier gates, install launchd jobs, run `observe-outcomes
---write`, close issues, or clean worktrees.
+lane ownership, and allowed mutation class. Implementation lanes that launch
+Codex autonomously must also include a dev-coordination lease: `task_id` plus at
+least one `claimed_paths`, `write_scopes`, or `tests` entry. The conductor turns
+those fields into `scripts/tmux_session_launcher.sh` lease flags so Codex lanes
+cannot free-pick the queue.
+
+The conductor emits a JSONL transcript and markdown handoff under
+`.aragora/goal-conductor/`; it does not bypass Tier gates, install launchd jobs,
+run `observe-outcomes --write`, close issues, or clean worktrees. Its default
+`merge_policy` is `report_only`. A mission may opt into
+`merge_policy: exact_gated_tier_0_2`, in which case execute mode still merges at
+most one PR per cycle, and only after `review-queue merge-packet` identifies an
+exact-head Tier 0-2 candidate, `scripts/settle_one_pr.py --json` returns
+`blockers=[]`, and the conductor can run a normal protected squash with
+`--match-head-commit`. It never uses `--admin`.
 
 ## 4. Decision Rule
 

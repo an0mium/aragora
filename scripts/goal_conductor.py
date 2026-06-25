@@ -30,6 +30,10 @@ DEFAULT_OUTPUT_DIR = Path(".aragora/goal-conductor")
 DEFAULT_QUEUE_CAP = 6
 DEFAULT_MAX_IMPLEMENTATION_LANES = 2
 DEFAULT_MAX_REVIEW_LANES = 1
+DEFAULT_MAX_NEW_LANES_PER_CYCLE = 2
+MERGE_POLICY_REPORT_ONLY = "report_only"
+MERGE_POLICY_EXACT_GATED_TIER_0_2 = "exact_gated_tier_0_2"
+MERGE_POLICIES = {MERGE_POLICY_REPORT_ONLY, MERGE_POLICY_EXACT_GATED_TIER_0_2}
 ALLOWED_AGENTS = {"codex", "claude", "droid", "factory"}
 PANEL_MODE = "panel"
 IMPLEMENTATION_MODES = {"implementation", "implement", "write"}
@@ -94,6 +98,19 @@ def _as_str_list(value: Any) -> list[str]:
     return [str(item) for item in _as_list(value)]
 
 
+def _as_nonempty_str_list(*values: Any) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        for item in _as_str_list(value):
+            text = item.strip()
+            if not text or text in seen:
+                continue
+            seen.add(text)
+            out.append(text)
+    return out
+
+
 def load_yaml(path: Path) -> dict[str, Any]:
     """Load a YAML mission file.
 
@@ -124,6 +141,12 @@ class LaneSpec:
     autonomous: bool = True
     status: str = "active"
     next_action: str = ""
+    task_id: str = ""
+    claimed_paths: list[str] = field(default_factory=list)
+    write_scopes: list[str] = field(default_factory=list)
+    tests: list[str] = field(default_factory=list)
+    forbidden_paths: list[str] = field(default_factory=list)
+    stop_rule: str = ""
     agents_spec: str = "heterogeneous"
     context_file: str = ""
     round_id: str = ""
@@ -156,6 +179,28 @@ class LaneSpec:
             autonomous=bool(payload.get("autonomous", True)),
             status=str(payload.get("status") or "active").strip(),
             next_action=str(payload.get("next_action") or "").strip(),
+            task_id=str(payload.get("task_id") or payload.get("task") or lane_id).strip(),
+            claimed_paths=_as_nonempty_str_list(
+                payload.get("claimed_path"),
+                payload.get("claimed_paths"),
+                payload.get("file_scope"),
+                payload.get("allowed_paths"),
+            ),
+            write_scopes=_as_nonempty_str_list(
+                payload.get("write_scope"),
+                payload.get("write_scopes"),
+            ),
+            tests=_as_nonempty_str_list(
+                payload.get("test"),
+                payload.get("tests"),
+                payload.get("validation_command"),
+                payload.get("validation_commands"),
+            ),
+            forbidden_paths=_as_nonempty_str_list(
+                payload.get("forbidden_path"),
+                payload.get("forbidden_paths"),
+            ),
+            stop_rule=str(payload.get("stop_rule") or payload.get("stop_condition") or "").strip(),
             agents_spec=str(payload.get("agents_spec") or "heterogeneous").strip(),
             context_file=str(payload.get("context_file") or "").strip(),
             round_id=str(payload.get("round_id") or "").strip(),
@@ -169,12 +214,25 @@ class LaneSpec:
     def is_review(self) -> bool:
         return self.mode in REVIEW_MODES
 
+    @property
+    def has_lease_scope(self) -> bool:
+        return bool(self.claimed_paths or self.write_scopes or self.tests)
+
+    def lease_blocker(self) -> str | None:
+        if self.agent == "codex" and self.autonomous and not self.has_lease_scope:
+            return (
+                "autonomous Codex lane requires task_id plus at least one "
+                "claimed_path, write_scope, or test"
+            )
+        return None
+
 
 @dataclass(frozen=True)
 class MissionLimits:
     queue_cap: int = DEFAULT_QUEUE_CAP
     max_implementation_lanes: int = DEFAULT_MAX_IMPLEMENTATION_LANES
     max_review_lanes: int = DEFAULT_MAX_REVIEW_LANES
+    max_new_lanes_per_cycle: int = DEFAULT_MAX_NEW_LANES_PER_CYCLE
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "MissionLimits":
@@ -184,6 +242,9 @@ class MissionLimits:
                 payload.get("max_implementation_lanes", DEFAULT_MAX_IMPLEMENTATION_LANES)
             ),
             max_review_lanes=int(payload.get("max_review_lanes", DEFAULT_MAX_REVIEW_LANES)),
+            max_new_lanes_per_cycle=int(
+                payload.get("max_new_lanes_per_cycle", DEFAULT_MAX_NEW_LANES_PER_CYCLE)
+            ),
         )
 
 
@@ -200,6 +261,8 @@ class Mission:
     external_references: list[str] = field(default_factory=list)
     stop_conditions: list[str] = field(default_factory=list)
     allowed_mutations: list[str] = field(default_factory=list)
+    merge_policy: str = MERGE_POLICY_REPORT_ONLY
+    merge_on_green_max_tier: int = 2
     collect_merge_packets: bool = True
     max_merge_packets: int = 5
 
@@ -212,6 +275,12 @@ class Mission:
         if not isinstance(raw_limits, dict):
             raise ValueError("mission limits must be a mapping")
         name = str(payload.get("name") or "goal-mode").strip()
+        merge_policy = str(payload.get("merge_policy") or MERGE_POLICY_REPORT_ONLY).strip()
+        if merge_policy not in MERGE_POLICIES:
+            raise ValueError(f"mission merge_policy must be one of {sorted(MERGE_POLICIES)}")
+        merge_on_green_max_tier = int(payload.get("merge_on_green_max_tier", 2))
+        if not 0 <= merge_on_green_max_tier <= 2:
+            raise ValueError("merge_on_green_max_tier must be in [0, 2]")
         return cls(
             name=name,
             objective=str(payload.get("objective") or "").strip(),
@@ -228,6 +297,8 @@ class Mission:
             external_references=_as_str_list(payload.get("external_references")),
             stop_conditions=_as_str_list(payload.get("stop_conditions")),
             allowed_mutations=_as_str_list(payload.get("allowed_mutations")),
+            merge_policy=merge_policy,
+            merge_on_green_max_tier=merge_on_green_max_tier,
             collect_merge_packets=bool(payload.get("collect_merge_packets", True)),
             max_merge_packets=int(payload.get("max_merge_packets", 5)),
         )
@@ -331,6 +402,44 @@ class LaneDecision:
     action: str
     reason: str
     commands: list[list[str]] = field(default_factory=list)
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "pass", "passed"}
+    return bool(value)
+
+
+def _merge_packet_pr_number(entry: dict[str, Any]) -> int | None:
+    for key in ("pr_number", "number", "pr"):
+        value = entry.get(key)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _merge_packet_head(entry: dict[str, Any]) -> str:
+    for key in ("head_sha", "headRefOid", "head"):
+        value = str(entry.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _merge_packet_satisfied(entry: dict[str, Any]) -> bool:
+    status = str(entry.get("status") or "").strip().lower()
+    verdict = str(entry.get("verdict") or "").strip().lower()
+    return (
+        status == "satisfied"
+        or verdict == "admin_squash_allowed"
+        or _truthy(entry.get("admin_squash_allowed"))
+    )
 
 
 @dataclass
@@ -483,6 +592,30 @@ class GoalConductor:
         self.emit("snapshot", "captured live state", open_pr_count=len(prs), dirty=len(dirty_lines))
         return snapshot
 
+    def exact_gated_merge_candidates(self, snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+        """Return Tier 0-2 merge candidates that still require helper confirmation.
+
+        This is only a fast local filter over merge-packet JSON. Execute mode
+        still calls ``scripts/settle_one_pr.py`` immediately before merging.
+        """
+        candidates: list[dict[str, Any]] = []
+        for entry in _merge_packet_entries(snapshot.get("merge_packets")):
+            pr_number = _merge_packet_pr_number(entry)
+            head_sha = _merge_packet_head(entry)
+            tier = int(entry.get("tier") or 0)
+            if pr_number is None or not head_sha:
+                continue
+            if tier > self.mission.merge_on_green_max_tier:
+                continue
+            if _truthy(entry.get("requires_human_risk_settlement")):
+                continue
+            if _truthy(entry.get("unresolved_dissent")):
+                continue
+            if not _merge_packet_satisfied(entry):
+                continue
+            candidates.append({"pr_number": pr_number, "head_sha": head_sha, "tier": tier})
+        return candidates
+
     def hard_gates(self, snapshot: dict[str, Any]) -> list[str]:
         gates: list[str] = []
         if int(snapshot.get("pr_query_returncode") or 0) != 0:
@@ -522,8 +655,37 @@ class GoalConductor:
         prompt_dir = run_dir / "prompts"
         prompt_dir.mkdir(parents=True, exist_ok=True)
         path = prompt_dir / f"{_slug(lane.lane_id)}.md"
-        path.write_text(lane.prompt + "\n", encoding="utf-8")
+        path.write_text(self._render_lane_prompt(lane) + "\n", encoding="utf-8")
         return path
+
+    def _render_lane_prompt(self, lane: LaneSpec) -> str:
+        lines = [
+            "Start from live repo truth. Do not rely on transcript state.",
+            "Operating contract: re-read docs/AGENT_OPERATING_CONTRACT.md §Conductor this cycle.",
+            "",
+            "Mission lane contract:",
+            f"- lane_id: {lane.lane_id}",
+            f"- task_id: {lane.task_id or lane.lane_id}",
+            f"- goal: {lane.goal}",
+            f"- mode: {lane.mode}",
+            "- allowed autonomy: Tier 0-2 only; Tier 3/4 settlement and approval-required surfaces are hard stops.",
+            "- stop condition: open one draft PR, post one exact blocker, or park the lane with a durable handoff.",
+            "- never merge, never use --admin, never touch branch protection/workflows/secrets.",
+        ]
+        if lane.claimed_paths:
+            lines.extend(["- claimed paths:"] + [f"  - {path}" for path in lane.claimed_paths])
+        if lane.write_scopes:
+            lines.extend(["- write scopes:"] + [f"  - {scope}" for scope in lane.write_scopes])
+        if lane.forbidden_paths:
+            lines.extend(["- forbidden paths:"] + [f"  - {path}" for path in lane.forbidden_paths])
+        if lane.tests:
+            lines.extend(["- validation commands:"] + [f"  - {command}" for command in lane.tests])
+        if lane.stop_rule:
+            lines.append(f"- lane-specific stop rule: {lane.stop_rule}")
+        if lane.next_action:
+            lines.append(f"- next action: {lane.next_action}")
+        lines.extend(["", lane.prompt.strip()])
+        return "\n".join(line for line in lines if line is not None).rstrip()
 
     def _known_sessions(self) -> set[str]:
         data, _ = self._run_json(["python3", "scripts/agent_bridge.py", "--json", "sessions"])
@@ -538,9 +700,8 @@ class GoalConductor:
         commands: list[list[str]] = []
         if lane.lane_id not in sessions:
             launch = [
-                "python3",
-                "scripts/agent_bridge.py",
-                "launch",
+                "bash",
+                "scripts/tmux_session_launcher.sh",
                 "--name",
                 lane.lane_id,
                 "--agent",
@@ -550,7 +711,17 @@ class GoalConductor:
             ]
             if lane.autonomous:
                 launch.append("--autonomous")
+            launch.extend(["--prompt-file", str(prompt_file)])
+            if lane.agent == "codex":
+                launch.extend(["--task-id", lane.task_id or lane.lane_id])
+                for path in lane.claimed_paths:
+                    launch.extend(["--claimed-path", path])
+                for scope in lane.write_scopes:
+                    launch.extend(["--write-scope", scope])
+                for test_cmd in lane.tests:
+                    launch.extend(["--test", test_cmd])
             commands.append(launch)
+            return commands
         commands.append(
             [
                 "python3",
@@ -597,9 +768,20 @@ class GoalConductor:
         sessions = self._known_sessions()
         implementation_used = 0
         review_used = 0
+        new_lanes_used = 0
         at_cap = snapshot["open_pr_count"] >= self.mission.limits.queue_cap
         decisions: list[LaneDecision] = []
         for lane in self.mission.lanes:
+            lease_blocker = lane.lease_blocker()
+            if lease_blocker:
+                decisions.append(
+                    LaneDecision(
+                        lane_id=lane.lane_id,
+                        action="blocked",
+                        reason=lease_blocker,
+                    )
+                )
+                continue
             if lane.mutates and at_cap:
                 decisions.append(
                     LaneDecision(
@@ -631,6 +813,17 @@ class GoalConductor:
                     )
                     continue
                 review_used += 1
+            if lane.lane_id not in sessions and lane.mode != PANEL_MODE:
+                if new_lanes_used >= self.mission.limits.max_new_lanes_per_cycle:
+                    decisions.append(
+                        LaneDecision(
+                            lane_id=lane.lane_id,
+                            action="blocked",
+                            reason="max new lanes per cycle already assigned",
+                        )
+                    )
+                    continue
+                new_lanes_used += 1
             commands = (
                 self._panel_commands(lane, run_dir)
                 if lane.mode == PANEL_MODE
@@ -645,6 +838,82 @@ class GoalConductor:
                 )
             )
         return decisions
+
+    def _maybe_apply_one_exact_gated_merge(self, snapshot: dict[str, Any]) -> LaneDecision | None:
+        if self.mission.merge_policy != MERGE_POLICY_EXACT_GATED_TIER_0_2:
+            return None
+        candidates = self.exact_gated_merge_candidates(snapshot)
+        if not candidates:
+            return None
+        candidate = candidates[0]
+        pr_number = int(candidate["pr_number"])
+        head_sha = str(candidate["head_sha"])
+        settle_cmd = ["python3", "scripts/settle_one_pr.py", "--pr", str(pr_number), "--json"]
+        settle_result = self.runner.run(settle_cmd, timeout=180)
+        commands = [settle_cmd]
+        if settle_result.returncode != 0:
+            return LaneDecision(
+                lane_id=f"merge-pr-{pr_number}",
+                action="blocked",
+                reason=f"settle_one_pr.py failed rc={settle_result.returncode}",
+                commands=commands,
+            )
+        try:
+            settle_payload = json.loads(settle_result.stdout or "{}")
+        except json.JSONDecodeError:
+            return LaneDecision(
+                lane_id=f"merge-pr-{pr_number}",
+                action="blocked",
+                reason="settle_one_pr.py returned non-JSON output",
+                commands=commands,
+            )
+        blockers = settle_payload.get("blockers") if isinstance(settle_payload, dict) else None
+        settle_head = (
+            str(settle_payload.get("head_sha") or head_sha)
+            if isinstance(settle_payload, dict)
+            else head_sha
+        )
+        if blockers or settle_head != head_sha:
+            reason = f"settle_one_pr.py blockers={blockers or []}"
+            if settle_head != head_sha:
+                reason = f"head drift: packet {head_sha} settle_one {settle_head}"
+            return LaneDecision(
+                lane_id=f"merge-pr-{pr_number}",
+                action="blocked",
+                reason=reason,
+                commands=commands,
+            )
+        merge_cmd = [
+            "gh",
+            "pr",
+            "merge",
+            str(pr_number),
+            "--squash",
+            "--match-head-commit",
+            head_sha,
+        ]
+        commands.append(merge_cmd)
+        if not self.execute:
+            return LaneDecision(
+                lane_id=f"merge-pr-{pr_number}",
+                action="dry_run",
+                reason="exact-gated Tier 0-2 merge candidate; execute mode would run protected squash",
+                commands=commands,
+            )
+        merge_result = self.runner.run(merge_cmd, timeout=180)
+        if merge_result.returncode != 0:
+            return LaneDecision(
+                lane_id=f"merge-pr-{pr_number}",
+                action="blocked",
+                reason=f"protected squash merge failed rc={merge_result.returncode}",
+                commands=commands,
+            )
+        return LaneDecision(
+            lane_id=f"merge-pr-{pr_number}",
+            action="merged",
+            reason="exact-gated Tier 0-2 normal protected squash completed",
+            commands=commands,
+        )
 
     def apply_decisions(self, decisions: list[LaneDecision]) -> None:
         for decision in decisions:
@@ -681,17 +950,24 @@ class GoalConductor:
         gates = self.hard_gates(snapshot)
         for gate in gates:
             self.emit("hard_gate", gate)
-        if self.execute and gates:
+        fatal_gates = [gate for gate in gates if not gate.startswith("open PR queue at/above cap")]
+        if self.execute and fatal_gates:
             decisions = [
                 LaneDecision(
                     lane_id=lane.lane_id,
                     action="blocked",
-                    reason=f"fatal hard gate: {'; '.join(gates)}",
+                    reason=f"fatal hard gate: {'; '.join(fatal_gates)}",
                 )
                 for lane in self.mission.lanes
             ]
         else:
-            decisions = self.plan_lanes(snapshot, run_dir)
+            merge_decision = self._maybe_apply_one_exact_gated_merge(snapshot)
+            if merge_decision is not None and merge_decision.action in {"merged", "blocked"}:
+                decisions = [merge_decision]
+            else:
+                decisions = self.plan_lanes(snapshot, run_dir)
+                if merge_decision is not None:
+                    decisions.insert(0, merge_decision)
         self.apply_decisions(decisions)
         jsonl_path = run_dir / "conductor.jsonl"
         markdown_path = run_dir / "handoff.md"
@@ -821,6 +1097,8 @@ def main(argv: list[str] | None = None) -> int:
             "external_references": mission.external_references,
             "lanes": [asdict(lane) for lane in mission.lanes],
             "limits": asdict(mission.limits),
+            "merge_policy": mission.merge_policy,
+            "merge_on_green_max_tier": mission.merge_on_green_max_tier,
             "collect_merge_packets": mission.collect_merge_packets,
             "max_merge_packets": mission.max_merge_packets,
         }

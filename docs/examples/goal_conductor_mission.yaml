@@ -48,6 +48,12 @@ lanes:
     goal: Run the existing H1-01 benchmark publication path.
     cwd: .
     autonomous: true
+    task_id: mission-h1-01-benchmark-publication
+    claimed_paths:
+      - docs/status/generated/benchmark_truth_artifacts/
+      - docs/status/
+    tests:
+      - python3 -m pytest tests/scripts/test_score_gti_benchmark.py -q
     source: goal-conductor
     status: active
     next_action: Open one draft PR or report one blocker, then stop.
@@ -66,6 +72,12 @@ lanes:
     goal: Draft the public benchmark result artifact.
     cwd: .
     autonomous: true
+    task_id: mission-h1-01-public-artifact
+    claimed_paths:
+      - docs/status/
+      - docs-site/docs/
+    tests:
+      - pre-commit run --files docs/status/ docs-site/docs/
     source: goal-conductor
     status: active
     next_action: Open one draft PR or report one blocker, then stop.

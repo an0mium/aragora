@@ -29,6 +29,9 @@ class FakeRunner:
         merge_packet: dict | None = None,
         pr_query_returncode: int = 0,
         merge_packet_returncode: int = 0,
+        settle_payload: dict | None = None,
+        settle_returncode: int = 0,
+        merge_returncode: int = 0,
     ):
         self.mod = mod
         self.open_prs = open_prs or []
@@ -36,6 +39,9 @@ class FakeRunner:
         self.merge_packet = merge_packet or {"packets": []}
         self.pr_query_returncode = pr_query_returncode
         self.merge_packet_returncode = merge_packet_returncode
+        self.settle_payload = settle_payload or {"blockers": [], "head_sha": ""}
+        self.settle_returncode = settle_returncode
+        self.merge_returncode = merge_returncode
         self.calls: list[list[str]] = []
         self.executed: list[list[str]] = []
 
@@ -85,6 +91,15 @@ class FakeRunner:
                 returncode=0,
                 stdout=json.dumps({"overall_status": "fresh"}),
             )
+        if args[:3] == ["python3", "scripts/settle_one_pr.py", "--pr"]:
+            return self.mod.CommandResult(
+                args=args,
+                returncode=self.settle_returncode,
+                stdout=json.dumps(self.settle_payload),
+            )
+        if args[:3] == ["gh", "pr", "merge"]:
+            self.executed.append(args)
+            return self.mod.CommandResult(args=args, returncode=self.merge_returncode, stdout="")
         self.executed.append(args)
         return self.mod.CommandResult(args=args, returncode=0, stdout="")
 
@@ -113,6 +128,9 @@ def _mission_dict(tmp_path: Path) -> dict:
                 "agent": "codex",
                 "mode": "implementation",
                 "goal": "Make one bounded code change.",
+                "task_id": "mission-impl",
+                "claimed_paths": ["scripts/example.py"],
+                "tests": ["python3 -m pytest tests/scripts/test_example.py -q"],
                 "prompt": "Implement only the assigned file.",
             },
             {
@@ -466,6 +484,84 @@ def test_execute_reuses_existing_agent_lane_and_sends_prompt(tmp_path: Path) -> 
     assert "existing-lane" in send_commands[0]
 
 
+def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "codex-lane",
+            "agent": "codex",
+            "mode": "implementation",
+            "goal": "Patch conductor docs.",
+            "prompt": "Patch only the scoped docs.",
+            "task_id": "Q-mission-conductor",
+            "claimed_paths": ["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            "write_scopes": ["docs/guides/"],
+            "tests": ["pre-commit run --files docs/guides/CONDUCTOR_WORKFLOW.md"],
+        }
+    ]
+    mission = mod.Mission.from_dict(payload)
+    runner = FakeRunner(mod, open_prs=[])
+    conductor = mod.GoalConductor(
+        mission=mission,
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "execute"
+    [launch] = runner.executed
+    assert launch[:2] == ["bash", "scripts/tmux_session_launcher.sh"]
+    assert "launch" not in launch
+    assert launch[launch.index("--task-id") + 1] == "Q-mission-conductor"
+    assert launch[launch.index("--claimed-path") + 1] == "docs/guides/CONDUCTOR_WORKFLOW.md"
+    assert launch[launch.index("--write-scope") + 1] == "docs/guides/"
+    assert (
+        launch[launch.index("--test") + 1]
+        == "pre-commit run --files docs/guides/CONDUCTOR_WORKFLOW.md"
+    )
+    assert "--prompt-file" in launch
+    prompt_path = Path(launch[launch.index("--prompt-file") + 1])
+    prompt = prompt_path.read_text(encoding="utf-8")
+    assert "Mission lane contract:" in prompt
+    assert "task_id: Q-mission-conductor" in prompt
+    assert "Tier 3/4 settlement" in prompt
+
+
+def test_autonomous_codex_lane_without_lease_scope_is_blocked(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "unleased",
+            "agent": "codex",
+            "mode": "implementation",
+            "goal": "Patch something.",
+            "prompt": "Patch broadly.",
+        }
+    ]
+    mission = mod.Mission.from_dict(payload)
+    runner = FakeRunner(mod, open_prs=[])
+    conductor = mod.GoalConductor(
+        mission=mission,
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "blocked"
+    assert "requires task_id plus at least one" in result.decisions[0].reason
+    assert runner.executed == []
+
+
 def test_loop_stops_after_first_hard_gate(tmp_path: Path) -> None:
     import goal_conductor as mod
 
@@ -586,6 +682,88 @@ def test_execute_blocks_all_lanes_when_merge_packet_fails(tmp_path: Path) -> Non
     assert "merge-packet query failed for 7156" in result.hard_gates
     assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
     assert runner.executed == []
+
+
+def test_opt_in_exact_gated_merge_runs_settle_then_normal_protected_squash(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["merge_policy"] = "exact_gated_tier_0_2"
+    head = "abc123def456"
+    open_prs = [{"number": 77, "title": "ready", "isDraft": False}]
+    merge_packet = {
+        "entries": [
+            {
+                "pr_number": 77,
+                "head_sha": head,
+                "tier": 2,
+                "status": "satisfied",
+                "admin_squash_allowed": True,
+                "unresolved_dissent": False,
+                "requires_human_risk_settlement": False,
+            }
+        ]
+    }
+    runner = FakeRunner(
+        mod,
+        open_prs=open_prs,
+        merge_packet=merge_packet,
+        settle_payload={"blockers": [], "head_sha": head},
+    )
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert [decision.action for decision in result.decisions] == ["merged"]
+    assert runner.executed == [["gh", "pr", "merge", "77", "--squash", "--match-head-commit", head]]
+    assert "--admin" not in runner.executed[0]
+
+
+def test_opt_in_exact_gated_merge_blocks_on_settle_one_blockers(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["merge_policy"] = "exact_gated_tier_0_2"
+    head = "abc123def456"
+    open_prs = [{"number": 78, "title": "ready", "isDraft": False}]
+    merge_packet = {
+        "entries": [
+            {
+                "pr_number": 78,
+                "head_sha": head,
+                "tier": 1,
+                "status": "satisfied",
+                "admin_squash_allowed": True,
+            }
+        ]
+    }
+    runner = FakeRunner(
+        mod,
+        open_prs=open_prs,
+        merge_packet=merge_packet,
+        settle_payload={"blockers": ["active owner"], "head_sha": head},
+    )
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert [decision.action for decision in result.decisions] == ["blocked"]
+    assert "active owner" in result.decisions[0].reason
+    assert not any(command[:3] == ["gh", "pr", "merge"] for command in runner.executed)
 
 
 def test_discover_loop_surfaces_reports_existing_tools(tmp_path: Path) -> None:

@@ -69,6 +69,28 @@ def _subtask_prompt(subtask: Any, *, title: str, description: str) -> str:
     return "\n".join(parts)
 
 
+def _subtask_file_scope(subtask: Any) -> list[str]:
+    return [
+        str(path).strip()
+        for path in (getattr(subtask, "file_scope", None) or [])
+        if str(path).strip()
+    ]
+
+
+def _subtask_validation_commands(subtask: Any) -> list[str]:
+    raw = (
+        getattr(subtask, "validation_commands", None)
+        or getattr(subtask, "tests", None)
+        or getattr(subtask, "validation_command", None)
+    )
+    commands = [
+        str(command).strip()
+        for command in (raw if isinstance(raw, list) else [raw])
+        if str(command or "").strip()
+    ]
+    return commands or ["python3 -m pytest -q"]
+
+
 def decomposition_to_mission(
     decomp: Any,
     *,
@@ -111,6 +133,8 @@ def decomposition_to_mission(
         title = _subtask_title(subtask, index=index)
         description = _subtask_description(subtask, title=title)
         agent = selected_agents[(index - 1) % len(selected_agents)]
+        file_scope = _subtask_file_scope(subtask)
+        validation_commands = _subtask_validation_commands(subtask)
         lanes.append(
             {
                 "id": f"implementation-{index}",
@@ -119,6 +143,9 @@ def decomposition_to_mission(
                 "goal": title,
                 "cwd": ".",
                 "autonomous": True,
+                "task_id": f"mission-{index}",
+                "claimed_paths": file_scope,
+                "tests": validation_commands,
                 "source": "mission-bridge",
                 "status": "active",
                 "next_action": "Open one draft PR or report one blocker, then stop.",
