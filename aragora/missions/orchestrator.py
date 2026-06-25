@@ -56,22 +56,44 @@ class MissionOrchestrator:
     park-after-N protection the swarm path has). A ``Handoff(terminal=True)`` is
     blocked immediately — no point retrying a fork only a human can resolve.
 
-    Single-writer contract: one orchestrator per ``state_path``. ``MissionState.save``
-    now takes an exclusive lock so a contract-violating second writer serializes
-    rather than interleaving, but the contract is still the real guarantee — do not
-    run a second orchestrator, or a swarm, against the same state file concurrently.
-    To hand off between the orchestrator and swarm modes, reconcile first via
-    :func:`aragora.missions.swarm.reconcile_from_ledger`.
+    Concurrency contract — orchestrator-mode and swarm-mode are **mutually
+    exclusive**, enforced (not just documented) by the shared/exclusive
+    :func:`mission_owner_lock`: ``run``/``tick`` take the exclusive side, swarm
+    workers take the shared side, so a second orchestrator *or* a live swarm on the
+    same ``state_path`` fails fast with :class:`MissionOwnershipError`. If a
+    ``ledger_path`` is given, ``run`` reconciles ledger results into state before
+    ticking, so switching swarm→orchestrator never re-dispatches already-done work.
+    Per-save persistence stays atomic via ``os.replace`` (no torn reads).
     """
 
-    def __init__(self, state_path: str | Path, *, max_retries: int = 3) -> None:
+    def __init__(
+        self,
+        state_path: str | Path,
+        *,
+        max_retries: int = 3,
+        ledger_path: str | Path | None = None,
+    ) -> None:
         self.state_path = Path(state_path)
         self.max_retries = max_retries
+        self.ledger_path = Path(ledger_path) if ledger_path is not None else None
 
     # ---- single tick ---------------------------------------------------------
 
     def tick(self, dispatch: Dispatch) -> bool:
-        """Advance one feature. Returns True if work was done, False if drained.
+        """Advance one feature under the exclusive fence. Returns True if work was
+        done, False if drained.
+
+        Public single-tick entry point: it acquires the exclusive
+        :func:`mission_owner_lock` for this one tick, so even a hand-rolled
+        ``while orch.tick(...)`` loop is fenced against a concurrent driver — not
+        only :meth:`run`. Inside :meth:`run` the loop calls :meth:`_tick` directly,
+        holding the fence once for the whole run.
+        """
+        with mission_owner_lock(self.state_path, exclusive=True):
+            return self._tick(dispatch)
+
+    def _tick(self, dispatch: Dispatch) -> bool:
+        """One tick, assuming the exclusive fence is already held.
 
         Reload → reclaim orphans → pick next → mark in_progress (persist) →
         dispatch → triage handoff → persist. The persist *before* dispatch is
@@ -181,18 +203,23 @@ class MissionOrchestrator:
     def run(self, dispatch: Dispatch, max_ticks: int = 10_000) -> tuple[int, int]:
         """Tick until the queue drains (or a tick cap). Resumable across crashes.
 
-        Holds the single-writer :func:`mission_owner_lock` for the whole run, so a
-        second concurrent orchestrator fails fast with ``MissionOwnershipError``
-        instead of racing ``next_pending`` and double-dispatching a feature. Hitting
-        ``max_ticks`` is logged as a *cap*, not silently treated as completion.
+        Holds the exclusive :func:`mission_owner_lock` for the whole run, so a second
+        orchestrator *or* a live swarm fails fast with ``MissionOwnershipError``
+        instead of racing ``next_pending``. If a ``ledger_path`` was given, folds the
+        swarm's ledger results into state first (so swarm→orchestrator never
+        re-dispatches done/parked work). The final state is reported precisely:
+        complete, blocked-remaining, or hit the tick cap.
         """
         hit_cap = True
-        with mission_owner_lock(self.state_path):
+        with mission_owner_lock(self.state_path, exclusive=True):
+            if self.ledger_path is not None:
+                self._reconcile_ledger()
             for _ in range(max_ticks):
-                if not self.tick(dispatch):
+                if not self._tick(dispatch):
                     hit_cap = False
                     break
-        done, total = MissionState.load(self.state_path).progress()
+        state = MissionState.load(self.state_path)
+        done, total = state.progress()
         if hit_cap and done < total:
             logger.warning(
                 "mission run hit max_ticks=%d with %d/%d done — NOT complete, re-run to continue",
@@ -200,6 +227,25 @@ class MissionOrchestrator:
                 done,
                 total,
             )
+        elif done < total:
+            blocked = sum(1 for f in state.features if f.status == Status.BLOCKED)
+            logger.info(
+                "mission run drained: %d/%d done, %d blocked (queue has no runnable work)",
+                done,
+                total,
+                blocked,
+            )
         else:
-            logger.info("mission run paused/complete: %d/%d features", done, total)
+            logger.info("mission run complete: %d/%d features", done, total)
         return done, total
+
+    def _reconcile_ledger(self) -> None:
+        """Fold ledger results into state before driving (swarm→orchestrator switch).
+
+        Imported lazily to avoid a circular import (swarm imports from this module).
+        Called while the exclusive fence is already held, so it does not re-acquire.
+        """
+        from .swarm import _reconcile_locked
+
+        if self.ledger_path is not None:
+            _reconcile_locked(self.state_path, self.ledger_path)

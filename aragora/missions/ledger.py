@@ -30,7 +30,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from types import ModuleType
 
-from .state import MissionState, Status
+from .state import MissionState, Status, from_known_fields
 
 # POSIX-only; the package imports fine without it (locking raises a clear error).
 fcntl: ModuleType | None
@@ -297,8 +297,10 @@ class Ledger:
             return _LedgerData()
         raw = json.loads(self.path.read_text(encoding="utf-8"))
         return _LedgerData(
-            leases={u: Lease(**v) for u, v in raw.get("leases", {}).items()},
-            constraints={k: Constraint(**v) for k, v in raw.get("constraints", {}).items()},
+            leases={u: from_known_fields(Lease, v) for u, v in raw.get("leases", {}).items()},
+            constraints={
+                k: from_known_fields(Constraint, v) for k, v in raw.get("constraints", {}).items()
+            },
             attempts=dict(raw.get("attempts", {})),
             done=set(raw.get("done", [])),
             discoveries={u: list(notes) for u, notes in raw.get("discoveries", {}).items()},
@@ -356,7 +358,10 @@ def select_for(
     done = {f.id for f in state.features if f.status == Status.COMPLETED} | ledger.done_units()
 
     for feat in state.features:
-        if feat.status not in (Status.PENDING, Status.IN_PROGRESS) or feat.id in done:
+        # Only PENDING is claimable. A stale IN_PROGRESS belongs to the
+        # orchestrator's reclaim path (and orchestrator-mode is mutually exclusive
+        # with the swarm via the owner fence), so a worker must never grab it.
+        if feat.status != Status.PENDING or feat.id in done:
             continue
         unmet = [p for p in feat.preconditions if p.startswith("feature:") and p[8:] not in done]
         if unmet:

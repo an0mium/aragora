@@ -18,10 +18,27 @@ import os
 import tempfile
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
+from dataclasses import fields as dataclass_fields
 from pathlib import Path
 from types import ModuleType
+from typing import Any, TypeVar, cast
 
 logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
+
+
+def from_known_fields(cls: type[_T], data: dict[str, Any]) -> _T:
+    """Construct ``cls`` from ``data``, dropping unknown keys instead of crashing.
+
+    Forward-compat for on-disk state/ledger written by a newer schema: an extra
+    field must degrade gracefully (skip it), not raise ``TypeError`` and hard-fail
+    the whole mission load.
+    """
+    names = {f.name for f in dataclass_fields(cast(Any, cls))}
+    factory = cast(Any, cls)
+    return cast(_T, factory(**{k: v for k, v in data.items() if k in names}))
+
 
 # POSIX-only. Used for the single-writer *owner fence* below — not for serializing
 # individual saves (atomic os.replace already prevents torn reads).
@@ -39,17 +56,24 @@ class MissionOwnershipError(RuntimeError):
 
 
 @contextlib.contextmanager
-def mission_owner_lock(state_path: str | Path) -> Iterator[None]:
-    """Enforce the single-writer contract with a **non-blocking** owner fence.
+def mission_owner_lock(state_path: str | Path, *, exclusive: bool = True) -> Iterator[None]:
+    """Enforce the mission's concurrency contract with a **non-blocking** fence that
+    makes orchestrator-mode and swarm-mode mutually exclusive.
 
-    A mission driver (orchestrator, or a one-shot reconcile) holds this for the
-    duration of its run. A *second* concurrent driver on the same state file fails
-    fast with :class:`MissionOwnershipError` instead of silently double-dispatching
-    a feature (the honest fix for "two orchestrators race ``next_pending``": the
-    contract is now *enforced*, not just documented). The per-save ``os.replace`` is
-    still atomic, so even without the fence a reader never sees a torn file; the
-    fence is what makes concurrent *writers* a loud error rather than a lost update.
-    No-op when POSIX ``fcntl`` is unavailable.
+    It is a shared/exclusive (reader/writer) lock:
+
+    * ``exclusive=True`` (orchestrator ``run``/``tick``, ``reconcile_from_ledger``):
+      takes ``LOCK_EX`` — refused if *anything* else holds the mission (another
+      orchestrator, or any live swarm worker). Single writer, enforced.
+    * ``exclusive=False`` (swarm ``run_worker``): takes ``LOCK_SH`` — many workers
+      coexist (shared), but an orchestrator's ``LOCK_EX`` is refused while any worker
+      holds it, and vice versa.
+
+    So two orchestrators, or an orchestrator concurrent with a swarm, fail fast with
+    :class:`MissionOwnershipError` instead of double-dispatching a feature — while a
+    real multi-worker swarm still runs in parallel. The per-save ``os.replace`` is
+    atomic regardless (no torn reads); this fence is what makes *conflicting writers*
+    a loud error. No-op when POSIX ``fcntl`` is unavailable.
     """
     path = Path(state_path)
     if fcntl is None:  # pragma: no cover - non-POSIX
@@ -57,13 +81,15 @@ def mission_owner_lock(state_path: str | Path) -> Iterator[None]:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     lock_path = path.with_suffix(path.suffix + ".owner.lock")
-    lf = lock_path.open("w")
+    mode = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+    lf = lock_path.open("a")  # create-if-missing, no truncate; content is irrelevant
     try:
         try:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(lf.fileno(), mode | fcntl.LOCK_NB)
         except OSError as exc:
+            held_by = "another orchestrator or a live swarm worker"
             raise MissionOwnershipError(
-                f"mission {path.name} is already being driven by another process"
+                f"mission {path.name} is already being driven by {held_by}"
             ) from exc
         try:
             yield
@@ -205,7 +231,7 @@ class MissionState:
             mission_id=data["mission_id"],
             goal=data["goal"],
             milestones=list(data.get("milestones", [])),
-            features=[Feature(**f) for f in data.get("features", [])],
+            features=[from_known_fields(Feature, f) for f in data.get("features", [])],
         )
 
     def save(self, path: str | Path) -> None:

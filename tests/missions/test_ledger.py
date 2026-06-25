@@ -173,6 +173,34 @@ def test_concurrent_claims_exactly_one_wins(tmp_path):
     assert len(led.active_claims()) == 1
 
 
+def test_select_does_not_claim_in_progress(tmp_path):
+    """grok [P2]: a worker must not claim an IN_PROGRESS feature — that belongs to
+    the orchestrator's reclaim path. Only PENDING is claimable to the swarm."""
+    from aragora.missions.state import Status
+
+    state = _mission(2)
+    state.features[0].status = Status.IN_PROGRESS  # f1 is mid-flight under the orchestrator
+    led = _ledger(tmp_path)
+    assert select_for(state, led, "wA", now=100.0) == "f2"  # f1 skipped, not grabbed
+
+
+def test_ledger_load_tolerates_unknown_fields(tmp_path):
+    """[P3] forward-compat: a ledger written by a newer schema (extra lease/
+    constraint fields) loads instead of crashing with TypeError."""
+    import json
+
+    led = _ledger(tmp_path)
+    led.claim("u1", "w1", now=100.0)
+    led.record_constraint("feature:x", "parked", now=100.0)
+    raw = json.loads(led.path.read_text())
+    raw["leases"]["u1"]["future_lease_field"] = 1
+    raw["constraints"]["feature:x"]["future_constraint_field"] = "x"
+    led.path.write_text(json.dumps(raw))
+    # Re-reads cleanly, dropping the unknown keys.
+    assert led.active_claims(now=100.0) == {"u1": "w1"}
+    assert led.is_excluded("feature:x", now=100.0) is True
+
+
 def test_select_respects_preconditions(tmp_path):
     state = MissionState(
         mission_id="t",

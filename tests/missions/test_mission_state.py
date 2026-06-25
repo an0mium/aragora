@@ -96,6 +96,56 @@ def test_run_holds_owner_fence_against_concurrent_orchestrator(tmp_path):
     assert (done, total) == (2, 2)  # the owning run still completes normally
 
 
+def test_shared_and_exclusive_fence_make_modes_exclusive(tmp_path):
+    """The shared/exclusive lock: many workers (shared) coexist, but an orchestrator
+    (exclusive) and a swarm worker (shared) are mutually exclusive."""
+    from aragora.missions.state import MissionOwnershipError, mission_owner_lock
+
+    p = tmp_path / "state.json"
+    _mission(2).save(p)
+
+    # Two workers (shared) can hold the mission at once.
+    with mission_owner_lock(p, exclusive=False):
+        with mission_owner_lock(p, exclusive=False):  # second worker: allowed
+            # ...but an orchestrator (exclusive) is refused while a worker holds it.
+            with pytest.raises(MissionOwnershipError):
+                with mission_owner_lock(p, exclusive=True):
+                    pass
+
+    # And a worker is refused while an orchestrator (exclusive) holds it.
+    with mission_owner_lock(p, exclusive=True):
+        with pytest.raises(MissionOwnershipError):
+            with mission_owner_lock(p, exclusive=False):
+                pass
+
+
+def test_public_tick_is_fenced(tmp_path):
+    """grok [P2]: the public tick() acquires the exclusive fence itself, so even a
+    hand-rolled tick loop is protected — not only run()."""
+    from aragora.missions.state import MissionOwnershipError, mission_owner_lock
+
+    p = tmp_path / "state.json"
+    _mission(1).save(p)
+    orch = MissionOrchestrator(p)
+    with mission_owner_lock(p, exclusive=True):  # someone else owns the mission
+        with pytest.raises(MissionOwnershipError):
+            orch.tick(lambda feat: Handoff(success=True))
+
+
+def test_load_tolerates_unknown_fields_from_newer_schema(tmp_path):
+    """[P3] forward-compat: state written by a newer schema with an extra feature
+    field loads (dropping the unknown key) instead of crashing with TypeError."""
+    import json
+
+    p = tmp_path / "state.json"
+    _mission(1).save(p)
+    raw = json.loads(p.read_text())
+    raw["features"][0]["future_field"] = "from a newer version"
+    p.write_text(json.dumps(raw))
+    loaded = MissionState.load(p)  # must not raise
+    assert loaded.get("f1").description == "feat 1"
+
+
 def test_next_pending_is_array_order():
     m = _mission()
     m.mark_completed("f1")

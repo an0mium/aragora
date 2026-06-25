@@ -17,14 +17,55 @@ folds the swarm's results back into, from a single writer.
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .ledger import Ledger, select_for
+from .ledger import DEFAULT_LEASE_TTL, Ledger, select_for
 from .orchestrator import Dispatch, Handoff
 from .state import MissionState, Status, mission_owner_lock
 
 logger = logging.getLogger(__name__)
+
+
+class _LeaseHeartbeat:
+    """Keep a *live* worker's lease fresh while a long dispatch runs.
+
+    The lease TTL exists so a *dead* worker's claim evaporates and the unit becomes
+    reclaimable. But a live worker running a legitimately long dispatch (e.g.
+    collecting heterogeneous-model quorum evidence, minutes) would let its own lease
+    expire, and another worker could then claim and double-dispatch the same unit
+    (claude's [P2]). A background thread re-claims (refreshes ``claimed_at``) every
+    ``ttl/3`` until the dispatch returns, so a live worker's lease never lapses; if
+    the worker process dies, the thread dies with it and the TTL fallback still frees
+    the unit. The heartbeat itself never raises into the worker.
+    """
+
+    def __init__(self, ledger: Ledger, unit: str, worker_id: str, ttl: float) -> None:
+        self._ledger = ledger
+        self._unit = unit
+        self._worker_id = worker_id
+        self._ttl = ttl
+        self._interval = max(0.5, ttl / 3)
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def __enter__(self) -> _LeaseHeartbeat:
+        self._thread = threading.Thread(target=self._beat, daemon=True)
+        self._thread.start()
+        return self
+
+    def _beat(self) -> None:
+        while not self._stop.wait(self._interval):
+            try:
+                self._ledger.claim(self._unit, self._worker_id, ttl=self._ttl)
+            except Exception:  # noqa: BLE001 - a heartbeat must never crash the worker
+                logger.warning("lease heartbeat for %s failed; will retry next beat", self._unit)
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=5.0)
 
 
 @dataclass
@@ -53,7 +94,33 @@ def run_worker(
     count reaches the threshold it is parked and the swarm moves on. Convergence
     is guaranteed: attempts accumulate in the ledger, so a persistent blocker is
     parked after at most ``park_threshold`` total attempts across the swarm.
+
+    Holds the *shared* side of :func:`mission_owner_lock` for its whole run: many
+    workers coexist (shared), but an orchestrator (exclusive) cannot run against the
+    same mission concurrently — so orchestrator-mode and swarm-mode never
+    double-dispatch a feature. A long dispatch keeps its lease alive via
+    :class:`_LeaseHeartbeat`.
     """
+    with mission_owner_lock(state_path, exclusive=False):
+        return _run_worker_fenced(
+            state_path,
+            ledger_path,
+            worker_id,
+            dispatch,
+            park_threshold=park_threshold,
+            max_units=max_units,
+        )
+
+
+def _run_worker_fenced(
+    state_path: str | Path,
+    ledger_path: str | Path,
+    worker_id: str,
+    dispatch: Dispatch,
+    *,
+    park_threshold: int,
+    max_units: int | None,
+) -> SwarmResult:
     state = MissionState.load(state_path)
     ledger = Ledger(ledger_path)
     res = SwarmResult(worker_id=worker_id)
@@ -68,7 +135,9 @@ def run_worker(
         # Count the attempt BEFORE dispatch so a *raising* dispatch is bounded too.
         attempts = ledger.bump_attempt(f"feature:{unit}")
         try:
-            handoff = dispatch(state.get(unit))
+            # Heartbeat keeps the lease fresh so a long dispatch isn't reclaimed.
+            with _LeaseHeartbeat(ledger, unit, worker_id, DEFAULT_LEASE_TTL):
+                handoff = dispatch(state.get(unit))
         except (
             Exception
         ) as exc:  # dispatch is an external callback — may raise anything  # noqa: BLE001

@@ -11,10 +11,12 @@ plugs in identically — it is just a ``Feature -> Handoff`` callable.
 
 from __future__ import annotations
 
+import time
+
 from aragora.missions.ledger import Ledger
-from aragora.missions.orchestrator import Handoff
+from aragora.missions.orchestrator import Handoff, MissionOrchestrator
 from aragora.missions.state import Feature, MissionState, Status
-from aragora.missions.swarm import reconcile_from_ledger, run_worker
+from aragora.missions.swarm import _LeaseHeartbeat, reconcile_from_ledger, run_worker
 
 
 def _mission(tmp_path, n=4):
@@ -169,6 +171,41 @@ def test_swarm_records_discoveries_on_failed_handoff(tmp_path):
 
     run_worker(sp, lp, "w1", dispatch, park_threshold=1)  # parks after 1 block
     assert Ledger(lp).discoveries() == {"f1": ["seen on failure"]}
+
+
+def test_orchestrator_auto_reconciles_ledger_before_driving(tmp_path):
+    """grok [P2]: switching swarm→orchestrator must not re-dispatch ledger-done work.
+    An orchestrator given a ledger_path folds the swarm's results in before ticking,
+    so already-done units are COMPLETED and never re-dispatched."""
+    sp, lp = _mission(tmp_path, 3)
+    run_worker(
+        sp, lp, "w1", lambda feat: Handoff(success=True)
+    )  # swarm finishes all 3 in the ledger
+
+    redispatched: list[str] = []
+
+    def dispatch(feat):
+        redispatched.append(feat.id)
+        return Handoff(success=True)
+
+    # Orchestrator wired to the same ledger: reconciles first, finds nothing to do.
+    done, total = MissionOrchestrator(sp, ledger_path=lp).run(dispatch)
+    assert (done, total) == (3, 3)
+    assert redispatched == []  # ledger-done units were reconciled, not re-dispatched
+
+
+def test_lease_heartbeat_keeps_a_long_dispatch_claim_alive(tmp_path):
+    """claude [P2]: a dispatch outliving the lease TTL would be reclaimable. The
+    heartbeat re-claims in the background so a live worker's lease never lapses."""
+    _, lp = _mission(tmp_path, 1)
+    led = Ledger(lp)
+    led.claim("u1", "w1", ttl=0.3)  # short TTL — would expire in 0.3s without a beat
+    with _LeaseHeartbeat(led, "u1", "w1", ttl=0.3):
+        time.sleep(0.6)  # outlive two TTLs
+        assert led.active_claims() == {"u1": "w1"}  # still held — heartbeat refreshed it
+    # After the heartbeat stops, the lease lapses normally.
+    time.sleep(0.4)
+    assert led.active_claims() == {}
 
 
 def test_reconcile_does_not_revert_completed_to_blocked(tmp_path):

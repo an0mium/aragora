@@ -35,9 +35,9 @@ def _worker(worker_id: str, state_path: Path, ledger_path: Path, log_path: Path)
             break
         time.sleep(WORK_SECONDS)  # 'work' the unit
         did.append(unit)
-        # Mark done in the *shared environment* (locked) so no one re-picks it.
-        ledger.record_done(unit)
-        ledger.release(unit, worker_id)
+        # Mark done + drop the lease atomically (one locked transaction) so there is
+        # no released-but-not-done window for another worker to re-pick the unit.
+        ledger.complete(unit, worker_id)
     log_path.write_text("\n".join(did), encoding="utf-8")
 
 
