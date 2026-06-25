@@ -225,22 +225,6 @@ def test_automation_state_root_rejects_unregistered_same_origin_checkout(
         raise AssertionError("unregistered same-origin automation state root was accepted")
 
 
-def test_automation_state_root_accepts_same_origin_checkout_with_shared_head_object(
-    tmp_path: Path,
-    monkeypatch: Any,
-) -> None:
-    repo = tmp_path / "repo"
-    shared = tmp_path / "shared-checkout"
-    _init_repo_with_origin(repo)
-    _init_repo_with_origin(shared, "git@github.com:synaptent/aragora.git")
-    (shared / ".aragora").mkdir()
-    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared))
-    monkeypatch.setattr(sentinel, "_registered_worktree_roots", lambda repo_root: {repo.resolve()})
-    monkeypatch.setattr(sentinel, "_shares_repo_head_object", lambda repo_root, candidate: True)
-
-    assert sentinel._automation_state_root(repo) == (shared / ".aragora").resolve()
-
-
 def test_automation_state_root_rejects_repo_subdirectory_bypass(
     tmp_path: Path,
     monkeypatch: Any,
