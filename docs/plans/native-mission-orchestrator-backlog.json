@@ -146,9 +146,9 @@
       "id": "f2-pheromone-wired-to-gate",
       "milestone": "phase-f-swarm",
       "skill": "worker",
-      "status": "pending",
-      "description": "Wire workers to write parks/learned-constraints to the ledger on any blocker (Reflexion-as-data), and have BossLoopDispatch/select_for read them so the swarm escapes treadmills without prompt-rot. The merge-quorum gate stays the hard selector (propose=swarm, accept=gate -- the FunSearch/AlphaEvolve pattern).",
-      "preconditions": ["feature:f1-stigmergic-ledger", "feature:a5-wire-boss-loop-dispatch"],
+      "status": "completed",
+      "description": "Pheromone wired to the gate (CONTRACT). DONE: aragora/missions/swarm.py (run_worker: select via ledger -> run gate dispatch -> record_done on success, park constraint after park_threshold blocks; converges, no unbounded retry). select_for reads done/parks; the dispatch (BossLoopDispatch) stays the hard selector. 4 tests incl. treadmill-escape (a persistent blocker is parked after N attempts and the swarm finishes the rest -- the anti-treadmill a stateless prompt loop cannot keep). REMAINING (via a5): swap the fake gate for the LIVE boss_loop/review_queue binding.",
+      "preconditions": ["feature:f1-stigmergic-ledger"],
       "fulfills": ["VAL-NMO-051"]
     },
     {

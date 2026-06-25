@@ -12,6 +12,7 @@ Public surface::
 from .ledger import Constraint, Ledger, Lease, select_for
 from .orchestrator import Handoff, MissionOrchestrator
 from .state import Feature, MissionState, Status
+from .swarm import SwarmResult, run_worker
 
 __all__ = [
     "Constraint",
@@ -22,5 +23,7 @@ __all__ = [
     "MissionOrchestrator",
     "MissionState",
     "Status",
+    "SwarmResult",
+    "run_worker",
     "select_for",
 ]

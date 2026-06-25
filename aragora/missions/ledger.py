@@ -68,6 +68,7 @@ class _LedgerData:
     leases: dict[str, Lease] = field(default_factory=dict)
     constraints: dict[str, Constraint] = field(default_factory=dict)
     attempts: dict[str, int] = field(default_factory=dict)
+    done: set[str] = field(default_factory=set)  # units completed by any worker
 
 
 class Ledger:
@@ -148,6 +149,20 @@ class Ledger:
     def attempts(self, key: str) -> int:
         return self._load().attempts.get(key, 0)
 
+    # ---- completion (shared, so the swarm needs no locked MissionState) ------
+
+    def record_done(self, unit: str) -> None:
+        with self._locked():
+            data = self._load()
+            data.done.add(unit)
+            self._save(data)
+
+    def is_done(self, unit: str) -> bool:
+        return unit in self._load().done
+
+    def done_units(self) -> set[str]:
+        return set(self._load().done)
+
     def prune(self, *, now: float | None = None) -> tuple[int, int]:
         """Evaporate expired leases + constraints. Returns (leases, constraints) dropped."""
         now = time.time() if now is None else now
@@ -183,6 +198,7 @@ class Ledger:
             leases={u: Lease(**v) for u, v in raw.get("leases", {}).items()},
             constraints={k: Constraint(**v) for k, v in raw.get("constraints", {}).items()},
             attempts=dict(raw.get("attempts", {})),
+            done=set(raw.get("done", [])),
         )
 
     def _save(self, data: _LedgerData) -> None:
@@ -190,6 +206,7 @@ class Ledger:
             "leases": {u: asdict(ls) for u, ls in data.leases.items()},
             "constraints": {k: asdict(c) for k, c in data.constraints.items()},
             "attempts": data.attempts,
+            "done": sorted(data.done),
         }
         fd, tmp = tempfile.mkstemp(dir=str(self.path.parent), prefix=f".{self.path.name}.", suffix=".tmp")
         try:
@@ -210,34 +227,32 @@ def select_for(
     worker_id: str,
     *,
     ttl: float = DEFAULT_LEASE_TTL,
-    park_threshold: int = 2,
     now: float | None = None,
 ) -> str | None:
-    """Stigmergic pickup: claim the first pending feature that is neither claimed
-    by another worker nor under an active exclusion. Returns the claimed feature
-    id, or None if nothing is available to *this* worker right now.
+    """Stigmergic pickup: atomic-claim the first available feature for ``worker_id``.
 
-    This is how non-overlapping fronts emerge with no central dispatcher: each
-    worker scans the same queue, atomic-claims the first free unit, and the
-    constraint/attempt trail keeps the swarm off treadmills.
+    "Available" = pending/in_progress, preconditions met, not done (in state OR the
+    ledger), not parked (active constraint), and not claimed by another worker.
+    Returns the claimed feature id, or None if nothing is available to *this* worker.
+
+    This is how non-overlapping fronts emerge with no central dispatcher: every
+    worker scans the same queue and the locked ledger arbitrates who gets what.
+    Selection only *selects* — the park/attempt policy lives in the worker loop.
     """
     now = time.time() if now is None else now
     claims = ledger.active_claims(now=now)
-    completed = {f.id for f in state.features if f.status == "completed"}
+    done = {f.id for f in state.features if f.status == "completed"} | ledger.done_units()
 
     for feat in state.features:
-        if feat.status not in ("pending", "in_progress"):
+        if feat.status not in ("pending", "in_progress") or feat.id in done:
             continue
-        unmet = [p for p in feat.preconditions if p.startswith("feature:") and p[8:] not in completed]
+        unmet = [p for p in feat.preconditions if p.startswith("feature:") and p[8:] not in done]
         if unmet:
             continue
         if feat.id in claims and claims[feat.id] != worker_id:
             continue  # another worker owns it
         if ledger.is_excluded(f"feature:{feat.id}", now=now):
-            continue  # parked (pheromone says: stay off this treadmill)
-        if ledger.attempts(f"feature:{feat.id}") >= park_threshold and not feat.notes:
-            ledger.record_constraint(f"feature:{feat.id}", "auto-parked after repeated failure", now=now)
-            continue
+            continue  # parked: the pheromone says stay off this treadmill
         if ledger.claim(feat.id, worker_id, ttl=ttl, now=now):
             return feat.id
     return None
