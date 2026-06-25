@@ -14,8 +14,6 @@ The conductor is intentionally conservative. It is read-only by default; pass
 from __future__ import annotations
 
 import argparse
-import contextlib
-import io
 import json
 import os
 import re
@@ -48,15 +46,32 @@ def _slug(value: str) -> str:
     return slug[:80] or "goal"
 
 
+class _NullStdout:
+    """Write-only sink used when stdout has broken and devnull is unavailable."""
+
+    def write(self, text: str) -> int:
+        return len(text)
+
+    def flush(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+
 def _mute_stdout_after_broken_pipe() -> None:
-    close = getattr(sys.stdout, "close", None)
-    if callable(close):
-        with contextlib.suppress(Exception):
-            close()
+    current = sys.stdout
+    if current is sys.__stdout__:
+        close = getattr(current, "close", None)
+        if callable(close):
+            try:
+                close()
+            except OSError:
+                pass
     try:
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
     except OSError:
-        sys.stdout = io.StringIO()
+        sys.stdout = _NullStdout()
 
 
 def _emit_output(output: str) -> None:

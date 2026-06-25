@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import io
 import sys
 from pathlib import Path
 
@@ -164,7 +163,7 @@ lanes:
     assert mission.lanes[0].lane_id == "impl"
 
 
-def test_main_validate_json_suppresses_flush_time_broken_pipe(
+def test_main_validate_json_suppresses_flush_time_broken_pipe_without_closing_wrappers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import goal_conductor as mod
@@ -203,13 +202,13 @@ lanes:
 
     assert mod.main(["validate", "--mission", str(mission_path), "--json"]) == 0
     assert stream.writes
-    assert stream.closed is True
+    assert stream.closed is False
     assert mod.sys.stdout is not stream
     if mod.sys.stdout is not sys.__stdout__:
         mod.sys.stdout.close()
 
 
-def test_emit_output_suppresses_write_time_broken_pipe(
+def test_emit_output_suppresses_write_time_broken_pipe_without_closing_wrappers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import goal_conductor as mod
@@ -231,6 +230,28 @@ def test_emit_output_suppresses_write_time_broken_pipe(
     monkeypatch.setattr(mod.sys, "stdout", stream)
 
     mod._emit_output("payload")
+
+    assert stream.closed is False
+    assert mod.sys.stdout is not stream
+    if mod.sys.stdout is not sys.__stdout__:
+        mod.sys.stdout.close()
+
+
+def test_mute_stdout_closes_default_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+    import goal_conductor as mod
+
+    class DefaultStdout:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = DefaultStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+    monkeypatch.setattr(mod.sys, "__stdout__", stream)
+
+    mod._mute_stdout_after_broken_pipe()
 
     assert stream.closed is True
     assert mod.sys.stdout is not stream
@@ -262,8 +283,8 @@ def test_mute_stdout_falls_back_to_null_stream_when_devnull_unavailable(
     mod._mute_stdout_after_broken_pipe()
     mod._emit_output("payload")
 
-    assert stream.closed is True
-    assert isinstance(mod.sys.stdout, io.StringIO)
+    assert stream.closed is False
+    assert isinstance(mod.sys.stdout, mod._NullStdout)
 
 
 def test_emit_output_ignores_missing_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
