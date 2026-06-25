@@ -436,6 +436,48 @@ if [[ "${ALLOW_LEASE_OVERLAP}" != "1" ]]; then
     existing_window_id="$(tmux list-windows -t "${TMUX_SESSION}" -F '#{window_index} #{window_name}' 2>/dev/null \
         | awk -v name="${NAME}" '$2 == name { print $1; exit }')"
     if [[ -n "${existing_window_id}" ]]; then
+        DUPLICATE_LANE_ID="${TASK_ID:-${NAME}}"
+        duplicate_is_terminal="0"
+        if python3 - "${REPO_ROOT}" "${REGISTRY_REPO_ROOT}" "${DUPLICATE_LANE_ID}" "${NAME}" <<'PY'
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+repo_root = Path(sys.argv[1])
+registry_root = Path(sys.argv[2])
+lane_id = sys.argv[3]
+owner_session = sys.argv[4]
+module_path = repo_root / "scripts" / "agent_heartbeat.py"
+spec = importlib.util.spec_from_file_location("agent_heartbeat_for_tmux", module_path)
+if spec is None or spec.loader is None:
+    raise SystemExit(1)
+agent_heartbeat = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(agent_heartbeat)
+heartbeat_path = agent_heartbeat.resolve_heartbeat_path(repo_root=registry_root)
+try:
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+for row in payload if isinstance(payload, list) else []:
+    if not isinstance(row, dict):
+        continue
+    if row.get("lane_id") != lane_id or row.get("owner_session") != owner_session:
+        continue
+    if (
+        row.get("terminal") is True
+        or row.get("terminal_outcome")
+        or row.get("terminal_finalized_at")
+    ):
+        raise SystemExit(0)
+raise SystemExit(1)
+PY
+        then
+            duplicate_is_terminal="1"
+        fi
+        if [[ "${duplicate_is_terminal}" == "1" ]]; then
+            echo "Existing tmux window '${NAME}' has terminal heartbeat state; allowing relaunch." >&2
+        else
         cat >&2 <<EOF
 Refusing duplicate tmux session name '${NAME}'.
 
@@ -443,6 +485,7 @@ A live tmux window already uses this owner/session name. Use a unique --name, ki
 old window intentionally, or pass --allow-overlap for an explicit manual override.
 EOF
         exit 2
+        fi
     fi
 fi
 

@@ -433,6 +433,51 @@ def test_tmux_session_launcher_rejects_duplicate_session_name(tmp_path: Path) ->
     assert "Refusing duplicate tmux session name 'dupe-session'" in result.stderr
 
 
+def test_tmux_session_launcher_allows_duplicate_name_with_terminal_heartbeat(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path, window_name="dupe-session")
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+    heartbeat_path = tmp_path / ".aragora" / "agent-bridge" / "heartbeats.json"
+    heartbeat_path.parent.mkdir(parents=True)
+    heartbeat_path.write_text(
+        json.dumps(
+            [
+                {
+                    "schema_version": "aragora-agent-heartbeat/1.0",
+                    "lane_id": "dupe-session",
+                    "owner_session": "dupe-session",
+                    "terminal": True,
+                    "terminal_outcome": "completed",
+                    "terminal_finalized_at": "2026-06-23T10:10:00Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "dupe-session",
+            "--agent",
+            "codex",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "Existing tmux window 'dupe-session' has terminal heartbeat state" in result.stderr
+    assert "Launched 'dupe-session'" in result.stdout
+
+
 def test_tmux_session_launcher_launch_wrapper_quotes_workdir(tmp_path: Path) -> None:
     _write_fake_tmux(tmp_path)
     env = _fake_tmux_env(tmp_path)

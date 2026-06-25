@@ -166,13 +166,48 @@ def _heartbeat_identity_matches(row: dict[str, Any], *, lane_id: str, owner_sess
     )
 
 
-def _terminal_heartbeat_fields(receipt: dict[str, Any]) -> dict[str, Any]:
-    return {
+def _thread_id(row: dict[str, Any]) -> str:
+    return str(row.get("thread_id") or "").strip()
+
+
+def _superseded_thread_ids(row: dict[str, Any]) -> list[str]:
+    value = row.get("superseded_thread_ids")
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _with_superseded_identity(
+    row: dict[str, Any],
+    existing: dict[str, Any],
+) -> dict[str, Any]:
+    superseded = _superseded_thread_ids(existing)
+    existing_thread = _thread_id(existing)
+    incoming_thread = _thread_id(row)
+    if existing_thread and existing_thread != incoming_thread:
+        superseded.append(existing_thread)
+    if not superseded:
+        return row
+    unique = list(dict.fromkeys(superseded))[-8:]
+    return {**row, "superseded_thread_ids": unique}
+
+
+def _terminal_heartbeat_fields(
+    receipt: dict[str, Any],
+    *,
+    receipt_recorded: bool,
+    receipt_error: str = "",
+) -> dict[str, Any]:
+    fields = {
         "terminal": True,
         "terminal_outcome": receipt["outcome"],
         "terminal_reason": receipt["reason"],
         "terminal_finalized_at": receipt["finalized_at"],
+        "terminal_receipt_recorded": receipt_recorded,
     }
+    if receipt_error:
+        fields["terminal_receipt_error"] = receipt_error
+    return fields
 
 
 def _is_terminal_heartbeat(row: dict[str, Any]) -> bool:
@@ -192,10 +227,14 @@ def _should_preserve_terminal_heartbeat(
     if not _is_terminal_heartbeat(existing):
         return False
 
-    existing_thread = str(existing.get("thread_id") or "").strip()
-    incoming_thread = str(incoming.get("thread_id") or "").strip()
+    existing_thread = _thread_id(existing)
+    incoming_thread = _thread_id(incoming)
     if existing_thread and incoming_thread:
         return existing_thread == incoming_thread
+    if incoming_thread and not existing_thread:
+        return False
+    if existing_thread and not incoming_thread:
+        return True
 
     existing_pid = existing.get("pid")
     incoming_pid = incoming.get("pid")
@@ -210,17 +249,67 @@ def _should_preserve_terminal_heartbeat(
     return True
 
 
-def _mark_matching_heartbeat_terminal(heartbeat_path: Path, *, receipt: dict[str, Any]) -> None:
+def _should_preserve_existing_heartbeat(
+    existing: dict[str, Any],
+    incoming: dict[str, Any],
+) -> bool:
+    if _should_preserve_terminal_heartbeat(existing, incoming):
+        return True
+
+    existing_thread = _thread_id(existing)
+    incoming_thread = _thread_id(incoming)
+    if incoming_thread and incoming_thread in _superseded_thread_ids(existing):
+        return True
+    if existing_thread and not incoming_thread:
+        return True
+    if existing_thread and incoming_thread and existing_thread != incoming_thread:
+        return False
+
+    return False
+
+
+def _finalizer_matches_heartbeat(existing: dict[str, Any], *, receipt: dict[str, Any]) -> bool:
+    if not _heartbeat_identity_matches(
+        existing,
+        lane_id=str(receipt["lane_id"]),
+        owner_session=str(receipt["owner_session"]),
+    ):
+        return False
+
+    existing_thread = _thread_id(existing)
+    receipt_thread = _thread_id(receipt)
+    if receipt_thread and receipt_thread in _superseded_thread_ids(existing):
+        return False
+    if existing_thread and receipt_thread and existing_thread != receipt_thread:
+        return False
+
+    existing_pid = existing.get("pid")
+    receipt_pid = receipt.get("pid")
+    if existing_pid is not None and receipt_pid is not None and existing_pid != receipt_pid:
+        return False
+
+    return True
+
+
+def _mark_matching_heartbeat_terminal(
+    heartbeat_path: Path,
+    *,
+    receipt: dict[str, Any],
+    receipt_recorded: bool,
+    receipt_error: str = "",
+) -> None:
     rows = _read_rows(heartbeat_path)
     if not rows:
         return
-    lane_id = str(receipt["lane_id"])
-    owner_session = str(receipt["owner_session"])
-    terminal_fields = _terminal_heartbeat_fields(receipt)
+    terminal_fields = _terminal_heartbeat_fields(
+        receipt,
+        receipt_recorded=receipt_recorded,
+        receipt_error=receipt_error,
+    )
     out: list[dict[str, Any]] = []
     changed = False
     for existing in rows:
-        if _heartbeat_identity_matches(existing, lane_id=lane_id, owner_session=owner_session):
+        if _finalizer_matches_heartbeat(existing, receipt=receipt):
             out.append({**existing, **terminal_fields})
             changed = True
         else:
@@ -270,10 +359,11 @@ def record_heartbeat(
                 str(existing.get("lane_id") or "") == lane_id
                 and str(existing.get("owner_session") or "") == owner_session
             ):
-                if _should_preserve_terminal_heartbeat(existing, row):
+                if _should_preserve_existing_heartbeat(existing, row):
                     out.append(existing)
                     row = existing
                 else:
+                    row = _with_superseded_identity(row, existing)
                     out.append(row)
                 replaced = True
             else:
@@ -328,8 +418,26 @@ def record_finalizer_receipt(
     )
 
     with _heartbeat_write_lock(heartbeat_path):
-        _mark_matching_heartbeat_terminal(heartbeat_path, receipt=row)
-        _append_jsonl(receipt_path, row)
+        _mark_matching_heartbeat_terminal(
+            heartbeat_path,
+            receipt=row,
+            receipt_recorded=False,
+        )
+        try:
+            _append_jsonl(receipt_path, row)
+        except Exception as exc:
+            _mark_matching_heartbeat_terminal(
+                heartbeat_path,
+                receipt=row,
+                receipt_recorded=False,
+                receipt_error=f"{type(exc).__name__}: {exc}",
+            )
+            raise
+        _mark_matching_heartbeat_terminal(
+            heartbeat_path,
+            receipt=row,
+            receipt_recorded=True,
+        )
     return row
 
 
