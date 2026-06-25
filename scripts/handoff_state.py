@@ -47,7 +47,18 @@ DEFAULT_HEARTBEATS = Path(".aragora/agent-bridge/heartbeats.json")
 DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS = 1800
 
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
-ACTIVE_LANE_STATUSES = {"active", "blocked", "blocked_on_publication", "claimed"}
+ACTIVE_LANE_STATUSES = {
+    "acknowledged",
+    "active",
+    "blocked",
+    "blocked_on_publication",
+    "claimed",
+    "pending",
+    "queued",
+    "running",
+    "waiting_for_steering",
+    "working",
+}
 PR_PUBLICATION_ACTIONS = {
     "open_pr",
     "open_pull_request",
@@ -407,6 +418,29 @@ def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
         value = payload.get(key)
         if isinstance(value, Mapping) and _possible_unpushed_marker(value):
             return "possible_unpushed_work"
+    advisory = payload.get("stale_claim_advisory")
+    if isinstance(advisory, Mapping) and advisory.get("available") is True:
+        return None
+    for key in ("worktree", "worktree_path", "managed_worktree", "worktree_root"):
+        if str(payload.get(key) or "").strip():
+            return "possible_unpushed_work"
+    for key in (
+        "branch_ahead",
+        "branch_ahead_of_origin_main",
+        "dirty",
+        "dirty_worktree",
+        "has_unique_commits",
+        "uncommitted_changes",
+        "unique_commits",
+        "worktree_dirty",
+    ):
+        value = payload.get(key)
+        if value is True:
+            return "possible_unpushed_work"
+        if isinstance(value, int) and value > 0:
+            return "possible_unpushed_work"
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)) and value:
+            return "possible_unpushed_work"
     return None
 
 
@@ -517,7 +551,7 @@ def classify_handoffs(
 
     counts = Counter(item.state.value for item in items)
     github_mode = (
-        "disabled" if getattr(gh, "disabled", False) else ("degraded" if github_errors else "ready")
+        "disabled" if getattr(gh, "disabled", False) else ("partial" if github_errors else "ready")
     )
     payload = {
         "schema_version": SCHEMA_VERSION,
@@ -532,6 +566,8 @@ def classify_handoffs(
         "github": {
             "mode": github_mode,
             "error": github_errors[0] if github_errors else None,
+            "item_error_count": len(github_errors),
+            "partial_degradation": bool(github_errors) and not getattr(gh, "disabled", False),
         },
         "queue_cap": dataclasses.asdict(queue_cap),
         "items": [item.to_dict() for item in items],
@@ -1171,15 +1207,15 @@ def target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
 def heads_match(expected: str, actual: str) -> bool:
     expected_value = str(expected or "").strip().lower()
     actual_value = str(actual or "").strip().lower()
-    if len(expected_value) != 40 or len(actual_value) != 40:
+    expected_sha = _sha_prefix_or_none(expected_value)
+    actual_sha = _sha_prefix_or_none(actual_value)
+    if expected_sha is None or actual_sha is None:
         return False
-    expected_full = _full_sha_or_none(expected_value)
-    actual_full = _full_sha_or_none(actual_value)
-    return expected_full is not None and expected_full == actual_full
+    return expected_sha.startswith(actual_sha) or actual_sha.startswith(expected_sha)
 
 
-def _full_sha_or_none(value: str) -> str | None:
-    return value if re.fullmatch(r"[0-9a-f]{40}", value) else None
+def _sha_prefix_or_none(value: str) -> str | None:
+    return value if re.fullmatch(r"[0-9a-f]{7,40}", value) else None
 
 
 def _remote_ref_matches(remote_ref: Mapping[str, Any] | None, desired_head: str) -> bool:
@@ -1431,7 +1467,7 @@ def _load_lane_records(path: Path) -> list[dict[str, Any]]:
 
 def _lane_registry_blocking_reason(status: str, blocking_state: str | None) -> str | None:
     if blocking_state == "live_owner":
-        return "lane registry status is active/blocking"
+        return "lane registry status is active/blocking; use focused liveness before mutation"
     if blocking_state == "stale_terminal_owner":
         return "lane registry status is terminal but needs focused liveness proof"
     if blocking_state == "unknown_owner":

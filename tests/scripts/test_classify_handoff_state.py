@@ -726,6 +726,84 @@ def test_lane_registry_blocked_status_blocks_default_classifier(tmp_path: Path) 
     assert item["evidence"]["owner"]["owner_blocking_state"] == "live_owner"
 
 
+def test_lane_registry_active_status_synonyms_block_default_classifier(
+    tmp_path: Path,
+) -> None:
+    for status in (
+        "running",
+        "pending",
+        "queued",
+        "waiting_for_steering",
+        "acknowledged",
+        "working",
+    ):
+        state_root = tmp_path / status
+        _write_status_cache(state_root)
+        _write_outbox(state_root, branch="codex/example")
+        lanes_path = state_root / ".aragora" / "agent-bridge" / "lanes.json"
+        lanes_path.parent.mkdir(parents=True, exist_ok=True)
+        lanes_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "lane_id": "Q1",
+                        "owner_session": "engineering-autopilot-Q1",
+                        "branch": "codex/example",
+                        "status": status,
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        payload = mod.classify_handoffs(
+            repo_root=state_root,
+            state_root=state_root,
+            github_repo="synaptent/aragora",
+            outbox_file="open-pr-codex-example-aaaaaaaa.json",
+            github_client=FakeGitHub(),
+        )
+        item = payload["items"][0]
+
+        assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+        assert item["evidence"]["owner"]["owner_blocking_state"] == "live_owner"
+
+
+def test_lane_registry_terminal_worktree_hint_fails_closed_possible_unpushed(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    lanes_path.parent.mkdir(parents=True, exist_ok=True)
+    lanes_path.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1",
+                    "owner_session": "engineering-autopilot-Q1",
+                    "branch": "codex/example",
+                    "status": "released",
+                    "worktree": "/tmp/aragora-q1",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=FakeGitHub(),
+    )
+    item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK.value
+    assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
+
+
 def test_lane_registry_terminal_owner_with_available_advisory_does_not_block(
     tmp_path: Path,
 ) -> None:
@@ -1027,9 +1105,11 @@ def test_heads_match_requires_exact_full_sha_when_either_side_is_full() -> None:
     full_sha = "abcdef1234567890abcdef1234567890abcdef12"
 
     assert mod.heads_match(full_sha, full_sha) is True
-    assert mod.heads_match("abcdef1", "abcdef1") is False
-    assert mod.heads_match("abcdef1", full_sha) is False
-    assert mod.heads_match(full_sha, "abcdef1") is False
+    assert mod.heads_match("abcdef1", "abcdef1") is True
+    assert mod.heads_match("abcdef1", full_sha) is True
+    assert mod.heads_match(full_sha, "abcdef1") is True
+    assert mod.heads_match("abcdef", full_sha) is False
+    assert mod.heads_match("abcdeff", full_sha) is False
 
 
 def test_narrow_rest_queries_when_open_pr_cache_lacks_branch(
@@ -1233,6 +1313,69 @@ def test_cli_fail_on_unsafe_state_returns_nonzero_for_disabled_github(
     )
 
     assert code == 2
+
+
+def test_cli_fail_on_unsafe_state_allows_partial_github_when_items_are_safe() -> None:
+    payload = {
+        "github": {"mode": "partial", "partial_degradation": True, "item_error_count": 1},
+        "items": [
+            {
+                "state": "represented_by_exact_open_pr",
+                "next_mutation_candidate": "write_representation_receipt_then_archive",
+                "safe_to_mutate": True,
+            }
+        ],
+    }
+
+    assert cli._has_unsafe_state(payload) is False  # noqa: SLF001
+
+
+def test_classify_reports_partial_github_errors_without_global_blindness(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, key="open-pr-codex-safe-aaaaaaaa", branch="codex/safe")
+    _write_outbox(tmp_path, key="open-pr-codex-blocked-aaaaaaaa", branch="codex/blocked")
+    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    lanes_path.parent.mkdir(parents=True, exist_ok=True)
+    lanes_path.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1",
+                    "owner_session": "engineering-autopilot-Q1",
+                    "branch": "codex/blocked",
+                    "status": "active",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    github = FakeGitHub(
+        open_prs={
+            "codex/safe": [
+                {
+                    "number": 8599,
+                    "state": "open",
+                    "draft": True,
+                    "head": {"ref": "codex/safe", "sha": HEAD},
+                }
+            ]
+        },
+        errors={"pr:codex/blocked": "gh api failed (TimeoutExpired)"},
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        github_client=github,
+    )
+
+    assert payload["github"]["mode"] == "partial"
+    assert payload["github"]["item_error_count"] == 1
+    assert payload["counts"][mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value] == 1
+    assert payload["counts"][mod.HandoffState.BLOCKED_BY_OWNER.value] == 1
 
 
 def test_owner_probe_failure_fails_closed(tmp_path: Path) -> None:
