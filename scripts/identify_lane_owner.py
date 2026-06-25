@@ -56,8 +56,8 @@ separate signals. ``owner_liveness.assessed`` uses the lane lease and the
 ``--stale-hours`` threshold. ``liveness_state`` remains the older direct
 process / harness-heartbeat summary, including the fixed heartbeat freshness
 window, so a live lease can coexist with ``missing_heartbeat`` or
-``stale_heartbeat``. In that case the aligned cleanup/action fields preserve
-the live owner.
+``stale_heartbeat``. In that case the aligned fields surface the live lease
+while preserving the more conservative heartbeat-derived cleanup/action fields.
 
 Pure stdlib. No ``aragora.*`` imports. Read-only — never mutates
 GitHub state, lane registry, mailboxes, or any other on-disk file.
@@ -2035,8 +2035,9 @@ def _align_owner_state_with_liveness(payload: dict[str, Any]) -> None:
     ``build_owner_info`` predates the richer liveness assessment and can only
     classify direct process/heartbeat evidence. The later ``owner_liveness``
     pass also considers current lease timestamps and lane-ledger state. When
-    that pass proves a live owner, keep the conservative preserve decision but
-    avoid JSON that says both "live owner" and "no heartbeat evidence".
+    that pass proves a live owner but direct heartbeat evidence is missing or
+    stale, keep the conservative cleanup/action guidance while clarifying that
+    the lane has current owner-lease evidence.
     """
 
     liveness = payload.get("owner_liveness") or {}
@@ -2049,21 +2050,15 @@ def _align_owner_state_with_liveness(payload: dict[str, Any]) -> None:
 
     liveness_state = str(payload.get("liveness_state") or "")
     if liveness_state == "missing_heartbeat":
-        payload["cleanup_state"] = "preserve_live_owner"
         payload["owner_state_reason"] = (
-            "active lane has current owner lease evidence; no matched harness heartbeat row"
+            "active lane has current owner lease evidence but no matched harness heartbeat row"
         )
     elif liveness_state == "stale_heartbeat":
-        payload["cleanup_state"] = "preserve_live_owner"
         payload["owner_state_reason"] = (
-            "active lane has current owner lease evidence; matched harness heartbeat is stale"
+            "active lane has current owner lease evidence but matched harness heartbeat is stale"
         )
     else:
         return
-
-    payload["recommended_operator_action"] = (
-        "route work through owner_session; do not cleanup without owner release"
-    )
 
 
 def _info_with_aligned_owner_state(

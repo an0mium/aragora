@@ -2207,16 +2207,16 @@ class TestLivenessCLI:
         assert data["owner_liveness"]["stale_threshold_hours"] == 8.0
         assert data["owner_blocking_state"] == "live_owner"
         assert data["liveness_state"] == "missing_heartbeat"
-        assert data["cleanup_state"] == "preserve_live_owner"
+        assert data["cleanup_state"] == "preserve_unverified_owner"
         assert data["owner_state_reason"] == (
-            "active lane has current owner lease evidence; no matched harness heartbeat row"
+            "active lane has current owner lease evidence but no matched harness heartbeat row"
         )
         assert data["recommended_operator_action"] == (
-            "route work through owner_session; do not cleanup without owner release"
+            "preserve; start or refresh agent heartbeat before cleanup decisions"
         )
         assert data["stale_claim_advisory"] is None
 
-    def test_live_lease_without_heartbeat_does_not_report_unverified_owner(
+    def test_live_lease_without_heartbeat_preserves_unverified_cleanup(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         registry, runs_glob = self._stale_fixture(tmp_path)
@@ -2239,15 +2239,15 @@ class TestLivenessCLI:
         assert data["owner_liveness"]["assessed"] == "live"
         assert data["owner_blocking_state"] == "live_owner"
         assert data["liveness_state"] == "missing_heartbeat"
-        assert data["cleanup_state"] == "preserve_live_owner"
+        assert data["cleanup_state"] == "preserve_unverified_owner"
         assert data["owner_state_reason"] == (
-            "active lane has current owner lease evidence; no matched harness heartbeat row"
+            "active lane has current owner lease evidence but no matched harness heartbeat row"
         )
         assert data["recommended_operator_action"] == (
-            "route work through owner_session; do not cleanup without owner release"
+            "preserve; start or refresh agent heartbeat before cleanup decisions"
         )
 
-    def test_live_lease_with_stale_heartbeat_reports_preserve_live_owner(
+    def test_live_lease_with_stale_heartbeat_preserves_stale_cleanup(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         registry, runs_glob, heartbeat_path = self._stale_heartbeat_fixture(tmp_path)
@@ -2270,12 +2270,12 @@ class TestLivenessCLI:
         assert data["owner_liveness"]["assessed"] == "live"
         assert data["owner_blocking_state"] == "live_owner"
         assert data["liveness_state"] == "stale_heartbeat"
-        assert data["cleanup_state"] == "preserve_live_owner"
+        assert data["cleanup_state"] == "preserve_stale_owner"
         assert data["owner_state_reason"] == (
-            "active lane has current owner lease evidence; matched harness heartbeat is stale"
+            "active lane has current owner lease evidence but matched harness heartbeat is stale"
         )
         assert data["recommended_operator_action"] == (
-            "route work through owner_session; do not cleanup without owner release"
+            "preserve; refresh heartbeat or contact owner before mutation or cleanup"
         )
 
     def test_human_output_uses_liveness_aligned_owner_state(
@@ -2297,14 +2297,14 @@ class TestLivenessCLI:
         )
         assert rc == 0
         out = capsys.readouterr().out
-        assert "cleanup_state:  preserve_live_owner" in out
+        assert "cleanup_state:  preserve_unverified_owner" in out
         assert (
-            "owner_reason:   active lane has current owner lease evidence; "
-            "no matched harness heartbeat row"
+            "owner_reason:   active lane has current owner lease evidence "
+            "but no matched harness heartbeat row"
         ) in out
         assert (
-            "recommended_action: route work through owner_session; "
-            "do not cleanup without owner release"
+            "recommended_action: preserve; start or refresh agent heartbeat "
+            "before cleanup decisions"
         ) in out
 
     def test_no_liveness_output_is_byte_identical_to_legacy_schema(
