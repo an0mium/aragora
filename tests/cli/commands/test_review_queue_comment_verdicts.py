@@ -127,6 +127,8 @@ def test_prose_only_merge_blocking_dissent_still_blocks(body):
         "Authentication bypass tests passed.",
         "No authentication bypass",
         "No security hole",
+        "This closes the auth bypass; no findings.",
+        "The SQL injection fix is correct.",
     ],
 )
 def test_benign_security_phrase_no_finding_prose_does_not_block(body):

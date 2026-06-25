@@ -51,6 +51,7 @@ from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label,
     has_blocking_or_negative_verdict,
     has_default_blocking_finding_or_label,
+    supportive_verdict_value_is_supportive,
 )
 from aragora.config.model_pins import OPUS_48_VIA_OPENROUTER, QWEN_235B_VIA_OPENROUTER
 from aragora.swarm import merge_quorum_io
@@ -908,39 +909,6 @@ def _trusted_blocking_priority_between(lines: list[str], start_idx: int, end_idx
 _TRUSTED_PRIORITY_MARKER_RE = re.compile(
     r"^(?:\*\*)?\[(?:p0|p1|p2|p3)\](?:\*\*)?(?:\s|$|[:.;—–-])", re.I
 )
-_SUPPORTIVE_VERDICT_PREFIXES = (
-    "accept",
-    "accepted",
-    "approve",
-    "approved",
-    "clean",
-    "green",
-    "looks good",
-    "lgtm",
-    "no blocking issues",
-    "no blocking findings",
-    "no blockers",
-    "no changes needed",
-    "no changes requested",
-    "no concerns",
-    "no findings",
-    "no issues",
-    "pass",
-    "passed",
-    "ready",
-    "support",
-    "supported",
-    "supportive",
-)
-_SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE = re.compile(
-    r"^[\s,.;:—–-]*(?:"
-    r"but\b|except\b|pending\b|if\b|once\b|"
-    r"with\s+(?:notes?|reservations?|caveats?|conditions?|fix(?:es)?)\b|"
-    r"after\s+(?:fix(?:es|ing)?|repair(?:s|ing)?|changes?|addressing|resolving)\b|"
-    r"needs?\b|requires?\b|subject\s+to\b"
-    r")",
-    re.I,
-)
 
 
 def _trusted_priority_marker_indices(lines: list[str]) -> list[int]:
@@ -973,20 +941,13 @@ def _trusted_verdict_probe(line: str) -> str:
 
 
 def _verdict_from_probe(probe: str) -> str:
-    match = re.match(r"^(?:verdict|decision|recommendation)\s*:\s*(?P<value>.*)$", probe)
+    match = re.match(r"^(?:verdict|decision|recommendation)\s*(?::|—|–|-)\s*(?P<value>.*)$", probe)
     if not match:
         return ""
     verdict = match.group("value").strip().lstrip("*`# \t")
     if verdict.startswith("changes-requested") or verdict.startswith("changes requested"):
         return "changes_requested"
-    for prefix in _SUPPORTIVE_VERDICT_PREFIXES:
-        support_match = re.match(rf"{re.escape(prefix)}(?!\w)", verdict)
-        if not support_match:
-            continue
-        if re.match(r"pass(?:ed)?\s+on\b", verdict):
-            return ""
-        if _SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE.match(verdict[support_match.end() :]):
-            return ""
+    if supportive_verdict_value_is_supportive(verdict):
         return "pass"
     return ""
 

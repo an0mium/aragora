@@ -107,6 +107,66 @@ _BENIGN_REVIEWED_PHRASE_TAIL_RE = re.compile(
     r"(?:tests?|coverage|regressions?|fixtures?|guardrails?|cases?)\b",
     re.I,
 )
+_BENIGN_SECURITY_RESOLUTION_PREFIX_RE = re.compile(
+    r"(?:^|[.;:!?]\s*)"
+    r"(?:"
+    r"(?:this|the|that)\s+)?"
+    r"(?:"
+    r"(?:closes?|fix(?:es|ed)?|addresses?|resolves?|mitigates?|covers?|validates?)"
+    r"(?:\s+(?:the|this|that))?"
+    r"|"
+    r"(?:fix|patch|mitigation|coverage|guard(?:rail)?|test(?:s)?)\s+(?:for|against)"
+    r")$",
+    re.I,
+)
+_BENIGN_SECURITY_RESOLUTION_TAIL_RE = re.compile(
+    r"^[\s.,;:!?)\]—–-]*"
+    r"(?:"
+    r"(?:fix|patch|mitigation|coverage|guard(?:rail)?|test(?:s)?)\s+"
+    r"(?:is\s+|are\s+)?"
+    r"(?:correct|adequate|sufficient|complete|green|passing|passed|covered|tested|present)"
+    r"|"
+    r"(?:is\s+|are\s+)?"
+    r"(?:fixed|closed|resolved|addressed|mitigated|covered|tested)"
+    r")"
+    r"[\s.,;:!?)\]—–-]*$",
+    re.I,
+)
+
+SUPPORTIVE_VERDICT_PREFIXES = (
+    "accept",
+    "accepted",
+    "approve",
+    "approved",
+    "clean",
+    "green",
+    "looks good",
+    "lgtm",
+    "no blocking issues",
+    "no blocking findings",
+    "no blockers",
+    "no changes needed",
+    "no changes requested",
+    "no concerns",
+    "no findings",
+    "no issues",
+    "pass",
+    "passed",
+    "ready",
+    "support",
+    "supported",
+    "supportive",
+)
+
+SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE = re.compile(
+    r"^[\s,.;:—–-]*(?:"
+    r"but\b|except\b|pending\b|if\b|once\b|"
+    r"with\s+(?:notes?|reservations?|caveats?|conditions?|fix(?:es)?)\b|"
+    r"after\s+(?:fix(?:es|ing)?|repair(?:s|ing)?|changes?|addressing|resolving)\b|"
+    r"needs?\b|requires?\b|subject\s+to\b"
+    r")",
+    re.I,
+)
 
 # Prefixes a populated Blocker-label value may start with that mean "no blocker".
 # NOTE: a bare ``"no"`` is intentionally absent. ``"no"`` alone matched real
@@ -268,6 +328,21 @@ def _normalize_value(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
 
 
+def normalized_supportive_verdict_is_supportive(normalized: str) -> bool:
+    if re.match(r"pass(?:ed)?\s+on\b", normalized):
+        return False
+    for prefix in SUPPORTIVE_VERDICT_PREFIXES:
+        match = re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
+        if not match:
+            continue
+        return not bool(SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE.match(normalized[match.end() :]))
+    return False
+
+
+def supportive_verdict_value_is_supportive(value: str) -> bool:
+    return normalized_supportive_verdict_is_supportive(_normalize_value(value))
+
+
 def _split_reasoning_tags_for_scan(text: str) -> str:
     return _REASONING_TAG_RE.sub("\n", str(text or ""))
 
@@ -329,6 +404,7 @@ def _default_blocking_marker_finding(stripped: str) -> bool:
 def _blocking_dissent_phrase_match_is_benign(value: str, match: re.Match[str]) -> bool:
     prefix = value[: match.start()].strip()
     suffix = value[match.end() :].strip()
+    normalized_suffix = suffix.strip(" \t.,;:!?)[]—–-")
     compound_security = _COMPOUND_SECURITY_NO_FINDING_RE.match(value)
     if compound_security:
         return bool(_BENIGN_BLOCKING_PHRASE_TAIL_RE.match(compound_security.group("tail")))
@@ -336,6 +412,16 @@ def _blocking_dissent_phrase_match_is_benign(value: str, match: re.Match[str]) -
         return bool(_BENIGN_BLOCKING_PHRASE_TAIL_RE.match(suffix))
     if re.search(r"(?:^|[.;:!?]\s*)(?:i\s+)?reviewed(?:\s+the)?$", prefix):
         return bool(_BENIGN_REVIEWED_PHRASE_TAIL_RE.match(suffix))
+    if _BENIGN_SECURITY_RESOLUTION_PREFIX_RE.search(prefix):
+        return bool(
+            _NO_FINDING_TAIL.fullmatch(suffix)
+            or _NO_FINDING_NO_PHRASE.match(normalized_suffix)
+            or _BENIGN_SECURITY_COVERAGE_TAIL_RE.match(suffix)
+        )
+    if (not prefix or prefix in {"a", "an", "the", "this", "that"}) and (
+        _BENIGN_SECURITY_RESOLUTION_TAIL_RE.match(suffix)
+    ):
+        return True
     if not prefix:
         return bool(_BENIGN_SECURITY_COVERAGE_TAIL_RE.match(suffix))
     return False

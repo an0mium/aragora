@@ -2752,6 +2752,9 @@ def test_collect_aliases_codex_and_gpt_to_single_openai_family() -> None:
         ("intro preamble line\nVerdict: PASS\n- note", "pass"),
         ("`Verdict: pass`", "pass"),
         ("1. Verdict: PASS", "pass"),
+        ("Verdict — PASS", "pass"),
+        ("Decision - approve.", "pass"),
+        ("Recommendation – no changes requested.", "pass"),
         ("    Verdict: PASS", "unknown"),
         ("no verdict at all here", "unknown"),
     ],
@@ -3932,8 +3935,10 @@ def test_default_openrouter_reviewer_slugs_are_countable():
     "verdict_line",
     [
         "Verdict: approve.",
+        "Verdict — approve.",
         "Verdict: LGTM",
         "Recommendation: looks good.",
+        "Recommendation – looks good.",
         "Decision: no changes requested.",
     ],
 )
@@ -3947,7 +3952,9 @@ def test_quorum_reviewer_verdict_parser_matches_lint_supportive_labels(
     "verdict_line",
     [
         "Verdict: pass with conditions.",
+        "Verdict — pass with conditions.",
         "Verdict: approve with fixes.",
+        "Decision - approve with fixes.",
         "Recommendation: ready pending fixes.",
     ],
 )

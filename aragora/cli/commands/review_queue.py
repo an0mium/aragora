@@ -45,6 +45,7 @@ from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label as _has_blocking_finding_or_label,
     has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
     highest_blocking_severity as _highest_blocking_severity,
+    normalized_supportive_verdict_is_supportive as _normalized_verdict_label_is_supportive,
 )
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
@@ -3666,42 +3667,6 @@ def _counted_model_reviewer_ids(
     return sorted(reviewer_ids)
 
 
-_SUPPORTIVE_VERDICT_PREFIXES = (
-    "accept",
-    "accepted",
-    "approve",
-    "approved",
-    "clean",
-    "green",
-    "looks good",
-    "lgtm",
-    "no blocking issues",
-    "no blocking findings",
-    "no blockers",
-    "no changes needed",
-    "no changes requested",
-    "no concerns",
-    "no findings",
-    "no issues",
-    "pass",
-    "passed",
-    "ready",
-    "support",
-    "supported",
-    "supportive",
-)
-
-_SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE = re.compile(
-    r"^[\s,.;:—–-]*(?:"
-    r"but\b|except\b|pending\b|if\b|once\b|"
-    r"with\s+(?:notes?|reservations?|caveats?|conditions?|fix(?:es)?)\b|"
-    r"after\s+(?:fix(?:es|ing)?|repair(?:s|ing)?|changes?|addressing|resolving)\b|"
-    r"needs?\b|requires?\b|subject\s+to\b"
-    r")",
-    re.I,
-)
-
-
 _INDENTED_CODE_RE = re.compile(r"^(?: {4,}|\t)\S")
 
 
@@ -3741,8 +3706,10 @@ def _has_any_verdict_label_line(body: str) -> bool:
 _UNLABELED_SOFT_DISSENT_RE = re.compile(
     r"^(?:"
     r"ready\s+pending\b|"
-    r"support(?:ive)?\s+(?:pending\b|with\s+(?:notes?|reservations?|caveats?)\b)|"
-    r"pass(?:ed)?\s+(?:pending\b|with\s+(?:notes?|reservations?|caveats?)\b)"
+    r"support(?:ive)?\s+"
+    r"(?:pending\b|with\s+(?:notes?|reservations?|caveats?|conditions?|fix(?:es)?)\b)|"
+    r"pass(?:ed)?\s+"
+    r"(?:pending\b|with\s+(?:notes?|reservations?|caveats?|conditions?|fix(?:es)?)\b)"
     r")",
     re.I,
 )
@@ -3810,17 +3777,6 @@ def _untrusted_verdict_label_values(body: str) -> list[str]:
             continue
         values.append(value)
     return values
-
-
-def _normalized_verdict_label_is_supportive(normalized: str) -> bool:
-    if re.match(r"pass(?:ed)?\s+on\b", normalized):
-        return False
-    for prefix in _SUPPORTIVE_VERDICT_PREFIXES:
-        match = re.match(rf"{re.escape(prefix)}(?!\w)", normalized)
-        if not match:
-            continue
-        return not bool(_SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE.match(normalized[match.end() :]))
-    return False
 
 
 def _has_trusted_supportive_verdict_label(body: str) -> bool:
