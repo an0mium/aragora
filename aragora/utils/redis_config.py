@@ -222,16 +222,17 @@ def close_redis_pool() -> None:
     """
     global _redis_pool, _redis_available
 
-    if _redis_pool is not None:
-        try:
-            _redis_pool.disconnect()
-            logger.debug("Redis connection pool closed")
-        except (ConnectionError, OSError, RuntimeError, TimeoutError) as e:
-            logger.warning("Error closing Redis pool: %s", e)
-        finally:
-            _redis_pool = None
+    with _redis_lock:
+        if _redis_pool is not None:
+            try:
+                _redis_pool.disconnect()
+                logger.debug("Redis connection pool closed")
+            except (ConnectionError, OSError, RuntimeError, TimeoutError) as e:
+                logger.warning("Error closing Redis pool: %s", e)
+            finally:
+                _redis_pool = None
 
-    _redis_available = None
+        _redis_available = None
 
 
 def reset_redis_state() -> None:
@@ -240,8 +241,9 @@ def reset_redis_state() -> None:
     Clears cached pool and availability flag to allow re-initialization.
     """
     global _redis_pool, _redis_available
-    _redis_pool = None
-    _redis_available = None
+    with _redis_lock:
+        _redis_pool = None
+        _redis_available = None
 
 
 async def get_async_redis_client() -> Any | None:

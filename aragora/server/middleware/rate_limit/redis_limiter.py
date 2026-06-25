@@ -92,7 +92,7 @@ def get_redis_client() -> redis.Redis | None:
 
     # Try centralized redis_config first (preferred)
     try:
-        from aragora.server.redis_config import get_redis_client as get_shared_client
+        from aragora.utils.redis_config import get_redis_client as get_shared_client
 
         shared_client = get_shared_client()
         if shared_client is not None:

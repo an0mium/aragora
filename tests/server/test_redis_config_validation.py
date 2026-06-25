@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import importlib
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
@@ -171,3 +173,114 @@ class TestEnvParseHelpers:
         ):
             assert redis_mod._int_env("ARAGORA_REDIS_MAX_CONNECTIONS", 50) == 123
             assert redis_mod._float_env("ARAGORA_REDIS_SOCKET_TIMEOUT", 5.0) == 2.5
+
+
+class TestRedisPoolStateSafety:
+    """Regression coverage for lazy-init state publication and reset races."""
+
+    def test_failed_ping_leaves_pool_unset_and_unavailable(self):
+        import redis
+        import aragora.utils.redis_config as redis_mod
+
+        redis_mod.reset_redis_state()
+        mock_pool = mock.MagicMock()
+        mock_connection_pool = mock.MagicMock()
+        mock_connection_pool.from_url.return_value = mock_pool
+        mock_redis_class = mock.MagicMock()
+        mock_redis_class.return_value.ping.side_effect = redis.exceptions.ConnectionError("boom")
+
+        with mock.patch.dict(
+            "os.environ", {"ARAGORA_REDIS_URL": "redis://localhost:6379"}, clear=False
+        ):
+            with mock.patch("redis.ConnectionPool", mock_connection_pool):
+                with mock.patch("redis.Redis", mock_redis_class):
+                    assert redis_mod.get_redis_pool() is None
+
+        assert redis_mod._redis_pool is None
+        assert redis_mod._redis_available is False
+        redis_mod.reset_redis_state()
+
+    def test_concurrent_get_redis_pool_publishes_one_pool(self):
+        import aragora.utils.redis_config as redis_mod
+
+        redis_mod.reset_redis_state()
+        mock_pool = object()
+        mock_connection_pool = mock.MagicMock()
+        mock_connection_pool.from_url.return_value = mock_pool
+        mock_redis_class = mock.MagicMock()
+
+        def ping() -> bool:
+            time.sleep(0.01)
+            return True
+
+        mock_redis_class.return_value.ping.side_effect = ping
+
+        with mock.patch.dict(
+            "os.environ", {"ARAGORA_REDIS_URL": "redis://localhost:6379"}, clear=False
+        ):
+            with mock.patch("redis.ConnectionPool", mock_connection_pool):
+                with mock.patch("redis.Redis", mock_redis_class):
+                    with ThreadPoolExecutor(max_workers=8) as executor:
+                        results = list(executor.map(lambda _: redis_mod.get_redis_pool(), range(8)))
+
+        assert results == [mock_pool] * 8
+        assert mock_connection_pool.from_url.call_count == 1
+        assert mock_redis_class.return_value.ping.call_count == 1
+        redis_mod.reset_redis_state()
+
+
+class _ObservedLock:
+    """Context-manager test double that records protected mutations."""
+
+    def __init__(self) -> None:
+        self.entered = 0
+        self.held = False
+
+    def __enter__(self) -> "_ObservedLock":
+        self.entered += 1
+        self.held = True
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.held = False
+
+
+class TestRedisStateMutationLocking:
+    def test_close_redis_pool_mutates_state_under_lock(self, monkeypatch):
+        import aragora.utils.redis_config as redis_mod
+
+        observed_lock = _ObservedLock()
+
+        class Pool:
+            def __init__(self) -> None:
+                self.disconnect_called = False
+
+            def disconnect(self) -> None:
+                assert observed_lock.held
+                self.disconnect_called = True
+
+        pool = Pool()
+        monkeypatch.setattr(redis_mod, "_redis_lock", observed_lock)
+        monkeypatch.setattr(redis_mod, "_redis_pool", pool)
+        monkeypatch.setattr(redis_mod, "_redis_available", True)
+
+        redis_mod.close_redis_pool()
+
+        assert observed_lock.entered == 1
+        assert pool.disconnect_called
+        assert redis_mod._redis_pool is None
+        assert redis_mod._redis_available is None
+
+    def test_reset_redis_state_mutates_state_under_lock(self, monkeypatch):
+        import aragora.utils.redis_config as redis_mod
+
+        observed_lock = _ObservedLock()
+        monkeypatch.setattr(redis_mod, "_redis_lock", observed_lock)
+        monkeypatch.setattr(redis_mod, "_redis_pool", object())
+        monkeypatch.setattr(redis_mod, "_redis_available", True)
+
+        redis_mod.reset_redis_state()
+
+        assert observed_lock.entered == 1
+        assert redis_mod._redis_pool is None
+        assert redis_mod._redis_available is None
