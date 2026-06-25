@@ -223,6 +223,27 @@ class TestLoadAndFind:
         assert r is not None
         assert r["lane_id"] == "newer-released"
 
+    def test_find_by_pr_treats_expired_as_historical(self) -> None:
+        lanes = [
+            {
+                "lane_id": "older-released",
+                "owner_session": "codex-old",
+                "status": "released",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T04:00:00Z",
+            },
+            {
+                "lane_id": "newer-expired",
+                "owner_session": "codex-expired",
+                "status": "expired",
+                "pr_number": 7292,
+                "updated_at": "2026-05-18T05:00:00Z",
+            },
+        ]
+        r = ilo.find_lane(lanes, pr=7292)
+        assert r is not None
+        assert r["lane_id"] == "newer-expired"
+
 
 class TestHeartbeatSummary:
     def test_build_owner_info_includes_fresh_heartbeat(self, tmp_path: Path) -> None:
@@ -1003,6 +1024,34 @@ class TestBuildOwnerInfo:
             "treat as historical; run fresh cleanup inspection before any deletion"
         )
 
+    def test_owner_state_marks_expired_lane_as_stale_historical(self, tmp_path: Path) -> None:
+        bg = tmp_path / "factory_bg.json"
+        bg.write_text("[]", encoding="utf-8")
+        lane = {
+            "lane_id": "expired-lane",
+            "owner_session": "codex-expired",
+            "status": "expired",
+            "worktree": "/tmp/expired-worktree",
+        }
+
+        info = ilo.build_owner_info(
+            lane,
+            snapshot_provider=lambda: fake_snapshot_records([]),
+            sessions_root=tmp_path / "codex_sessions",
+            projects_root=tmp_path / "claude_projects",
+            bg_path=bg,
+            steering_inbox_root=tmp_path / "steering",
+        )
+
+        assert info.owner_state == "stale"
+        assert info.liveness_state == "missing_heartbeat"
+        assert info.cleanup_state == "historical_requires_cleanup_inspect"
+        assert info.dispatchable is False
+        assert (
+            info.dispatch_blocker == "lane status is expired; claim an active lane before steering"
+        )
+        assert info.owner_state_reason == "lane status is expired"
+
 
 # ---------------------------------------------------------------------------
 # main() CLI
@@ -1333,6 +1382,27 @@ class TestOwnerLeaseLiveness:
             "overriding lane must write an override entry naming the stale lane id"
         )
         assert any("terminal" in c for c in advisory["conditions_met"])
+        assert result["advisory_withheld"] is None
+
+    def test_expired_registry_status_without_ledger_yields_terminal_advisory(self) -> None:
+        lane = {
+            "lane_id": "Q2-expired",
+            "owner_session": "codex-q2",
+            "status": "expired",
+            "branch": "codex/q2-expired",
+            "updated_at": _hours_ago(1.0),
+        }
+        result = ilo.assess_owner_liveness(
+            lane, ledger_entry=None, heartbeat=None, now=_liveness_now()
+        )
+
+        assert result["owner_liveness"]["assessed"] == "terminal"
+        assert result["owner_liveness"]["lane_status"] == "expired"
+        assert result["owner_blocking_state"] == "stale_terminal_owner"
+        advisory = result["stale_claim_advisory"]
+        assert advisory is not None
+        assert advisory["available"] is True
+        assert any("lane_status=expired" in c for c in advisory["conditions_met"])
         assert result["advisory_withheld"] is None
 
     @pytest.mark.parametrize("status", ["failed", "cancelled"])
@@ -2046,6 +2116,49 @@ class TestLivenessCLI:
         assert data["owner_blocking_state"] == "stale_owner"
         assert data["stale_claim_advisory"]["available"] is True
         assert data["stale_claim_advisory"]["protocol"] == "stale-claim-override"
+        assert data["advisory_withheld"] is None
+
+    def test_json_marks_expired_registry_row_as_stale_terminal_owner(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry = write_lane_registry(
+            tmp_path,
+            [
+                {
+                    "lane_id": "Q-expired-owner",
+                    "owner_session": "codex-expired",
+                    "source": "codex",
+                    "status": "expired",
+                    "branch": "codex/expired",
+                    "pr_number": 7826,
+                    "updated_at": _hours_ago(1.0),
+                }
+            ],
+        )
+
+        rc = ilo.main(
+            [
+                "--pr",
+                "7826",
+                "--json",
+                "--runs-glob",
+                str(tmp_path / "missing" / "lanes"),
+                "--now",
+                LIVENESS_NOW,
+                *self._cli_args(registry, tmp_path),
+            ]
+        )
+
+        assert rc == 0
+        data = json.loads(capsys.readouterr().out)
+        assert data["dispatchable"] is False
+        assert data["dispatch_blocker"] == (
+            "lane status is expired; claim an active lane before steering"
+        )
+        assert data["owner_liveness"]["assessed"] == "terminal"
+        assert data["owner_liveness"]["lane_status"] == "expired"
+        assert data["owner_blocking_state"] == "stale_terminal_owner"
+        assert data["stale_claim_advisory"]["available"] is True
         assert data["advisory_withheld"] is None
 
     def test_custom_stale_hours_flag_keeps_owner_live(

@@ -150,7 +150,7 @@ ACTIVE_STATUSES = {
     "blocked",
 }
 CONFLICT_STATUSES = {"conflict", "conflicting"}
-COMPLETED_STATUSES = {"completed", "released", "superseded"}
+COMPLETED_STATUSES = {"completed", "released", "superseded", "expired"}
 
 # Subprocess timeout for ``agent_bridge operator-snapshot``.
 SNAPSHOT_TIMEOUT_SECONDS = 30
@@ -1211,8 +1211,8 @@ def build_owner_info(
 STALE_HOURS_DEFAULT = 6.0
 LANE_RUNS_GLOB_DEFAULT = str(STATE_ROOT_DEFAULT / "run-*" / "lanes")
 
-# Lane-ledger statuses meaning the owning lane can no longer be working.
-TERMINAL_LANE_STATUSES = {"completed", "failed", "cancelled", "dead"}
+# Lane-ledger/status rows meaning the owning lane can no longer be working.
+TERMINAL_LANE_STATUSES = COMPLETED_STATUSES | {"failed", "cancelled", "dead"}
 
 STALE_CLAIM_PROTOCOL = "stale-claim-override"
 ADVISORY_WITHHELD_UNPUSHED = "possible_unpushed_work"
@@ -1824,10 +1824,15 @@ def assess_owner_liveness(
     now_dt = now or datetime.now(timezone.utc)
     threshold_seconds = max(0.0, stale_hours) * 3600.0
 
-    # lane_status: the lane ledger's view of the owning lane.
+    # lane_status: the lane ledger's view of the owning lane. When no ledger
+    # exists, a terminal registry status is still enough to avoid treating the
+    # row as an active owner lease.
     lane_status = "unknown"
+    registry_status = str(lane.get("status") or "").strip().lower()
     if ledger_entry is not None:
         lane_status = str(ledger_entry.get("status") or "").strip().lower() or "unknown"
+    elif registry_status in COMPLETED_STATUSES:
+        lane_status = registry_status
 
     # last_heartbeat_at: matched heartbeat row first, then owner record,
     # then ledger heartbeat fields; null when nothing carries one.
