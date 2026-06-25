@@ -195,12 +195,17 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     assert "^[1-9][0-9]*$" in heartbeat_body
     assert "set -euo pipefail" not in heartbeat_body
     assert 'if [[ "${_finalized}" == "1" ]]; then' in heartbeat_body
-    assert '_launch_pid="$!"' in heartbeat_body
-    assert 'wait "${_launch_pid}"' in heartbeat_body
+    assert "kill" in heartbeat_body
+    assert "_heartbeat_sleep_pid" in heartbeat_body
+    assert 'pkill -TERM -P "${_heartbeat_loop_pid}"' not in heartbeat_body
+    assert '_launch_pid="$!"' not in heartbeat_body
+    assert 'wait "${_launch_pid}"' not in heartbeat_body
     assert 'trap "_finalizer_signal=HUP; exit 129" HUP' in heartbeat_body
     assert "agent_heartbeat.py record failed" in heartbeat_body
     assert "agent_heartbeat.py finalize failed" in heartbeat_body
-    assert 'bash "${LAUNCH_FILE}" &' in heartbeat_body
+    assert 'rm -f "${LAUNCH_FILE}" "$0"' in heartbeat_body
+    assert 'bash "${LAUNCH_FILE}" &' not in heartbeat_body
+    assert 'bash "${LAUNCH_FILE}"' in heartbeat_body.splitlines()
     agent_launch_file = _assignment_path(heartbeat_body, "LAUNCH_FILE")
     agent_launch_body = agent_launch_file.read_text(encoding="utf-8")
     assert "./scripts/codex_session.sh" in agent_launch_body
@@ -216,7 +221,7 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     )
 
 
-def test_tmux_session_launcher_heartbeat_wrapper_preserves_launch_exit_and_logs_failures(
+def test_tmux_session_launcher_heartbeat_wrapper_fails_closed_when_failed_launch_cannot_finalize(
     tmp_path: Path,
 ) -> None:
     _write_fake_tmux(tmp_path)
@@ -271,7 +276,7 @@ exit "${FAKE_LAUNCH_EXIT:-0}"
         check=False,
     )
 
-    assert result.returncode == 7
+    assert result.returncode == 1
     heartbeat_log = (heartbeat_launcher.parent / "exec-wrapper.heartbeat.log").read_text(
         encoding="utf-8"
     )
@@ -372,6 +377,33 @@ def test_tmux_session_launcher_accepts_dotted_session_names(tmp_path: Path) -> N
     calls = _load_tmux_calls(env)
     heartbeat_launcher = _heartbeat_launcher_from_calls(calls, name="task.v2")
     assert heartbeat_launcher.exists()
+
+
+def test_tmux_session_launcher_rejects_unsafe_session_names(tmp_path: Path) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    for name in (".hidden", "../escape", "bad/name", "bad:name"):
+        result = subprocess.run(
+            [
+                "bash",
+                str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+                "--name",
+                name,
+                "--agent",
+                "codex",
+            ],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 2
+        assert "Invalid session name" in result.stderr
 
 
 def test_tmux_session_launcher_launch_wrapper_quotes_workdir(tmp_path: Path) -> None:

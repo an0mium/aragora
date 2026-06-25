@@ -186,12 +186,18 @@ build_heartbeat_launch_wrapper() {
 
     if ! python3 -c '
 import os
+import re
 import shlex
 import sys
 from pathlib import Path
 
 runner_file, repo_root, workdir, launch_file, lane_id, owner_session = sys.argv[1:7]
-if not owner_session.replace("_", "").replace("-", "").replace(".", "").isalnum():
+if (
+    not owner_session
+    or owner_session in {".", ".."}
+    or owner_session.startswith(".")
+    or not re.fullmatch(r"[A-Za-z0-9_.-]+", owner_session)
+):
     raise SystemExit("refusing to generate heartbeat wrapper for invalid owner session")
 runner_path = Path(runner_file)
 if ".heartbeat-launch." in runner_path.name:
@@ -214,7 +220,7 @@ body = "\n".join(
         "    _heartbeat_interval=\"60\"",
         "fi",
         "_heartbeat_loop_pid=\"\"",
-        "_launch_pid=\"\"",
+        "_heartbeat_sleep_pid=\"\"",
         "_finalizer_signal=\"\"",
         "_finalized=\"0\"",
         "",
@@ -238,7 +244,12 @@ body = "\n".join(
         "}",
         "",
         "_heartbeat_loop() {",
-        "    while sleep \"${_heartbeat_interval}\"; do",
+        "    trap \"if [[ -n \\\"\\${_heartbeat_sleep_pid}\\\" ]]; then kill \\\"\\${_heartbeat_sleep_pid}\\\" 2>/dev/null || true; fi; exit 0\" TERM",
+        "    while true; do",
+        "        sleep \"${_heartbeat_interval}\" &",
+        "        _heartbeat_sleep_pid=\"$!\"",
+        "        wait \"${_heartbeat_sleep_pid}\" 2>/dev/null || exit 0",
+        "        _heartbeat_sleep_pid=\"\"",
         "        _record_heartbeat",
         "    done",
         "}",
@@ -250,13 +261,8 @@ body = "\n".join(
         "    fi",
         "    _finalized=\"1\"",
         "    if [[ -n \"${_heartbeat_loop_pid}\" ]]; then",
-        "        pkill -TERM -P \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
         "        kill \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
         "        wait \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
-        "    fi",
-        "    if [[ -n \"${_launch_pid}\" ]]; then",
-        "        kill \"${_launch_pid}\" 2>/dev/null || true",
-        "        wait \"${_launch_pid}\" 2>/dev/null || true",
         "    fi",
         "    local outcome reason branch",
         "    branch=\"$(git -C \"${WORKDIR}\" rev-parse --abbrev-ref HEAD 2>/dev/null || true)\"",
@@ -283,10 +289,10 @@ body = "\n".join(
         "        --reason \"${reason}\" \\",
         "        --json >/dev/null 2>>\"${HEARTBEAT_LOG}\"; then",
         "        echo \"agent_heartbeat.py finalize failed for ${LANE_ID} (${outcome})\" >>\"${HEARTBEAT_LOG}\"",
-        "        if [[ \"${rc}\" == \"0\" ]]; then",
-        "            exit 1",
-        "        fi",
+        "        rm -f \"${LAUNCH_FILE}\" \"$0\" 2>/dev/null || true",
+        "        exit 1",
         "    fi",
+        "    rm -f \"${LAUNCH_FILE}\" \"$0\" 2>/dev/null || true",
         "    exit \"${rc}\"",
         "}",
         "",
@@ -297,11 +303,8 @@ body = "\n".join(
         "_record_heartbeat",
         "_heartbeat_loop &",
         "_heartbeat_loop_pid=\"$!\"",
-        "bash \"${LAUNCH_FILE}\" &",
-        "_launch_pid=\"$!\"",
-        "wait \"${_launch_pid}\"",
+        "bash \"${LAUNCH_FILE}\"",
         "rc=\"$?\"",
-        "_launch_pid=\"\"",
         "exit \"${rc}\"",
         "",
     ]
@@ -401,6 +404,11 @@ fi
 # --- launch action ---
 if [[ -z "${NAME}" ]]; then
     NAME="${AGENT}-$(date +%H%M%S)"
+fi
+
+if ! [[ "${NAME}" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+    echo "Invalid session name '${NAME}'. Use letters, numbers, dash, dot, or underscore; start with a letter or number." >&2
+    exit 2
 fi
 
 if [[ -n "${WORKDIR}" ]]; then

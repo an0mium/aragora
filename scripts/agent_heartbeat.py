@@ -235,7 +235,19 @@ def record_heartbeat(
                 str(existing.get("lane_id") or "") == lane_id
                 and str(existing.get("owner_session") or "") == owner_session
             ):
-                out.append(row)
+                terminal = existing.get("terminal") is True or existing.get("terminal_outcome")
+                existing_pid = existing.get("pid")
+                incoming_pid = row.get("pid")
+                same_wrapper = (
+                    existing_pid is not None
+                    and incoming_pid is not None
+                    and existing_pid == incoming_pid
+                )
+                if terminal and same_wrapper:
+                    out.append(existing)
+                    row = existing
+                else:
+                    out.append(row)
                 replaced = True
             else:
                 out.append(existing)
