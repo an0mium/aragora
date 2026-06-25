@@ -613,6 +613,31 @@ def test_single_local_evidence_conflict_with_top_level_fails_closed(
     assert "local_evidence head conflicts" in item["reason"]
 
 
+def test_local_evidence_origin_main_base_alias_does_not_conflict(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        base="main",
+        local_evidence=[
+            {"branch": "codex/example", "target_head_sha": HEAD, "base": "origin/main"},
+        ],
+    )
+    github = FakeGitHub(
+        refs={
+            "codex/example": {
+                "ref": "refs/heads/codex/example",
+                "object": {"sha": HEAD},
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert "local_evidence" not in item["evidence"]
+
+
 def test_terminal_receipts_choose_newest_by_timestamp_not_filename(tmp_path: Path) -> None:
     receipts = tmp_path / ".aragora" / "automation-receipts"
     receipts.mkdir(parents=True, exist_ok=True)

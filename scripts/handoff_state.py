@@ -1328,9 +1328,9 @@ def local_evidence_conflict_reason(payload: Mapping[str, Any]) -> str | None:
             return "local_evidence head conflicts with top-level desired head"
         if action_head and record_head and not heads_match(action_head, record_head):
             return "local_evidence head conflicts with requested_action desired head"
-        if top_base and record_base and top_base != record_base:
+        if top_base and record_base and not _base_matches(top_base, record_base):
             return "local_evidence base conflicts with top-level base"
-        if action_base and record_base and action_base != record_base:
+        if action_base and record_base and not _base_matches(action_base, record_base):
             return "local_evidence base conflicts with requested_action base"
     if len(records) <= 1:
         return None
@@ -1340,7 +1340,11 @@ def local_evidence_conflict_reason(payload: Mapping[str, Any]) -> str | None:
         if str(record.get("branch") or "").strip()
     }
     heads = {value for record in records if (value := _first_text(record, *HEAD_FIELD_KEYS))}
-    bases = {value for record in records if (value := _first_text(record, *BASE_FIELD_KEYS))}
+    bases = {
+        _normalize_base_ref(value)
+        for record in records
+        if (value := _first_text(record, *BASE_FIELD_KEYS))
+    }
     if len(branches) > 1 or len(heads) > 1 or len(bases) > 1:
         return "multiple local_evidence records disagree on branch, head, or base"
     return None
@@ -1429,10 +1433,18 @@ def _remote_ref_matches(remote_ref: Mapping[str, Any] | None, desired_head: str)
 
 
 def _base_matches(desired_base: str, actual_base: str) -> bool:
-    expected = str(desired_base or "").strip()
+    expected = _normalize_base_ref(desired_base)
     if not expected:
         return True
-    return expected == str(actual_base or "").strip()
+    return expected == _normalize_base_ref(actual_base)
+
+
+def _normalize_base_ref(value: str) -> str:
+    base = str(value or "").strip()
+    for prefix in ("refs/remotes/origin/", "refs/heads/", "origin/", "remotes/origin/"):
+        if base.startswith(prefix):
+            return base[len(prefix) :]
+    return base
 
 
 def _possible_unpushed(owner: OwnerEvidence) -> bool:
