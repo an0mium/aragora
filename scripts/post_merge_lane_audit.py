@@ -162,6 +162,17 @@ def run_post_merge_lane_audit(
             proc=dry_proc,
             error=message,
         )
+    if dry_payload.get("blocked_reason"):
+        message = str(dry_payload.get("blocked_reason") or "audit blocked")
+        return _merge_helper_metadata(
+            dry_payload,
+            audit_ok=False,
+            audit_applied=False,
+            apply_requested=apply,
+            command=dry_command,
+            proc=dry_proc,
+            error=message,
+        )
 
     dry_result = _merge_helper_metadata(
         dry_payload,

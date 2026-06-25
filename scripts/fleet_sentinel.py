@@ -225,8 +225,6 @@ def _is_same_origin_state_root(state_root: Path, repo_root: Path) -> bool:
     candidate_root = _git_toplevel(candidate)
     if candidate_root is None or candidate.resolve() != candidate_root:
         return False
-    if candidate_root not in _registered_worktree_roots(repo_root):
-        return False
     return _same_git_origin(repo_root, candidate_root)
 
 

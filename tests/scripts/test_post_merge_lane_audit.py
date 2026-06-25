@@ -102,3 +102,18 @@ def test_post_merge_lane_audit_apply_refuses_unmerged_pr_without_mutation() -> N
     assert result["audit_ok"] is False
     assert result["audit_applied"] is False
     assert result["audit_error"] == "pr_not_merged"
+
+
+def test_post_merge_lane_audit_blocks_payload_with_zero_exit() -> None:
+    commands: list[list[str]] = []
+
+    def runner(args: list[str]) -> subprocess.CompletedProcess[str]:
+        commands.append(args)
+        return _proc(args, _dry_payload(blocked_reason="invalid_automation_state_root"))
+
+    result = run_post_merge_lane_audit(7435, apply=True, runner=runner)
+
+    assert len(commands) == 1
+    assert result["audit_ok"] is False
+    assert result["audit_applied"] is False
+    assert result["audit_error"] == "invalid_automation_state_root"
