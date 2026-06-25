@@ -34,7 +34,7 @@ FINALIZER_RECEIPTS_RELATIVE_PATH = (
     Path(".aragora") / "agent-bridge" / "heartbeat-finalizer-receipts.jsonl"
 )
 AUTOMATION_STATE_ROOT_ENV = "ARAGORA_AUTOMATION_STATE_ROOT"
-SAFE_OWNER_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+SAFE_OWNER_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 TERMINAL_OUTCOMES = frozenset({"completed", "failed", "cancelled", "handoff"})
 
 
@@ -49,7 +49,9 @@ def _validate_owner_session(owner_session: str) -> None:
         or owner_session.startswith(".")
         or not SAFE_OWNER_RE.fullmatch(owner_session)
     ):
-        raise ValueError("unsafe owner_session: use a non-empty alphanumeric/dash/underscore slug")
+        raise ValueError(
+            "unsafe owner_session: use a non-empty alphanumeric/dash/dot/underscore slug"
+        )
 
 
 def _read_rows(path: Path) -> list[dict[str, Any]]:
@@ -233,11 +235,6 @@ def record_heartbeat(
                 str(existing.get("lane_id") or "") == lane_id
                 and str(existing.get("owner_session") or "") == owner_session
             ):
-                if existing.get("terminal") is True:
-                    out.append(existing)
-                    row = existing
-                    replaced = True
-                    continue
                 out.append(row)
                 replaced = True
             else:

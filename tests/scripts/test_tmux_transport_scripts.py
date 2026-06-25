@@ -282,6 +282,70 @@ exit "${FAKE_LAUNCH_EXIT:-0}"
     assert "--finalize" in python_calls
 
 
+def test_tmux_session_launcher_heartbeat_wrapper_fails_when_successful_launch_cannot_finalize(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    workdir = tmp_path / "worker"
+    (workdir / "scripts").mkdir(parents=True)
+    codex_session = workdir / "scripts" / "codex_session.sh"
+    codex_session.write_text(
+        """#!/usr/bin/env bash
+exit "${FAKE_LAUNCH_EXIT:-0}"
+""",
+        encoding="utf-8",
+    )
+    codex_session.chmod(codex_session.stat().st_mode | stat.S_IEXEC)
+
+    subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "exec-wrapper-finalize",
+            "--agent",
+            "codex",
+            "--cwd",
+            str(workdir),
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    calls = _load_tmux_calls(env)
+    heartbeat_launcher = _heartbeat_launcher_from_calls(calls, name="exec-wrapper-finalize")
+    fake_python_bin = _write_fake_python(tmp_path, exit_code=1)
+    wrapper_env = env.copy()
+    wrapper_env["PATH"] = f"{fake_python_bin}:{wrapper_env['PATH']}"
+    wrapper_env["FAKE_PYTHON_LOG"] = str(tmp_path / "python-calls.log")
+    wrapper_env["FAKE_LAUNCH_EXIT"] = "0"
+    wrapper_env["ARAGORA_TMUX_HEARTBEAT_INTERVAL_SECONDS"] = "999"
+
+    result = subprocess.run(
+        ["bash", str(heartbeat_launcher)],
+        cwd=REPO_ROOT,
+        env=wrapper_env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    heartbeat_log = (heartbeat_launcher.parent / "exec-wrapper-finalize.heartbeat.log").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "agent_heartbeat.py finalize failed for exec-wrapper-finalize (completed)" in heartbeat_log
+    )
+
+
 def test_tmux_session_launcher_accepts_dotted_session_names(tmp_path: Path) -> None:
     _write_fake_tmux(tmp_path)
     env = _fake_tmux_env(tmp_path)

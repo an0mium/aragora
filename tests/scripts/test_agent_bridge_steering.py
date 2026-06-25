@@ -315,11 +315,46 @@ class TestCollectAgentHeartbeats:
 
         assert result["count"] == 3
         assert result["fresh_count"] == 1
-        assert result["stale_count"] == 2
+        assert result["stale_count"] == 1
+        assert result["terminal_count"] == 1
         assert result["latest_by_owner"]["codex-fresh"]["fresh"] is True
         assert result["latest_by_owner"]["codex-fresh"]["age_seconds"] == 600
         assert result["latest_by_owner"]["codex-fresh"]["cwd"] == "/tmp/fresh"
         assert result["latest_by_owner"]["codex-stale"]["fresh"] is False
+        terminal = result["latest_by_owner"]["codex-terminal"]
+        assert terminal["fresh"] is False
+        assert terminal["terminal"] is True
+        assert terminal["terminal_outcome"] == "completed"
+
+    def test_collect_agent_heartbeats_treats_terminal_outcome_as_terminal(
+        self, tmp_path: Path
+    ) -> None:
+        heartbeat_path = tmp_path / "heartbeats.json"
+        heartbeat_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "schema_version": "aragora-agent-heartbeat/1.0",
+                        "lane_id": "terminal-lane",
+                        "owner_session": "codex-terminal",
+                        "pid": 333,
+                        "last_seen_at": "2026-05-22T00:19:30Z",
+                        "terminal_outcome": "completed",
+                        "terminal_reason": "published draft PR",
+                    },
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = ab._collect_agent_heartbeats(
+            heartbeat_path=heartbeat_path,
+            now="2026-05-22T00:20:00Z",
+        )
+
+        assert result["fresh_count"] == 0
+        assert result["stale_count"] == 0
+        assert result["terminal_count"] == 1
         terminal = result["latest_by_owner"]["codex-terminal"]
         assert terminal["fresh"] is False
         assert terminal["terminal"] is True

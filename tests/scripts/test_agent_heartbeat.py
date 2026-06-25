@@ -89,6 +89,16 @@ def test_heartbeat_rejects_path_traversal_owner(tmp_path: Path) -> None:
             )
 
 
+def test_heartbeat_accepts_dotted_owner_session_slug(tmp_path: Path) -> None:
+    row = heartbeat.record_heartbeat(
+        heartbeat_path=tmp_path / "heartbeats.json",
+        lane_id="Q612",
+        owner_session="task.v2",
+    )
+
+    assert row["owner_session"] == "task.v2"
+
+
 def test_finalizer_receipt_appends_terminal_owner_lifecycle(tmp_path: Path) -> None:
     heartbeat_path = tmp_path / "heartbeats.json"
     receipt_path = tmp_path / "finalizer-receipts.jsonl"
@@ -157,7 +167,7 @@ def test_finalizer_receipt_marks_matching_heartbeat_terminal(tmp_path: Path) -> 
     assert payload[0]["terminal_finalized_at"] == "2026-06-23T10:10:00Z"
 
 
-def test_heartbeat_renewal_does_not_resurrect_terminal_row(tmp_path: Path) -> None:
+def test_heartbeat_renewal_replaces_terminal_row_for_relaunch(tmp_path: Path) -> None:
     heartbeat_path = tmp_path / "heartbeats.json"
     receipt_path = tmp_path / "finalizer-receipts.jsonl"
     heartbeat.record_heartbeat(
@@ -189,11 +199,11 @@ def test_heartbeat_renewal_does_not_resurrect_terminal_row(tmp_path: Path) -> No
 
     payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
     assert payload == [row]
-    assert payload[0]["terminal"] is True
-    assert payload[0]["terminal_outcome"] == "completed"
-    assert payload[0]["pid"] == 34567
-    assert payload[0]["branch"] == "codex/lane-heartbeat-finalizer-20260623"
-    assert payload[0]["last_seen_at"] == "2026-06-23T10:09:00Z"
+    assert "terminal" not in payload[0]
+    assert "terminal_outcome" not in payload[0]
+    assert payload[0]["pid"] == 99999
+    assert payload[0]["branch"] == "codex/resurrected"
+    assert payload[0]["last_seen_at"] == "2026-06-23T10:11:00Z"
 
 
 def test_finalizer_receipt_rejects_unknown_outcome(tmp_path: Path) -> None:
