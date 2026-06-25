@@ -154,6 +154,7 @@ def test_finalizer_receipt_marks_matching_heartbeat_terminal(tmp_path: Path) -> 
         receipt_path=receipt_path,
         lane_id="Q612-heartbeat-finalizer",
         owner_session="codex-Q612",
+        branch="codex/lane-heartbeat-finalizer-20260623",
         outcome="completed",
         reason="published draft PR",
         finalized_at="2026-06-23T10:10:00Z",
@@ -186,6 +187,7 @@ def test_heartbeat_late_renewal_preserves_terminal_row_for_same_wrapper_pid(
         receipt_path=receipt_path,
         lane_id="Q612-heartbeat-finalizer",
         owner_session="codex-Q612",
+        pid=34567,
         outcome="completed",
         reason="published draft PR",
         finalized_at="2026-06-23T10:10:00Z",
@@ -225,6 +227,7 @@ def test_heartbeat_relaunch_replaces_terminal_row_for_new_wrapper_pid(tmp_path: 
         receipt_path=receipt_path,
         lane_id="Q612-heartbeat-finalizer",
         owner_session="codex-Q612",
+        pid=34567,
         outcome="completed",
         reason="published draft PR",
         finalized_at="2026-06-23T10:10:00Z",
@@ -603,7 +606,9 @@ def test_threadless_finalizer_marks_matching_threadless_heartbeat_terminal(
     assert payload[0]["terminal_receipt_recorded"] is True
 
 
-def test_cli_finalize_without_pid_marks_threadless_heartbeat_terminal(tmp_path: Path) -> None:
+def test_cli_finalize_without_pid_keeps_pid_bearing_threadless_heartbeat_live(
+    tmp_path: Path,
+) -> None:
     heartbeat_path = tmp_path / "heartbeats.json"
     receipt_path = tmp_path / "finalizer-receipts.jsonl"
     heartbeat.record_heartbeat(
@@ -646,6 +651,55 @@ def test_cli_finalize_without_pid_marks_threadless_heartbeat_terminal(tmp_path: 
     assert "thread_id" not in receipt
     payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
     assert payload[0]["pid"] == 45678
+    assert "terminal" not in payload[0]
+    assert "terminal_outcome" not in payload[0]
+
+
+def test_cli_finalize_without_pid_marks_pidless_threadless_heartbeat_terminal(
+    tmp_path: Path,
+) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        pid=None,
+        branch="codex/new",
+        last_seen_at="2026-06-23T10:10:00Z",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--finalize",
+            "--heartbeat-path",
+            str(heartbeat_path),
+            "--finalizer-receipt-path",
+            str(receipt_path),
+            "--lane-id",
+            "Q612-heartbeat-finalizer",
+            "--owner-session",
+            "codex-Q612",
+            "--outcome",
+            "completed",
+            "--reason",
+            "pidless worker finished",
+            "--finalized-at",
+            "2026-06-23T10:11:00Z",
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    receipt = json.loads(result.stdout)
+    assert "pid" not in receipt
+    assert "thread_id" not in receipt
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert "pid" not in payload[0]
     assert payload[0]["terminal"] is True
     assert payload[0]["terminal_outcome"] == "completed"
     assert payload[0]["terminal_receipt_recorded"] is True
@@ -715,6 +769,7 @@ def test_pidless_heartbeat_preserves_terminal_row(tmp_path: Path) -> None:
         receipt_path=receipt_path,
         lane_id="Q612-heartbeat-finalizer",
         owner_session="codex-Q612",
+        pid=34567,
         outcome="completed",
         reason="published draft PR",
         finalized_at="2026-06-23T10:10:00Z",

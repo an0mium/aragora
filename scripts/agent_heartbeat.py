@@ -346,6 +346,10 @@ def _finalizer_matches_heartbeat(existing: dict[str, Any], *, receipt: dict[str,
 
     existing_pid = existing.get("pid")
     receipt_pid = receipt.get("pid")
+    if existing_pid is not None and receipt_pid is None:
+        return _same_finalizer_identity(existing, receipt)
+    if existing_pid is None and receipt_pid is not None:
+        return _same_finalizer_identity(existing, receipt)
     if existing_pid is not None and receipt_pid is not None and existing_pid != receipt_pid:
         return False
 
