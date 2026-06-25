@@ -329,6 +329,29 @@ def test_issue_only_receipt_limbo_stays_publication_requested(tmp_path: Path) ->
     assert "issue-only receipt" in item["reason"]
 
 
+def test_issue_only_receipt_limbo_is_cap_blocked_when_open_pr_cap_reached(
+    tmp_path: Path,
+) -> None:
+    key = "open-pr-codex-example-aaaaaaaa"
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(tmp_path, key=key, branch="codex/example")
+    _write_receipt(
+        tmp_path,
+        key,
+        {
+            "status": "already_satisfied",
+            "reason": "existing_issue",
+            "existing_issue_url": "https://github.com/synaptent/aragora/issues/123",
+        },
+    )
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
+    assert item["evidence"]["receipt"]["issue_only_pr_receipt"] is True
+    assert item["next_mutation_candidate"] == "queue_drain"
+
+
 def test_conflicting_local_evidence_records_fail_closed(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(
@@ -545,6 +568,22 @@ def test_stale_owner_remote_exact_head_is_represented_by_remote_branch(
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
 
 
+def test_remote_exact_head_is_cap_blocked_when_open_pr_cap_reached(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(
+        refs={"codex/example": {"ref": "refs/heads/codex/example", "object": {"sha": HEAD}}}
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
+    assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
+    assert item["next_mutation_candidate"] == "queue_drain"
+
+
 def test_remote_exact_head_does_not_hide_live_owner_gate(tmp_path: Path) -> None:
     _write_status_cache(tmp_path)
     _write_outbox(tmp_path, branch="codex/example")
@@ -691,7 +730,7 @@ def test_lane_registry_active_without_liveness_proof_blocks_default_classifier(
     item = payload["items"][0]
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
-    assert item["evidence"]["owner"]["owner_blocking_state"] == "live_owner"
+    assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
 def test_lane_registry_blocked_status_blocks_default_classifier(tmp_path: Path) -> None:
@@ -723,7 +762,7 @@ def test_lane_registry_blocked_status_blocks_default_classifier(tmp_path: Path) 
     item = payload["items"][0]
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
-    assert item["evidence"]["owner"]["owner_blocking_state"] == "live_owner"
+    assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
 def test_lane_registry_active_status_synonyms_block_default_classifier(
@@ -766,7 +805,7 @@ def test_lane_registry_active_status_synonyms_block_default_classifier(
         item = payload["items"][0]
 
         assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
-        assert item["evidence"]["owner"]["owner_blocking_state"] == "live_owner"
+        assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
 def test_lane_registry_terminal_worktree_hint_fails_closed_possible_unpushed(
@@ -943,6 +982,8 @@ def test_terminal_steering_receipt_consumes_blocking_effect(tmp_path: Path) -> N
     assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["evidence"]["steering"]["pending_message_count"] == 1
     assert item["evidence"]["steering"]["blocking_message_count"] == 1
+    assert item["evidence"]["steering"]["resolved_read_receipt_count"] == 1
+    assert item["evidence"]["steering"]["ack_protocol"] == "top_level_message_remains_pending"
     assert item["evidence"]["steering"]["latest_read_receipt"]["outcome"] == "completed"
     assert "resolved_message_count" not in item["evidence"]["steering"]
     assert "resolved_by_read_receipt" not in item["evidence"]["steering"]["latest_message"]
@@ -992,6 +1033,31 @@ def test_steering_branch_match_does_not_use_substring(tmp_path: Path) -> None:
 
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
     assert item["evidence"]["steering"]["pending_message_count"] == 0
+
+
+def test_steering_branch_match_survives_trailing_punctuation(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    inbox = tmp_path / ".aragora" / "operator-steering" / "engineering-autopilot-Q1"
+    inbox.mkdir(parents=True, exist_ok=True)
+    (inbox / "2026-06-24T00-00-00-000Z-fixture.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "aragora-operator-steering/1.0",
+                "to_session": "engineering-autopilot-Q1",
+                "priority": "blocking",
+                "subject": "Block codex/example.",
+                "body": "Please resolve codex/example.",
+                "message_sha256": "fixture-sha",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["steering"]["blocking_message_count"] == 1
 
 
 def test_steering_to_session_requires_branch_or_lane_correlation(tmp_path: Path) -> None:
@@ -1202,6 +1268,23 @@ def test_narrow_rest_open_pr_query_fails_closed_when_page_cap_reached(tmp_path: 
     assert "page cap" in (error or "")
 
 
+def test_narrow_rest_open_pr_query_fails_closed_for_malformed_github_repo(
+    tmp_path: Path,
+) -> None:
+    client = mod.NarrowGitHubClient(
+        repo_root=tmp_path,
+        github_repo="synaptent",
+    )
+
+    open_prs, error = client.open_prs_for_branch("codex/example")
+    ref, ref_error = client.remote_ref("codex/example")
+
+    assert open_prs is None
+    assert "owner/name" in (error or "")
+    assert ref is None
+    assert "owner/name" in (ref_error or "")
+
+
 def test_remote_ref_treats_structured_not_found_as_absent(tmp_path: Path) -> None:
     client = mod.NarrowGitHubClient(
         repo_root=tmp_path,
@@ -1315,19 +1398,20 @@ def test_cli_fail_on_unsafe_state_returns_nonzero_for_disabled_github(
     assert code == 2
 
 
-def test_cli_fail_on_unsafe_state_allows_partial_github_when_items_are_safe() -> None:
+def test_cli_fail_on_unsafe_state_rejects_partial_github_item_errors() -> None:
     payload = {
         "github": {"mode": "partial", "partial_degradation": True, "item_error_count": 1},
         "items": [
             {
-                "state": "represented_by_exact_open_pr",
-                "next_mutation_candidate": "write_representation_receipt_then_archive",
-                "safe_to_mutate": True,
+                "state": "blocked_by_owner",
+                "next_mutation_candidate": "owner_followup",
+                "safe_to_mutate": False,
+                "evidence": {"github": {"error": "gh api failed (TimeoutExpired)"}},
             }
         ],
     }
 
-    assert cli._has_unsafe_state(payload) is False  # noqa: SLF001
+    assert cli._has_unsafe_state(payload) is True  # noqa: SLF001
 
 
 def test_classify_reports_partial_github_errors_without_global_blindness(
@@ -1375,7 +1459,7 @@ def test_classify_reports_partial_github_errors_without_global_blindness(
     assert payload["github"]["mode"] == "partial"
     assert payload["github"]["item_error_count"] == 1
     assert payload["counts"][mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value] == 1
-    assert payload["counts"][mod.HandoffState.BLOCKED_BY_OWNER.value] == 1
+    assert payload["counts"][mod.HandoffState.UNKNOWN.value] == 1
 
 
 def test_owner_probe_failure_fails_closed(tmp_path: Path) -> None:

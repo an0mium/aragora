@@ -125,9 +125,11 @@ class OwnerEvidence:
 class SteeringEvidence:
     pending_message_count: int = 0
     blocking_message_count: int = 0
+    resolved_read_receipt_count: int = 0
     human_message_count: int = 0
     latest_message: dict[str, Any] | None = None
     latest_read_receipt: dict[str, Any] | None = None
+    ack_protocol: str = "top_level_message_remains_pending"
 
 
 @dataclass
@@ -205,7 +207,11 @@ class NarrowGitHubClient:
             return None, "github disabled"
         if branch in self._pr_cache:
             return self._pr_cache[branch]
-        owner = self.github_repo.split("/", 1)[0]
+        owner, repo_error = _github_repo_owner(self.github_repo)
+        if repo_error is not None:
+            result = (None, repo_error)
+            self._pr_cache[branch] = result
+            return result
         head = f"{owner}:{quote(branch, safe='')}"
         per_page = 100
         items: list[dict[str, Any]] = []
@@ -240,6 +246,11 @@ class NarrowGitHubClient:
             return None, "github disabled"
         if branch in self._ref_cache:
             return self._ref_cache[branch]
+        _, repo_error = _github_repo_owner(self.github_repo)
+        if repo_error is not None:
+            result = (None, repo_error)
+            self._ref_cache[branch] = result
+            return result
         endpoint = f"repos/{self.github_repo}/git/ref/heads/{quote(branch, safe='/')}"
         payload, error = self._api(endpoint)
         if error is not None and _github_not_found_error(error):
@@ -368,7 +379,7 @@ class LaneRegistryOwnerProbe:
         status = str(row.get("status") or "").strip().lower()
         blocking_state = str(row.get("owner_blocking_state") or "").strip() or None
         if blocking_state is None and status in ACTIVE_LANE_STATUSES:
-            blocking_state = "live_owner"
+            blocking_state = "unknown_owner"
         evidence = owner_evidence_from_payload(row)
         evidence.status = status or evidence.status
         evidence.owner_blocking_state = evidence.owner_blocking_state or blocking_state
@@ -651,7 +662,31 @@ def classify_handoff_item(
             safe_to_mutate=mutation_safe,
         )
 
-    if _remote_ref_matches(github.remote_ref, desired_head) and not _possible_unpushed(owner):
+    if github.mode in {"degraded", "disabled"} and is_pr_publication_request(payload):
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.UNKNOWN,
+            reason="GitHub evidence is unavailable; cannot prove absence of exact open PR/ref",
+            evidence=evidence,
+        )
+
+    remote_exact_head = _remote_ref_matches(github.remote_ref, desired_head)
+    if remote_exact_head and _possible_unpushed(owner):
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK,
+            reason="desired head is preserved by exact remote branch but possible unpushed work exists",
+            evidence=evidence,
+            next_mutation_candidate="owner_preservation_request",
+        )
+
+    if remote_exact_head:
         if _human_blocked(owner, steering):
             return HandoffClassification(
                 outbox_file=path.name,
@@ -674,16 +709,6 @@ def classify_handoff_item(
                 evidence=evidence,
                 next_mutation_candidate="owner_followup",
             )
-        return HandoffClassification(
-            outbox_file=path.name,
-            idempotency_key=idem,
-            branch=branch,
-            desired_head_sha=desired_head or None,
-            state=HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH,
-            reason="desired head is preserved by exact remote branch",
-            evidence=evidence,
-            next_mutation_candidate="represent_or_publish_remote_branch",
-        )
 
     if _possible_unpushed(owner):
         return HandoffClassification(
@@ -709,7 +734,7 @@ def classify_handoff_item(
             next_mutation_candidate="human_gate",
         )
 
-    if _owner_blocked(owner, steering):
+    if not remote_exact_head and _owner_blocked(owner, steering):
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
@@ -732,15 +757,28 @@ def classify_handoff_item(
             evidence=evidence,
         )
 
-    if github.mode in {"degraded", "disabled"} and is_pr_publication_request(payload):
+    if queue_cap.open_pr_cap_reached and is_pr_publication_request(payload):
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
             branch=branch,
             desired_head_sha=desired_head or None,
-            state=HandoffState.UNKNOWN,
-            reason="GitHub evidence is unavailable; cannot prove absence of exact open PR/ref",
+            state=HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP,
+            reason="publication requested but live cache reports open PR cap reached",
             evidence=evidence,
+            next_mutation_candidate="queue_drain",
+        )
+
+    if remote_exact_head:
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH,
+            reason="desired head is preserved by exact remote branch",
+            evidence=evidence,
+            next_mutation_candidate="represent_or_publish_remote_branch",
         )
 
     if receipt_evidence.issue_only_pr_receipt:
@@ -753,18 +791,6 @@ def classify_handoff_item(
             reason="PR-intended handoff has issue-only receipt; PR representation still requested",
             evidence=evidence,
             next_mutation_candidate="publish_or_represent_pr",
-        )
-
-    if queue_cap.open_pr_cap_reached and is_pr_publication_request(payload):
-        return HandoffClassification(
-            outbox_file=path.name,
-            idempotency_key=idem,
-            branch=branch,
-            desired_head_sha=desired_head or None,
-            state=HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP,
-            reason="publication requested but live cache reports open PR cap reached",
-            evidence=evidence,
-            next_mutation_candidate="queue_drain",
         )
 
     if is_pr_publication_request(payload):
@@ -1029,12 +1055,19 @@ def steering_evidence_for_branch(
         for receipt in (m.get("latest_read_receipt") for m in matches)
         if isinstance(receipt, dict)
     ]
+    resolved_receipts = [
+        receipt
+        for receipt in receipts
+        if str(receipt.get("outcome") or "").strip().lower()
+        in {"obeyed", "stale", "superseded", "completed"}
+    ]
     latest_receipt = (
         sorted(receipts, key=lambda r: str(r.get("read_at_utc") or ""))[-1] if receipts else None
     )
     return SteeringEvidence(
         pending_message_count=len(matches),
         blocking_message_count=len(blocking),
+        resolved_read_receipt_count=len(resolved_receipts),
         human_message_count=len(human),
         latest_message=latest,
         latest_read_receipt=latest_receipt,
@@ -1394,7 +1427,10 @@ def _steering_branch_tokens(payload: Mapping[str, Any]) -> set[str]:
 
 def _branch_tokens_from_text(text: str) -> set[str]:
     prefixes = "codex|claude|dependabot|feature|worktree|elves"
-    return set(re.findall(rf"\b(?:{prefixes})/[A-Za-z0-9._/-]+", text))
+    return {
+        token.rstrip(".,;:!?)]}'\"")
+        for token in re.findall(rf"\b(?:{prefixes})/[A-Za-z0-9._/-]+", text)
+    }
 
 
 def _text_contains_exact_branch(text: str, branch: str) -> bool:
@@ -1403,8 +1439,7 @@ def _text_contains_exact_branch(text: str, branch: str) -> bool:
         return False
     if text.strip() == candidate:
         return True
-    boundary = r"A-Za-z0-9._/-"
-    return re.search(rf"(?<![{boundary}]){re.escape(candidate)}(?![{boundary}])", text) is not None
+    return candidate in _branch_tokens_from_text(text)
 
 
 def latest_read_receipt_for_message(message_path: Path) -> dict[str, Any] | None:
@@ -1603,6 +1638,13 @@ def _github_repo_from_origin(repo_root: Path) -> str | None:
     if len(parts) >= 2:
         return "/".join(parts[:2])
     return None
+
+
+def _github_repo_owner(github_repo: str) -> tuple[str, str | None]:
+    parts = [part for part in str(github_repo or "").strip().split("/") if part]
+    if len(parts) != 2:
+        return "", "github repo must be in owner/name form"
+    return parts[0], None
 
 
 def _first_text(mapping: Mapping[str, Any], *keys: str) -> str | None:
