@@ -61,9 +61,28 @@ class TestReExports:
                 f"{name} must be identity-equal between shim and canonical module"
             )
 
-    def test_adapter_imports_from_canonical(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            from aragora.storage.adapters import DebateStorageAdapter
-
-        assert DebateStorageAdapter is not None
+    def test_adapter_import_does_not_route_through_shim(self):
+        # Force a cold import so the shim's import-time DeprecationWarning would
+        # re-fire if aragora.storage.adapters (or its import chain) still routed
+        # through aragora.server.storage instead of aragora.storage.debate_storage.
+        # A clean run proves the adapter reaches the storage surface via the
+        # canonical module, which is the behavior VAL-P4A-002 requires.
+        cold = ("aragora.storage.adapters", CANONICAL_MODULE, SHIM_MODULE)
+        saved = {name: sys.modules[name] for name in cold if name in sys.modules}
+        try:
+            for name in cold:
+                sys.modules.pop(name, None)
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                importlib.import_module("aragora.storage.adapters")
+            offenders = [
+                str(w.message)
+                for w in caught
+                if issubclass(w.category, DeprecationWarning) and SHIM_MODULE in str(w.message)
+            ]
+            assert not offenders, (
+                f"importing aragora.storage.adapters must not route through the "
+                f"deprecated {SHIM_MODULE} shim; saw: {offenders}"
+            )
+        finally:
+            sys.modules.update(saved)

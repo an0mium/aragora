@@ -1,5 +1,5 @@
 """
-Tests for aragora.server.storage module.
+Tests for the aragora.storage.debate_storage module.
 
 Tests DebateStorage class including slug generation, save/retrieve,
 and SQL injection prevention.
@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.server.storage import (
+from aragora.storage.debate_storage import (
     DB_TIMEOUT,
     DebateMetadata,
     DebateStorage,

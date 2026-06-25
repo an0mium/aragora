@@ -19,7 +19,7 @@ from unittest.mock import patch
 import pytest
 
 from aragora.server.auth import AuthConfig, check_auth
-from aragora.server.storage import _escape_like_pattern, DebateStorage
+from aragora.storage.debate_storage import _escape_like_pattern, DebateStorage
 
 
 class TestTokenValidation:
