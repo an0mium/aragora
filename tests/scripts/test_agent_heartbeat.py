@@ -268,6 +268,69 @@ def test_pidless_finalizer_with_branch_only_keeps_pid_bearing_heartbeat_live(
     assert "terminal_outcome" not in payload[0]
 
 
+def test_threadless_pidless_finalizer_with_branch_only_keeps_threaded_pid_heartbeat_live(
+    tmp_path: Path,
+) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        thread_id="wrapper-run-1",
+        pid=34567,
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        last_seen_at="2026-06-23T10:09:00Z",
+    )
+
+    heartbeat.record_finalizer_receipt(
+        heartbeat_path=heartbeat_path,
+        receipt_path=receipt_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        outcome="completed",
+        reason="branch-only finalizer is not run identity",
+        finalized_at="2026-06-23T10:10:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert payload[0]["thread_id"] == "wrapper-run-1"
+    assert payload[0]["pid"] == 34567
+    assert "terminal" not in payload[0]
+    assert "terminal_outcome" not in payload[0]
+
+
+def test_threadless_pidless_finalizer_with_branch_only_marks_pidless_heartbeat_terminal(
+    tmp_path: Path,
+) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        last_seen_at="2026-06-23T10:09:00Z",
+    )
+
+    heartbeat.record_finalizer_receipt(
+        heartbeat_path=heartbeat_path,
+        receipt_path=receipt_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        outcome="completed",
+        reason="pidless heartbeat can accept pidless branch finalizer",
+        finalized_at="2026-06-23T10:10:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert "pid" not in payload[0]
+    assert payload[0]["terminal"] is True
+    assert payload[0]["terminal_outcome"] == "completed"
+
+
 def test_finalizer_receipt_rejects_conflicting_stable_identity(
     tmp_path: Path,
 ) -> None:
