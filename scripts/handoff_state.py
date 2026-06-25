@@ -401,7 +401,7 @@ class LaneRegistryOwnerProbe:
         row = _best_lane_record(candidates)
         status = str(row.get("status") or "").strip().lower()
         blocking_state = str(row.get("owner_blocking_state") or "").strip() or None
-        if blocking_state is None and status in BLOCKING_LANE_STATUSES:
+        if blocking_state is None and status in ACTIVE_LANE_STATUSES:
             blocking_state = "unknown_owner"
         evidence = owner_evidence_from_payload(row)
         evidence.status = status or evidence.status
@@ -663,13 +663,52 @@ def classify_handoff_item(
         lane_id=owner.lane_id,
     )
     evidence["steering"] = dataclasses.asdict(steering)
+    if not desired_head and github.open_prs:
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=None,
+            state=HandoffState.UNKNOWN,
+            reason="branch has open PR(s) but handoff has no desired head to verify",
+            evidence=evidence,
+        )
+
     if github.exact_open_pr is not None:
         number = github.exact_open_pr.get("number")
-        mutation_safe = not (
-            _possible_unpushed(owner)
-            or _human_blocked(owner, steering)
-            or _owner_blocked(owner, steering)
-        )
+        if _possible_unpushed(owner):
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK,
+                reason=f"branch has exact-head open PR #{number} but possible unpushed work exists",
+                evidence=evidence,
+                next_mutation_candidate="owner_preservation_request",
+            )
+        if _human_blocked(owner, steering):
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.BLOCKED_BY_HUMAN,
+                reason=f"branch has exact-head open PR #{number} but human gate remains",
+                evidence=evidence,
+                next_mutation_candidate="human_gate",
+            )
+        if _owner_blocked(owner, steering):
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.BLOCKED_BY_OWNER,
+                reason=f"branch has exact-head open PR #{number} but owner gate remains",
+                evidence=evidence,
+                next_mutation_candidate="owner_followup",
+            )
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
@@ -679,7 +718,7 @@ def classify_handoff_item(
             reason=f"branch has exact-head open PR #{number}",
             evidence=evidence,
             next_mutation_candidate="write_representation_receipt_then_archive",
-            safe_to_mutate=mutation_safe,
+            safe_to_mutate=True,
         )
 
     remote_exact_head = _remote_ref_matches(github.remote_ref, desired_head)
@@ -717,6 +756,16 @@ def classify_handoff_item(
                 reason="desired head is preserved by exact remote branch but owner gate remains",
                 evidence=evidence,
                 next_mutation_candidate="owner_followup",
+            )
+        if github.mode in {"degraded", "disabled"} and is_pr_publication_request(payload):
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.UNKNOWN,
+                reason="GitHub PR evidence is unavailable; cannot prove absence of exact open PR",
+                evidence=evidence,
             )
         return HandoffClassification(
             outbox_file=path.name,

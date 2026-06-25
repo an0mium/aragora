@@ -198,7 +198,7 @@ def _classify_one(
     return payload["items"][0]
 
 
-def test_exact_open_pr_representation_wins_over_owner_noise(tmp_path: Path) -> None:
+def test_exact_open_pr_representation_does_not_hide_owner_noise(tmp_path: Path) -> None:
     _write_status_cache(tmp_path, open_pr_cap_reached=True)
     _write_outbox(tmp_path, branch="codex/example")
     github = FakeGitHub(
@@ -227,9 +227,9 @@ def test_exact_open_pr_representation_wins_over_owner_noise(tmp_path: Path) -> N
 
     item = _classify_one(tmp_path, github=github, owner=owner)
 
-    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["evidence"]["github"]["exact_open_pr"]["number"] == 8570
-    assert item["next_mutation_candidate"] == "write_representation_receipt_then_archive"
+    assert item["next_mutation_candidate"] == "owner_followup"
     assert item["safe_to_mutate"] is False
 
 
@@ -254,6 +254,33 @@ def test_exact_open_pr_representation_is_safe_without_owner_blockers(tmp_path: P
 
     assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
     assert item["safe_to_mutate"] is True
+
+
+def test_open_pr_without_desired_head_fails_closed(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    handoff = _write_outbox(tmp_path, branch="codex/example")
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    for key in ("desired_head_sha", "target_head_sha", "head_sha", "head", "commit"):
+        payload.pop(key, None)
+        payload["requested_action"].pop(key, None)
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": True,
+                    "head": {"ref": "codex/example", "sha": OTHER_HEAD},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert "no desired head" in item["reason"]
 
 
 def test_exact_open_pr_representation_requires_requested_base(tmp_path: Path) -> None:
@@ -368,7 +395,7 @@ def test_exact_open_pr_representation_blocks_when_owner_probe_unavailable(
 
     item = _classify_one(tmp_path, github=github, owner=UnavailableOwnerProbe())
 
-    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["safe_to_mutate"] is False
 
 
@@ -676,7 +703,7 @@ def test_remote_exact_head_representation_survives_pr_lookup_degradation(
 
     item = _classify_one(tmp_path, github=github)
 
-    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH.value
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
     assert item["evidence"]["github"]["mode"] == "degraded"
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
 
@@ -796,7 +823,7 @@ def test_lane_registry_terminal_owner_does_not_block_by_default(
     assert item["evidence"]["owner"]["owner_blocking_state"] is None
 
 
-def test_lane_registry_active_without_liveness_proof_does_not_block_default_classifier(
+def test_lane_registry_active_without_liveness_proof_blocks_default_classifier(
     tmp_path: Path,
 ) -> None:
     _write_status_cache(tmp_path)
@@ -826,8 +853,8 @@ def test_lane_registry_active_without_liveness_proof_does_not_block_default_clas
     )
     item = payload["items"][0]
 
-    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
-    assert item["evidence"]["owner"]["owner_blocking_state"] is None
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
 def test_lane_registry_blocked_status_blocks_default_classifier(tmp_path: Path) -> None:
@@ -862,13 +889,14 @@ def test_lane_registry_blocked_status_blocks_default_classifier(tmp_path: Path) 
     assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
-def test_lane_registry_active_status_synonyms_do_not_block_without_liveness(
+def test_lane_registry_active_status_synonyms_block_default_classifier(
     tmp_path: Path,
 ) -> None:
     for status in (
         "running",
         "pending",
         "queued",
+        "waiting_for_steering",
         "acknowledged",
         "working",
     ):
@@ -900,42 +928,8 @@ def test_lane_registry_active_status_synonyms_do_not_block_without_liveness(
         )
         item = payload["items"][0]
 
-        assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
-        assert item["evidence"]["owner"]["owner_blocking_state"] is None
-
-
-def test_lane_registry_waiting_for_steering_blocks_default_classifier(
-    tmp_path: Path,
-) -> None:
-    _write_status_cache(tmp_path)
-    _write_outbox(tmp_path, branch="codex/example")
-    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
-    lanes_path.parent.mkdir(parents=True, exist_ok=True)
-    lanes_path.write_text(
-        json.dumps(
-            [
-                {
-                    "lane_id": "Q1",
-                    "owner_session": "engineering-autopilot-Q1",
-                    "branch": "codex/example",
-                    "status": "waiting_for_steering",
-                }
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    payload = mod.classify_handoffs(
-        repo_root=tmp_path,
-        state_root=tmp_path,
-        github_repo="synaptent/aragora",
-        outbox_file="open-pr-codex-example-aaaaaaaa.json",
-        github_client=FakeGitHub(),
-    )
-    item = payload["items"][0]
-
-    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
-    assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
+        assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+        assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
 def test_lane_registry_released_worktree_hint_does_not_imply_unpushed_work(
@@ -1580,7 +1574,7 @@ def test_cli_fail_on_unsafe_state_rejects_partial_github_item_errors() -> None:
     assert cli._has_unsafe_state(payload) is True  # noqa: SLF001
 
 
-def test_cli_fail_on_unsafe_state_allows_partial_github_when_items_are_safe() -> None:
+def test_cli_fail_on_unsafe_state_rejects_partial_github_even_when_items_look_safe() -> None:
     payload = {
         "github": {"mode": "partial", "partial_degradation": True, "item_error_count": 1},
         "items": [
@@ -1592,7 +1586,7 @@ def test_cli_fail_on_unsafe_state_allows_partial_github_when_items_are_safe() ->
         ],
     }
 
-    assert cli._has_unsafe_state(payload) is False  # noqa: SLF001
+    assert cli._has_unsafe_state(payload) is True  # noqa: SLF001
 
 
 def test_classify_reports_partial_github_errors_without_global_blindness(
