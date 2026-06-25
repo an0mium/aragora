@@ -439,7 +439,7 @@ class TestGlobalProviderReference:
     """Tests for global provider reference behavior."""
 
     def test_provider_reference_mutation(self, temp_db, mock_embedding_provider):
-        """Provider reference should update with new stream."""
+        """Provider swap should invalidate same-content cached embeddings."""
         _get_cached_embedding.cache_clear()
 
         provider1 = AsyncMock()
@@ -451,12 +451,13 @@ class TestGlobalProviderReference:
         # First stream sets provider1
         stream1 = MemoryStream(db_path=temp_db, embedding_provider=provider1)
         assert streams_module._embedding_provider_ref is provider1
+        assert _get_cached_embedding("provider check") == tuple([0.1] * 256)
 
         # Second stream sets provider2
         stream2 = MemoryStream(db_path=temp_db, embedding_provider=provider2)
         assert streams_module._embedding_provider_ref is provider2
-        _get_cached_embedding.cache_clear()
         assert _get_cached_embedding("provider check") == tuple([0.2] * 256)
+        provider2.embed.assert_awaited_once_with("provider check")
 
     def test_none_provider_no_overwrite(self, temp_db, mock_embedding_provider):
         """None provider should not overwrite existing reference."""

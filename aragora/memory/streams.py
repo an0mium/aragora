@@ -36,6 +36,8 @@ _provider_registered = False
 def _register_embedding_provider(provider: "EmbeddingProvider") -> None:
     """Register embedding provider with ServiceRegistry for observability."""
     global _provider_registered, _embedding_provider_ref
+    previous_provider = _embedding_provider_ref
+    provider_changed = previous_provider is not None and previous_provider is not provider
     _embedding_provider_ref = provider
 
     try:
@@ -45,10 +47,13 @@ def _register_embedding_provider(provider: "EmbeddingProvider") -> None:
         if not registry.has(EmbeddingProviderService):
             registry.register(EmbeddingProviderService, provider)
         elif registry.resolve(EmbeddingProviderService, None) is not provider:
+            provider_changed = True
             registry.register(EmbeddingProviderService, provider)
         _provider_registered = True
     except ImportError:
         pass  # Services module not available
+    if provider_changed:
+        _get_cached_embedding.cache_clear()
 
 
 def get_embedding_provider() -> Optional["EmbeddingProvider"]:
