@@ -156,6 +156,8 @@ import sys
 from pathlib import Path
 
 runner_file, repo_root, workdir, launch_cmd, lane_id, owner_session = sys.argv[1:7]
+if "\n" in launch_cmd or "\r" in launch_cmd:
+    raise SystemExit("refusing to generate heartbeat wrapper for multi-line launch command")
 heartbeat_log = str(Path(runner_file).with_suffix(".heartbeat.log"))
 body = "\n".join(
     [
@@ -177,7 +179,7 @@ body = "\n".join(
         "_record_heartbeat() {",
         "    local branch",
         "    branch=\"$(git -C \"${WORKDIR}\" rev-parse --abbrev-ref HEAD 2>/dev/null || true)\"",
-        "    python3 \"${REPO_ROOT}/scripts/agent_heartbeat.py\" \\",
+        "    if ! python3 \"${REPO_ROOT}/scripts/agent_heartbeat.py\" \\",
         "        --repo-root \"${REPO_ROOT}\" \\",
         "        --lane-id \"${LANE_ID}\" \\",
         "        --owner-session \"${OWNER_SESSION}\" \\",
@@ -185,11 +187,12 @@ body = "\n".join(
         "        --cwd \"${WORKDIR}\" \\",
         "        --worktree \"${WORKDIR}\" \\",
         "        --branch \"${branch}\" \\",
-        "        --json >/dev/null 2>>\"${HEARTBEAT_LOG}\" || true",
+        "        --json >/dev/null 2>>\"${HEARTBEAT_LOG}\"; then",
+        "        echo \"agent_heartbeat.py record failed for ${LANE_ID}\" >>\"${HEARTBEAT_LOG}\"",
+        "    fi",
         "}",
         "",
         "_heartbeat_loop() {",
-        "    _record_heartbeat",
         "    while sleep \"${_heartbeat_interval}\"; do",
         "        _record_heartbeat",
         "    done",
@@ -202,6 +205,7 @@ body = "\n".join(
         "    fi",
         "    _finalized=\"1\"",
         "    if [[ -n \"${_heartbeat_loop_pid}\" ]]; then",
+        "        pkill -TERM -P \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
         "        kill \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
         "        wait \"${_heartbeat_loop_pid}\" 2>/dev/null || true",
         "    fi",
@@ -217,7 +221,7 @@ body = "\n".join(
         "        outcome=\"failed\"",
         "        reason=\"tmux launcher command exited with status ${rc}\"",
         "    fi",
-        "    python3 \"${REPO_ROOT}/scripts/agent_heartbeat.py\" \\",
+        "    if ! python3 \"${REPO_ROOT}/scripts/agent_heartbeat.py\" \\",
         "        --repo-root \"${REPO_ROOT}\" \\",
         "        --finalize \\",
         "        --lane-id \"${LANE_ID}\" \\",
@@ -228,13 +232,17 @@ body = "\n".join(
         "        --branch \"${branch}\" \\",
         "        --outcome \"${outcome}\" \\",
         "        --reason \"${reason}\" \\",
-        "        --json >/dev/null 2>>\"${HEARTBEAT_LOG}\" || true",
+        "        --json >/dev/null 2>>\"${HEARTBEAT_LOG}\"; then",
+        "        echo \"agent_heartbeat.py finalize failed for ${LANE_ID} (${outcome})\" >>\"${HEARTBEAT_LOG}\"",
+        "    fi",
         "    exit \"${rc}\"",
         "}",
         "",
         "trap _finalize_heartbeat EXIT",
+        "trap \"_finalizer_signal=HUP; exit 129\" HUP",
         "trap \"_finalizer_signal=INT; exit 130\" INT",
         "trap \"_finalizer_signal=TERM; exit 143\" TERM",
+        "_record_heartbeat",
         "_heartbeat_loop &",
         "_heartbeat_loop_pid=\"$!\"",
         launch_cmd,

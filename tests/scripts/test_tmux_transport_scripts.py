@@ -72,6 +72,21 @@ def _load_tmux_calls(env: dict[str, str]) -> list[list[str]]:
     ]
 
 
+def _write_fake_python(tmp_path: Path, *, exit_code: int = 0) -> Path:
+    fake_bin = tmp_path / "fakebin"
+    fake_bin.mkdir()
+    fake_python = fake_bin / "python3"
+    fake_python.write_text(
+        f"""#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "${{FAKE_PYTHON_LOG}}"
+exit {exit_code}
+""",
+        encoding="utf-8",
+    )
+    fake_python.chmod(fake_python.stat().st_mode | stat.S_IEXEC)
+    return fake_bin
+
+
 def test_tmux_send_prompt_uses_load_buffer_for_multiline_prompt(tmp_path: Path) -> None:
     _write_fake_tmux(tmp_path)
     env = _fake_tmux_env(tmp_path)
@@ -156,6 +171,9 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     assert "--finalize" in heartbeat_body
     assert "ARAGORA_TMUX_HEARTBEAT_INTERVAL_SECONDS" in heartbeat_body
     assert '_heartbeat_interval="60"' in heartbeat_body
+    assert 'trap "_finalizer_signal=HUP; exit 129" HUP' in heartbeat_body
+    assert "agent_heartbeat.py record failed" in heartbeat_body
+    assert "agent_heartbeat.py finalize failed" in heartbeat_body
     assert "./scripts/codex_session.sh" in heartbeat_body
     assert "--agent testpane" in heartbeat_body
     registry_payload = json.loads(
@@ -163,6 +181,71 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     )
     assert "testpane" in registry_payload["sessions"]
     assert registry_payload["sessions"]["testpane"]["tmux_window"] == "@17"
+
+
+def test_tmux_session_launcher_heartbeat_wrapper_preserves_launch_exit_and_logs_failures(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    workdir = tmp_path / "worker"
+    (workdir / "scripts").mkdir(parents=True)
+    codex_session = workdir / "scripts" / "codex_session.sh"
+    codex_session.write_text(
+        """#!/usr/bin/env bash
+exit "${FAKE_LAUNCH_EXIT:-0}"
+""",
+        encoding="utf-8",
+    )
+    codex_session.chmod(codex_session.stat().st_mode | stat.S_IEXEC)
+
+    subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "exec-wrapper",
+            "--agent",
+            "codex",
+            "--cwd",
+            str(workdir),
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    heartbeat_launcher = (
+        Path(env["HOME"]) / ".aragora" / "tmux-sessions" / "exec-wrapper.heartbeat-launch.sh"
+    )
+    fake_python_bin = _write_fake_python(tmp_path, exit_code=1)
+    wrapper_env = env.copy()
+    wrapper_env["PATH"] = f"{fake_python_bin}:{wrapper_env['PATH']}"
+    wrapper_env["FAKE_PYTHON_LOG"] = str(tmp_path / "python-calls.log")
+    wrapper_env["FAKE_LAUNCH_EXIT"] = "7"
+    wrapper_env["ARAGORA_TMUX_HEARTBEAT_INTERVAL_SECONDS"] = "999"
+
+    result = subprocess.run(
+        ["bash", str(heartbeat_launcher)],
+        cwd=REPO_ROOT,
+        env=wrapper_env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 7
+    heartbeat_log = heartbeat_launcher.with_suffix(".heartbeat.log").read_text(encoding="utf-8")
+    assert "agent_heartbeat.py record failed for exec-wrapper" in heartbeat_log
+    assert "agent_heartbeat.py finalize failed for exec-wrapper (failed)" in heartbeat_log
+    python_calls = Path(wrapper_env["FAKE_PYTHON_LOG"]).read_text(encoding="utf-8")
+    assert "scripts/agent_heartbeat.py" in python_calls
+    assert "--finalize" in python_calls
 
 
 def test_tmux_session_launcher_autonomous_codex_prompt_uses_exec(
