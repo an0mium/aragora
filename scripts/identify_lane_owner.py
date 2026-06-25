@@ -51,6 +51,14 @@ authorizes cleanup or stale-claim override by itself and it fails
 closed (``advisory_withheld: "possible_unpushed_work"``) whenever
 uncommitted/unpushed work might exist.
 
+``owner_liveness.assessed`` and legacy ``liveness_state`` are deliberately
+separate signals. ``owner_liveness.assessed`` uses the lane lease and the
+``--stale-hours`` threshold. ``liveness_state`` remains the older direct
+process / harness-heartbeat summary, including the fixed heartbeat freshness
+window, so a live lease can coexist with ``missing_heartbeat`` or
+``stale_heartbeat``. In that case the aligned cleanup/action fields preserve
+the live owner.
+
 Pure stdlib. No ``aragora.*`` imports. Read-only — never mutates
 GitHub state, lane registry, mailboxes, or any other on-disk file.
 """
@@ -1819,6 +1827,11 @@ def assess_owner_liveness(
     output. Pure visibility: this may reconcile displayed owner-state
     labels when a current lease proves a live owner, but it never
     authorizes cleanup or stale-claim override by itself.
+    ``owner_liveness.assessed`` uses ``stale_hours`` for lane-lease
+    age. The legacy ``liveness_state`` field is computed earlier from
+    direct process / harness-heartbeat evidence and may still report a
+    missing or stale heartbeat; callers should use the aligned
+    cleanup/action fields for operator routing.
     ``assessed == "unknown"`` NEVER produces an advisory, and any hint
     of local work withholds it
     (``advisory_withheld: "possible_unpushed_work"``).
@@ -2190,7 +2203,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=STALE_HOURS_DEFAULT,
         help=(
             "Owner-lease age (hours) beyond which a lane with no fresher "
-            f"heartbeat is assessed stale (default {STALE_HOURS_DEFAULT})."
+            f"heartbeat is assessed stale (default {STALE_HOURS_DEFAULT}); "
+            "legacy liveness_state still reflects process/heartbeat freshness."
         ),
     )
     p.add_argument(
