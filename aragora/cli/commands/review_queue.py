@@ -44,6 +44,7 @@ from aragora.cli.commands.review_queue_parsers import (
 from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label as _has_blocking_finding_or_label,
     has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
+    has_negative_verdict_line as _has_negative_verdict_line,
     highest_blocking_severity as _highest_blocking_severity,
 )
 from aragora.cli.commands.review_queue_transport import (
@@ -4288,10 +4289,11 @@ def _build_advisory_view(comment: dict[str, Any], body: str) -> dict[str, Any] |
     comment that, under the severity gate, carries only ``[P2]``/``[P3]`` (or no)
     findings. Returns ``None`` if the reviewer identity is unrecognized.
     """
-    # The comment WOULD have blocked under the strict (flag-OFF) regime: it is a
-    # genuine negative verdict, just not backed by a real [P0]/[P1] finding or a
-    # populated Blocker label. Recording it preserves the reviewer's signal.
-    if not _has_blocking_or_negative_verdict(body):
+    # The comment WOULD have blocked under the strict (explicit-OFF) regime because
+    # it is a genuine negative verdict, just not backed by a real [P0]/[P1] finding
+    # or a populated Blocker label. A PASS body that merely includes [P2] follow-ups
+    # should remain a PASS, not an advisory changes-requested record.
+    if not _has_negative_verdict_line(body):
         return None
     identity = _resolve_model_review_identity(body)
     if identity.surface_reviewer_id == "unknown_model_reviewer":

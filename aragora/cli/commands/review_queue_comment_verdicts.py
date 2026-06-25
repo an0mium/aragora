@@ -271,6 +271,26 @@ def has_blocking_or_negative_verdict(body: str) -> bool:
     return False
 
 
+def has_negative_verdict_line(body: str) -> bool:
+    """Return True when ``body`` has a negative Verdict/Decision/Recommendation line."""
+    for raw_line in str(body or "").splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        line = _strip_decoration(stripped).replace("**", "").replace("__", "")
+        match = re.match(r"^(?P<label>[^:—–-]+?)\s*(?::|—|–|-)\s*(?P<value>.*)$", line)
+        if not match:
+            continue
+        normalized_label = re.sub(r"\s+", " ", match.group("label").strip().lower())
+        normalized_label = normalized_label.strip("*_ ")
+        if normalized_label not in {"verdict", "decision", "recommendation"}:
+            continue
+        normalized_value = _normalize_value(match.group("value"))
+        if _starts_with_phrase(normalized_value, _NEGATIVE_VERDICT_PREFIXES):
+            return True
+    return False
+
+
 def highest_blocking_severity(body: str) -> str | None:
     """Return ``"P0"``/``"P1"`` if ``body`` carries a real (non-:data:`_NO_FINDING_HEADS`)
     `[P0]`/`[P1]` finding line, else ``None``.

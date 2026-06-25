@@ -1190,6 +1190,42 @@ def test_collect_severity_gated_finding_free_changes_requested_is_advisory(
     assert all("changes-requested" not in body.lower() for _repo, body in posted)
 
 
+def test_collect_uses_caller_env_for_severity_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    fakes, posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\n- [P2] Add a follow-up smoke test.",
+                True,
+            )
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "openai", "grok"],
+        author="me",
+        apply=True,
+        env={
+            "ARAGORA_ENABLE_TIERED_MERGE_GATE": "1",
+            "ARAGORA_ENABLE_SEVERITY_GATED_DISSENT": "0",
+        },
+        **fakes,
+    )
+
+    assert outcome.tiered_gate is True
+    assert {item.family: item.severity_gated for item in outcome.items}["grok"] is False
+    assert outcome.action == "prepare"
+    assert outcome.dissenting_families == ["grok"]
+    assert posted == []
+
+
 def test_evidence_item_dissenting_uses_captured_outcome_policy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2050,6 +2086,108 @@ def test_apply_prepared_evidence_rederives_verdict_from_body(
     assert outcome.dissenting_families == ["claude"]
     assert "reviewer dissent present" in outcome.action_reason
     assert outcome.posted == []
+    assert posted == []
+
+
+def test_apply_prepared_evidence_default_severity_gate_makes_p2_advisory(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", raising=False)
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem(
+                "grok",
+                _prepared_body("grok", "CHANGES-REQUESTED")
+                + "- [P2] Add a follow-up smoke test.\n",
+                True,
+                ["grok"],
+                [],
+                "changes_requested",
+                severity_gated=True,
+            ),
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+        ],
+    )
+    posted: list[tuple[str, str]] = []
+
+    def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        family = "claude" if "claude body" in body else "grok"
+        return {
+            "would_count": True,
+            "counted_reviewer_ids": [family],
+            "problems": [],
+        }
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["grok", "claude"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=linter,
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+    )
+
+    assert outcome.action == "post"
+    assert outcome.dissenting_families == []
+    assert outcome.posted == ["claude"]
+    assert posted == [("o/r", _prepared_body("claude"))]
+
+
+def test_apply_prepared_evidence_uses_caller_env_for_live_severity_gate(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    prepared = _prepared_outcome_file(
+        tmp_path,
+        items=[
+            EvidenceItem(
+                "grok",
+                _prepared_body("grok", "CHANGES-REQUESTED")
+                + "- [P2] Add a follow-up smoke test.\n",
+                True,
+                ["grok"],
+                [],
+                "changes_requested",
+                severity_gated=True,
+            ),
+            EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass"),
+        ],
+    )
+    posted: list[tuple[str, str]] = []
+
+    def linter(pr, head_sha, head_committed_at, author, body, env) -> dict:
+        family = "claude" if "claude body" in body else "grok"
+        return {
+            "would_count": True,
+            "counted_reviewer_ids": [family],
+            "problems": [],
+        }
+
+    outcome = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["grok", "claude"],
+        context_fetcher=lambda repo, pr: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda repo, pr: 1,
+        linter=linter,
+        poster=lambda repo, pr, body: posted.append((repo, body)),
+        env={
+            "ARAGORA_ENABLE_TIERED_MERGE_GATE": "1",
+            "ARAGORA_ENABLE_SEVERITY_GATED_DISSENT": "0",
+        },
+    )
+
+    assert outcome.action == "prepare"
+    assert outcome.items[0].severity_gated is False
+    assert outcome.dissenting_families == ["grok"]
     assert posted == []
 
 

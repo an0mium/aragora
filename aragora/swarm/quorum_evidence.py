@@ -1796,6 +1796,7 @@ def collect_evidence(
         tier=tier,
         action=action,
         action_reason=action_reason,
+        tiered_gate=tiered_merge_gate_enabled(env),
     )
 
     prompt = prompt_builder(repo, pr, ctx)
@@ -1865,6 +1866,7 @@ def collect_evidence(
                 verdict=_reviewer_verdict(result.text),
                 counted_reviewer_ids=list(lint.get("counted_reviewer_ids") or []),
                 problems=list(lint.get("problems") or []),
+                severity_gated=severity_gated_dissent_enabled(env),
             )
         )
 
@@ -2050,12 +2052,12 @@ def apply_prepared_evidence(
     # live (itself the Tier-4-gated decision). Anyone who can forge the artifact JSON
     # can also forge reviewer bodies, so artifact integrity is the caller's trust
     # boundary — this field grants no authority beyond what the live flag already does.
-    live_gate = tiered_merge_gate_enabled()
+    live_gate = tiered_merge_gate_enabled(env)
     effective_tiered_gate = bool(prepared.tiered_gate) and live_gate
     # Reconcile the severity-gate regime the same way: a relaxed-prepared artifact
     # only stays relaxed when the live flag also relaxes; otherwise dissent is
     # re-evaluated under the strict regime. Mirrors effective_tiered_gate.
-    live_severity_gated = severity_gated_dissent_enabled()
+    live_severity_gated = severity_gated_dissent_enabled(env)
 
     tier = tier_fetcher(repo, pr)
     action, action_reason = decide_action(tier, apply)

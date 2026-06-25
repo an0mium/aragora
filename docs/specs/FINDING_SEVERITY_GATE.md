@@ -114,21 +114,22 @@ Four changes; explicit flag OFF ⇒ legacy strict behavior:
      never by the negative-verdict check, so positive verdicts like `Verdict: no
      concerns` are not promoted to blocking dissents.
 3. **`_dissenting_views_from_comments`** (review_queue) consults
-   `has_blocking_finding_or_label` when the flag is ON (dropping the bare-negative-
-   verdict trigger) and `has_blocking_or_negative_verdict` when OFF. Downgraded
-   comments are recorded in `advisory_views` and surfaced as a non-blocking
-   `reasons` note.
+   `has_blocking_finding_or_label` in the default active regime (dropping the
+   bare-negative-verdict trigger) and `has_blocking_or_negative_verdict` only under
+   explicit strict opt-out. Downgraded negative-verdict comments are recorded in
+   `advisory_views` and surfaced as a non-blocking `reasons` note.
 4. **`EvidenceItem.dissenting`** (quorum_evidence) is `dissenting` only when
-   `verdict == "changes_requested" AND has_blocking_finding_or_label(body)` while the
-   flag is ON — i.e. a real `[P0]`/`[P1]` finding OR a populated Blocker label (the
-   latter blocks even without a `[P0]`/`[P1]` marker, matching the review-queue half;
-   this is strictly broader than `highest_blocking_severity(body) is not None`, which
-   only detects `[P0]`/`[P1]`). OFF ⇒ `dissenting = (verdict == "changes_requested")`
-   as today. The flag is captured once at construction (`severity_gated` field) and —
-   like `CollectOutcome.tiered_gate` — is serialized into prepared artifacts and
-   reconciled `effective = prepared AND live` at apply, so a gate decision stays
-   deterministic and cannot be relaxed by flipping the env between prepare and apply.
-   `supportive` is unchanged.
+   `verdict == "changes_requested" AND has_blocking_finding_or_label(body)` in the
+   default active regime — i.e. a real `[P0]`/`[P1]` finding OR a populated Blocker
+   label (the latter blocks even without a `[P0]`/`[P1]` marker, matching the
+   review-queue half; this is strictly broader than
+   `highest_blocking_severity(body) is not None`, which only detects `[P0]`/`[P1]`).
+   Explicit strict opt-out makes every `changes_requested` verdict dissenting, as
+   legacy behavior did. The flag is captured once at construction (`severity_gated`
+   field) and — like `CollectOutcome.tiered_gate` — is serialized into prepared
+   artifacts and reconciled `effective = prepared AND live` at apply, so a gate
+   decision stays deterministic and cannot be relaxed by flipping the env between
+   prepare and apply. `supportive` is unchanged.
 
 ## Rollout
 

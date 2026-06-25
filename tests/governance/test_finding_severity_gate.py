@@ -63,6 +63,12 @@ _BLOCKER_LABEL_CHANGES_REQUESTED = (
 _NO_FINDING_CHANGES_REQUESTED = (
     f"## Claude independent model review\nCurrent head: {_HEAD}\nVerdict: CHANGES-REQUESTED"
 )
+_P2_PASS_REVIEW = (
+    "## Claude independent model review\n"
+    f"Current head: {_HEAD}\n"
+    "Verdict: PASS\n"
+    "[P2] Prefer a constant over the magic number on line 40.\n"
+)
 # A populated Blocker label whose finding text starts with bare "no" — common
 # security phrasing ("no authentication", "no validation", "no authorization").
 # This MUST block: a populated Blocker label always blocks (the stated invariant).
@@ -312,6 +318,16 @@ class TestFlagOnSeverityGated:
         assert dissent == []
         assert len(advisory) == 1
         assert _evidence(_NO_FINDING_CHANGES_REQUESTED).dissenting is False
+
+    def test_pass_with_p2_followup_is_not_advisory_changes_requested(self, monkeypatch):
+        monkeypatch.delenv(_FLAG, raising=False)
+        advisory: list[dict] = []
+        dissent = _dissenting_views_from_comments(
+            [_comment(_P2_PASS_REVIEW)], head_sha=_HEAD, advisory_views=advisory
+        )
+
+        assert dissent == []
+        assert advisory == []
 
     def test_p1_finding_still_blocks(self, monkeypatch):
         monkeypatch.setenv(_FLAG, "1")
