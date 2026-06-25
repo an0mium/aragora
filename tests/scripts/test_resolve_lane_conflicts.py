@@ -370,6 +370,20 @@ def test_validate_gh_bin_accepts_absolute_executable_wrapper(tmp_path: Path) -> 
     assert resolver._validate_gh_bin(str(wrapper)) == str(wrapper.resolve())
 
 
+def test_validate_gh_bin_accepts_relative_executable_wrapper(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    wrapper = tools / "gh"
+    wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    wrapper.chmod(0o755)
+    monkeypatch.chdir(tmp_path)
+
+    assert resolver._validate_gh_bin("./tools/gh") == str(wrapper.resolve())
+
+
 def test_apply_marks_conflict_superseded_and_writes_receipt(tmp_path: Path) -> None:
     registry = tmp_path / "lanes.json"
     receipt_dir = tmp_path / "receipts"

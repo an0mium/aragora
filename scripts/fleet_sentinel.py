@@ -251,15 +251,41 @@ def _validate_gh_bin(gh_bin: str) -> str:
     if value == "gh":
         return value
     path = Path(value).expanduser()
-    if not path.is_absolute():
-        raise ValueError("gh_bin must be 'gh' or an absolute executable path")
+    if not path.is_absolute() and not any(sep in value for sep in ("/", os.sep)):
+        raise ValueError("gh_bin must be 'gh' or an executable path")
     try:
         resolved = path.resolve()
     except OSError as exc:
-        raise ValueError(f"gh_bin absolute path could not be resolved: {exc}") from exc
+        raise ValueError(f"gh_bin path could not be resolved: {exc}") from exc
     if not resolved.is_file() or not os.access(resolved, os.X_OK):
-        raise ValueError("gh_bin absolute path must be an executable file")
+        raise ValueError("gh_bin path must be an executable file")
     return str(resolved)
+
+
+def _split_operator_command(command: str, *, option_name: str) -> list[str]:
+    try:
+        tokens = shlex.split(command)
+    except ValueError as exc:
+        raise ValueError(f"{option_name} is not a valid argv template: {exc}") from exc
+    if not tokens:
+        raise ValueError(f"{option_name} must not be empty")
+    executable = tokens[0]
+    if (
+        executable.startswith("-")
+        or "\0" in executable
+        or any(char.isspace() for char in executable)
+    ):
+        raise ValueError(f"{option_name} executable must be one safe argv token")
+    if any(sep in executable for sep in ("/", os.sep)):
+        path = Path(executable).expanduser()
+        try:
+            resolved = path.resolve()
+        except OSError as exc:
+            raise ValueError(f"{option_name} executable path could not be resolved: {exc}") from exc
+        if not resolved.is_file() or not os.access(resolved, os.X_OK):
+            raise ValueError(f"{option_name} executable path must be an executable file")
+        tokens[0] = str(resolved)
+    return tokens
 
 
 def parse_iso(value: str) -> datetime:
@@ -1787,20 +1813,21 @@ def breach_summary(checks: list[CheckResult]) -> str:
 
 
 def notify(notify_cmd: str, summary: str, *, runner: Callable[[list[str]], int]) -> None:
-    tokens = shlex.split(notify_cmd)
-    if any("{summary}" in t for t in tokens):
-        # A bare "{summary}" token becomes its own argv element — safe to pass
-        # the text through verbatim.  A placeholder embedded in a larger token
-        # lands inside another language's string literal (e.g. the installer's
-        # default AppleScript "display notification" command), so neutralize
-        # quote/backslash injection before substituting.
-        embedded_safe = summary.replace("\\", "/").replace('"', "'")
-        tokens = [
-            summary if t == "{summary}" else t.replace("{summary}", embedded_safe) for t in tokens
-        ]
-    else:
-        tokens.append(summary)
     try:
+        tokens = _split_operator_command(notify_cmd, option_name="--notify-cmd")
+        if any("{summary}" in t for t in tokens):
+            # A bare "{summary}" token becomes its own argv element — safe to pass
+            # the text through verbatim.  A placeholder embedded in a larger token
+            # lands inside another language's string literal (e.g. the installer's
+            # default AppleScript "display notification" command), so neutralize
+            # quote/backslash injection before substituting.
+            embedded_safe = summary.replace("\\", "/").replace('"', "'")
+            tokens = [
+                summary if t == "{summary}" else t.replace("{summary}", embedded_safe)
+                for t in tokens
+            ]
+        else:
+            tokens.append(summary)
         runner(tokens)
     except Exception as exc:  # noqa: BLE001 - notification failure must not mask the report
         print(f"fleet-sentinel: notify-cmd failed: {exc}", file=sys.stderr)
@@ -1838,7 +1865,10 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                 results.append(check_launchd_plists(Path(args.launch_agents_dir)))
             elif name == "gh_auth":
                 results.append(
-                    check_gh_auth(runner=_default_command_runner, cmd=shlex.split(args.gh_auth_cmd))
+                    check_gh_auth(
+                        runner=_default_command_runner,
+                        cmd=_split_operator_command(args.gh_auth_cmd, option_name="--gh-auth-cmd"),
+                    )
                 )
             elif name == "checkout_invariant":
                 results.append(
@@ -1892,6 +1922,12 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         Path(args.stale_terminal_owner_receipt_dir)
                     ),
                 }
+                if not hasattr(args, "_explicit_state_path_args"):
+                    explicit_paths = {
+                        name
+                        for name, value in fallback_path_values.items()
+                        if value != default_paths.get(name)
+                    }
                 unsafe_fallback_paths = [
                     name
                     for name, value in fallback_path_values.items()
@@ -1932,7 +1968,9 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         persist_threshold=args.persist_threshold,
                         tail_lines=args.publisher_log_tail_lines,
                         probe_runner=_default_command_runner,
-                        probe_cmd=shlex.split(args.rate_limit_cmd),
+                        probe_cmd=_split_operator_command(
+                            args.rate_limit_cmd, option_name="--rate-limit-cmd"
+                        ),
                     )
                 )
             elif name == "trail_reconcile":

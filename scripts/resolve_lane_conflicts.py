@@ -181,14 +181,14 @@ def _validate_gh_bin(gh_bin: str) -> str:
     if value == "gh":
         return value
     path = Path(value).expanduser()
-    if not path.is_absolute():
-        raise ValueError("gh_bin must be 'gh' or an absolute executable path")
+    if not path.is_absolute() and not any(sep in value for sep in ("/", os.sep)):
+        raise ValueError("gh_bin must be 'gh' or an executable path")
     try:
         resolved = path.resolve()
     except OSError as exc:
-        raise ValueError(f"gh_bin absolute path could not be resolved: {exc}") from exc
+        raise ValueError(f"gh_bin path could not be resolved: {exc}") from exc
     if not resolved.is_file() or not os.access(resolved, os.X_OK):
-        raise ValueError("gh_bin absolute path must be an executable file")
+        raise ValueError("gh_bin path must be an executable file")
     return str(resolved)
 
 

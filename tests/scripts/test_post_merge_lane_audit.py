@@ -119,6 +119,21 @@ def test_post_merge_lane_audit_blocks_payload_with_zero_exit() -> None:
     assert result["audit_error"] == "invalid_automation_state_root"
 
 
+def test_post_merge_lane_audit_blocks_unknown_zero_exit_blocker() -> None:
+    commands: list[list[str]] = []
+
+    def runner(args: list[str]) -> subprocess.CompletedProcess[str]:
+        commands.append(args)
+        return _proc(args, _dry_payload(blocked_reason="future_blocker"))
+
+    result = run_post_merge_lane_audit(7435, apply=True, runner=runner)
+
+    assert len(commands) == 1
+    assert result["audit_ok"] is False
+    assert result["audit_applied"] is False
+    assert result["audit_error"] == "future_blocker"
+
+
 def test_post_merge_lane_audit_skips_benign_no_active_lane_result() -> None:
     commands: list[list[str]] = []
 

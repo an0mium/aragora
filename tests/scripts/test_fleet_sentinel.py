@@ -343,6 +343,38 @@ def test_main_explicit_default_paths_survive_untrusted_automation_state_root(
     assert report["checks"][0]["status"] == "ok"
 
 
+def test_run_checks_infers_direct_namespace_explicit_paths(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    args = sentinel.build_parser().parse_args(["--checks", "stale_terminal_owner"])
+    args.agent_bridge_lanes = str(tmp_path / "lanes.json")
+    args.agent_heartbeats = str(tmp_path / "heartbeats.json")
+    args.operator_steering_root = str(tmp_path / "operator-steering")
+    args.stale_terminal_owner_receipt_dir = str(tmp_path / "receipts")
+    args._automation_state_root_error = "untrusted state root"
+    args._automation_state_root_default_paths = {
+        "agent_bridge_lanes": "/attacker/.aragora/agent-bridge/lanes.json",
+        "agent_heartbeats": "/attacker/.aragora/agent-bridge/heartbeats.json",
+        "operator_steering_root": "/attacker/.aragora/operator-steering",
+        "stale_terminal_owner_receipt_dir": (
+            "/attacker/.aragora/agent-bridge/conflict-resolution-receipts"
+        ),
+    }
+    called: dict[str, bool] = {}
+
+    def fake_check(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        called["yes"] = True
+        return sentinel._result("stale_terminal_owner", "ok", "called")
+
+    monkeypatch.setattr(sentinel, "check_stale_terminal_owner", fake_check)
+
+    checks = sentinel.run_checks(args, NOW)
+
+    assert called == {"yes": True}
+    assert checks == [sentinel._result("stale_terminal_owner", "ok", "called")]
+
+
 def test_main_rejects_partial_explicit_paths_with_untrusted_automation_state_root(
     tmp_path: Path,
     monkeypatch: Any,
@@ -1336,6 +1368,31 @@ def test_validate_gh_bin_accepts_absolute_executable_wrapper(tmp_path: Path) -> 
     assert sentinel._validate_gh_bin(str(wrapper)) == str(wrapper.resolve())
 
 
+def test_validate_gh_bin_accepts_relative_executable_wrapper(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    wrapper = tools / "gh"
+    wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    wrapper.chmod(0o755)
+    monkeypatch.chdir(tmp_path)
+
+    assert sentinel._validate_gh_bin("./tools/gh") == str(wrapper.resolve())
+
+
+def test_split_operator_command_rejects_malformed_template() -> None:
+    try:
+        sentinel._split_operator_command(
+            'gh auth status "unterminated', option_name="--gh-auth-cmd"
+        )
+    except ValueError as exc:
+        assert "--gh-auth-cmd" in str(exc)
+    else:
+        raise AssertionError("malformed command template was accepted")
+
+
 def test_stale_terminal_owner_rejects_invalid_repo_before_fetch(tmp_path: Path) -> None:
     registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
 
@@ -2149,6 +2206,34 @@ def test_github_witness_events_rejects_invalid_repo_slug_before_capture() -> Non
         assert "repo_slug" in str(exc)
     else:
         raise AssertionError("invalid witness repo slug was accepted")
+
+
+def test_main_trail_reconcile_invalid_repo_slug_is_structured_unknown(
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--now",
+            "2026-06-10T12:00:00Z",
+            "--checks",
+            "trail_reconcile",
+            "--trail-witness-repo",
+            "synaptent/aragora --json files",
+            "--trail-chain",
+            str(tmp_path / "intent-chain.jsonl"),
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 2
+    check = report["checks"][0]
+    assert check["status"] == "unknown"
+    assert "witness unreadable" in check["detail"]
+    assert "repo_slug" in check["detail"]
+    assert "check crashed" not in check["detail"]
 
 
 def test_main_trail_reconcile_replica_chain_reader_fallback(tmp_path: Path, capsys: Any) -> None:

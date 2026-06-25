@@ -16,7 +16,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 Runner = Callable[[list[str]], subprocess.CompletedProcess[str]]
-DRY_RUN_ZERO_EXIT_BLOCKERS = {"invalid_automation_state_root"}
+BENIGN_DRY_RUN_BLOCKERS = {"no_active_lanes_for_merged_pr"}
 
 
 def _run_command(
@@ -163,7 +163,12 @@ def run_post_merge_lane_audit(
             proc=dry_proc,
             error=message,
         )
-    if dry_payload.get("blocked_reason") in DRY_RUN_ZERO_EXIT_BLOCKERS:
+    blocked_reason = dry_payload.get("blocked_reason")
+    benign_blocker = (
+        blocked_reason in BENIGN_DRY_RUN_BLOCKERS
+        and int(dry_payload.get("finding_count") or 0) == 0
+    )
+    if blocked_reason and not benign_blocker:
         message = str(dry_payload.get("blocked_reason") or "audit blocked")
         return _merge_helper_metadata(
             dry_payload,
