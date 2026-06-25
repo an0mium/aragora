@@ -278,6 +278,69 @@ def test_exact_open_pr_representation_requires_requested_base(tmp_path: Path) ->
     assert item["evidence"]["github"]["exact_open_pr"] is None
 
 
+def test_exact_open_pr_representation_honors_base_ref_name_alias(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    handoff = _write_outbox(tmp_path, branch="codex/example")
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload.pop("base", None)
+    payload["base_ref_name"] = "release"
+    payload["requested_action"].pop("base", None)
+    payload["requested_action"]["baseRefName"] = "release"
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": True,
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "main"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["github"]["exact_open_pr"] is None
+
+
+def test_exact_open_pr_representation_honors_target_head_sha_alias(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    handoff = _write_outbox(tmp_path, branch="codex/example")
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload.pop("desired_head_sha", None)
+    payload.pop("head_sha", None)
+    payload["target_head_sha"] = HEAD
+    payload["requested_action"].pop("desired_head_sha", None)
+    payload["requested_action"].pop("head_sha", None)
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": True,
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "main"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["evidence"]["github"]["exact_open_pr"]["number"] == 8570
+
+
 def test_exact_open_pr_representation_blocks_when_owner_probe_unavailable(
     tmp_path: Path,
 ) -> None:
@@ -435,7 +498,7 @@ def test_terminal_pr_receipt_without_live_proof_does_not_publish(tmp_path: Path)
     assert "terminal receipt exists" in item["reason"]
 
 
-def test_terminal_pr_receipt_with_owner_noise_blocks_without_live_proof(
+def test_terminal_pr_receipt_with_owner_noise_stays_unknown_without_live_proof(
     tmp_path: Path,
 ) -> None:
     key = "open-pr-codex-example-aaaaaaaa"
@@ -463,8 +526,9 @@ def test_terminal_pr_receipt_with_owner_noise_blocks_without_live_proof(
 
     item = _classify_one(tmp_path, owner=owner)
 
-    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
-    assert item["next_mutation_candidate"] == "owner_followup"
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert item["next_mutation_candidate"] == "none"
+    assert "terminal receipt exists" in item["reason"]
 
 
 def test_terminal_completed_receipt_without_pr_does_not_suppress_publication(
@@ -568,7 +632,7 @@ def test_stale_owner_remote_exact_head_is_represented_by_remote_branch(
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
 
 
-def test_remote_exact_head_is_cap_blocked_when_open_pr_cap_reached(
+def test_remote_exact_head_representation_wins_over_open_pr_cap(
     tmp_path: Path,
 ) -> None:
     _write_status_cache(tmp_path, open_pr_cap_reached=True)
@@ -579,9 +643,9 @@ def test_remote_exact_head_is_cap_blocked_when_open_pr_cap_reached(
 
     item = _classify_one(tmp_path, github=github)
 
-    assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH.value
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
-    assert item["next_mutation_candidate"] == "queue_drain"
+    assert item["next_mutation_candidate"] == "represent_or_publish_remote_branch"
 
 
 def test_remote_exact_head_does_not_hide_live_owner_gate(tmp_path: Path) -> None:
@@ -808,7 +872,7 @@ def test_lane_registry_active_status_synonyms_block_default_classifier(
         assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
-def test_lane_registry_terminal_worktree_hint_fails_closed_possible_unpushed(
+def test_lane_registry_released_worktree_hint_does_not_imply_unpushed_work(
     tmp_path: Path,
 ) -> None:
     _write_status_cache(tmp_path)
@@ -839,8 +903,8 @@ def test_lane_registry_terminal_worktree_hint_fails_closed_possible_unpushed(
     )
     item = payload["items"][0]
 
-    assert item["state"] == mod.HandoffState.BLOCKED_BY_POSSIBLE_UNPUSHED_WORK.value
-    assert item["evidence"]["owner"]["advisory_withheld"] == "possible_unpushed_work"
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["owner"]["advisory_withheld"] is None
 
 
 def test_lane_registry_terminal_owner_with_available_advisory_does_not_block(
@@ -1412,6 +1476,21 @@ def test_cli_fail_on_unsafe_state_rejects_partial_github_item_errors() -> None:
     }
 
     assert cli._has_unsafe_state(payload) is True  # noqa: SLF001
+
+
+def test_cli_fail_on_unsafe_state_allows_partial_github_when_items_are_safe() -> None:
+    payload = {
+        "github": {"mode": "partial", "partial_degradation": True, "item_error_count": 1},
+        "items": [
+            {
+                "state": "represented_by_exact_open_pr",
+                "next_mutation_candidate": "write_representation_receipt_then_archive",
+                "safe_to_mutate": True,
+            }
+        ],
+    }
+
+    assert cli._has_unsafe_state(payload) is False  # noqa: SLF001
 
 
 def test_classify_reports_partial_github_errors_without_global_blindness(

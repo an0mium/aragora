@@ -70,6 +70,23 @@ PR_PUBLICATION_ACTIONS = {
     "push_branch_and_open_or_update_pull_request",
 }
 PR_PUBLICATION_IDEMPOTENCY_PREFIXES = ("open-pr-", "update-pr-")
+HEAD_FIELD_KEYS = (
+    "desired_head_sha",
+    "target_head_sha",
+    "head_sha",
+    "headRefOid",
+    "head_ref_oid",
+    "head",
+    "commit",
+)
+BASE_FIELD_KEYS = (
+    "base",
+    "base_ref",
+    "base_ref_name",
+    "baseRefName",
+    "target_base",
+    "base_branch",
+)
 
 
 class HandoffState(str, Enum):
@@ -432,9 +449,6 @@ def _possible_unpushed_marker(payload: Mapping[str, Any]) -> str | None:
     advisory = payload.get("stale_claim_advisory")
     if isinstance(advisory, Mapping) and advisory.get("available") is True:
         return None
-    for key in ("worktree", "worktree_path", "managed_worktree", "worktree_root"):
-        if str(payload.get(key) or "").strip():
-            return "possible_unpushed_work"
     for key in (
         "branch_ahead",
         "branch_ahead_of_origin_main",
@@ -710,6 +724,17 @@ def classify_handoff_item(
                 next_mutation_candidate="owner_followup",
             )
 
+    if _terminal_receipt_satisfied(receipt_evidence):
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.UNKNOWN,
+            reason="terminal receipt exists but live PR/ref representation is not proven",
+            evidence=evidence,
+        )
+
     if _possible_unpushed(owner):
         return HandoffClassification(
             outbox_file=path.name,
@@ -746,15 +771,16 @@ def classify_handoff_item(
             next_mutation_candidate="owner_followup",
         )
 
-    if _terminal_receipt_satisfied(receipt_evidence):
+    if remote_exact_head:
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
             branch=branch,
             desired_head_sha=desired_head or None,
-            state=HandoffState.UNKNOWN,
-            reason="terminal receipt exists but live PR/ref representation is not proven",
+            state=HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH,
+            reason="desired head is preserved by exact remote branch",
             evidence=evidence,
+            next_mutation_candidate="represent_or_publish_remote_branch",
         )
 
     if queue_cap.open_pr_cap_reached and is_pr_publication_request(payload):
@@ -767,18 +793,6 @@ def classify_handoff_item(
             reason="publication requested but live cache reports open PR cap reached",
             evidence=evidence,
             next_mutation_candidate="queue_drain",
-        )
-
-    if remote_exact_head:
-        return HandoffClassification(
-            outbox_file=path.name,
-            idempotency_key=idem,
-            branch=branch,
-            desired_head_sha=desired_head or None,
-            state=HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH,
-            reason="desired head is preserved by exact remote branch",
-            evidence=evidence,
-            next_mutation_candidate="represent_or_publish_remote_branch",
         )
 
     if receipt_evidence.issue_only_pr_receipt:
@@ -1090,22 +1104,17 @@ def branch_from_payload(payload: Mapping[str, Any]) -> str:
 
 def desired_head_from_payload(payload: Mapping[str, Any]) -> str:
     for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
-        head = str(
-            local_evidence.get("desired_head_sha")
-            or local_evidence.get("head_sha")
-            or local_evidence.get("head")
-            or local_evidence.get("commit")
-            or ""
-        ).strip()
-        if head:
-            return head
-    for key in ("desired_head_sha", "head_sha", "head", "commit"):
+        for key in HEAD_FIELD_KEYS:
+            head = str(local_evidence.get(key) or "").strip()
+            if head:
+                return head
+    for key in HEAD_FIELD_KEYS:
         head = str(payload.get(key) or "").strip()
         if head:
             return head
     requested_action = _mapping_from_action(payload.get("requested_action"))
     if requested_action is not None:
-        for key in ("desired_head_sha", "head_sha", "head", "commit"):
+        for key in HEAD_FIELD_KEYS:
             head = str(requested_action.get(key) or "").strip()
             if head:
                 return head
@@ -1114,17 +1123,17 @@ def desired_head_from_payload(payload: Mapping[str, Any]) -> str:
 
 def desired_base_from_payload(payload: Mapping[str, Any]) -> str:
     for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
-        for key in ("base", "base_ref", "target_base", "base_branch"):
+        for key in BASE_FIELD_KEYS:
             base = str(local_evidence.get(key) or "").strip()
             if base:
                 return base
-    for key in ("base", "base_ref", "target_base", "base_branch"):
+    for key in BASE_FIELD_KEYS:
         base = str(payload.get(key) or "").strip()
         if base:
             return base
     requested_action = _mapping_from_action(payload.get("requested_action"))
     if requested_action is not None:
-        for key in ("base", "base_ref", "target_base", "base_branch"):
+        for key in BASE_FIELD_KEYS:
             base = str(requested_action.get(key) or "").strip()
             if base:
                 return base
