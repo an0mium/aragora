@@ -64,6 +64,13 @@ BLOCKING_LANE_STATUSES = {
     "blocked_on_publication",
     "waiting_for_steering",
 }
+LANE_TIMESTAMP_KEYS = (
+    "updated_at",
+    "last_heartbeat_at",
+    "last_seen_at",
+    "claimed_at",
+    "created_at",
+)
 PR_PUBLICATION_ACTIONS = {
     "open_pr",
     "open_pull_request",
@@ -239,7 +246,7 @@ class NarrowGitHubClient:
         per_page = 100
         items: list[dict[str, Any]] = []
         result: tuple[list[dict[str, Any]] | None, str | None]
-        max_pages = 5
+        max_pages = 20
         for page in range(1, max_pages + 1):
             endpoint = (
                 f"repos/{self.github_repo}/pulls?state=open&head={head}"
@@ -401,7 +408,11 @@ class LaneRegistryOwnerProbe:
         row = _best_lane_record(candidates)
         status = str(row.get("status") or "").strip().lower()
         blocking_state = str(row.get("owner_blocking_state") or "").strip() or None
-        if blocking_state is None and status in ACTIVE_LANE_STATUSES:
+        if blocking_state is None and status in BLOCKING_LANE_STATUSES:
+            blocking_state = "unknown_owner"
+        elif (
+            blocking_state is None and status in ACTIVE_LANE_STATUSES and _lane_record_is_fresh(row)
+        ):
             blocking_state = "unknown_owner"
         evidence = owner_evidence_from_payload(row)
         evidence.status = status or evidence.status
@@ -756,7 +767,7 @@ def classify_handoff_item(
                 evidence=evidence,
                 next_mutation_candidate="human_gate",
             )
-        if _live_owner_blocked(owner, steering):
+        if _owner_blocked(owner, steering):
             return HandoffClassification(
                 outbox_file=path.name,
                 idempotency_key=idem,
@@ -1247,6 +1258,31 @@ def desired_base_from_payload(payload: Mapping[str, Any]) -> str:
 
 def local_evidence_conflict_reason(payload: Mapping[str, Any]) -> str | None:
     records = _local_evidence_mappings(payload.get("local_evidence"))
+    if not records:
+        return None
+    top_branch = _first_text(payload, "branch")
+    top_head = _first_text(payload, *HEAD_FIELD_KEYS)
+    top_base = _first_text(payload, *BASE_FIELD_KEYS)
+    requested_action = _mapping_from_action(payload.get("requested_action")) or {}
+    action_branch = _first_text(requested_action, "branch")
+    action_head = _first_text(requested_action, *HEAD_FIELD_KEYS)
+    action_base = _first_text(requested_action, *BASE_FIELD_KEYS)
+    for record in records:
+        record_branch = _first_text(record, "branch")
+        record_head = _first_text(record, *HEAD_FIELD_KEYS)
+        record_base = _first_text(record, *BASE_FIELD_KEYS)
+        if top_branch and record_branch and top_branch != record_branch:
+            return "local_evidence branch conflicts with top-level branch"
+        if action_branch and record_branch and action_branch != record_branch:
+            return "local_evidence branch conflicts with requested_action branch"
+        if top_head and record_head and not heads_match(top_head, record_head):
+            return "local_evidence head conflicts with top-level desired head"
+        if action_head and record_head and not heads_match(action_head, record_head):
+            return "local_evidence head conflicts with requested_action desired head"
+        if top_base and record_base and top_base != record_base:
+            return "local_evidence base conflicts with top-level base"
+        if action_base and record_base and action_base != record_base:
+            return "local_evidence base conflicts with requested_action base"
     if len(records) <= 1:
         return None
     branches = {
@@ -1590,6 +1626,22 @@ def _lane_registry_blocking_reason(status: str, blocking_state: str | None) -> s
     if blocking_state == "unknown_owner":
         return "lane registry matched an owner without enough liveness proof"
     return f"lane registry owner_blocking_state={blocking_state}" if blocking_state else None
+
+
+def _lane_record_is_fresh(row: Mapping[str, Any], *, max_age_seconds: int = 3600) -> bool:
+    timestamp = _best_lane_timestamp(row)
+    if timestamp is None:
+        return False
+    return (datetime.now(UTC) - timestamp).total_seconds() <= max_age_seconds
+
+
+def _best_lane_timestamp(row: Mapping[str, Any]) -> datetime | None:
+    for key in LANE_TIMESTAMP_KEYS:
+        value = _first_text(row, key)
+        parsed = _parse_datetime(value)
+        if parsed is not None:
+            return parsed
+    return None
 
 
 def _best_lane_record(records: list[dict[str, Any]]) -> dict[str, Any]:

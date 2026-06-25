@@ -494,7 +494,7 @@ def test_conflicting_local_evidence_records_fail_closed(tmp_path: Path) -> None:
     item = _classify_one(tmp_path, github=github)
 
     assert item["state"] == mod.HandoffState.UNKNOWN.value
-    assert "multiple local_evidence records" in item["reason"]
+    assert "local_evidence head conflicts" in item["reason"]
 
 
 def test_conflicting_local_evidence_alias_records_fail_closed(tmp_path: Path) -> None:
@@ -524,7 +524,39 @@ def test_conflicting_local_evidence_alias_records_fail_closed(tmp_path: Path) ->
     item = _classify_one(tmp_path, github=github)
 
     assert item["state"] == mod.HandoffState.UNKNOWN.value
-    assert "multiple local_evidence records" in item["reason"]
+    assert "local_evidence head conflicts" in item["reason"]
+
+
+def test_single_local_evidence_conflict_with_top_level_fails_closed(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        head=OTHER_HEAD,
+        local_evidence=[
+            {"branch": "codex/example", "target_head_sha": HEAD, "baseRefName": "main"},
+        ],
+    )
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": False,
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "main"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert "local_evidence head conflicts" in item["reason"]
 
 
 def test_terminal_receipts_choose_newest_by_timestamp_not_filename(tmp_path: Path) -> None:
@@ -700,7 +732,7 @@ def test_fresh_degraded_queue_cap_cache_blocks_with_rest_fallback_evidence(
     assert item["evidence"]["queue_cap"]["decision_source"] == "fresh_degraded_cache_rest_fallback"
 
 
-def test_stale_owner_remote_exact_head_is_represented_by_remote_branch(
+def test_stale_owner_remote_exact_head_blocks_like_open_pr_path(
     tmp_path: Path,
 ) -> None:
     _write_status_cache(tmp_path)
@@ -723,7 +755,7 @@ def test_stale_owner_remote_exact_head_is_represented_by_remote_branch(
 
     item = _classify_one(tmp_path, github=github, owner=owner)
 
-    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_REMOTE_BRANCH.value
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
 
 
@@ -901,7 +933,7 @@ def test_lane_registry_terminal_owner_does_not_block_by_default(
     assert item["evidence"]["owner"]["owner_blocking_state"] is None
 
 
-def test_lane_registry_active_without_liveness_proof_blocks_default_classifier(
+def test_lane_registry_active_without_fresh_liveness_does_not_block_default_classifier(
     tmp_path: Path,
 ) -> None:
     _write_status_cache(tmp_path)
@@ -916,6 +948,41 @@ def test_lane_registry_active_without_liveness_proof_blocks_default_classifier(
                     "owner_session": "engineering-autopilot-Q1",
                     "branch": "codex/example",
                     "status": "active",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=FakeGitHub(),
+    )
+    item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["owner"]["owner_blocking_state"] is None
+
+
+def test_lane_registry_active_with_fresh_timestamp_blocks_default_classifier(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    lanes_path.parent.mkdir(parents=True, exist_ok=True)
+    lanes_path.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1",
+                    "owner_session": "engineering-autopilot-Q1",
+                    "branch": "codex/example",
+                    "status": "active",
+                    "last_heartbeat_at": datetime.now(timezone.utc).isoformat(),
                 }
             ]
         ),
@@ -967,14 +1034,13 @@ def test_lane_registry_blocked_status_blocks_default_classifier(tmp_path: Path) 
     assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
-def test_lane_registry_active_status_synonyms_block_default_classifier(
+def test_lane_registry_active_status_synonyms_do_not_block_without_fresh_liveness(
     tmp_path: Path,
 ) -> None:
     for status in (
         "running",
         "pending",
         "queued",
-        "waiting_for_steering",
         "acknowledged",
         "working",
     ):
@@ -1006,8 +1072,8 @@ def test_lane_registry_active_status_synonyms_block_default_classifier(
         )
         item = payload["items"][0]
 
-        assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
-        assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
+        assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+        assert item["evidence"]["owner"]["owner_blocking_state"] is None
 
 
 def test_lane_registry_released_worktree_hint_does_not_imply_unpushed_work(
