@@ -3161,7 +3161,12 @@ def _setup_launch_repo(mod, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     )
     sessions_dir = tmp_path / "tmux-sessions"
     sessions_dir.mkdir()
+    bridge_dir = repo_root / ".aragora" / "agent-bridge"
     monkeypatch.setattr(mod, "CANONICAL_REPO_ROOT", repo_root)
+    monkeypatch.setattr(mod, "AGENT_BRIDGE_DIR", bridge_dir)
+    monkeypatch.setattr(mod, "LANE_REGISTRY_FILE", bridge_dir / "lanes.json")
+    monkeypatch.setattr(mod, "SESSION_SNAPSHOT_FILE", bridge_dir / "sessions.json")
+    monkeypatch.setattr(mod, "HEARTBEATS_FILE", bridge_dir / "heartbeats.json")
     monkeypatch.setattr(mod, "TMUX_SESSIONS_DIR", sessions_dir)
     monkeypatch.setattr(mod.time, "sleep", lambda _s: None)
     return sessions_dir
@@ -3237,6 +3242,10 @@ def test_cmd_launch_passes_codex_lease_flags_to_tmux_launcher(
             test=["pre-commit run --files docs/guides/CONDUCTOR_WORKFLOW.md"],
             forbidden_path=["docs/guides/DO_NOT_TOUCH.md"],
             allow_overlap=True,
+            lane="codex-lane",
+            source="#8627",
+            status="active",
+            next_action="open draft PR",
         )
     )
 
@@ -3254,6 +3263,13 @@ def test_cmd_launch_passes_codex_lease_flags_to_tmux_launcher(
     )
     assert launch[launch.index("--forbidden-path") + 1] == "docs/guides/DO_NOT_TOUCH.md"
     assert "--allow-overlap" in launch
+    records = mod._load_lane_registry()
+    assert len(records) == 1
+    assert records[0].lane_id == "codex-lane"
+    assert records[0].owner_session == "codex-lane"
+    assert records[0].goal == "Patch conductor docs."
+    assert records[0].source == "#8627"
+    assert records[0].next_action == "open draft PR"
 
 
 def test_cmd_launch_undelivered_is_observational_rc0_by_default(

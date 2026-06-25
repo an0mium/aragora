@@ -150,6 +150,7 @@ class LaneSpec:
     agents_spec: str = "heterogeneous"
     context_file: str = ""
     round_id: str = ""
+    strict_launch_verify: bool = False
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any], *, index: int) -> "LaneSpec":
@@ -204,6 +205,9 @@ class LaneSpec:
             agents_spec=str(payload.get("agents_spec") or "heterogeneous").strip(),
             context_file=str(payload.get("context_file") or "").strip(),
             round_id=str(payload.get("round_id") or "").strip(),
+            strict_launch_verify=_truthy(
+                payload.get("strict_launch_verify") or payload.get("strict_verify")
+            ),
         )
 
     @property
@@ -729,7 +733,7 @@ class GoalConductor:
                 pr_number = entry.get("pr_number", "?")
                 gates.append(f"merge-packet entry has unparseable tier: #{pr_number}")
                 continue
-            if tier >= 4 or bool(entry.get("requires_human_risk_settlement")):
+            if tier >= 4 or _truthy(entry.get("requires_human_risk_settlement")):
                 pr_number = entry.get("pr_number", "?")
                 tier_name = entry.get("tier_name") or f"tier_{tier}"
                 gates.append(f"human/non-author settlement gate present: #{pr_number} {tier_name}")
@@ -809,9 +813,20 @@ class GoalConductor:
                     "180",
                     "--submit-verify-timeout",
                     "30",
-                    "--strict-verify",
+                    "--lane",
+                    lane.lane_id,
+                    "--goal",
+                    lane.goal,
+                    "--source",
+                    lane.source,
+                    "--status",
+                    lane.status,
+                    "--next-action",
+                    lane.next_action,
                 ]
             )
+            if lane.strict_launch_verify:
+                launch.append("--strict-verify")
             if lane.agent == "codex":
                 launch.extend(["--task-id", lane.task_id or lane.lane_id])
                 for path in lane.claimed_paths:
@@ -1085,7 +1100,7 @@ class GoalConductor:
             ]
         else:
             merge_decision = None
-            if not (self.execute and gates):
+            if not (self.execute and fatal_gates):
                 merge_decision = self._maybe_apply_one_exact_gated_merge(snapshot)
             decisions = self.plan_lanes(snapshot, run_dir)
             if merge_decision is not None:

@@ -1371,6 +1371,27 @@ class DevCoordinationStore:
         normalized_forbidden = [
             _normalize_claim(item) for item in forbidden_paths or [] if str(item).strip()
         ]
+        normalized_allowed = [
+            _normalize_claim(item) for item in allowed_globs or [] if str(item).strip()
+        ]
+        normalized_claimed = [
+            _normalize_claim(item) for item in claimed_paths or [] if str(item).strip()
+        ]
+        protected_conflicts = [
+            {
+                "type": "forbidden_path",
+                "path": scope,
+                "protected_scope": normalized_forbidden,
+                "message": (
+                    "lease scope overlaps forbidden_paths; narrow the positive scope "
+                    "or remove the protected path from forbidden_paths"
+                ),
+            }
+            for scope in [*normalized_allowed, *normalized_claimed]
+            if _claims_overlap([scope], [], normalized_forbidden)
+        ]
+        if protected_conflicts:
+            raise LeaseConflictError(protected_conflicts)
         lease_metadata = dict(metadata or {})
         if normalized_forbidden:
             lease_metadata["forbidden_paths"] = normalized_forbidden

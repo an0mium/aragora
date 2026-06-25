@@ -1795,6 +1795,17 @@ def cmd_launch(args: argparse.Namespace) -> int:
     if not launch_cwd.is_dir():
         print(f"Launch cwd does not exist or is not a directory: {launch_cwd}", file=sys.stderr)
         return 1
+    lane_id = str(getattr(args, "lane", "") or "").strip()
+    lane_records: list[LaneRecord] | None = None
+    if lane_id:
+        lane_records = _load_lane_registry()
+        conflict = _lane_conflict(lane_records, lane_id, args.name)
+        if conflict is not None and not getattr(args, "allow_conflict", False):
+            print(
+                f"Lane '{lane_id}' already owned by active session '{conflict.owner_session}'",
+                file=sys.stderr,
+            )
+            return 1
     if agent in {"droid", "factory"} and getattr(args, "autonomous", False):
         message = (
             "Interactive Droid/Factory tmux sessions cannot be made autonomous. "
@@ -1867,6 +1878,25 @@ def cmd_launch(args: argparse.Namespace) -> int:
 
     dispatch = _verify_launch_dispatch(args, agent=agent, launch_ok=result.returncode == 0)
     exit_code = result.returncode
+    if lane_id and result.returncode == 0:
+        session = Session(
+            name=args.name,
+            agent=agent,
+            status="alive",
+            source="tmux",
+            lifecycle="live",
+            worktree=str(launch_cwd),
+        )
+        _persist_lane_claim(
+            lane_records if lane_records is not None else _load_lane_registry(),
+            lane_id,
+            session,
+            goal=str(getattr(args, "lease_title", "") or "").strip(),
+            source=str(getattr(args, "source", "") or "").strip(),
+            status=str(getattr(args, "status", "") or "active").strip(),
+            next_action=str(getattr(args, "next_action", "") or "").strip(),
+            allow_conflict=bool(getattr(args, "allow_conflict", False)),
+        )
     # Verification is OBSERVATIONAL by default (review fix #8338 / #8317): the
     # tri-state dispatch receipt is ALWAYS written (that is the durable signal
     # lane_liveness reads), but it does NOT flip cmd_launch's exit code.  A
@@ -3230,6 +3260,15 @@ def main() -> int:
         help="Explicit manual-debug bypass for autonomous Codex lease guard",
     )
     launch_p.add_argument("--timeout-seconds", type=int, default=120)
+    launch_p.add_argument("--lane", help="Lane identifier to claim/update after launch")
+    launch_p.add_argument("--source", default="", help="Source issue or PR reference")
+    launch_p.add_argument("--status", default="active", help="Lane status")
+    launch_p.add_argument("--next-action", default="", help="Next action for the lane")
+    launch_p.add_argument(
+        "--allow-conflict",
+        action="store_true",
+        help="Mark an existing active owner conflict instead of rejecting the lane claim",
+    )
     launch_p.add_argument(
         "--submit-verify-timeout",
         type=float,
