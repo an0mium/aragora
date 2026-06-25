@@ -1249,7 +1249,7 @@ class TestGlobPatternInjection:
         # This tests that the generate_slug GLOB query doesn't get confused
         from unittest.mock import patch
 
-        with patch("aragora.server.storage.datetime") as mock_dt:
+        with patch("aragora.storage.debate_storage.datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "2026-01-05"
 
             # First save
