@@ -726,11 +726,14 @@ def _merged_target_pr_receipt_resolution(
     repo_name: str,
     payload: dict[str, Any],
     receipt: Mapping[str, Any],
+    base: str,
+    branch: str,
 ) -> tuple[bool, str | None]:
     """Resolve target-PR receipts whose referenced PR is already merged.
 
     Returns (handled, keep_reason). When handled is True and keep_reason is None,
-    the receipt satisfies the handoff without needing any branch ref checks.
+    the receipt satisfies the handoff because the merged PR head is also proven
+    preserved on the reconciler base.
     """
 
     status = str(receipt.get("status") or "").strip().lower()
@@ -749,12 +752,24 @@ def _merged_target_pr_receipt_resolution(
 
     target_pr_head = str((target_pr_state or {}).get("headRefOid") or "").strip()
     target_pr_number = str((target_pr_state or {}).get("number") or "").strip()
-    if _heads_match(desired_head, target_pr_head):
-        return True, None
-    return True, (
-        f"{receipt_label} points to merged PR #{target_pr_number} at "
-        f"{target_pr_head[:12] or 'unknown'}, not desired head {desired_head[:12]}"
-    )
+    if not _heads_match(desired_head, target_pr_head):
+        return True, (
+            f"{receipt_label} points to merged PR #{target_pr_number} at "
+            f"{target_pr_head[:12] or 'unknown'}, not desired head {desired_head[:12]}"
+        )
+
+    requested_base = _requested_base_from_payload(payload) or base
+    if not _handoff_base_matches_reconciler(payload, base):
+        return True, (
+            f"{receipt_label} targets base {requested_base or 'unknown'}, "
+            f"not reconciler base {base}"
+        )
+    if not _desired_head_landed_on_base(root, base, branch, desired_head):
+        return True, (
+            f"{receipt_label} points to merged PR #{target_pr_number} at desired head "
+            f"{desired_head[:12]}, but that head is not preserved on {base}"
+        )
+    return True, None
 
 
 def _receipt_has_issue_reference(receipt: Mapping[str, Any]) -> bool:
@@ -1037,6 +1052,7 @@ def _receipt_handoff_keep_reason(
     payload: dict[str, Any],
     receipt: Mapping[str, Any],
     branch: str,
+    base: str,
 ) -> str | None:
     """Return why a terminal receipt is not enough to archive this handoff."""
 
@@ -1050,7 +1066,9 @@ def _receipt_handoff_keep_reason(
         return None
     receipt_label = f"{reason} receipt"
 
-    handled, keep_reason = _merged_target_pr_receipt_resolution(root, repo_name, payload, receipt)
+    handled, keep_reason = _merged_target_pr_receipt_resolution(
+        root, repo_name, payload, receipt, base, branch
+    )
     if handled:
         return keep_reason
 
@@ -1534,7 +1552,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 continue
             target_pr_handled, target_pr_keep_reason = _merged_target_pr_receipt_resolution(
-                root, args.repo_name, payload, receipt
+                root, args.repo_name, payload, receipt, args.base, branch
             )
             if target_pr_handled:
                 if target_pr_keep_reason is not None:
@@ -1565,7 +1583,7 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             if str(receipt.get("reason") or "").strip().lower() == "existing_pr":
                 keep_reason = _receipt_handoff_keep_reason(
-                    root, args.repo_name, payload, receipt, branch
+                    root, args.repo_name, payload, receipt, branch, args.base
                 )
                 if keep_reason is not None:
                     counts["blocked_receipt_pr_head_mismatch"] += 1
@@ -1610,7 +1628,7 @@ def main(argv: list[str] | None = None) -> int:
                     shutil.move(str(path), str(archive_dir / path.name))
                 continue
             keep_reason = _receipt_handoff_keep_reason(
-                root, args.repo_name, payload, receipt, branch
+                root, args.repo_name, payload, receipt, branch, args.base
             )
             if keep_reason is not None:
                 counts["blocked_receipt_pr_head_mismatch"] += 1
