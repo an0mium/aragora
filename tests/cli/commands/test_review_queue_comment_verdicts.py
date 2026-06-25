@@ -293,6 +293,11 @@ def test_severity_gated_explicit_no_blockers_can_be_advisory():
     assert has_blocking_model_dissent(body, severity_gated=True) is False
 
 
+def test_severity_gated_explicit_multiline_no_blockers_can_be_advisory():
+    body = "Verdict: CHANGES-REQUESTED\nBlockers:\n- none\nFollow-up-only: yes"
+    assert has_blocking_model_dissent(body, severity_gated=True) is False
+
+
 @pytest.mark.parametrize(
     "body",
     [
@@ -440,6 +445,8 @@ def test_severity_gated_known_family_metadata_with_low_severity_finding_is_advis
         "## Claude independent model review found auth bypass\n"
         "Verdict: CHANGES-REQUESTED\nFollow-up-only: yes",
         "Verdict: CHANGES-REQUESTED from grok\nFollow-up-only: yes",
+        "Verdict: CHANGES-REQUESTED\n[P2] docs\nReviewer: claude rce vulnerability",
+        "Verdict: CHANGES-REQUESTED\n[P2] docs\nModel family: openai rce vulnerability",
     ],
 )
 def test_severity_gated_metadata_hiding_dissent_still_blocks(body):

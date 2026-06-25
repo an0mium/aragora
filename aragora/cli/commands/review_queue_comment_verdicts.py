@@ -420,7 +420,7 @@ def _is_review_metadata_line(stripped: str) -> bool:
 
 
 def _is_safe_review_metadata_value(label: str, normalized_value: str) -> bool:
-    value = normalized_value.strip(" .;:!?)]—–-")
+    value = normalized_value.strip(" .;:!?]—–-")
     if not value:
         return False
     if label in {"head", "head sha", "current head"}:
@@ -428,17 +428,26 @@ def _is_safe_review_metadata_value(label: str, normalized_value: str) -> bool:
     if label == "pr":
         return bool(re.fullmatch(r"#?\d+", value))
     if label == "model family":
-        return _starts_with_known_reviewer_family(
-            value
-        ) and not _SUBSTANTIVE_METADATA_DISSENT.search(value)
+        return _is_safe_reviewer_family_disclosure(value)
     if label == "reviewer":
-        if _SUBSTANTIVE_METADATA_DISSENT.search(value):
-            return False
-        if not _starts_with_known_reviewer_family(value):
-            return False
         if "independent adversarial model review" in value:
+            metadata_head = value.split("independent adversarial model review", 1)[0]
+            metadata_head = metadata_head.strip(" .;:!?[]—–-")
+            return _is_safe_reviewer_family_disclosure(metadata_head)
+        return _is_safe_reviewer_family_disclosure(value)
+    return False
+
+
+def _is_safe_reviewer_family_disclosure(value: str) -> bool:
+    """Accept only family-shaped metadata, not arbitrary prose after a family token."""
+    if _SUBSTANTIVE_METADATA_DISSENT.search(value):
+        return False
+    for prefix in sorted(_REVIEWER_FAMILY_PREFIXES, key=len, reverse=True):
+        if value == prefix:
             return True
-        return bool(re.fullmatch(r"[a-z0-9 .()]+", value) and len(value.split()) <= 4)
+        if value.startswith(f"{prefix} "):
+            remainder = value[len(prefix) :].strip()
+            return bool(re.fullmatch(r"\([^()]{1,80}\)", remainder))
     return False
 
 
@@ -483,9 +492,19 @@ def _is_benign_low_severity_review_prose(stripped: str) -> bool:
 
 def _has_unstructured_dissent_content(body: str) -> bool:
     """Whether a negative review body has non-priority substantive dissent text."""
-    for stripped in (raw_line.strip() for raw_line in str(body or "").splitlines()):
+    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    skip_indexes: set[int] = set()
+    for idx, stripped in enumerate(lines):
+        if idx in skip_indexes:
+            continue
         if not stripped:
             continue
+        if _is_empty_blocker_label(stripped):
+            next_idx, next_line = _next_non_empty_line(lines, idx + 1)
+            if next_line is None or _is_no_finding_marker_line(next_line):
+                if next_idx is not None:
+                    skip_indexes.add(next_idx)
+                continue
         if _priority_finding_priority(stripped) is not None:
             continue
         if (
@@ -500,6 +519,28 @@ def _has_unstructured_dissent_content(body: str) -> bool:
             continue
         return True
     return False
+
+
+def _is_empty_blocker_label(stripped: str) -> bool:
+    label_value = _line_label_and_value(stripped)
+    if label_value is None:
+        return False
+    normalized_label, normalized_value = label_value
+    return normalized_label in _BLOCKER_LABELS and not normalized_value
+
+
+def _next_non_empty_line(lines: list[str], start: int) -> tuple[int | None, str | None]:
+    for idx in range(start, len(lines)):
+        if lines[idx]:
+            return idx, lines[idx]
+    return None, None
+
+
+def _is_no_finding_marker_line(stripped: str) -> bool:
+    candidate = _normalize_value(_strip_decoration(stripped))
+    return _starts_with_phrase(
+        candidate, _NON_BLOCKING_PREFIXES, match_no_finding=True
+    ) or _starts_with_vague_no_finding(candidate)
 
 
 def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
