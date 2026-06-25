@@ -58,10 +58,18 @@ def _mute_stdout_after_broken_pipe() -> None:
 
 
 def _emit_output(output: str) -> None:
+    stream = sys.stdout
+    if stream is None:
+        return
+    write = getattr(stream, "write", None)
+    if not callable(write):
+        return
     try:
-        sys.stdout.write(output)
-        sys.stdout.write("\n")
-        sys.stdout.flush()
+        write(output)
+        write("\n")
+        flush = getattr(stream, "flush", None)
+        if callable(flush):
+            flush()
     except BrokenPipeError:
         _mute_stdout_after_broken_pipe()
 

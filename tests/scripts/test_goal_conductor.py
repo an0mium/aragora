@@ -235,6 +235,33 @@ def test_emit_output_suppresses_write_time_broken_pipe(
     mod.sys.stdout.close()
 
 
+def test_emit_output_ignores_missing_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+    import goal_conductor as mod
+
+    monkeypatch.setattr(mod.sys, "stdout", None)
+
+    mod._emit_output("payload")
+
+
+def test_emit_output_accepts_stream_without_flush(monkeypatch: pytest.MonkeyPatch) -> None:
+    import goal_conductor as mod
+
+    class WriteOnlyStdout:
+        def __init__(self) -> None:
+            self.writes: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.writes.append(text)
+            return len(text)
+
+    stream = WriteOnlyStdout()
+    monkeypatch.setattr(mod.sys, "stdout", stream)
+
+    mod._emit_output("payload")
+
+    assert stream.writes == ["payload", "\n"]
+
+
 def test_run_once_blocks_mutating_lane_at_queue_cap_but_allows_panel(tmp_path: Path) -> None:
     import goal_conductor as mod
 
