@@ -33,10 +33,10 @@ def test_save_load_roundtrip(tmp_path):
     assert all(f.status == Status.PENDING for f in loaded.features)
 
 
-def test_concurrent_saves_serialize_without_corruption(tmp_path):
-    """grok [P2]: MissionState.save() takes an exclusive lock, so even a
-    contract-violating second writer serializes — the file is always valid JSON and
-    every save lands a complete document (atomic replace + lock)."""
+def test_concurrent_saves_never_tear(tmp_path):
+    """Atomic os.replace means a reader never sees a torn/partial file even under
+    concurrent saves (the real torn-read guarantee; concurrent *writers* are an
+    error caught by the owner fence, tested separately)."""
     import threading
 
     p = tmp_path / "state.json"
@@ -59,6 +59,41 @@ def test_concurrent_saves_serialize_without_corruption(tmp_path):
     final = MissionState.load(p)
     assert final.goal.startswith("writer-")
     assert [f.id for f in final.features] == ["f1", "f2", "f3"]
+
+
+def test_owner_fence_refuses_second_writer(tmp_path):
+    """The honest single-writer fence: a second driver on the same mission fails
+    fast with MissionOwnershipError instead of silently double-dispatching."""
+    from aragora.missions.state import MissionOwnershipError, mission_owner_lock
+
+    p = tmp_path / "state.json"
+    _mission(2).save(p)
+    with mission_owner_lock(p):  # first owner holds it
+        with pytest.raises(MissionOwnershipError):
+            with mission_owner_lock(p):  # second owner is refused
+                pass
+    # Once released, a new owner can acquire cleanly.
+    with mission_owner_lock(p):
+        pass
+
+
+def test_run_holds_owner_fence_against_concurrent_orchestrator(tmp_path):
+    """run() holds the fence for its whole duration: a second orchestrator that
+    tries to start mid-run is refused, not allowed to race next_pending."""
+    from aragora.missions.state import MissionOwnershipError
+
+    p = tmp_path / "state.json"
+    _mission(2).save(p)
+    other = MissionOrchestrator(p)
+
+    def dispatch_that_probes_a_second_orchestrator(feat):
+        # While THIS run owns the fence, a second run() must fail fast.
+        with pytest.raises(MissionOwnershipError):
+            other.run(lambda f: Handoff(success=True))
+        return Handoff(success=True)
+
+    done, total = MissionOrchestrator(p).run(dispatch_that_probes_a_second_orchestrator)
+    assert (done, total) == (2, 2)  # the owning run still completes normally
 
 
 def test_next_pending_is_array_order():

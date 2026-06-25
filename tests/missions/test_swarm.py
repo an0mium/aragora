@@ -135,10 +135,11 @@ def test_swarm_terminal_handoff_parks_immediately(tmp_path):
     assert "f2" in res.done
 
 
-def test_swarm_followups_and_discoveries_survive_via_reconcile(tmp_path):
-    """grok [P2]: swarm mode must not silently drop discovered work. Follow-ups and
-    discoveries are recorded to the locked ledger and folded into the backlog by
-    reconcile (the orchestrator path inserts them inline; swarm routes via ledger)."""
+def test_swarm_discovered_work_survives_as_advisory_notes(tmp_path):
+    """Propose/accept boundary: swarm RECORDS discovered work (notes + proposed
+    follow-ups) so it is never silently dropped, but never INSERTS a Feature from
+    ledger data (no gate-bypass injection). reconcile folds the notes in; the
+    backlog gains no executable feature from the swarm."""
     sp, lp = _mission(tmp_path, 1)
 
     def dispatch(feat):
@@ -149,12 +150,39 @@ def test_swarm_followups_and_discoveries_survive_via_reconcile(tmp_path):
         )
 
     run_worker(sp, lp, "w1", dispatch)
-    # The static backlog is untouched until reconcile folds the ledger-recorded work.
-    assert {f.id for f in MissionState.load(sp).features} == {"f1"}
     reconcile_from_ledger(sp, lp)
     final = MissionState.load(sp)
-    assert {f.id for f in final.features} == {"f1", "f1-follow"}  # follow-up not dropped
-    assert "discovered: a stale assertion on f1" in final.get("f1").notes
+    # No feature was created from ledger JSON — the injection surface is gone.
+    assert {f.id for f in final.features} == {"f1"}
+    notes = final.get("f1").notes
+    assert "discovered: a stale assertion on f1" in notes  # discovered note folded
+    assert "discovered: follow-up proposed: f1-follow" in notes  # proposal kept as advisory
+
+
+def test_swarm_records_discoveries_on_failed_handoff(tmp_path):
+    """claude [P3]: discovered notes must be recorded even when the handoff fails —
+    the orchestrator path records them regardless of success."""
+    sp, lp = _mission(tmp_path, 1)
+
+    def dispatch(feat):
+        return Handoff(success=False, blocked_reason="blocked", discovered=["seen on failure"])
+
+    run_worker(sp, lp, "w1", dispatch, park_threshold=1)  # parks after 1 block
+    assert Ledger(lp).discoveries() == {"f1": ["seen on failure"]}
+
+
+def test_reconcile_does_not_revert_completed_to_blocked(tmp_path):
+    """claude [P3]: a feature already COMPLETED in state must not be downgraded to
+    BLOCKED by a stale active park constraint on the same id."""
+    sp, lp = _mission(tmp_path, 2)
+    state = MissionState.load(sp)
+    state.mark_completed("f1")  # f1 finished (e.g. by the orchestrator path)
+    state.save(sp)
+    Ledger(lp).record_constraint("feature:f1", "stale park from a prior cross-mode run")
+
+    reconcile_from_ledger(sp, lp)
+    # f1 stays COMPLETED — only PENDING features are parked to BLOCKED.
+    assert MissionState.load(sp).get("f1").status == Status.COMPLETED
 
 
 def test_reconcile_folds_parks_to_blocked(tmp_path):

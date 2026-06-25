@@ -17,12 +17,12 @@ folds the swarm's results back into, from a single writer.
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .ledger import Ledger, select_for
 from .orchestrator import Dispatch, Handoff
-from .state import Feature, MissionState, Status
+from .state import MissionState, Status, mission_owner_lock
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +65,7 @@ def run_worker(
             break
         n += 1
 
-        # Count the attempt BEFORE dispatch so a *raising* dispatch is bounded too,
-        # and always release the lease (a raise must not leak the claim for a TTL).
+        # Count the attempt BEFORE dispatch so a *raising* dispatch is bounded too.
         attempts = ledger.bump_attempt(f"feature:{unit}")
         try:
             handoff = dispatch(state.get(unit))
@@ -74,26 +73,27 @@ def run_worker(
             Exception
         ) as exc:  # dispatch is an external callback — may raise anything  # noqa: BLE001
             handoff = Handoff(success=False, blocked_reason=f"dispatch raised: {exc!r}")
-        finally:
-            ledger.release(unit, worker_id)
+
+        # Discovered work is *advisory* in swarm mode (propose/accept boundary): the
+        # swarm records what it found — discovered notes and proposed follow-ups —
+        # but only the orchestrator+gate turn a note into executable work, so ledger
+        # JSON can never inject a Feature. Recorded on *every* path, success or not.
+        notes = list(handoff.discovered)
+        notes += [f"follow-up proposed: {f.id} — {f.description}" for f in handoff.follow_ups]
 
         if handoff.success:
-            ledger.record_done(unit)
+            # Atomic: done + notes + lease-release under ONE lock — no released-but-
+            # not-done window for a concurrent claim_actionable to re-grab (the [P1]).
+            ledger.complete(unit, worker_id, discoveries=notes)
             res.done.append(unit)
-            # Swarm mode treats MissionState as a static backlog, so it cannot
-            # insert follow-ups directly. Record them to the *locked* ledger so the
-            # work is never lost; reconcile_from_ledger folds them in (single writer).
-            for follow in handoff.follow_ups:
-                ledger.record_follow_up(asdict(follow))
-                logger.info(
-                    "swarm recorded follow-up %s from %s (folds at reconcile)", follow.id, unit
-                )
-            for note in handoff.discovered:
-                ledger.record_discovery(unit, note)
             continue
 
-        # Terminal blocks (operator-gated / re-derive) park immediately; transient
-        # ones retry until the shared attempt count hits the threshold.
+        # Failure: record the discoveries, free the lease so a retry can re-claim,
+        # then park if the shared attempt budget is spent. Terminal blocks
+        # (operator-gated / re-derive) park immediately.
+        for note in notes:
+            ledger.record_discovery(unit, note)
+        ledger.release(unit, worker_id)
         res.blocked.append(unit)
         if handoff.terminal or attempts >= park_threshold:
             kind = "terminal" if handoff.terminal else f"{attempts} blocks"
@@ -114,10 +114,22 @@ def reconcile_from_ledger(state_path: str | Path, ledger_path: str | Path) -> in
     make ``MissionState`` consistent with what the swarm did: ledger ``done`` →
     COMPLETED, active **parks** → BLOCKED (so a parked feature is not later
     re-dispatched by the orchestrator path, preserving the anti-treadmill
-    guarantee), and worker-recorded **follow-ups/discoveries** folded into the
-    backlog (so swarm mode never silently drops discovered work). Returns the
-    number of features whose status changed *or* were inserted.
+    guarantee), and worker-recorded **discovered notes** folded into the matching
+    feature's notes (so swarm mode never silently drops what it found). Discovered
+    work stays advisory — reconcile never *creates* a feature from ledger data, so
+    there is no path to inject gate-bypassing work. Returns the number of features
+    whose status or notes changed.
+
+    Holds the single-writer :func:`mission_owner_lock`, so it cannot run while an
+    orchestrator is driving the same mission. It is still the caller's contract to
+    invoke this only *after* the swarm's workers have stopped (workers touch the
+    ledger, not ``MissionState``, so the fence does not cover them).
     """
+    with mission_owner_lock(state_path):
+        return _reconcile_locked(state_path, ledger_path)
+
+
+def _reconcile_locked(state_path: str | Path, ledger_path: str | Path) -> int:
     state = MissionState.load(state_path)
     ledger = Ledger(ledger_path)
     done = ledger.done_units()
@@ -126,21 +138,17 @@ def reconcile_from_ledger(state_path: str | Path, ledger_path: str | Path) -> in
         if feat.id in done and feat.status != Status.COMPLETED:
             feat.status = Status.COMPLETED
             n += 1
-        elif feat.status != Status.BLOCKED and ledger.is_excluded(f"feature:{feat.id}"):
+        elif feat.status == Status.PENDING and ledger.is_excluded(f"feature:{feat.id}"):
+            # Only PENDING → BLOCKED: never downgrade a COMPLETED/IN_PROGRESS feature
+            # on a stale park (the COMPLETED→BLOCKED revert claude flagged).
             feat.status = Status.BLOCKED
             reason = ledger.constraint_reason(f"feature:{feat.id}")
             if reason:  # keep the operator context for handoff/debugging
                 feat.notes = (feat.notes + "\n" if feat.notes else "") + f"BLOCKED (park): {reason}"
             n += 1
 
-    # Fold worker-discovered work the static backlog couldn't hold (grok [P2]):
-    # follow-up features the swarm found, and discovered notes on existing ones.
-    existing = {f.id for f in state.features}
-    for follow in ledger.pending_follow_ups():
-        if follow["id"] not in existing:
-            state.insert_feature(Feature(**follow))
-            existing.add(follow["id"])
-            n += 1
+    # Fold discovered notes (advisory) into the matching feature. Never insert a
+    # feature from ledger data — that stays the orchestrator+gate's job.
     for unit, notes in ledger.discoveries().items():
         try:
             feat = state.get(unit)

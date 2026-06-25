@@ -18,7 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .state import Feature, MissionState, Status
+from .state import Feature, MissionState, Status, mission_owner_lock
 
 logger = logging.getLogger(__name__)
 
@@ -179,10 +179,27 @@ class MissionOrchestrator:
     # ---- run loop ------------------------------------------------------------
 
     def run(self, dispatch: Dispatch, max_ticks: int = 10_000) -> tuple[int, int]:
-        """Tick until the queue drains (or a tick cap). Resumable across crashes."""
-        for _ in range(max_ticks):
-            if not self.tick(dispatch):
-                break
+        """Tick until the queue drains (or a tick cap). Resumable across crashes.
+
+        Holds the single-writer :func:`mission_owner_lock` for the whole run, so a
+        second concurrent orchestrator fails fast with ``MissionOwnershipError``
+        instead of racing ``next_pending`` and double-dispatching a feature. Hitting
+        ``max_ticks`` is logged as a *cap*, not silently treated as completion.
+        """
+        hit_cap = True
+        with mission_owner_lock(self.state_path):
+            for _ in range(max_ticks):
+                if not self.tick(dispatch):
+                    hit_cap = False
+                    break
         done, total = MissionState.load(self.state_path).progress()
-        logger.info("mission run paused/complete: %d/%d features", done, total)
+        if hit_cap and done < total:
+            logger.warning(
+                "mission run hit max_ticks=%d with %d/%d done — NOT complete, re-run to continue",
+                max_ticks,
+                done,
+                total,
+            )
+        else:
+            logger.info("mission run paused/complete: %d/%d features", done, total)
         return done, total

@@ -66,19 +66,26 @@ def test_invalidate_resets_attempt_budget(tmp_path):
     assert led.attempts("feature:x") == 0  # budget reset, not inherited
 
 
-def test_records_and_reads_follow_ups_and_discoveries(tmp_path):
-    """Swarm-discovered work is recorded to the locked ledger (reconcile folds it)."""
+def test_records_and_reads_discoveries(tmp_path):
+    """Swarm-discovered work is recorded to the locked ledger as advisory notes."""
     led = _ledger(tmp_path)
-    led.record_follow_up({"id": "fX", "description": "found work", "milestone": "m1"})
-    led.record_follow_up(
-        {"id": "fX", "description": "updated", "milestone": "m1"}
-    )  # last write wins
     led.record_discovery("f1", "a stale assertion")
     led.record_discovery("f1", "a stale assertion")  # deduped
-    follow_ups = led.pending_follow_ups()
-    assert [f["id"] for f in follow_ups] == ["fX"]
-    assert follow_ups[0]["description"] == "updated"
-    assert led.discoveries() == {"f1": ["a stale assertion"]}
+    led.record_discovery("f1", "another note")
+    assert led.discoveries() == {"f1": ["a stale assertion", "another note"]}
+
+
+def test_complete_records_done_and_releases_atomically(tmp_path):
+    """The [P1] fix: complete() marks done, folds notes, AND drops the lease under a
+    single lock — so there is no released-but-not-done window to re-claim."""
+    led = _ledger(tmp_path)
+    led.claim("u1", "w1", now=100.0)
+    led.complete("u1", "w1", discoveries=["found x"])
+    assert led.is_done("u1") is True
+    assert led.active_claims(now=100.0) == {}  # lease dropped in the same transaction
+    assert led.discoveries() == {"u1": ["found x"]}
+    # A concurrent worker cannot claim it afterward — it is done.
+    assert led.claim_actionable("u1", "w2", constraint_key="feature:u1") is False
 
 
 def test_constraint_ttl_evaporates(tmp_path):

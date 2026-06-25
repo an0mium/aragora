@@ -79,10 +79,10 @@ class _LedgerData:
     attempts: dict[str, int] = field(default_factory=dict)
     done: set[str] = field(default_factory=set)  # units completed by any worker
     # Worker-discovered work, recorded to the *locked* ledger so swarm mode never
-    # drops it (MissionState is a static backlog with no lock; reconcile folds these
-    # in from a single writer). follow_ups: feature-id -> serialized Feature.
-    follow_ups: dict[str, dict] = field(default_factory=dict)
-    discoveries: dict[str, list[str]] = field(default_factory=dict)  # unit -> notes
+    # drops it. These are *advisory notes only* (propose/accept boundary): the swarm
+    # records what it found; only the orchestrator+gate turn a note into executable
+    # work, so there is no path for ledger JSON to inject a Feature. unit -> notes.
+    discoveries: dict[str, list[str]] = field(default_factory=dict)
 
 
 class Ledger:
@@ -217,28 +217,39 @@ class Ledger:
             data.done.add(unit)
             self._save(data)
 
+    def complete(self, unit: str, worker_id: str, *, discoveries: list[str] | None = None) -> None:
+        """Atomically finish ``unit``: mark done, fold any discovery notes, and drop
+        the worker's lease — **all under one lock**.
+
+        This is the load-bearing fix for the double-claim window: if ``record_done``
+        and ``release`` are separate calls, there is an instant where the unit is
+        released-but-not-done, and a concurrent ``claim_actionable`` (which checks
+        done + constraint + lease) re-grabs the just-finished unit. Doing all three
+        in a single locked transaction closes that window structurally.
+        """
+        with self._locked():
+            data = self._load()
+            data.done.add(unit)
+            if discoveries:
+                notes = data.discoveries.setdefault(unit, [])
+                for note in discoveries:
+                    if note not in notes:
+                        notes.append(note)
+            held = data.leases.get(unit)
+            if held and held.worker_id == worker_id:
+                del data.leases[unit]
+            self._save(data)
+
     def is_done(self, unit: str) -> bool:
         return unit in self._load().done
 
     def done_units(self) -> set[str]:
         return set(self._load().done)
 
-    # ---- discovered work (swarm can't touch MissionState, so it records here) -
-
-    def record_follow_up(self, feature: dict) -> None:
-        """Record a worker-discovered follow-up feature (by id; last write wins)."""
-        fid = feature["id"]
-        with self._locked():
-            data = self._load()
-            data.follow_ups[fid] = dict(feature)
-            self._save(data)
-
-    def pending_follow_ups(self) -> list[dict]:
-        """All recorded follow-up feature dicts (reconcile inserts the new ones)."""
-        return list(self._load().follow_ups.values())
+    # ---- discovered work (advisory notes; swarm can't touch MissionState) -----
 
     def record_discovery(self, unit: str, note: str) -> None:
-        """Record a discovered note against ``unit`` (deduped)."""
+        """Record a discovered note against ``unit`` (deduped). Advisory only."""
         with self._locked():
             data = self._load()
             notes = data.discoveries.setdefault(unit, [])
@@ -290,7 +301,6 @@ class Ledger:
             constraints={k: Constraint(**v) for k, v in raw.get("constraints", {}).items()},
             attempts=dict(raw.get("attempts", {})),
             done=set(raw.get("done", [])),
-            follow_ups={k: dict(v) for k, v in raw.get("follow_ups", {}).items()},
             discoveries={u: list(notes) for u, notes in raw.get("discoveries", {}).items()},
         )
 
@@ -300,7 +310,6 @@ class Ledger:
             "constraints": {k: asdict(c) for k, c in data.constraints.items()},
             "attempts": data.attempts,
             "done": sorted(data.done),
-            "follow_ups": data.follow_ups,
             "discoveries": data.discoveries,
         }
         fd, tmp = tempfile.mkstemp(
