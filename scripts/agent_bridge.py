@@ -1835,6 +1835,22 @@ def cmd_launch(args: argparse.Namespace) -> int:
         cmd.extend(["--prompt-file", args.file])
     elif args.prompt:
         cmd.extend(["--prompt", " ".join(args.prompt)])
+    if getattr(args, "task_id", ""):
+        cmd.extend(["--task-id", args.task_id])
+    if getattr(args, "lease_title", ""):
+        cmd.extend(["--title", args.lease_title])
+    for scope in getattr(args, "write_scope", []) or []:
+        cmd.extend(["--write-scope", scope])
+    for path in getattr(args, "claimed_path", []) or []:
+        cmd.extend(["--claimed-path", path])
+    for test_cmd in getattr(args, "test", []) or []:
+        cmd.extend(["--test", test_cmd])
+    for path in getattr(args, "forbidden_path", []) or []:
+        cmd.extend(["--forbidden-path", path])
+    if getattr(args, "allow_overlap", False):
+        cmd.append("--allow-overlap")
+    if getattr(args, "allow_unleased_codex", False):
+        cmd.append("--allow-unleased-codex")
 
     try:
         result = subprocess.run(
@@ -3194,6 +3210,24 @@ def main() -> int:
     launch_p.add_argument("--file", help="Prompt file")
     launch_p.add_argument(
         "--autonomous", action="store_true", help="Grant launcher autonomy where supported"
+    )
+    launch_p.add_argument("--task-id", default="", help="Codex dev-coordination task id")
+    launch_p.add_argument(
+        "--title", "--goal", dest="lease_title", default="", help="Lease title/goal"
+    )
+    launch_p.add_argument("--write-scope", action="append", default=[], help="Allowed write scope")
+    launch_p.add_argument("--claimed-path", action="append", default=[], help="Claimed path")
+    launch_p.add_argument("--test", action="append", default=[], help="Validation command")
+    launch_p.add_argument(
+        "--forbidden-path", action="append", default=[], help="Forbidden path for Codex lease"
+    )
+    launch_p.add_argument(
+        "--allow-overlap", action="store_true", help="Allow overlapping Codex lease claim"
+    )
+    launch_p.add_argument(
+        "--allow-unleased-codex",
+        action="store_true",
+        help="Explicit manual-debug bypass for autonomous Codex lease guard",
     )
     launch_p.add_argument("--timeout-seconds", type=int, default=120)
     launch_p.add_argument(

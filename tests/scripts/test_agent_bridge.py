@@ -3213,6 +3213,49 @@ def test_cmd_launch_writes_dispatch_receipt_and_annotates_json(
     assert ["tmux", "capture-pane", "-t", "@7", "-p", "-S", "-40"] in calls
 
 
+def test_cmd_launch_passes_codex_lease_flags_to_tmux_launcher(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _setup_launch_repo(mod, tmp_path, monkeypatch)
+    calls = _fake_launch_subprocess(mod, monkeypatch, _SUBMITTED_PANE)
+
+    rc = mod.cmd_launch(
+        _launch_namespace(
+            tmp_path,
+            name="codex-lane",
+            agent="codex",
+            autonomous=True,
+            submit_verify_timeout=0,
+            task_id="Q-mission-conductor",
+            lease_title="Patch conductor docs.",
+            claimed_path=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            write_scope=["docs/guides/"],
+            test=["pre-commit run --files docs/guides/CONDUCTOR_WORKFLOW.md"],
+            forbidden_path=["docs/guides/DO_NOT_TOUCH.md"],
+            allow_overlap=True,
+        )
+    )
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    launch = calls[0]
+    assert launch[:2] == ["bash", str(mod.CANONICAL_REPO_ROOT / "scripts/tmux_session_launcher.sh")]
+    assert launch[launch.index("--task-id") + 1] == "Q-mission-conductor"
+    assert launch[launch.index("--title") + 1] == "Patch conductor docs."
+    assert launch[launch.index("--claimed-path") + 1] == "docs/guides/CONDUCTOR_WORKFLOW.md"
+    assert launch[launch.index("--write-scope") + 1] == "docs/guides/"
+    assert launch[launch.index("--test") + 1] == (
+        "pre-commit run --files docs/guides/CONDUCTOR_WORKFLOW.md"
+    )
+    assert launch[launch.index("--forbidden-path") + 1] == "docs/guides/DO_NOT_TOUCH.md"
+    assert "--allow-overlap" in launch
+
+
 def test_cmd_launch_undelivered_is_observational_rc0_by_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

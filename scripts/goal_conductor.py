@@ -449,6 +449,14 @@ def _merge_packet_satisfied(entry: dict[str, Any]) -> bool:
     )
 
 
+def _is_queue_cap_gate(gate: str) -> bool:
+    return gate.startswith("open PR queue at/above cap")
+
+
+def _fatal_hard_gates(gates: list[str]) -> list[str]:
+    return [gate for gate in gates if not _is_queue_cap_gate(gate)]
+
+
 @dataclass
 class ConductorResult:
     mission_name: str
@@ -675,8 +683,10 @@ class GoalConductor:
             if pr_number not in open_prs:
                 continue
             head_sha = _merge_packet_head(entry)
-            tier = int(entry.get("tier") or 0)
+            tier = _coerce_int(entry.get("tier"))
             if not head_sha:
+                continue
+            if tier is None:
                 continue
             if tier > self.mission.merge_on_green_max_tier:
                 continue
@@ -714,7 +724,11 @@ class GoalConductor:
         }:
             gates.append(f"publisher not ready: {snapshot['publisher'].get('summary', 'unknown')}")
         for entry in _merge_packet_entries(snapshot.get("merge_packets")):
-            tier = int(entry.get("tier") or 0)
+            tier = _coerce_int(entry.get("tier"))
+            if tier is None:
+                pr_number = entry.get("pr_number", "?")
+                gates.append(f"merge-packet entry has unparseable tier: #{pr_number}")
+                continue
             if tier >= 4 or bool(entry.get("requires_human_risk_settlement")):
                 pr_number = entry.get("pr_number", "?")
                 tier_name = entry.get("tier_name") or f"tier_{tier}"
@@ -773,8 +787,9 @@ class GoalConductor:
         commands: list[list[str]] = []
         if lane.lane_id not in sessions:
             launch = [
-                "bash",
-                "scripts/tmux_session_launcher.sh",
+                "python3",
+                "scripts/agent_bridge.py",
+                "launch",
                 "--name",
                 lane.lane_id,
                 "--agent",
@@ -786,7 +801,17 @@ class GoalConductor:
             ]
             if lane.autonomous:
                 launch.append("--autonomous")
-            launch.extend(["--prompt-file", str(prompt_file)])
+            launch.extend(
+                [
+                    "--file",
+                    str(prompt_file),
+                    "--timeout-seconds",
+                    "180",
+                    "--submit-verify-timeout",
+                    "30",
+                    "--strict-verify",
+                ]
+            )
             if lane.agent == "codex":
                 launch.extend(["--task-id", lane.task_id or lane.lane_id])
                 for path in lane.claimed_paths:
@@ -798,28 +823,6 @@ class GoalConductor:
                 for path in lane.forbidden_paths:
                     launch.extend(["--forbidden-path", path])
             commands.append(launch)
-            commands.append(
-                [
-                    "python3",
-                    "scripts/agent_bridge.py",
-                    "send",
-                    lane.lane_id,
-                    (
-                        "Conductor metadata registered for this newly launched "
-                        "lane. Continue the launcher prompt already provided."
-                    ),
-                    "--lane",
-                    lane.lane_id,
-                    "--goal",
-                    lane.goal,
-                    "--source",
-                    lane.source,
-                    "--status",
-                    lane.status,
-                    "--next-action",
-                    lane.next_action,
-                ]
-            )
             return commands
         commands.append(
             [
@@ -1070,7 +1073,7 @@ class GoalConductor:
         gates = self.hard_gates(snapshot)
         for gate in gates:
             self.emit("hard_gate", gate)
-        fatal_gates = [gate for gate in gates if not gate.startswith("open PR queue at/above cap")]
+        fatal_gates = _fatal_hard_gates(gates)
         if self.execute and fatal_gates:
             decisions = [
                 LaneDecision(
@@ -1084,12 +1087,9 @@ class GoalConductor:
             merge_decision = None
             if not (self.execute and gates):
                 merge_decision = self._maybe_apply_one_exact_gated_merge(snapshot)
-            if merge_decision is not None and merge_decision.action == "merged":
-                decisions = [merge_decision]
-            else:
-                decisions = self.plan_lanes(snapshot, run_dir)
-                if merge_decision is not None:
-                    decisions.insert(0, merge_decision)
+            decisions = self.plan_lanes(snapshot, run_dir)
+            if merge_decision is not None:
+                decisions.insert(0, merge_decision)
         self.apply_decisions(decisions)
         jsonl_path = run_dir / "conductor.jsonl"
         markdown_path = run_dir / "handoff.md"
@@ -1118,10 +1118,9 @@ class GoalConductor:
             self.emit("loop", "starting cycle", cycle=cycle, max_cycles=max_cycles)
             result = self.run_once()
             results.append(result)
-            if result.hard_gates and stop_on_hard_gate:
-                self.emit(
-                    "loop", "stopping on hard gate", cycle=cycle, hard_gates=result.hard_gates
-                )
+            fatal_gates = _fatal_hard_gates(result.hard_gates)
+            if fatal_gates and stop_on_hard_gate:
+                self.emit("loop", "stopping on hard gate", cycle=cycle, hard_gates=fatal_gates)
                 break
             if cycle < max_cycles and interval_seconds > 0:
                 time.sleep(interval_seconds)

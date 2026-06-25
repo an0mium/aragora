@@ -144,11 +144,14 @@ def decomposition_to_mission(
         agent = selected_agents[(index - 1) % len(selected_agents)]
         file_scope = _subtask_file_scope(subtask)
         validation_commands = _subtask_validation_commands(subtask)
+        mode = "implementation"
+        if agent == "codex" and not file_scope and not validation_commands:
+            mode = "panel"
         lanes.append(
             {
                 "id": f"implementation-{index}",
                 "agent": agent,
-                "mode": "implementation",
+                "mode": mode,
                 "goal": title,
                 "cwd": ".",
                 "autonomous": True,

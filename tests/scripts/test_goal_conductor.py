@@ -515,10 +515,9 @@ def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Pat
     result = conductor.run_once()
 
     assert result.decisions[0].action == "execute"
-    assert len(runner.executed) == 2
-    launch, metadata = runner.executed
-    assert launch[:2] == ["bash", "scripts/tmux_session_launcher.sh"]
-    assert "launch" not in launch
+    assert len(runner.executed) == 1
+    (launch,) = runner.executed
+    assert launch[:3] == ["python3", "scripts/agent_bridge.py", "launch"]
     assert launch[launch.index("--goal") + 1] == "Patch conductor docs."
     assert launch[launch.index("--task-id") + 1] == "Q-mission-conductor"
     assert launch[launch.index("--claimed-path") + 1] == "docs/guides/CONDUCTOR_WORKFLOW.md"
@@ -528,16 +527,13 @@ def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Pat
         launch[launch.index("--test") + 1]
         == "pre-commit run --files docs/guides/CONDUCTOR_WORKFLOW.md"
     )
-    assert "--prompt-file" in launch
-    prompt_path = Path(launch[launch.index("--prompt-file") + 1])
+    assert "--file" in launch
+    assert "--strict-verify" in launch
+    prompt_path = Path(launch[launch.index("--file") + 1])
     prompt = prompt_path.read_text(encoding="utf-8")
     assert "Mission lane contract:" in prompt
     assert "task_id: Q-mission-conductor" in prompt
     assert "Tier 3/4 settlement" in prompt
-    assert metadata[:3] == ["python3", "scripts/agent_bridge.py", "send"]
-    assert any("Conductor metadata registered" in part for part in metadata)
-    assert metadata[metadata.index("--lane") + 1] == "codex-lane"
-    assert metadata[metadata.index("--goal") + 1] == "Patch conductor docs."
 
 
 def test_autonomous_codex_lane_without_lease_scope_is_blocked(tmp_path: Path) -> None:
@@ -570,7 +566,7 @@ def test_autonomous_codex_lane_without_lease_scope_is_blocked(tmp_path: Path) ->
     assert runner.executed == []
 
 
-def test_loop_stops_after_first_hard_gate(tmp_path: Path) -> None:
+def test_loop_continues_on_queue_cap_gate_only(tmp_path: Path) -> None:
     import goal_conductor as mod
 
     mission = mod.Mission.from_dict(_mission_dict(tmp_path))
@@ -588,7 +584,7 @@ def test_loop_stops_after_first_hard_gate(tmp_path: Path) -> None:
 
     results = conductor.run_loop(max_cycles=3, interval_seconds=0)
 
-    assert len(results) == 1
+    assert len(results) == 3
     assert results[0].hard_gates == ["open PR queue at/above cap (2/2)"]
 
 
@@ -738,8 +734,16 @@ def test_opt_in_exact_gated_merge_runs_settle_then_normal_protected_squash(
 
     result = conductor.run_once()
 
-    assert [decision.action for decision in result.decisions] == ["merged"]
-    assert runner.executed == [["gh", "pr", "merge", "77", "--squash", "--match-head-commit", head]]
+    assert [decision.action for decision in result.decisions] == ["merged", "execute", "execute"]
+    assert runner.executed[0] == [
+        "gh",
+        "pr",
+        "merge",
+        "77",
+        "--squash",
+        "--match-head-commit",
+        head,
+    ]
     assert "--admin" not in runner.executed[0]
 
 
@@ -952,10 +956,54 @@ def test_opt_in_exact_gated_merge_respects_admin_order_and_not_ready(
 
     result = conductor.run_once()
 
-    assert [decision.action for decision in result.decisions] == ["merged"]
-    assert runner.executed == [
-        ["gh", "pr", "merge", "81", "--squash", "--match-head-commit", "head81"]
+    assert [decision.action for decision in result.decisions] == ["merged", "execute", "execute"]
+    assert runner.executed[0] == [
+        "gh",
+        "pr",
+        "merge",
+        "81",
+        "--squash",
+        "--match-head-commit",
+        "head81",
     ]
+
+
+def test_opt_in_exact_gated_merge_skips_unparseable_tier(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["merge_policy"] = "exact_gated_tier_0_2"
+    open_prs = [{"number": 83, "title": "ready", "isDraft": False}]
+    merge_packet = {
+        "admin_squash_order": [83],
+        "not_ready": [],
+        "entries": [
+            {
+                "pr_number": 83,
+                "head_sha": "head83",
+                "tier": "not-a-tier",
+                "status": "satisfied",
+                "verdict": "admin_squash_allowed",
+                "admin_squash_allowed": True,
+                "unresolved_dissent": False,
+                "requires_human_risk_settlement": False,
+            }
+        ],
+    }
+    runner = FakeRunner(mod, open_prs=open_prs, merge_packet=merge_packet)
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert "merge-packet entry has unparseable tier: #83" in result.hard_gates
+    assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
+    assert not any(command[:3] == ["gh", "pr", "merge"] for command in runner.executed)
 
 
 def test_opt_in_exact_gated_merge_does_not_run_under_queue_cap_gate(

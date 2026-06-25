@@ -115,6 +115,35 @@ def test_decomposition_to_mission_uses_scoped_test_paths_as_validation() -> None
     ]
 
 
+def test_decomposition_to_mission_does_not_emit_unscoped_codex_implementation_lane() -> None:
+    mod = _load_goal_conductor_module()
+    decomp = TaskDecomposition(
+        original_task="investigate unclear repo behavior",
+        complexity_score=2,
+        complexity_level="small",
+        should_decompose=False,
+        subtasks=[
+            SubTask(
+                id="unclear",
+                title="Investigate unclear behavior",
+                description="No file scope is known yet.",
+            )
+        ],
+    )
+
+    mission = decomposition_to_mission(
+        decomp,
+        objective="investigate unclear repo behavior",
+        agents=["codex"],
+        include_panel_review=False,
+    )
+
+    parsed = mod.Mission.from_dict(mission)
+    assert parsed.lanes[0].mode == "panel"
+    assert parsed.lanes[0].agent == "panel"
+    assert parsed.lanes[0].lease_blocker() is None
+
+
 def test_write_mission_yaml_round_trips(tmp_path: Path) -> None:
     mod = _load_goal_conductor_module()
     mission = decomposition_to_mission(
