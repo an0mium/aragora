@@ -65,7 +65,7 @@ MISTRAL_LARGE_VIA_OPENROUTER: Final = "mistralai/mistral-large"
 
 # Qwen 3 235B non-thinking instruct route for reviewer/evaluator paths that
 # need countable OpenRouter output.
-QWEN_235B_VIA_OPENROUTER: Final = "qwen/qwen3-235b-a22b"
+QWEN_235B_VIA_OPENROUTER: Final = "qwen/qwen3-235b-a22b-2507"
 
 
 # -----------------------------------------------------------------------------

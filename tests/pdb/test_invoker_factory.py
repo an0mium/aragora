@@ -736,6 +736,7 @@ _VALID_MODELS_BY_PROVIDER: dict[str, frozenset[str]] = {
     ),
     "qwen": frozenset(
         {
+            "qwen/qwen3-235b-a22b-2507",
             "qwen/qwen3-235b-a22b",
             "qwen/qwen3-max",
             "qwen/qwen3.5-plus-02-15",
@@ -790,6 +791,7 @@ class TestModelDefaultsAreValid:
         assert KIMI_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["kimi"]
 
     def test_qwen_default_is_valid(self) -> None:
+        assert QWEN_MODEL_DEFAULT == "qwen/qwen3-235b-a22b-2507"
         assert QWEN_MODEL_DEFAULT in _VALID_MODELS_BY_PROVIDER["qwen"]
 
     def test_grok_default_has_price_entry(self) -> None:

@@ -3904,6 +3904,8 @@ def test_default_openrouter_reviewer_slugs_are_countable():
     from aragora.swarm.quorum_evidence import _OPENROUTER_REVIEWER_MODELS as slugs
 
     assert slugs["claude"] == OPUS_48_VIA_OPENROUTER
+    assert slugs["qwen"] == "qwen/qwen3-235b-a22b-2507"
+    assert "thinking" not in slugs["qwen"]
     assert slugs["qwen"] == QWEN_235B_VIA_OPENROUTER
 
     for family in ("claude", "qwen"):

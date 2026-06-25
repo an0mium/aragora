@@ -33,6 +33,7 @@ from aragora.agents.api_agents.common import (
 from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS
+from aragora.config.model_pins import QWEN_235B_VIA_OPENROUTER
 from aragora.exceptions import ExternalServiceError
 from aragora.observability.metrics.agents import (
     ErrorType,
@@ -61,6 +62,8 @@ FUSION_MODEL = "openrouter/fusion"
 OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     # Qwen models -> DeepSeek
     "qwen/qwen-2.5-72b-instruct": DEEPSEEK_V4_PRO_MODEL,
+    QWEN_235B_VIA_OPENROUTER: DEEPSEEK_V4_PRO_MODEL,
+    # Legacy base route retained for older env overrides and receipts.
     "qwen/qwen3-235b-a22b": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3-max": DEEPSEEK_V4_PRO_MODEL,
     "qwen/qwen3.5-plus-02-15": DEEPSEEK_V4_PRO_MODEL,

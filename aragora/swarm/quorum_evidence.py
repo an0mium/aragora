@@ -1543,9 +1543,9 @@ _OPENROUTER_REVIEWER_MODELS: dict[str, str] = {
     # (see _OPENROUTER_DIRECT_FAMILIES). Each is a strong, distinct intelligence/$
     # pick, giving cheap additional families when premium CLIs are quota-/auth-down.
     "deepseek": "deepseek/deepseek-v4-pro",
-    # Qwen's callable high-value slug can operate in thinking mode. We keep the
-    # canonical slug but add a qwen-specific no-think prompt suffix before calling
-    # OpenRouter, and the evidence composer strips any leaked reasoning traces.
+    # Qwen's canonical reviewer slug is the non-thinking instruct route. Keep the
+    # qwen-specific no-think prompt suffix as a belt-and-suspenders guard, and let
+    # the evidence composer strip any leaked reasoning traces.
     "qwen": QWEN_235B_VIA_OPENROUTER,
     "kimi": "moonshotai/kimi-k2.6",
 }

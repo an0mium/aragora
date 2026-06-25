@@ -19,6 +19,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from aragora.billing.usage import PROVIDER_PRICING
+from aragora.config.model_pins import QWEN_235B_VIA_OPENROUTER
 from aragora.pdb.budget import PDBBudgetLedger
 from aragora.pdb.panel_config import (
     PDBBudgetConfig,
@@ -182,6 +183,14 @@ class TestEstimateCostUsd:
             tokens_out=0,
         )
         assert cost == pytest.approx(3.0)
+
+    def test_qwen_default_openrouter_model_has_price_entry(self) -> None:
+        cost = estimate_cost_usd(
+            model=QWEN_235B_VIA_OPENROUTER,
+            tokens_in=1_000_000,
+            tokens_out=1_000_000,
+        )
+        assert cost == pytest.approx(0.19)
 
     def test_negative_tokens_clamped(self) -> None:
         cost = estimate_cost_usd(model="gpt-5.5", tokens_in=-100, tokens_out=-100)

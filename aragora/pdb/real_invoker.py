@@ -243,6 +243,7 @@ _PRICE_PER_MTOK: Mapping[str, tuple[float, float]] = {
     "kimi-k2-0905": (0.57, 2.30),
     "kimi-k2-thinking": (0.57, 2.30),
     "moonshot-v1-128k": (0.57, 2.30),
+    "qwen3-235b-a22b-2507": (0.09, 0.10),
     "qwen3-235b-a22b": (0.14, 0.28),
     "qwen3-max": (0.60, 1.80),
     "qwen3.5-plus-02-15": (0.60, 1.80),

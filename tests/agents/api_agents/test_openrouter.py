@@ -300,8 +300,11 @@ class TestOpenRouterModelFallback:
     def test_fallback_chains(self, mock_env_with_api_keys):
         """Should have sensible fallback chains."""
         from aragora.agents.api_agents.openrouter import OPENROUTER_FALLBACK_MODELS
+        from aragora.config.model_pins import QWEN_235B_VIA_OPENROUTER
 
         # Qwen -> DeepSeek
+        assert QWEN_235B_VIA_OPENROUTER == "qwen/qwen3-235b-a22b-2507"
+        assert OPENROUTER_FALLBACK_MODELS[QWEN_235B_VIA_OPENROUTER] == "deepseek/deepseek-v4-pro"
         assert (
             OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"] == "deepseek/deepseek-v4-pro"
         )
