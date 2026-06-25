@@ -169,6 +169,72 @@ def test_finalizer_receipt_marks_matching_heartbeat_terminal(tmp_path: Path) -> 
     assert payload[0]["terminal_receipt_recorded"] is True
 
 
+def test_finalizer_receipt_matches_stable_identity_despite_different_cwd(
+    tmp_path: Path,
+) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        pid=34567,
+        cwd="/tmp/launcher-cwd",
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        last_seen_at="2026-06-23T10:09:00Z",
+    )
+
+    heartbeat.record_finalizer_receipt(
+        heartbeat_path=heartbeat_path,
+        receipt_path=receipt_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        cwd="/tmp/manual-finalizer-cwd",
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        outcome="completed",
+        reason="published draft PR",
+        finalized_at="2026-06-23T10:10:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert payload[0]["terminal"] is True
+    assert payload[0]["terminal_outcome"] == "completed"
+    assert payload[0]["terminal_receipt_recorded"] is True
+
+
+def test_finalizer_receipt_rejects_conflicting_stable_identity(
+    tmp_path: Path,
+) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    receipt_path = tmp_path / "finalizer-receipts.jsonl"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        pid=34567,
+        cwd="/tmp/shared-cwd",
+        branch="codex/lane-heartbeat-finalizer-20260623",
+        last_seen_at="2026-06-23T10:09:00Z",
+    )
+
+    heartbeat.record_finalizer_receipt(
+        heartbeat_path=heartbeat_path,
+        receipt_path=receipt_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        cwd="/tmp/shared-cwd",
+        branch="codex/different-lane",
+        outcome="completed",
+        reason="different branch finished",
+        finalized_at="2026-06-23T10:10:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert payload[0]["pid"] == 34567
+    assert "terminal" not in payload[0]
+    assert "terminal_outcome" not in payload[0]
+
+
 def test_heartbeat_late_renewal_preserves_terminal_row_for_same_wrapper_pid(
     tmp_path: Path,
 ) -> None:

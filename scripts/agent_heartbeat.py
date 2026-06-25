@@ -234,7 +234,7 @@ def _has_comparable_identity_delta(
 def _same_finalizer_identity(existing: dict[str, Any], receipt: dict[str, Any]) -> bool:
     """Match legacy finalizers only when durable identity, not ambient cwd, agrees."""
 
-    has_stable_identity = False
+    comparable = False
     for key in ("pid", "worktree", "branch", "pr_number"):
         existing_value = existing.get(key)
         receipt_value = receipt.get(key)
@@ -244,9 +244,10 @@ def _same_finalizer_identity(existing: dict[str, Any], receipt: dict[str, Any]) 
             continue
         if isinstance(receipt_value, str) and not receipt_value:
             continue
-        has_stable_identity = True
-        break
-    return has_stable_identity and _same_comparable_identity(existing, receipt)
+        comparable = True
+        if existing_value != receipt_value:
+            return False
+    return comparable
 
 
 def _terminal_heartbeat_fields(
