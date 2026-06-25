@@ -2458,6 +2458,98 @@ def test_collect_low_tier_apply_prepares_only_when_reviewer_dissents() -> None:
     assert outcome.quorum_rerun is None
 
 
+def test_collect_severity_gated_p2_only_dissent_is_advisory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    fakes, posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\n- [P2] Add a follow-up smoke test.",
+                True,
+            )
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "openai", "grok"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert outcome.action == "post"
+    assert outcome.dissenting_families == []
+    assert sorted(outcome.supportive_families) == ["claude", "openai"]
+    assert sorted(outcome.posted) == ["claude", "openai"]
+    assert all("changes-requested" not in body.lower() for _repo, body in posted)
+
+
+def test_collect_severity_gated_finding_free_changes_requested_is_advisory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    fakes, posted = _fakes(tier=1)
+
+    def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
+        if family == "grok":
+            return ReviewerResult(
+                "grok",
+                "Verdict: CHANGES-REQUESTED\nNeeds another look before merge.",
+                True,
+            )
+        return ReviewerResult(family, f"Verdict: PASS from {family}", True)
+
+    fakes["reviewer_runner"] = reviewer_runner
+    outcome = collect_evidence(
+        repo="o/r",
+        pr=1,
+        families=["claude", "openai", "grok"],
+        author="me",
+        apply=True,
+        **fakes,
+    )
+
+    assert outcome.action == "post"
+    assert outcome.dissenting_families == []
+    assert sorted(outcome.supportive_families) == ["claude", "openai"]
+    assert sorted(outcome.posted) == ["claude", "openai"]
+    assert all("changes-requested" not in body.lower() for _repo, body in posted)
+
+
+def test_evidence_item_dissenting_uses_captured_outcome_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "1")
+    item = EvidenceItem(
+        "grok",
+        "Verdict: CHANGES-REQUESTED\n- [P2] advisory follow-up",
+        False,
+        [],
+        [],
+        "changes_requested",
+    )
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=1,
+        action="prepare",
+        action_reason="prepared",
+        items=[item],
+    )
+    monkeypatch.setenv("ARAGORA_ENABLE_SEVERITY_GATED_DISSENT", "0")
+
+    assert outcome.items[0].dissenting is False
+    assert outcome.dissenting_families == []
+
+
 def test_collect_low_tier_apply_prepares_when_supportive_quorum_incomplete() -> None:
     # Tiered gate: a lone NON-western-frontier supportive (qwen) does NOT satisfy
     # Tier 1, so apply still prepares-only (no cheap-model-alone settlement).

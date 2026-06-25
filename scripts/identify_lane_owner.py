@@ -68,7 +68,7 @@ import time
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 # ---------------------------------------------------------------------------
 # Paths (overridable for tests)
@@ -150,7 +150,7 @@ ACTIVE_STATUSES = {
     "blocked",
 }
 CONFLICT_STATUSES = {"conflict", "conflicting"}
-COMPLETED_STATUSES = {"completed", "released", "superseded"}
+COMPLETED_STATUSES = {"completed", "released", "superseded", "expired"}
 
 # Subprocess timeout for ``agent_bridge operator-snapshot``.
 SNAPSHOT_TIMEOUT_SECONDS = 30
@@ -1211,8 +1211,8 @@ def build_owner_info(
 STALE_HOURS_DEFAULT = 6.0
 LANE_RUNS_GLOB_DEFAULT = str(STATE_ROOT_DEFAULT / "run-*" / "lanes")
 
-# Lane-ledger statuses meaning the owning lane can no longer be working.
-TERMINAL_LANE_STATUSES = {"completed", "failed", "cancelled", "dead"}
+# Lane-ledger/status rows meaning the owning lane can no longer be working.
+TERMINAL_LANE_STATUSES = COMPLETED_STATUSES | {"failed", "cancelled", "dead"}
 
 STALE_CLAIM_PROTOCOL = "stale-claim-override"
 ADVISORY_WITHHELD_UNPUSHED = "possible_unpushed_work"
@@ -1566,6 +1566,45 @@ def _gh_api_json(
     return _json_payload(proc.stdout)
 
 
+def _gh_api_paginated_json_list(
+    api_path: str,
+    *,
+    repo_root: Path,
+    runner: CommandRunner,
+    per_page: int = 100,
+    max_pages: int = 20,
+) -> list[Any] | None:
+    """Fetch a small GitHub REST list endpoint without silently truncating it."""
+
+    values: list[Any] = []
+    separator = "&" if "?" in api_path else "?"
+    for page in range(1, max_pages + 1):
+        payload = _gh_api_json(
+            f"{api_path}{separator}per_page={per_page}&page={page}",
+            repo_root=repo_root,
+            runner=runner,
+        )
+        if not isinstance(payload, list):
+            return None
+        values.extend(payload)
+        if len(payload) < per_page:
+            return values
+    return None
+
+
+def _pull_base_ref(pull: Mapping[str, Any]) -> str:
+    base = pull.get("base")
+    if isinstance(base, Mapping):
+        ref = str(base.get("ref") or "").strip()
+        if ref:
+            return ref
+    for key in ("baseRefName", "base_ref_name", "base_ref"):
+        ref = str(pull.get(key) or "").strip()
+        if ref:
+            return ref
+    return ""
+
+
 def _merged_pr_commit_list_proof(
     desired_head: str,
     *,
@@ -1596,19 +1635,21 @@ def _merged_pr_commit_list_proof(
         number = pull.get("number")
         if not isinstance(number, int):
             continue
-        commits = _gh_api_json(
-            f"repos/{repo_slug}/pulls/{number}/commits?per_page=100",
+        commits = _gh_api_paginated_json_list(
+            f"repos/{repo_slug}/pulls/{number}/commits",
             repo_root=repo_root,
             runner=runner,
         )
         if not isinstance(commits, list):
             continue
         if any(isinstance(item, dict) and item.get("sha") == desired_head for item in commits):
+            base_ref = _pull_base_ref(pull)
             return {
                 "proven": True,
                 "method": "merged_pr_commit_list",
                 "pr_number": number,
                 "repo": repo_slug,
+                "base_ref": base_ref or None,
             }
     return {
         "proven": False,
@@ -1783,10 +1824,15 @@ def assess_owner_liveness(
     now_dt = now or datetime.now(timezone.utc)
     threshold_seconds = max(0.0, stale_hours) * 3600.0
 
-    # lane_status: the lane ledger's view of the owning lane.
+    # lane_status: the lane ledger's view of the owning lane. When no ledger
+    # exists, a terminal registry status is still enough to avoid treating the
+    # row as an active owner lease.
     lane_status = "unknown"
+    registry_status = str(lane.get("status") or "").strip().lower()
     if ledger_entry is not None:
         lane_status = str(ledger_entry.get("status") or "").strip().lower() or "unknown"
+    elif registry_status in COMPLETED_STATUSES:
+        lane_status = registry_status
 
     # last_heartbeat_at: matched heartbeat row first, then owner record,
     # then ledger heartbeat fields; null when nothing carries one.
