@@ -56,8 +56,10 @@ separate signals. ``owner_liveness.assessed`` uses the lane lease and the
 ``--stale-hours`` threshold. ``liveness_state`` remains the older direct
 process / harness-heartbeat summary, including the fixed heartbeat freshness
 window, so a live lease can coexist with ``missing_heartbeat`` or
-``stale_heartbeat``. In that case the aligned fields surface the live lease
-while preserving the more conservative heartbeat-derived cleanup/action fields.
+``stale_heartbeat``. In that case ``owner_blocking_state`` is authoritative for
+dispatch/reassignment, while ``cleanup_state`` and
+``recommended_operator_action`` remain authoritative for mutation/cleanup. The
+JSON ``owner_liveness_alignment`` object exposes that precedence explicitly.
 
 Pure stdlib. No ``aragora.*`` imports. Read-only — never mutates
 GitHub state, lane registry, mailboxes, or any other on-disk file.
@@ -2001,6 +2003,10 @@ def assess_owner_liveness(
         "owner_liveness": owner_liveness,
         "owner_blocking_state": owner_blocking_state,
         "owner_blocking_state_reason": owner_blocking_state_reason,
+        "owner_liveness_precedence": (
+            "owner_blocking_state controls dispatch/reassignment; cleanup_state and "
+            "recommended_operator_action control mutation/cleanup"
+        ),
         "stale_claim_advisory": advisory,
         "advisory_withheld": advisory_withheld,
         "local_work_preservation": local_work_preservation,
@@ -2046,6 +2052,13 @@ def _align_owner_state_with_liveness(payload: dict[str, Any]) -> None:
         or payload.get("owner_blocking_state") != OWNER_BLOCKING_LIVE
         or liveness.get("assessed") != "live"
     ):
+        payload["owner_liveness_alignment"] = {
+            "applied": False,
+            "dispatch_field": "owner_blocking_state",
+            "cleanup_field": "cleanup_state",
+            "action_field": "recommended_operator_action",
+            "reason": "owner lease did not prove a live owner needing legacy-field alignment",
+        }
         return
 
     liveness_state = str(payload.get("liveness_state") or "")
@@ -2058,13 +2071,42 @@ def _align_owner_state_with_liveness(payload: dict[str, Any]) -> None:
             "active lane has current owner lease evidence but matched harness heartbeat is stale"
         )
     else:
+        payload["owner_liveness_alignment"] = {
+            "applied": False,
+            "dispatch_field": "owner_blocking_state",
+            "cleanup_field": "cleanup_state",
+            "action_field": "recommended_operator_action",
+            "reason": "legacy liveness_state already carries current heartbeat or process evidence",
+        }
         return
 
+    payload["owner_liveness_alignment"] = {
+        "applied": True,
+        "dispatch_field": "owner_blocking_state",
+        "dispatch_value": payload.get("owner_blocking_state"),
+        "cleanup_field": "cleanup_state",
+        "cleanup_value": payload.get("cleanup_state"),
+        "action_field": "recommended_operator_action",
+        "action_value": payload.get("recommended_operator_action"),
+        "legacy_liveness_state": liveness_state,
+        "lease_assessment": liveness.get("assessed"),
+        "reason": (
+            "dispatch/reassignment follows live owner lease evidence; mutation/cleanup "
+            "keeps conservative heartbeat-derived guidance"
+        ),
+    }
 
-def _info_with_aligned_owner_state(
+
+def owner_info_with_aligned_liveness(
     info: LaneOwnerInfo, liveness_payload: dict[str, Any] | None
 ) -> tuple[LaneOwnerInfo, dict[str, Any]]:
-    """Return display-ready owner fields after liveness alignment."""
+    """Return display-ready owner fields after liveness alignment.
+
+    Direct library consumers should use this helper after combining
+    ``build_owner_info`` with ``assess_owner_liveness``; otherwise they can
+    produce a raw merge that lacks the same precedence/alignment metadata as
+    the CLI JSON output.
+    """
 
     payload = dataclasses.asdict(info)
     if liveness_payload is not None:
@@ -2078,6 +2120,14 @@ def _info_with_aligned_owner_state(
         recommended_operator_action=payload["recommended_operator_action"],
     )
     return aligned_info, payload
+
+
+def _info_with_aligned_owner_state(
+    info: LaneOwnerInfo, liveness_payload: dict[str, Any] | None
+) -> tuple[LaneOwnerInfo, dict[str, Any]]:
+    """Compatibility wrapper for the public alignment helper."""
+
+    return owner_info_with_aligned_liveness(info, liveness_payload)
 
 
 # ---------------------------------------------------------------------------

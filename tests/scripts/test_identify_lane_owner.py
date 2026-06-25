@@ -2135,6 +2135,11 @@ class TestLivenessCLI:
         assert data["owner_liveness"]["lane_status"] == "in_progress"
         assert data["owner_liveness"]["lease_age_seconds"] == 7 * 3600
         assert data["owner_blocking_state"] == "stale_owner"
+        assert data["owner_liveness_precedence"] == (
+            "owner_blocking_state controls dispatch/reassignment; cleanup_state and "
+            "recommended_operator_action control mutation/cleanup"
+        )
+        assert data["owner_liveness_alignment"]["applied"] is False
         assert data["cleanup_state"] == "preserve_unverified_owner"
         assert data["stale_claim_advisory"]["available"] is True
         assert data["stale_claim_advisory"]["protocol"] == "stale-claim-override"
@@ -2208,6 +2213,21 @@ class TestLivenessCLI:
         assert data["owner_blocking_state"] == "live_owner"
         assert data["liveness_state"] == "missing_heartbeat"
         assert data["cleanup_state"] == "preserve_unverified_owner"
+        assert data["owner_liveness_alignment"] == {
+            "applied": True,
+            "dispatch_field": "owner_blocking_state",
+            "dispatch_value": "live_owner",
+            "cleanup_field": "cleanup_state",
+            "cleanup_value": "preserve_unverified_owner",
+            "action_field": "recommended_operator_action",
+            "action_value": "preserve; start or refresh agent heartbeat before cleanup decisions",
+            "legacy_liveness_state": "missing_heartbeat",
+            "lease_assessment": "live",
+            "reason": (
+                "dispatch/reassignment follows live owner lease evidence; mutation/cleanup "
+                "keeps conservative heartbeat-derived guidance"
+            ),
+        }
         assert data["owner_state_reason"] == (
             "active lane has current owner lease evidence but no matched harness heartbeat row"
         )
@@ -2240,6 +2260,9 @@ class TestLivenessCLI:
         assert data["owner_blocking_state"] == "live_owner"
         assert data["liveness_state"] == "missing_heartbeat"
         assert data["cleanup_state"] == "preserve_unverified_owner"
+        assert data["owner_liveness_alignment"]["applied"] is True
+        assert data["owner_liveness_alignment"]["dispatch_field"] == "owner_blocking_state"
+        assert data["owner_liveness_alignment"]["cleanup_field"] == "cleanup_state"
         assert data["owner_state_reason"] == (
             "active lane has current owner lease evidence but no matched harness heartbeat row"
         )
@@ -2271,6 +2294,9 @@ class TestLivenessCLI:
         assert data["owner_blocking_state"] == "live_owner"
         assert data["liveness_state"] == "stale_heartbeat"
         assert data["cleanup_state"] == "preserve_stale_owner"
+        assert data["owner_liveness_alignment"]["applied"] is True
+        assert data["owner_liveness_alignment"]["legacy_liveness_state"] == "stale_heartbeat"
+        assert data["owner_liveness_alignment"]["cleanup_value"] == "preserve_stale_owner"
         assert data["owner_state_reason"] == (
             "active lane has current owner lease evidence but matched harness heartbeat is stale"
         )
@@ -2306,6 +2332,44 @@ class TestLivenessCLI:
             "recommended_action: preserve; start or refresh agent heartbeat "
             "before cleanup decisions"
         ) in out
+
+    def test_direct_owner_liveness_helper_matches_cli_alignment(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        registry, runs_glob = self._stale_fixture(tmp_path)
+        lane = ilo.find_lane(ilo.load_lane_records(registry), lane_id="Q379-stale-owner")
+        assert lane is not None
+        info = ilo.build_owner_info(
+            lane,
+            sessions_root=tmp_path / "no_codex",
+            projects_root=tmp_path / "no_claude",
+            bg_path=tmp_path / "no_factory.json",
+            steering_inbox_root=tmp_path / "no_steering",
+            heartbeat_path=tmp_path / "no_heartbeats.json",
+        )
+        ledger_entry = ilo.find_lane_ledger_entry(lane, runs_glob=runs_glob)
+        liveness_payload = ilo.assess_owner_liveness(
+            lane,
+            ledger_entry=ledger_entry,
+            heartbeat=info.latest_heartbeat,
+            now=ilo._parse_iso_utc(LIVENESS_NOW),
+            stale_hours=8.0,
+        )
+
+        aligned_info, payload = ilo.owner_info_with_aligned_liveness(info, liveness_payload)
+
+        assert aligned_info.cleanup_state == "preserve_unverified_owner"
+        assert aligned_info.recommended_operator_action == (
+            "preserve; start or refresh agent heartbeat before cleanup decisions"
+        )
+        assert aligned_info.owner_state_reason == (
+            "active lane has current owner lease evidence but no matched harness heartbeat row"
+        )
+        assert payload["owner_blocking_state"] == "live_owner"
+        assert payload["owner_liveness_alignment"]["applied"] is True
+        assert payload["owner_liveness_alignment"]["dispatch_value"] == "live_owner"
+        assert payload["owner_liveness_alignment"]["cleanup_value"] == "preserve_unverified_owner"
+        capsys.readouterr()
 
     def test_no_liveness_output_is_byte_identical_to_legacy_schema(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
