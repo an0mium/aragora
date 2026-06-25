@@ -37,7 +37,10 @@ __all__ = [
     "VerifyResult",
     "verify",
     "compute_key_id",
+    "compute_mldsa_key_id",
     "load_public_key",
+    "load_mldsa_public_key",
+    "pqc_available",
     "VerificationError",
 ]
 
@@ -107,6 +110,30 @@ def _load_ed25519():  # noqa: ANN202 - lazy import keeps import errors actionabl
     return Ed25519PublicKey, serialization, InvalidSignature
 
 
+def _load_mldsa():  # noqa: ANN202 - lazy import keeps import errors actionable
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import mldsa
+    except ImportError as exc:  # pragma: no cover - environment-dependent
+        raise VerificationError(
+            "ML-DSA-65 signature verification requires `cryptography` >= 49 built "
+            "with ML-DSA support (the `mldsa` module); upgrade `cryptography` to "
+            "verify post-quantum ODR signatures"
+        ) from exc
+    return mldsa, serialization, InvalidSignature
+
+
+def pqc_available() -> bool:
+    """Whether this runtime exposes ML-DSA through ``cryptography``."""
+    try:
+        from cryptography.hazmat.primitives.asymmetric import mldsa  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 def load_public_key(data: bytes):  # noqa: ANN201
     """Load an Ed25519 public key from PEM, DER, raw 32 bytes, or base64/hex text."""
     Ed25519PublicKey, serialization, _ = _load_ed25519()
@@ -144,11 +171,50 @@ def load_public_key(data: bytes):  # noqa: ANN201
     return key
 
 
+def load_mldsa_public_key(data: bytes):  # noqa: ANN201
+    """Load an ML-DSA-65 public key from PEM, DER, raw 1952 bytes, or base64/hex text."""
+    mldsa, serialization, _ = _load_mldsa()
+    key = None
+    if b"-----BEGIN" in data:
+        try:
+            key = serialization.load_pem_public_key(data.strip())
+        except (ValueError, TypeError) as exc:
+            raise VerificationError("could not parse PEM ML-DSA public key") from exc
+    elif len(data) == 1952:
+        key = mldsa.MLDSA65PublicKey.from_public_bytes(data)
+    else:
+        as_str = data.decode("ascii", errors="ignore").strip()
+        for decoder in (_maybe_b64, _maybe_hex):
+            raw = decoder(as_str)
+            if raw is not None and len(raw) == 1952:
+                key = mldsa.MLDSA65PublicKey.from_public_bytes(raw)
+                break
+        if key is None:
+            try:
+                key = serialization.load_der_public_key(data)
+            except Exception as exc:  # noqa: BLE001
+                raise VerificationError(
+                    "could not parse ML-DSA public key (expected PEM/DER/raw/base64/hex)"
+                ) from exc
+    if not isinstance(key, mldsa.MLDSA65PublicKey):
+        raise VerificationError(
+            f"public key is not ML-DSA-65 (got {type(key).__name__}); "
+            "ODR post-quantum signatures use ML-DSA-65"
+        )
+    return key
+
+
 def compute_key_id(public_key) -> str:  # noqa: ANN001
     """``ed25519-`` + first 16 hex of SHA-256(raw public key) — the #8225 key id."""
     _, serialization, _ = _load_ed25519()
     raw = public_key.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
     return "ed25519-" + hashlib.sha256(raw).hexdigest()[:16]
+
+
+def compute_mldsa_key_id(public_key) -> str:  # noqa: ANN001
+    """``ml-dsa-65-`` + first 16 hex of SHA-256(raw ML-DSA public key)."""
+    raw = public_key.public_bytes_raw()
+    return "ml-dsa-65-" + hashlib.sha256(raw).hexdigest()[:16]
 
 
 def _maybe_b64(text: str) -> bytes | None:
@@ -176,12 +242,20 @@ def _decode_signature(value: str) -> bytes | None:
     return None
 
 
+def _decode_signature_bytes(value: str) -> bytes | None:
+    """Decode a raw signature with no Ed25519 length restriction."""
+    raw = _maybe_b64(value)
+    if raw is not None:
+        return raw
+    return _maybe_hex(value)
+
+
 # ---------------------------------------------------------------------------
 # Individual checks
 # ---------------------------------------------------------------------------
 
 
-def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check:  # noqa: ANN001
+def _check_signatures_ed25519(doc: dict[str, Any], digest_hex: str, public_key) -> Check:  # noqa: ANN001
     signatures = doc.get("signatures")
     signatures = signatures if isinstance(signatures, list) else []
     if not signatures and public_key is None:
@@ -229,6 +303,140 @@ def _check_signatures(doc: dict[str, Any], digest_hex: str, public_key) -> Check
         )
     if verified_any:
         return Check("signature", PASS, f"Ed25519 signature verified — {detail}")
+    return Check("signature", FAIL, f"no signature verified with the supplied key — {detail}")
+
+
+def _check_signatures(  # noqa: PLR0912, PLR0915
+    doc: dict[str, Any],
+    digest_hex: str,
+    public_key,  # noqa: ANN001
+    mldsa_public_key=None,  # noqa: ANN001
+) -> Check:
+    signatures = doc.get("signatures")
+    signatures = signatures if isinstance(signatures, list) else []
+    if all(
+        not isinstance(sig, dict) or str(sig.get("alg") or "Ed25519") == "Ed25519"
+        for sig in signatures
+    ):
+        return _check_signatures_ed25519(doc, digest_hex, public_key)
+
+    supplied_any = public_key is not None or mldsa_public_key is not None
+    if not signatures and not supplied_any:
+        return Check("signature", WARN, "receipt is unsigned (v0.1); authenticity not established")
+    if not signatures and supplied_any:
+        return Check(
+            "signature", WARN, "receipt carries no signatures; nothing to verify with the key"
+        )
+    if signatures and not supplied_any:
+        return Check(
+            "signature",
+            SKIP,
+            f"{len(signatures)} signature(s) present but no --pubkey/--mldsa-pubkey supplied; "
+            "authenticity NOT verified",
+        )
+
+    Ed25519InvalidSignature = None
+    if public_key is not None:
+        _, _, Ed25519InvalidSignature = _load_ed25519()
+    MLDSAInvalidSignature = None
+    if mldsa_public_key is not None:
+        _, _, MLDSAInvalidSignature = _load_mldsa()
+
+    message = bytes.fromhex(digest_hex)
+    provided_key_id = compute_key_id(public_key) if public_key is not None else None
+    provided_mldsa_key_id = (
+        compute_mldsa_key_id(mldsa_public_key) if mldsa_public_key is not None else None
+    )
+    verified_any = False
+    failed_matching: list[str] = []
+    seen_supplied_alg = {"Ed25519": False, "ML-DSA-65": False}
+    verified_supplied_alg = {"Ed25519": False, "ML-DSA-65": False}
+    skipped_any = False
+    notes: list[str] = []
+    for i, sig in enumerate(signatures):
+        if not isinstance(sig, dict):
+            continue
+        alg = str(sig.get("alg") or "")
+        key_id = str(sig.get("key_id") or "")
+        if alg == "Ed25519":
+            if public_key is None:
+                skipped_any = True
+                notes.append(
+                    f"sig[{i}] Ed25519 (key_id={key_id or '?'}): skipped (no --pubkey)"
+                )
+                continue
+            seen_supplied_alg["Ed25519"] = True
+            raw_sig = _decode_signature(str(sig.get("signature") or ""))
+            if raw_sig is None:
+                notes.append(f"sig[{i}] Ed25519 (key_id={key_id or '?'}): undecodable signature")
+                if key_id == provided_key_id:
+                    failed_matching.append(f"sig[{i}] Ed25519")
+                continue
+            try:
+                public_key.verify(raw_sig, message)
+                verified_any = True
+                verified_supplied_alg["Ed25519"] = True
+                notes.append(f"sig[{i}] Ed25519 (key_id={key_id or '?'}): verified")
+            except Ed25519InvalidSignature:  # type: ignore[misc]
+                notes.append(f"sig[{i}] Ed25519 (key_id={key_id or '?'}): INVALID")
+                if key_id == provided_key_id:
+                    failed_matching.append(f"sig[{i}] Ed25519")
+            continue
+        if alg == "ML-DSA-65":
+            if mldsa_public_key is None:
+                skipped_any = True
+                notes.append(
+                    f"sig[{i}] ML-DSA-65 (key_id={key_id or '?'}): skipped "
+                    "(no --mldsa-pubkey)"
+                )
+                continue
+            seen_supplied_alg["ML-DSA-65"] = True
+            raw_sig = _decode_signature_bytes(str(sig.get("signature") or ""))
+            if raw_sig is None:
+                notes.append(
+                    f"sig[{i}] ML-DSA-65 (key_id={key_id or '?'}): undecodable signature"
+                )
+                if key_id == provided_mldsa_key_id:
+                    failed_matching.append(f"sig[{i}] ML-DSA-65")
+                continue
+            try:
+                mldsa_public_key.verify(raw_sig, message)
+                verified_any = True
+                verified_supplied_alg["ML-DSA-65"] = True
+                notes.append(f"sig[{i}] ML-DSA-65 (key_id={key_id or '?'}): verified")
+            except MLDSAInvalidSignature:  # type: ignore[misc]
+                notes.append(f"sig[{i}] ML-DSA-65 (key_id={key_id or '?'}): INVALID")
+                if key_id == provided_mldsa_key_id:
+                    failed_matching.append(f"sig[{i}] ML-DSA-65")
+            continue
+        skipped_any = True
+        notes.append(f"sig[{i}] {alg or '?'} (key_id={key_id or '?'}): skipped (unsupported alg)")
+
+    detail = "; ".join(notes) or "no signatures evaluated"
+    if failed_matching:
+        return Check(
+            "signature",
+            FAIL,
+            f"signature from the supplied key did not verify ({', '.join(failed_matching)}) — "
+            f"{detail}",
+        )
+    missing_verified = [
+        alg
+        for alg, seen in seen_supplied_alg.items()
+        if seen and not verified_supplied_alg.get(alg, False)
+    ]
+    if missing_verified:
+        return Check(
+            "signature",
+            FAIL,
+            "no "
+            + "/".join(missing_verified)
+            + f" signature verified with the supplied key(s) — {detail}",
+        )
+    if verified_any:
+        return Check("signature", PASS, f"signature verified — {detail}")
+    if skipped_any:
+        return Check("signature", SKIP, f"no signature had a supplied verifier key — {detail}")
     return Check("signature", FAIL, f"no signature verified with the supplied key — {detail}")
 
 
@@ -364,10 +572,13 @@ def verify(
     doc: Any,
     *,
     public_key: Any | None = None,
+    mldsa_public_key: Any | None = None,
     chain: list[dict[str, Any]] | None = None,
 ) -> VerifyResult:
     """Verify an ODR document. ``public_key`` is a loaded Ed25519 key (see
-    :func:`load_public_key`); ``chain`` is a list of parsed JSONL chain entries.
+    :func:`load_public_key`); ``mldsa_public_key`` is a loaded ML-DSA-65 key
+    (see :func:`load_mldsa_public_key`); ``chain`` is a list of parsed JSONL
+    chain entries.
     """
     receipt_id = str(doc.get("receipt_id") or "") if isinstance(doc, dict) else ""
     checks: list[Check] = []
@@ -396,7 +607,7 @@ def verify(
         )
     checks.append(Check("canonical_digest", PASS, f"sha-256:{digest_hex}"))
 
-    checks.append(_check_signatures(doc, digest_hex, public_key))
+    checks.append(_check_signatures(doc, digest_hex, public_key, mldsa_public_key))
     checks.append(_check_quorum_consistency(doc))
     checks.append(_check_chain(doc, digest_hex, chain))
 
@@ -411,6 +622,7 @@ def verify_path(
     receipt_path: str,
     *,
     pubkey_path: str | None = None,
+    mldsa_pubkey_path: str | None = None,
     chain_path: str | None = None,
 ) -> VerifyResult:
     """Convenience wrapper that reads files from disk and calls :func:`verify`."""
@@ -420,6 +632,10 @@ def verify_path(
     if pubkey_path:
         with open(pubkey_path, "rb") as fh:
             public_key = load_public_key(fh.read())
+    mldsa_public_key = None
+    if mldsa_pubkey_path:
+        with open(mldsa_pubkey_path, "rb") as fh:
+            mldsa_public_key = load_mldsa_public_key(fh.read())
     chain: list[dict[str, Any]] | None = None
     if chain_path:
         chain = []
@@ -428,4 +644,4 @@ def verify_path(
                 line = line.strip()
                 if line:
                     chain.append(json.loads(line))
-    return verify(doc, public_key=public_key, chain=chain)
+    return verify(doc, public_key=public_key, mldsa_public_key=mldsa_public_key, chain=chain)

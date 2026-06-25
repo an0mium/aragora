@@ -21,7 +21,10 @@ from .verifier import (
     VerificationError,
     VerifyResult,
     compute_key_id,
+    compute_mldsa_key_id,
+    load_mldsa_public_key,
     load_public_key,
+    pqc_available,
     verify,
 )
 
@@ -31,7 +34,10 @@ __all__ = [
     "__version__",
     "verify",
     "load_public_key",
+    "load_mldsa_public_key",
     "compute_key_id",
+    "compute_mldsa_key_id",
+    "pqc_available",
     "validate_structure",
     "jcs_canonicalize",
     "odr_content_digest",

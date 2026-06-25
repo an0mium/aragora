@@ -1,6 +1,7 @@
 """``aragora-verify`` command-line interface.
 
-    aragora-verify receipt.json [--pubkey key.pem] [--chain chain.jsonl] [--json]
+    aragora-verify receipt.json [--pubkey key.pem] [--mldsa-pubkey key.pem]
+        [--chain chain.jsonl] [--json]
 
 Exit status: ``0`` when the receipt verifies (no failed checks and any present
 signatures were checked), ``1`` when any check fails, ``2`` for usage/input
@@ -58,8 +59,9 @@ def build_parser() -> argparse.ArgumentParser:
         prog="aragora-verify",
         description=(
             "Offline verifier for Open Decision Receipts (ODR v0.1): schema "
-            "conformance, JCS canonical digest, Ed25519 signature, hash-chain "
-            "link, and quorum consistency. No Aragora install or account required."
+            "conformance, JCS canonical digest, Ed25519/ML-DSA-65 signatures, "
+            "hash-chain link, and quorum consistency. No Aragora install or "
+            "account required."
         ),
     )
     parser.add_argument("receipt", help="path to the ODR receipt JSON")
@@ -67,6 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--pubkey",
         metavar="KEY",
         help="Ed25519 public key (PEM/DER/raw/base64/hex) to verify signatures with",
+    )
+    parser.add_argument(
+        "--mldsa-pubkey",
+        metavar="KEY",
+        help="ML-DSA-65 public key (PEM/DER/raw/base64/hex) to verify signatures with",
     )
     parser.add_argument(
         "--chain",
@@ -81,7 +88,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        result = verify_path(args.receipt, pubkey_path=args.pubkey, chain_path=args.chain)
+        result = verify_path(
+            args.receipt,
+            pubkey_path=args.pubkey,
+            mldsa_pubkey_path=args.mldsa_pubkey,
+            chain_path=args.chain,
+        )
     except FileNotFoundError as exc:
         print(f"error: file not found: {exc.filename}", file=sys.stderr)
         return 2
