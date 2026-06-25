@@ -45,6 +45,7 @@ DEFAULT_LANE_REGISTRY = Path(".aragora/agent-bridge/lanes.json")
 DEFAULT_STEERING_ROOT = Path(".aragora/operator-steering")
 DEFAULT_HEARTBEATS = Path(".aragora/agent-bridge/heartbeats.json")
 DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS = 1800
+DEFAULT_PR_BASE = "main"
 
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 ACTIVE_LANE_STATUSES = {
@@ -1007,7 +1008,12 @@ def github_evidence_for_branch(
             head = item.get("head") if isinstance(item.get("head"), Mapping) else {}
             base = item.get("base") if isinstance(item.get("base"), Mapping) else {}
             head_sha = str(head.get("sha") or item.get("head_sha") or item.get("headRefOid") or "")
-            base_ref = str(base.get("ref") or item.get("base_ref") or item.get("baseRefName") or "")
+            base_ref = str(
+                base.get("ref")
+                or item.get("base_ref")
+                or item.get("baseRefName")
+                or DEFAULT_PR_BASE
+            )
             if heads_match(desired_head, head_sha) and _base_matches(desired_base, base_ref):
                 exact_open_pr = {
                     "number": item.get("number"),
@@ -1294,6 +1300,8 @@ def desired_base_from_payload(payload: Mapping[str, Any]) -> str:
             base = str(requested_action.get(key) or "").strip()
             if base:
                 return base
+    if is_pr_publication_request(payload):
+        return DEFAULT_PR_BASE
     return ""
 
 
@@ -1399,15 +1407,19 @@ def target_pr_number_from_receipt(receipt: Mapping[str, Any]) -> int | None:
 def heads_match(expected: str, actual: str) -> bool:
     expected_value = str(expected or "").strip().lower()
     actual_value = str(actual or "").strip().lower()
-    expected_sha = _full_sha_or_none(expected_value)
-    actual_sha = _full_sha_or_none(actual_value)
-    if expected_sha is None or actual_sha is None:
+    if not _sha_prefix_is_usable(expected_value) or not _sha_prefix_is_usable(actual_value):
         return False
-    return expected_sha == actual_sha
+    if _full_sha_or_none(expected_value) and _full_sha_or_none(actual_value):
+        return expected_value == actual_value
+    return expected_value.startswith(actual_value) or actual_value.startswith(expected_value)
 
 
 def _full_sha_or_none(value: str) -> str | None:
     return value if re.fullmatch(r"[0-9a-f]{40}", value) else None
+
+
+def _sha_prefix_is_usable(value: str) -> bool:
+    return bool(re.fullmatch(r"[0-9a-f]{7,40}", value))
 
 
 def _remote_ref_matches(remote_ref: Mapping[str, Any] | None, desired_head: str) -> bool:
@@ -1642,7 +1654,9 @@ def _selected_outbox_files(outbox_dir: Path, outbox_file: str | Path | None) -> 
     try:
         path.relative_to(outbox_root)
     except ValueError:
-        return []
+        raise ValueError(f"outbox file must be inside {outbox_root}: {value}") from None
+    if not path.is_file():
+        raise FileNotFoundError(f"outbox file does not exist: {path}")
     return [path]
 
 

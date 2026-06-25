@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 import scripts.handoff_state as mod
 import scripts.classify_handoff_state as cli
 
@@ -331,6 +333,32 @@ def test_exact_open_pr_representation_requires_requested_base(tmp_path: Path) ->
     assert item["evidence"]["github"]["exact_open_pr"] is None
 
 
+def test_missing_base_defaults_to_main_for_exact_open_pr_representation(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(tmp_path, branch="codex/example")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": True,
+                    "html_url": "https://github.com/synaptent/aragora/pull/8570",
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "release"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["github"]["exact_open_pr"] is None
+
+
 def test_exact_open_pr_representation_honors_base_ref_name_alias(
     tmp_path: Path,
 ) -> None:
@@ -374,6 +402,31 @@ def test_exact_open_pr_representation_honors_target_head_sha_alias(
     payload["requested_action"].pop("desired_head_sha", None)
     payload["requested_action"].pop("head_sha", None)
     handoff.write_text(json.dumps(payload), encoding="utf-8")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": True,
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "main"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
+    assert item["evidence"]["github"]["exact_open_pr"]["number"] == 8570
+
+
+def test_exact_open_pr_representation_accepts_reconcile_sha_prefix(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(tmp_path, branch="codex/example", head=HEAD[:12])
     github = FakeGitHub(
         open_prs={
             "codex/example": [
@@ -835,6 +888,21 @@ def test_non_pr_remote_exact_head_does_not_hide_pr_lookup_degradation(
     assert item["state"] == mod.HandoffState.UNKNOWN.value
     assert item["evidence"]["github"]["mode"] == "degraded"
     assert item["safe_to_mutate"] is False
+
+
+def test_local_evidence_identical_sha_prefix_does_not_conflict(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        head=HEAD[:12],
+        local_evidence=[{"branch": "codex/example", "head_sha": HEAD[:12]}],
+    )
+
+    item = _classify_one(tmp_path, github=FakeGitHub())
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert "local_evidence" not in item["evidence"]
 
 
 def test_remote_exact_head_with_mismatched_open_pr_stays_publication_requested(
@@ -1516,13 +1584,13 @@ def test_steering_lane_hint_requires_exact_token(tmp_path: Path) -> None:
     assert evidence.pending_message_count == 0
 
 
-def test_heads_match_requires_exact_full_sha_when_either_side_is_full() -> None:
+def test_heads_match_accepts_reconcile_compatible_sha_prefix() -> None:
     full_sha = "abcdef1234567890abcdef1234567890abcdef12"
 
     assert mod.heads_match(full_sha, full_sha) is True
-    assert mod.heads_match("abcdef1", "abcdef1") is False
-    assert mod.heads_match("abcdef1", full_sha) is False
-    assert mod.heads_match(full_sha, "abcdef1") is False
+    assert mod.heads_match("abcdef1", "abcdef1") is True
+    assert mod.heads_match("abcdef1", full_sha) is True
+    assert mod.heads_match(full_sha, "abcdef1") is True
     assert mod.heads_match("abcdef", full_sha) is False
     assert mod.heads_match("abcdeff", full_sha) is False
 
@@ -1725,6 +1793,21 @@ def test_text_summary_only_omits_items(
     assert "items:" not in output
 
 
+def test_outbox_file_outside_outbox_fails_loudly(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="outbox file must be inside"):
+        mod.classify_handoffs(
+            repo_root=tmp_path,
+            state_root=tmp_path,
+            github_repo="synaptent/aragora",
+            outbox_file=outside,
+            github_client=FakeGitHub(),
+        )
+
+
 def test_cli_fail_on_unsafe_state_returns_nonzero_for_disabled_github(
     tmp_path: Path,
 ) -> None:
@@ -1880,7 +1963,8 @@ def test_selected_outbox_file_cannot_escape_outbox_dir(tmp_path: Path) -> None:
     outside = tmp_path / ".aragora" / "outside.json"
     outside.write_text("{}", encoding="utf-8")
 
-    assert mod._selected_outbox_files(outbox, "../outside.json") == []  # noqa: SLF001
+    with pytest.raises(ValueError, match="outbox file must be inside"):
+        mod._selected_outbox_files(outbox, "../outside.json")  # noqa: SLF001
 
 
 def test_update_pr_idempotency_key_is_pr_publication_request() -> None:
