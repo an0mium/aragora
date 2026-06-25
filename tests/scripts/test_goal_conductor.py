@@ -202,7 +202,7 @@ lanes:
 
     assert mod.main(["validate", "--mission", str(mission_path), "--json"]) == 0
     assert stream.writes
-    assert stream.closed is True
+    assert stream.closed is False
     assert mod.sys.stdout is not stream
     mod.sys.stdout.close()
 
@@ -230,7 +230,7 @@ def test_emit_output_suppresses_write_time_broken_pipe(
 
     mod._emit_output("payload")
 
-    assert stream.closed is True
+    assert stream.closed is False
     assert mod.sys.stdout is not stream
     mod.sys.stdout.close()
 

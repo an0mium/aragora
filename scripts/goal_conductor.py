@@ -35,6 +35,7 @@ PANEL_MODE = "panel"
 IMPLEMENTATION_MODES = {"implementation", "implement", "write"}
 REVIEW_MODES = {"review", "watch", "validator", PANEL_MODE}
 MUTATING_LANE_MODES = IMPLEMENTATION_MODES
+_MUTED_STDOUTS: list[Any] = []
 
 
 def _utc_now() -> str:
@@ -47,13 +48,13 @@ def _slug(value: str) -> str:
 
 
 def _mute_stdout_after_broken_pipe() -> None:
-    close = getattr(sys.stdout, "close", None)
-    if callable(close):
-        try:
-            close()
-        except OSError:
-            pass
-    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    try:
+        replacement = open(os.devnull, "w", encoding="utf-8")
+    except OSError:
+        return
+    # Keep the previous stream alive so broken-pipe cleanup cannot close fd 1.
+    _MUTED_STDOUTS.append(sys.stdout)
+    sys.stdout = replacement
 
 
 def _emit_output(output: str) -> None:
@@ -811,9 +812,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "snapshot":
         snapshot = conductor.snapshot()
-        _emit_output(
-            json.dumps(snapshot, indent=2) if args.json else json.dumps(snapshot, indent=2)
-        )
+        _emit_output(json.dumps(snapshot, indent=2))
         return 0
     if args.command == "loop":
         results = conductor.run_loop(
