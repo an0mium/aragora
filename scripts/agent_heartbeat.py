@@ -511,8 +511,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--lane-id", required=True)
     parser.add_argument("--owner-session", required=True)
-    parser.add_argument("--thread-id", default=os.environ.get("CODEX_THREAD_ID", ""))
-    parser.add_argument("--pid", type=int, default=os.getpid())
+    parser.add_argument("--thread-id", default=None)
+    parser.add_argument("--pid", type=int, default=None)
     parser.add_argument("--cwd", default=os.getcwd())
     parser.add_argument("--worktree", default="")
     parser.add_argument("--branch", default="")
@@ -554,7 +554,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        pid = args.pid
+        thread_id = args.thread_id
         if args.finalize:
+            # A finalizer commonly runs in its own short-lived process. Treat
+            # ambient process identity as non-identity unless the caller
+            # intentionally supplies --pid/--thread-id for a stricter match.
+            if thread_id is None:
+                thread_id = ""
             receipt_path = resolve_finalizer_receipt_path(
                 repo_root=args.repo_root,
                 explicit=args.finalizer_receipt_path,
@@ -569,8 +576,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 receipt_path=receipt_path,
                 lane_id=args.lane_id,
                 owner_session=args.owner_session,
-                thread_id=args.thread_id,
-                pid=args.pid,
+                thread_id=thread_id,
+                pid=pid,
                 cwd=args.cwd,
                 worktree=args.worktree,
                 branch=args.branch,
@@ -583,12 +590,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             heartbeat_path = resolve_heartbeat_path(
                 repo_root=args.repo_root, explicit=args.heartbeat_path
             )
+            if thread_id is None:
+                thread_id = os.environ.get("CODEX_THREAD_ID", "")
             row = record_heartbeat(
                 heartbeat_path=heartbeat_path,
                 lane_id=args.lane_id,
                 owner_session=args.owner_session,
-                thread_id=args.thread_id,
-                pid=args.pid,
+                thread_id=thread_id,
+                pid=pid if pid is not None else os.getpid(),
                 cwd=args.cwd,
                 worktree=args.worktree,
                 branch=args.branch,
