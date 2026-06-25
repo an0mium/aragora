@@ -2204,6 +2204,16 @@ class TestLivenessCLI:
         assert rc == 0
         data = json.loads(capsys.readouterr().out)
         assert data["owner_liveness"]["assessed"] == "live"
+        assert data["owner_liveness"]["stale_threshold_hours"] == 8.0
+        assert data["owner_blocking_state"] == "live_owner"
+        assert data["liveness_state"] == "missing_heartbeat"
+        assert data["cleanup_state"] == "preserve_live_owner"
+        assert data["owner_state_reason"] == (
+            "active lane has current owner lease evidence; no matched harness heartbeat row"
+        )
+        assert data["recommended_operator_action"] == (
+            "route work through owner_session; do not cleanup without owner release"
+        )
         assert data["stale_claim_advisory"] is None
 
     def test_live_lease_without_heartbeat_does_not_report_unverified_owner(
