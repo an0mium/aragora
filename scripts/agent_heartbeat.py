@@ -192,6 +192,25 @@ def _with_superseded_identity(
     return {**row, "superseded_thread_ids": unique}
 
 
+def _same_comparable_identity(existing: dict[str, Any], incoming: dict[str, Any]) -> bool:
+    """Return true only when all available non-thread identity fields agree."""
+
+    comparable = False
+    for key in ("pid", "cwd", "worktree", "branch", "pr_number"):
+        existing_value = existing.get(key)
+        incoming_value = incoming.get(key)
+        if existing_value is None or incoming_value is None:
+            continue
+        if isinstance(existing_value, str) and not existing_value:
+            continue
+        if isinstance(incoming_value, str) and not incoming_value:
+            continue
+        comparable = True
+        if existing_value != incoming_value:
+            return False
+    return comparable
+
+
 def _terminal_heartbeat_fields(
     receipt: dict[str, Any],
     *,
@@ -261,7 +280,7 @@ def _should_preserve_existing_heartbeat(
     if incoming_thread and incoming_thread in _superseded_thread_ids(existing):
         return True
     if existing_thread and not incoming_thread:
-        return True
+        return _same_comparable_identity(existing, incoming)
     if existing_thread and incoming_thread and existing_thread != incoming_thread:
         return False
 

@@ -37,6 +37,8 @@ if cmd[:2] == ["new-window", "-P"]:
     raise SystemExit(0)
 if cmd[:2] in (["new-session", "-d"], ["pipe-pane", "-t"], ["load-buffer", "-"]):
     raise SystemExit(0)
+if cmd[:2] == ["kill-window", "-t"]:
+    raise SystemExit(0)
 if cmd[:2] in (
     ["send-keys", "-t"],
     ["set-buffer", "-b"],
@@ -475,6 +477,9 @@ def test_tmux_session_launcher_allows_duplicate_name_with_terminal_heartbeat(
     )
 
     assert "Existing tmux window 'dupe-session' has terminal heartbeat state" in result.stderr
+    assert "Removed terminal tmux window before relaunch: dupe-session" in result.stderr
+    calls = _load_tmux_calls(env)
+    assert ["kill-window", "-t", "aragora:0"] in calls
     assert "Launched 'dupe-session'" in result.stdout
 
 

@@ -334,6 +334,71 @@ def test_stale_wrapper_heartbeat_does_not_overwrite_successor(
     assert payload[0]["superseded_thread_ids"] == ["wrapper-run-1"]
 
 
+def test_pidless_newer_heartbeat_replaces_threaded_wrapper_when_identity_differs(
+    tmp_path: Path,
+) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        thread_id="wrapper-run-1",
+        pid=34567,
+        cwd="/tmp/old-worktree",
+        branch="codex/old",
+        last_seen_at="2026-06-23T10:09:00Z",
+    )
+
+    row = heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        pid=45678,
+        cwd="/tmp/new-worktree",
+        branch="codex/new",
+        last_seen_at="2026-06-23T10:11:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert payload == [row]
+    assert "thread_id" not in payload[0]
+    assert payload[0]["pid"] == 45678
+    assert payload[0]["cwd"] == "/tmp/new-worktree"
+    assert payload[0]["branch"] == "codex/new"
+    assert payload[0]["superseded_thread_ids"] == ["wrapper-run-1"]
+
+
+def test_pidless_late_heartbeat_preserves_threaded_successor_when_identity_matches(
+    tmp_path: Path,
+) -> None:
+    heartbeat_path = tmp_path / "heartbeats.json"
+    successor = heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        thread_id="wrapper-run-2",
+        pid=45678,
+        cwd="/tmp/new-worktree",
+        branch="codex/new",
+        last_seen_at="2026-06-23T10:10:00Z",
+    )
+
+    stale = heartbeat.record_heartbeat(
+        heartbeat_path=heartbeat_path,
+        lane_id="Q612-heartbeat-finalizer",
+        owner_session="codex-Q612",
+        pid=45678,
+        cwd="/tmp/new-worktree",
+        branch="codex/new",
+        last_seen_at="2026-06-23T10:11:00Z",
+    )
+
+    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+    assert payload == [successor]
+    assert stale == successor
+    assert payload[0]["thread_id"] == "wrapper-run-2"
+
+
 def test_finalizer_ignores_newer_relaunch_identity(tmp_path: Path) -> None:
     heartbeat_path = tmp_path / "heartbeats.json"
     receipt_path = tmp_path / "finalizer-receipts.jsonl"

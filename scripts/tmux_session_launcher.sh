@@ -477,14 +477,16 @@ PY
         fi
         if [[ "${duplicate_is_terminal}" == "1" ]]; then
             echo "Existing tmux window '${NAME}' has terminal heartbeat state; allowing relaunch." >&2
+            tmux kill-window -t "${TMUX_SESSION}:${existing_window_id}"
+            echo "Removed terminal tmux window before relaunch: ${NAME}" >&2
         else
-        cat >&2 <<EOF
+            cat >&2 <<EOF
 Refusing duplicate tmux session name '${NAME}'.
 
 A live tmux window already uses this owner/session name. Use a unique --name, kill the
 old window intentionally, or pass --allow-overlap for an explicit manual override.
 EOF
-        exit 2
+            exit 2
         fi
     fi
 fi
