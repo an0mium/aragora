@@ -64,13 +64,6 @@ BLOCKING_LANE_STATUSES = {
     "blocked_on_publication",
     "waiting_for_steering",
 }
-LANE_TIMESTAMP_KEYS = (
-    "updated_at",
-    "last_heartbeat_at",
-    "last_seen_at",
-    "claimed_at",
-    "created_at",
-)
 PR_PUBLICATION_ACTIONS = {
     "open_pr",
     "open_pull_request",
@@ -776,7 +769,7 @@ def classify_handoff_item(
                 evidence=evidence,
                 next_mutation_candidate="owner_followup",
             )
-        if github.mode in {"degraded", "disabled"} and is_pr_publication_request(payload):
+        if github.mode in {"degraded", "disabled"}:
             return HandoffClassification(
                 outbox_file=path.name,
                 idempotency_key=idem,
@@ -798,6 +791,19 @@ def classify_handoff_item(
                     evidence=evidence,
                     next_mutation_candidate="queue_drain",
                 )
+            if _queue_cap_uncertain_for_publication(queue_cap):
+                return HandoffClassification(
+                    outbox_file=path.name,
+                    idempotency_key=idem,
+                    branch=branch,
+                    desired_head_sha=desired_head or None,
+                    state=HandoffState.UNKNOWN,
+                    reason=(
+                        "remote branch is exact but queue-cap evidence is stale or unavailable; "
+                        "cannot prove publication is safe"
+                    ),
+                    evidence=evidence,
+                )
             return HandoffClassification(
                 outbox_file=path.name,
                 idempotency_key=idem,
@@ -818,6 +824,19 @@ def classify_handoff_item(
                 reason="remote branch is exact but live cache reports open PR cap reached",
                 evidence=evidence,
                 next_mutation_candidate="queue_drain",
+            )
+        if _queue_cap_uncertain_for_publication(queue_cap) and is_pr_publication_request(payload):
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.UNKNOWN,
+                reason=(
+                    "remote branch is exact but queue-cap evidence is stale or unavailable; "
+                    "cannot prove publication is safe"
+                ),
+                evidence=evidence,
             )
         if is_pr_publication_request(payload):
             return HandoffClassification(
@@ -914,6 +933,17 @@ def classify_handoff_item(
             reason="publication requested but live cache reports open PR cap reached",
             evidence=evidence,
             next_mutation_candidate="queue_drain",
+        )
+
+    if _queue_cap_uncertain_for_publication(queue_cap) and is_pr_publication_request(payload):
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.UNKNOWN,
+            reason="publication requested but queue-cap evidence is stale or unavailable",
+            evidence=evidence,
         )
 
     if receipt_evidence.issue_only_pr_receipt:
@@ -1422,13 +1452,12 @@ def _owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
     return False
 
 
-def _live_owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
-    if owner.available is False:
+def _queue_cap_uncertain_for_publication(queue_cap: QueueCapEvidence) -> bool:
+    if queue_cap.available is not True:
         return True
-    if steering.blocking_message_count > 0:
+    if queue_cap.open_pr_cap_reached is None:
         return True
-    blocking = str(owner.owner_blocking_state or "").strip().lower()
-    return blocking in {"live_owner", "unknown_owner"}
+    return queue_cap.cache_stale is True or queue_cap.github_queue_available is False
 
 
 def _terminal_receipt_satisfied(receipt: ReceiptEvidence) -> bool:
@@ -1636,22 +1665,6 @@ def _lane_registry_blocking_reason(status: str, blocking_state: str | None) -> s
     if blocking_state == "unknown_owner":
         return "lane registry matched an owner without enough liveness proof"
     return f"lane registry owner_blocking_state={blocking_state}" if blocking_state else None
-
-
-def _lane_record_is_fresh(row: Mapping[str, Any], *, max_age_seconds: int = 3600) -> bool:
-    timestamp = _best_lane_timestamp(row)
-    if timestamp is None:
-        return False
-    return (datetime.now(UTC) - timestamp).total_seconds() <= max_age_seconds
-
-
-def _best_lane_timestamp(row: Mapping[str, Any]) -> datetime | None:
-    for key in LANE_TIMESTAMP_KEYS:
-        value = _first_text(row, key)
-        parsed = _parse_datetime(value)
-        if parsed is not None:
-            return parsed
-    return None
 
 
 def _best_lane_record(records: list[dict[str, Any]]) -> dict[str, Any]:

@@ -98,6 +98,12 @@ def _has_unsafe_state(payload: dict) -> bool:
             return True
         if item.get("state") in {"unknown", "preserved_not_actionable"}:
             return True
+        if (
+            item.get("state")
+            in {"represented_by_exact_open_pr", "represented_by_exact_remote_branch"}
+            and item.get("safe_to_mutate") is not True
+        ):
+            return True
         if item.get("next_mutation_candidate") != "none" and item.get("safe_to_mutate") is not True:
             return True
     return False

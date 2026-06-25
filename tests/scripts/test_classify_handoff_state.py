@@ -62,13 +62,14 @@ def _write_outbox(
     branch: str = "codex/example",
     head: str = HEAD,
     base: str | None = None,
+    action_type: str = "open_or_update_pr",
     local_evidence: list[dict[str, Any]] | None = None,
 ) -> Path:
     outbox = state_root / ".aragora" / "automation-outbox"
     outbox.mkdir(parents=True, exist_ok=True)
     path = outbox / f"{key}.json"
     requested_action = {
-        "type": "open_or_update_pr",
+        "type": action_type,
         "branch": branch,
         "desired_head_sha": head,
         "head_sha": head,
@@ -705,6 +706,20 @@ def test_stale_queue_cap_cache_preserves_raw_cap_block(tmp_path: Path) -> None:
     assert item["evidence"]["queue_cap"]["decision_source"] == "expired_cache"
 
 
+def test_stale_queue_cap_cache_with_raw_clear_fails_closed(tmp_path: Path) -> None:
+    stale = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+    _write_status_cache(tmp_path, open_pr_cap_reached=False, generated_at=stale)
+    _write_outbox(tmp_path, branch="codex/example")
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert item["reason"] == "publication requested but queue-cap evidence is stale or unavailable"
+    assert item["evidence"]["queue_cap"]["raw_open_pr_cap_reached"] is False
+    assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is None
+    assert item["evidence"]["queue_cap"]["cache_stale"] is True
+
+
 def test_unavailable_queue_cap_cache_preserves_raw_cap_block(tmp_path: Path) -> None:
     _write_status_cache(tmp_path, open_pr_cap_reached=True, available=False)
     _write_outbox(tmp_path, branch="codex/example")
@@ -716,6 +731,19 @@ def test_unavailable_queue_cap_cache_preserves_raw_cap_block(tmp_path: Path) -> 
     assert item["evidence"]["queue_cap"]["raw_open_pr_cap_reached"] is True
     assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is True
     assert item["evidence"]["queue_cap"]["decision_source"] == "github_queue_unavailable"
+
+
+def test_unavailable_queue_cap_cache_with_raw_clear_fails_closed(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False, available=False)
+    _write_outbox(tmp_path, branch="codex/example")
+
+    item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert item["reason"] == "publication requested but queue-cap evidence is stale or unavailable"
+    assert item["evidence"]["queue_cap"]["github_queue_available"] is False
+    assert item["evidence"]["queue_cap"]["raw_open_pr_cap_reached"] is False
+    assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is None
 
 
 def test_fresh_degraded_queue_cap_cache_blocks_with_rest_fallback_evidence(
@@ -790,6 +818,23 @@ def test_remote_exact_head_representation_survives_pr_lookup_degradation(
     assert item["state"] == mod.HandoffState.UNKNOWN.value
     assert item["evidence"]["github"]["mode"] == "degraded"
     assert item["evidence"]["github"]["remote_ref"]["sha"] == HEAD
+
+
+def test_non_pr_remote_exact_head_does_not_hide_pr_lookup_degradation(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(tmp_path, branch="codex/example", action_type="preserve_branch")
+    github = FakeGitHub(
+        refs={"codex/example": {"ref": "refs/heads/codex/example", "object": {"sha": HEAD}}},
+        errors={"pr:codex/example": "gh api failed (TimeoutExpired)"},
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert item["evidence"]["github"]["mode"] == "degraded"
+    assert item["safe_to_mutate"] is False
 
 
 def test_remote_exact_head_with_mismatched_open_pr_stays_publication_requested(
@@ -1739,6 +1784,21 @@ def test_cli_fail_on_unsafe_state_rejects_preserved_not_actionable() -> None:
         "items": [
             {
                 "state": "preserved_not_actionable",
+                "next_mutation_candidate": "none",
+                "safe_to_mutate": False,
+            }
+        ],
+    }
+
+    assert cli._has_unsafe_state(payload) is True  # noqa: SLF001
+
+
+def test_cli_fail_on_unsafe_state_rejects_non_mutatable_exact_draft_pr() -> None:
+    payload = {
+        "github": {"mode": "ready"},
+        "items": [
+            {
+                "state": "represented_by_exact_open_pr",
                 "next_mutation_candidate": "none",
                 "safe_to_mutate": False,
             }
