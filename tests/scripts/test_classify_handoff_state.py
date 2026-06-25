@@ -61,29 +61,33 @@ def _write_outbox(
     key: str = "open-pr-codex-example-aaaaaaaa",
     branch: str = "codex/example",
     head: str = HEAD,
+    base: str | None = None,
+    local_evidence: list[dict[str, Any]] | None = None,
 ) -> Path:
     outbox = state_root / ".aragora" / "automation-outbox"
     outbox.mkdir(parents=True, exist_ok=True)
     path = outbox / f"{key}.json"
-    path.write_text(
-        json.dumps(
-            {
-                "idempotency_key": key,
-                "requested_action": {
-                    "type": "open_or_update_pr",
-                    "branch": branch,
-                    "desired_head_sha": head,
-                    "head_sha": head,
-                },
-                "branch": branch,
-                "desired_head_sha": head,
-                "head_sha": head,
-                "repo": "synaptent/aragora",
-                "task": f"Open PR for {branch}",
-            }
-        ),
-        encoding="utf-8",
-    )
+    requested_action = {
+        "type": "open_or_update_pr",
+        "branch": branch,
+        "desired_head_sha": head,
+        "head_sha": head,
+    }
+    payload = {
+        "idempotency_key": key,
+        "requested_action": requested_action,
+        "branch": branch,
+        "desired_head_sha": head,
+        "head_sha": head,
+        "repo": "synaptent/aragora",
+        "task": f"Open PR for {branch}",
+    }
+    if base is not None:
+        requested_action["base"] = base
+        payload["base"] = base
+    if local_evidence is not None:
+        payload["local_evidence"] = local_evidence
+    path.write_text(json.dumps(payload), encoding="utf-8")
     return path
 
 
@@ -250,6 +254,30 @@ def test_exact_open_pr_representation_is_safe_without_owner_blockers(tmp_path: P
     assert item["safe_to_mutate"] is True
 
 
+def test_exact_open_pr_representation_requires_requested_base(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path, open_pr_cap_reached=False)
+    _write_outbox(tmp_path, branch="codex/example", base="main")
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": True,
+                    "html_url": "https://github.com/synaptent/aragora/pull/8570",
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "release"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["github"]["exact_open_pr"] is None
+
+
 def test_exact_open_pr_representation_blocks_when_owner_probe_unavailable(
     tmp_path: Path,
 ) -> None:
@@ -299,6 +327,36 @@ def test_issue_only_receipt_limbo_stays_publication_requested(tmp_path: Path) ->
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
     assert item["evidence"]["receipt"]["issue_only_pr_receipt"] is True
     assert "issue-only receipt" in item["reason"]
+
+
+def test_conflicting_local_evidence_records_fail_closed(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(
+        tmp_path,
+        branch="codex/example",
+        local_evidence=[
+            {"branch": "codex/example", "desired_head_sha": HEAD},
+            {"branch": "codex/example", "desired_head_sha": OTHER_HEAD},
+        ],
+    )
+    github = FakeGitHub(
+        open_prs={
+            "codex/example": [
+                {
+                    "number": 8570,
+                    "state": "open",
+                    "draft": True,
+                    "head": {"ref": "codex/example", "sha": HEAD},
+                    "base": {"ref": "main"},
+                }
+            ]
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.UNKNOWN.value
+    assert "multiple local_evidence records" in item["reason"]
 
 
 def test_terminal_receipts_choose_newest_by_timestamp_not_filename(tmp_path: Path) -> None:
@@ -602,6 +660,40 @@ def test_lane_registry_terminal_owner_does_not_block_by_default(
     assert item["evidence"]["owner"]["owner_blocking_state"] is None
 
 
+def test_lane_registry_active_without_liveness_proof_does_not_block_default_classifier(
+    tmp_path: Path,
+) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    lanes_path = tmp_path / ".aragora" / "agent-bridge" / "lanes.json"
+    lanes_path.parent.mkdir(parents=True, exist_ok=True)
+    lanes_path.write_text(
+        json.dumps(
+            [
+                {
+                    "lane_id": "Q1",
+                    "owner_session": "engineering-autopilot-Q1",
+                    "branch": "codex/example",
+                    "status": "active",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = mod.classify_handoffs(
+        repo_root=tmp_path,
+        state_root=tmp_path,
+        github_repo="synaptent/aragora",
+        outbox_file="open-pr-codex-example-aaaaaaaa.json",
+        github_client=FakeGitHub(),
+    )
+    item = payload["items"][0]
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["owner"]["owner_blocking_state"] is None
+
+
 def test_lane_registry_terminal_owner_with_available_advisory_does_not_block(
     tmp_path: Path,
 ) -> None:
@@ -740,10 +832,10 @@ def test_terminal_steering_receipt_consumes_blocking_effect(tmp_path: Path) -> N
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["evidence"]["steering"]["pending_message_count"] == 1
-    assert item["evidence"]["steering"]["resolved_message_count"] == 0
     assert item["evidence"]["steering"]["blocking_message_count"] == 1
     assert item["evidence"]["steering"]["latest_read_receipt"]["outcome"] == "completed"
-    assert item["evidence"]["steering"]["latest_message"]["resolved_by_read_receipt"] is False
+    assert "resolved_message_count" not in item["evidence"]["steering"]
+    assert "resolved_by_read_receipt" not in item["evidence"]["steering"]["latest_message"]
     assert "subject" not in item["evidence"]["steering"]["latest_message"]
     assert "body" not in item["evidence"]["steering"]["latest_message"]
     assert item["evidence"]["steering"]["latest_message"]["subject_present"] is True
@@ -760,7 +852,6 @@ def test_nonterminal_steering_receipt_still_blocks(tmp_path: Path) -> None:
 
     assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
     assert item["evidence"]["steering"]["pending_message_count"] == 1
-    assert item["evidence"]["steering"]["resolved_message_count"] == 0
     assert item["evidence"]["steering"]["blocking_message_count"] == 1
     assert item["evidence"]["steering"]["human_message_count"] == 0
     assert item["evidence"]["steering"]["latest_read_receipt"]["outcome"] == "blocked"
@@ -788,6 +879,31 @@ def test_steering_branch_match_does_not_use_substring(tmp_path: Path) -> None:
     )
 
     item = _classify_one(tmp_path)
+
+    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["evidence"]["steering"]["pending_message_count"] == 0
+
+
+def test_steering_to_session_requires_branch_or_lane_correlation(tmp_path: Path) -> None:
+    _write_status_cache(tmp_path)
+    _write_outbox(tmp_path, branch="codex/example")
+    _write_steering_message(
+        tmp_path,
+        branch="codex/other",
+        owner_session="engineering-autopilot-Q1",
+    )
+    owner = FakeOwnerProbe(
+        {
+            "codex/example": {
+                "lane_id": "Q1",
+                "owner_session": "engineering-autopilot-Q1",
+                "status": "released",
+                "stale_claim_advisory": {"available": True},
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, owner=owner)
 
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
     assert item["evidence"]["steering"]["pending_message_count"] == 0
@@ -918,6 +1034,23 @@ def test_narrow_rest_open_pr_query_paginates_exact_branch_results(tmp_path: Path
         "repos/synaptent/aragora/pulls?state=open&head=synaptent:codex%2Fexample&per_page=100&page=1",
         "repos/synaptent/aragora/pulls?state=open&head=synaptent:codex%2Fexample&per_page=100&page=2",
     ]
+
+
+def test_narrow_rest_open_pr_query_fails_closed_when_page_cap_reached(tmp_path: Path) -> None:
+    client = mod.NarrowGitHubClient(
+        repo_root=tmp_path,
+        github_repo="synaptent/aragora",
+    )
+
+    def capture_api(endpoint: str) -> tuple[Any | None, str | None]:
+        return [{"number": index} for index in range(100)], None
+
+    client._api = capture_api  # type: ignore[method-assign]
+
+    open_prs, error = client.open_prs_for_branch("codex/example")
+
+    assert open_prs is None
+    assert "page cap" in (error or "")
 
 
 def test_remote_ref_treats_structured_not_found_as_absent(tmp_path: Path) -> None:

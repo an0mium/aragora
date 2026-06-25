@@ -48,7 +48,6 @@ DEFAULT_QUEUE_CAP_CACHE_MAX_AGE_SECONDS = 1800
 
 TERMINAL_RECEIPT_STATUSES = {"published", "already_satisfied", "completed", "skipped"}
 ACTIVE_LANE_STATUSES = {"active", "blocked", "blocked_on_publication", "claimed"}
-TERMINAL_LANE_STATUSES = {"completed", "released", "superseded"}
 PR_PUBLICATION_ACTIONS = {
     "open_pr",
     "open_pull_request",
@@ -116,7 +115,6 @@ class SteeringEvidence:
     pending_message_count: int = 0
     blocking_message_count: int = 0
     human_message_count: int = 0
-    resolved_message_count: int = 0
     latest_message: dict[str, Any] | None = None
     latest_read_receipt: dict[str, Any] | None = None
 
@@ -201,7 +199,8 @@ class NarrowGitHubClient:
         per_page = 100
         items: list[dict[str, Any]] = []
         result: tuple[list[dict[str, Any]] | None, str | None]
-        for page in range(1, 6):
+        max_pages = 5
+        for page in range(1, max_pages + 1):
             endpoint = (
                 f"repos/{self.github_repo}/pulls?state=open&head={head}"
                 f"&per_page={per_page}&page={page}"
@@ -218,7 +217,10 @@ class NarrowGitHubClient:
                 result = (items, None)
                 break
         else:
-            result = (items, None)
+            result = (
+                None,
+                f"open PR REST page cap reached after {max_pages} pages for exact branch",
+            )
         self._pr_cache[branch] = result
         return result
 
@@ -354,14 +356,6 @@ class LaneRegistryOwnerProbe:
         row = _best_lane_record(candidates)
         status = str(row.get("status") or "").strip().lower()
         blocking_state = str(row.get("owner_blocking_state") or "").strip() or None
-        if blocking_state is None and status in ACTIVE_LANE_STATUSES:
-            blocking_state = "live_owner"
-        elif (
-            blocking_state is None
-            and row.get("owner_session")
-            and status not in TERMINAL_LANE_STATUSES
-        ):
-            blocking_state = "unknown_owner"
         evidence = owner_evidence_from_payload(row)
         evidence.status = status or evidence.status
         evidence.owner_blocking_state = evidence.owner_blocking_state or blocking_state
@@ -556,12 +550,28 @@ def classify_handoff_item(
     idem = str(payload.get("idempotency_key") or path.stem).strip() or path.stem
     branch = branch_from_payload(payload)
     desired_head = desired_head_from_payload(payload)
+    desired_base = desired_base_from_payload(payload)
     receipt_evidence = receipt_evidence_from_payload(receipt, payload)
 
     evidence: dict[str, Any] = {
         "receipt": dataclasses.asdict(receipt_evidence),
         "queue_cap": dataclasses.asdict(queue_cap),
     }
+    local_conflict_reason = local_evidence_conflict_reason(payload)
+    if local_conflict_reason is not None:
+        evidence["local_evidence"] = {
+            "record_count": len(_local_evidence_mappings(payload.get("local_evidence"))),
+            "conflict": local_conflict_reason,
+        }
+        return HandoffClassification(
+            outbox_file=path.name,
+            idempotency_key=idem,
+            branch=branch or None,
+            desired_head_sha=desired_head or None,
+            state=HandoffState.UNKNOWN,
+            reason=local_conflict_reason,
+            evidence=evidence,
+        )
     if not branch:
         return HandoffClassification(
             outbox_file=path.name,
@@ -573,7 +583,7 @@ def classify_handoff_item(
             evidence=evidence,
         )
 
-    github = github_evidence_for_branch(github_client, branch, desired_head)
+    github = github_evidence_for_branch(github_client, branch, desired_head, desired_base)
     evidence["github"] = dataclasses.asdict(github)
     owner = owner_probe.probe(branch) if branch else OwnerEvidence()
     evidence["owner"] = dataclasses.asdict(owner)
@@ -757,6 +767,7 @@ def github_evidence_for_branch(
     github_client: Any,
     branch: str,
     desired_head: str,
+    desired_base: str = "",
 ) -> GitHubEvidence:
     open_prs, pr_error = github_client.open_prs_for_branch(branch)
     ref, ref_error = github_client.remote_ref(branch)
@@ -765,14 +776,17 @@ def github_evidence_for_branch(
     if desired_head:
         for item in open_pr_items:
             head = item.get("head") if isinstance(item.get("head"), Mapping) else {}
+            base = item.get("base") if isinstance(item.get("base"), Mapping) else {}
             head_sha = str(head.get("sha") or item.get("head_sha") or item.get("headRefOid") or "")
-            if heads_match(desired_head, head_sha):
+            base_ref = str(base.get("ref") or item.get("base_ref") or item.get("baseRefName") or "")
+            if heads_match(desired_head, head_sha) and _base_matches(desired_base, base_ref):
                 exact_open_pr = {
                     "number": item.get("number"),
                     "state": item.get("state"),
                     "draft": item.get("draft"),
                     "head": head.get("ref") or item.get("head_ref"),
                     "head_sha": head_sha,
+                    "base": base_ref or None,
                     "html_url": item.get("html_url") or item.get("url"),
                 }
                 break
@@ -938,7 +952,12 @@ def steering_evidence_for_branch(
             continue
         to_session = str(payload.get("to_session") or "")
         lane_hint = str(payload.get("lane_id_hint") or "")
+        branch_conflict = _steering_mentions_other_branch(payload, branch)
+        if branch_conflict:
+            continue
         if owner_session and to_session == owner_session:
+            if lane_hint and lane_id and not _lane_hint_matches(lane_hint, lane_id):
+                continue
             pass
         elif lane_id and _lane_hint_matches(lane_hint, lane_id):
             pass
@@ -947,7 +966,6 @@ def steering_evidence_for_branch(
         else:
             continue
         receipt = latest_read_receipt_for_message(path)
-        resolved = _steering_message_resolved(receipt)
         human_detected = _looks_human(payload)
         matches.append(
             {
@@ -961,17 +979,11 @@ def steering_evidence_for_branch(
                 "sent_at_utc": payload.get("sent_at_utc"),
                 "from": payload.get("from"),
                 "latest_read_receipt": receipt,
-                "resolved_by_read_receipt": resolved,
             }
         )
-    unresolved = [m for m in matches if not m.get("resolved_by_read_receipt")]
-    blocking = [m for m in unresolved if m.get("priority") == "blocking"]
-    human = [m for m in unresolved if m.get("human_detected")]
-    latest = (
-        sorted(unresolved or matches, key=lambda m: str(m.get("sent_at_utc") or ""))[-1]
-        if matches
-        else None
-    )
+    blocking = [m for m in matches if m.get("priority") == "blocking"]
+    human = [m for m in matches if m.get("human_detected")]
+    latest = sorted(matches, key=lambda m: str(m.get("sent_at_utc") or ""))[-1] if matches else None
     receipts = [
         receipt
         for receipt in (m.get("latest_read_receipt") for m in matches)
@@ -984,7 +996,6 @@ def steering_evidence_for_branch(
         pending_message_count=len(matches),
         blocking_message_count=len(blocking),
         human_message_count=len(human),
-        resolved_message_count=len(matches) - len(unresolved),
         latest_message=latest,
         latest_read_receipt=latest_receipt,
     )
@@ -1026,6 +1037,73 @@ def desired_head_from_payload(payload: Mapping[str, Any]) -> str:
             if head:
                 return head
     return ""
+
+
+def desired_base_from_payload(payload: Mapping[str, Any]) -> str:
+    for local_evidence in _local_evidence_mappings(payload.get("local_evidence")):
+        for key in ("base", "base_ref", "target_base", "base_branch"):
+            base = str(local_evidence.get(key) or "").strip()
+            if base:
+                return base
+    for key in ("base", "base_ref", "target_base", "base_branch"):
+        base = str(payload.get(key) or "").strip()
+        if base:
+            return base
+    requested_action = _mapping_from_action(payload.get("requested_action"))
+    if requested_action is not None:
+        for key in ("base", "base_ref", "target_base", "base_branch"):
+            base = str(requested_action.get(key) or "").strip()
+            if base:
+                return base
+    return ""
+
+
+def local_evidence_conflict_reason(payload: Mapping[str, Any]) -> str | None:
+    records = _local_evidence_mappings(payload.get("local_evidence"))
+    if len(records) <= 1:
+        return None
+    branches = {
+        str(record.get("branch") or "").strip()
+        for record in records
+        if str(record.get("branch") or "").strip()
+    }
+    heads = {
+        str(
+            record.get("desired_head_sha")
+            or record.get("head_sha")
+            or record.get("head")
+            or record.get("commit")
+            or ""
+        ).strip()
+        for record in records
+        if str(
+            record.get("desired_head_sha")
+            or record.get("head_sha")
+            or record.get("head")
+            or record.get("commit")
+            or ""
+        ).strip()
+    }
+    bases = {
+        str(
+            record.get("base")
+            or record.get("base_ref")
+            or record.get("target_base")
+            or record.get("base_branch")
+            or ""
+        ).strip()
+        for record in records
+        if str(
+            record.get("base")
+            or record.get("base_ref")
+            or record.get("target_base")
+            or record.get("base_branch")
+            or ""
+        ).strip()
+    }
+    if len(branches) > 1 or len(heads) > 1 or len(bases) > 1:
+        return "multiple local_evidence records disagree on branch, head, or base"
+    return None
 
 
 def is_pr_publication_request(payload: Mapping[str, Any]) -> bool:
@@ -1108,6 +1186,13 @@ def _remote_ref_matches(remote_ref: Mapping[str, Any] | None, desired_head: str)
     return heads_match(desired_head, str(remote_ref.get("sha") or ""))
 
 
+def _base_matches(desired_base: str, actual_base: str) -> bool:
+    expected = str(desired_base or "").strip()
+    if not expected:
+        return True
+    return expected == str(actual_base or "").strip()
+
+
 def _possible_unpushed(owner: OwnerEvidence) -> bool:
     value = str(owner.advisory_withheld or "").strip().lower()
     return value == "possible_unpushed_work"
@@ -1131,9 +1216,6 @@ def _owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> bool:
         return True
     if steering.blocking_message_count > 0:
         return True
-    status = str(owner.status or "").strip().lower()
-    if status in {"active", "blocked", "blocked_on_publication", "claimed"}:
-        return True
     blocking = str(owner.owner_blocking_state or "").strip().lower()
     if blocking in {"live_owner", "stale_owner", "unknown_owner", "stale_terminal_owner"}:
         return True
@@ -1144,9 +1226,6 @@ def _live_owner_blocked(owner: OwnerEvidence, steering: SteeringEvidence) -> boo
     if owner.available is False:
         return True
     if steering.blocking_message_count > 0:
-        return True
-    status = str(owner.status or "").strip().lower()
-    if status in ACTIVE_LANE_STATUSES:
         return True
     blocking = str(owner.owner_blocking_state or "").strip().lower()
     return blocking in {"live_owner", "unknown_owner"}
@@ -1232,6 +1311,54 @@ def _steering_branch_matches(payload: Mapping[str, Any], branch: str) -> bool:
     return False
 
 
+def _steering_mentions_other_branch(payload: Mapping[str, Any], branch: str) -> bool:
+    tokens = _steering_branch_tokens(payload)
+    return bool(tokens and branch not in tokens)
+
+
+def _steering_branch_tokens(payload: Mapping[str, Any]) -> set[str]:
+    tokens: set[str] = set()
+    exact_keys = (
+        "branch",
+        "head_branch",
+        "target_branch",
+        "source_branch",
+        "base_branch",
+    )
+    text_keys = (
+        "subject",
+        "body",
+        "summary",
+        "requested_next_action",
+    )
+    for key in exact_keys:
+        value = str(payload.get(key) or "").strip()
+        if value:
+            tokens.add(value)
+    for key in ("branches", "branch_names"):
+        value = payload.get(key)
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            tokens.update(str(item).strip() for item in value if str(item).strip())
+    for key in text_keys:
+        tokens.update(_branch_tokens_from_text(str(payload.get(key) or "")))
+    for key in ("metadata", "context", "evidence"):
+        value = payload.get(key)
+        if not isinstance(value, Mapping):
+            continue
+        for nested_key in exact_keys:
+            nested = str(value.get(nested_key) or "").strip()
+            if nested:
+                tokens.add(nested)
+        for nested_key in text_keys:
+            tokens.update(_branch_tokens_from_text(str(value.get(nested_key) or "")))
+    return tokens
+
+
+def _branch_tokens_from_text(text: str) -> set[str]:
+    prefixes = "codex|claude|dependabot|feature|worktree|elves"
+    return set(re.findall(rf"\b(?:{prefixes})/[A-Za-z0-9._/-]+", text))
+
+
 def _text_contains_exact_branch(text: str, branch: str) -> bool:
     candidate = str(branch or "").strip()
     if not candidate:
@@ -1272,12 +1399,6 @@ def latest_read_receipt_for_message(message_path: Path) -> dict[str, Any] | None
     if not receipts:
         return None
     return sorted(receipts, key=lambda r: str(r.get("read_at_utc") or ""))[-1]
-
-
-def _steering_message_resolved(receipt: Mapping[str, Any] | None) -> bool:
-    # Read receipts are proof-of-read/outcome only. Until the top-level
-    # steering message is explicitly acknowledged or moved, it remains pending.
-    return False
 
 
 def _selected_outbox_files(outbox_dir: Path, outbox_file: str | Path | None) -> list[Path]:
