@@ -225,6 +225,22 @@ def test_automation_state_root_rejects_unregistered_same_origin_checkout(
         raise AssertionError("unregistered same-origin automation state root was accepted")
 
 
+def test_automation_state_root_accepts_same_origin_checkout_with_shared_head_object(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    repo = tmp_path / "repo"
+    shared = tmp_path / "shared-checkout"
+    _init_repo_with_origin(repo)
+    _init_repo_with_origin(shared, "git@github.com:synaptent/aragora.git")
+    (shared / ".aragora").mkdir()
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared))
+    monkeypatch.setattr(sentinel, "_registered_worktree_roots", lambda repo_root: {repo.resolve()})
+    monkeypatch.setattr(sentinel, "_shares_repo_head_object", lambda repo_root, candidate: True)
+
+    assert sentinel._automation_state_root(repo) == (shared / ".aragora").resolve()
+
+
 def test_automation_state_root_rejects_repo_subdirectory_bypass(
     tmp_path: Path,
     monkeypatch: Any,
@@ -1266,17 +1282,12 @@ def test_validate_gh_bin_accepts_absolute_gh_executable(tmp_path: Path) -> None:
     assert sentinel._validate_gh_bin(str(gh)) == str(gh.resolve())
 
 
-def test_validate_gh_bin_rejects_absolute_non_gh_wrapper(tmp_path: Path) -> None:
+def test_validate_gh_bin_accepts_absolute_executable_wrapper(tmp_path: Path) -> None:
     wrapper = tmp_path / "gh-wrapper"
     wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     wrapper.chmod(0o755)
 
-    try:
-        sentinel._validate_gh_bin(str(wrapper))
-    except ValueError as exc:
-        assert "must point to a gh executable" in str(exc)
-    else:
-        raise AssertionError("absolute non-gh wrapper was accepted")
+    assert sentinel._validate_gh_bin(str(wrapper)) == str(wrapper.resolve())
 
 
 def test_stale_terminal_owner_rejects_invalid_repo_before_fetch(tmp_path: Path) -> None:

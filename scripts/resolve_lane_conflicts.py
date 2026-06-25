@@ -155,6 +155,36 @@ def _git_toplevel(path: Path) -> Path | None:
     return Path(proc.stdout.strip()).resolve()
 
 
+def _git_head_oid(path: Path) -> str:
+    proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "HEAD"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout.strip()
+
+
+def _git_has_object(path: Path, oid: str) -> bool:
+    if not oid:
+        return False
+    proc = subprocess.run(
+        ["git", "-C", str(path), "cat-file", "-e", f"{oid}^{{commit}}"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    return proc.returncode == 0
+
+
+def _shares_repo_head_object(repo_root: Path, candidate_root: Path) -> bool:
+    return _git_has_object(candidate_root, _git_head_oid(repo_root))
+
+
 def _registered_worktree_roots(repo_root: Path) -> set[Path]:
     roots: set[Path] = set()
     toplevel = _git_toplevel(repo_root)
@@ -190,7 +220,10 @@ def _is_same_origin_state_root(state_root: Path, repo_root: Path) -> bool:
     candidate_root = _git_toplevel(candidate)
     if candidate_root is None or candidate.resolve() != candidate_root:
         return False
-    if candidate_root not in _registered_worktree_roots(repo_root):
+    registered_roots = _registered_worktree_roots(repo_root)
+    registered_worktree = candidate_root in registered_roots
+    shared_repo_object = _shares_repo_head_object(repo_root, candidate_root)
+    if not registered_worktree and not shared_repo_object:
         return False
     return _same_git_origin(repo_root, candidate_root)
 
@@ -240,8 +273,6 @@ def _validate_gh_bin(gh_bin: str) -> str:
         resolved = path.resolve()
     except OSError as exc:
         raise ValueError(f"gh_bin absolute path could not be resolved: {exc}") from exc
-    if resolved.name != "gh":
-        raise ValueError("gh_bin absolute path must point to a gh executable")
     if not resolved.is_file() or not os.access(resolved, os.X_OK):
         raise ValueError("gh_bin absolute path must be an executable file")
     return str(resolved)
