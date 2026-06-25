@@ -121,9 +121,14 @@ def test_prose_only_merge_blocking_dissent_still_blocks(body):
     "body",
     [
         "No sql injection found.",
+        "Verdict: PASS\nNo sql injection found.",
         "No SQL injection or auth bypass found.",
+        "Verdict: PASS\nNo authentication bypass found.",
+        "Verdict: PASS\nNo security hole found.",
         "I reviewed sql injection tests.",
         "Reviewed auth bypass tests.",
+        "Added sql injection regression tests.",
+        "Discussed sql injection risks; none found.",
         "SQL injection coverage is adequate.",
         "Authentication bypass tests passed.",
         "No authentication bypass",
@@ -264,6 +269,10 @@ def test_newline_split_blocking_phrase_still_blocks():
     assert has_blocking_or_negative_verdict("Verdict: PASS\nDo not\nmerge.")
 
 
+def test_three_line_split_blocking_phrase_still_blocks():
+    assert has_blocking_or_negative_verdict("Verdict: PASS\nDo\nnot\nmerge.")
+
+
 @pytest.mark.parametrize(
     "body",
     [
@@ -299,6 +308,10 @@ def test_reasoning_tags_do_not_fragment_unlabeled_soft_dissent_phrase():
 
 def test_newline_split_unlabeled_soft_dissent_phrase_blocks():
     assert has_unlabeled_soft_dissent_phrase("Pass\nwith notes.")
+
+
+def test_three_line_split_unlabeled_soft_dissent_phrase_blocks():
+    assert has_unlabeled_soft_dissent_phrase("Pass\nwith\nnotes.")
 
 
 @pytest.mark.parametrize(

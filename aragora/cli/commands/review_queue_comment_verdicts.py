@@ -107,6 +107,29 @@ _BENIGN_REVIEWED_PHRASE_TAIL_RE = re.compile(
     r"(?:tests?|coverage|regressions?|fixtures?|guardrails?|cases?)\b",
     re.I,
 )
+_BENIGN_SUPPORTIVE_NO_SECURITY_FINDING_PREFIX_RE = re.compile(
+    r"(?:^|[.;:!?]\s*)"
+    r"(?:(?:verdict|decision|recommendation)\s*:\s*)?"
+    r"(?:(?:pass(?:ed)?|approve(?:d)?|accept(?:ed)?|clean|green|looks\s+good|"
+    r"lgtm|ready|support(?:ive|ed)?)\s+)?"
+    r"no(?:\s+(?:known|remaining|actual))?$",
+    re.I,
+)
+_BENIGN_SECURITY_TEST_TAIL_RE = re.compile(
+    r"^[\s.,;:!?)\]—–-]*"
+    r"(?:regression\s+)?(?:tests?|coverage|regressions?|fixtures?|guardrails?|cases?)\b"
+    r"[\s.,;:!?)\]—–-]*$",
+    re.I,
+)
+_BENIGN_SECURITY_DISCUSSION_TAIL_RE = re.compile(
+    r"^[\s.,;:!?)\]—–-]*"
+    r"(?:(?:risks?|concerns?|issues?|findings?)\s*)?"
+    r"(?:[;:,.!?]\s*)?"
+    r"(?:none|no\s+(?:issues?|findings?|blockers?|concerns?|problems?))"
+    r"(?:\s+(?:found|identified|noted|detected|seen|present|observed|remaining))?"
+    r"[\s.,;:!?)\]—–-]*$",
+    re.I,
+)
 _BENIGN_SECURITY_RESOLUTION_PREFIX_RE = re.compile(
     r"(?:^|[.;:!?]\s*)"
     r"(?:(?:(?:this|the|that)\s+(?:pr|diff|change|patch|branch|commit)\s+|"
@@ -394,7 +417,7 @@ def _phrase_scan_candidate_lines(text: str) -> list[str]:
         lines = [line.strip() for line in scan_text.splitlines()]
         non_empty = [(idx, line) for idx, line in enumerate(lines) if line]
         for pos, (_, line) in enumerate(non_empty):
-            for candidate in (line, _joined_phrase_candidate(non_empty, pos, max_parts=2)):
+            for candidate in (line, _joined_phrase_candidate(non_empty, pos, max_parts=4)):
                 if candidate and candidate not in seen:
                     seen.add(candidate)
                     candidates.append(candidate)
@@ -497,10 +520,14 @@ def _blocking_dissent_phrase_match_is_benign(value: str, match: re.Match[str]) -
     compound_security = _COMPOUND_SECURITY_NO_FINDING_RE.match(value)
     if compound_security:
         return bool(_BENIGN_BLOCKING_PHRASE_TAIL_RE.match(compound_security.group("tail")))
-    if re.search(r"(?:^|[.;:!?]\s*)no(?:\s+(?:known|remaining|actual))?$", prefix):
+    if _BENIGN_SUPPORTIVE_NO_SECURITY_FINDING_PREFIX_RE.search(prefix):
         return bool(_BENIGN_BLOCKING_PHRASE_TAIL_RE.match(suffix))
     if re.search(r"(?:^|[.;:!?]\s*)(?:i\s+)?reviewed(?:\s+the)?$", prefix):
         return bool(_BENIGN_REVIEWED_PHRASE_TAIL_RE.match(suffix))
+    if re.search(r"(?:^|[.;:!?]\s*)add(?:s|ed)?$", prefix):
+        return bool(_BENIGN_SECURITY_TEST_TAIL_RE.match(suffix))
+    if re.search(r"(?:^|[.;:!?]\s*)(?:discuss(?:ed|es)?|review(?:ed|s)?)$", prefix):
+        return bool(_BENIGN_SECURITY_DISCUSSION_TAIL_RE.match(suffix))
     if _BENIGN_SECURITY_RESOLUTION_PREFIX_RE.search(prefix):
         return bool(
             _NO_FINDING_TAIL.fullmatch(suffix)
@@ -586,6 +613,8 @@ def _has_blocking_dissent_phrase_for_scan(text: str) -> bool:
     in_fence = False
     fence_marker = ""
     raw_lines = _split_reasoning_tags_for_phrase_scan(text).splitlines()
+    non_empty = [(idx, line.strip()) for idx, line in enumerate(raw_lines) if line.strip()]
+    non_empty_pos_by_idx = {idx: pos for pos, (idx, _) in enumerate(non_empty)}
     for idx, raw_line in enumerate(raw_lines):
         stripped = raw_line.strip()
         if not stripped:
@@ -601,9 +630,9 @@ def _has_blocking_dissent_phrase_for_scan(text: str) -> bool:
                 fence_marker = ""
             continue
         candidates = [stripped]
-        next_line = raw_lines[idx + 1].strip() if idx + 1 < len(raw_lines) else ""
-        if next_line and not next_line.startswith(("```", "~~~")):
-            candidates.append(f"{stripped} {next_line}")
+        joined = _joined_phrase_candidate(non_empty, non_empty_pos_by_idx[idx], max_parts=4)
+        if joined:
+            candidates.append(joined)
         if _has_blocking_dissent_phrase_for_candidates(candidates, raw_line, in_fence=in_fence):
             return True
     return False
