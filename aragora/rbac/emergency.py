@@ -142,18 +142,26 @@ class EmergencyAccessRecord:
     @classmethod
     def from_storage_dict(cls, data: dict[str, Any]) -> EmergencyAccessRecord:
         """Reconstruct from storage dictionary."""
-        # Parse timestamps
-        activated_at = data.get("activated_at")
-        if isinstance(activated_at, str):
-            activated_at = datetime.fromisoformat(activated_at.replace("Z", "+00:00"))
 
-        expires_at = data.get("expires_at")
-        if isinstance(expires_at, str):
-            expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        def _parse_required_datetime(value: Any, field: str) -> datetime:
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            raise ValueError(f"Invalid emergency access timestamp: {field}")
 
-        deactivated_at = data.get("deactivated_at")
-        if isinstance(deactivated_at, str):
-            deactivated_at = datetime.fromisoformat(deactivated_at.replace("Z", "+00:00"))
+        def _parse_optional_datetime(value: Any) -> datetime | None:
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            raise ValueError("Invalid emergency access timestamp: deactivated_at")
+
+        activated_at = _parse_required_datetime(data.get("activated_at"), "activated_at")
+        expires_at = _parse_required_datetime(data.get("expires_at"), "expires_at")
+        deactivated_at = _parse_optional_datetime(data.get("deactivated_at"))
 
         # Parse status
         status = data.get("status", "active")
