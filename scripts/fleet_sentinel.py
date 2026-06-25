@@ -42,6 +42,7 @@ from datetime import datetime, timezone
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlparse
 
 CheckResult = dict[str, Any]
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -140,14 +141,79 @@ def _git_origin(path: Path) -> str:
         stderr=subprocess.PIPE,
         check=False,
     )
+    if proc.returncode == 0 and proc.stdout.strip():
+        return proc.stdout.strip()
+    proc = subprocess.run(
+        ["git", "-C", str(path), "config", "--get-regexp", r"^remote\..*\.url$"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
     if proc.returncode != 0:
         return ""
-    return proc.stdout.strip()
+    for line in proc.stdout.splitlines():
+        _key, _sep, value = line.partition(" ")
+        if value.strip():
+            return value.strip()
+    return ""
+
+
+def _canonical_git_url(url: str) -> str:
+    value = url.strip().rstrip("/")
+    if not value:
+        return ""
+    if "://" not in value and ":" in value and "@" in value.split(":", 1)[0]:
+        host_part, path_part = value.split(":", 1)
+        host = host_part.rsplit("@", 1)[-1]
+        path = path_part
+    else:
+        parsed = urlparse(value)
+        host = parsed.hostname or ""
+        path = parsed.path.lstrip("/") if parsed.scheme else value
+    path = path.rstrip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    return f"{host.lower()}/{path.lower()}" if host else path.lower()
+
+
+def _git_toplevel(path: Path) -> Path | None:
+    proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    return Path(proc.stdout.strip()).resolve()
+
+
+def _registered_worktree_roots(repo_root: Path) -> set[Path]:
+    roots: set[Path] = set()
+    toplevel = _git_toplevel(repo_root)
+    if toplevel is not None:
+        roots.add(toplevel)
+    proc = subprocess.run(
+        ["git", "-C", str(repo_root), "worktree", "list", "--porcelain"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return roots
+    for line in proc.stdout.splitlines():
+        if line.startswith("worktree "):
+            roots.add(Path(line.removeprefix("worktree ")).resolve())
+    return roots
 
 
 def _same_git_origin(left: Path, right: Path) -> bool:
-    left_origin = _git_origin(left)
-    return bool(left_origin) and left_origin == _git_origin(right)
+    left_origin = _canonical_git_url(_git_origin(left))
+    right_origin = _canonical_git_url(_git_origin(right))
+    return bool(left_origin) and left_origin == right_origin
 
 
 def _state_root_repo_candidate(state_root: Path) -> Path:
@@ -155,7 +221,13 @@ def _state_root_repo_candidate(state_root: Path) -> Path:
 
 
 def _is_same_origin_state_root(state_root: Path, repo_root: Path) -> bool:
-    return _same_git_origin(repo_root, _state_root_repo_candidate(state_root))
+    candidate = _state_root_repo_candidate(state_root)
+    candidate_root = _git_toplevel(candidate)
+    if candidate_root is None or candidate.resolve() != candidate_root:
+        return False
+    if candidate_root not in _registered_worktree_roots(repo_root):
+        return False
+    return _same_git_origin(repo_root, candidate_root)
 
 
 def _trusted_automation_state_roots(repo_root: Path) -> set[Path]:
@@ -219,7 +291,12 @@ def _validate_gh_bin(gh_bin: str) -> str:
     path = Path(value).expanduser()
     if not path.is_absolute():
         raise ValueError("gh_bin must be 'gh' or an absolute executable path")
-    resolved = path.resolve()
+    try:
+        resolved = path.resolve()
+    except OSError as exc:
+        raise ValueError(f"gh_bin absolute path could not be resolved: {exc}") from exc
+    if resolved.name != "gh":
+        raise ValueError("gh_bin absolute path must point to a gh executable")
     if not resolved.is_file() or not os.access(resolved, os.X_OK):
         raise ValueError("gh_bin absolute path must be an executable file")
     return str(resolved)
