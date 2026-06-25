@@ -2021,6 +2021,49 @@ def test_landed_branch_archives_without_github_lookup(
     )
 
 
+def test_landed_branch_keeps_when_requested_base_differs_from_reconciler_base(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    outbox_dir = tmp_path / ".aragora" / "automation-outbox"
+    key = "open-pr-codex-feature-base-landed-abc123"
+    branch = "codex/feature-base-landed"
+    handoff = _write_outbox_handoff(outbox_dir, branch=branch, key=key)
+    payload = json.loads(handoff.read_text(encoding="utf-8"))
+    payload["requested_action"] = {
+        "type": "open_pr",
+        "branch": branch,
+        "base": "codex/feature-integration",
+    }
+    handoff.write_text(json.dumps(payload), encoding="utf-8")
+
+    def fake_run_git(
+        args: list[str],
+        _root: Path,
+        *,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        if args[:2] == ["rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="abc123\n")
+        if args[:2] == ["merge-base", "--is-ancestor"]:
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+        raise AssertionError(f"unexpected git call: {args}")
+
+    monkeypatch.setattr(mod, "run_git", fake_run_git)
+    monkeypatch.setattr(mod, "check_github_cli_health", lambda _root: _ready_github())
+    monkeypatch.setattr(mod, "open_pr_heads", lambda *_args: {})
+
+    assert mod.main(["--repo", str(tmp_path), "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["counts"]["satisfied_by_landed_on_main"] == 0
+    assert result["counts"]["still_protecting_active_work"] == 1
+    assert result["actions"][0]["decision"] == "keep"
+    assert "actively protecting" in result["actions"][0]["reason"]
+    assert handoff.exists()
+
+
 def test_patch_equivalent_target_pr_receipt_archives_before_remote_check(
     tmp_path: Path,
     monkeypatch: Any,

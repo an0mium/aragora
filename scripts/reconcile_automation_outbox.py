@@ -352,6 +352,11 @@ def _requested_base_from_payload(payload: Mapping[str, Any]) -> str:
     return ""
 
 
+def _handoff_base_matches_reconciler(payload: Mapping[str, Any], base: str) -> bool:
+    expected_base = _requested_base_from_payload(payload) or base
+    return _normalize_base_ref(expected_base) == _normalize_base_ref(base)
+
+
 def _upstream_base_matches(upstream: Mapping[str, Any], expected_base: str) -> bool:
     expected = _normalize_base_ref(expected_base)
     for key in ("base_ref", "base_ref_name", "baseRefName", "base"):
@@ -396,7 +401,7 @@ def _merged_pr_commit_preservation_proof(
     if not _is_pr_publication_request(payload):
         return None
     expected_base = _requested_base_from_payload(payload) or base
-    if _normalize_base_ref(expected_base) != _normalize_base_ref(base):
+    if not _handoff_base_matches_reconciler(payload, base):
         # Archive authority is scoped to the reconciler base. Integration-branch
         # handoffs must be reconciled with their matching --base instead of
         # being archived from an origin/main pass.
@@ -1588,7 +1593,9 @@ def main(argv: list[str] | None = None) -> int:
                 if args.apply:
                     shutil.move(str(path), str(archive_dir / path.name))
                 continue
-            if _branch_has_landed_on_main(root, args.base, branch):
+            if _handoff_base_matches_reconciler(payload, args.base) and _branch_has_landed_on_main(
+                root, args.base, branch
+            ):
                 counts["satisfied_by_landed_on_main"] += 1
                 actions.append(
                     {
@@ -1737,7 +1744,9 @@ def main(argv: list[str] | None = None) -> int:
                 shutil.move(str(path), str(archive_dir / path.name))
             continue
 
-        if _branch_has_landed_on_main(root, args.base, branch):
+        if _handoff_base_matches_reconciler(payload, args.base) and _branch_has_landed_on_main(
+            root, args.base, branch
+        ):
             counts["satisfied_by_landed_on_main"] += 1
             actions.append(
                 {
