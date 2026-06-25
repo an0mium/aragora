@@ -142,7 +142,6 @@ class EmergencyAccessRecord:
     @classmethod
     def from_storage_dict(cls, data: dict[str, Any]) -> EmergencyAccessRecord:
         """Reconstruct from storage dictionary."""
-
         # Parse timestamps
         activated_at = data.get("activated_at")
         if isinstance(activated_at, str):
