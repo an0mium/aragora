@@ -255,7 +255,7 @@ def test_merged_pr_audit_blocks_untrusted_default_safety_paths(
     assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in payload["error"]
 
 
-def test_automation_state_root_accepts_same_origin_checkout(
+def test_automation_state_root_accepts_registered_worktree_checkout(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
@@ -274,7 +274,7 @@ def test_automation_state_root_accepts_same_origin_checkout(
     assert resolver._automation_state_root(repo) == (shared / ".aragora").resolve()
 
 
-def test_automation_state_root_accepts_unregistered_same_origin_checkout(
+def test_automation_state_root_rejects_unregistered_same_origin_checkout(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
@@ -290,7 +290,13 @@ def test_automation_state_root_accepts_unregistered_same_origin_checkout(
         lambda repo_root=resolver.DEFAULT_REPO_ROOT: {repo.resolve()},
     )
 
-    assert resolver._automation_state_root(repo) == (shared / ".aragora").resolve()
+    try:
+        resolver._automation_state_root(repo)
+    except ValueError as exc:
+        assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in str(exc)
+        assert "registered worktree" in str(exc)
+    else:
+        raise AssertionError("unregistered same-origin automation state root was accepted")
 
 
 def test_automation_state_root_rejects_different_origin_checkout(

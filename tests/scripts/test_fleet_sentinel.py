@@ -186,7 +186,7 @@ def test_stale_terminal_owner_defaults_use_automation_state_root(
     )
 
 
-def test_automation_state_root_accepts_same_origin_checkout(
+def test_automation_state_root_accepts_registered_worktree_checkout(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
@@ -205,7 +205,7 @@ def test_automation_state_root_accepts_same_origin_checkout(
     assert sentinel._automation_state_root(repo) == (shared / ".aragora").resolve()
 
 
-def test_automation_state_root_accepts_unregistered_same_origin_checkout(
+def test_automation_state_root_rejects_unregistered_same_origin_checkout(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
@@ -217,7 +217,13 @@ def test_automation_state_root_accepts_unregistered_same_origin_checkout(
     monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(shared))
     monkeypatch.setattr(sentinel, "_registered_worktree_roots", lambda repo_root: {repo.resolve()})
 
-    assert sentinel._automation_state_root(repo) == (shared / ".aragora").resolve()
+    try:
+        sentinel._automation_state_root(repo)
+    except ValueError as exc:
+        assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in str(exc)
+        assert "registered worktree" in str(exc)
+    else:
+        raise AssertionError("unregistered same-origin automation state root was accepted")
 
 
 def test_automation_state_root_rejects_different_origin_checkout(
@@ -287,6 +293,48 @@ def test_main_explicit_paths_survive_untrusted_automation_state_root(
             str(steering),
             "--stale-terminal-owner-receipt-dir",
             str(receipts),
+        ]
+    )
+
+    report = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert report["checks"][0]["status"] == "ok"
+
+
+def test_main_explicit_default_paths_survive_untrusted_automation_state_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+    capsys: Any,
+) -> None:
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    monkeypatch.setattr(
+        sentinel,
+        "_trusted_automation_state_roots",
+        lambda repo_root: {(tmp_path / "repo" / ".aragora").resolve()},
+    )
+    canonical_root = (
+        sentinel._canonical_repo_root(sentinel.DEFAULT_REPO_ROOT) / ".aragora"
+    ).resolve()
+    monkeypatch.setattr(
+        sentinel,
+        "check_stale_terminal_owner",
+        lambda *args, **kwargs: sentinel._result("stale_terminal_owner", "ok", "called"),
+    )
+
+    code = sentinel.main(
+        [
+            "--json",
+            "--no-ledger",
+            "--checks",
+            "stale_terminal_owner",
+            "--agent-bridge-lanes",
+            str(canonical_root / "agent-bridge" / "lanes.json"),
+            "--agent-heartbeats",
+            str(canonical_root / "agent-bridge" / "heartbeats.json"),
+            "--operator-steering-root",
+            str(canonical_root / "operator-steering"),
+            "--stale-terminal-owner-receipt-dir",
+            str(canonical_root / "agent-bridge" / "conflict-resolution-receipts"),
         ]
     )
 

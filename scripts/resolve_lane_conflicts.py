@@ -21,7 +21,6 @@ from collections.abc import Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 _fcntl: Any
 try:
@@ -98,50 +97,6 @@ def _git_common_state_root(path: Path = DEFAULT_REPO_ROOT) -> Path | None:
     return None
 
 
-def _git_origin(path: Path) -> str:
-    proc = subprocess.run(
-        ["git", "-C", str(path), "config", "--get", "remote.origin.url"],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    if proc.returncode == 0 and proc.stdout.strip():
-        return proc.stdout.strip()
-    proc = subprocess.run(
-        ["git", "-C", str(path), "config", "--get-regexp", r"^remote\..*\.url$"],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    if proc.returncode != 0:
-        return ""
-    for line in proc.stdout.splitlines():
-        _key, _sep, value = line.partition(" ")
-        if value.strip():
-            return value.strip()
-    return ""
-
-
-def _canonical_git_url(url: str) -> str:
-    value = url.strip().rstrip("/")
-    if not value:
-        return ""
-    if "://" not in value and ":" in value and "@" in value.split(":", 1)[0]:
-        host_part, path_part = value.split(":", 1)
-        host = host_part.rsplit("@", 1)[-1]
-        path = path_part
-    else:
-        parsed = urlparse(value)
-        host = parsed.hostname or ""
-        path = parsed.path.lstrip("/") if parsed.scheme else value
-    path = path.rstrip("/")
-    if path.endswith(".git"):
-        path = path[:-4]
-    return f"{host.lower()}/{path.lower()}" if host else path.lower()
-
-
 def _git_toplevel(path: Path) -> Path | None:
     proc = subprocess.run(
         ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
@@ -175,22 +130,16 @@ def _registered_worktree_roots(repo_root: Path) -> set[Path]:
     return roots
 
 
-def _same_git_origin(left: Path, right: Path) -> bool:
-    left_origin = _canonical_git_url(_git_origin(left))
-    right_origin = _canonical_git_url(_git_origin(right))
-    return bool(left_origin) and left_origin == right_origin
-
-
 def _state_root_repo_candidate(state_root: Path) -> Path:
     return state_root.parent if state_root.name == ".aragora" else state_root
 
 
-def _is_same_origin_state_root(state_root: Path, repo_root: Path) -> bool:
+def _is_registered_worktree_state_root(state_root: Path, repo_root: Path) -> bool:
     candidate = _state_root_repo_candidate(state_root)
     candidate_root = _git_toplevel(candidate)
     if candidate_root is None or candidate.resolve() != candidate_root:
         return False
-    return _same_git_origin(repo_root, candidate_root)
+    return candidate_root in _registered_worktree_roots(repo_root)
 
 
 def _trusted_automation_state_roots(repo_root: Path = DEFAULT_REPO_ROOT) -> set[Path]:
@@ -215,11 +164,11 @@ def _automation_state_root(repo_root: Path = DEFAULT_REPO_ROOT) -> Path:
     if configured:
         root = _normalize_automation_state_root(configured)
         trusted_roots = _trusted_automation_state_roots(repo_root)
-        if root not in trusted_roots and not _is_same_origin_state_root(root, repo_root):
+        if root not in trusted_roots and not _is_registered_worktree_state_root(root, repo_root):
             allowed = ", ".join(str(item) for item in sorted(trusted_roots))
             raise ValueError(
                 f"untrusted ARAGORA_AUTOMATION_STATE_ROOT {root}; expected one of: "
-                f"{allowed}, or a same-origin checkout's .aragora"
+                f"{allowed}, or a registered worktree's .aragora"
             )
         return root
     return (_canonical_repo_root(repo_root) / ".aragora").resolve()

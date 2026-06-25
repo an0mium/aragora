@@ -42,7 +42,6 @@ from datetime import datetime, timezone
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import urlparse
 
 CheckResult = dict[str, Any]
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -63,6 +62,12 @@ ALL_CHECKS = (
     "trail_reconcile",
 )
 REPO_SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
+STATE_PATH_ARGS = {
+    "--agent-bridge-lanes": "agent_bridge_lanes",
+    "--agent-heartbeats": "agent_heartbeats",
+    "--operator-steering-root": "operator_steering_root",
+    "--stale-terminal-owner-receipt-dir": "stale_terminal_owner_receipt_dir",
+}
 RESOLVER_REQUIRED_ATTRS = (
     "ACTIVE_STATUSES",
     "_annotate_terminal_safety",
@@ -133,50 +138,6 @@ def _git_common_state_root(path: Path) -> Path | None:
     return None
 
 
-def _git_origin(path: Path) -> str:
-    proc = subprocess.run(
-        ["git", "-C", str(path), "config", "--get", "remote.origin.url"],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    if proc.returncode == 0 and proc.stdout.strip():
-        return proc.stdout.strip()
-    proc = subprocess.run(
-        ["git", "-C", str(path), "config", "--get-regexp", r"^remote\..*\.url$"],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    if proc.returncode != 0:
-        return ""
-    for line in proc.stdout.splitlines():
-        _key, _sep, value = line.partition(" ")
-        if value.strip():
-            return value.strip()
-    return ""
-
-
-def _canonical_git_url(url: str) -> str:
-    value = url.strip().rstrip("/")
-    if not value:
-        return ""
-    if "://" not in value and ":" in value and "@" in value.split(":", 1)[0]:
-        host_part, path_part = value.split(":", 1)
-        host = host_part.rsplit("@", 1)[-1]
-        path = path_part
-    else:
-        parsed = urlparse(value)
-        host = parsed.hostname or ""
-        path = parsed.path.lstrip("/") if parsed.scheme else value
-    path = path.rstrip("/")
-    if path.endswith(".git"):
-        path = path[:-4]
-    return f"{host.lower()}/{path.lower()}" if host else path.lower()
-
-
 def _git_toplevel(path: Path) -> Path | None:
     proc = subprocess.run(
         ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
@@ -210,22 +171,16 @@ def _registered_worktree_roots(repo_root: Path) -> set[Path]:
     return roots
 
 
-def _same_git_origin(left: Path, right: Path) -> bool:
-    left_origin = _canonical_git_url(_git_origin(left))
-    right_origin = _canonical_git_url(_git_origin(right))
-    return bool(left_origin) and left_origin == right_origin
-
-
 def _state_root_repo_candidate(state_root: Path) -> Path:
     return state_root.parent if state_root.name == ".aragora" else state_root
 
 
-def _is_same_origin_state_root(state_root: Path, repo_root: Path) -> bool:
+def _is_registered_worktree_state_root(state_root: Path, repo_root: Path) -> bool:
     candidate = _state_root_repo_candidate(state_root)
     candidate_root = _git_toplevel(candidate)
     if candidate_root is None or candidate.resolve() != candidate_root:
         return False
-    return _same_git_origin(repo_root, candidate_root)
+    return candidate_root in _registered_worktree_roots(repo_root)
 
 
 def _trusted_automation_state_roots(repo_root: Path) -> set[Path]:
@@ -250,11 +205,11 @@ def _automation_state_root(repo_root: Path) -> Path:
     if configured:
         root = _normalize_automation_state_root(configured)
         trusted_roots = _trusted_automation_state_roots(repo_root)
-        if root not in trusted_roots and not _is_same_origin_state_root(root, repo_root):
+        if root not in trusted_roots and not _is_registered_worktree_state_root(root, repo_root):
             allowed = ", ".join(str(item) for item in sorted(trusted_roots))
             raise ValueError(
                 f"untrusted ARAGORA_AUTOMATION_STATE_ROOT {root}; expected one of: "
-                f"{allowed}, or a same-origin checkout's .aragora"
+                f"{allowed}, or a registered worktree's .aragora"
             )
         return root
     return (_canonical_repo_root(repo_root) / ".aragora").resolve()
@@ -268,6 +223,15 @@ def _automation_state_root_for_defaults(repo_root: Path) -> tuple[Path, str | No
         # be parsed. The stale_terminal_owner check fails closed if these
         # fallback defaults are actually used.
         return (_canonical_repo_root(repo_root) / ".aragora").resolve(), str(exc)
+
+
+def _explicit_state_path_args(argv: list[str]) -> set[str]:
+    explicit: set[str] = set()
+    for token in argv:
+        for flag, dest in STATE_PATH_ARGS.items():
+            if token == flag or token.startswith(f"{flag}="):
+                explicit.add(dest)
+    return explicit
 
 
 def _validate_repo_slug(repo_slug: str) -> str:
@@ -1919,6 +1883,7 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                 )
             elif name == "stale_terminal_owner":
                 default_paths = getattr(args, "_automation_state_root_default_paths", {})
+                explicit_paths = set(getattr(args, "_explicit_state_path_args", set()))
                 fallback_path_values = {
                     "agent_bridge_lanes": str(Path(args.agent_bridge_lanes)),
                     "agent_heartbeats": str(Path(args.agent_heartbeats)),
@@ -1930,7 +1895,7 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                 unsafe_fallback_paths = [
                     name
                     for name, value in fallback_path_values.items()
-                    if value == default_paths.get(name)
+                    if name not in explicit_paths and value == default_paths.get(name)
                 ]
                 using_unsafe_fallback_defaults = bool(
                     getattr(args, "_automation_state_root_error", "") and unsafe_fallback_paths
@@ -2154,7 +2119,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    args = build_parser().parse_args(raw_argv)
+    args._explicit_state_path_args = _explicit_state_path_args(raw_argv)
     now = parse_iso(args.now) if args.now else datetime.now(timezone.utc)
     checks = run_checks(args, now)
     breaches = sum(1 for c in checks if c["status"] == "breach")
