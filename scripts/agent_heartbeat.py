@@ -211,6 +211,44 @@ def _same_comparable_identity(existing: dict[str, Any], incoming: dict[str, Any]
     return comparable
 
 
+def _has_comparable_identity_delta(
+    existing: dict[str, Any],
+    incoming: dict[str, Any],
+) -> bool:
+    """Return true when a non-thread identity field proves a different run."""
+
+    for key in ("pid", "cwd", "worktree", "branch", "pr_number"):
+        existing_value = existing.get(key)
+        incoming_value = incoming.get(key)
+        if existing_value is None or incoming_value is None:
+            continue
+        if isinstance(existing_value, str) and not existing_value:
+            continue
+        if isinstance(incoming_value, str) and not incoming_value:
+            continue
+        if existing_value != incoming_value:
+            return True
+    return False
+
+
+def _same_finalizer_identity(existing: dict[str, Any], receipt: dict[str, Any]) -> bool:
+    """Match legacy finalizers only when durable identity, not ambient cwd, agrees."""
+
+    has_stable_identity = False
+    for key in ("pid", "worktree", "branch", "pr_number"):
+        existing_value = existing.get(key)
+        receipt_value = receipt.get(key)
+        if existing_value is None or receipt_value is None:
+            continue
+        if isinstance(existing_value, str) and not existing_value:
+            continue
+        if isinstance(receipt_value, str) and not receipt_value:
+            continue
+        has_stable_identity = True
+        break
+    return has_stable_identity and _same_comparable_identity(existing, receipt)
+
+
 def _terminal_heartbeat_fields(
     receipt: dict[str, Any],
     *,
@@ -253,7 +291,7 @@ def _should_preserve_terminal_heartbeat(
     if incoming_thread and not existing_thread:
         return False
     if existing_thread and not incoming_thread:
-        return True
+        return not _has_comparable_identity_delta(existing, incoming)
 
     existing_pid = existing.get("pid")
     incoming_pid = incoming.get("pid")
@@ -301,6 +339,10 @@ def _finalizer_matches_heartbeat(existing: dict[str, Any], *, receipt: dict[str,
         return False
     if existing_thread and receipt_thread and existing_thread != receipt_thread:
         return False
+    if existing_thread and not receipt_thread:
+        return _same_finalizer_identity(existing, receipt)
+    if receipt_thread and not existing_thread:
+        return _same_finalizer_identity(existing, receipt)
 
     existing_pid = existing.get("pid")
     receipt_pid = receipt.get("pid")
