@@ -410,9 +410,7 @@ class LaneRegistryOwnerProbe:
         blocking_state = str(row.get("owner_blocking_state") or "").strip() or None
         if blocking_state is None and status in BLOCKING_LANE_STATUSES:
             blocking_state = "unknown_owner"
-        elif (
-            blocking_state is None and status in ACTIVE_LANE_STATUSES and _lane_record_is_fresh(row)
-        ):
+        elif blocking_state is None and status in ACTIVE_LANE_STATUSES:
             blocking_state = "unknown_owner"
         evidence = owner_evidence_from_payload(row)
         evidence.status = status or evidence.status
@@ -821,6 +819,17 @@ def classify_handoff_item(
                 evidence=evidence,
                 next_mutation_candidate="queue_drain",
             )
+        if is_pr_publication_request(payload):
+            return HandoffClassification(
+                outbox_file=path.name,
+                idempotency_key=idem,
+                branch=branch,
+                desired_head_sha=desired_head or None,
+                state=HandoffState.PUBLICATION_REQUESTED,
+                reason="remote branch is exact but PR publication remains requested",
+                evidence=evidence,
+                next_mutation_candidate="publish_or_represent_pr",
+            )
         return HandoffClassification(
             outbox_file=path.name,
             idempotency_key=idem,
@@ -1065,7 +1074,9 @@ def load_queue_cap_evidence(
         decision_source = "github_queue_unavailable"
     elif not cache_stale and degraded:
         decision_source = "fresh_degraded_cache_rest_fallback"
-    effective_cap = None if cache_stale or queue_available is False else raw_cap
+    effective_cap = (
+        raw_cap if raw_cap is True else None if cache_stale or queue_available is False else raw_cap
+    )
     return QueueCapEvidence(
         available=True,
         github_queue_available=queue_available,
@@ -1544,10 +1555,9 @@ def _steering_branch_tokens(payload: Mapping[str, Any]) -> set[str]:
 
 
 def _branch_tokens_from_text(text: str) -> set[str]:
-    prefixes = "codex|claude|dependabot|feature|worktree|elves"
     return {
         token.rstrip(".,;:!?)]}'\"")
-        for token in re.findall(rf"\b(?:{prefixes})/[A-Za-z0-9._/-]+", text)
+        for token in re.findall(r"\b[A-Za-z0-9._-]+/[A-Za-z0-9._/-]+", text)
     }
 
 

@@ -691,30 +691,30 @@ def test_unique_branch_without_pr_is_publication_requested_when_cap_clear(
     assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
 
 
-def test_stale_queue_cap_cache_does_not_block_publication(tmp_path: Path) -> None:
+def test_stale_queue_cap_cache_preserves_raw_cap_block(tmp_path: Path) -> None:
     stale = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat().replace("+00:00", "Z")
     _write_status_cache(tmp_path, open_pr_cap_reached=True, generated_at=stale)
     _write_outbox(tmp_path, branch="codex/example")
 
     item = _classify_one(tmp_path)
 
-    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
     assert item["evidence"]["queue_cap"]["raw_open_pr_cap_reached"] is True
-    assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is None
+    assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is True
     assert item["evidence"]["queue_cap"]["cache_stale"] is True
     assert item["evidence"]["queue_cap"]["decision_source"] == "expired_cache"
 
 
-def test_unavailable_queue_cap_cache_does_not_block_publication(tmp_path: Path) -> None:
+def test_unavailable_queue_cap_cache_preserves_raw_cap_block(tmp_path: Path) -> None:
     _write_status_cache(tmp_path, open_pr_cap_reached=True, available=False)
     _write_outbox(tmp_path, branch="codex/example")
 
     item = _classify_one(tmp_path)
 
-    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
     assert item["evidence"]["queue_cap"]["github_queue_available"] is False
     assert item["evidence"]["queue_cap"]["raw_open_pr_cap_reached"] is True
-    assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is None
+    assert item["evidence"]["queue_cap"]["open_pr_cap_reached"] is True
     assert item["evidence"]["queue_cap"]["decision_source"] == "github_queue_unavailable"
 
 
@@ -933,7 +933,7 @@ def test_lane_registry_terminal_owner_does_not_block_by_default(
     assert item["evidence"]["owner"]["owner_blocking_state"] is None
 
 
-def test_lane_registry_active_without_fresh_liveness_does_not_block_default_classifier(
+def test_lane_registry_active_without_fresh_liveness_blocks_default_classifier(
     tmp_path: Path,
 ) -> None:
     _write_status_cache(tmp_path)
@@ -963,8 +963,8 @@ def test_lane_registry_active_without_fresh_liveness_does_not_block_default_clas
     )
     item = payload["items"][0]
 
-    assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
-    assert item["evidence"]["owner"]["owner_blocking_state"] is None
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+    assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
 def test_lane_registry_active_with_fresh_timestamp_blocks_default_classifier(
@@ -1034,7 +1034,7 @@ def test_lane_registry_blocked_status_blocks_default_classifier(tmp_path: Path) 
     assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
-def test_lane_registry_active_status_synonyms_do_not_block_without_fresh_liveness(
+def test_lane_registry_active_status_synonyms_block_default_classifier(
     tmp_path: Path,
 ) -> None:
     for status in (
@@ -1072,8 +1072,8 @@ def test_lane_registry_active_status_synonyms_do_not_block_without_fresh_livenes
         )
         item = payload["items"][0]
 
-        assert item["state"] == mod.HandoffState.PUBLICATION_REQUESTED.value
-        assert item["evidence"]["owner"]["owner_blocking_state"] is None
+        assert item["state"] == mod.HandoffState.BLOCKED_BY_OWNER.value
+        assert item["evidence"]["owner"]["owner_blocking_state"] == "unknown_owner"
 
 
 def test_lane_registry_released_worktree_hint_does_not_imply_unpushed_work(
