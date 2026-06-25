@@ -371,6 +371,52 @@ def _terminate_reviewer_process(process: Any) -> None:
     process.join(timeout=_REVIEWER_CLEANUP_TIMEOUT)
 
 
+def _reviewer_process_context(
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+) -> Any | None:
+    """Return the safest killable process context for reviewer orchestration.
+
+    Production collection uses the top-level ``default_reviewer_runner``, which is
+    spawn-pickleable and should avoid forking a potentially threaded parent. Tests
+    and custom callers often pass local closures; those need ``fork`` when
+    available. If neither safe path exists, callers should fall back to the
+    ordinary per-reviewer timeout path instead of failing every family without
+    attempting review.
+    """
+    start_methods = multiprocessing.get_all_start_methods()
+    runner_name = getattr(reviewer_runner, "__name__", "")
+    if runner_name == "default_reviewer_runner" and "spawn" in start_methods:
+        return multiprocessing.get_context("spawn")
+    if "fork" in start_methods:
+        return multiprocessing.get_context("fork")
+    return None
+
+
+def _run_reviewers_threaded(
+    *,
+    families: Sequence[str],
+    prompt: str,
+    reviewer_runner: Callable[[str, str], ReviewerResult],
+) -> dict[str, ReviewerResult]:
+    """Run reviewers through the legacy bounded-per-reviewer thread fanout."""
+    max_workers = min(len(families), _MAX_REVIEWER_WORKERS)
+    reviews: dict[str, ReviewerResult] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_to_family = {
+            pool.submit(_run_reviewer_with_infra_retry, reviewer_runner, family, prompt): family
+            for family in families
+        }
+        for future in concurrent.futures.as_completed(future_to_family):
+            family = future_to_family[future]
+            try:
+                reviews[family] = future.result()
+            except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
+                reviews[family] = ReviewerResult(
+                    family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
+                )
+    return reviews
+
+
 def _run_reviewers_with_process_timeout(
     *,
     families: Sequence[str],
@@ -379,17 +425,11 @@ def _run_reviewers_with_process_timeout(
     overall_timeout: float,
 ) -> tuple[dict[str, ReviewerResult], list[str]]:
     """Run reviewers in killable child processes for hard overall deadlines."""
-    start_methods = multiprocessing.get_all_start_methods()
-    if "fork" not in start_methods:
-        message = (
-            "overall-timeout process isolation requires a fork-capable runtime; "
-            "no reviewers were run"
-        )
-        return (
-            {family: ReviewerResult(family, "", False, message) for family in families},
-            list(families),
-        )
-    ctx = multiprocessing.get_context("fork")
+    ctx = _reviewer_process_context(reviewer_runner)
+    if ctx is None:
+        return _run_reviewers_threaded(
+            families=families, prompt=prompt, reviewer_runner=reviewer_runner
+        ), []
     result_queue = ctx.Queue()
     processes: dict[str, Any] = {}
     queued = list(families)
@@ -467,10 +507,16 @@ def _run_reviewers_with_process_timeout(
             )
             processes.pop(family, None)
 
-    timed_out = list(processes) + queued
     timeout_text = _format_seconds(overall_timeout)
     for family, process in list(processes.items()):
         _terminate_reviewer_process(process)
+    # A reviewer can put a result at the deadline boundary, after the last drain
+    # but before termination cleanup observes it. Drain again before assigning
+    # timeout failures so a real completed review is never discarded.
+    drain_results()
+
+    timed_out = list(processes) + queued
+    for family, process in list(processes.items()):
         reviews[family] = ReviewerResult(
             family,
             "",
@@ -680,6 +726,22 @@ class CollectOutcome:
             ],
             "failures": [{"family": f.family, "error": f.error} for f in self.failures],
         }
+
+
+def _timeout_failure_present(outcome: CollectOutcome) -> bool:
+    """Whether a prepared artifact carries any timeout marker.
+
+    Older artifacts may omit ``orchestration_timed_out`` while still carrying
+    ``timed_out_families`` or timeout-shaped reviewer failures. Treat those as
+    fail-closed during apply so partial low-tier quorum cannot post.
+    """
+    if outcome.orchestration_timed_out or outcome.timed_out_families:
+        return True
+    return any(
+        "overall collect-evidence timeout" in failure.error.lower()
+        or "timeout before reviewer started" in failure.error.lower()
+        for failure in outcome.failures
+    )
 
 
 def _string_list(value: Any) -> list[str]:
@@ -1939,22 +2001,11 @@ def collect_evidence(
                         family for family in ordered_families if family in set(timed_out)
                     ]
             else:
-                max_workers = min(len(supported), _MAX_REVIEWER_WORKERS)
-                with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-                    future_to_family = {
-                        pool.submit(
-                            _run_reviewer_with_infra_retry, reviewer_runner, family, prompt
-                        ): family
-                        for family in supported
-                    }
-                    for future in concurrent.futures.as_completed(future_to_family):
-                        family = future_to_family[future]
-                        try:
-                            reviews[family] = future.result()
-                        except Exception as exc:  # noqa: BLE001 - one bad reviewer must not abort the run
-                            reviews[family] = ReviewerResult(
-                                family, "", False, f"{type(exc).__name__}: {str(exc)[:200]}"
-                            )
+                reviews = _run_reviewers_threaded(
+                    families=supported,
+                    prompt=prompt,
+                    reviewer_runner=reviewer_runner,
+                )
 
     for family in ordered_families:
         if family not in FAMILY_PROVIDERS:
@@ -2216,7 +2267,10 @@ def apply_prepared_evidence(
         )
         return outcome
 
-    if outcome.orchestration_timed_out:
+    if _timeout_failure_present(outcome):
+        outcome.orchestration_timed_out = True
+        if not outcome.timed_out_families:
+            outcome.timed_out_families = [failure.family for failure in outcome.failures]
         outcome.action = "prepare"
         outcome.action_reason = (
             "prepared collect-evidence artifact timed out; refusing to post partial evidence"

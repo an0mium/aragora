@@ -1168,10 +1168,10 @@ def test_collect_overall_timeout_path_preserves_infra_retry(tmp_path, monkeypatc
     assert attempts_file.read_text(encoding="utf-8").count("grok\n") == 2
 
 
-def test_collect_overall_timeout_fails_closed_without_fork(monkeypatch) -> None:
+def test_collect_overall_timeout_falls_back_without_process_context(monkeypatch) -> None:
     fakes, _ = _fakes(tier=0)
     called: list[str] = []
-    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: ["spawn"])
+    monkeypatch.setattr(qe.multiprocessing, "get_all_start_methods", lambda: [])
 
     def reviewer_runner(family: str, prompt: str) -> ReviewerResult:
         called.append(family)
@@ -1188,12 +1188,11 @@ def test_collect_overall_timeout_fails_closed_without_fork(monkeypatch) -> None:
         **fakes,
     )
 
-    assert called == []
-    assert outcome.orchestration_timed_out is True
-    assert outcome.timed_out_families == ["claude", "grok"]
-    assert outcome.items == []
-    assert [failure.family for failure in outcome.failures] == ["claude", "grok"]
-    assert all("fork-capable runtime" in failure.error for failure in outcome.failures)
+    assert called == ["claude", "grok"]
+    assert outcome.orchestration_timed_out is False
+    assert outcome.timed_out_families == []
+    assert [item.family for item in outcome.items] == ["claude", "grok"]
+    assert outcome.failures == []
 
 
 def test_collect_overall_timeout_process_path_runs_queued_reviewers(tmp_path, monkeypatch) -> None:
@@ -1980,6 +1979,50 @@ def test_apply_prepared_evidence_refuses_timed_out_artifact(tmp_path) -> None:
         timed_out_families=["grok"],
     )
     prepared = tmp_path / "timed_out_prepared.json"
+    prepared.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
+    posted: list[str] = []
+
+    applied = qe.apply_prepared_evidence(
+        repo="o/r",
+        pr=1,
+        prepared_json=prepared,
+        author="me",
+        apply=True,
+        families=["claude", "grok"],
+        context_fetcher=lambda r, p: {"head_sha": HEAD, "head_committed_at": COMMITTED},
+        tier_fetcher=lambda r, p: 0,
+        linter=lambda *a, **k: {
+            "would_count": True,
+            "counted_reviewer_ids": ["claude"],
+            "problems": [],
+        },
+        poster=lambda r, p, b: posted.append(b),
+    )
+
+    assert applied.action == "prepare"
+    assert applied.orchestration_timed_out is True
+    assert applied.timed_out_families == ["grok"]
+    assert "timed out" in applied.action_reason
+    assert applied.has_supportive_quorum is False
+    assert applied.posted == []
+    assert posted == []
+
+
+def test_apply_prepared_evidence_refuses_timeout_markers_without_flag(tmp_path) -> None:
+    outcome = CollectOutcome(
+        repo="o/r",
+        pr=1,
+        head_sha=HEAD,
+        head_committed_at=COMMITTED,
+        tier=0,
+        action="prepare",
+        action_reason="legacy timeout artifact",
+        items=[EvidenceItem("claude", _prepared_body("claude"), True, ["claude"], [], "pass")],
+        failures=[ReviewerResult("grok", "", False, "overall collect-evidence timeout")],
+        orchestration_timed_out=False,
+        timed_out_families=[],
+    )
+    prepared = tmp_path / "legacy_timeout_prepared.json"
     prepared.write_text(json.dumps(outcome.to_dict()), encoding="utf-8")
     posted: list[str] = []
 
