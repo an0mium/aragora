@@ -499,6 +499,7 @@ def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Pat
             "task_id": "Q-mission-conductor",
             "claimed_paths": ["docs/guides/CONDUCTOR_WORKFLOW.md"],
             "write_scopes": ["docs/guides/"],
+            "forbidden_paths": ["docs/guides/DO_NOT_TOUCH.md"],
             "tests": ["pre-commit run --files docs/guides/CONDUCTOR_WORKFLOW.md"],
         }
     ]
@@ -514,12 +515,15 @@ def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Pat
     result = conductor.run_once()
 
     assert result.decisions[0].action == "execute"
-    [launch] = runner.executed
+    assert len(runner.executed) == 2
+    launch, metadata = runner.executed
     assert launch[:2] == ["bash", "scripts/tmux_session_launcher.sh"]
     assert "launch" not in launch
+    assert launch[launch.index("--goal") + 1] == "Patch conductor docs."
     assert launch[launch.index("--task-id") + 1] == "Q-mission-conductor"
     assert launch[launch.index("--claimed-path") + 1] == "docs/guides/CONDUCTOR_WORKFLOW.md"
     assert launch[launch.index("--write-scope") + 1] == "docs/guides/"
+    assert launch[launch.index("--forbidden-path") + 1] == "docs/guides/DO_NOT_TOUCH.md"
     assert (
         launch[launch.index("--test") + 1]
         == "pre-commit run --files docs/guides/CONDUCTOR_WORKFLOW.md"
@@ -530,6 +534,10 @@ def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Pat
     assert "Mission lane contract:" in prompt
     assert "task_id: Q-mission-conductor" in prompt
     assert "Tier 3/4 settlement" in prompt
+    assert metadata[:3] == ["python3", "scripts/agent_bridge.py", "send"]
+    assert any("Conductor metadata registered" in part for part in metadata)
+    assert metadata[metadata.index("--lane") + 1] == "codex-lane"
+    assert metadata[metadata.index("--goal") + 1] == "Patch conductor docs."
 
 
 def test_autonomous_codex_lane_without_lease_scope_is_blocked(tmp_path: Path) -> None:
@@ -735,6 +743,62 @@ def test_opt_in_exact_gated_merge_runs_settle_then_normal_protected_squash(
     assert "--admin" not in runner.executed[0]
 
 
+def test_opt_in_exact_gated_merge_dry_run_does_not_probe_settle_one(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["merge_policy"] = "exact_gated_tier_0_2"
+    head = "abc123def456"
+    open_prs = [{"number": 77, "title": "ready", "isDraft": False}]
+    merge_packet = {
+        "admin_squash_order": [77],
+        "not_ready": [],
+        "entries": [
+            {
+                "pr_number": 77,
+                "head_sha": head,
+                "tier": 2,
+                "status": "satisfied",
+                "verdict": "admin_squash_allowed",
+                "admin_squash_allowed": True,
+                "unresolved_dissent": False,
+                "requires_human_risk_settlement": False,
+            }
+        ],
+    }
+    runner = FakeRunner(
+        mod,
+        open_prs=open_prs,
+        merge_packet=merge_packet,
+        settle_payload={
+            "status": "needs_packet_rerun",
+            "blockers": [],
+            "head_sha": head,
+            "selected_pr": 77,
+        },
+    )
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=False,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "dry_run"
+    assert not any(
+        call[:3] == ["python3", "scripts/settle_one_pr.py", "--pr"] for call in runner.calls
+    )
+    assert result.decisions[0].commands == [
+        ["python3", "scripts/settle_one_pr.py", "--pr", "77", "--json"],
+        ["gh", "pr", "merge", "77", "--squash", "--match-head-commit", head],
+    ]
+
+
 def test_opt_in_exact_gated_merge_blocks_on_settle_one_blockers(tmp_path: Path) -> None:
     import goal_conductor as mod
 
@@ -774,6 +838,181 @@ def test_opt_in_exact_gated_merge_blocks_on_settle_one_blockers(tmp_path: Path) 
 
     assert [decision.action for decision in result.decisions] == ["blocked", "execute", "execute"]
     assert "active owner" in result.decisions[0].reason
+    assert not any(command[:3] == ["gh", "pr", "merge"] for command in runner.executed)
+
+
+def test_opt_in_exact_gated_merge_ignores_stale_packet_pr_not_open(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["merge_policy"] = "exact_gated_tier_0_2"
+    head = "abc123def456"
+    merge_packet = {
+        "admin_squash_order": [79],
+        "not_ready": [],
+        "entries": [
+            {
+                "pr_number": 79,
+                "head_sha": head,
+                "tier": 2,
+                "status": "satisfied",
+                "verdict": "admin_squash_allowed",
+                "admin_squash_allowed": True,
+                "unresolved_dissent": False,
+                "requires_human_risk_settlement": False,
+            }
+        ],
+    }
+    runner = FakeRunner(
+        mod,
+        open_prs=[],
+        merge_packet=merge_packet,
+        settle_payload={
+            "status": "packet_authorized_dry_run",
+            "blockers": [],
+            "head_sha": head,
+            "selected_pr": 79,
+        },
+    )
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert [decision.action for decision in result.decisions] == ["execute", "execute"]
+    assert not any(
+        command[:3] == ["python3", "scripts/settle_one_pr.py", "--pr"]
+        for command in runner.executed
+    )
+    assert not any(command[:3] == ["gh", "pr", "merge"] for command in runner.executed)
+
+
+def test_opt_in_exact_gated_merge_respects_admin_order_and_not_ready(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["merge_policy"] = "exact_gated_tier_0_2"
+    open_prs = [
+        {"number": 81, "title": "ready-second", "isDraft": False},
+        {"number": 82, "title": "blocked-first", "isDraft": False},
+    ]
+    merge_packet = {
+        "admin_squash_order": [82, 81],
+        "not_ready": [82],
+        "entries": [
+            {
+                "pr_number": 81,
+                "head_sha": "head81",
+                "tier": 2,
+                "status": "satisfied",
+                "verdict": "admin_squash_allowed",
+                "admin_squash_allowed": True,
+                "unresolved_dissent": False,
+                "requires_human_risk_settlement": False,
+            },
+            {
+                "pr_number": 82,
+                "head_sha": "head82",
+                "tier": 2,
+                "status": "satisfied",
+                "verdict": "admin_squash_allowed",
+                "admin_squash_allowed": True,
+                "unresolved_dissent": False,
+                "requires_human_risk_settlement": False,
+            },
+        ],
+    }
+    runner = FakeRunner(
+        mod,
+        open_prs=open_prs,
+        merge_packet=merge_packet,
+        settle_payload={
+            "status": "packet_authorized_dry_run",
+            "blockers": [],
+            "head_sha": "head81",
+            "selected_pr": 81,
+        },
+    )
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert [decision.action for decision in result.decisions] == ["merged"]
+    assert runner.executed == [
+        ["gh", "pr", "merge", "81", "--squash", "--match-head-commit", "head81"]
+    ]
+
+
+def test_opt_in_exact_gated_merge_does_not_run_under_queue_cap_gate(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 2
+    payload["merge_policy"] = "exact_gated_tier_0_2"
+    head = "abc123def456"
+    open_prs = [
+        {"number": 83, "title": "ready", "isDraft": False},
+        {"number": 84, "title": "cap filler", "isDraft": False},
+    ]
+    merge_packet = {
+        "admin_squash_order": [83],
+        "not_ready": [],
+        "entries": [
+            {
+                "pr_number": 83,
+                "head_sha": head,
+                "tier": 2,
+                "status": "satisfied",
+                "verdict": "admin_squash_allowed",
+                "admin_squash_allowed": True,
+                "unresolved_dissent": False,
+                "requires_human_risk_settlement": False,
+            }
+        ],
+    }
+    runner = FakeRunner(
+        mod,
+        open_prs=open_prs,
+        merge_packet=merge_packet,
+        settle_payload={
+            "status": "packet_authorized_dry_run",
+            "blockers": [],
+            "head_sha": head,
+            "selected_pr": 83,
+        },
+    )
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.hard_gates == ["open PR queue at/above cap (2/2)"]
+    assert [decision.action for decision in result.decisions] == ["blocked", "execute"]
+    assert not any(
+        command[:3] == ["python3", "scripts/settle_one_pr.py", "--pr"]
+        for command in runner.executed
+    )
     assert not any(command[:3] == ["gh", "pr", "merge"] for command in runner.executed)
 
 
@@ -874,6 +1113,7 @@ def test_opt_in_exact_gated_merge_requires_settle_authorized_status(tmp_path: Pa
 
     assert result.decisions[0].action == "blocked"
     assert result.decisions[0].reason == "settle_one_pr.py status=needs_packet_rerun"
+    assert [decision.action for decision in result.decisions] == ["blocked", "execute", "execute"]
     assert not any(command[:3] == ["gh", "pr", "merge"] for command in runner.executed)
 
 

@@ -159,6 +159,7 @@ ALLOW_UNLEASED_CODEX="0"
 WRITE_SCOPES=()
 CLAIMED_PATHS=()
 TEST_COMMANDS=()
+FORBIDDEN_PATHS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -174,6 +175,7 @@ while [[ $# -gt 0 ]]; do
         --write-scope) WRITE_SCOPES+=("$2"); shift 2 ;;
         --claimed-path) CLAIMED_PATHS+=("$2"); shift 2 ;;
         --test) TEST_COMMANDS+=("$2"); shift 2 ;;
+        --forbidden-path) FORBIDDEN_PATHS+=("$2"); shift 2 ;;
         --allow-overlap) ALLOW_LEASE_OVERLAP="1"; shift ;;
         --allow-unleased-codex) ALLOW_UNLEASED_CODEX="1"; shift ;;
         --list)     ACTION="list"; shift ;;
@@ -323,6 +325,9 @@ if [[ "${AGENT}" == "codex" ]]; then
     done
     for test_cmd in "${TEST_COMMANDS[@]}"; do
         CODEX_SESSION_ARGS+=(--test "${test_cmd}")
+    done
+    for path in "${FORBIDDEN_PATHS[@]}"; do
+        CODEX_SESSION_ARGS+=(--forbidden-path "${path}")
     done
     if [[ "${ALLOW_LEASE_OVERLAP}" == "1" ]]; then
         CODEX_SESSION_ARGS+=(--allow-overlap)

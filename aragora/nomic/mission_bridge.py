@@ -88,7 +88,16 @@ def _subtask_validation_commands(subtask: Any) -> list[str]:
         for command in (raw if isinstance(raw, list) else [raw])
         if str(command or "").strip()
     ]
-    return commands or ["python3 -m pytest -q"]
+    if commands:
+        return commands
+    scoped_tests = [
+        path
+        for path in _subtask_file_scope(subtask)
+        if path == "tests" or path.startswith("tests/")
+    ]
+    if scoped_tests:
+        return [f"python3 -m pytest -q {' '.join(scoped_tests)}"]
+    return []
 
 
 def decomposition_to_mission(

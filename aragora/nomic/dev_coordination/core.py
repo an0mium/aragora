@@ -1360,6 +1360,7 @@ class DevCoordinationStore:
         worktree_path: str,
         allowed_globs: list[str] | None = None,
         claimed_paths: list[str] | None = None,
+        forbidden_paths: list[str] | None = None,
         expected_tests: list[str] | None = None,
         ttl_hours: float = 8.0,
         metadata: dict[str, Any] | None = None,
@@ -1367,6 +1368,12 @@ class DevCoordinationStore:
     ) -> WorkLease:
         from aragora.nomic.dev_leases import claim_lease as _impl
 
+        normalized_forbidden = [
+            _normalize_claim(item) for item in forbidden_paths or [] if str(item).strip()
+        ]
+        lease_metadata = dict(metadata or {})
+        if normalized_forbidden:
+            lease_metadata["forbidden_paths"] = normalized_forbidden
         return _impl(
             self,
             task_id=task_id,
@@ -1379,7 +1386,7 @@ class DevCoordinationStore:
             claimed_paths=claimed_paths,
             expected_tests=expected_tests,
             ttl_hours=ttl_hours,
-            metadata=metadata,
+            metadata=lease_metadata,
             allow_overlap=allow_overlap,
         )
 
@@ -4541,6 +4548,7 @@ def _build_parser() -> argparse.ArgumentParser:
     claim.add_argument("--worktree", required=True)
     claim.add_argument("--write-scope", action="append", default=[])
     claim.add_argument("--claimed-path", action="append", default=[])
+    claim.add_argument("--forbidden-path", action="append", default=[])
     claim.add_argument("--test", action="append", default=[])
     claim.add_argument("--ttl-hours", type=float, default=8.0)
     claim.add_argument("--allow-overlap", action="store_true")
@@ -4646,6 +4654,7 @@ def main() -> int:
                 worktree_path=args.worktree,
                 allowed_globs=args.write_scope,
                 claimed_paths=args.claimed_path,
+                forbidden_paths=args.forbidden_path,
                 expected_tests=args.test,
                 ttl_hours=args.ttl_hours,
                 allow_overlap=args.allow_overlap,

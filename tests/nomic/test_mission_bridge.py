@@ -77,6 +77,44 @@ def test_decomposition_to_mission_can_omit_panel_review() -> None:
     assert all(lane["mode"] == "implementation" for lane in mission["lanes"])
 
 
+def test_decomposition_to_mission_does_not_default_to_repo_wide_pytest() -> None:
+    mission = decomposition_to_mission(
+        _decomposition(),
+        objective="publish H1-01 rev-4 benchmark result",
+        include_panel_review=False,
+    )
+
+    assert mission["lanes"][0]["tests"] == []
+    assert mission["lanes"][1]["tests"] == []
+
+
+def test_decomposition_to_mission_uses_scoped_test_paths_as_validation() -> None:
+    decomp = TaskDecomposition(
+        original_task="repair a focused test",
+        complexity_score=2,
+        complexity_level="small",
+        should_decompose=False,
+        subtasks=[
+            SubTask(
+                id="focused",
+                title="Repair focused test",
+                description="Patch only the focused test.",
+                file_scope=["tests/nomic/test_mission_bridge.py"],
+            )
+        ],
+    )
+
+    mission = decomposition_to_mission(
+        decomp,
+        objective="repair a focused test",
+        include_panel_review=False,
+    )
+
+    assert mission["lanes"][0]["tests"] == [
+        "python3 -m pytest -q tests/nomic/test_mission_bridge.py"
+    ]
+
+
 def test_write_mission_yaml_round_trips(tmp_path: Path) -> None:
     mod = _load_goal_conductor_module()
     mission = decomposition_to_mission(

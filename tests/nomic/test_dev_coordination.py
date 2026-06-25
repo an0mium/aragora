@@ -172,6 +172,41 @@ def test_claim_lease_detects_conflicting_scope(store: DevCoordinationStore) -> N
     assert exc_info.value.conflicts[0]["lease_id"] == lease.lease_id
 
 
+def test_claim_lease_forbidden_paths_block_completion(store: DevCoordinationStore) -> None:
+    lease = store.claim_lease(
+        task_id="clb-forbidden",
+        title="Bounded app repair",
+        owner_agent="codex",
+        owner_session_id="sess-forbidden",
+        branch="codex/forbidden",
+        worktree_path="/tmp/wt-forbidden",
+        allowed_globs=["aragora/server/**"],
+        forbidden_paths=["aragora/server/auth_checks.py"],
+    )
+
+    assert lease.metadata["forbidden_paths"] == ["aragora/server/auth_checks.py"]
+
+    with pytest.raises(FileScopeViolationError) as exc_info:
+        store.record_completion(
+            lease_id=lease.lease_id,
+            owner_agent="codex",
+            owner_session_id="sess-forbidden",
+            branch="codex/forbidden",
+            worktree_path="/tmp/wt-forbidden",
+            changed_paths=["aragora/server/auth_checks.py"],
+            tests_run=["python -m pytest tests/server/test_auth.py -q"],
+            require_session_ownership=False,
+        )
+
+    assert exc_info.value.violations == [
+        {
+            "type": "protected_path",
+            "path": "aragora/server/auth_checks.py",
+            "protected_scope": ["aragora/server/auth_checks.py"],
+        }
+    ]
+
+
 def test_claim_lease_detects_existing_fleet_claim(store: DevCoordinationStore) -> None:
     store.fleet_store.claim_paths(
         session_id="external-session",

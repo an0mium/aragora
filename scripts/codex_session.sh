@@ -38,6 +38,7 @@ ALLOW_LEASE_OVERLAP=false
 WRITE_SCOPES=()
 CLAIMED_PATHS=()
 TEST_COMMANDS=()
+FORBIDDEN_PATHS=()
 CODEX_ARGS=()
 AUTONOMOUS_CODEX=false
 
@@ -97,6 +98,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --test)
             TEST_COMMANDS+=("${2:-}")
+            shift 2
+            ;;
+        --forbidden-path)
+            FORBIDDEN_PATHS+=("${2:-}")
             shift 2
             ;;
         --allow-overlap)
@@ -298,6 +303,9 @@ if [[ -n "${TASK_ID}" || -n "${LEASE_TITLE}" || ${#WRITE_SCOPES[@]} -gt 0 || ${#
     done
     for test_cmd in "${TEST_COMMANDS[@]}"; do
         LEASE_CMD+=(--test "${test_cmd}")
+    done
+    for path in "${FORBIDDEN_PATHS[@]}"; do
+        LEASE_CMD+=(--forbidden-path "${path}")
     done
     if ${ALLOW_LEASE_OVERLAP}; then
         LEASE_CMD+=(--allow-overlap)

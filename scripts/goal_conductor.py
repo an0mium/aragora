@@ -503,6 +503,23 @@ def _merge_packet_not_ready(packet: Any) -> set[int]:
     return blocked
 
 
+def _snapshot_open_prs(snapshot: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    open_prs: dict[int, dict[str, Any]] = {}
+    for item in snapshot.get("open_prs") or []:
+        if not isinstance(item, dict):
+            continue
+        number = _coerce_int(item.get("number"))
+        if number is None:
+            continue
+        state = str(item.get("state") or "OPEN").strip().upper()
+        if state not in {"", "OPEN"}:
+            continue
+        if _truthy(item.get("isDraft")) or _truthy(item.get("draft")):
+            continue
+        open_prs[number] = item
+    return open_prs
+
+
 class GoalConductor:
     def __init__(
         self,
@@ -640,6 +657,7 @@ class GoalConductor:
         not_ready = _merge_packet_not_ready(merge_packet)
         if not admin_order:
             return []
+        open_prs = _snapshot_open_prs(snapshot)
         candidates: list[dict[str, Any]] = []
         entries_by_pr: dict[int, dict[str, Any]] = {}
         for entry in _merge_packet_entries(merge_packet):
@@ -653,6 +671,8 @@ class GoalConductor:
                 continue
             entry = entries_by_pr.get(pr_number)
             if entry is None:
+                continue
+            if pr_number not in open_prs:
                 continue
             head_sha = _merge_packet_head(entry)
             tier = int(entry.get("tier") or 0)
@@ -761,6 +781,8 @@ class GoalConductor:
                 lane.agent,
                 "--cwd",
                 cwd,
+                "--goal",
+                lane.goal,
             ]
             if lane.autonomous:
                 launch.append("--autonomous")
@@ -773,7 +795,31 @@ class GoalConductor:
                     launch.extend(["--write-scope", scope])
                 for test_cmd in lane.tests:
                     launch.extend(["--test", test_cmd])
+                for path in lane.forbidden_paths:
+                    launch.extend(["--forbidden-path", path])
             commands.append(launch)
+            commands.append(
+                [
+                    "python3",
+                    "scripts/agent_bridge.py",
+                    "send",
+                    lane.lane_id,
+                    (
+                        "Conductor metadata registered for this newly launched "
+                        "lane. Continue the launcher prompt already provided."
+                    ),
+                    "--lane",
+                    lane.lane_id,
+                    "--goal",
+                    lane.goal,
+                    "--source",
+                    lane.source,
+                    "--status",
+                    lane.status,
+                    "--next-action",
+                    lane.next_action,
+                ]
+            )
             return commands
         commands.append(
             [
@@ -902,8 +948,27 @@ class GoalConductor:
         pr_number = int(candidate["pr_number"])
         head_sha = str(candidate["head_sha"])
         settle_cmd = ["python3", "scripts/settle_one_pr.py", "--pr", str(pr_number), "--json"]
+        merge_cmd = [
+            "gh",
+            "pr",
+            "merge",
+            str(pr_number),
+            "--squash",
+            "--match-head-commit",
+            head_sha,
+        ]
+        commands = [settle_cmd, merge_cmd]
+        if not self.execute:
+            return LaneDecision(
+                lane_id=f"merge-pr-{pr_number}",
+                action="dry_run",
+                reason=(
+                    "exact-gated Tier 0-2 merge candidate; execute mode would "
+                    "confirm settle_one_pr.py then run protected squash"
+                ),
+                commands=commands,
+            )
         settle_result = self.runner.run(settle_cmd, timeout=180)
-        commands = [settle_cmd]
         if settle_result.returncode != 0:
             return LaneDecision(
                 lane_id=f"merge-pr-{pr_number}",
@@ -953,23 +1018,6 @@ class GoalConductor:
                 lane_id=f"merge-pr-{pr_number}",
                 action="blocked",
                 reason=f"settle_one_pr.py selected_pr={selected_pr}",
-                commands=commands,
-            )
-        merge_cmd = [
-            "gh",
-            "pr",
-            "merge",
-            str(pr_number),
-            "--squash",
-            "--match-head-commit",
-            head_sha,
-        ]
-        commands.append(merge_cmd)
-        if not self.execute:
-            return LaneDecision(
-                lane_id=f"merge-pr-{pr_number}",
-                action="dry_run",
-                reason="exact-gated Tier 0-2 merge candidate; execute mode would run protected squash",
                 commands=commands,
             )
         merge_result = self.runner.run(merge_cmd, timeout=180)
@@ -1033,7 +1081,9 @@ class GoalConductor:
                 for lane in self.mission.lanes
             ]
         else:
-            merge_decision = self._maybe_apply_one_exact_gated_merge(snapshot)
+            merge_decision = None
+            if not (self.execute and gates):
+                merge_decision = self._maybe_apply_one_exact_gated_merge(snapshot)
             if merge_decision is not None and merge_decision.action == "merged":
                 decisions = [merge_decision]
             else:
