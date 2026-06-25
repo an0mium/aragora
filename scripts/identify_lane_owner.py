@@ -45,10 +45,11 @@ status, assessment), a consumer-facing ``owner_blocking_state``, and
 — only for stale/terminal owners with no indication of local unpushed
 work — a machine-readable ``stale_claim_advisory`` codifying the
 manual stale-claim override protocol exercised on #8125. This is
-VISIBILITY + ADVISORY only: it never changes a go/no-go decision by
-itself, and it fails closed (``advisory_withheld:
-"possible_unpushed_work"``) whenever uncommitted/unpushed work might
-exist.
+VISIBILITY + ADVISORY only: it may reconcile displayed owner-state
+labels when current lease evidence proves a live owner, but it never
+authorizes cleanup or stale-claim override by itself and it fails
+closed (``advisory_withheld: "possible_unpushed_work"``) whenever
+uncommitted/unpushed work might exist.
 
 Pure stdlib. No ``aragora.*`` imports. Read-only — never mutates
 GitHub state, lane registry, mailboxes, or any other on-disk file.
@@ -1815,9 +1816,11 @@ def assess_owner_liveness(
 
     Returns a dict with ``owner_liveness``, ``stale_claim_advisory``
     and ``advisory_withheld`` keys, merged additively into the JSON
-    output. Pure visibility: this never changes a go/no-go decision
-    by itself. ``assessed == "unknown"`` NEVER produces an advisory,
-    and any hint of local work withholds it
+    output. Pure visibility: this may reconcile displayed owner-state
+    labels when a current lease proves a live owner, but it never
+    authorizes cleanup or stale-claim override by itself.
+    ``assessed == "unknown"`` NEVER produces an advisory, and any hint
+    of local work withholds it
     (``advisory_withheld: "possible_unpushed_work"``).
     """
 

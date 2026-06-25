@@ -2135,6 +2135,7 @@ class TestLivenessCLI:
         assert data["owner_liveness"]["lane_status"] == "in_progress"
         assert data["owner_liveness"]["lease_age_seconds"] == 7 * 3600
         assert data["owner_blocking_state"] == "stale_owner"
+        assert data["cleanup_state"] == "preserve_unverified_owner"
         assert data["stale_claim_advisory"]["available"] is True
         assert data["stale_claim_advisory"]["protocol"] == "stale-claim-override"
         assert data["advisory_withheld"] is None
