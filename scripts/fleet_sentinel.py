@@ -44,6 +44,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 CheckResult = dict[str, Any]
+SCRIPTS_DIR = Path(__file__).resolve().parent
+DEFAULT_REPO_ROOT = SCRIPTS_DIR.parent
 
 ALL_CHECKS = (
     "publisher_status",
@@ -58,6 +60,17 @@ ALL_CHECKS = (
     "stale_terminal_owner",
     "github_api_health",
     "trail_reconcile",
+)
+REPO_SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
+RESOLVER_REQUIRED_ATTRS = (
+    "ACTIVE_STATUSES",
+    "_annotate_terminal_safety",
+    "_active_pr_lane_findings",
+    "_base_merged_pr_audit_result",
+    "_merged_pr_audit_blocked_reason",
+    "_parse_timestamp",
+    "_read_rows_checked",
+    "_utc_now_iso",
 )
 
 # Branch namespaces owned by autonomous lanes; only these are eligible for the
@@ -100,12 +113,81 @@ def _canonical_repo_root(path: Path) -> Path:
     return path.resolve()
 
 
+def _git_common_state_root(path: Path) -> Path | None:
+    common_dir_proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if common_dir_proc.returncode != 0 or not common_dir_proc.stdout.strip():
+        return None
+    common_dir = Path(common_dir_proc.stdout.strip()).resolve()
+    if common_dir.name == ".git":
+        return common_dir.parent / ".aragora"
+    for parent in common_dir.parents:
+        if parent.name == ".git":
+            return parent.parent / ".aragora"
+    return None
+
+
+def _trusted_automation_state_roots(repo_root: Path) -> set[Path]:
+    roots = {
+        (_canonical_repo_root(repo_root) / ".aragora").resolve(),
+        (DEFAULT_REPO_ROOT / ".aragora").resolve(),
+    }
+    common_state_root = _git_common_state_root(repo_root)
+    if common_state_root is not None:
+        roots.add(common_state_root.resolve())
+    return roots
+
+
+def _normalize_automation_state_root(path: str) -> Path:
+    root = Path(path).expanduser()
+    root = root if root.name == ".aragora" else root / ".aragora"
+    return root.resolve()
+
+
 def _automation_state_root(repo_root: Path) -> Path:
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
     if configured:
-        root = Path(configured).expanduser()
-        return root if root.name == ".aragora" else root / ".aragora"
-    return _canonical_repo_root(repo_root) / ".aragora"
+        root = _normalize_automation_state_root(configured)
+        trusted_roots = _trusted_automation_state_roots(repo_root)
+        if root not in trusted_roots:
+            allowed = ", ".join(str(item) for item in sorted(trusted_roots))
+            raise ValueError(
+                f"untrusted ARAGORA_AUTOMATION_STATE_ROOT {root}; expected one of: {allowed}"
+            )
+        return root
+    return (_canonical_repo_root(repo_root) / ".aragora").resolve()
+
+
+def _validate_repo_slug(repo_slug: str) -> str:
+    slug = repo_slug.strip()
+    if slug != repo_slug or not REPO_SLUG_RE.fullmatch(slug):
+        raise ValueError("repo_slug must be a single GitHub owner/repo slug")
+    owner, repo = slug.split("/", 1)
+    if owner in {".", ".."} or repo in {".", ".."} or owner.startswith("-") or repo.startswith("-"):
+        raise ValueError("repo_slug contains an unsafe owner or repository segment")
+    return slug
+
+
+def _validate_gh_bin(gh_bin: str) -> str:
+    value = str(gh_bin)
+    if value != value.strip() or any(char.isspace() for char in value) or "\0" in value:
+        raise ValueError("gh_bin must be one executable token")
+    if value == "gh":
+        return value
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        raise ValueError("gh_bin must be 'gh' or an absolute path to gh")
+    resolved = path.resolve()
+    if resolved.name != "gh":
+        raise ValueError("gh_bin absolute path must point to an executable named gh")
+    if not resolved.is_file() or not os.access(resolved, os.X_OK):
+        raise ValueError("gh_bin absolute path must be an executable file")
+    return str(resolved)
 
 
 def parse_iso(value: str) -> datetime:
@@ -626,13 +708,24 @@ def _default_pr_state_fetcher(
     gh_bin: str,
     timeout_seconds: float = 30.0,
 ) -> dict[str, Any]:
+    try:
+        safe_gh_bin = _validate_gh_bin(gh_bin)
+        safe_repo_slug = _validate_repo_slug(repo_slug)
+    except ValueError as exc:
+        return {
+            "available": False,
+            "number": pr,
+            "state": "UNKNOWN",
+            "error": f"invalid GitHub CLI configuration: {exc}",
+            "command": [],
+        }
     cmd = [
-        gh_bin,
+        safe_gh_bin,
         "pr",
         "view",
         str(pr),
         "--repo",
-        repo_slug,
+        safe_repo_slug,
         "--json",
         "number,state,closed,closedAt,mergedAt,mergeCommit,headRefName,headRefOid,url",
     ]
@@ -683,11 +776,37 @@ def _default_pr_state_fetcher(
     }
 
 
+def _trusted_resolver_path() -> Path:
+    script_path = SCRIPTS_DIR / "resolve_lane_conflicts.py"
+    try:
+        resolved = script_path.resolve(strict=True)
+        trusted_scripts_dir = SCRIPTS_DIR.resolve(strict=True)
+    except OSError as exc:
+        raise RuntimeError(f"could not resolve trusted resolver path: {exc}") from exc
+    expected_scripts_dir = (_canonical_repo_root(DEFAULT_REPO_ROOT) / "scripts").resolve()
+    if trusted_scripts_dir != expected_scripts_dir:
+        raise RuntimeError(
+            "fleet sentinel scripts directory does not match canonical repo scripts directory: "
+            f"{trusted_scripts_dir} != {expected_scripts_dir}"
+        )
+    if resolved.parent != trusted_scripts_dir or resolved.name != "resolve_lane_conflicts.py":
+        raise RuntimeError(f"untrusted resolver module path: {resolved}")
+    return resolved
+
+
+def _validate_resolver_module(module: Any, script_path: Path) -> None:
+    missing = [name for name in RESOLVER_REQUIRED_ATTRS if not hasattr(module, name)]
+    if missing:
+        raise RuntimeError(
+            f"resolver module at {script_path} is missing required attrs: {', '.join(missing)}"
+        )
+
+
 def _load_resolver_module() -> Any:
     global _RESOLVER_MODULE
     if _RESOLVER_MODULE is not None:
         return _RESOLVER_MODULE
-    script_path = Path(__file__).with_name("resolve_lane_conflicts.py")
+    script_path = _trusted_resolver_path()
     spec = importlib.util.spec_from_file_location(
         "resolve_lane_conflicts_for_sentinel", script_path
     )
@@ -695,6 +814,7 @@ def _load_resolver_module() -> Any:
         raise RuntimeError(f"could not load resolver module at {script_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    _validate_resolver_module(module, script_path)
     _RESOLVER_MODULE = module
     return module
 
@@ -836,6 +956,12 @@ def check_stale_terminal_owner(
     exact merge commit is available.
     """
     name = "stale_terminal_owner"
+    try:
+        repo_slug = _validate_repo_slug(repo_slug)
+        gh_bin = _validate_gh_bin(gh_bin)
+    except ValueError as exc:
+        return _result(name, "unknown", f"invalid GitHub CLI configuration: {exc}")
+
     rows, load_error = _read_json_list(registry_path)
     if load_error:
         if load_error == "missing":
@@ -1741,7 +1867,7 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = DEFAULT_REPO_ROOT
     automation_state_root = _automation_state_root(repo_root)
     parser.add_argument("--repo-root", default=str(repo_root))
     parser.add_argument(

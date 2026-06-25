@@ -78,12 +78,71 @@ def _canonical_repo_root(path: Path = DEFAULT_REPO_ROOT) -> Path:
     return path.resolve()
 
 
+def _git_common_state_root(path: Path = DEFAULT_REPO_ROOT) -> Path | None:
+    common_dir_proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if common_dir_proc.returncode != 0 or not common_dir_proc.stdout.strip():
+        return None
+    common_dir = Path(common_dir_proc.stdout.strip()).resolve()
+    if common_dir.name == ".git":
+        return common_dir.parent / ".aragora"
+    for parent in common_dir.parents:
+        if parent.name == ".git":
+            return parent.parent / ".aragora"
+    return None
+
+
+def _trusted_automation_state_roots(repo_root: Path = DEFAULT_REPO_ROOT) -> set[Path]:
+    roots = {
+        (_canonical_repo_root(repo_root) / ".aragora").resolve(),
+        (DEFAULT_REPO_ROOT / ".aragora").resolve(),
+    }
+    common_state_root = _git_common_state_root(repo_root)
+    if common_state_root is not None:
+        roots.add(common_state_root.resolve())
+    return roots
+
+
+def _normalize_automation_state_root(path: str) -> Path:
+    root = Path(path).expanduser()
+    root = root if root.name == ".aragora" else root / ".aragora"
+    return root.resolve()
+
+
 def _automation_state_root(repo_root: Path = DEFAULT_REPO_ROOT) -> Path:
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
     if configured:
-        root = Path(configured).expanduser()
-        return root if root.name == ".aragora" else root / ".aragora"
-    return _canonical_repo_root(repo_root) / ".aragora"
+        root = _normalize_automation_state_root(configured)
+        trusted_roots = _trusted_automation_state_roots(repo_root)
+        if root not in trusted_roots:
+            allowed = ", ".join(str(item) for item in sorted(trusted_roots))
+            raise ValueError(
+                f"untrusted ARAGORA_AUTOMATION_STATE_ROOT {root}; expected one of: {allowed}"
+            )
+        return root
+    return (_canonical_repo_root(repo_root) / ".aragora").resolve()
+
+
+def _validate_gh_bin(gh_bin: str) -> str:
+    value = str(gh_bin)
+    if value != value.strip() or any(char.isspace() for char in value) or "\0" in value:
+        raise ValueError("gh_bin must be one executable token")
+    if value == "gh":
+        return value
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        raise ValueError("gh_bin must be 'gh' or an absolute path to gh")
+    resolved = path.resolve()
+    if resolved.name != "gh":
+        raise ValueError("gh_bin absolute path must point to an executable named gh")
+    if not resolved.is_file() or not os.access(resolved, os.X_OK):
+        raise ValueError("gh_bin absolute path must be an executable file")
+    return str(resolved)
 
 
 def _default_registry_path() -> Path:
@@ -400,8 +459,17 @@ def _merge_commit_oid(payload: dict[str, Any]) -> str:
 
 
 def _fetch_pr_state(*, pr: int, gh_bin: str) -> dict[str, Any]:
+    try:
+        safe_gh_bin = _validate_gh_bin(gh_bin)
+    except ValueError as exc:
+        return {
+            "available": False,
+            "state": None,
+            "error": f"invalid GitHub CLI configuration: {exc}",
+            "command": [],
+        }
     cmd = [
-        gh_bin,
+        safe_gh_bin,
         "pr",
         "view",
         str(pr),

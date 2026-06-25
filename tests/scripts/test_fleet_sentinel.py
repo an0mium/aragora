@@ -150,11 +150,17 @@ def test_stale_terminal_owner_defaults_use_automation_state_root(
     monkeypatch: Any,
 ) -> None:
     state_root = tmp_path / "shared-state"
+    trusted_root = (state_root / ".aragora").resolve()
     monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+    monkeypatch.setattr(
+        sentinel,
+        "_trusted_automation_state_roots",
+        lambda repo_root: {trusted_root},
+    )
 
     args = sentinel.build_parser().parse_args([])
 
-    root = state_root / ".aragora"
+    root = trusted_root
     assert Path(args.agent_bridge_lanes) == root / "agent-bridge" / "lanes.json"
     assert Path(args.agent_heartbeats) == root / "agent-bridge" / "heartbeats.json"
     assert Path(args.operator_steering_root) == root / "operator-steering"
@@ -162,6 +168,27 @@ def test_stale_terminal_owner_defaults_use_automation_state_root(
         Path(args.stale_terminal_owner_receipt_dir)
         == root / "agent-bridge" / "conflict-resolution-receipts"
     )
+
+
+def test_automation_state_root_rejects_untrusted_env_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    trusted_root = (tmp_path / "repo" / ".aragora").resolve()
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    monkeypatch.setattr(
+        sentinel,
+        "_trusted_automation_state_roots",
+        lambda repo_root: {trusted_root},
+    )
+
+    try:
+        sentinel.build_parser()
+    except ValueError as exc:
+        assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in str(exc)
+        assert str(trusted_root) in str(exc)
+    else:
+        raise AssertionError("untrusted automation state root was accepted")
 
 
 def test_stale_terminal_owner_defaults_use_canonical_repo_root(
@@ -1037,6 +1064,79 @@ def test_default_pr_state_fetcher_times_out_fail_closed(monkeypatch: Any) -> Non
     assert result["available"] is False
     assert result["state"] == "UNKNOWN"
     assert "TimeoutExpired" in result["error"]
+
+
+def test_default_pr_state_fetcher_rejects_unsafe_repo_slug(monkeypatch: Any) -> None:
+    def run_should_not_execute(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("unsafe repo slug must not reach subprocess")
+
+    monkeypatch.setattr(sentinel.subprocess, "run", run_should_not_execute)
+
+    result = sentinel._default_pr_state_fetcher(
+        9001,
+        repo_slug="synaptent/aragora --json files",
+        gh_bin="gh",
+    )
+
+    assert result["available"] is False
+    assert "repo_slug" in result["error"]
+    assert result["command"] == []
+
+
+def test_default_pr_state_fetcher_rejects_unsafe_gh_bin(monkeypatch: Any) -> None:
+    def run_should_not_execute(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("unsafe gh_bin must not reach subprocess")
+
+    monkeypatch.setattr(sentinel.subprocess, "run", run_should_not_execute)
+
+    result = sentinel._default_pr_state_fetcher(
+        9001,
+        repo_slug="synaptent/aragora",
+        gh_bin="sh -c gh",
+    )
+
+    assert result["available"] is False
+    assert "gh_bin" in result["error"]
+    assert result["command"] == []
+
+
+def test_stale_terminal_owner_rejects_invalid_repo_before_fetch(tmp_path: Path) -> None:
+    registry = _write_json(tmp_path / "lanes.json", [_active_owner_row()])
+
+    result = sentinel.check_stale_terminal_owner(
+        registry,
+        receipt_dir=tmp_path / "receipts",
+        heartbeat_path=tmp_path / "heartbeats.json",
+        steering_inbox_root=tmp_path / "operator-steering",
+        min_age_hours=24.0,
+        now=NOW,
+        repo_slug="../aragora",
+        pr_state_fetcher=lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("invalid repo_slug must not reach fetcher")
+        ),
+        terminal_owner_auditor=lambda **kwargs: (_ for _ in ()).throw(AssertionError("no audit")),
+    )
+
+    assert result["status"] == "unknown"
+    assert "invalid GitHub CLI configuration" in result["detail"]
+
+
+def test_resolver_loader_rejects_untrusted_scripts_dir(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setattr(sentinel, "_RESOLVER_MODULE", None)
+    (tmp_path / "resolve_lane_conflicts.py").write_text(
+        "ACTIVE_STATUSES = set()\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(sentinel, "SCRIPTS_DIR", tmp_path)
+
+    try:
+        sentinel._trusted_resolver_path()
+    except RuntimeError as exc:
+        assert "scripts directory does not match canonical repo" in str(exc)
+    else:
+        raise AssertionError("untrusted resolver scripts directory was accepted")
 
 
 def test_stale_terminal_owner_unknown_timestamp_precedes_stale_rows(tmp_path: Path) -> None:

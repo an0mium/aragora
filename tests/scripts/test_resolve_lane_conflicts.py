@@ -32,7 +32,9 @@ def _write_json(path: Path, payload: Any) -> None:
 
 
 def _fake_gh(tmp_path: Path, payload: dict[str, Any], *, exit_code: int = 0) -> Path:
-    gh = tmp_path / "fake-gh"
+    gh_dir = tmp_path / f"fake-gh-{len(list(tmp_path.glob('fake-gh-*')))}"
+    gh_dir.mkdir()
+    gh = gh_dir / "gh"
     gh.write_text(
         "#!/usr/bin/env python3\n"
         "import json, sys\n"
@@ -133,6 +135,11 @@ def test_cli_defaults_to_automation_state_root_for_registry(
         encoding="utf-8",
     )
     monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(state_root))
+    monkeypatch.setattr(
+        resolver,
+        "_trusted_automation_state_roots",
+        lambda repo_root=resolver.DEFAULT_REPO_ROOT: {(state_root / ".aragora").resolve()},
+    )
 
     rc = resolver.main(["--json"])
 
@@ -141,6 +148,40 @@ def test_cli_defaults_to_automation_state_root_for_registry(
     assert payload["registry_path"] == str(registry)
     assert payload["candidate_count"] == 1
     assert payload["candidates"][0]["lane_id"] == "P104-ssd-cleanup-continuation"
+
+
+def test_cli_rejects_untrusted_automation_state_root(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    trusted_root = (tmp_path / "repo" / ".aragora").resolve()
+    monkeypatch.setenv("ARAGORA_AUTOMATION_STATE_ROOT", str(tmp_path / "attacker-state"))
+    monkeypatch.setattr(
+        resolver,
+        "_trusted_automation_state_roots",
+        lambda repo_root=resolver.DEFAULT_REPO_ROOT: {trusted_root},
+    )
+
+    try:
+        resolver.main(["--json"])
+    except ValueError as exc:
+        assert "untrusted ARAGORA_AUTOMATION_STATE_ROOT" in str(exc)
+        assert str(trusted_root) in str(exc)
+    else:
+        raise AssertionError("untrusted automation state root was accepted")
+
+
+def test_fetch_pr_state_rejects_unsafe_gh_bin(monkeypatch: Any) -> None:
+    def run_should_not_execute(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("unsafe gh_bin must not reach subprocess")
+
+    monkeypatch.setattr(resolver.subprocess, "run", run_should_not_execute)
+
+    result = resolver._fetch_pr_state(pr=7435, gh_bin="python3 -c gh")
+
+    assert result["available"] is False
+    assert "gh_bin" in result["error"]
+    assert result["command"] == []
 
 
 def test_apply_marks_conflict_superseded_and_writes_receipt(tmp_path: Path) -> None:
