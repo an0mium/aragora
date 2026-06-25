@@ -45,7 +45,9 @@ from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label as _has_blocking_finding_or_label,
     has_blocking_or_negative_verdict as _has_blocking_or_negative_verdict,
     highest_blocking_severity as _highest_blocking_severity,
+    has_unlabeled_soft_dissent_phrase as _has_unlabeled_soft_dissent_phrase,
     normalized_supportive_verdict_is_supportive as _normalized_verdict_label_is_supportive,
+    _split_reasoning_tags_for_scan as _split_reasoning_tags_for_verdict_scan,
 )
 from aragora.cli.commands.review_queue_transport import (
     _GhError,
@@ -3703,25 +3705,13 @@ def _has_any_verdict_label_line(body: str) -> bool:
     )
 
 
-_UNLABELED_SOFT_DISSENT_RE = re.compile(
-    r"^(?:"
-    r"ready\s+pending\b|"
-    r"support(?:ive)?\s+"
-    r"(?:pending\b|with\s+(?:notes?|reservations?|caveats?|conditions?|fix(?:es)?)\b)|"
-    r"pass(?:ed)?\s+"
-    r"(?:pending\b|with\s+(?:notes?|reservations?|caveats?|conditions?|fix(?:es)?)\b)"
-    r")",
-    re.I,
-)
-
-
 def _has_unlabeled_soft_dissent_after_supportive_verdict(body: str) -> bool:
     """Detect prose-only caveats after an otherwise supportive verdict label."""
 
     if not _has_trusted_supportive_verdict_label(body):
         return False
     in_fence = False
-    for raw_line in str(body or "").splitlines():
+    for raw_line in _split_reasoning_tags_for_verdict_scan(str(body or "")).splitlines():
         stripped = raw_line.strip()
         if stripped.startswith(("```", "~~~")):
             in_fence = not in_fence
@@ -3735,8 +3725,7 @@ def _has_unlabeled_soft_dissent_after_supportive_verdict(body: str) -> bool:
         ):
             continue
         line = re.sub(r"^(?:[#\-*+]+\s+|\d+[.)]\s+)+", "", stripped)
-        normalized = _normalize_verdict_label_value(line)
-        if _UNLABELED_SOFT_DISSENT_RE.match(normalized):
+        if _has_unlabeled_soft_dissent_phrase(line):
             return True
     return False
 

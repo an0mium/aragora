@@ -6411,6 +6411,9 @@ class TestCommandDispatch:
             "Support with reservations.",
             "Supportive with fixes.",
             "PASS with conditions.",
+            "<thinking>Supportive with fixes.</thinking>",
+            "<thinking>\nSupportive with fixes.\n</thinking>",
+            "<analysis>PASS with conditions.</analysis>",
         ],
     )
     def test_evidence_lint_rejects_unlabeled_soft_dissent_after_supportive_verdict(

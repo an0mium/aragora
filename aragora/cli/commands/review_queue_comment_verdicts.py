@@ -168,6 +168,17 @@ SUPPORTIVE_VERDICT_CAVEAT_TAIL_RE = re.compile(
     re.I,
 )
 
+_UNLABELED_SOFT_DISSENT_RE = re.compile(
+    r"^(?:"
+    r"ready\s+pending\b|"
+    r"support(?:ive)?\s+"
+    r"(?:pending\b|with\s+(?:notes?|reservations?|caveats?|conditions?|fix(?:es)?)\b)|"
+    r"pass(?:ed)?\s+"
+    r"(?:pending\b|with\s+(?:notes?|reservations?|caveats?|conditions?|fix(?:es)?)\b)"
+    r")",
+    re.I,
+)
+
 # Prefixes a populated Blocker-label value may start with that mean "no blocker".
 # NOTE: a bare ``"no"`` is intentionally absent. ``"no"`` alone matched real
 # security findings such as "no authentication on admin endpoint" / "no validation"
@@ -345,6 +356,19 @@ def supportive_verdict_value_is_supportive(value: str) -> bool:
 
 def _split_reasoning_tags_for_scan(text: str) -> str:
     return _REASONING_TAG_RE.sub("\n", str(text or ""))
+
+
+def has_unlabeled_soft_dissent_phrase(text: str) -> bool:
+    """Return True for unlabeled PASS/support caveats that should fail closed."""
+
+    for raw_line in _split_reasoning_tags_for_scan(str(text or "")).splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        line = re.sub(r"^(?:[#\-*+]+\s+|\d+[.)]\s+)+", "", stripped)
+        if _UNLABELED_SOFT_DISSENT_RE.match(_normalize_value(line)):
+            return True
+    return False
 
 
 _INDENTED_CODE_RE = re.compile(r"^(?: {4,}|\t)\S")

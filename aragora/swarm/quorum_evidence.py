@@ -51,6 +51,7 @@ from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label,
     has_blocking_or_negative_verdict,
     has_default_blocking_finding_or_label,
+    has_unlabeled_soft_dissent_phrase,
     supportive_verdict_value_is_supportive,
 )
 from aragora.config.model_pins import OPUS_48_VIA_OPENROUTER, QWEN_235B_VIA_OPENROUTER
@@ -879,8 +880,12 @@ def _open_tail_has_blocking_or_negative_signal(text: str) -> bool:
 def _closed_thinking_block_is_safe_to_strip(block: str) -> bool:
     # Thinking traces are normally private model scratchpad. Preserve them only
     # when they contain concrete blocking evidence markers; otherwise a raw
-    # [P1]/[P2] finding can be stripped into countable PASS support.
-    return not _text_has_concrete_blocking_signal(block)
+    # [P1]/[P2] finding or unlabeled PASS caveat can be stripped into countable
+    # PASS support.
+    return not (
+        _text_has_concrete_blocking_signal(block)
+        or has_unlabeled_soft_dissent_phrase(_strip_thinking_tags(block))
+    )
 
 
 def _strip_thinking_tags(text: str) -> str:

@@ -20,6 +20,7 @@ from aragora.cli.commands.review_queue_comment_verdicts import (
     has_blocking_finding_or_label,
     highest_blocking_severity,
     has_blocking_or_negative_verdict,
+    has_unlabeled_soft_dissent_phrase,
     _is_markdown_indented_code_line as verdicts_is_markdown_indented_code_line,
 )
 from aragora.cli.commands.review_queue import (
@@ -244,6 +245,21 @@ def test_reasoning_tags_do_not_hide_same_line_priority_finding():
     body = "<thinking>Verdict: PASS; [P1] auth bypass</thinking>\nVerdict: PASS\nNo findings."
     assert has_blocking_or_negative_verdict(body)
     assert has_blocking_finding_or_label(body)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "<thinking>Supportive with fixes.</thinking>",
+        "<analysis>\nPASS with conditions.\n</analysis>",
+    ],
+)
+def test_reasoning_tags_do_not_hide_unlabeled_soft_dissent_phrase(body):
+    assert has_unlabeled_soft_dissent_phrase(body)
+
+
+def test_unlabeled_soft_dissent_phrase_accepts_plain_no_finding_prose():
+    assert not has_unlabeled_soft_dissent_phrase("Verdict: PASS\nNo findings.")
 
 
 @pytest.mark.parametrize(
