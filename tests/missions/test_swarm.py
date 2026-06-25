@@ -135,6 +135,28 @@ def test_swarm_terminal_handoff_parks_immediately(tmp_path):
     assert "f2" in res.done
 
 
+def test_swarm_followups_and_discoveries_survive_via_reconcile(tmp_path):
+    """grok [P2]: swarm mode must not silently drop discovered work. Follow-ups and
+    discoveries are recorded to the locked ledger and folded into the backlog by
+    reconcile (the orchestrator path inserts them inline; swarm routes via ledger)."""
+    sp, lp = _mission(tmp_path, 1)
+
+    def dispatch(feat):
+        return Handoff(
+            success=True,
+            follow_ups=[Feature(id="f1-follow", description="found it", milestone="m1")],
+            discovered=["a stale assertion on f1"],
+        )
+
+    run_worker(sp, lp, "w1", dispatch)
+    # The static backlog is untouched until reconcile folds the ledger-recorded work.
+    assert {f.id for f in MissionState.load(sp).features} == {"f1"}
+    reconcile_from_ledger(sp, lp)
+    final = MissionState.load(sp)
+    assert {f.id for f in final.features} == {"f1", "f1-follow"}  # follow-up not dropped
+    assert "discovered: a stale assertion on f1" in final.get("f1").notes
+
+
 def test_reconcile_folds_parks_to_blocked(tmp_path):
     sp, lp = _mission(tmp_path, 3)
 

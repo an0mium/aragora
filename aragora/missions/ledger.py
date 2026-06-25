@@ -78,6 +78,11 @@ class _LedgerData:
     constraints: dict[str, Constraint] = field(default_factory=dict)
     attempts: dict[str, int] = field(default_factory=dict)
     done: set[str] = field(default_factory=set)  # units completed by any worker
+    # Worker-discovered work, recorded to the *locked* ledger so swarm mode never
+    # drops it (MissionState is a static backlog with no lock; reconcile folds these
+    # in from a single writer). follow_ups: feature-id -> serialized Feature.
+    follow_ups: dict[str, dict] = field(default_factory=dict)
+    discoveries: dict[str, list[str]] = field(default_factory=dict)  # unit -> notes
 
 
 class Ledger:
@@ -178,10 +183,18 @@ class Ledger:
         return c.reason if c and c.is_active(now) else None
 
     def invalidate_constraint(self, key: str) -> None:
-        """Evaporate a constraint because live state materially changed."""
+        """Evaporate a constraint because live state materially changed.
+
+        Also resets the attempt budget for ``key``: "invalidate and retry" only
+        makes sense if the unit gets a fresh budget — otherwise it inherits the old
+        ``attempts`` count and re-parks on its very first next failure, defeating the
+        escape path entirely.
+        """
         with self._locked():
             data = self._load()
-            if data.constraints.pop(key, None) is not None:
+            constraint_dropped = data.constraints.pop(key, None) is not None
+            attempts_reset = data.attempts.pop(key, None) is not None
+            if constraint_dropped or attempts_reset:
                 self._save(data)
 
     def bump_attempt(self, key: str) -> int:
@@ -209,6 +222,33 @@ class Ledger:
 
     def done_units(self) -> set[str]:
         return set(self._load().done)
+
+    # ---- discovered work (swarm can't touch MissionState, so it records here) -
+
+    def record_follow_up(self, feature: dict) -> None:
+        """Record a worker-discovered follow-up feature (by id; last write wins)."""
+        fid = feature["id"]
+        with self._locked():
+            data = self._load()
+            data.follow_ups[fid] = dict(feature)
+            self._save(data)
+
+    def pending_follow_ups(self) -> list[dict]:
+        """All recorded follow-up feature dicts (reconcile inserts the new ones)."""
+        return list(self._load().follow_ups.values())
+
+    def record_discovery(self, unit: str, note: str) -> None:
+        """Record a discovered note against ``unit`` (deduped)."""
+        with self._locked():
+            data = self._load()
+            notes = data.discoveries.setdefault(unit, [])
+            if note not in notes:
+                notes.append(note)
+                self._save(data)
+
+    def discoveries(self) -> dict[str, list[str]]:
+        """unit -> discovered notes (reconcile folds these into feature notes)."""
+        return {u: list(notes) for u, notes in self._load().discoveries.items()}
 
     def prune(self, *, now: float | None = None) -> tuple[int, int]:
         """Evaporate expired leases + constraints. Returns (leases, constraints) dropped."""
@@ -250,6 +290,8 @@ class Ledger:
             constraints={k: Constraint(**v) for k, v in raw.get("constraints", {}).items()},
             attempts=dict(raw.get("attempts", {})),
             done=set(raw.get("done", [])),
+            follow_ups={k: dict(v) for k, v in raw.get("follow_ups", {}).items()},
+            discoveries={u: list(notes) for u, notes in raw.get("discoveries", {}).items()},
         )
 
     def _save(self, data: _LedgerData) -> None:
@@ -258,6 +300,8 @@ class Ledger:
             "constraints": {k: asdict(c) for k, c in data.constraints.items()},
             "attempts": data.attempts,
             "done": sorted(data.done),
+            "follow_ups": data.follow_ups,
+            "discoveries": data.discoveries,
         }
         fd, tmp = tempfile.mkstemp(
             dir=str(self.path.parent), prefix=f".{self.path.name}.", suffix=".tmp"

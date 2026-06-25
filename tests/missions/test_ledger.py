@@ -54,6 +54,33 @@ def test_constraint_excludes_then_invalidates(tmp_path):
     assert led.is_excluded("feature:x", now=100.0) is False
 
 
+def test_invalidate_resets_attempt_budget(tmp_path):
+    """grok [P2]: invalidating a park must also reset its attempt count, or the
+    'invalidate and retry' path re-parks on the very first next failure."""
+    led = _ledger(tmp_path)
+    led.bump_attempt("feature:x")
+    led.bump_attempt("feature:x")  # at/over a park threshold of 2
+    led.record_constraint("feature:x", "parked: 2 blocks", now=100.0)
+    led.invalidate_constraint("feature:x")  # live state changed → give a fresh budget
+    assert led.is_excluded("feature:x", now=100.0) is False
+    assert led.attempts("feature:x") == 0  # budget reset, not inherited
+
+
+def test_records_and_reads_follow_ups_and_discoveries(tmp_path):
+    """Swarm-discovered work is recorded to the locked ledger (reconcile folds it)."""
+    led = _ledger(tmp_path)
+    led.record_follow_up({"id": "fX", "description": "found work", "milestone": "m1"})
+    led.record_follow_up(
+        {"id": "fX", "description": "updated", "milestone": "m1"}
+    )  # last write wins
+    led.record_discovery("f1", "a stale assertion")
+    led.record_discovery("f1", "a stale assertion")  # deduped
+    follow_ups = led.pending_follow_ups()
+    assert [f["id"] for f in follow_ups] == ["fX"]
+    assert follow_ups[0]["description"] == "updated"
+    assert led.discoveries() == {"f1": ["a stale assertion"]}
+
+
 def test_constraint_ttl_evaporates(tmp_path):
     led = _ledger(tmp_path)
     led.record_constraint("feature:x", "transient", ttl=60.0, now=100.0)

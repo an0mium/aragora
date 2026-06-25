@@ -56,11 +56,12 @@ class MissionOrchestrator:
     park-after-N protection the swarm path has). A ``Handoff(terminal=True)`` is
     blocked immediately — no point retrying a fork only a human can resolve.
 
-    Single-writer contract: one orchestrator per ``state_path``. ``MissionState`` is
-    not file-locked (only the swarm's :class:`~aragora.missions.ledger.Ledger` is);
-    do not run a second orchestrator, or a swarm, against the same state file
-    concurrently. To hand off between the orchestrator and swarm modes, reconcile
-    first via :func:`aragora.missions.swarm.reconcile_from_ledger`.
+    Single-writer contract: one orchestrator per ``state_path``. ``MissionState.save``
+    now takes an exclusive lock so a contract-violating second writer serializes
+    rather than interleaving, but the contract is still the real guarantee — do not
+    run a second orchestrator, or a swarm, against the same state file concurrently.
+    To hand off between the orchestrator and swarm modes, reconcile first via
+    :func:`aragora.missions.swarm.reconcile_from_ledger`.
     """
 
     def __init__(self, state_path: str | Path, *, max_retries: int = 3) -> None:
@@ -103,7 +104,19 @@ class MissionOrchestrator:
             feature.retry_count,
         )
 
-        handoff = dispatch(feature)
+        try:
+            handoff = dispatch(feature)
+        except Exception:  # noqa: BLE001 - dispatch is an external callback (402/poison may raise anything)
+            # In-process bound: a raising dispatch must NOT abort the whole mission
+            # ("set a goal and walk away" needs the loop to outlive one bad feature).
+            # crash_count was persisted pre-dispatch; leave the feature IN_PROGRESS so
+            # the next tick's reclaim caps it (PENDING under the cap, BLOCKED at it).
+            logger.exception(
+                "dispatch raised for feature %s (crash_count=%d); next tick reclaims/caps it",
+                feature.id,
+                feature.crash_count,
+            )
+            return True
 
         # Reload before triage: dispatch may have run in another process and the
         # on-disk truth may have advanced. Never trust the in-memory copy.

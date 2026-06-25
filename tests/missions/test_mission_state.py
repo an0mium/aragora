@@ -33,6 +33,34 @@ def test_save_load_roundtrip(tmp_path):
     assert all(f.status == Status.PENDING for f in loaded.features)
 
 
+def test_concurrent_saves_serialize_without_corruption(tmp_path):
+    """grok [P2]: MissionState.save() takes an exclusive lock, so even a
+    contract-violating second writer serializes — the file is always valid JSON and
+    every save lands a complete document (atomic replace + lock)."""
+    import threading
+
+    p = tmp_path / "state.json"
+    _mission(3).save(p)
+    barrier = threading.Barrier(12)
+
+    def writer(i: int) -> None:
+        m = MissionState.load(p)
+        m.goal = f"writer-{i}"
+        barrier.wait()  # maximize the race on the same file
+        m.save(p)
+
+    threads = [threading.Thread(target=writer, args=(i,)) for i in range(12)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    # Never corrupt: load succeeds and the doc is one writer's complete document.
+    final = MissionState.load(p)
+    assert final.goal.startswith("writer-")
+    assert [f.id for f in final.features] == ["f1", "f2", "f3"]
+
+
 def test_next_pending_is_array_order():
     m = _mission()
     m.mark_completed("f1")
@@ -112,24 +140,27 @@ def test_handoff_followups_and_discoveries(tmp_path):
 
 
 def test_crash_mid_feature_resumes_no_loss(tmp_path):
-    """THE exit test: kill mid-feature, relaunch, finish with no loss/dup."""
+    """THE exit test: kill mid-feature, relaunch, finish with no loss/dup.
+
+    Models an *uncatchable* SIGKILL-class death with ``KeyboardInterrupt`` (a
+    ``BaseException``, so the orchestrator's ``except Exception`` in-process guard
+    does NOT swallow it — that guard is only for recoverable 402/poison raises). The
+    true ``kill -9`` path is exercised by scripts/mission_resume_demo.py.
+    """
     p = tmp_path / "state.json"
     _mission(4).save(p)
 
     completed_calls: list[str] = []
 
-    class _Boom(RuntimeError):
-        pass
-
     def crashing_dispatch(feat: Feature) -> Handoff:
         if feat.id == "f3":
-            raise _Boom("worker died mid-feature")  # simulate kill -9 during f3
+            raise KeyboardInterrupt  # uncatchable death mid-f3 (not the BLE001 guard)
         completed_calls.append(feat.id)
         return Handoff(success=True, session_id="w1")
 
     # First run: completes f1, f2, then dies inside f3.
     orch = MissionOrchestrator(p)
-    with pytest.raises(_Boom):
+    with pytest.raises(KeyboardInterrupt):
         orch.run(crashing_dispatch)
 
     mid = MissionState.load(p)
@@ -184,8 +215,9 @@ def test_orchestrator_terminal_block_is_not_retried(tmp_path):
 
 
 def test_orchestrator_bounds_a_raising_dispatch(tmp_path):
-    """The merge-gate-caught [P2]: a dispatch that RAISES (the real kill-9/402
-    case) must also be bounded, not re-picked forever via reclaim."""
+    """grok [P2]: a dispatch that RAISES (the real kill-9/402 case) must be bounded
+    in-process — one raising callback must NOT abort the whole run() — and the
+    feature parked after the crash cap, not re-picked forever via reclaim."""
     p = tmp_path / "state.json"
     _mission(2).save(p)
     raises: list[str] = []
@@ -194,26 +226,24 @@ def test_orchestrator_bounds_a_raising_dispatch(tmp_path):
         raises.append(feat.id)
         raise RuntimeError("worker crashed mid-feature")
 
-    orch = MissionOrchestrator(p, max_retries=2)
-    # Each run() dies on the raise; simulate restarts until the queue settles.
-    for _ in range(20):
-        try:
-            orch.run(always_raises)
-        except RuntimeError:
-            continue
-        break
+    # run() completes in ONE call despite every dispatch raising — no external
+    # restart loop, no propagated exception.
+    MissionOrchestrator(p, max_retries=2).run(always_raises)
 
     final = MissionState.load(p)
-    # f1 reached the crash cap and is BLOCKED (not spinning); the run terminated.
+    # Both features reached the crash cap and are BLOCKED (not spinning), and the
+    # loop advanced past f1 to f2 instead of dying on the first raise.
     assert final.get("f1").status == Status.BLOCKED
     assert final.get("f1").crash_count == 2
+    assert final.get("f2").status == Status.BLOCKED
     assert raises.count("f1") == 2  # bounded — exactly max_retries crash attempts
+    assert raises.count("f2") == 2  # the loop reached f2; one bad feature didn't abort it
 
 
 def test_crashed_but_successful_dispatch_is_not_false_blocked(tmp_path):
     """grok's deep [P2]: a dispatch that SUCCEEDS but whose process dies before the
     triage save must be re-dispatched (idempotent) and confirmed, not BLOCKed by
-    the crash cap."""
+    the crash cap. With in-process bounding this also resolves within one run()."""
     p = tmp_path / "state.json"
     _mission(1).save(p)
     attempts = {"n": 0}
@@ -224,13 +254,7 @@ def test_crashed_but_successful_dispatch_is_not_false_blocked(tmp_path):
             raise RuntimeError("crashed after doing the work, before save")
         return Handoff(success=True)  # idempotent re-dispatch confirms success
 
-    orch = MissionOrchestrator(p, max_retries=2)
-    for _ in range(10):
-        try:
-            orch.run(crash_then_succeed)
-        except RuntimeError:
-            continue
-        break
+    MissionOrchestrator(p, max_retries=2).run(crash_then_succeed)
 
     # Crash bumped crash_count to 1; the re-dispatch succeeded → COMPLETED, not BLOCKED.
     assert MissionState.load(p).get("f1").status == Status.COMPLETED

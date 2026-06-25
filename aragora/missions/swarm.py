@@ -9,19 +9,20 @@ whole swarm escapes a treadmill without any prompt self-editing.
 
 ``run_worker`` is process-agnostic: run one per thread or per process against the
 same ``state_path``/``ledger_path`` and they self-partition. All cross-worker
-mutation goes through the file-locked ledger, so ``MissionState`` stays a static
-backlog and never needs its own lock.
+mutation goes through the file-locked ledger, so workers never write
+``MissionState`` — it stays a static backlog that only ``reconcile_from_ledger``
+folds the swarm's results back into, from a single writer.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .ledger import Ledger, select_for
 from .orchestrator import Dispatch, Handoff
-from .state import MissionState, Status
+from .state import Feature, MissionState, Status
 
 logger = logging.getLogger(__name__)
 
@@ -80,13 +81,15 @@ def run_worker(
             ledger.record_done(unit)
             res.done.append(unit)
             # Swarm mode treats MissionState as a static backlog, so it cannot
-            # insert follow-ups; surface them rather than silently dropping them.
+            # insert follow-ups directly. Record them to the *locked* ledger so the
+            # work is never lost; reconcile_from_ledger folds them in (single writer).
             for follow in handoff.follow_ups:
-                logger.warning(
-                    "swarm dropped follow-up %s from %s (insert via orchestrator)", follow.id, unit
+                ledger.record_follow_up(asdict(follow))
+                logger.info(
+                    "swarm recorded follow-up %s from %s (folds at reconcile)", follow.id, unit
                 )
             for note in handoff.discovered:
-                logger.info("swarm discovered (on %s): %s", unit, note)
+                ledger.record_discovery(unit, note)
             continue
 
         # Terminal blocks (operator-gated / re-derive) park immediately; transient
@@ -109,9 +112,11 @@ def reconcile_from_ledger(state_path: str | Path, ledger_path: str | Path) -> in
     In swarm mode the ledger is the source of truth (so no locked MissionState is
     needed across workers); call this once afterward — from a single writer — to
     make ``MissionState`` consistent with what the swarm did: ledger ``done`` →
-    COMPLETED, and active **parks** → BLOCKED (so a parked feature is not later
+    COMPLETED, active **parks** → BLOCKED (so a parked feature is not later
     re-dispatched by the orchestrator path, preserving the anti-treadmill
-    guarantee). Returns the number of features whose status changed.
+    guarantee), and worker-recorded **follow-ups/discoveries** folded into the
+    backlog (so swarm mode never silently drops discovered work). Returns the
+    number of features whose status changed *or* were inserted.
     """
     state = MissionState.load(state_path)
     ledger = Ledger(ledger_path)
@@ -127,6 +132,25 @@ def reconcile_from_ledger(state_path: str | Path, ledger_path: str | Path) -> in
             if reason:  # keep the operator context for handoff/debugging
                 feat.notes = (feat.notes + "\n" if feat.notes else "") + f"BLOCKED (park): {reason}"
             n += 1
+
+    # Fold worker-discovered work the static backlog couldn't hold (grok [P2]):
+    # follow-up features the swarm found, and discovered notes on existing ones.
+    existing = {f.id for f in state.features}
+    for follow in ledger.pending_follow_ups():
+        if follow["id"] not in existing:
+            state.insert_feature(Feature(**follow))
+            existing.add(follow["id"])
+            n += 1
+    for unit, notes in ledger.discoveries().items():
+        try:
+            feat = state.get(unit)
+        except KeyError:
+            continue
+        for note in notes:
+            stamp = f"discovered: {note}"
+            if stamp not in feat.notes:
+                feat.notes = (feat.notes + "\n" if feat.notes else "") + stamp
+                n += 1
     if n:
         state.save(state_path)
     return n

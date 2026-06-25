@@ -16,10 +16,42 @@ import json
 import logging
 import os
 import tempfile
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from types import ModuleType
 
 logger = logging.getLogger(__name__)
+
+# POSIX-only advisory lock. The single-writer contract is the primary guarantee;
+# this is a runtime guard so a contract violation (two writers) serializes instead
+# of interleaving. On non-POSIX it degrades to no-lock (atomic replace still holds).
+fcntl: ModuleType | None
+try:
+    import fcntl as _fcntl
+
+    fcntl = _fcntl
+except ImportError:  # pragma: no cover - non-POSIX
+    fcntl = None
+
+
+@contextlib.contextmanager
+def _write_lock(path: Path) -> Iterator[None]:
+    """Exclusive advisory lock on ``<path>.lock`` for the duration of a save.
+
+    Serializes concurrent ``save()`` calls on the same state file. No-op when POSIX
+    ``fcntl`` is unavailable — atomic ``os.replace`` still prevents torn reads there.
+    """
+    if fcntl is None:  # pragma: no cover - non-POSIX
+        yield
+        return
+    lock_path = path.with_suffix(path.suffix + ".lock")
+    with lock_path.open("w") as lf:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
 
 class Status:
@@ -161,22 +193,26 @@ class MissionState:
         """Atomically persist to ``path``: tmp-write + fsync + ``os.replace``.
 
         Safe against the stated threat model (process ``kill -9`` / 402 / crash).
-        Power-loss durability would additionally require an fsync of the parent
-        directory after the rename — out of scope here.
+        Held under an exclusive file lock so a contract-violating second writer
+        serializes rather than interleaving (the single-writer contract is still the
+        primary guarantee; this is the runtime guard grok asked for). Power-loss
+        durability would additionally require an fsync of the parent directory after
+        the rename — out of scope here.
         """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                json.dump(self.to_dict(), fh, indent=2, ensure_ascii=False)
-                fh.flush()
-                os.fsync(fh.fileno())
-            os.replace(tmp, path)
-        except BaseException:
-            with contextlib.suppress(FileNotFoundError):
-                os.unlink(tmp)
-            raise
+        with _write_lock(path):
+            fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    json.dump(self.to_dict(), fh, indent=2, ensure_ascii=False)
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                os.replace(tmp, path)
+            except BaseException:
+                with contextlib.suppress(FileNotFoundError):
+                    os.unlink(tmp)
+                raise
 
     @classmethod
     def load(cls, path: str | Path) -> MissionState:
