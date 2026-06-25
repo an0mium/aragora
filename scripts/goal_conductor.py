@@ -168,6 +168,10 @@ class LaneSpec:
         prompt_file = str(payload.get("prompt_file") or payload.get("file") or "").strip()
         if not prompt and not prompt_file:
             raise ValueError(f"lane {lane_id!r} must define prompt or prompt_file")
+        strict_launch_verify = payload.get(
+            "strict_launch_verify",
+            payload.get("strict_verify", True),
+        )
         return cls(
             lane_id=lane_id,
             agent=agent,
@@ -205,9 +209,7 @@ class LaneSpec:
             agents_spec=str(payload.get("agents_spec") or "heterogeneous").strip(),
             context_file=str(payload.get("context_file") or "").strip(),
             round_id=str(payload.get("round_id") or "").strip(),
-            strict_launch_verify=_truthy(
-                payload.get("strict_launch_verify") or payload.get("strict_verify")
-            ),
+            strict_launch_verify=_truthy(strict_launch_verify),
         )
 
     @property
@@ -737,6 +739,9 @@ class GoalConductor:
                 pr_number = entry.get("pr_number", "?")
                 tier_name = entry.get("tier_name") or f"tier_{tier}"
                 gates.append(f"human/non-author settlement gate present: #{pr_number} {tier_name}")
+            if _truthy(entry.get("unresolved_dissent")):
+                pr_number = entry.get("pr_number", "?")
+                gates.append(f"unresolved model dissent present: #{pr_number}")
         return gates
 
     def _prompt_file_for(self, lane: LaneSpec, run_dir: Path) -> Path:
@@ -800,8 +805,6 @@ class GoalConductor:
                 lane.agent,
                 "--cwd",
                 cwd,
-                "--goal",
-                lane.goal,
             ]
             if lane.autonomous:
                 launch.append("--autonomous")
@@ -839,6 +842,8 @@ class GoalConductor:
                     launch.extend(["--forbidden-path", path])
             commands.append(launch)
             return commands
+        if lane.agent == "codex" and lane.autonomous:
+            return []
         commands.append(
             [
                 "python3",
@@ -896,6 +901,18 @@ class GoalConductor:
                         lane_id=lane.lane_id,
                         action="blocked",
                         reason=lease_blocker,
+                    )
+                )
+                continue
+            if lane.lane_id in sessions and lane.agent == "codex" and lane.autonomous:
+                decisions.append(
+                    LaneDecision(
+                        lane_id=lane.lane_id,
+                        action="blocked",
+                        reason=(
+                            "existing autonomous Codex session cannot be reused "
+                            "because the conductor cannot revalidate its dev lease"
+                        ),
                     )
                 )
                 continue

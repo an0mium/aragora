@@ -3326,6 +3326,34 @@ def test_cmd_launch_strict_verify_returns_nonzero_on_undelivered(
     assert meta["dispatch"]["delivered"] is False
 
 
+def test_cmd_launch_strict_verify_does_not_claim_lane_when_dispatch_undelivered(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _setup_launch_repo(mod, tmp_path, monkeypatch)
+    _fake_launch_subprocess(mod, monkeypatch, _PLACEHOLDER_PANE)
+
+    rc = mod.cmd_launch(
+        _launch_namespace(
+            tmp_path,
+            strict_verify=True,
+            lane="strict-lane",
+            lease_title="Patch conductor docs.",
+            source="#8627",
+            next_action="open draft PR",
+        )
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["dispatch"]["delivered"] is False
+    assert mod._load_lane_registry() == []
+
+
 def test_cmd_launch_unverifiable_capture_is_observational_rc0_by_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

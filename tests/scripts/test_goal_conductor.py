@@ -484,6 +484,39 @@ def test_execute_reuses_existing_agent_lane_and_sends_prompt(tmp_path: Path) -> 
     assert "existing-lane" in send_commands[0]
 
 
+def test_execute_blocks_existing_autonomous_codex_lane_without_revalidated_lease(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "existing-lane",
+            "agent": "codex",
+            "mode": "implementation",
+            "goal": "Continue an existing Codex lane.",
+            "task_id": "Q-mission-conductor",
+            "claimed_paths": ["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            "prompt": "Continue safely.",
+        }
+    ]
+    runner = FakeRunner(mod, open_prs=[])
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "blocked"
+    assert "cannot be reused" in result.decisions[0].reason
+    assert runner.executed == []
+
+
 def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Path) -> None:
     import goal_conductor as mod
 
@@ -518,6 +551,7 @@ def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Pat
     assert len(runner.executed) == 1
     (launch,) = runner.executed
     assert launch[:3] == ["python3", "scripts/agent_bridge.py", "launch"]
+    assert launch.count("--goal") == 1
     assert launch[launch.index("--goal") + 1] == "Patch conductor docs."
     assert launch[launch.index("--task-id") + 1] == "Q-mission-conductor"
     assert launch[launch.index("--claimed-path") + 1] == "docs/guides/CONDUCTOR_WORKFLOW.md"
@@ -532,7 +566,7 @@ def test_execute_launches_new_codex_lane_with_required_lease_flags(tmp_path: Pat
     assert launch[launch.index("--status") + 1] == "active"
     assert launch[launch.index("--next-action") + 1] == ""
     assert "--file" in launch
-    assert "--strict-verify" not in launch
+    assert "--strict-verify" in launch
     prompt_path = Path(launch[launch.index("--file") + 1])
     prompt = prompt_path.read_text(encoding="utf-8")
     assert "Mission lane contract:" in prompt
@@ -571,6 +605,39 @@ def test_execute_launches_new_codex_lane_with_opt_in_strict_verify(
 
     assert result.decisions[0].action == "execute"
     assert "--strict-verify" in runner.executed[0]
+
+
+def test_execute_launches_new_codex_lane_can_opt_out_of_strict_verify(
+    tmp_path: Path,
+) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    payload["lanes"] = [
+        {
+            "id": "codex-lane",
+            "agent": "codex",
+            "mode": "implementation",
+            "goal": "Patch conductor docs.",
+            "prompt": "Patch only the scoped docs.",
+            "task_id": "Q-mission-conductor",
+            "claimed_paths": ["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            "strict_launch_verify": False,
+        }
+    ]
+    runner = FakeRunner(mod, open_prs=[])
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.decisions[0].action == "execute"
+    assert "--strict-verify" not in runner.executed[0]
 
 
 def test_autonomous_codex_lane_without_lease_scope_is_blocked(tmp_path: Path) -> None:
@@ -712,6 +779,38 @@ def test_execute_does_not_treat_string_false_as_human_settlement_gate(
 
     assert not any("human/non-author settlement gate" in gate for gate in result.hard_gates)
     assert [decision.action for decision in result.decisions] == ["execute", "execute"]
+
+
+def test_execute_blocks_all_lanes_when_unresolved_dissent_present(tmp_path: Path) -> None:
+    import goal_conductor as mod
+
+    payload = _mission_dict(tmp_path)
+    payload["limits"]["queue_cap"] = 5
+    open_prs = [{"number": 7156, "title": "dissent", "isDraft": False}]
+    merge_packet = {
+        "entries": [
+            {
+                "pr_number": 7156,
+                "tier": 2,
+                "tier_name": "tier_2_live_automation",
+                "unresolved_dissent": True,
+                "requires_human_risk_settlement": False,
+            }
+        ]
+    }
+    runner = FakeRunner(mod, open_prs=open_prs, merge_packet=merge_packet)
+    conductor = mod.GoalConductor(
+        mission=mod.Mission.from_dict(payload),
+        repo_root=tmp_path,
+        execute=True,
+        runner=runner,
+    )
+
+    result = conductor.run_once()
+
+    assert result.hard_gates == ["unresolved model dissent present: #7156"]
+    assert [decision.action for decision in result.decisions] == ["blocked", "blocked"]
+    assert runner.executed == []
 
 
 def test_execute_blocks_all_lanes_when_pr_query_fails(tmp_path: Path) -> None:

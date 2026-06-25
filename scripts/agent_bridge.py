@@ -1876,9 +1876,25 @@ def cmd_launch(args: argparse.Namespace) -> int:
         print(f"Launch failed: {exc}", file=sys.stderr)
         return 1
 
-    dispatch = _verify_launch_dispatch(args, agent=agent, launch_ok=result.returncode == 0)
     exit_code = result.returncode
-    if lane_id and result.returncode == 0:
+    dispatch = _verify_launch_dispatch(args, agent=agent, launch_ok=result.returncode == 0)
+    # Verification is OBSERVATIONAL by default (review fix #8338 / #8317): the
+    # tri-state dispatch receipt is ALWAYS written (that is the durable signal
+    # lane_liveness reads), but it does NOT flip cmd_launch's exit code.  A
+    # successful launch returns its normal rc regardless of whether the prompt
+    # was confirmed submitted -- changing the default broke every caller (CI,
+    # retry loops, the funnel automation) that treats rc!=0 as launch failure.
+    # Exit-code enforcement is opt-in via --strict-verify: only then does a
+    # non-delivered (False) or unverifiable (None) dispatch produce rc=1.
+    if (
+        getattr(args, "strict_verify", False)
+        and exit_code == 0
+        and dispatch is not None
+        and dispatch.get("delivered") is not True
+    ):
+        exit_code = 1
+
+    if lane_id and exit_code == 0:
         session = Session(
             name=args.name,
             agent=agent,
@@ -1897,21 +1913,6 @@ def cmd_launch(args: argparse.Namespace) -> int:
             next_action=str(getattr(args, "next_action", "") or "").strip(),
             allow_conflict=bool(getattr(args, "allow_conflict", False)),
         )
-    # Verification is OBSERVATIONAL by default (review fix #8338 / #8317): the
-    # tri-state dispatch receipt is ALWAYS written (that is the durable signal
-    # lane_liveness reads), but it does NOT flip cmd_launch's exit code.  A
-    # successful launch returns its normal rc regardless of whether the prompt
-    # was confirmed submitted -- changing the default broke every caller (CI,
-    # retry loops, the funnel automation) that treats rc!=0 as launch failure.
-    # Exit-code enforcement is opt-in via --strict-verify: only then does a
-    # non-delivered (False) or unverifiable (None) dispatch produce rc=1.
-    if (
-        getattr(args, "strict_verify", False)
-        and exit_code == 0
-        and dispatch is not None
-        and dispatch.get("delivered") is not True
-    ):
-        exit_code = 1
 
     # Report writes are wrapped so a consumer closing the pipe early cannot
     # mask the dispatch outcome (see _install_sigpipe_hygiene / issue #8317).
