@@ -1068,11 +1068,12 @@ def github_evidence_for_branch(
                 base_ref,
                 actual_is_live=True,
             ):
+                head_ref = str(head.get("ref") or item.get("head_ref") or "").strip()
                 exact_open_pr = {
                     "number": item.get("number"),
                     "state": item.get("state"),
                     "draft": item.get("draft"),
-                    "head": head.get("ref") or item.get("head_ref"),
+                    "head": head_ref or None,
                     "head_sha": head_sha,
                     "base": base_ref or None,
                     "html_url": item.get("html_url") or item.get("url"),
@@ -1086,6 +1087,7 @@ def github_evidence_for_branch(
                 target_payload,
                 desired_head=desired_head,
                 desired_base=desired_base,
+                expected_branch=branch,
             )
     remote_ref = None
     if ref is not None:
@@ -1128,6 +1130,7 @@ def _exact_open_pr_from_payload(
     *,
     desired_head: str,
     desired_base: str,
+    expected_branch: str | None = None,
 ) -> dict[str, Any] | None:
     if str(item.get("state") or "").strip().lower() != "open":
         return None
@@ -1135,6 +1138,9 @@ def _exact_open_pr_from_payload(
         return None
     head = item.get("head") if isinstance(item.get("head"), Mapping) else {}
     base = item.get("base") if isinstance(item.get("base"), Mapping) else {}
+    head_ref = str(head.get("ref") or item.get("head_ref") or item.get("headRefName") or "").strip()
+    if expected_branch and head_ref != expected_branch:
+        return None
     head_sha = str(head.get("sha") or item.get("head_sha") or item.get("headRefOid") or "")
     base_ref = str(
         base.get("ref") or item.get("base_ref") or item.get("baseRefName") or DEFAULT_PR_BASE
@@ -1149,7 +1155,7 @@ def _exact_open_pr_from_payload(
         "number": item.get("number"),
         "state": item.get("state"),
         "draft": item.get("draft"),
-        "head": head.get("ref") or item.get("head_ref"),
+        "head": head_ref or None,
         "head_sha": head_sha,
         "base": base_ref or None,
         "html_url": item.get("html_url") or item.get("url"),

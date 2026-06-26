@@ -786,7 +786,7 @@ def test_target_pr_reference_can_prove_exact_open_pr_representation(
                 "number": 8570,
                 "state": "open",
                 "draft": False,
-                "head": {"ref": "codex/represented-elsewhere", "sha": HEAD},
+                "head": {"ref": "codex/original-branch", "sha": HEAD},
                 "base": {"ref": "main"},
                 "html_url": "https://github.com/synaptent/aragora/pull/8570",
             }
@@ -798,7 +798,40 @@ def test_target_pr_reference_can_prove_exact_open_pr_representation(
     assert item["state"] == mod.HandoffState.REPRESENTED_BY_EXACT_OPEN_PR.value
     assert item["safe_to_mutate"] is True
     assert item["evidence"]["github"]["exact_open_pr"]["number"] == 8570
-    assert item["evidence"]["github"]["exact_open_pr"]["head"] == "codex/represented-elsewhere"
+    assert item["evidence"]["github"]["exact_open_pr"]["head"] == "codex/original-branch"
+    assert github.pr_number_calls == 1
+
+
+def test_target_pr_reference_must_match_handoff_branch(
+    tmp_path: Path,
+) -> None:
+    key = "open-pr-codex-example-aaaaaaaa"
+    _write_status_cache(tmp_path, open_pr_cap_reached=True)
+    _write_outbox(
+        tmp_path,
+        key=key,
+        branch="codex/original-branch",
+        extra_payload={"target_open_pr": 8570},
+    )
+    github = FakeGitHub(
+        pr_by_number={
+            8570: {
+                "number": 8570,
+                "state": "open",
+                "draft": False,
+                "head": {"ref": "codex/represented-elsewhere", "sha": HEAD},
+                "base": {"ref": "main"},
+                "html_url": "https://github.com/synaptent/aragora/pull/8570",
+            }
+        }
+    )
+
+    item = _classify_one(tmp_path, github=github)
+
+    assert item["state"] == mod.HandoffState.BLOCKED_BY_LIVE_QUEUE_CAP.value
+    assert item["safe_to_mutate"] is False
+    assert item["next_mutation_candidate"] == "queue_drain"
+    assert item["evidence"]["github"]["exact_open_pr"] is None
     assert github.pr_number_calls == 1
 
 
