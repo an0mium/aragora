@@ -510,7 +510,9 @@ class AgentHierarchy:
         assignment.expires_at = expires_at
 
         if not await self._save_hierarchy():
-            assignment.expires_at = None
+            self._assignments.pop(agent_id, None)
+            if not await self._save_hierarchy():
+                self._assignments[agent_id] = assignment
             raise RuntimeError("failed to save agent hierarchy after spawning polecat")
         logger.info("Spawned Polecat %s for task: %s...", agent_id, task_description[:50])
         return assignment

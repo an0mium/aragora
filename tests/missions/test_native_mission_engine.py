@@ -162,6 +162,7 @@ def test_validation_injection_adds_gated_validator_features() -> None:
                 milestone="m1",
                 status=Status.COMPLETED,
                 fulfills=["VAL-1"],
+                metadata={"paths": ["aragora/missions"]},
             )
         ],
     )
@@ -176,6 +177,7 @@ def test_validation_injection_adds_gated_validator_features() -> None:
     }
     assert state.get("validate-m1-tests").preconditions == ["feature:impl"]
     assert state.get("validate-m1-tests").metadata["validation_for"] == "m1"
+    assert state.get("validate-m1-tests").metadata["paths"] == ["aragora/missions"]
     assert state.get("validate-m1-tests").fulfills == ["VAL-1"]
 
 
@@ -292,6 +294,8 @@ def test_live_gate_reads_feature_metadata_and_never_uses_admin_merge() -> None:
             )
         if cmd[:3] == ["gh", "pr", "merge"]:
             return ""
+        if cmd[:3] == ["gh", "pr", "view"]:
+            return json.dumps({"state": "MERGED", "mergedAt": "2026-06-26T20:30:00Z"})
         raise AssertionError(f"unexpected command: {cmd}")
 
     gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
@@ -335,6 +339,27 @@ def test_live_gate_tier_falls_back_to_merge_packet_when_metadata_omits_tier() ->
             )
         )
         == 2
+    )
+
+
+def test_live_gate_tier_parks_when_pr_packet_entry_is_missing() -> None:
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            return json.dumps({"entries": [{"pr_number": 9999, "head_sha": "abc123", "tier": 1}]})
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
+
+    assert (
+        gate.tier_of(
+            Feature(
+                id="engine",
+                description="ship engine",
+                milestone="m",
+                metadata={"branch": "codex/native-mission-engine", "pr": 8625, "tier": 1},
+            )
+        )
+        == 3
     )
 
 
@@ -464,6 +489,8 @@ def test_live_gate_uses_canonical_admin_squash_authorization() -> None:
             )
         if cmd[:3] == ["gh", "pr", "merge"]:
             return ""
+        if cmd[:3] == ["gh", "pr", "view"]:
+            return json.dumps({"state": "MERGED", "mergedAt": "2026-06-26T20:30:00Z"})
         raise AssertionError(f"unexpected command: {cmd}")
 
     gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
@@ -482,6 +509,45 @@ def test_live_gate_uses_canonical_admin_squash_authorization() -> None:
     assert verdict.tier == 2
     assert gate.merge_head_bound(branch, "abc123")
     assert any(cmd[:3] == ["gh", "pr", "merge"] for cmd in calls)
+
+
+def test_live_gate_merge_head_bound_verifies_merged_state() -> None:
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:4] == [sys.executable, "-m", "aragora.cli.main", "review-queue"]:
+            return json.dumps(
+                {
+                    "entries": [
+                        {
+                            "pr_number": 8625,
+                            "head_sha": "abc123",
+                            "tier": 2,
+                            "status": "satisfied",
+                            "verdict": "admin_squash_allowed",
+                            "admin_squash_allowed": True,
+                            "requires_human_risk_settlement": False,
+                            "requires_human_preapproval": False,
+                            "unresolved_dissent": False,
+                        }
+                    ]
+                }
+            )
+        if cmd[:3] == ["gh", "pr", "merge"]:
+            return ""
+        if cmd[:3] == ["gh", "pr", "view"]:
+            return json.dumps({"state": "OPEN", "mergedAt": None})
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
+    branch = gate.branch_for(
+        Feature(
+            id="engine",
+            description="ship engine",
+            milestone="m",
+            metadata={"branch": "codex/native-mission-engine", "pr": 8625, "tier": 2},
+        )
+    )
+
+    assert not gate.merge_head_bound(branch, "abc123")
 
 
 def test_live_gate_refuses_admin_squash_when_packet_has_human_blocker() -> None:

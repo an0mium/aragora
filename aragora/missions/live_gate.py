@@ -121,6 +121,7 @@ class LiveBossLoopGate:
             entry = _find_packet_entry_for_pr(payload, pr_number)
             if entry is not None:
                 return _int_or_default(entry.get("tier"), 3)
+            return 3
         raw_tier = feature.metadata.get("tier")
         if raw_tier is not None:
             return _int_or_default(raw_tier, 3)
@@ -187,7 +188,19 @@ class LiveBossLoopGate:
             ],
             self.repo_root,
         )
-        return True
+        payload = self._run_json(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(pr),
+                "--repo",
+                self.repo_slug,
+                "--json",
+                "state,mergedAt",
+            ]
+        )
+        return str(payload.get("state") or "").upper() == "MERGED" or bool(payload.get("mergedAt"))
 
     def _run_json(self, cmd: list[str]) -> dict[str, Any]:
         output = self.runner(cmd, self.repo_root)

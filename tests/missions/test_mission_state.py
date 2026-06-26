@@ -366,7 +366,9 @@ def test_handoff_followups_are_advisory_by_default(tmp_path):
 
 def test_accepted_handoff_followups_extend_queue(tmp_path):
     p = tmp_path / "state.json"
-    _mission(1).save(p)
+    state = _mission(1)
+    state.get("f1").metadata["paths"] = ["aragora/missions"]
+    state.save(p)
 
     def dispatch(feat: Feature) -> Handoff:
         return Handoff(
@@ -378,6 +380,7 @@ def test_accepted_handoff_followups_extend_queue(tmp_path):
     MissionOrchestrator(p).run(dispatch)
     final = MissionState.load(p)
     assert {f.id for f in final.features} == {"f1", "f1-followup"}
+    assert final.get("f1-followup").metadata["paths"] == ["aragora/missions"]
 
 
 def test_crash_mid_feature_resumes_no_loss(tmp_path):

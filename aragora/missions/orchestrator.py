@@ -201,6 +201,8 @@ class MissionOrchestrator:
             if stamp not in feat.notes:
                 feat.notes = (feat.notes + "\n" if feat.notes else "") + stamp
             if handoff.accept_follow_ups and not any(f.id == follow.id for f in state.features):
+                if "paths" not in follow.metadata and "paths" in feat.metadata:
+                    follow.metadata["paths"] = list(feat.metadata["paths"])
                 state.insert_feature(follow)
                 logger.info("handoff inserted accepted follow-up feature %s", follow.id)
 

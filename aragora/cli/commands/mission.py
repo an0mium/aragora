@@ -128,7 +128,7 @@ def _cmd_run(args: argparse.Namespace, *, resume: bool) -> int:
         state = MissionState.load(state_path)
         done, total = state.progress()
         print(f"Mission run ({args.autonomy}): no dispatch performed; {done}/{total} completed")
-        return 0
+        return 0 if done == total else 1
     if resume:
         print("Resume requested; reclaim is handled under the mission owner lock.")
     dispatch = _dispatch_for(args, state_path=state_path)
@@ -163,8 +163,8 @@ def _cmd_reconcile(args: argparse.Namespace) -> int:
     else:
         print(f"Reconcile mode: {report.mode}")
         print(f"Artifacts: {len(report.items)}")
-        print(f"Authorized cleanup: {len(report.authorized_cleanup)}")
-        print(f"Authorized auto-drain: {len(report.authorized_auto_drain)}")
+        print(f"Authorized cleanup (not executed): {len(report.authorized_cleanup)}")
+        print(f"Authorized auto-drain (not executed): {len(report.authorized_auto_drain)}")
         print(f"Parked: {len(report.parked)}")
         for item in report.parked:
             print(f"  - {item.artifact_id}: {item.category.value} ({item.reason})")

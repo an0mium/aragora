@@ -93,6 +93,7 @@ class ReconcileReport:
             "authorized_auto_drain": dump(self.authorized_auto_drain),
             "parked": dump(self.parked),
             "unresolved_count": self.unresolved_count,
+            "mutations_executed": False,
         }
 
     def to_json(self) -> str:
@@ -300,6 +301,17 @@ def inject_validation_features(
 
     preconditions = [f"feature:{f.id}" for f in non_validators]
     fulfills = sorted({assertion for f in non_validators for assertion in f.fulfills})
+    path_values: set[str] = set()
+    for f in non_validators:
+        raw_paths = f.metadata.get("paths") or []
+        if isinstance(raw_paths, str):
+            raw_iterable = [raw_paths]
+        elif isinstance(raw_paths, (list, tuple, set)):
+            raw_iterable = raw_paths
+        else:
+            raw_iterable = []
+        path_values.update(str(path).strip() for path in raw_iterable if str(path).strip())
+    paths = sorted(path_values)
     existing_ids = {f.id for f in state.features}
     injected: list[Feature] = []
     for kind in validation_kinds:
@@ -317,6 +329,7 @@ def inject_validation_features(
                 "validation_for": milestone,
                 "validation_kind": kind,
                 "validates": [f.id for f in non_validators],
+                "paths": paths,
             },
         )
         state.insert_feature(feature)

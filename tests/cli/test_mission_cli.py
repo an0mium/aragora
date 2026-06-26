@@ -314,7 +314,7 @@ def test_cmd_mission_run_report_mode_does_not_mutate_state(
         ["mission", "run", "--state", str(state_path), "--autonomy", "report", "--max-ticks", "2"]
     )
 
-    assert cmd_mission(args) == 0
+    assert cmd_mission(args) == 1
 
     feature = MissionState.load(state_path).get("f1")
     assert feature.status == Status.PENDING
@@ -591,5 +591,6 @@ def test_cmd_mission_reconcile_outputs_json(
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["mode"] == "safe-clean"
+    assert payload["mutations_executed"] is False
     assert [item["artifact_id"] for item in payload["authorized_cleanup"]] == ["wt-merged"]
     assert [item["artifact_id"] for item in payload["parked"]] == ["wt-dirty"]
