@@ -178,6 +178,67 @@ def _normalize_value(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().strip("*_").strip().lower())
 
 
+_FENCE_LINE = re.compile(r"^\s*(?:`{3,}|~{3,})(?:[\w.+-]+)?\s*$")
+_INDENTED_CODE_LINE = re.compile(r"^(?: {4,}|\t)")
+
+
+def _strip_blockquote_prefix(line: str) -> str:
+    return re.sub(r"^\s*>\s?", "", line).strip()
+
+
+def _blockquote_group_is_example(lines: list[str]) -> bool:
+    combined = " ".join(_normalize_value(line) for line in lines)
+    return bool(
+        re.search(r"\b(?:quoted|example|sample|demonstrat(?:e|ion)|not a live finding)\b", combined)
+    )
+
+
+def _flush_blockquote_group(lines: list[str], blockquote_group: list[str]) -> None:
+    if not blockquote_group:
+        return
+    if not _blockquote_group_is_example(blockquote_group):
+        lines.extend(blockquote_group)
+    blockquote_group.clear()
+
+
+def _semantic_review_lines(body: str) -> list[str]:
+    """Lines that should participate in verdict/finding classification.
+
+    Reviewers often quote the gate syntax itself while reviewing parser changes,
+    e.g. fenced examples of ``Verdict: CHANGES-REQUESTED`` or blockquoted
+    ``[P2]`` snippets. Those are not the reviewer's live verdict/finding lines
+    and must not become blocking dissent. Normal bullet/list findings are kept.
+    """
+    lines: list[str] = []
+    in_fence = False
+    fence_buffer: list[str] = []
+    blockquote_group: list[str] = []
+    for raw_line in str(body or "").splitlines():
+        stripped = raw_line.strip()
+        if _FENCE_LINE.match(stripped):
+            _flush_blockquote_group(lines, blockquote_group)
+            in_fence = not in_fence
+            if not in_fence:
+                fence_buffer.clear()
+            continue
+        if in_fence:
+            fence_buffer.append(stripped)
+            continue
+        if stripped.startswith(">"):
+            blockquote_group.append(_strip_blockquote_prefix(raw_line))
+            continue
+        _flush_blockquote_group(lines, blockquote_group)
+        if _INDENTED_CODE_LINE.match(raw_line):
+            continue
+        lines.append(stripped)
+    _flush_blockquote_group(lines, blockquote_group)
+    if in_fence:
+        # Fail closed for malformed evidence: if a reviewer opens a fence and never closes it,
+        # do not silently discard the rest of the comment.
+        lines.extend(fence_buffer)
+    return lines
+
+
 def _priority_finding_severity(stripped: str) -> str | None:
     """Return ``"P0"``/``"P1"`` if ``stripped`` is a *real* `[P0]`/`[P1]` finding
     line (head-before-colon NOT in :data:`_NO_FINDING_HEADS`), else ``None``.
@@ -230,7 +291,7 @@ def _populated_blocker_label(stripped: str, follow_lines: list[str]) -> bool:
 
 def has_blocking_or_negative_verdict(body: str) -> bool:
     """Return True for explicit evidence comments that report blockers."""
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    lines = _semantic_review_lines(body)
     for idx, stripped in enumerate(lines):
         if not stripped:
             continue
@@ -280,8 +341,7 @@ def highest_blocking_severity(body: str) -> str | None:
     ``"P1"`` when both are present.
     """
     best: str | None = None
-    for raw_line in str(body or "").splitlines():
-        stripped = raw_line.strip()
+    for stripped in _semantic_review_lines(body):
         if not stripped:
             continue
         severity = _priority_finding_severity(stripped)
@@ -302,7 +362,7 @@ def has_blocking_finding_or_label(body: str) -> bool:
     ``CHANGES-REQUESTED`` comment promotes a *blocking* dissent only when it is
     backed by a real `[P0]`/`[P1]` finding or a populated Blocker label.
     """
-    lines = [raw_line.strip() for raw_line in str(body or "").splitlines()]
+    lines = _semantic_review_lines(body)
     for idx, stripped in enumerate(lines):
         if not stripped:
             continue

@@ -44,6 +44,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 CheckResult = dict[str, Any]
+SCRIPTS_DIR = Path(__file__).resolve().parent
+DEFAULT_REPO_ROOT = SCRIPTS_DIR.parent
 
 ALL_CHECKS = (
     "publisher_status",
@@ -58,6 +60,23 @@ ALL_CHECKS = (
     "stale_terminal_owner",
     "github_api_health",
     "trail_reconcile",
+)
+REPO_SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
+STATE_PATH_ARGS = {
+    "--agent-bridge-lanes": "agent_bridge_lanes",
+    "--agent-heartbeats": "agent_heartbeats",
+    "--operator-steering-root": "operator_steering_root",
+    "--stale-terminal-owner-receipt-dir": "stale_terminal_owner_receipt_dir",
+}
+RESOLVER_REQUIRED_ATTRS = (
+    "ACTIVE_STATUSES",
+    "_annotate_terminal_safety",
+    "_active_pr_lane_findings",
+    "_base_merged_pr_audit_result",
+    "_merged_pr_audit_blocked_reason",
+    "_parse_timestamp",
+    "_read_rows_checked",
+    "_utc_now_iso",
 )
 
 # Branch namespaces owned by autonomous lanes; only these are eligible for the
@@ -100,12 +119,173 @@ def _canonical_repo_root(path: Path) -> Path:
     return path.resolve()
 
 
+def _git_common_state_root(path: Path) -> Path | None:
+    common_dir_proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if common_dir_proc.returncode != 0 or not common_dir_proc.stdout.strip():
+        return None
+    common_dir = Path(common_dir_proc.stdout.strip()).resolve()
+    if common_dir.name == ".git":
+        return common_dir.parent / ".aragora"
+    for parent in common_dir.parents:
+        if parent.name == ".git":
+            return parent.parent / ".aragora"
+    return None
+
+
+def _git_toplevel(path: Path) -> Path | None:
+    proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    return Path(proc.stdout.strip()).resolve()
+
+
+def _registered_worktree_roots(repo_root: Path) -> set[Path]:
+    roots: set[Path] = set()
+    toplevel = _git_toplevel(repo_root)
+    if toplevel is not None:
+        roots.add(toplevel)
+    proc = subprocess.run(
+        ["git", "-C", str(repo_root), "worktree", "list", "--porcelain"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return roots
+    for line in proc.stdout.splitlines():
+        if line.startswith("worktree "):
+            roots.add(Path(line.removeprefix("worktree ")).resolve())
+    return roots
+
+
+def _state_root_repo_candidate(state_root: Path) -> Path:
+    return state_root.parent if state_root.name == ".aragora" else state_root
+
+
+def _is_registered_worktree_state_root(state_root: Path, repo_root: Path) -> bool:
+    candidate = _state_root_repo_candidate(state_root)
+    candidate_root = _git_toplevel(candidate)
+    if candidate_root is None or candidate.resolve() != candidate_root:
+        return False
+    return candidate_root in _registered_worktree_roots(repo_root)
+
+
+def _trusted_automation_state_roots(repo_root: Path) -> set[Path]:
+    roots = {
+        (_canonical_repo_root(repo_root) / ".aragora").resolve(),
+        (DEFAULT_REPO_ROOT / ".aragora").resolve(),
+    }
+    common_state_root = _git_common_state_root(repo_root)
+    if common_state_root is not None:
+        roots.add(common_state_root.resolve())
+    return roots
+
+
+def _normalize_automation_state_root(path: str) -> Path:
+    root = Path(path).expanduser()
+    root = root if root.name == ".aragora" else root / ".aragora"
+    return root.resolve()
+
+
 def _automation_state_root(repo_root: Path) -> Path:
     configured = os.environ.get("ARAGORA_AUTOMATION_STATE_ROOT")
     if configured:
-        root = Path(configured).expanduser()
-        return root if root.name == ".aragora" else root / ".aragora"
-    return _canonical_repo_root(repo_root) / ".aragora"
+        root = _normalize_automation_state_root(configured)
+        trusted_roots = _trusted_automation_state_roots(repo_root)
+        if root not in trusted_roots and not _is_registered_worktree_state_root(root, repo_root):
+            allowed = ", ".join(str(item) for item in sorted(trusted_roots))
+            raise ValueError(
+                f"untrusted ARAGORA_AUTOMATION_STATE_ROOT {root}; expected one of: "
+                f"{allowed}, or a registered worktree's .aragora"
+            )
+        return root
+    return (_canonical_repo_root(repo_root) / ".aragora").resolve()
+
+
+def _automation_state_root_for_defaults(repo_root: Path) -> tuple[Path, str | None]:
+    try:
+        return _automation_state_root(repo_root), None
+    except ValueError as exc:
+        # Parser construction must not crash before explicit path overrides can
+        # be parsed. The stale_terminal_owner check fails closed if these
+        # fallback defaults are actually used.
+        return (_canonical_repo_root(repo_root) / ".aragora").resolve(), str(exc)
+
+
+def _explicit_state_path_args(argv: list[str]) -> set[str]:
+    explicit: set[str] = set()
+    for token in argv:
+        for flag, dest in STATE_PATH_ARGS.items():
+            if token == flag or token.startswith(f"{flag}="):
+                explicit.add(dest)
+    return explicit
+
+
+def _validate_repo_slug(repo_slug: str) -> str:
+    slug = repo_slug.strip()
+    if slug != repo_slug or not REPO_SLUG_RE.fullmatch(slug):
+        raise ValueError("repo_slug must be a single GitHub owner/repo slug")
+    owner, repo = slug.split("/", 1)
+    if owner in {".", ".."} or repo in {".", ".."} or owner.startswith("-") or repo.startswith("-"):
+        raise ValueError("repo_slug contains an unsafe owner or repository segment")
+    return slug
+
+
+def _validate_gh_bin(gh_bin: str) -> str:
+    value = str(gh_bin)
+    if value != value.strip() or any(char.isspace() for char in value) or "\0" in value:
+        raise ValueError("gh_bin must be one executable token")
+    if value == "gh":
+        return value
+    path = Path(value).expanduser()
+    if not path.is_absolute() and not any(sep in value for sep in ("/", os.sep)):
+        raise ValueError("gh_bin must be 'gh' or an executable path")
+    try:
+        resolved = path.resolve()
+    except OSError as exc:
+        raise ValueError(f"gh_bin path could not be resolved: {exc}") from exc
+    if not resolved.is_file() or not os.access(resolved, os.X_OK):
+        raise ValueError("gh_bin path must be an executable file")
+    return str(resolved)
+
+
+def _split_operator_command(command: str, *, option_name: str) -> list[str]:
+    try:
+        tokens = shlex.split(command)
+    except ValueError as exc:
+        raise ValueError(f"{option_name} is not a valid argv template: {exc}") from exc
+    if not tokens:
+        raise ValueError(f"{option_name} must not be empty")
+    executable = tokens[0]
+    if (
+        executable.startswith("-")
+        or "\0" in executable
+        or any(char.isspace() for char in executable)
+    ):
+        raise ValueError(f"{option_name} executable must be one safe argv token")
+    if any(sep in executable for sep in ("/", os.sep)):
+        path = Path(executable).expanduser()
+        try:
+            resolved = path.resolve()
+        except OSError as exc:
+            raise ValueError(f"{option_name} executable path could not be resolved: {exc}") from exc
+        if not resolved.is_file() or not os.access(resolved, os.X_OK):
+            raise ValueError(f"{option_name} executable path must be an executable file")
+        tokens[0] = str(resolved)
+    return tokens
 
 
 def parse_iso(value: str) -> datetime:
@@ -626,13 +806,24 @@ def _default_pr_state_fetcher(
     gh_bin: str,
     timeout_seconds: float = 30.0,
 ) -> dict[str, Any]:
+    try:
+        safe_gh_bin = _validate_gh_bin(gh_bin)
+        safe_repo_slug = _validate_repo_slug(repo_slug)
+    except ValueError as exc:
+        return {
+            "available": False,
+            "number": pr,
+            "state": "UNKNOWN",
+            "error": f"invalid GitHub CLI configuration: {exc}",
+            "command": [],
+        }
     cmd = [
-        gh_bin,
+        safe_gh_bin,
         "pr",
         "view",
         str(pr),
         "--repo",
-        repo_slug,
+        safe_repo_slug,
         "--json",
         "number,state,closed,closedAt,mergedAt,mergeCommit,headRefName,headRefOid,url",
     ]
@@ -683,11 +874,37 @@ def _default_pr_state_fetcher(
     }
 
 
+def _trusted_resolver_path() -> Path:
+    script_path = SCRIPTS_DIR / "resolve_lane_conflicts.py"
+    try:
+        resolved = script_path.resolve(strict=True)
+        trusted_scripts_dir = SCRIPTS_DIR.resolve(strict=True)
+    except OSError as exc:
+        raise RuntimeError(f"could not resolve trusted resolver path: {exc}") from exc
+    expected_scripts_dir = (DEFAULT_REPO_ROOT / "scripts").resolve()
+    if trusted_scripts_dir != expected_scripts_dir:
+        raise RuntimeError(
+            "fleet sentinel scripts directory does not match canonical repo scripts directory: "
+            f"{trusted_scripts_dir} != {expected_scripts_dir}"
+        )
+    if resolved.parent != trusted_scripts_dir or resolved.name != "resolve_lane_conflicts.py":
+        raise RuntimeError(f"untrusted resolver module path: {resolved}")
+    return resolved
+
+
+def _validate_resolver_module(module: Any, script_path: Path) -> None:
+    missing = [name for name in RESOLVER_REQUIRED_ATTRS if not hasattr(module, name)]
+    if missing:
+        raise RuntimeError(
+            f"resolver module at {script_path} is missing required attrs: {', '.join(missing)}"
+        )
+
+
 def _load_resolver_module() -> Any:
     global _RESOLVER_MODULE
     if _RESOLVER_MODULE is not None:
         return _RESOLVER_MODULE
-    script_path = Path(__file__).with_name("resolve_lane_conflicts.py")
+    script_path = _trusted_resolver_path()
     spec = importlib.util.spec_from_file_location(
         "resolve_lane_conflicts_for_sentinel", script_path
     )
@@ -695,6 +912,7 @@ def _load_resolver_module() -> Any:
         raise RuntimeError(f"could not load resolver module at {script_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    _validate_resolver_module(module, script_path)
     _RESOLVER_MODULE = module
     return module
 
@@ -836,6 +1054,12 @@ def check_stale_terminal_owner(
     exact merge commit is available.
     """
     name = "stale_terminal_owner"
+    try:
+        repo_slug = _validate_repo_slug(repo_slug)
+        gh_bin = _validate_gh_bin(gh_bin)
+    except ValueError as exc:
+        return _result(name, "unknown", f"invalid GitHub CLI configuration: {exc}")
+
     rows, load_error = _read_json_list(registry_path)
     if load_error:
         if load_error == "missing":
@@ -1513,7 +1737,8 @@ def _github_witness_events(
     operator phase T0) replaces this as the witness root once enabled; this
     fetcher then becomes the liveness cross-check.
     """
-    raw = json.loads(capture(["gh", "api", f"repos/{repo_slug}/events?per_page=100"]))
+    safe_repo_slug = _validate_repo_slug(repo_slug)
+    raw = json.loads(capture(["gh", "api", f"repos/{safe_repo_slug}/events?per_page=100"]))
     events: list[dict[str, Any]] = []
     for item in raw:
         etype = item.get("type", "")
@@ -1588,20 +1813,21 @@ def breach_summary(checks: list[CheckResult]) -> str:
 
 
 def notify(notify_cmd: str, summary: str, *, runner: Callable[[list[str]], int]) -> None:
-    tokens = shlex.split(notify_cmd)
-    if any("{summary}" in t for t in tokens):
-        # A bare "{summary}" token becomes its own argv element — safe to pass
-        # the text through verbatim.  A placeholder embedded in a larger token
-        # lands inside another language's string literal (e.g. the installer's
-        # default AppleScript "display notification" command), so neutralize
-        # quote/backslash injection before substituting.
-        embedded_safe = summary.replace("\\", "/").replace('"', "'")
-        tokens = [
-            summary if t == "{summary}" else t.replace("{summary}", embedded_safe) for t in tokens
-        ]
-    else:
-        tokens.append(summary)
     try:
+        tokens = _split_operator_command(notify_cmd, option_name="--notify-cmd")
+        if any("{summary}" in t for t in tokens):
+            # A bare "{summary}" token becomes its own argv element — safe to pass
+            # the text through verbatim.  A placeholder embedded in a larger token
+            # lands inside another language's string literal (e.g. the installer's
+            # default AppleScript "display notification" command), so neutralize
+            # quote/backslash injection before substituting.
+            embedded_safe = summary.replace("\\", "/").replace('"', "'")
+            tokens = [
+                summary if t == "{summary}" else t.replace("{summary}", embedded_safe)
+                for t in tokens
+            ]
+        else:
+            tokens.append(summary)
         runner(tokens)
     except Exception as exc:  # noqa: BLE001 - notification failure must not mask the report
         print(f"fleet-sentinel: notify-cmd failed: {exc}", file=sys.stderr)
@@ -1639,7 +1865,10 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                 results.append(check_launchd_plists(Path(args.launch_agents_dir)))
             elif name == "gh_auth":
                 results.append(
-                    check_gh_auth(runner=_default_command_runner, cmd=shlex.split(args.gh_auth_cmd))
+                    check_gh_auth(
+                        runner=_default_command_runner,
+                        cmd=_split_operator_command(args.gh_auth_cmd, option_name="--gh-auth-cmd"),
+                    )
                 )
             elif name == "checkout_invariant":
                 results.append(
@@ -1683,20 +1912,55 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                     )
                 )
             elif name == "stale_terminal_owner":
-                results.append(
-                    check_stale_terminal_owner(
-                        Path(args.agent_bridge_lanes),
-                        receipt_dir=Path(args.stale_terminal_owner_receipt_dir),
-                        heartbeat_path=Path(args.agent_heartbeats),
-                        steering_inbox_root=Path(args.operator_steering_root),
-                        min_age_hours=args.stale_terminal_owner_age_hours,
-                        now=now,
-                        repo_slug=args.github_repo,
-                        gh_bin=args.gh_bin,
-                        heartbeat_fresh_seconds=args.stale_terminal_owner_heartbeat_fresh_seconds,
-                        gh_timeout_seconds=args.stale_terminal_owner_gh_timeout_seconds,
-                    )
+                default_paths = getattr(args, "_automation_state_root_default_paths", {})
+                explicit_paths = set(getattr(args, "_explicit_state_path_args", set()))
+                fallback_path_values = {
+                    "agent_bridge_lanes": str(Path(args.agent_bridge_lanes)),
+                    "agent_heartbeats": str(Path(args.agent_heartbeats)),
+                    "operator_steering_root": str(Path(args.operator_steering_root)),
+                    "stale_terminal_owner_receipt_dir": str(
+                        Path(args.stale_terminal_owner_receipt_dir)
+                    ),
+                }
+                if not hasattr(args, "_explicit_state_path_args"):
+                    explicit_paths = {
+                        name
+                        for name, value in fallback_path_values.items()
+                        if value != default_paths.get(name)
+                    }
+                unsafe_fallback_paths = [
+                    name
+                    for name, value in fallback_path_values.items()
+                    if name not in explicit_paths and value == default_paths.get(name)
+                ]
+                using_unsafe_fallback_defaults = bool(
+                    getattr(args, "_automation_state_root_error", "") and unsafe_fallback_paths
                 )
+                if using_unsafe_fallback_defaults:
+                    results.append(
+                        _result(
+                            "stale_terminal_owner",
+                            "unknown",
+                            "invalid automation state root: "
+                            f"{args._automation_state_root_error}; provide explicit state paths "
+                            f"for: {', '.join(unsafe_fallback_paths)}",
+                        )
+                    )
+                else:
+                    results.append(
+                        check_stale_terminal_owner(
+                            Path(args.agent_bridge_lanes),
+                            receipt_dir=Path(args.stale_terminal_owner_receipt_dir),
+                            heartbeat_path=Path(args.agent_heartbeats),
+                            steering_inbox_root=Path(args.operator_steering_root),
+                            min_age_hours=args.stale_terminal_owner_age_hours,
+                            now=now,
+                            repo_slug=args.github_repo,
+                            gh_bin=args.gh_bin,
+                            heartbeat_fresh_seconds=args.stale_terminal_owner_heartbeat_fresh_seconds,
+                            gh_timeout_seconds=args.stale_terminal_owner_gh_timeout_seconds,
+                        )
+                    )
             elif name == "github_api_health":
                 results.append(
                     check_github_api_health(
@@ -1704,7 +1968,9 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
                         persist_threshold=args.persist_threshold,
                         tail_lines=args.publisher_log_tail_lines,
                         probe_runner=_default_command_runner,
-                        probe_cmd=shlex.split(args.rate_limit_cmd),
+                        probe_cmd=_split_operator_command(
+                            args.rate_limit_cmd, option_name="--rate-limit-cmd"
+                        ),
                     )
                 )
             elif name == "trail_reconcile":
@@ -1741,8 +2007,22 @@ def run_checks(args: argparse.Namespace, now: datetime) -> list[CheckResult]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    repo_root = Path(__file__).resolve().parents[1]
-    automation_state_root = _automation_state_root(repo_root)
+    repo_root = DEFAULT_REPO_ROOT
+    automation_state_root, automation_state_root_error = _automation_state_root_for_defaults(
+        repo_root
+    )
+    automation_default_paths = {
+        "agent_bridge_lanes": str(automation_state_root / "agent-bridge" / "lanes.json"),
+        "agent_heartbeats": str(automation_state_root / "agent-bridge" / "heartbeats.json"),
+        "operator_steering_root": str(automation_state_root / "operator-steering"),
+        "stale_terminal_owner_receipt_dir": str(
+            automation_state_root / "agent-bridge" / "conflict-resolution-receipts"
+        ),
+    }
+    parser.set_defaults(
+        _automation_state_root_error=automation_state_root_error,
+        _automation_state_root_default_paths=automation_default_paths,
+    )
     parser.add_argument("--repo-root", default=str(repo_root))
     parser.add_argument(
         "--publisher-status",
@@ -1784,17 +2064,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--orphan-branch-age-hours", type=float, default=24.0)
     parser.add_argument(
         "--agent-bridge-lanes",
-        default=str(automation_state_root / "agent-bridge" / "lanes.json"),
+        default=automation_default_paths["agent_bridge_lanes"],
         help="lane owner registry used by stale_terminal_owner",
     )
     parser.add_argument(
         "--agent-heartbeats",
-        default=str(automation_state_root / "agent-bridge" / "heartbeats.json"),
+        default=automation_default_paths["agent_heartbeats"],
         help="heartbeat registry used by stale_terminal_owner safety checks",
     )
     parser.add_argument(
         "--operator-steering-root",
-        default=str(automation_state_root / "operator-steering"),
+        default=automation_default_paths["operator_steering_root"],
         help="operator-steering inbox root used by stale_terminal_owner safety checks",
     )
     parser.add_argument(
@@ -1805,7 +2085,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--stale-terminal-owner-receipt-dir",
-        default=str(automation_state_root / "agent-bridge" / "conflict-resolution-receipts"),
+        default=automation_default_paths["stale_terminal_owner_receipt_dir"],
         help="receipt directory to print in guarded resolve_lane_conflicts commands",
     )
     parser.add_argument(
@@ -1877,7 +2157,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    args = build_parser().parse_args(raw_argv)
+    args._explicit_state_path_args = _explicit_state_path_args(raw_argv)
     now = parse_iso(args.now) if args.now else datetime.now(timezone.utc)
     checks = run_checks(args, now)
     breaches = sum(1 for c in checks if c["status"] == "breach")
