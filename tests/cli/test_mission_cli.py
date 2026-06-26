@@ -2,27 +2,27 @@
 
 from __future__ import annotations
 
-import argparse
-import sys
+import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.cli.parser import build_parser
 from aragora.cli.commands.mission import cmd_mission
-from aragora.nomic.mission import MissionSpec, WorkItem, WorkItemStatus
+from aragora.cli.parser import build_parser
+from aragora.missions import Feature, MissionState, Status
 
 
-def test_mission_parser_args() -> None:
-    """Test that the mission subcommand parser parses arguments correctly."""
+def test_mission_parser_accepts_public_subcommands(tmp_path: Path) -> None:
     parser = build_parser()
+    state_path = tmp_path / "mission.json"
 
-    # 1. Parsing with all options
-    args = parser.parse_args(
+    seed = parser.parse_args(
         [
             "mission",
+            "seed",
             "Refactor auth",
+            "--state",
+            str(state_path),
             "--budget",
             "150.50",
             "--max-hours",
@@ -35,40 +35,62 @@ def test_mission_parser_args() -> None:
             "sme,qa",
         ]
     )
+    assert seed.command == "mission"
+    assert seed.mission_action == "seed"
+    assert seed.goal == ["Refactor auth"]
+    assert seed.state == str(state_path)
+    assert seed.autonomy == "report"
+
+    run = parser.parse_args(
+        [
+            "mission",
+            "run",
+            "--state",
+            str(state_path),
+            "--autonomy",
+            "auto-drain",
+            "--max-ticks",
+            "2",
+        ]
+    )
+    assert run.mission_action == "run"
+    assert run.state == str(state_path)
+    assert run.autonomy == "auto-drain"
+    assert run.max_ticks == 2
+
+    reconcile = parser.parse_args(["mission", "reconcile", "--autonomy", "safe-clean"])
+    assert reconcile.mission_action == "reconcile"
+    assert reconcile.autonomy == "safe-clean"
+
+
+def test_mission_parser_keeps_legacy_goal_alias() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(["mission", "Do something"])
 
     assert args.command == "mission"
-    assert args.goal == "Refactor auth"
-    assert args.budget == 150.50
-    assert args.max_hours == 6.5
-    assert args.relay == "slack"
-    assert args.auto_settle_max_tier == 1
-    assert args.tracks == "sme,qa"
-
-    # 2. Parsing with defaults
-    args_default = parser.parse_args(["mission", "Do something"])
-    assert args_default.command == "mission"
-    assert args_default.goal == "Do something"
-    assert args_default.budget is None
-    assert args_default.max_hours is None
-    assert args_default.relay == "none"
-    assert args_default.auto_settle_max_tier == 2
-    assert args_default.tracks is None
+    assert args.mission_action == "Do something"
+    assert args.goal == []
 
 
-def test_mission_parser_invalid_relay() -> None:
-    """Test that the parser rejects invalid relay choices."""
+def test_mission_parser_rejects_invalid_relay() -> None:
     parser = build_parser()
     with pytest.raises(SystemExit):
-        parser.parse_args(["mission", "goal", "--relay", "invalid-relay"])
+        parser.parse_args(["mission", "seed", "goal", "--relay", "invalid-relay"])
 
 
-def test_cmd_mission_success(capsys: pytest.CaptureFixture[str]) -> None:
-    """Test cmd_mission executes successfully when the feature flag is enabled."""
+def test_cmd_mission_seed_writes_native_state(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     parser = build_parser()
+    state_path = tmp_path / "state.json"
     args = parser.parse_args(
         [
             "mission",
+            "seed",
             "Refactor auth",
+            "--state",
+            str(state_path),
             "--budget",
             "50",
             "--relay",
@@ -78,75 +100,130 @@ def test_cmd_mission_success(capsys: pytest.CaptureFixture[str]) -> None:
         ]
     )
 
-    dummy_items = (
-        WorkItem(
-            item_id="wi-1",
-            description="Refactor auth",
-            status=WorkItemStatus.PENDING,
-            complexity="medium",
-        ),
-    )
-
-    # Mock NativeMissionRunner
-    mock_runner_instance = MagicMock()
-    mock_runner_instance.ingest_mission = AsyncMock(return_value=dummy_items)
-
-    with patch(
-        "aragora.cli.commands.mission.NativeMissionRunner", return_value=mock_runner_instance
-    ):
-        exit_code = cmd_mission(args)
-
-        assert exit_code == 0
-
-        captured = capsys.readouterr()
-        assert "Ingesting mission" in captured.out
-        assert "Refactor auth" in captured.out
-        assert "Success: Mission" in captured.out
-        assert "Decomposed into 1 work items" in captured.out
-        assert "wi-1" in captured.out
-        assert "medium" in captured.out
-
-        # Verify runner was called correctly
-        mock_runner_instance.ingest_mission.assert_called_once()
-        called_spec = mock_runner_instance.ingest_mission.call_args[0][0]
-        assert isinstance(called_spec, MissionSpec)
-        assert called_spec.goal == "Refactor auth"
-        assert called_spec.budget_usd == 50.0
-        assert called_spec.relay == "email"
-        assert mock_runner_instance.ingest_mission.call_args[1]["tracks"] == ["sme"]
-
-
-def test_cmd_mission_disabled_flag(capsys: pytest.CaptureFixture[str]) -> None:
-    """Test cmd_mission handles RuntimeError when the feature flag is disabled."""
-    parser = build_parser()
-    args = parser.parse_args(["mission", "Refactor auth"])
-
-    # Mock NativeMissionRunner to raise RuntimeError (matching disabled flag behavior)
-    mock_runner_instance = MagicMock()
-    mock_runner_instance.ingest_mission = AsyncMock(
-        side_effect=RuntimeError("Native mission orchestrator is disabled")
-    )
-
-    with patch(
-        "aragora.cli.commands.mission.NativeMissionRunner", return_value=mock_runner_instance
-    ):
-        exit_code = cmd_mission(args)
-
-        assert exit_code == 1
-
-        captured = capsys.readouterr()
-        assert "Error: Native mission orchestrator is disabled" in captured.err
-
-
-def test_cmd_mission_validation_error(capsys: pytest.CaptureFixture[str]) -> None:
-    """Test cmd_mission handles MissionSpec validation errors gracefully."""
-    parser = build_parser()
-    # Let's parse valid CLI arguments, but trigger a value error at Spec validation,
-    # e.g., by passing a negative budget (which is allowed by parser float type but rejected by MissionSpec)
-    args = parser.parse_args(["mission", "Goal", "--budget", "-10"])
-
     exit_code = cmd_mission(args)
-    assert exit_code == 1
 
+    assert exit_code == 0
+    loaded = MissionState.load(state_path)
+    assert loaded.goal == "Refactor auth"
+    assert loaded.features[0].metadata["budget_usd"] == 50.0
+    assert loaded.features[0].metadata["relay"] == "email"
+    assert loaded.features[0].metadata["tracks"] == ["sme"]
     captured = capsys.readouterr()
-    assert "Validation error: budget_usd must be non-negative" in captured.err
+    assert "Seeded mission" in captured.out
+    assert str(state_path) in captured.out
+
+
+def test_cmd_mission_legacy_alias_seeds_state(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    parser = build_parser()
+    state_path = tmp_path / "state.json"
+    args = parser.parse_args(["mission", "Refactor auth", "--state", str(state_path)])
+
+    assert cmd_mission(args) == 0
+    assert MissionState.load(state_path).goal == "Refactor auth"
+    assert "Seeded mission" in capsys.readouterr().out
+
+
+def test_cmd_mission_status_prints_progress(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    state_path = tmp_path / "state.json"
+    MissionState(
+        mission_id="mission-test",
+        goal="g",
+        milestones=["m"],
+        features=[
+            Feature(id="done", description="done", milestone="m", status=Status.COMPLETED),
+            Feature(id="blocked", description="blocked", milestone="m", status=Status.BLOCKED),
+        ],
+    ).save(state_path)
+    parser = build_parser()
+    args = parser.parse_args(["mission", "status", "--state", str(state_path)])
+
+    assert cmd_mission(args) == 0
+
+    out = capsys.readouterr().out
+    assert "mission-test" in out
+    assert "1/2 completed" in out
+    assert "1 blocked" in out
+
+
+def test_cmd_mission_run_report_mode_drains_local_state(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    state_path = tmp_path / "state.json"
+    MissionState(
+        mission_id="mission-test",
+        goal="g",
+        milestones=["m"],
+        features=[Feature(id="f1", description="inspect", milestone="m")],
+    ).save(state_path)
+    parser = build_parser()
+    args = parser.parse_args(
+        ["mission", "run", "--state", str(state_path), "--autonomy", "report", "--max-ticks", "2"]
+    )
+
+    assert cmd_mission(args) == 0
+
+    assert MissionState.load(state_path).get("f1").status == Status.COMPLETED
+    assert "Mission run: 1/1 completed" in capsys.readouterr().out
+
+
+def test_cmd_mission_run_refuses_paused_mission(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    state_path = tmp_path / "state.json"
+    state_path.with_name("PAUSED").write_text("operator pause\n", encoding="utf-8")
+    MissionState(
+        mission_id="mission-test",
+        goal="g",
+        milestones=["m"],
+        features=[Feature(id="f1", description="inspect", milestone="m")],
+    ).save(state_path)
+    parser = build_parser()
+    args = parser.parse_args(["mission", "run", "--state", str(state_path)])
+
+    assert cmd_mission(args) == 1
+
+    assert MissionState.load(state_path).get("f1").status == Status.PENDING
+    assert "mission is paused" in capsys.readouterr().err
+
+
+def test_cmd_mission_reconcile_outputs_json(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fixture = tmp_path / "artifacts.json"
+    fixture.write_text(
+        json.dumps(
+            [
+                {
+                    "artifact_id": "wt-merged",
+                    "kind": "worktree",
+                    "clean": True,
+                    "already_merged": True,
+                },
+                {"artifact_id": "wt-dirty", "kind": "worktree", "clean": False},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "mission",
+            "reconcile",
+            "--autonomy",
+            "safe-clean",
+            "--artifact-fixture",
+            str(fixture),
+            "--json",
+        ]
+    )
+
+    assert cmd_mission(args) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "safe-clean"
+    assert [item["artifact_id"] for item in payload["authorized_cleanup"]] == ["wt-merged"]
+    assert [item["artifact_id"] for item in payload["parked"]] == ["wt-dirty"]

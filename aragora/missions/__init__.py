@@ -10,7 +10,22 @@ Public surface::
 """
 
 from .ledger import Constraint, Ledger, Lease, select_for
+from .live_gate import LiveBossLoopGate
 from .orchestrator import Handoff, MissionOrchestrator
+from .reconcile import (
+    AdmissionDecision,
+    AdmissionPolicy,
+    ArtifactCategory,
+    ClassifiedArtifact,
+    ReconcileMode,
+    ReconcileReport,
+    WorkArtifact,
+    apply_validation_result,
+    classify_artifact,
+    inject_validation_features,
+    write_operator_receipt,
+)
+from .runtime import MissionRuntimeConfig
 from .state import (
     Feature,
     MissionOwnershipError,
@@ -26,13 +41,26 @@ __all__ = [
     "Handoff",
     "Ledger",
     "Lease",
+    "LiveBossLoopGate",
     "MissionOrchestrator",
     "MissionOwnershipError",
+    "MissionRuntimeConfig",
     "MissionState",
+    "AdmissionDecision",
+    "AdmissionPolicy",
+    "ArtifactCategory",
+    "ClassifiedArtifact",
+    "ReconcileMode",
+    "ReconcileReport",
     "Status",
     "SwarmResult",
+    "WorkArtifact",
+    "apply_validation_result",
+    "classify_artifact",
+    "inject_validation_features",
     "mission_owner_lock",
     "reconcile_from_ledger",
     "run_worker",
     "select_for",
+    "write_operator_receipt",
 ]

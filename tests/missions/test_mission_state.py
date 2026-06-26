@@ -33,6 +33,23 @@ def test_save_load_roundtrip(tmp_path):
     assert all(f.status == Status.PENDING for f in loaded.features)
 
 
+def test_feature_metadata_roundtrip(tmp_path):
+    p = tmp_path / "state.json"
+    mission = _mission(1)
+    mission.get("f1").metadata = {
+        "branch": "codex/native-mission-engine",
+        "pr": 8625,
+        "tier": 2,
+        "paths": ["aragora/missions/state.py"],
+        "autonomy": "auto-drain",
+    }
+
+    mission.save(p)
+
+    loaded = MissionState.load(p)
+    assert loaded.get("f1").metadata == mission.get("f1").metadata
+
+
 def test_concurrent_saves_never_tear(tmp_path):
     """Atomic os.replace means a reader never sees a torn/partial file even under
     concurrent saves (the real torn-read guarantee; concurrent *writers* are an
