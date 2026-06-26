@@ -32,7 +32,7 @@ This is the merge-side counterpart to Factory-with-provenance: where the parent 
 | 1 | **Prune** safe dead branches/worktrees | branches, worktrees | `codex_worktree_autopilot.py cleanup`, `safe_worktree_cleanup.py` |
 | 2 | **Triage** stale branches | no (classify) | `harvest_salvage_branches.py` classifier, `codex_worktree_value_inventory.py` |
 | 3 | **Inspect** substantive branches (adversarial) | no (vote) | NEW pluggable runner → workflow fan-out *or* API quorum; emits `DecisionReceipt` |
-| 4 | **Harvest** preserve-verdicts → draft PRs | draft PRs | `harvest_salvage_branches.py` auto-PR archetype path |
+| 4 | **Harvest** preserve-verdicts → draft PRs | draft PRs | `harvest_salvage_branches.py` classifier + new conductor PR adapter |
 | 5 | **Cut/Park** policy-allowed retirements | branches + receipts | `harvest_salvage_branches.py` discard path + protected-SHA receipts + human queue |
 | 6 | **Settle** green-quorum Tier 0-2 | merges | `auto_merge_green.py` + `scripts/auto_merge_quorum_green.py` |
 | 7 | **Govern** WIP backpressure | signal files | `wip_budget.py` + `scripts/backlog_gate.py` |
@@ -78,7 +78,7 @@ Every stage is **re-runnable**: re-running after a partial pass converges to the
 - **Input:** Stage-3 clean `preserve` verdicts + their receipts. `needs-human` / split-inspection receipts are excluded and stay in the manual queue.
 - **Process:** for each preserved branch, open a draft PR (rationale = the receipt's verdict reason; body links the `DecisionReceipt` id). Dedup against `gh pr list`, `codex_worktree_value_inventory.py --include-pr-state`, and outbox/owner evidence so a re-run never opens a second PR for an already-represented branch.
 - **Why draft:** admission rule (§3a) — a preserved branch now has a **declared path to merge** (the draft PR enters the normal review-queue/quorum gate) instead of lingering as orphaned value.
-- **Calls:** the existing auto-PR archetype path in `harvest_salvage_branches.py` for self-contained changes; larger preserves get a draft PR + an operator-review note.
+- **Calls:** `harvest_salvage_branches.py` only for archetype/routing evidence; it is classify-only and never opens PRs. Draft PR creation is new conductor-owned glue around `gh pr create --draft`, with the same pause guard, dedup check, exact branch head, and receipt emission as other mutating adapters.
 - **Output:** `harvested[]` (branch, pr_number, receipt_id). **Idempotency:** already-has-PR → no-op.
 
 ### Stage 5 — Cut/Park (retire only what policy allows)
@@ -126,7 +126,7 @@ The independent head-moving daemons — **boss-loop, publisher, merge-arbiter, m
 There is a confirmed bug: the publisher **never read its pause manifest** (`~/.aragora/fleet-pause/paused-agents.txt`) — a code search this session found **zero references** to it, so the pause was decorative. The reconcile lane fixes this structurally:
 
 - **One central pause/lock**, checked by **every repo-touching action** before it may mutate local or remote repo state: spawn agents, create PRs, push, merge, publish, delete branches, remove/prune worktrees, or write outbound handoff state. Implemented as a single guard (e.g. `reconcile.pause.is_paused()`) read by the conductor-owned mutation adapter used by Stages 1, 4, 5, 6 and by every generator the conductor calls.
-- Paused → the stage is a **no-op that emits a `paused` terminal receipt** (not a silent skip — §9 alerting).
+- Paused → the stage is a **no-op that emits a signed `paused` operational receipt** (not a silent skip — §9 alerting). This is not one of the five artifact terminal states because no artifact exits the lane while paused.
 - The check is the conductor's, not each daemon's, so there is exactly one manifest and one reader. No mutation path may bypass it: tests enumerate the mutation adapter surface (`git push`, `gh pr create/edit/merge/close`, exact-head branch delete via `git update-ref -d`, `git worktree remove/prune`, cleanup helpers, publisher/outbox writes) and assert each path routes through the guard before executing.
 
 ---
@@ -137,7 +137,7 @@ There is a confirmed bug: the publisher **never read its pause manifest** (`~/.a
 |-----------|--------|--------------|
 | Worktree cleanup + guardrails | `scripts/codex_worktree_autopilot.py` (`cleanup`), `scripts/safe_worktree_cleanup.py` | Stage 1 |
 | Worktree value inventory | `scripts/codex_worktree_value_inventory.py` (`classify_candidate`, value classes) | Stage 1/2 evidence |
-| Salvage classifier (discard / auto-PR / operator-review) | `scripts/harvest_salvage_branches.py` (`_is_trivial_diff`, `_matches_auto_pr_archetype`, `_diff_stat`, `_commit_log`) | Stages 2,4,5 |
+| Salvage classifier (discard / auto-PR-candidate / operator-review) | `scripts/harvest_salvage_branches.py` (`_is_trivial_diff`, `_matches_auto_pr_archetype`, `_diff_stat`, `_commit_log`) | Stages 2,4,5 classification only |
 | PR/outbox representation evidence | `scripts/codex_worktree_value_inventory.py --include-pr-state`, `scripts/reconcile_automation_outbox.py`, `scripts/identify_lane_owner.py` | PR-backing / representation evidence (guardrails) |
 | Outbox reconcile | `scripts/reconcile_automation_outbox.py` (`--apply`) | settles satisfied handoffs before Cut |
 | Auto-merge decision core | `aragora/swarm/auto_merge_green.py` (`decide_auto_merge`, `apply_merges`), `scripts/auto_merge_quorum_green.py` | Stage 6 |
@@ -177,7 +177,7 @@ Prune ──▶ surviving branches ──▶ Triage ──▶ triage.jsonl
                                           Govern (WIP) ──▶ .aragora/backpressure.json ──▶ all generators
 ```
 
-Every arrow that mutates (Prune delete, Harvest PR, Cut delete, Settle merge) passes the §3c pause check and emits a §9 terminal receipt.
+Every arrow that mutates (Prune delete, Harvest PR, Cut delete, Settle merge) passes the §3c pause check and emits the appropriate receipt: a §9 artifact terminal receipt for real exits, or a non-terminal operational `paused` receipt when the pause guard prevents mutation.
 
 ---
 
@@ -188,10 +188,10 @@ Each stage implements the parent's `Dispatch = Callable[[Feature], Handoff]`. Un
 | Property | Contract |
 |----------|----------|
 | **Input** | `Feature` (carries stage params in `notes`/config) + live git/GitHub re-derived at dispatch time |
-| **Output** | `Handoff(success, discovered[], follow_ups[], terminal, blocked_reason)` + zero-or-more terminal receipts |
+| **Output** | `Handoff(success, discovered[], follow_ups[], terminal, blocked_reason)` + zero-or-more artifact terminal receipts and/or operational receipts |
 | **Idempotency** | re-run with unchanged heads → same result; mutations are no-ops when already applied; receipts cache on `(artifact, sha)` |
 | **Dry-run** | default; emits the *plan* (would-prune/would-cut/would-merge) and writes non-terminal preview receipts marked `dry_run=true`; `--apply` flips to real mutation and is the only mode that may emit terminal artifact-exit receipts |
-| **Pause** | every mutating stage checks §3c first; paused → `Handoff(success=False, terminal=True, blocked_reason="fleet paused")` + `paused` receipt |
+| **Pause** | every mutating stage checks §3c first; paused → `Handoff(success=False, terminal=True, blocked_reason="fleet paused")` + signed non-terminal `paused` operational receipt |
 | **Calls** | the wrapped primitive(s) in §4 — the stage is glue, not new cleanup logic |
 
 ---
@@ -221,7 +221,7 @@ Crash safety is inherited from the spine: `MissionState.save` is atomic (`os.rep
 - **Receipt emission.** Assert every artifact that exits any apply stage has exactly one terminal receipt in one of the five terminal states, signature-valid (`SignedReceipt`), and recoverable (deleted-receipt SHA re-creates the branch because an actual `refs/archive/reconcile/...` keep-ref protects it). Dry-run preview receipts are explicitly non-terminal and must not consume the artifact's terminal receipt slot.
 - **WIP accounting.** Assert Stage 7 counts open draft PRs and harvested-but-unsettled preserved branches, not only non-draft PRs, before it allows generators to produce more work.
 - **Idempotency.** Run each stage twice on the same fixture; second run mutates nothing and re-emits identical receipts; the inspection quorum is **not** re-invoked (receipt-cache hit).
-- **Pause is real.** With the pause manifest set, assert every mutating stage emits a `paused` receipt and mutates nothing. The §3c regression test must also enumerate the full conductor-owned mutation adapter surface — PR creation/edits/closures, pushes, merges, branch deletion, worktree removal/pruning, cleanup helpers, and publisher/outbox writes — and prove every path calls the pause guard before executing.
+- **Pause is real.** With the pause manifest set, assert every mutating stage emits a non-terminal `paused` operational receipt and mutates nothing. The §3c regression test must also enumerate the full conductor-owned mutation adapter surface — PR creation/edits/closures, pushes, merges, branch deletion, worktree removal/pruning, cleanup helpers, and publisher/outbox writes — and prove every path calls the pause guard before executing.
 - **Crash/resume.** `kill -9` mid-Cut (between two deletes); relaunch; assert no double-delete and the manifest receipt is consistent — reuses the parent's Phase-A exit test.
 
 ---
