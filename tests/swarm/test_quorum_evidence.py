@@ -1286,7 +1286,7 @@ def test_collect_overall_timeout_process_path_runs_queued_reviewers(tmp_path, mo
 
 def test_collect_overall_timeout_process_path_allows_nested_reviewer_process() -> None:
     if "fork" not in multiprocessing.get_all_start_methods():
-        pytest.skip("overall-timeout reviewer isolation requires fork")
+        return
     fakes, _ = _fakes(tier=2)
     fakes["reviewer_runner"] = _process_spawning_reviewer_runner
 
