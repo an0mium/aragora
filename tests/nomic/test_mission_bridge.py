@@ -144,6 +144,43 @@ def test_decomposition_to_mission_does_not_emit_unscoped_codex_implementation_la
     assert parsed.lanes[0].lease_blocker() is None
 
 
+def test_decomposition_to_mission_treats_tests_only_codex_subtask_as_panel() -> None:
+    mod = _load_goal_conductor_module()
+    decomp = TaskDecomposition(
+        original_task="run focused validation before choosing files",
+        complexity_score=2,
+        complexity_level="small",
+        should_decompose=False,
+        subtasks=[
+            type(
+                "_TestsOnlySubtask",
+                (),
+                {
+                    "id": "validation",
+                    "title": "Run validation",
+                    "description": "Run tests before a file scope is known.",
+                    "file_scope": [],
+                    "tests": ["python3 -m pytest tests/nomic/test_mission_bridge.py -q"],
+                    "success_criteria": {},
+                },
+            )()
+        ],
+    )
+
+    mission = decomposition_to_mission(
+        decomp,
+        objective="run focused validation before choosing files",
+        agents=["codex"],
+        include_panel_review=False,
+    )
+
+    parsed = mod.Mission.from_dict(mission)
+    assert parsed.lanes[0].mode == "panel"
+    assert parsed.lanes[0].agent == "panel"
+    assert parsed.lanes[0].tests == ["python3 -m pytest tests/nomic/test_mission_bridge.py -q"]
+    assert parsed.lanes[0].lease_blocker() is None
+
+
 def test_write_mission_yaml_round_trips(tmp_path: Path) -> None:
     mod = _load_goal_conductor_module()
     mission = decomposition_to_mission(

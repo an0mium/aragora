@@ -3336,6 +3336,85 @@ def test_cmd_launch_rechecks_lane_owner_before_post_launch_persist(
     ] in calls
 
 
+def test_persist_lane_claim_returns_active_conflict_without_writing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import agent_bridge as mod
+
+    existing = mod.LaneRecord(
+        lane_id="codex-lane",
+        owner_session="already-running",
+        status="active",
+    )
+    writes: list[list[mod.LaneRecord]] = []
+    monkeypatch.setattr(mod, "_write_lane_registry", lambda records: writes.append(records))
+
+    conflict = mod._persist_lane_claim(
+        [existing],
+        "codex-lane",
+        mod.Session(name="new-launch", agent="codex", status="alive"),
+        goal="Patch conductor docs.",
+        source="#8627",
+        status="active",
+        next_action="open draft PR",
+        allow_conflict=False,
+    )
+
+    assert conflict is existing
+    assert writes == []
+    assert existing.owner_session == "already-running"
+    assert existing.status == "active"
+
+
+def test_cmd_launch_kills_session_when_post_launch_persist_detects_conflict(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import agent_bridge as mod
+
+    _setup_launch_repo(mod, tmp_path, monkeypatch)
+    calls = _fake_launch_subprocess(mod, monkeypatch, _SUBMITTED_PANE)
+    conflict = mod.LaneRecord(
+        lane_id="codex-lane",
+        owner_session="already-running",
+        status="active",
+    )
+
+    monkeypatch.setattr(mod, "_load_lane_registry", lambda: [])
+    monkeypatch.setattr(mod, "_lane_conflict", lambda _records, _lane, _owner: None)
+    monkeypatch.setattr(mod, "_persist_lane_claim", lambda *_args, **_kwargs: conflict)
+
+    rc = mod.cmd_launch(
+        _launch_namespace(
+            tmp_path,
+            name="codex-lane",
+            agent="codex",
+            autonomous=True,
+            submit_verify_timeout=0,
+            task_id="Q-mission-conductor",
+            lease_title="Patch conductor docs.",
+            claimed_path=["docs/guides/CONDUCTOR_WORKFLOW.md"],
+            lane="codex-lane",
+        )
+    )
+
+    assert rc == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["lane_conflict"] == {
+        "lane_id": "codex-lane",
+        "owner_session": "already-running",
+        "status": "active",
+    }
+    assert [
+        "bash",
+        str(mod.CANONICAL_REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+        "--kill",
+        "codex-lane",
+    ] in calls
+
+
 def test_cmd_launch_undelivered_is_observational_rc0_by_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

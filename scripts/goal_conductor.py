@@ -976,19 +976,6 @@ class GoalConductor:
                     )
                 )
                 continue
-            if lane.lane_id in sessions and lane.agent == "codex" and lane.autonomous:
-                decisions.append(
-                    LaneDecision(
-                        lane_id=lane.lane_id,
-                        action="blocked",
-                        reason=(
-                            "existing autonomous Codex lanes are not reused; relaunch "
-                            "through agent_bridge.py launch so the dev lease is freshly "
-                            "claimed for the current mission scope"
-                        ),
-                    )
-                )
-                continue
             if lane.mutates:
                 if implementation_used >= self.mission.limits.max_implementation_lanes:
                     decisions.append(

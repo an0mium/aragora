@@ -145,7 +145,7 @@ def decomposition_to_mission(
         file_scope = _subtask_file_scope(subtask)
         validation_commands = _subtask_validation_commands(subtask)
         mode = "implementation"
-        if agent == "codex" and not file_scope and not validation_commands:
+        if agent == "codex" and not file_scope:
             mode = "panel"
         lanes.append(
             {

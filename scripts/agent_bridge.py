@@ -1262,7 +1262,7 @@ def _persist_lane_claim(
     status: str,
     next_action: str,
     allow_conflict: bool,
-) -> None:
+) -> LaneRecord | None:
     existing = _find_lane_record(records, lane_id)
     conflict = _lane_conflict(records, lane_id, session.name)
     if conflict is not None:
@@ -1273,7 +1273,7 @@ def _persist_lane_claim(
             conflict.next_action = next_action or "resolve ambiguous lane ownership"
             conflict.updated_at = _now_iso()
             _write_lane_registry(records)
-        return
+        return conflict
 
     record = existing or LaneRecord(lane_id=lane_id, owner_session=session.name)
     record.owner_session = session.name
@@ -1290,6 +1290,7 @@ def _persist_lane_claim(
     if existing is None:
         records.append(record)
     _write_lane_registry(records)
+    return None
 
 
 def _kill_tmux_launcher_session(name: str) -> None:
@@ -1936,7 +1937,7 @@ def cmd_launch(args: argparse.Namespace) -> int:
             _kill_tmux_launcher_session(session.name)
             exit_code = 1
         else:
-            _persist_lane_claim(
+            persist_conflict = _persist_lane_claim(
                 latest_lane_records,
                 lane_id,
                 session,
@@ -1946,6 +1947,10 @@ def cmd_launch(args: argparse.Namespace) -> int:
                 next_action=str(getattr(args, "next_action", "") or "").strip(),
                 allow_conflict=bool(getattr(args, "allow_conflict", False)),
             )
+            if persist_conflict is not None and not bool(getattr(args, "allow_conflict", False)):
+                lane_claim_conflict = persist_conflict
+                _kill_tmux_launcher_session(session.name)
+                exit_code = 1
 
     # Report writes are wrapped so a consumer closing the pipe early cannot
     # mask the dispatch outcome (see _install_sigpipe_hygiene / issue #8317).
@@ -2186,7 +2191,7 @@ def cmd_send(args: argparse.Namespace) -> int:
             return 1
     if _send_tmux(target, prompt):
         if lane_id:
-            _persist_lane_claim(
+            persist_conflict = _persist_lane_claim(
                 records,
                 lane_id,
                 session,
@@ -2196,6 +2201,13 @@ def cmd_send(args: argparse.Namespace) -> int:
                 next_action=str(getattr(args, "next_action", "") or "").strip(),
                 allow_conflict=bool(getattr(args, "allow_conflict", False)),
             )
+            if persist_conflict is not None and not getattr(args, "allow_conflict", False):
+                print(
+                    f"Lane '{lane_id}' already owned by active session "
+                    f"'{persist_conflict.owner_session}'",
+                    file=sys.stderr,
+                )
+                return 1
         print(f"Sent to '{session.name}' ({len(prompt)} chars)")
         return 0
     print(f"Send failed for '{session.name}'", file=sys.stderr)
