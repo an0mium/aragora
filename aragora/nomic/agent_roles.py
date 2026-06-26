@@ -35,8 +35,11 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import os
+import tempfile
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -225,7 +228,7 @@ class AgentHierarchy:
             self._legacy_hierarchy_file = None
         else:
             self.hierarchy_dir = get_default_data_dir() / "agent_hierarchy"
-            self._legacy_hierarchy_file = Path(".agents") / "hierarchy.json"
+            self._legacy_hierarchy_file = self._repo_root() / ".agents" / "hierarchy.json"
         self.hierarchy_file = self.hierarchy_dir / "hierarchy.json"
         self._assignments: dict[str, RoleAssignment] = {}
         self._lock = asyncio.Lock()
@@ -262,28 +265,47 @@ class AgentHierarchy:
                     self._assignments[assignment.agent_id] = assignment
             if using_legacy_default and not self.hierarchy_file.exists():
                 await self._save_hierarchy()
+                self._retire_legacy_hierarchy(source)
                 logger.info(
                     "Migrated legacy agent hierarchy from %s to %s",
                     source,
                     self.hierarchy_file,
                 )
-        except OSError as e:
+        except (OSError, json.JSONDecodeError, ValueError) as e:
             logger.error("Failed to load hierarchy: %s", e)
 
     async def _save_hierarchy(self) -> None:
         """Save hierarchy to file."""
+        payload = {
+            "assignments": [a.to_dict() for a in self._assignments.values()],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self.hierarchy_dir.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(
+            dir=str(self.hierarchy_dir),
+            prefix=f".{self.hierarchy_file.name}.",
+            suffix=".tmp",
+        )
         try:
-            with open(self.hierarchy_file, "w") as f:
-                json.dump(
-                    {
-                        "assignments": [a.to_dict() for a in self._assignments.values()],
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    },
-                    f,
-                    indent=2,
-                )
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, self.hierarchy_file)
         except OSError as e:
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(tmp)
             logger.error("Failed to save hierarchy: %s", e)
+
+    @staticmethod
+    def _repo_root() -> Path:
+        return Path(__file__).resolve().parents[2]
+
+    @staticmethod
+    def _retire_legacy_hierarchy(path: Path) -> None:
+        retired = path.with_name(f"{path.name}.migrated")
+        with contextlib.suppress(OSError):
+            os.replace(path, retired)
 
     async def register_agent(
         self,

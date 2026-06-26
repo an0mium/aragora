@@ -48,7 +48,7 @@ class _LeaseHeartbeat:
         self._unit = unit
         self._worker_id = worker_id
         self._ttl = ttl
-        self._interval = max(0.5, ttl / 3)
+        self._interval = ttl / 3 if ttl > 0 else DEFAULT_LEASE_TTL / 3
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._lost_reason: str | None = None

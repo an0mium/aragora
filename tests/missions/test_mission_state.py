@@ -385,6 +385,18 @@ def test_orchestrator_caps_retries_instead_of_spinning(tmp_path):
     assert calls == ["f1", "f1", "f1", "f2", "f2", "f2"]  # bounded: 3 each, not 10_000
 
 
+def test_handoff_blocked_reason_defaults_to_failure(tmp_path):
+    """A worker returning only blocked_reason must not be triaged as success."""
+    p = tmp_path / "state.json"
+    _mission(1).save(p)
+
+    MissionOrchestrator(p, max_retries=1).run(lambda feat: Handoff(blocked_reason="needs operator"))
+
+    final = MissionState.load(p)
+    assert final.get("f1").status == Status.BLOCKED
+    assert "needs operator" in final.get("f1").notes
+
+
 def test_orchestrator_terminal_block_is_not_retried(tmp_path):
     p = tmp_path / "state.json"
     _mission(1).save(p)
@@ -419,10 +431,10 @@ def test_orchestrator_bounds_a_raising_dispatch(tmp_path):
     # Both features reached the crash cap and are BLOCKED (not spinning), and the
     # loop advanced past f1 to f2 instead of dying on the first raise.
     assert final.get("f1").status == Status.BLOCKED
-    assert final.get("f1").crash_count == 2
+    assert final.get("f1").crash_count == 3
     assert final.get("f2").status == Status.BLOCKED
-    assert raises.count("f1") == 2  # bounded — exactly max_retries crash attempts
-    assert raises.count("f2") == 2  # the loop reached f2; one bad feature didn't abort it
+    assert raises.count("f1") == 3  # max_retries plus one idempotent confirmation attempt
+    assert raises.count("f2") == 3  # the loop reached f2; one bad feature didn't abort it
 
 
 def test_crashed_but_successful_dispatch_is_not_false_blocked(tmp_path):
@@ -442,6 +454,24 @@ def test_crashed_but_successful_dispatch_is_not_false_blocked(tmp_path):
     MissionOrchestrator(p, max_retries=2).run(crash_then_succeed)
 
     # Crash bumped crash_count to 1; the re-dispatch succeeded → COMPLETED, not BLOCKED.
+    assert MissionState.load(p).get("f1").status == Status.COMPLETED
+
+
+def test_max_retry_crash_gets_one_idempotent_confirmation(tmp_path):
+    """If work may have succeeded before dying at the crash cap, resume confirms it."""
+    p = tmp_path / "state.json"
+    _mission(1).save(p)
+    attempts = {"n": 0}
+
+    def crash_at_cap_then_confirm(feat):
+        attempts["n"] += 1
+        if attempts["n"] <= 2:
+            raise RuntimeError("died after external work")
+        return Handoff(success=True)
+
+    MissionOrchestrator(p, max_retries=2).run(crash_at_cap_then_confirm)
+
+    assert attempts["n"] == 3
     assert MissionState.load(p).get("f1").status == Status.COMPLETED
 
 

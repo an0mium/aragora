@@ -46,6 +46,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_LEASE_TTL = 1800.0  # 30 min — a dead worker's claim evaporates after this
 
 
+class LedgerCorruptError(RuntimeError):
+    """Raised when ledger JSON cannot be decoded safely."""
+
+
 @dataclass
 class Lease:
     """A worker's atomic claim on one unit of work."""
@@ -364,7 +368,10 @@ class Ledger:
     def _load(self) -> _LedgerData:
         if not self.path.exists():
             return _LedgerData()
-        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise LedgerCorruptError(f"corrupt ledger JSON at {self.path}: {exc.msg}") from exc
         return _LedgerData(
             leases={u: from_known_fields(Lease, v) for u, v in raw.get("leases", {}).items()},
             constraints={
@@ -383,6 +390,7 @@ class Ledger:
             "done": sorted(data.done),
             "discoveries": data.discoveries,
         }
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(
             dir=str(self.path.parent), prefix=f".{self.path.name}.", suffix=".tmp"
         )

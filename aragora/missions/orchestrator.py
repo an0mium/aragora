@@ -37,7 +37,7 @@ class Handoff:
     swarm agree.
     """
 
-    success: bool = True
+    success: bool = False
     terminal: bool = False  # True = do not retry; park/block immediately
     blocked_reason: str | None = None
     follow_ups: list[Feature] = field(default_factory=list)
@@ -120,9 +120,10 @@ class MissionOrchestrator:
             return False
 
         # Provisionally count a *crash* BEFORE dispatch, so a raise leaves the count
-        # on disk for reclaim to cap. _triage resets it the moment dispatch returns,
-        # so a dispatch that succeeded-but-crashed-before-save is re-dispatched
-        # (idempotent → completes) rather than false-BLOCKed.
+        # on disk for reclaim to cap. _triage resets it the moment dispatch returns.
+        # Reclaim allows one final idempotent confirmation when crash_count reaches
+        # the cap, so a dispatch that succeeded externally but died before triage is
+        # re-dispatched once to observe already-done/success instead of false-BLOCKed.
         feature.crash_count += 1
         state.mark_in_progress(feature.id)
         state.save(self.state_path)
@@ -166,7 +167,7 @@ class MissionOrchestrator:
             if feat.status != Status.IN_PROGRESS:
                 continue
             changed = True
-            if feat.crash_count >= self.max_retries:
+            if feat.crash_count > self.max_retries:
                 feat.status = Status.BLOCKED
                 feat.notes = (feat.notes + "\n" if feat.notes else "") + (
                     f"blocked: crashed {feat.crash_count}x in a row (poison/crash-looping dispatch)"

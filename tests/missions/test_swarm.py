@@ -201,6 +201,8 @@ def test_lease_heartbeat_keeps_a_long_dispatch_claim_alive(tmp_path):
     led = Ledger(lp)
     led.claim("u1", "w1", ttl=0.3)  # short TTL — would expire in 0.3s without a beat
     with _LeaseHeartbeat(led, "u1", "w1", ttl=0.3):
+        time.sleep(0.35)
+        assert led.active_claims() == {"u1": "w1"}  # refreshed before the first expiry
         time.sleep(0.6)  # outlive two TTLs
         assert led.active_claims() == {"u1": "w1"}  # still held — heartbeat refreshed it
     # After the heartbeat stops, the lease lapses normally.

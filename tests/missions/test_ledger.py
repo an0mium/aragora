@@ -6,7 +6,9 @@ Time is injected via ``now=`` so the lease/constraint TTL logic is deterministic
 
 from __future__ import annotations
 
-from aragora.missions.ledger import Ledger, select_for
+import pytest
+
+from aragora.missions.ledger import Ledger, LedgerCorruptError, select_for
 from aragora.missions.state import Feature, MissionState
 
 
@@ -281,6 +283,14 @@ def test_ledger_load_tolerates_unknown_fields(tmp_path):
     # Re-reads cleanly, dropping the unknown keys.
     assert led.active_claims(now=100.0) == {"u1": "w1"}
     assert led.is_excluded("feature:x", now=100.0) is True
+
+
+def test_ledger_corrupt_json_raises_domain_error(tmp_path):
+    led = _ledger(tmp_path)
+    led.path.write_text("{not valid json", encoding="utf-8")
+
+    with pytest.raises(LedgerCorruptError, match="corrupt ledger JSON"):
+        led.done_units()
 
 
 def test_select_respects_preconditions(tmp_path):
