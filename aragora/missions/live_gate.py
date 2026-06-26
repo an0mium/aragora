@@ -43,6 +43,23 @@ class LiveBossLoopGate:
         return branch
 
     def already_merged(self, branch: str) -> bool:
+        metadata = self._metadata_by_branch.get(branch, {})
+        pr = metadata.get("pr")
+        if pr is not None:
+            payload = self._run_json(
+                [
+                    "gh",
+                    "pr",
+                    "view",
+                    str(pr),
+                    "--repo",
+                    self.repo_slug,
+                    "--json",
+                    "state,mergedAt",
+                ]
+            )
+            if str(payload.get("state") or "").upper() == "MERGED" or payload.get("mergedAt"):
+                return True
         output = self.runner(
             ["git", "branch", "--merged", self.base, "--list", branch], self.repo_root
         )
@@ -201,7 +218,19 @@ def _subject_prefixes(allowed_prefixes: tuple[str, ...]) -> tuple[str, ...]:
     prefixes: set[str] = set(allowed_prefixes)
     for prefix in allowed_prefixes:
         if prefix.endswith("/"):
-            prefixes.add(f"{prefix[:-1]}:")
+            stem = prefix[:-1]
+            prefixes.add(f"{stem}:")
+            prefixes.update(
+                {
+                    f"feat({stem}):",
+                    f"fix({stem}):",
+                    f"docs({stem}):",
+                    f"test({stem}):",
+                    f"refactor({stem}):",
+                    f"style({stem}):",
+                    f"chore({stem}):",
+                }
+            )
     return tuple(sorted(prefixes))
 
 

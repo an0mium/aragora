@@ -315,6 +315,9 @@ class AgentHierarchy:
 
     @staticmethod
     def _repo_root() -> Path:
+        for candidate in (Path.cwd(), *Path.cwd().parents):
+            if (candidate / ".git").exists() or (candidate / ".agents").exists():
+                return candidate
         return Path(__file__).resolve().parents[2]
 
     @staticmethod

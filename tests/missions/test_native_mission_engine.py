@@ -313,6 +313,25 @@ def test_live_gate_tier_falls_back_to_merge_packet_when_metadata_omits_tier() ->
     )
 
 
+def test_live_gate_already_merged_is_squash_merge_aware() -> None:
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:3] == ["gh", "pr", "view"]:
+            return json.dumps({"state": "MERGED", "mergedAt": "2026-06-26T19:00:00Z"})
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("/repo"), repo_slug="synaptent/aragora", runner=runner)
+    branch = gate.branch_for(
+        Feature(
+            id="engine",
+            description="ship engine",
+            milestone="m",
+            metadata={"branch": "codex/native-mission-engine", "pr": 8625},
+        )
+    )
+
+    assert gate.already_merged(branch)
+
+
 def test_live_gate_foreign_commits_inspects_subjects_on_mission_branches() -> None:
     def runner(cmd: list[str], cwd: Path) -> str:
         if cmd[:2] == ["git", "log"]:
@@ -327,6 +346,25 @@ def test_live_gate_foreign_commits_inspects_subjects_on_mission_branches() -> No
     assert gate.foreign_commits("mission/engine", "origin/main", ("mission/", "structex/")) == [
         "bad123 fix(memory): unrelated cache work"
     ]
+
+
+def test_live_gate_foreign_commits_allows_conventional_mission_subjects() -> None:
+    def runner(cmd: list[str], cwd: Path) -> str:
+        if cmd[:2] == ["git", "log"]:
+            return (
+                "ok123\tfix(mission): harden resume path\n"
+                "ok456\tfeat(structex): add dispatcher guard\n"
+            )
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    gate = LiveBossLoopGate(repo_root=Path("/repo"), runner=runner)
+
+    assert (
+        gate.foreign_commits(
+            "codex/native-mission-engine", "origin/main", ("mission/", "structex/")
+        )
+        == []
+    )
 
 
 def test_live_gate_requires_exact_head_packet_entry() -> None:

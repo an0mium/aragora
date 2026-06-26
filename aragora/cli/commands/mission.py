@@ -143,7 +143,11 @@ def _assert_not_paused(state_path: Path) -> None:
 def _cmd_reconcile(args: argparse.Namespace) -> int:
     _assert_native_mission_enabled("reconcile")
     mode = ReconcileMode(args.autonomy)
-    artifacts = _load_artifacts(args, include_github=mode == ReconcileMode.AUTO_DRAIN)
+    artifacts = _load_artifacts(
+        args,
+        include_github=mode == ReconcileMode.AUTO_DRAIN,
+        repo_root=_repo_root_for(args, None),
+    )
     report = mode.run(artifacts)
     if args.json:
         print(report.to_json())
@@ -253,21 +257,29 @@ def _tracks(args: argparse.Namespace) -> list[str]:
     return [track.strip() for track in raw.split(",") if track.strip()]
 
 
-def _load_artifacts(args: argparse.Namespace, *, include_github: bool) -> list[WorkArtifact]:
+def _load_artifacts(
+    args: argparse.Namespace, *, include_github: bool, repo_root: Path
+) -> list[WorkArtifact]:
     if getattr(args, "artifact_fixture", None):
         payload = json.loads(Path(args.artifact_fixture).read_text(encoding="utf-8"))
         if not isinstance(payload, list):
             raise ValueError("--artifact-fixture must contain a JSON list")
         return [WorkArtifact.from_dict(item) for item in payload]
-    return _load_live_inventory_artifacts(limit=args.limit, include_github=include_github)
+    return _load_live_inventory_artifacts(
+        limit=args.limit,
+        include_github=include_github,
+        repo_root=repo_root,
+    )
 
 
-def _load_live_inventory_artifacts(*, limit: int, include_github: bool) -> list[WorkArtifact]:
+def _load_live_inventory_artifacts(
+    *, limit: int, include_github: bool, repo_root: Path
+) -> list[WorkArtifact]:
     cmd = [
         sys.executable,
         "scripts/codex_worktree_value_inventory.py",
         "--repo",
-        ".",
+        str(repo_root),
         "--limit",
         str(limit),
         "--size-mode",
@@ -277,7 +289,7 @@ def _load_live_inventory_artifacts(*, limit: int, include_github: bool) -> list[
     ]
     if not include_github:
         cmd.insert(-2, "--skip-gh")
-    proc = subprocess.run(cmd, text=True, capture_output=True, check=False)
+    proc = subprocess.run(cmd, cwd=repo_root, text=True, capture_output=True, check=False)
     if proc.returncode != 0:
         raise RuntimeError(
             (proc.stderr or proc.stdout or "codex_worktree_value_inventory.py failed").strip()
@@ -349,7 +361,7 @@ def _artifact_with_merge_packet_fields(
         artifact,
         tier=tier,
         head_sha=head_sha,
-        checks_green=admin_allowed,
+        checks_green=_packet_checks_green(entry),
         quorum_satisfied=admin_allowed,
         evidence=evidence,
     )
@@ -407,6 +419,22 @@ def _first_packet_entry(packet: dict[str, Any], pr_number: int) -> dict[str, Any
         if _int_or_none(item.get("pr_number", item.get("number"))) == pr_number:
             return item
     return None
+
+
+def _packet_checks_green(entry: dict[str, Any]) -> bool:
+    surfaces = entry.get("check_surfaces")
+    required = surfaces.get("required_pr_checks") if isinstance(surfaces, dict) else None
+    summary = ""
+    if isinstance(required, dict):
+        summary = str(required.get("summary") or "").lower()
+    if not summary:
+        summary = str(entry.get("checks_summary") or "").lower()
+    return (
+        bool(summary)
+        and "green" in summary
+        and "failing" not in summary
+        and "pending" not in summary
+    )
 
 
 def _int_or_none(value: Any) -> int | None:

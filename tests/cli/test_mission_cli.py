@@ -334,6 +334,7 @@ def test_inventory_artifact_enrichment_uses_merge_packet_for_auto_drain(monkeypa
                     "status": "satisfied",
                     "verdict": "admin_squash_allowed",
                     "admin_squash_allowed": True,
+                    "check_surfaces": {"required_pr_checks": {"summary": "5/5 required green"}},
                 }
             ]
         },
